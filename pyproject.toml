@@ -1,0 +1,18 @@
+[project]
+name = "agents"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Dimitris Lolis",email = "dlolis88@gmail.com"}
+]
+requires-python = ">=3.13"  
+dependencies = [
+]
+
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
