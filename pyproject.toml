@@ -5,8 +5,13 @@ description = ""
 authors = [
     {name = "Dimitris Lolis",email = "dlolis88@gmail.com"}
 ]
-requires-python = ">=3.13"  
+requires-python = ">=3.13"
 dependencies = [
+    "ruff (>=0.15.11,<0.16.0)",
+    "google-genai (>=1.73.1,<2.0.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "dotenv (>=0.9.9,<0.10.0)",
+    "streamlit (>=1.56.0,<2.0.0)"
 ]
 
 
@@ -16,3 +21,8 @@ package-mode = false
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pre-commit (>=4.6.0,<5.0.0)"
+]
