@@ -43,3 +43,420 @@
 2026-04-24 00:47:29,169 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
 2026-04-24 00:47:29,170 [INFO] DnDAssistant: Loaded environment variables.
 2026-04-24 00:47:29,170 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:14,927 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:14,928 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:14,928 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:22,556 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:22,557 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:22,557 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:22,560 [INFO] DnDAssistant.Storage: Successfully saved character to data/characters/eldred_the_valiant.json
+2026-04-24 01:03:25,085 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:25,086 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:25,086 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:26,758 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:26,759 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:26,760 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:26,765 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/eldred_the_valiant.json
+2026-04-24 01:03:26,766 [INFO] DnDAssistant: User loaded character: Eldred The Valiant
+2026-04-24 01:03:26,807 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:26,808 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:26,808 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:31,970 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:31,973 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:31,974 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:31,984 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-24 01:03:31,985 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-24 01:03:31,986 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-24 01:03:31,986 [INFO] DnDAssistant.AIClient: Gemini AI Client successfully initialized.
+2026-04-24 01:03:32,311 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:03:32,473 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:03:32,477 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:03:33,744 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-24 01:03:33,746 [ERROR] DnDAssistant.AIClient: Failed to generate response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/Users/dimitrisl/Projects/agents/backend/ai_client.py", line 51, in generate_ai_response
+    response = client.models.generate_content(model=model, contents=prompt)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-24 01:03:33,798 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:33,798 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:33,798 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:54,061 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:54,061 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:54,062 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:54,109 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:03:54,109 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:03:54,110 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:03:54,114 [INFO] DnDAssistant: User requested AI Character Forge with concept: a dragonborn sorcerer who likes to drink
+2026-04-24 01:03:54,115 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-24 01:03:54,413 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:03:54,549 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:03:54,554 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:03:55,146 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-24 01:03:55,147 [ERROR] DnDAssistant.AIClient: Failed to generate JSON response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/Users/dimitrisl/Projects/agents/backend/ai_client.py", line 73, in generate_ai_json
+    response = client.models.generate_content(
+        model=model,
+    ...<3 lines>...
+        ),
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-24 01:03:55,148 [ERROR] DnDAssistant: Character generation failed or returned invalid JSON structure.
+2026-04-24 01:04:01,650 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:04:01,650 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:04:01,650 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:04:01,654 [INFO] DnDAssistant: User requested AI Character Forge with concept: a dragonborn sorcerer who likes to drink
+2026-04-24 01:04:01,654 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-24 01:04:01,946 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:04:02,114 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:04:02,118 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:04:02,801 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-24 01:04:02,803 [ERROR] DnDAssistant.AIClient: Failed to generate JSON response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/Users/dimitrisl/Projects/agents/backend/ai_client.py", line 73, in generate_ai_json
+    response = client.models.generate_content(
+        model=model,
+    ...<3 lines>...
+        ),
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-24 01:04:02,808 [ERROR] DnDAssistant: Character generation failed or returned invalid JSON structure.
+2026-04-24 01:04:24,461 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:04:24,462 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:04:24,462 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:04:24,551 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:04:24,553 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:04:24,553 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:04:24,558 [INFO] DnDAssistant: User requested AI Character Forge with concept: just give me a random dragonborn character that likes to drink tea
+2026-04-24 01:04:24,559 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-24 01:04:24,859 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:04:25,018 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:04:25,022 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:04:26,668 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-24 01:04:26,669 [ERROR] DnDAssistant.AIClient: Failed to generate JSON response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/Users/dimitrisl/Projects/agents/backend/ai_client.py", line 73, in generate_ai_json
+    response = client.models.generate_content(
+        model=model,
+    ...<3 lines>...
+        ),
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-24 01:04:26,674 [ERROR] DnDAssistant: Character generation failed or returned invalid JSON structure.
+2026-04-24 01:05:06,946 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:06,956 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:06,958 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:06,963 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-24 01:05:07,006 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:07,007 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:07,007 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:16,053 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:16,058 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:16,061 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:26,633 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:26,634 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:26,635 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:29,078 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:29,080 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:29,081 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:29,094 [INFO] DnDAssistant: User requested NPC generation with concept: A sketchy merchant selling magical rings
+2026-04-24 01:05:29,095 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-24 01:05:29,555 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:05:29,696 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:05:29,699 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:05:30,434 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-24 01:05:30,435 [ERROR] DnDAssistant.AIClient: Failed to generate response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/Users/dimitrisl/Projects/agents/backend/ai_client.py", line 51, in generate_ai_response
+    response = client.models.generate_content(model=model, contents=prompt)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-24 01:05:35,329 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:35,332 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:35,333 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:35,338 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-24 01:05:35,382 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:35,383 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:35,383 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:36,576 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:36,577 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:36,578 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:36,583 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-24 01:05:36,628 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:36,629 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:36,629 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:05:37,796 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:05:37,796 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:05:37,796 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:12:17,166 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:12:17,167 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:12:17,167 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:12:28,160 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:12:28,163 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:12:28,164 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:12:28,177 [INFO] DnDAssistant: User requested AI Character Forge with concept: A grumpy dwarven baker who uses a massive rolling pin as a weapon.
+2026-04-24 01:12:28,177 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-24 01:12:28,488 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:12:28,644 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:12:28,649 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:12:30,316 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-24 01:12:30,318 [ERROR] DnDAssistant.AIClient: Failed to generate JSON response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/Users/dimitrisl/Projects/agents/backend/ai_client.py", line 73, in generate_ai_json
+    response = client.models.generate_content(
+        model=model,
+    ...<3 lines>...
+        ),
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/Users/dimitrisl/Library/Application Support/pypoetry/python/cpython@3.13.11/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dimitrisl/Library/Caches/pypoetry/virtualenvs/agents-1kagUBRP-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-24 01:12:30,322 [ERROR] DnDAssistant: Character generation failed or returned invalid JSON structure.
+2026-04-24 01:12:50,667 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:12:50,676 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:12:50,677 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:12:50,681 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-24 01:12:50,729 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:12:50,730 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:12:50,730 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:12:52,135 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:12:52,141 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:12:52,142 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:13:08,867 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:13:08,868 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:13:08,868 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:13:11,060 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 01:13:11,061 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 01:13:11,063 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 01:13:11,078 [INFO] DnDAssistant: User requested NPC generation with concept: A sketchy merchant selling magical rings
+2026-04-24 01:13:11,079 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-24 01:13:11,369 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 01:13:11,537 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 01:13:11,541 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 01:13:21,908 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-24 01:13:21,910 [INFO] DnDAssistant.AIClient: Successfully received standard response from Gemini.

@@ -1,0 +1,13 @@
+{
+    "char_name": "Eldred the Valiant",
+    "char_class": "Paladin",
+    "char_level": 5,
+    "stats": {
+        "STR": 18,
+        "DEX": 12,
+        "CON": 15,
+        "INT": 10,
+        "WIS": 14,
+        "CHA": 16
+    }
+}

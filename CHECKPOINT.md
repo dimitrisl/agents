@@ -1,30 +1,27 @@
 # Project Checkpoint: D&D AI Assistant
 
 ## 🎯 Current Status
-We have successfully established the foundational development environment, integrated the Google Gemini AI SDK, and built a pure Python UI using Streamlit.
+The core foundation and primary AI features are **fully implemented**! The application now boasts a functional pure-Python UI, clean backend logic separation, persistent data storage, comprehensive logging, and specialized AI Agents for both Players and Dungeon Masters.
 
-## 🛠️ Infrastructure & Setup
-- **Package Manager:** Poetry (`pyproject.toml` is configured without package-mode).
-- **Python Version:** 3.13+
-- **Code Quality:** Fully configured `pre-commit` pipeline that automatically runs `ruff` (linter/formatter) and standard file fixes on every git commit.
-- **Environment Variables:** `.env` and `.env_example` are securely set up to handle the `GEMINI_API_KEY`.
-
-## 📦 Installed Dependencies
-- `streamlit`: For the pure Python reactive frontend.
-- `google-genai`: The official Google SDK for communicating with Gemini.
-- `python-dotenv`: For loading `.env` files locally.
-- `pre-commit` & `ruff`: Development dependencies for code health.
+## 🛠️ Infrastructure & Architecture
+- **Tech Stack:** Python 3.13+, Poetry, Streamlit, Google GenAI SDK.
+- **Architecture:** UI logic lives entirely in `main.py`, while AI routing (`ai_client.py`) and data persistence (`storage.py`) live in the `backend/` directory.
+- **Code Quality:** Configured `pre-commit` pipeline with `ruff` for linting/formatting. VSCode workspace is strictly bound to the Poetry virtualenv.
+- **Logging:** A robust logging system writes debug traces and user actions to both the console and a local `app_debug.log` file.
 
 ## ✨ Built Components
-### 1. Gemini API Integration
-- Successfully validated the connection to Gemini using the new `google-genai` library.
-- Created `tests/test_gemini_connection.py` which dynamically queries your account for the latest accessible "Flash" model and performs a successful API ping.
+### 1. Player Features
+- **Editable Dashboard:** Track and freely modify Name, Class, Level, and all 6 Ability Scores.
+- **AI Build Agent:** Generates custom multiclass/build advice dynamically based on the character's *actual* live stats.
+- **AI Character Forge:** A specialized agent that takes a simple text concept (e.g., "A grumpy dwarven baker") and forces the LLM to return a structured JSON response. This creates a fully rolled Level 1 character that is instantly loaded into the app.
+- **Character Storage:** Save your characters to local JSON files (`data/characters/`) and load them back via a dropdown menu.
 
-### 2. Streamlit Dashboard (`main.py`)
-- Created a sleek, zero-Javascript web UI.
-- **Sidebar Navigation:** Provides a global toggle between Player and DM modes.
-- **Player Dashboard View:** Displays character stats (e.g., Eldred the Valiant) and an AI Build Suggestion placeholder.
-- **Dungeon Master View:** Displays active campaign session logs, upcoming prep notes, and an AI Encounter Generator module.
+### 2. Dungeon Master Features
+- **Party Integration:** Automatically tracks the active Player Character and calculates derived stats (e.g., Passive Perception) for the DM.
+- **Campaign Logger:** A dedicated notepad for session logs that can be saved and loaded from local `.json` files (`data/campaigns/`).
+- **AI Generator Agents:**
+  - *Random Encounters:* Dynamically generates setting-appropriate encounters based on custom Party Size, Level, and Location inputs.
+  - *NPC Forge:* Generates punchy, formatted NPCs complete with personalities, appearances, and hidden secrets.
 
 ## 🚀 Quick Commands
 - **Start the UI:** `poetry run streamlit run main.py`
@@ -32,6 +29,6 @@ We have successfully established the foundational development environment, integ
 - **Format Code:** `poetry run pre-commit run --all-files`
 
 ## 🔮 Next Steps
-- Connect the Streamlit UI components directly to the Gemini API (e.g., making the "Generate Random Encounter" button actually call the LLM).
-- Implement Streamlit `st.session_state` so characters and campaign notes can be actively edited and saved.
-- Build out the specialized "Agents" mentioned in `project_purpose.md`.
+- **PDF Exports:** Add functionality to export a Character Sheet or Campaign Log into a standard, formatted D&D PDF document.
+- **Automated Progression:** Implement logic to automatically increment character levels and recalculate stats or recommend new class features.
+- **Generic LLM Support (Optional):** Refactor `backend/ai_client.py` using a tool like `litellm` if we ever want to easily swap between Gemini, ChatGPT, or Claude.
