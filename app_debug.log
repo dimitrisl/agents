@@ -1,0 +1,45 @@
+2026-04-24 00:40:07,798 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:40:07,799 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:40:07,799 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:40:07,805 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-24 00:40:07,805 [INFO] DnDAssistant: Generating standard AI text response...
+2026-04-24 00:40:07,806 [INFO] DnDAssistant: Attempting to initialize Gemini AI Client.
+2026-04-24 00:40:07,806 [INFO] DnDAssistant: Gemini AI Client successfully initialized.
+2026-04-24 00:40:08,129 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 00:40:08,291 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 00:40:08,294 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 00:40:21,585 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-24 00:40:21,587 [INFO] DnDAssistant: Successfully received standard response from Gemini.
+2026-04-24 00:40:21,632 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:40:21,633 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:40:21,633 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:45:53,625 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:45:53,627 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:45:53,628 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:45:56,723 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:45:56,723 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:45:56,724 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:45:57,805 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:45:57,806 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:45:57,806 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:46:56,090 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:46:56,090 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:46:56,091 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:46:58,224 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:46:58,226 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:46:58,227 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:47:18,195 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:47:18,196 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:47:18,196 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-24 00:47:18,207 [INFO] DnDAssistant: User requested AI Character Forge with concept: A grumpy dwarven baker who uses a massive rolling pin as a weapon.
+2026-04-24 00:47:18,207 [INFO] DnDAssistant: Generating structured AI JSON response...
+2026-04-24 00:47:18,511 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-24 00:47:18,675 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-24 00:47:18,679 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-24 00:47:29,139 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-24 00:47:29,140 [INFO] DnDAssistant: Received JSON response from Gemini. Attempting to parse...
+2026-04-24 00:47:29,140 [INFO] DnDAssistant: Successfully parsed JSON data from Gemini.
+2026-04-24 00:47:29,140 [INFO] DnDAssistant: Successfully generated and parsed new character: Thorgud Stoutknead
+2026-04-24 00:47:29,169 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-24 00:47:29,170 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-24 00:47:29,170 [INFO] DnDAssistant: Streamlit page configuration set.

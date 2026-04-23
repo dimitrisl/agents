@@ -3,3 +3,4 @@ __pycache__/
 poetry.lock
 .env
 .ruff_cache
+.vscode/
