@@ -11,10 +11,12 @@ The core foundation and primary AI features are **fully implemented**! The appli
 
 ## ✨ Built Components
 ### 1. Player Features
-- **Editable Dashboard:** Track and freely modify Name, Class, Level, and all 6 Ability Scores.
+- **Editable Dashboard:** Track and freely modify Core Stats (Name, Class, Level, Ability Scores, HP, AC), Skills, Saves, Inventory, Spells, and Features using interactive data grids.
 - **AI Build Agent:** Generates custom multiclass/build advice dynamically based on the character's *actual* live stats.
-- **AI Character Forge:** A specialized agent that takes a simple text concept (e.g., "A grumpy dwarven baker") and forces the LLM to return a structured JSON response. This creates a fully rolled Level 1 character that is instantly loaded into the app.
-- **Character Storage:** Save your characters to local JSON files (`data/characters/`) and load them back via a dropdown menu.
+- **AI Complete Character Forge:** A structured wizard that takes your desired Race, Class, Background, Target Level, and any text flavor concept to automatically roll a fully equipped character of *any* level. It forces the LLM to return a highly structured JSON response, instantly equipping skills, weapons, traits, and spell lists.
+- **Character Storage:** Save your comprehensive characters to local JSON files (`data/characters/`) and load them back via a dropdown menu.
+
+- **PDF Export Engine:** An integrated `pypdf` module maps your dynamic character state directly onto the official `5E_CharacterSheet_Fillable.pdf`, compiling stats, skills, inventory, and spells into a neatly formatted, downloadable PDF sheet.
 
 ### 2. Dungeon Master Features
 - **Party Integration:** Automatically tracks the active Player Character and calculates derived stats (e.g., Passive Perception) for the DM.
@@ -29,6 +31,5 @@ The core foundation and primary AI features are **fully implemented**! The appli
 - **Format Code:** `poetry run pre-commit run --all-files`
 
 ## 🔮 Next Steps
-- **PDF Exports:** Add functionality to export a Character Sheet or Campaign Log into a standard, formatted D&D PDF document.
 - **Automated Progression:** Implement logic to automatically increment character levels and recalculate stats or recommend new class features.
 - **Generic LLM Support (Optional):** Refactor `backend/ai_client.py` using a tool like `litellm` if we ever want to easily swap between Gemini, ChatGPT, or Claude.

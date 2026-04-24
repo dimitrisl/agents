@@ -2,6 +2,13 @@
     "char_name": "Eldred the Valiant",
     "char_class": "Paladin",
     "char_level": 5,
+    "race": "Human",
+    "background": "Soldier",
+    "alignment": "Lawful Good",
+    "armor_class": 18,
+    "hp_max": 44,
+    "speed": 30,
+    "proficiency_bonus": 3,
     "stats": {
         "STR": 18,
         "DEX": 12,
@@ -9,5 +16,43 @@
         "INT": 10,
         "WIS": 14,
         "CHA": 16
+    },
+    "saving_throws": [
+        "WIS",
+        "CHA"
+    ],
+    "skills": {
+        "Athletics": 7,
+        "Intimidation": 6,
+        "Persuasion": 6
+    },
+    "weapons": [
+        {
+            "name": "Longsword",
+            "attack_bonus": "+7",
+            "damage": "1d8+4 slashing"
+        }
+    ],
+    "equipment": [
+        "Chain mail",
+        "Shield",
+        "Explorer's pack"
+    ],
+    "features_traits": [
+        {
+            "name": "Divine Smite",
+            "description": "Expend a spell slot to deal radiant damage."
+        }
+    ],
+    "spells": {
+        "level_1": [
+            "Bless",
+            "Cure Wounds",
+            "Shield of Faith"
+        ],
+        "level_2": [
+            "Find Steed",
+            "Lesser Restoration"
+        ]
     }
 }

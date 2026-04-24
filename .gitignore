@@ -4,3 +4,4 @@ poetry.lock
 .env
 .ruff_cache
 .vscode/
+.temp_env/

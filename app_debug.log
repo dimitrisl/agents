@@ -460,3 +460,363 @@ google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'messa
 2026-04-24 01:13:11,541 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
 2026-04-24 01:13:21,908 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
 2026-04-24 01:13:21,910 [INFO] DnDAssistant.AIClient: Successfully received standard response from Gemini.
+2026-04-25 00:50:46,074 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:50:46,075 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:50:46,117 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:51:10,592 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:51:10,594 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:51:10,595 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:51:21,037 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:51:21,038 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:51:21,038 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:51:21,055 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-25 00:51:21,056 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-25 00:51:21,058 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-25 00:51:21,058 [ERROR] DnDAssistant.AIClient: GEMINI_API_KEY is missing from environment variables.
+2026-04-25 00:51:21,059 [ERROR] DnDAssistant.AIClient: Cannot generate response: AI Client is None.
+2026-04-25 00:51:21,101 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:51:21,102 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:51:21,102 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:52:47,802 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:52:47,802 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:52:47,832 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:52:51,307 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:52:51,311 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:52:51,312 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:52:51,329 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-25 00:52:51,334 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-25 00:52:51,335 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-25 00:52:51,335 [INFO] DnDAssistant.AIClient: Gemini AI Client successfully initialized.
+2026-04-25 00:52:51,705 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 00:52:51,799 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 00:52:51,804 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 00:53:05,111 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-25 00:53:05,114 [ERROR] DnDAssistant.AIClient: Failed to generate response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/home/dimitrisl/Public/yet_another_dnd_project/agents/backend/ai_client.py", line 51, in generate_ai_response
+    response = client.models.generate_content(model=model, contents=prompt)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-25 00:53:05,181 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:53:05,183 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:53:05,183 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:54:26,820 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:54:26,821 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:54:26,822 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 00:58:59,583 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 00:58:59,584 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 00:58:59,588 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:01:09,933 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:01:09,933 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:01:09,933 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:01:22,752 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:01:22,753 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:01:22,754 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:02:59,322 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:02:59,323 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:02:59,324 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:17,785 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:17,786 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:17,786 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:19,006 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:19,006 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:19,006 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:28,037 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:28,041 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:28,042 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:28,078 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-25 01:03:28,079 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-25 01:03:28,390 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 01:03:28,550 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 01:03:28,556 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 01:03:29,420 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-04-25 01:03:29,422 [ERROR] DnDAssistant.AIClient: Failed to generate response: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+Traceback (most recent call last):
+  File "/home/dimitrisl/Public/yet_another_dnd_project/agents/backend/ai_client.py", line 51, in generate_ai_response
+    response = client.models.generate_content(model=model, contents=prompt)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 6276, in generate_content
+    response = self._generate_content(
+        model=model, contents=contents, config=parsed_config
+    )
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/models.py", line 4730, in _generate_content
+    response = self._api_client.request(
+        'post', path, request_dict, http_options
+    )
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1537, in request
+    response = self._request(http_request, http_options, stream=False)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1332, in _request
+    return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 470, in __call__
+    do = self.iter(retry_state=retry_state)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 371, in iter
+    result = action(retry_state)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 413, in exc_check
+    raise retry_exc.reraise()
+          ~~~~~~~~~~~~~~~~~^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 184, in reraise
+    raise self.last_attempt.result()
+          ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/tenacity/__init__.py", line 473, in __call__
+    result = fn(*args, **kwargs)
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/_api_client.py", line 1309, in _request_once
+    errors.APIError.raise_for_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 155, in raise_for_response
+    cls.raise_error(response.status_code, response_json, response)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/google/genai/errors.py", line 186, in raise_error
+    raise ServerError(status_code, response_json, response)
+google.genai.errors.ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+2026-04-25 01:03:29,475 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:29,475 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:29,476 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:38,627 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:38,631 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:38,632 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:40,172 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:40,174 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:40,175 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:40,186 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/eldred_the_valiant.json
+2026-04-25 01:03:40,188 [INFO] DnDAssistant: User loaded character: Eldred The Valiant
+2026-04-25 01:03:40,242 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:40,242 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:40,243 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:03:53,304 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:03:53,305 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:03:53,306 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:30,752 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:30,755 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:30,756 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:32,816 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:32,817 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:32,818 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:33,754 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:33,755 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:33,755 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:33,762 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-25 01:04:33,817 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:33,819 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:33,819 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:38,181 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:38,185 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:38,185 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:38,189 [INFO] DnDAssistant.Storage: Successfully saved character to data/characters/eldred_the_valiant.json
+2026-04-25 01:04:41,982 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:41,984 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:41,986 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:46,334 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:04:46,335 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:04:46,335 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:04:46,338 [INFO] DnDAssistant.Storage: Successfully saved character to data/characters/eldred_the_valiant.json
+2026-04-25 01:10:14,846 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:10:14,846 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:10:14,847 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:10:46,937 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:10:46,939 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:10:46,940 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:10:55,018 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:10:55,020 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:10:55,020 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:10:55,029 [INFO] DnDAssistant.PDFExporter: Exporting character Eldred the Valiant to PDF.
+2026-04-25 01:10:55,193 [ERROR] DnDAssistant.PDFExporter: Failed to generate PDF: No /AcroForm dictionary in PDF of PdfWriter Object
+Traceback (most recent call last):
+  File "/home/dimitrisl/Public/yet_another_dnd_project/agents/backend/pdf_exporter.py", line 121, in export_character_to_pdf
+    writer.update_page_form_field_values(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        writer.pages[0], field_data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/pypdf/_writer.py", line 993, in update_page_form_field_values
+    raise PyPdfError("No /AcroForm dictionary in PDF of PdfWriter Object")
+pypdf.errors.PyPdfError: No /AcroForm dictionary in PDF of PdfWriter Object
+2026-04-25 01:11:28,635 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:11:28,635 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:11:28,636 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:11:32,480 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:11:32,484 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:11:32,486 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:11:38,054 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:11:38,061 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:11:38,062 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:11:38,086 [INFO] DnDAssistant.PDFExporter: Exporting character Eldred the Valiant to PDF.
+2026-04-25 01:11:38,327 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 01:11:39,783 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:11:39,787 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:11:39,789 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:11:49,486 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:11:49,491 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:11:49,493 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:11:49,504 [INFO] DnDAssistant.PDFExporter: Exporting character Eldred the Valiant to PDF.
+2026-04-25 01:11:49,712 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 01:11:50,644 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:11:50,646 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:11:50,649 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:15:58,633 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:15:58,633 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:15:58,634 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:16:03,214 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:16:03,218 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:16:03,219 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:16:10,314 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:16:10,315 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:16:10,316 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:16:10,325 [INFO] DnDAssistant.PDFExporter: Exporting character Eldred the Valiant to PDF.
+2026-04-25 01:16:10,535 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 01:16:11,743 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:16:11,745 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:16:11,746 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:17:38,045 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:17:38,046 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:17:38,047 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:17:38,052 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-25 01:17:38,105 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:17:38,106 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:17:38,107 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:23:28,147 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:23:28,147 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:23:28,147 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:23:30,935 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:23:30,943 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:23:30,945 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:23:30,963 [INFO] DnDAssistant.PDFExporter: Exporting character Eldred the Valiant to PDF.
+2026-04-25 01:23:31,236 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 01:23:32,738 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:23:32,740 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:23:32,741 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:24:14,905 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:24:14,907 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:24:14,908 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:24:20,698 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:24:20,702 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:24:20,704 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:24:20,720 [WARNING] DnDAssistant: User initiated App State Reset.
+2026-04-25 01:24:20,836 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:24:20,839 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:24:20,839 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:24:57,404 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:24:57,405 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:24:57,405 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:25:00,469 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:25:00,472 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:25:00,473 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:25:01,946 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:25:01,949 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:25:01,950 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:25:02,036 [INFO] DnDAssistant: User requested AI Character Forge: Race=Gnome, Class=AI Choice, Level=1, Flavor=A grumpy gnome monk who has lost everything and wants to take back his house from the bankers
+2026-04-25 01:25:02,037 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 01:25:02,274 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 01:25:02,380 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 01:25:02,387 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 01:25:28,190 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 01:25:28,192 [INFO] DnDAssistant.AIClient: Received JSON response from Gemini. Attempting to parse...
+2026-04-25 01:25:28,193 [INFO] DnDAssistant.AIClient: Successfully parsed JSON data from Gemini.
+2026-04-25 01:25:28,193 [INFO] DnDAssistant: Successfully generated and parsed new character: Kroggin Deepdelver
+2026-04-25 01:25:28,253 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:25:28,254 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:25:28,254 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:26:10,510 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:26:10,511 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:26:10,512 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:26:10,554 [INFO] DnDAssistant: User requested AI Character Forge: Race=Gnome, Class=AI Choice, Level=1, Flavor=A grumpy gnome monk who has lost everything and wants to take back his house from the bankers
+2026-04-25 01:26:10,555 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 01:26:10,758 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 01:26:10,861 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 01:26:10,864 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 01:26:37,060 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 01:26:37,063 [INFO] DnDAssistant.AIClient: Received JSON response from Gemini. Attempting to parse...
+2026-04-25 01:26:37,063 [INFO] DnDAssistant.AIClient: Successfully parsed JSON data from Gemini.
+2026-04-25 01:26:37,064 [INFO] DnDAssistant: Successfully generated and parsed new character: Gribble Grumblesfoot
+2026-04-25 01:26:37,117 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:26:37,118 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:26:37,119 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:26:52,371 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:26:52,373 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:26:52,374 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:26:52,393 [INFO] DnDAssistant.PDFExporter: Exporting character Gribble Grumblesfoot to PDF.
+2026-04-25 01:26:52,612 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 01:26:53,923 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:26:53,928 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:26:53,932 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:37:24,670 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:37:24,671 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:37:24,671 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:37:45,595 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:37:45,597 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:37:45,598 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:37:45,677 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:37:45,678 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:37:45,678 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:37:45,817 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:37:45,818 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:37:45,820 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:37:47,818 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:37:47,823 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:37:47,824 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:37:47,908 [INFO] DnDAssistant: User requested AI Character Forge: Race=AI Choice, Class=AI Choice, Level=3, Flavor=make something fun for me
+2026-04-25 01:37:47,912 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 01:37:48,150 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 01:37:48,258 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 01:37:48,263 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 01:38:11,485 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 01:38:11,489 [INFO] DnDAssistant.AIClient: Received JSON response from Gemini. Attempting to parse...
+2026-04-25 01:38:11,489 [INFO] DnDAssistant.AIClient: Successfully parsed JSON data from Gemini.
+2026-04-25 01:38:11,489 [INFO] DnDAssistant: Successfully generated and parsed new character: Lyra Vesper
+2026-04-25 01:38:11,552 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:38:11,552 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:38:11,553 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:38:27,291 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:38:27,293 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:38:27,296 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:38:27,303 [INFO] DnDAssistant.Storage: Successfully saved character to data/characters/lyra_vesper.json
+2026-04-25 01:39:06,448 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:39:06,450 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:39:06,451 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 01:39:06,469 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Vesper to PDF.
+2026-04-25 01:39:06,721 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 01:39:08,245 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 01:39:08,248 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 01:39:08,251 [INFO] DnDAssistant: Streamlit page configuration set.

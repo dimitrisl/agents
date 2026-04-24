@@ -1,0 +1,104 @@
+{
+    "char_name": "Lyra Vesper",
+    "char_class": "Paladin",
+    "char_level": 3,
+    "race": "Custom Lineage",
+    "background": "Soldier",
+    "alignment": "Lawful Good",
+    "backstory": "Lyra was a knight-errant, sworn to protect the innocent, until her order was betrayed and decimated by a corrupt noble. Fueled by righteous fury and a desperate need for justice, she swore an Oath of Vengeance upon the ruins of her former life, now seeking to punish the wicked and protect the vulnerable with unyielding resolve.",
+    "armor_class": 18,
+    "hp_max": 28,
+    "speed": 30,
+    "proficiency_bonus": 2,
+    "stats": {
+        "STR": 15,
+        "DEX": 10,
+        "CON": 14,
+        "INT": 8,
+        "WIS": 12,
+        "CHA": 15
+    },
+    "saving_throws": [
+        "WIS",
+        "CHA"
+    ],
+    "skills": {
+        "Athletics": 4,
+        "Intimidation": 4,
+        "Insight": 3
+    },
+    "weapons": [
+        {
+            "name": "Glaive",
+            "attack_bonus": "+4",
+            "damage": "1d10+2 slashing"
+        },
+        {
+            "name": "Glaive (PAM Bonus Attack)",
+            "attack_bonus": "+4",
+            "damage": "1d4+2 bludgeoning"
+        }
+    ],
+    "equipment": [
+        "Chain mail",
+        "Shield",
+        "Glaive",
+        "Holy Symbol (Amulet)",
+        "Explorer's Pack (backpack, bedroll, mess kit, tinderbox, 10 torches, 10 days of rations, waterskin, 50 ft of hempen rope)",
+        "Insignia of Rank",
+        "Trophy (dried goblin ear)",
+        "Set of bone dice",
+        "Common clothes",
+        "10 gp"
+    ],
+    "features_traits": [
+        {
+            "name": "Divine Sense",
+            "description": "As an action, you can open your awareness to detect the presence of strong evil or good. You know the location of any celestial, fiend, or undead within 60 feet of you that isn't behind total cover. You also know the location of any place or object that has been consecrated or desecrated. You can use this feature a number of times equal to 1 + your Charisma modifier (3/Long Rest)."
+        },
+        {
+            "name": "Lay on Hands",
+            "description": "As an action, you can touch a creature and draw power from a pool of healing energy equal to 15 (5 x Paladin level). You can restore 1 hit point for each point expended, or expend 5 points to cure a disease or neutralize one poison."
+        },
+        {
+            "name": "Fighting Style: Great Weapon Fighting",
+            "description": "When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2."
+        },
+        {
+            "name": "Spellcasting",
+            "description": "You can cast paladin spells. Your spellcasting ability is Charisma (DC 13, +5 to hit)."
+        },
+        {
+            "name": "Divine Smite",
+            "description": "When you hit a creature with a melee weapon attack, you can expend one paladin spell slot to deal radiant damage to the target, in addition to the weapon's damage. The extra damage is 2d8 for a 1st-level spell slot, plus 1d8 for each spell level higher than 1st. The damage increases by 1d8 if the target is an undead or a fiend."
+        },
+        {
+            "name": "Sacred Oath: Oath of Vengeance",
+            "description": "You have sworn an oath to punish the wicked and right the wrongs of the world."
+        },
+        {
+            "name": "Channel Divinity: Abjure Enemy",
+            "description": "As an action, you present your holy symbol and speak a prayer of denunciation, using your Channel Divinity. Choose one fiend or undead within 60 feet that you can see. That creature must make a Wisdom saving throw. If the creature fails its saving throw, it is frightened for 1 minute or until it takes any damage. A frightened creature must take the Dash action and move away from you by the safest available route on each of its turns."
+        },
+        {
+            "name": "Channel Divinity: Vow of Enmity",
+            "description": "As a bonus action, you can utter a vow of enmity against a creature you can see within 10 feet of you, using your Channel Divinity. You gain advantage on attack rolls against the creature for 1 minute or until its hit points drop to 0 or it falls unconscious."
+        },
+        {
+            "name": "Feat: Polearm Master",
+            "description": "When you take the Attack action and attack with a glaive, halberd, quarterstaff, or spear, you can use a bonus action to make a melee attack with the opposite end of the weapon. This attack uses the same ability modifier as the primary attack. The weapon's damage die for this attack is a d4, and it deals bludgeoning damage. While you are wielding a glaive, halberd, pike, or spear, other creatures provoke an opportunity attack from you when they enter your reach."
+        },
+        {
+            "name": "Military Rank",
+            "description": "You have a military rank from your career as a soldier. Soldiers loyal to your former military organization still recognize your authority and influence, and you can invoke your rank to exert influence over them, or even temporarily commandeer soldiers and equipment."
+        }
+    ],
+    "spells": {
+        "cantrips": [],
+        "level_1": [
+            "Shield of Faith",
+            "Divine Favor",
+            "Compelled Duel"
+        ]
+    }
+}
