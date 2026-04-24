@@ -5,13 +5,15 @@ A comprehensive, AI-powered personal assistant designed for both **Dungeons & Dr
 ## ✨ Features
 
 ### 🗡️ For the Player
-- **Character Dashboard:** Manage and view your character's stats and abilities.
+- **Character Dashboard:** Manage and view your character's stats and abilities using interactive data grids.
+- **AI Character Forge:** Generate a fully equipped character of any level from a simple text concept.
 - **AI Build Suggestions:** Receive optimized class and leveling suggestions based on your character's personality and current stats.
+- **PDF Export:** Export your characters to a standard D&D PDF format.
 - *(Coming Soon)* **Automated Progression:** Easily increment character levels with the system automatically recalculating stats and features.
-- *(Coming Soon)* **PDF Export:** Export your characters to a standard D&D PDF format.
 
 ### 🏰 For the Dungeon Master
 - **Campaign Workspace:** Track session logs and active campaign notes.
+- **Party Management:** Ingest existing characters into a party list to track stats across the entire group.
 - **AI Encounter Generator:** Dynamically generate story-appropriate NPCs, monsters, and random encounters tailored to your party's level.
 - *(Coming Soon)* **Campaign Book Export:** Export the entire campaign into a beautifully formatted D&D PDF.
 
