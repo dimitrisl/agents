@@ -522,26 +522,107 @@ else:
                 st.error("Failed to save.")
 
     with dm_tab2:
-        st.subheader("Integrated Player Characters")
-        st.info(
-            "In a full backend setup, this would sync from a database. For now, it tracks the Active Character directly from the Player Dashboard."
-        )
-        st.write(f"**Name:** {st.session_state.char_name}")
-        st.write(
-            f"**Class/Level:** {st.session_state.char_class} (Lv. {st.session_state.char_level})"
-        )
+        st.subheader("Party Management")
 
-        passive_perception = 10 + calculate_modifier(st.session_state.stats["WIS"])
-        st.write(f"**Passive Perception:** {passive_perception}")
+        # --- Ingestion Section ---
+        with st.expander("📥 Ingest Characters from Storage", expanded=False):
+            available_chars = list_characters()
+            if available_chars:
 
-        st.markdown("#### Ability Scores")
-        c1, c2, c3, c4, c5, c6 = st.columns(6)
-        c1.metric("STR", st.session_state.stats["STR"])
-        c2.metric("DEX", st.session_state.stats["DEX"])
-        c3.metric("CON", st.session_state.stats["CON"])
-        c4.metric("INT", st.session_state.stats["INT"])
-        c5.metric("WIS", st.session_state.stats["WIS"])
-        c6.metric("CHA", st.session_state.stats["CHA"])
+                def format_char_filename(fname):
+                    return fname.replace(".json", "").replace("_", " ").title()
+
+                char_to_add = st.selectbox(
+                    "Select Character to Add",
+                    available_chars,
+                    format_func=format_char_filename,
+                    key="dm_ingest_select",
+                )
+                if st.button("Add to Party", use_container_width=True):
+                    char_data = load_character(char_to_add)
+                    if char_data:
+                        # Ensure ID is present for legacy characters
+                        if "char_id" not in char_data:
+                            char_data["char_id"] = str(uuid.uuid4())[:8]
+
+                        # Check if already in party
+                        if any(
+                            c.get("char_id") == char_data.get("char_id")
+                            for c in st.session_state.party
+                        ):
+                            st.warning(
+                                f"{char_data['char_name']} is already in the party."
+                            )
+                        else:
+                            st.session_state.party.append(char_data)
+                            st.success(f"Added {char_data['char_name']} to the party!")
+                            st.rerun()
+            else:
+                st.write("No saved characters found.")
+
+        # --- Quick Forge Section ---
+        with st.expander("✨ AI Quick Forge (New Party Member)", expanded=False):
+            q_race = st.selectbox(
+                "Race",
+                [
+                    "AI Choice",
+                    "Human",
+                    "Elf",
+                    "Dwarf",
+                    "Halfling",
+                    "Dragonborn",
+                    "Tiefling",
+                ],
+                key="q_race",
+            )
+            q_class = st.selectbox(
+                "Class",
+                ["AI Choice", "Fighter", "Wizard", "Rogue", "Cleric", "Paladin"],
+                key="q_class",
+            )
+            q_level = st.number_input("Level", 1, 20, 1, key="q_level")
+            q_concept = st.text_input(
+                "Concept", "A mysterious traveler", key="q_concept"
+            )
+
+            if st.button("Forge & Add", use_container_width=True):
+                with st.spinner("Forging..."):
+                    result = forge_character(
+                        q_level, q_race, q_class, "AI Choice", q_concept
+                    )
+                    if result:
+                        result["char_id"] = str(uuid.uuid4())[:8]
+                        st.session_state.party.append(result)
+                        st.success(f"Forged and added {result['char_name']}!")
+                        st.rerun()
+
+        st.markdown("---")
+
+        # --- Display Section ---
+        if not st.session_state.party:
+            st.info("The party is currently empty. Add characters above!")
+        else:
+            for i, member in enumerate(st.session_state.party):
+                with st.container(border=True):
+                    col_info, col_stats, col_action = st.columns([3, 4, 1])
+
+                    with col_info:
+                        st.markdown(f"**{member['char_name']}**")
+                        st.caption(
+                            f"{member['race']} {member['char_class']} (Lv. {member['char_level']})"
+                        )
+
+                    with col_stats:
+                        pp = 10 + calculate_modifier(member["stats"]["WIS"])
+                        st.write(
+                            f"❤️ HP: {member['hp_max']} | 🛡️ AC: {member['armor_class']} | 👁️ PP: {pp}"
+                        )
+
+                    with col_action:
+                        char_id = member.get("char_id", f"legacy_{i}")
+                        if st.button("❌", key=f"remove_{char_id}_{i}"):
+                            st.session_state.party.pop(i)
+                            st.rerun()
 
     with dm_tab3:
         st.subheader("AI Encounter & NPC Generator")

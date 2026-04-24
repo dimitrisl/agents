@@ -862,3 +862,86 @@ pypdf.errors.PyPdfError: No /AcroForm dictionary in PDF of PdfWriter Object
 2026-04-25 02:02:28,570 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
 2026-04-25 02:02:28,570 [INFO] DnDAssistant: Loaded environment variables.
 2026-04-25 02:02:28,571 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:04:10,450 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:04:10,451 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:04:10,451 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:04:13,137 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:04:13,140 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:04:13,141 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:04:14,556 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:04:14,560 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:04:14,561 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:04:19,798 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:04:19,800 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:04:19,803 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:06:51,401 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:06:51,401 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:06:51,402 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:07:00,253 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:07:00,254 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:07:00,254 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:07:55,574 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:07:55,574 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:07:55,604 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:08:03,358 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:08:03,367 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:08:03,368 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:08:28,087 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:08:28,088 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:08:28,089 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:08:29,103 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:08:29,105 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:08:29,108 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:08:29,137 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/lyra_vesper.json
+2026-04-25 02:08:29,179 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:08:29,180 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:08:29,181 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:07,572 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:07,573 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:07,573 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:09,944 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:09,950 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:09,952 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:14,130 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:14,131 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:14,131 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:14,950 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:14,952 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:14,954 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:14,997 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/lyra_vesper.json
+2026-04-25 02:09:15,064 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:15,066 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:15,066 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:21,855 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:21,857 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:21,858 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:22,579 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:22,581 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:22,582 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:22,607 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/eldred_the_valiant.json
+2026-04-25 02:09:22,649 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:22,650 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:22,650 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:33,646 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:33,648 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:33,650 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:09:33,686 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 02:09:33,687 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-25 02:09:33,687 [INFO] DnDAssistant.AIClient: Gemini AI Client successfully initialized.
+2026-04-25 02:09:34,016 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 02:09:34,115 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 02:09:34,121 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 02:09:51,763 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 02:09:51,768 [INFO] DnDAssistant.AIClient: Received JSON response from Gemini. Attempting to parse...
+2026-04-25 02:09:51,769 [INFO] DnDAssistant.AIClient: Successfully parsed JSON data from Gemini.
+2026-04-25 02:09:51,831 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:09:51,831 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:09:51,831 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:10:16,424 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:10:16,429 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:10:16,430 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:10:16,461 [INFO] DnDAssistant.Storage: Successfully saved campaign to data/campaigns/the_sunless_citadel.json
+2026-04-25 02:10:16,462 [INFO] DnDAssistant: DM saved campaign notes for The Sunless Citadel.
+2026-04-25 02:10:25,599 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:10:25,602 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:10:25,603 [INFO] DnDAssistant: Streamlit page configuration set.

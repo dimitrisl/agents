@@ -51,6 +51,7 @@ def init_session_state(session_state):
         session_state.encounter_result = ""
         session_state.campaign_notes = "The Party enters the lower levels. You need to prepare encounters for the Goblin warren."
         session_state.npc_result = ""
+        session_state.party = []
 
 
 def get_character_dict(session_state) -> dict:
