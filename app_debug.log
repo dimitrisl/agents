@@ -820,3 +820,45 @@ pypdf.errors.PyPdfError: No /AcroForm dictionary in PDF of PdfWriter Object
 2026-04-25 01:39:08,245 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
 2026-04-25 01:39:08,248 [INFO] DnDAssistant: Loaded environment variables.
 2026-04-25 01:39:08,251 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:00:52,934 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:00:52,934 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:00:52,965 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:00:59,788 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:00:59,789 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:00:59,789 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:01:01,826 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:01:01,827 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:01:01,827 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:01:01,830 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/lyra_vesper.json
+2026-04-25 02:01:01,831 [INFO] DnDAssistant: User loaded character: lyra_vesper.json
+2026-04-25 02:01:01,868 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:01:01,869 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:01:01,870 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:01:12,001 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:01:12,006 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:01:12,007 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:01:12,053 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-25 02:01:12,056 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-25 02:01:12,057 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-25 02:01:12,058 [INFO] DnDAssistant.AIClient: Gemini AI Client successfully initialized.
+2026-04-25 02:01:12,387 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 02:01:12,487 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 02:01:12,494 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 02:01:25,427 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 02:01:25,430 [INFO] DnDAssistant.AIClient: Successfully received standard response from Gemini.
+2026-04-25 02:01:25,492 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:01:25,494 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:01:25,494 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:02:16,634 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:02:16,634 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:02:16,635 [INFO] DnDAssistant: Streamlit page configuration set.
+2026-04-25 02:02:16,655 [INFO] DnDAssistant: User requested a new AI Build Suggestion.
+2026-04-25 02:02:16,656 [INFO] DnDAssistant.AIClient: Generating standard AI text response...
+2026-04-25 02:02:16,814 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 02:02:16,913 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 02:02:16,918 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 02:02:28,502 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 02:02:28,506 [INFO] DnDAssistant.AIClient: Successfully received standard response from Gemini.
+2026-04-25 02:02:28,570 [INFO] DnDAssistant: Initializing D&D AI Assistant Application...
+2026-04-25 02:02:28,570 [INFO] DnDAssistant: Loaded environment variables.
+2026-04-25 02:02:28,571 [INFO] DnDAssistant: Streamlit page configuration set.

@@ -78,7 +78,15 @@ def generate_ai_json(prompt: str) -> dict:
             ),
         )
         logger.info("Received JSON response from Gemini. Attempting to parse...")
-        parsed_data = json.loads(response.text)
+        cleaned_text = response.text.strip()
+        if cleaned_text.startswith("```"):
+            first_newline = cleaned_text.find("\n")
+            if first_newline != -1:
+                cleaned_text = cleaned_text[first_newline:].strip()
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text[:-3].strip()
+
+        parsed_data = json.loads(cleaned_text)
         logger.info("Successfully parsed JSON data from Gemini.")
         return parsed_data
     except json.JSONDecodeError:

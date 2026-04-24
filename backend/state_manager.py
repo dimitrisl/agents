@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 logger = logging.getLogger("DnDAssistant.StateManager")
 
@@ -7,6 +8,7 @@ def init_session_state(session_state):
     """Initializes default Streamlit session state variables."""
     if "char_name" not in session_state:
         logger.debug("Initializing default session state variables.")
+        session_state.char_id = str(uuid.uuid4())[:8]
         session_state.char_name = "Eldred the Valiant"
         session_state.char_class = "Paladin"
         session_state.char_level = 5
@@ -54,6 +56,7 @@ def init_session_state(session_state):
 def get_character_dict(session_state) -> dict:
     """Extracts character data from the Streamlit session state into a dictionary."""
     return {
+        "char_id": getattr(session_state, "char_id", str(uuid.uuid4())[:8]),
         "char_name": session_state.char_name,
         "char_class": session_state.char_class,
         "char_level": session_state.char_level,
@@ -77,6 +80,7 @@ def get_character_dict(session_state) -> dict:
 
 def update_session_from_dict(session_state, data: dict):
     """Updates Streamlit session state variables from a character dictionary."""
+    session_state.char_id = data.get("char_id", str(uuid.uuid4())[:8])
     session_state.char_name = data.get("char_name", "Unknown")
     session_state.char_class = data.get("char_class", "Commoner")
     session_state.char_level = data.get("char_level", 1)

@@ -1,4 +1,5 @@
 import logging
+import uuid
 import streamlit as st
 from dotenv import load_dotenv
 from backend.ai_client import (
@@ -81,8 +82,16 @@ with st.sidebar:
     # Load Character
     available_chars = list_characters()
     if available_chars:
+
+        def format_char_filename(fname):
+            if fname == "-- Select --":
+                return fname
+            return fname.replace(".json", "").replace("_", " ").title()
+
         char_to_load = st.selectbox(
-            "Load Character", ["-- Select --"] + available_chars
+            "Load Character",
+            ["-- Select --"] + available_chars,
+            format_func=format_char_filename,
         )
         if char_to_load != "-- Select --" and st.button(
             "Load Character", use_container_width=True
@@ -453,6 +462,8 @@ if view_mode == "🗡️ Player Dashboard":
                 )
 
                 if result and "char_name" in result:
+                    # Assign a new unique ID for a newly forged character
+                    result["char_id"] = str(uuid.uuid4())[:8]
                     logger.info(
                         f"Successfully generated and parsed new character: {result.get('char_name')}"
                     )

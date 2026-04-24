@@ -22,7 +22,8 @@ def save_character(char_data: dict) -> bool:
         logger.error("Cannot save character without a name.")
         return False
 
-    filename = f"{char_data['char_name'].replace(' ', '_').lower()}.json"
+    char_id = char_data.get("char_id", "unknown_id")
+    filename = f"{char_data['char_name'].replace(' ', '_').lower()}_{char_id}.json"
     filepath = os.path.join(CHAR_DIR, filename)
 
     try:
@@ -35,9 +36,8 @@ def save_character(char_data: dict) -> bool:
         return False
 
 
-def load_character(name: str) -> dict:
-    """Load a character dictionary from a local JSON file."""
-    filename = f"{name.replace(' ', '_').lower()}.json"
+def load_character(filename: str) -> dict:
+    """Load a character dictionary from a local JSON file using the filename."""
     filepath = os.path.join(CHAR_DIR, filename)
 
     if not os.path.exists(filepath):
@@ -55,12 +55,12 @@ def load_character(name: str) -> dict:
 
 
 def list_characters() -> list:
-    """Return a list of available character names."""
+    """Return a list of available character filenames."""
     _ensure_dirs()
     chars = []
     for f in os.listdir(CHAR_DIR):
         if f.endswith(".json"):
-            chars.append(f.replace(".json", "").replace("_", " ").title())
+            chars.append(f)
     return chars
 
 
