@@ -1,5 +1,3 @@
-import re
-
 with open("main.py", "r") as f:
     content = f.read()
 
@@ -48,7 +46,7 @@ new_session_state = """if "char_name" not in st.session_state:
     st.session_state.equipment = ["Chain mail", "Shield", "Explorer's pack"]
     st.session_state.features_traits = [{"name": "Divine Smite", "description": "Expend a spell slot to deal radiant damage."}]
     st.session_state.spells = {"level_1": ["Bless", "Cure Wounds", "Shield of Faith"], "level_2": ["Find Steed", "Lesser Restoration"]}
-    
+
     st.session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get an AI recommendation based on your current stats!"
     st.session_state.encounter_result = ""
     st.session_state.campaign_notes = "The Party enters the lower levels. You need to prepare encounters for the Goblin warren."
@@ -191,11 +189,11 @@ old_tab1 = """        edit_mode = st.toggle("✏️ Edit Character")
 
 new_tab1 = """        st.markdown(f"### Active Character: **{st.session_state.char_name}**")
         st.write(f"{st.session_state.race} | {st.session_state.background} | {st.session_state.alignment}")
-        
+
         edit_mode = st.toggle("✏️ Edit Mode")
 
         char_tab1, char_tab2, char_tab3 = st.tabs(["📊 Core Stats & Skills", "⚔️ Combat & Inventory", "✨ Features & Spells"])
-        
+
         with char_tab1:
             if edit_mode:
                 c_n, c_c, c_l, c_r = st.columns(4)
@@ -203,7 +201,7 @@ new_tab1 = """        st.markdown(f"### Active Character: **{st.session_state.ch
                 st.session_state.char_class = c_c.text_input("Class", st.session_state.char_class)
                 st.session_state.char_level = c_l.number_input("Level", 1, 20, st.session_state.char_level)
                 st.session_state.race = c_r.text_input("Race", st.session_state.race)
-                
+
                 c_b, c_a, c_hp, c_ac = st.columns(4)
                 st.session_state.background = c_b.text_input("Background", st.session_state.background)
                 st.session_state.alignment = c_a.text_input("Alignment", st.session_state.alignment)
@@ -218,7 +216,7 @@ new_tab1 = """        st.markdown(f"### Active Character: **{st.session_state.ch
                 st.session_state.stats["INT"] = c4.number_input("INT", 1, 30, st.session_state.stats["INT"])
                 st.session_state.stats["WIS"] = c5.number_input("WIS", 1, 30, st.session_state.stats["WIS"])
                 st.session_state.stats["CHA"] = c6.number_input("CHA", 1, 30, st.session_state.stats["CHA"])
-                
+
                 st.markdown("#### Skills & Saves")
                 st.session_state.skills = st.data_editor(st.session_state.skills, num_rows="dynamic", key="edit_skills")
                 st.write("Saving Throws:", st.session_state.saving_throws)
@@ -229,7 +227,7 @@ new_tab1 = """        st.markdown(f"### Active Character: **{st.session_state.ch
                 c2.metric("Armor Class", st.session_state.armor_class)
                 c3.metric("Speed", f"{st.session_state.speed} ft")
                 c4.metric("Proficiency", f"+{st.session_state.proficiency_bonus}")
-                
+
                 st.markdown("#### Ability Scores")
                 c1, c2, c3, c4, c5, c6 = st.columns(6)
                 def format_mod(score):
@@ -241,7 +239,7 @@ new_tab1 = """        st.markdown(f"### Active Character: **{st.session_state.ch
                 c4.metric("INT", st.session_state.stats["INT"], format_mod(st.session_state.stats["INT"]))
                 c5.metric("WIS", st.session_state.stats["WIS"], format_mod(st.session_state.stats["WIS"]))
                 c6.metric("CHA", st.session_state.stats["CHA"], format_mod(st.session_state.stats["CHA"]))
-                
+
                 col_sk, col_sv = st.columns(2)
                 with col_sk:
                     st.markdown("#### Skills")
@@ -258,7 +256,7 @@ new_tab1 = """        st.markdown(f"### Active Character: **{st.session_state.ch
             else:
                 for w in st.session_state.weapons:
                     st.write(f"🗡️ **{w.get('name', 'Unknown')}** | Atk: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}")
-            
+
             st.markdown("#### Equipment")
             if edit_mode:
                 st.session_state.equipment = st.data_editor([{"item": e} for e in st.session_state.equipment], num_rows="dynamic", key="edit_equip")
@@ -340,7 +338,7 @@ new_ai_gen = """        concept = st.text_area(
                 prompt = f\"\"\"
                 Create a fully fleshed out level {target_level} D&D 5e character based on this concept: "{concept}"
                 You must assign them a balanced array of 6 ability scores, calculate their HP, AC, Proficiency Bonus, and choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
-                
+
                 Output the character strictly as a JSON object with exactly the following schema:
                 {{
                     "char_name": "Name of the character",

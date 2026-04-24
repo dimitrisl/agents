@@ -98,14 +98,15 @@ with st.sidebar:
     st.subheader("📄 PDF Export")
     if st.button("Generate Character Sheet PDF", use_container_width=True):
         char_data = get_character_dict(st.session_state)
-        
+
         template_path = "5E_CharacterSheet_Fillable.pdf"
         output_filename = f"{st.session_state.char_name.replace(' ', '_')}_Sheet.pdf"
-        
+
         import os
+
         os.makedirs("data/exports", exist_ok=True)
         output_path = f"data/exports/{output_filename}"
-        
+
         with st.spinner("Generating PDF..."):
             success = export_character_to_pdf(char_data, template_path, output_path)
             if success:
@@ -117,7 +118,7 @@ with st.sidebar:
                     data=pdf_bytes,
                     file_name=output_filename,
                     mime="application/pdf",
-                    use_container_width=True
+                    use_container_width=True,
                 )
             else:
                 st.error("Failed to generate PDF. Make sure the template exists.")
@@ -157,10 +158,16 @@ if view_mode == "🗡️ Player Dashboard":
         with char_tab1:
             st.markdown("#### Backstory")
             if edit_mode:
-                st.session_state.backstory = st.text_area("Backstory", value=st.session_state.backstory, height=100)
+                st.session_state.backstory = st.text_area(
+                    "Backstory", value=st.session_state.backstory, height=100
+                )
             else:
-                st.write(st.session_state.backstory if st.session_state.backstory else "No backstory provided.")
-            
+                st.write(
+                    st.session_state.backstory
+                    if st.session_state.backstory
+                    else "No backstory provided."
+                )
+
             st.markdown("---")
 
             if edit_mode:
@@ -314,17 +321,31 @@ if view_mode == "🗡️ Player Dashboard":
                 for lvl, spell_list in st.session_state.spells.items():
                     for spell in spell_list:
                         flat_spells.append({"level": lvl, "spell": spell})
-                
+
                 edited_spells = st.data_editor(
-                    flat_spells, 
-                    num_rows="dynamic", 
+                    flat_spells,
+                    num_rows="dynamic",
                     key="edit_spells",
                     column_config={
-                        "level": st.column_config.SelectboxColumn("Level", options=["cantrips", "level_1", "level_2", "level_3", "level_4", "level_5", "level_6", "level_7", "level_8", "level_9"]),
-                        "spell": st.column_config.TextColumn("Spell Name")
-                    }
+                        "level": st.column_config.SelectboxColumn(
+                            "Level",
+                            options=[
+                                "cantrips",
+                                "level_1",
+                                "level_2",
+                                "level_3",
+                                "level_4",
+                                "level_5",
+                                "level_6",
+                                "level_7",
+                                "level_8",
+                                "level_9",
+                            ],
+                        ),
+                        "spell": st.column_config.TextColumn("Spell Name"),
+                    },
                 )
-                
+
                 new_spells = {}
                 for row in edited_spells:
                     if row.get("level") and row.get("spell"):
@@ -353,7 +374,7 @@ if view_mode == "🗡️ Player Dashboard":
                     st.session_state.char_level,
                     st.session_state.char_class,
                     st.session_state.char_name,
-                    st.session_state.stats
+                    st.session_state.stats,
                 )
                 st.rerun()
 
@@ -365,11 +386,54 @@ if view_mode == "🗡️ Player Dashboard":
 
         col_a, col_b, col_c = st.columns(3)
         with col_a:
-            forge_race = st.selectbox("Race", ["AI Choice", "Human", "Elf", "Dwarf", "Halfling", "Dragonborn", "Tiefling", "Half-Orc", "Gnome"])
+            forge_race = st.selectbox(
+                "Race",
+                [
+                    "AI Choice",
+                    "Human",
+                    "Elf",
+                    "Dwarf",
+                    "Halfling",
+                    "Dragonborn",
+                    "Tiefling",
+                    "Half-Orc",
+                    "Gnome",
+                ],
+            )
         with col_b:
-            forge_class = st.selectbox("Class", ["AI Choice", "Fighter", "Wizard", "Rogue", "Cleric", "Paladin", "Ranger", "Barbarian", "Bard", "Warlock", "Monk", "Druid", "Sorcerer"])
+            forge_class = st.selectbox(
+                "Class",
+                [
+                    "AI Choice",
+                    "Fighter",
+                    "Wizard",
+                    "Rogue",
+                    "Cleric",
+                    "Paladin",
+                    "Ranger",
+                    "Barbarian",
+                    "Bard",
+                    "Warlock",
+                    "Monk",
+                    "Druid",
+                    "Sorcerer",
+                ],
+            )
         with col_c:
-            forge_background = st.selectbox("Background", ["AI Choice", "Acolyte", "Criminal", "Folk Hero", "Noble", "Soldier", "Sage", "Charlatan", "Entertainer"])
+            forge_background = st.selectbox(
+                "Background",
+                [
+                    "AI Choice",
+                    "Acolyte",
+                    "Criminal",
+                    "Folk Hero",
+                    "Noble",
+                    "Soldier",
+                    "Sage",
+                    "Charlatan",
+                    "Entertainer",
+                ],
+            )
 
         concept = st.text_area(
             "Additional Flavor / Concept:",
@@ -384,7 +448,9 @@ if view_mode == "🗡️ Player Dashboard":
                 f"User requested AI Character Forge: Race={forge_race}, Class={forge_class}, Level={target_level}, Flavor={concept}"
             )
             with st.spinner("Rolling stats and forging character..."):
-                result = forge_character(target_level, forge_race, forge_class, forge_background, concept)
+                result = forge_character(
+                    target_level, forge_race, forge_class, forge_background, concept
+                )
 
                 if result and "char_name" in result:
                     logger.info(
@@ -488,7 +554,9 @@ else:
                     f"User requested Random Encounter for {party_size} players at level {avg_level} in '{location}'."
                 )
                 with st.spinner("Generating encounter..."):
-                    st.session_state.encounter_result = generate_random_encounter(party_size, avg_level, location)
+                    st.session_state.encounter_result = generate_random_encounter(
+                        party_size, avg_level, location
+                    )
 
             if st.session_state.encounter_result:
                 st.success(st.session_state.encounter_result)

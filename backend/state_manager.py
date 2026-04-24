@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger("DnDAssistant.StateManager")
 
+
 def init_session_state(session_state):
     """Initializes default Streamlit session state variables."""
     if "char_name" not in session_state:
@@ -12,7 +13,9 @@ def init_session_state(session_state):
         session_state.race = "Human"
         session_state.background = "Soldier"
         session_state.alignment = "Lawful Good"
-        session_state.backstory = "A valiant paladin who swore an oath of devotion to protect the innocent."
+        session_state.backstory = (
+            "A valiant paladin who swore an oath of devotion to protect the innocent."
+        )
         session_state.armor_class = 18
         session_state.hp_max = 44
         session_state.speed = 30
