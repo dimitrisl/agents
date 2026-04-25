@@ -117,6 +117,7 @@ def forge_character(
     forge_background,
     concept,
     stats_mode="standard",
+    char_name=None,
 ) -> dict:
     race_prompt = forge_race if forge_race != "AI Choice" else "Choose an optimal race"
     class_prompt = (
@@ -128,6 +129,12 @@ def forge_character(
         else "Choose an optimal background"
     )
 
+    name_instruction = (
+        f"Character Name: {char_name}"
+        if char_name
+        else "Assign them a creative and thematic name."
+    )
+
     if stats_mode == "standard":
         stats_instruction = "You MUST use the Standard Array (15, 14, 13, 12, 10, 8) for their base ability scores, distributed optimally for their class/race."
     else:
@@ -135,6 +142,7 @@ def forge_character(
 
     prompt = f"""
     Create a fully fleshed out level {target_level} D&D 5e (2014 edition) character.
+    {name_instruction}
     Race: {race_prompt}
     Class: {class_prompt}
     Background: {bg_prompt}

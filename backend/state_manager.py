@@ -8,6 +8,7 @@ def init_session_state(session_state):
     """Initializes default Streamlit session state variables."""
     if "char_name" not in session_state:
         logger.debug("Initializing default session state variables.")
+        session_state.character_active = False
         session_state.char_id = str(uuid.uuid4())[:8]
         session_state.char_name = "Eldred the Valiant"
         session_state.char_class = "Paladin"
@@ -109,6 +110,7 @@ def get_character_dict(session_state) -> dict:
 
 def update_session_from_dict(session_state, data: dict):
     """Updates Streamlit session state variables from a character dictionary."""
+    session_state.character_active = True
     session_state.char_id = data.get("char_id", str(uuid.uuid4())[:8])
     session_state.char_name = data.get("char_name", "Unknown")
     session_state.char_class = data.get("char_class", "Commoner")
@@ -139,3 +141,10 @@ def update_session_from_dict(session_state, data: dict):
 
     if "stats" in data:
         session_state.stats = data["stats"]
+
+
+def calculate_modifier(score: int) -> int:
+    """Calculates the D&D 5e ability score modifier."""
+    import math
+
+    return math.floor((score - 10) / 2)
