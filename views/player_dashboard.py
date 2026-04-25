@@ -109,6 +109,10 @@ def render_active_character(accent_color: str):
             st.session_state.char_portrait = generate_portrait_url(char_data)
             st.rerun()
 
+    if st.session_state.char_portrait:
+        with st.expander("🖼️ Portrait Preview", expanded=False):
+            st.image(st.session_state.char_portrait, use_container_width=True)
+
     if edit_mode:
         if edit_col3.button("💾 Save", use_container_width=True):
             char_data = get_character_dict(st.session_state)
