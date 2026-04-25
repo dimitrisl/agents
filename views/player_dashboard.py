@@ -155,7 +155,6 @@ def render_active_character(accent_color: str):
     char_dict = get_character_dict(st.session_state)
     template_path = "5E_CharacterSheet_Fillable.pdf"
 
-    @st.cache_data(show_spinner="Generating PDF...")
     def get_pdf_bytes(data):
         return export_character_to_pdf(data, template_path)
 
