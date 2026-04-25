@@ -19,20 +19,28 @@ def render_player_dashboard(accent_color: str):
     if not st.session_state.character_active:
         render_selection_screen()
     else:
-        col1, col2 = st.columns([4, 1])
+        col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
             st.title("Player Dashboard")
         with col2:
-            if st.button("🔄 Change Hero", use_container_width=True):
+            label = (
+                "✨ Forge Hero"
+                if st.session_state.player_view == "sheet"
+                else "🛡️ View Sheet"
+            )
+            if st.button(label, use_container_width=True):
+                st.session_state.player_view = (
+                    "forge" if st.session_state.player_view == "sheet" else "sheet"
+                )
+                st.rerun()
+        with col3:
+            if st.button("🔄 Exit Hero", use_container_width=True):
                 st.session_state.character_active = False
                 st.rerun()
 
-        tab1, tab2 = st.tabs(["🛡️ Active Character", "✨ AI Character Creator"])
-
-        with tab1:
+        if st.session_state.player_view == "sheet":
             render_active_character(accent_color)
-
-        with tab2:
+        else:
             render_character_creator()
 
 
@@ -72,14 +80,8 @@ def render_selection_screen():
         st.subheader("✨ Forge a New Hero")
         st.write("Let AI assist you in creating a brand new legendary character.")
         if st.button("Go to Character Forge", use_container_width=True):
-            # To go to forge, we actually just need to activate the dashboard but default to tab2.
-            # However, with the current structure, we can just set character_active = True
-            # but maybe we need a way to force tab2.
-            # For now, let's just use the existing Forge UI inside the active dashboard.
-            # We'll set a default "blank" state or just use the current default.
             st.session_state.character_active = True
-            # We might want to set a flag to open tab2 by default, but st.tabs doesn't support that easily without a workaround.
-            # Let's just activate and the user can click Forge.
+            st.session_state.player_view = "forge"
             st.rerun()
 
 
@@ -527,7 +529,9 @@ def render_character_creator():
                 if save_character(char):
                     logger.info(f"Auto-saved new character: {char['char_name']}")
                 st.session_state.temp_forged_char = None
+                st.session_state.player_view = "sheet"
                 st.session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get recommendations for your newly forged character!"
+
                 st.success(
                     f"Successfully equipped and saved **{st.session_state.char_name}**!"
                 )

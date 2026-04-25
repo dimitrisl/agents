@@ -9,6 +9,7 @@ def init_session_state(session_state):
     if "char_name" not in session_state:
         logger.debug("Initializing default session state variables.")
         session_state.character_active = False
+        session_state.player_view = "sheet"
         session_state.char_id = str(uuid.uuid4())[:8]
         session_state.char_name = "Eldred the Valiant"
         session_state.char_class = "Paladin"
