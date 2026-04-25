@@ -1515,3 +1515,31 @@ pypdf.errors.PyPdfError: No /AcroForm dictionary in PDF of PdfWriter Object
 2026-04-25 23:18:42,632 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
 2026-04-25 23:18:42,847 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
 2026-04-25 23:18:42,883 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:58:08,717 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:58:08,859 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:58:09,068 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:58:09,379 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:58:09,409 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:58:59,098 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:59:00,301 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:59:00,481 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:59:00,771 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:59:00,814 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:59:49,826 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:59:49,888 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:59:50,067 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:59:50,336 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:59:50,367 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:59:54,165 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:59:54,224 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:59:54,404 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:59:55,222 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:59:55,254 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:59:55,841 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:59:56,027 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:59:56,253 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:59:56,282 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-26 00:00:02,595 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-26 00:00:02,785 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-26 00:00:05,847 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-26 00:00:05,879 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).

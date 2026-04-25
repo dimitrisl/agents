@@ -11,8 +11,8 @@ from backend.storage import (
 from backend.state_manager import (
     get_character_dict,
     update_session_from_dict,
-    calculate_modifier,
 )
+from backend.calculations import calculate_modifier
 from backend.pdf_exporter import export_character_to_pdf
 from backend.ui_utils import render_character_header
 from backend.image_utils import generate_portrait_url

@@ -14,7 +14,11 @@ from backend.storage import (
     list_characters,
     load_character,
 )
-from backend.state_manager import calculate_modifier
+from backend.calculations import calculate_modifier
+from backend.constants import (
+    ALLOWED_RACES,
+    ALLOWED_CLASSES,
+)
 
 logger = logging.getLogger("DnDAssistant.DMView")
 
@@ -131,20 +135,12 @@ def _render_party_tracker():
     with st.expander("✨ AI Quick Forge (New Party Member)", expanded=False):
         q_race = st.selectbox(
             "Race",
-            [
-                "AI Choice",
-                "Human",
-                "Elf",
-                "Dwarf",
-                "Halfling",
-                "Dragonborn",
-                "Tiefling",
-            ],
+            ["AI Choice"] + ALLOWED_RACES,
             key="q_race",
         )
         q_class = st.selectbox(
             "Class",
-            ["AI Choice", "Fighter", "Wizard", "Rogue", "Cleric", "Paladin"],
+            ["AI Choice"] + ALLOWED_CLASSES,
             key="q_class",
         )
         q_level = st.number_input("Level", 1, 20, 1, key="q_level")
