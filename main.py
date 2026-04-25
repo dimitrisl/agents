@@ -1,9 +1,13 @@
 import streamlit as st
 import logging
+from dotenv import load_dotenv
 from backend.state_manager import init_session_state
 from backend.ui_utils import inject_custom_css
 from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
+
+# Load environment variables once at the entry point
+load_dotenv()
 
 # Setup logging
 logging.basicConfig(

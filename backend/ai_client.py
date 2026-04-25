@@ -2,11 +2,13 @@ import os
 import json
 import logging
 import streamlit as st
-from dotenv import load_dotenv
 from google import genai
-
-# Load environment variables
-load_dotenv()
+from backend.constants import (
+    ALLOWED_RACES,
+    ALLOWED_CLASSES,
+    ALLOWED_BACKGROUNDS,
+    GENDERS,
+)
 
 logger = logging.getLogger("DnDAssistant.AIClient")
 
@@ -16,9 +18,6 @@ logger = logging.getLogger("DnDAssistant.AIClient")
 # ==========================================
 def get_ai_client():
     """Initializes the Gemini AI Client. Not cached if it fails to find the API key."""
-    # Ensure environment variables are loaded
-    load_dotenv()
-
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         logger.error("GEMINI_API_KEY is missing from environment variables.")
@@ -133,57 +132,24 @@ def forge_character(
     stats_mode="standard",
     char_name=None,
 ) -> dict:
-    allowed_races = [
-        "Human",
-        "Elf",
-        "Dwarf",
-        "Halfling",
-        "Dragonborn",
-        "Tiefling",
-        "Half-Orc",
-        "Gnome",
-    ]
-    allowed_classes = [
-        "Fighter",
-        "Wizard",
-        "Rogue",
-        "Cleric",
-        "Paladin",
-        "Ranger",
-        "Barbarian",
-        "Bard",
-        "Warlock",
-        "Monk",
-        "Druid",
-        "Sorcerer",
-    ]
-    allowed_backgrounds = [
-        "Acolyte",
-        "Criminal",
-        "Folk Hero",
-        "Noble",
-        "Soldier",
-        "Sage",
-        "Charlatan",
-        "Entertainer",
-    ]
-
     race_prompt = (
         forge_race
         if forge_race != "AI Choice"
-        else f"Choose one from: {', '.join(allowed_races)}"
+        else f"Choose one from: {', '.join(ALLOWED_RACES)}"
     )
     class_prompt = (
         forge_class
         if forge_class != "AI Choice"
-        else f"Choose one from: {', '.join(allowed_classes)}"
+        else f"Choose one from: {', '.join(ALLOWED_CLASSES)}"
     )
     bg_prompt = (
         forge_background
         if forge_background != "AI Choice"
-        else f"Choose one from: {', '.join(allowed_backgrounds)}"
+        else f"Choose one from: {', '.join(ALLOWED_BACKGROUNDS)}"
     )
-    gender_prompt = gender if gender != "AI Choice" else "Choose Male or Female"
+    gender_prompt = (
+        gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
+    )
 
     name_instruction = (
         f"Character Name: {char_name}"
@@ -206,9 +172,9 @@ def forge_character(
     Flavor/Concept: {concept}
 
     STRICT RULES:
-    1. Race MUST be one of: {allowed_races}
-    2. Class MUST be one of: {allowed_classes}
-    3. Background MUST be one of: {allowed_backgrounds}
+    1. Race MUST be one of: {ALLOWED_RACES}
+    2. Class MUST be one of: {ALLOWED_CLASSES}
+    3. Background MUST be one of: {ALLOWED_BACKGROUNDS}
 
     {stats_instruction}
 

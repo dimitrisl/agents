@@ -16,6 +16,12 @@ from backend.state_manager import (
 from backend.pdf_exporter import export_character_to_pdf
 from backend.ui_utils import render_character_header
 from backend.image_utils import generate_portrait_url
+from backend.constants import (
+    ALLOWED_RACES,
+    ALLOWED_CLASSES,
+    ALLOWED_BACKGROUNDS,
+    GENDERS,
+)
 
 logger = logging.getLogger("DnDAssistant.PlayerView")
 
@@ -461,53 +467,30 @@ def render_character_creator():
         with col_a:
             forge_race = st.selectbox(
                 "Race",
-                [
-                    "AI Choice",
-                    "Human",
-                    "Elf",
-                    "Dwarf",
-                    "Halfling",
-                    "Dragonborn",
-                    "Tiefling",
-                    "Half-Orc",
-                    "Gnome",
-                ],
+                ["AI Choice"] + ALLOWED_RACES,
             )
         with col_b:
             forge_class = st.selectbox(
                 "Class",
-                [
-                    "AI Choice",
-                    "Fighter",
-                    "Wizard",
-                    "Rogue",
-                    "Cleric",
-                    "Paladin",
-                    "Ranger",
-                    "Barbarian",
-                    "Bard",
-                    "Warlock",
-                    "Monk",
-                    "Druid",
-                    "Sorcerer",
-                ],
+                ["AI Choice"] + ALLOWED_CLASSES,
             )
         with col_c:
             forge_background = st.selectbox(
                 "Background",
-                [
-                    "AI Choice",
-                    "Acolyte",
-                    "Criminal",
-                    "Folk Hero",
-                    "Noble",
-                    "Soldier",
-                    "Sage",
-                    "Charlatan",
-                    "Entertainer",
-                ],
+                ["AI Choice"] + ALLOWED_BACKGROUNDS,
             )
-            forge_gender = st.selectbox("Gender", ["AI Choice", "Male", "Female"])
+
+        col_d, col_e, col_f = st.columns(3)
+        with col_d:
+            forge_level = st.number_input(
+                "Target Level", min_value=1, max_value=20, value=1
+            )
+        with col_e:
+            forge_gender = st.selectbox("Gender", ["AI Choice"] + GENDERS)
+        with col_f:
+            custom_name = st.text_input(
+                "Character Name (Optional)", placeholder="Leave blank..."
+            )
 
         concept = st.text_area(
             "Additional Flavor / Concept:",
@@ -516,21 +499,15 @@ def render_character_creator():
         use_rolled = st.toggle(
             "🎲 Use Rolled Stats (instead of Standard Array)", value=False
         )
-        target_level = st.number_input(
-            "Target Level", min_value=1, max_value=20, value=1
-        )
-        custom_name = st.text_input(
-            "Character Name (Optional)", placeholder="Leave blank to let AI choose..."
-        )
 
     if st.session_state.temp_forged_char is None:
         if st.button("Generate Character", type="primary", width="stretch"):
             logger.info(
-                f"User requested AI Character Forge: Name={custom_name}, Race={forge_race}, Class={forge_class}, Level={target_level}, Flavor={concept}"
+                f"User requested AI Character Forge: Name={custom_name}, Race={forge_race}, Class={forge_class}, Level={forge_level}, Flavor={concept}"
             )
             with st.spinner("Rolling stats and forging character..."):
                 result = forge_character(
-                    target_level,
+                    forge_level,
                     forge_race,
                     forge_class,
                     forge_background,

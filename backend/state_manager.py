@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+
 logger = logging.getLogger("DnDAssistant.StateManager")
 
 
@@ -153,10 +154,3 @@ def update_session_from_dict(session_state, data: dict):
 
     if "stats" in data:
         session_state.stats = data["stats"]
-
-
-def calculate_modifier(score: int) -> int:
-    """Calculates the D&D 5e ability score modifier."""
-    import math
-
-    return math.floor((score - 10) / 2)

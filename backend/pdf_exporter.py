@@ -2,13 +2,16 @@ import os
 import logging
 import requests
 import io
-from dotenv import load_dotenv
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from backend.calculations import calculate_modifier
-
-load_dotenv()
+from backend.constants import (
+    PDF_PORTRAIT_X,
+    PDF_PORTRAIT_Y,
+    PDF_PORTRAIT_WIDTH,
+    PDF_PORTRAIT_HEIGHT,
+)
 
 logger = logging.getLogger("DnDAssistant.PDFExporter")
 
@@ -36,7 +39,12 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
         # Adjusting to middle-left based on user feedback
         # x, y, width, height
         can.drawImage(
-            ImageReader(img_data), 45, 450, width=175, height=180, mask="auto"
+            ImageReader(img_data),
+            PDF_PORTRAIT_X,
+            PDF_PORTRAIT_Y,
+            width=PDF_PORTRAIT_WIDTH,
+            height=PDF_PORTRAIT_HEIGHT,
+            mask="auto",
         )
         can.showPage()
         can.save()
