@@ -6,10 +6,12 @@ logger = logging.getLogger("DnDAssistant.StateManager")
 
 def init_session_state(session_state):
     """Initializes default Streamlit session state variables."""
-    if "char_name" not in session_state:
-        logger.debug("Initializing default session state variables.")
+    if "character_active" not in session_state:
         session_state.character_active = False
+    if "player_view" not in session_state:
         session_state.player_view = "sheet"
+
+    if "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]
         session_state.char_name = "Eldred the Valiant"
         session_state.char_class = "Paladin"
