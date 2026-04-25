@@ -10,22 +10,20 @@ def format_mod(mod: int) -> str:
     return f"+{mod}" if mod >= 0 else str(mod)
 
 
-def export_character_to_pdf(
-    char_data: dict, template_path: str, output_path: str
-) -> bool:
-    """Read template_path, fill fields with char_data, write to output_path."""
+def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
+    """Read template_path, fill fields with char_data, and return PDF bytes."""
     logger.info(f"Exporting character {char_data.get('char_name')} to PDF.")
 
     if not os.path.exists(template_path):
         logger.error(f"Template PDF not found: {template_path}")
-        return False
+        return None
 
     try:
         reader = PdfReader(template_path)
         writer = PdfWriter()
-
-        # Append the reader to the writer to preserve the AcroForm structure
         writer.append(reader)
+
+        # ... (rest of the mapping logic stays the same)
 
         stats = char_data.get("stats", {})
 
@@ -194,12 +192,16 @@ def export_character_to_pdf(
         for page in writer.pages:
             writer.update_page_form_field_values(page, field_data)
 
-        with open(output_path, "wb") as output_stream:
-            writer.write(output_stream)
+        import io
 
-        logger.info("PDF generation successful.")
-        return True
+        output_stream = io.BytesIO()
+        writer.write(output_stream)
+        pdf_bytes = output_stream.getvalue()
+        output_stream.close()
+
+        logger.info("PDF generation successful (returned as bytes).")
+        return pdf_bytes
 
     except Exception as e:
         logger.error(f"Failed to generate PDF: {e}", exc_info=True)
-        return False
+        return None

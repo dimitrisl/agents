@@ -152,28 +152,25 @@ def render_active_character(accent_color: str):
     st.markdown("---")
     st.subheader("📄 PDF Export")
 
-    # Generate & Download in one click via cached data function
     char_dict = get_character_dict(st.session_state)
     template_path = "5E_CharacterSheet_Fillable.pdf"
 
     @st.cache_data(show_spinner="Generating PDF...")
     def get_pdf_bytes(data):
-        import os
+        return export_character_to_pdf(data, template_path)
 
-        os.makedirs("data/exports", exist_ok=True)
-        output_filename = f"temp_{data['char_id']}.pdf"
-        output_path = f"data/exports/{output_filename}"
-        export_character_to_pdf(data, template_path, output_path)
-        with open(output_path, "rb") as f:
-            return f.read()
+    pdf_bytes = get_pdf_bytes(char_dict)
 
-    st.download_button(
-        label="📄 Generate & Download Character Sheet PDF",
-        data=get_pdf_bytes(char_dict),
-        file_name=f"{st.session_state.char_name.replace(' ', '_')}_Sheet.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-    )
+    if pdf_bytes:
+        st.download_button(
+            label="📥 Download Character PDF",
+            data=pdf_bytes,
+            file_name=f"{char_dict['char_name']}_Sheet.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+    else:
+        st.error("Failed to generate PDF. Please ensure the template is present.")
 
 
 def _render_core_stats(edit_mode: bool):
