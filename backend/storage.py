@@ -64,6 +64,20 @@ def list_characters() -> list:
     return chars
 
 
+def delete_character(filename: str) -> bool:
+    """Delete a character JSON file."""
+    filepath = os.path.join(CHAR_DIR, filename)
+    if os.path.exists(filepath):
+        try:
+            os.remove(filepath)
+            logger.info(f"Successfully deleted character: {filepath}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete character: {e}")
+            return False
+    return False
+
+
 def save_campaign(campaign_name: str, notes: str) -> bool:
     """Save campaign notes to a local JSON file."""
     _ensure_dirs()

@@ -111,7 +111,12 @@ def get_build_suggestion(char_level, char_class, char_name, stats) -> str:
 
 
 def forge_character(
-    target_level, forge_race, forge_class, forge_background, concept
+    target_level,
+    forge_race,
+    forge_class,
+    forge_background,
+    concept,
+    stats_mode="standard",
 ) -> dict:
     race_prompt = forge_race if forge_race != "AI Choice" else "Choose an optimal race"
     class_prompt = (
@@ -123,6 +128,11 @@ def forge_character(
         else "Choose an optimal background"
     )
 
+    if stats_mode == "standard":
+        stats_instruction = "You MUST use the Standard Array (15, 14, 13, 12, 10, 8) for their base ability scores, distributed optimally for their class/race."
+    else:
+        stats_instruction = "You must assign them a balanced, high-quality array of 6 ability scores (equivalent to rolling 4d6 drop lowest)."
+
     prompt = f"""
     Create a fully fleshed out level {target_level} D&D 5e (2014 edition) character.
     Race: {race_prompt}
@@ -130,7 +140,9 @@ def forge_character(
     Background: {bg_prompt}
     Flavor/Concept: {concept}
 
-    You must assign them a balanced array of 6 ability scores, calculate their HP, AC, Proficiency Bonus, and choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
+    {stats_instruction}
+
+    Calculate their HP, AC, Proficiency Bonus, and choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
 
     Output the character strictly as a JSON object with exactly the following schema:
     {{
@@ -153,7 +165,16 @@ def forge_character(
         "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage": "1d8+3 bludgeoning"}}],
         "equipment": ["Chain mail", "Backpack"],
         "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
-        "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"]}}
+        "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"]}},
+        "spell_ability": "INT",
+        "spell_save_dc": 15,
+        "spell_attack_bonus": "+7",
+        "hit_dice": "1d10",
+        "passive_perception": 12,
+        "personality_traits": "...",
+        "ideals": "...",
+        "bonds": "...",
+        "flaws": "..."
     }}
     """
     return generate_ai_json(prompt)
@@ -174,5 +195,22 @@ def generate_npc(npc_concept) -> str:
     Create a D&D 5e (2014 edition) NPC based on: "{npc_concept}".
     Include their Name, Race, Appearance, Personality Trait, and a secret they are hiding.
     Format nicely with Markdown. Keep it brief and punchy.
+    """
+    return generate_ai_response(prompt)
+
+
+def generate_session_prep(campaign_notes, party_info) -> str:
+    prompt = f"""
+    I am a Dungeon Master preparing for my next D&D 5e session.
+    Here are my current campaign notes:
+    ---
+    {campaign_notes}
+    ---
+    Here is the current party composition:
+    {party_info}
+
+    Based on the notes and the party, generate 3 creative plot hooks, twists, or developments for the next session.
+    Format your response with markdown, using clear headings for each hook.
+    Keep the total response under 250 words.
     """
     return generate_ai_response(prompt)

@@ -5,3 +5,5 @@ poetry.lock
 .ruff_cache
 .vscode/
 .temp_env/
+*.log
+data/exports/

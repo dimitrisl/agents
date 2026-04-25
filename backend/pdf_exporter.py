@@ -122,7 +122,7 @@ def export_character_to_pdf(
             field_data["Wpn3 AtkBonus  "] = weapons[2].get("attack_bonus", "")
             field_data["Wpn3 Damage "] = weapons[2].get("damage", "")
 
-        # 6. Equipment & Features
+        # 6. Equipment, Features & Personality
         equip_text = "\\n".join(char_data.get("equipment", []))
         field_data["Equipment"] = equip_text
 
@@ -130,6 +130,14 @@ def export_character_to_pdf(
         feat_text = "\\n".join(
             [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
         )
+        field_data["Features and Traits"] = feat_text
+
+        field_data["PersonalityTraits "] = char_data.get("personality_traits", "")
+        field_data["Ideals"] = char_data.get("ideals", "")
+        field_data["Bonds"] = char_data.get("bonds", "")
+        field_data["Flaws"] = char_data.get("flaws", "")
+        field_data["Passive"] = str(char_data.get("passive_perception", 10))
+        field_data["HDTotal"] = char_data.get("hit_dice", "")
 
         # Append spells to correct spell fields
         spells = char_data.get("spells", {})
@@ -153,10 +161,38 @@ def export_character_to_pdf(
                         if i < len(target_fields):
                             field_data[target_fields[i]] = spell
 
-        field_data["Features and Traits"] = feat_text
+        # 7. Spellcasting Header Mapping (Page 3)
+        spell_ability_map = {
+            "Wizard": "INT",
+            "Artificer": "INT",
+            "Cleric": "WIS",
+            "Druid": "WIS",
+            "Ranger": "WIS",
+            "Paladin": "CHA",
+            "Sorcerer": "CHA",
+            "Warlock": "CHA",
+            "Bard": "CHA",
+        }
+        char_class = char_data.get("char_class", "")
+        # Try to get from data first, otherwise calculate
+        spell_stat = char_data.get(
+            "spell_ability", spell_ability_map.get(char_class, "INT")
+        )
+        spell_mod = calculate_modifier(stats.get(spell_stat, 10))
+        prof_bonus = char_data.get("proficiency_bonus", 2)
 
-        # Update all fields
-        writer.update_page_form_field_values(writer.pages[0], field_data)
+        field_data["Spellcasting Class 2"] = char_class
+        field_data["Spellcasting Ability 2"] = spell_stat
+        field_data["Spell Save DC 2"] = str(
+            char_data.get("spell_save_dc", 8 + spell_mod + prof_bonus)
+        )
+        field_data["Spell Attack Bonus 2"] = char_data.get(
+            "spell_attack_bonus", format_mod(spell_mod + prof_bonus)
+        )
+
+        # Update all fields on all pages (to ensure spells on page 3 are filled)
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, field_data)
 
         with open(output_path, "wb") as output_stream:
             writer.write(output_stream)

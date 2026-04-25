@@ -46,12 +46,31 @@ def init_session_state(session_state):
             "level_1": ["Bless", "Cure Wounds", "Shield of Faith"],
             "level_2": ["Find Steed", "Lesser Restoration"],
         }
+        session_state.spell_ability = "CHA"
+        session_state.spell_save_dc = 14
+        session_state.spell_attack_bonus = "+6"
+
+        session_state.hit_dice = "5d10"
+        session_state.passive_perception = 12
+        session_state.personality_traits = "I'm always polite and respectful."
+        session_state.ideals = (
+            "Responsibility. I do what I must and obey just authority."
+        )
+        session_state.bonds = (
+            "I'll never forget the crushing defeat my company suffered."
+        )
+        session_state.flaws = (
+            "I have little respect for anyone who is not a proven warrior."
+        )
 
         session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get an AI recommendation based on your current stats!"
+
         session_state.encounter_result = ""
         session_state.campaign_notes = "The Party enters the lower levels. You need to prepare encounters for the Goblin warren."
         session_state.npc_result = ""
+        session_state.session_prep_result = ""
         session_state.party = []
+        session_state.temp_forged_char = None
 
 
 def get_character_dict(session_state) -> dict:
@@ -76,6 +95,15 @@ def get_character_dict(session_state) -> dict:
         "equipment": session_state.equipment,
         "features_traits": session_state.features_traits,
         "spells": session_state.spells,
+        "spell_ability": session_state.spell_ability,
+        "spell_save_dc": session_state.spell_save_dc,
+        "spell_attack_bonus": session_state.spell_attack_bonus,
+        "hit_dice": session_state.hit_dice,
+        "passive_perception": session_state.passive_perception,
+        "personality_traits": session_state.personality_traits,
+        "ideals": session_state.ideals,
+        "bonds": session_state.bonds,
+        "flaws": session_state.flaws,
     }
 
 
@@ -99,5 +127,15 @@ def update_session_from_dict(session_state, data: dict):
     session_state.equipment = data.get("equipment", [])
     session_state.features_traits = data.get("features_traits", [])
     session_state.spells = data.get("spells", {})
+    session_state.spell_ability = data.get("spell_ability", "INT")
+    session_state.spell_save_dc = data.get("spell_save_dc", 10)
+    session_state.spell_attack_bonus = data.get("spell_attack_bonus", "+0")
+    session_state.hit_dice = data.get("hit_dice", "")
+    session_state.passive_perception = data.get("passive_perception", 10)
+    session_state.personality_traits = data.get("personality_traits", "")
+    session_state.ideals = data.get("ideals", "")
+    session_state.bonds = data.get("bonds", "")
+    session_state.flaws = data.get("flaws", "")
+
     if "stats" in data:
         session_state.stats = data["stats"]
