@@ -10,6 +10,7 @@ from backend.state_manager import (
 )
 from backend.pdf_exporter import export_character_to_pdf
 from backend.ui_utils import render_character_header
+from backend.image_utils import generate_portrait_url
 
 logger = logging.getLogger("DnDAssistant.PlayerView")
 
@@ -96,12 +97,20 @@ def render_active_character(accent_color: str):
         st.session_state.background,
         st.session_state.alignment,
         accent_color,
+        portrait_url=st.session_state.char_portrait,
     )
 
-    edit_col1, edit_col2 = st.columns([5, 1])
+    edit_col1, edit_col2, edit_col3 = st.columns([3, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")
+
+    if edit_col2.button("🎨 Portrait", use_container_width=True):
+        with st.spinner("Forging visual identity..."):
+            char_data = get_character_dict(st.session_state)
+            st.session_state.char_portrait = generate_portrait_url(char_data)
+            st.rerun()
+
     if edit_mode:
-        if edit_col2.button("💾 Save", use_container_width=True):
+        if edit_col3.button("💾 Save", use_container_width=True):
             char_data = get_character_dict(st.session_state)
             if save_character(char_data):
                 st.toast("Changes saved!")
@@ -520,13 +529,32 @@ def render_character_creator():
                 stats_str = " | ".join([f"{k}:{v}" for k, v in char["stats"].items()])
                 st.write(stats_str)
 
+            if st.button("🎨 Generate AI Portrait Preview", use_container_width=True):
+                with st.spinner("Forging visual identity..."):
+                    portrait_url = generate_portrait_url(char)
+                    # Use a temp state for forge preview
+                    st.session_state.temp_portrait = portrait_url
+                    st.rerun()
+
+            if "temp_portrait" in st.session_state and st.session_state.temp_portrait:
+                st.image(
+                    st.session_state.temp_portrait,
+                    caption="Character Portrait Preview",
+                    use_container_width=True,
+                )
+
             c_btn1, c_btn2 = st.columns(2)
             if c_btn1.button(
                 "✅ Accept & Equip Hero", use_container_width=True, type="primary"
             ):
                 char["char_id"] = str(uuid.uuid4())[:8]
                 update_session_from_dict(st.session_state, char)
-                if save_character(char):
+                # Apply the temp portrait if it was generated
+                if "temp_portrait" in st.session_state:
+                    st.session_state.char_portrait = st.session_state.temp_portrait
+                    st.session_state.temp_portrait = None
+
+                if save_character(get_character_dict(st.session_state)):
                     logger.info(f"Auto-saved new character: {char['char_name']}")
                 st.session_state.temp_forged_char = None
                 st.session_state.player_view = "sheet"

@@ -10,6 +10,8 @@ def init_session_state(session_state):
         session_state.character_active = False
     if "player_view" not in session_state:
         session_state.player_view = "sheet"
+    if "char_portrait" not in session_state:
+        session_state.char_portrait = None
 
     if "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]
@@ -108,6 +110,7 @@ def get_character_dict(session_state) -> dict:
         "ideals": session_state.ideals,
         "bonds": session_state.bonds,
         "flaws": session_state.flaws,
+        "char_portrait": session_state.char_portrait,
     }
 
 
@@ -141,6 +144,7 @@ def update_session_from_dict(session_state, data: dict):
     session_state.ideals = data.get("ideals", "")
     session_state.bonds = data.get("bonds", "")
     session_state.flaws = data.get("flaws", "")
+    session_state.char_portrait = data.get("char_portrait", None)
 
     if "stats" in data:
         session_state.stats = data["stats"]
