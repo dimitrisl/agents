@@ -6,4 +6,4 @@ poetry.lock
 .vscode/
 .temp_env/
 *.log
-data/exports/
+data/
