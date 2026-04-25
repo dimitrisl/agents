@@ -2,7 +2,12 @@ import streamlit as st
 import logging
 import uuid
 from backend.ai_client import get_build_suggestion, forge_character
-from backend.storage import save_character, load_character, list_characters
+from backend.storage import (
+    save_character,
+    load_character,
+    list_characters,
+    delete_character,
+)
 from backend.state_manager import (
     get_character_dict,
     update_session_from_dict,
@@ -29,13 +34,13 @@ def render_player_dashboard(accent_color: str):
                 if st.session_state.player_view == "sheet"
                 else "🛡️ View Sheet"
             )
-            if st.button(label, use_container_width=True):
+            if st.button(label, width="stretch"):
                 st.session_state.player_view = (
                     "forge" if st.session_state.player_view == "sheet" else "sheet"
                 )
                 st.rerun()
         with col3:
-            if st.button("🔄 Exit Hero", use_container_width=True):
+            if st.button("🔄 Exit Hero", width="stretch"):
                 st.session_state.character_active = False
                 st.rerun()
 
@@ -56,31 +61,59 @@ def render_selection_screen():
     with col_load:
         st.subheader("🛡️ Equip a Hero")
         st.write("Load one of your previously saved characters from the vault.")
-        available_chars = list_characters()
-        if available_chars:
+        saved_chars = list_characters()
+        if saved_chars:
+            for char_file in saved_chars:
+                # Extract full name from filename (format: name_with_underscores_uuid.json)
+                name_parts = char_file.replace(".json", "").split("_")
+                display_name = " ".join(name_parts[:-1]).title()
 
-            def format_char_filename(fname):
-                return fname.replace(".json", "").replace("_", " ").title()
+                c_col1, c_col2 = st.columns([4, 1])
+                if c_col1.button(
+                    f"🛡️ {display_name}", width="stretch", key=f"load_{char_file}"
+                ):
+                    data = load_character(char_file)
+                    if data:
+                        update_session_from_dict(st.session_state, data)
+                        st.session_state.character_active = True
+                        st.rerun()
 
-            selected_file = st.selectbox(
-                "Select Hero",
-                available_chars,
-                format_func=format_char_filename,
-                key="selection_load",
-            )
-            if st.button("Equip Character", type="primary", use_container_width=True):
-                char_data = load_character(selected_file)
-                if char_data:
-                    update_session_from_dict(st.session_state, char_data)
-                    st.toast(f"Equipped {st.session_state.char_name}!")
-                    st.rerun()
+                # Delete button with double-click confirmation pattern
+                delete_key = f"confirm_delete_{char_file}"
+                if delete_key not in st.session_state:
+                    st.session_state[delete_key] = False
+
+                if not st.session_state[delete_key]:
+                    if c_col2.button(
+                        "🗑️",
+                        help=f"Delete {display_name}",
+                        key=f"del_{char_file}",
+                        width="stretch",
+                    ):
+                        st.session_state[delete_key] = True
+                        st.rerun()
+                else:
+                    if c_col2.button(
+                        "⚠️ OK?",
+                        help="Confirm Delete",
+                        key=f"conf_{char_file}",
+                        width="stretch",
+                        type="primary",
+                    ):
+                        if delete_character(char_file):
+                            st.toast(f"Deleted {display_name}")
+                            del st.session_state[delete_key]
+                            st.rerun()
+                    if st.button("Cancel", key=f"can_{char_file}"):
+                        st.session_state[delete_key] = False
+                        st.rerun()
         else:
             st.info("No saved heroes found in the vault.")
 
     with col_forge:
         st.subheader("✨ Forge a New Hero")
         st.write("Let AI assist you in creating a brand new legendary character.")
-        if st.button("Go to Character Forge", use_container_width=True):
+        if st.button("Go to Character Forge", width="stretch"):
             st.session_state.character_active = True
             st.session_state.player_view = "forge"
             st.rerun()
@@ -103,7 +136,7 @@ def render_active_character(accent_color: str):
     edit_col1, edit_col2, edit_col3 = st.columns([3, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")
 
-    if edit_col2.button("🎨 Portrait", use_container_width=True):
+    if edit_col2.button("🎨 Portrait", width="stretch"):
         with st.spinner("Forging visual identity..."):
             char_data = get_character_dict(st.session_state)
             st.session_state.char_portrait = generate_portrait_url(char_data)
@@ -111,10 +144,10 @@ def render_active_character(accent_color: str):
 
     if st.session_state.char_portrait:
         with st.expander("🖼️ Portrait Preview", expanded=False):
-            st.image(st.session_state.char_portrait, use_container_width=True)
+            st.image(st.session_state.char_portrait, width="stretch")
 
     if edit_mode:
-        if edit_col3.button("💾 Save", use_container_width=True):
+        if edit_col3.button("💾 Save", width="stretch"):
             char_data = get_character_dict(st.session_state)
             if save_character(char_data):
                 st.toast("Changes saved!")
@@ -166,7 +199,7 @@ def render_active_character(accent_color: str):
             data=pdf_bytes,
             file_name=f"{char_dict['char_name']}_Sheet.pdf",
             mime="application/pdf",
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.error("Failed to generate PDF. Please ensure the template is present.")
@@ -474,6 +507,7 @@ def render_character_creator():
                     "Entertainer",
                 ],
             )
+            forge_gender = st.selectbox("Gender", ["AI Choice", "Male", "Female"])
 
         concept = st.text_area(
             "Additional Flavor / Concept:",
@@ -490,7 +524,7 @@ def render_character_creator():
         )
 
     if st.session_state.temp_forged_char is None:
-        if st.button("Generate Character", type="primary", use_container_width=True):
+        if st.button("Generate Character", type="primary", width="stretch"):
             logger.info(
                 f"User requested AI Character Forge: Name={custom_name}, Race={forge_race}, Class={forge_class}, Level={target_level}, Flavor={concept}"
             )
@@ -501,11 +535,16 @@ def render_character_creator():
                     forge_class,
                     forge_background,
                     concept,
+                    gender=forge_gender,
                     stats_mode="rolled" if use_rolled else "standard",
                     char_name=custom_name if custom_name else None,
                 )
                 if result and "char_name" in result:
+                    # Automatically generate portrait during forging
+                    result["char_portrait"] = generate_portrait_url(result)
                     st.session_state.temp_forged_char = result
+                    # Also set temp_portrait for the preview
+                    st.session_state.temp_portrait = result["char_portrait"]
                     st.rerun()
                 else:
                     st.error("Failed to generate character. Please try again.")
@@ -529,7 +568,7 @@ def render_character_creator():
                 stats_str = " | ".join([f"{k}:{v}" for k, v in char["stats"].items()])
                 st.write(stats_str)
 
-            if st.button("🎨 Generate AI Portrait Preview", use_container_width=True):
+            if st.button("🔄 Regenerate Portrait", width="stretch"):
                 with st.spinner("Forging visual identity..."):
                     portrait_url = generate_portrait_url(char)
                     # Use a temp state for forge preview
@@ -540,13 +579,11 @@ def render_character_creator():
                 st.image(
                     st.session_state.temp_portrait,
                     caption="Character Portrait Preview",
-                    use_container_width=True,
+                    width="stretch",
                 )
 
             c_btn1, c_btn2 = st.columns(2)
-            if c_btn1.button(
-                "✅ Accept & Equip Hero", use_container_width=True, type="primary"
-            ):
+            if c_btn1.button("✅ Accept & Equip Hero", width="stretch", type="primary"):
                 char["char_id"] = str(uuid.uuid4())[:8]
                 update_session_from_dict(st.session_state, char)
                 # Apply the temp portrait if it was generated
@@ -565,6 +602,6 @@ def render_character_creator():
                 )
                 st.rerun()
 
-            if c_btn2.button("❌ Discard", use_container_width=True):
+            if c_btn2.button("❌ Discard", width="stretch"):
                 st.session_state.temp_forged_char = None
                 st.rerun()

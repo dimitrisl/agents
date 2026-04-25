@@ -1410,3 +1410,108 @@ pypdf.errors.PyPdfError: No /AcroForm dictionary in PDF of PdfWriter Object
 2026-04-25 13:11:10,271 [INFO] DnDAssistant: Streamlit page configuration and custom CSS set.
 2026-04-25 13:11:10,285 [INFO] DnDAssistant.PDFExporter: Exporting character Barnaby 'Barny' Crumblecrust to PDF.
 2026-04-25 13:11:10,510 [INFO] DnDAssistant.PDFExporter: PDF generation successful.
+2026-04-25 23:04:34,731 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/ignis_shadowbrook_06e896c2.json
+2026-04-25 23:04:34,854 [INFO] DnDAssistant.PDFExporter: Exporting character Ignis Shadowbrook to PDF.
+2026-04-25 23:04:34,863 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:04:35,072 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:04:35,169 [ERROR] DnDAssistant.PDFExporter: Failed to generate PDF: No /AcroForm dictionary in PDF of PdfWriter Object
+Traceback (most recent call last):
+  File "/home/dimitrisl/Public/yet_another_dnd_project/agents/backend/pdf_exporter.py", line 204, in export_character_to_pdf
+    writer.update_page_form_field_values(page, field_data)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/home/dimitrisl/.cache/pypoetry/virtualenvs/agents-RZSmSi36-py3.13/lib/python3.13/site-packages/pypdf/_writer.py", line 993, in update_page_form_field_values
+    raise PyPdfError("No /AcroForm dictionary in PDF of PdfWriter Object")
+pypdf.errors.PyPdfError: No /AcroForm dictionary in PDF of PdfWriter Object
+2026-04-25 23:04:40,825 [INFO] DnDAssistant.Storage: Successfully deleted character: data/characters/ignis_shadowbrook_06e896c2.json
+2026-04-25 23:04:57,472 [INFO] DnDAssistant.PlayerView: User requested AI Character Forge: Name=, Race=Human, Class=Rogue, Level=4, Flavor=
+2026-04-25 23:04:57,473 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 23:04:57,473 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-25 23:04:57,474 [ERROR] DnDAssistant.AIClient: GEMINI_API_KEY is missing from environment variables.
+2026-04-25 23:04:57,474 [ERROR] DnDAssistant.AIClient: Cannot generate JSON: AI Client is None.
+2026-04-25 23:05:46,595 [INFO] DnDAssistant.PlayerView: User requested AI Character Forge: Name=, Race=AI Choice, Class=Monk, Level=1, Flavor=
+2026-04-25 23:05:46,596 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 23:05:46,596 [ERROR] DnDAssistant.AIClient: Cannot generate JSON: AI Client is None.
+2026-04-25 23:07:13,947 [INFO] DnDAssistant.PlayerView: User requested AI Character Forge: Name=, Race=AI Choice, Class=Cleric, Level=1, Flavor=
+2026-04-25 23:07:13,950 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 23:07:13,951 [ERROR] DnDAssistant.AIClient: Cannot generate JSON: AI Client is None.
+2026-04-25 23:08:14,423 [INFO] DnDAssistant.PlayerView: User requested AI Character Forge: Name=, Race=AI Choice, Class=Druid, Level=1, Flavor=
+2026-04-25 23:08:14,423 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 23:08:14,424 [ERROR] DnDAssistant.AIClient: Cannot generate JSON: AI Client is None.
+2026-04-25 23:09:36,591 [INFO] DnDAssistant.PlayerView: User requested AI Character Forge: Name=, Race=AI Choice, Class=Druid, Level=1, Flavor=
+2026-04-25 23:09:36,592 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 23:09:36,593 [INFO] DnDAssistant.AIClient: Attempting to initialize Gemini AI Client.
+2026-04-25 23:09:36,670 [INFO] DnDAssistant.AIClient: Gemini AI Client successfully initialized.
+2026-04-25 23:09:36,906 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 23:09:36,999 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 23:09:37,003 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 23:09:57,558 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 23:09:57,563 [INFO] DnDAssistant.AIClient: Received JSON response from Gemini. Attempting to parse...
+2026-04-25 23:09:57,565 [INFO] DnDAssistant.AIClient: Successfully parsed JSON data from Gemini.
+2026-04-25 23:10:18,675 [INFO] DnDAssistant.Storage: Successfully saved character to data/characters/lyra_whisperwind_5b88c8d7.json
+2026-04-25 23:10:18,676 [INFO] DnDAssistant.PlayerView: Auto-saved new character: Lyra Whisperwind
+2026-04-25 23:10:18,737 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:10:18,915 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:10:19,742 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:10:19,772 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:10:21,539 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:10:21,711 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:10:31,867 [ERROR] DnDAssistant.PDFExporter: Failed to create image overlay: HTTPSConnectionPool(host='image.pollinations.ai', port=443): Read timed out. (read timeout=10)
+2026-04-25 23:10:31,935 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:11:05,534 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:11:05,715 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:11:15,886 [ERROR] DnDAssistant.PDFExporter: Failed to create image overlay: HTTPSConnectionPool(host='image.pollinations.ai', port=443): Read timed out. (read timeout=10)
+2026-04-25 23:11:15,937 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:11:23,361 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/lyra_whisperwind_5b88c8d7.json
+2026-04-25 23:11:23,433 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:11:23,609 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:11:23,918 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:11:23,949 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:13:24,079 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:13:24,258 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:13:24,572 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:13:24,604 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:13:28,670 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:13:28,854 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:13:29,193 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:13:29,223 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:13:31,289 [INFO] DnDAssistant.PDFExporter: Exporting character Lyra Whisperwind to PDF.
+2026-04-25 23:13:31,465 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:13:31,718 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:13:31,749 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:13:35,938 [INFO] DnDAssistant.Storage: Successfully deleted character: data/characters/lyra_whisperwind_5b88c8d7.json
+2026-04-25 23:13:46,870 [INFO] DnDAssistant.PlayerView: User requested AI Character Forge: Name=, Race=AI Choice, Class=Warlock, Level=1, Flavor=
+2026-04-25 23:13:46,872 [INFO] DnDAssistant.AIClient: Generating structured AI JSON response...
+2026-04-25 23:13:47,045 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models "HTTP/1.1 200 OK"
+2026-04-25 23:13:47,156 [INFO] httpx: HTTP Request: GET https://generativelanguage.googleapis.com/v1beta/models?pageToken=CiRtb2RlbHMvdmVvLTMuMS1mYXN0LWdlbmVyYXRlLXByZXZpZXc%3D "HTTP/1.1 200 OK"
+2026-04-25 23:13:47,162 [INFO] google_genai.models: AFC is enabled with max remote calls: 10.
+2026-04-25 23:14:11,685 [INFO] httpx: HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-04-25 23:14:11,690 [INFO] DnDAssistant.AIClient: Received JSON response from Gemini. Attempting to parse...
+2026-04-25 23:14:11,690 [INFO] DnDAssistant.AIClient: Successfully parsed JSON data from Gemini.
+2026-04-25 23:16:01,871 [INFO] DnDAssistant.Storage: Successfully saved character to data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:16:01,871 [INFO] DnDAssistant.PlayerView: Auto-saved new character: Seraphina Blackwood
+2026-04-25 23:16:01,934 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:16:02,111 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:16:03,058 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:16:03,090 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:16:45,012 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:16:45,191 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:16:45,477 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:16:45,508 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:17:49,462 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:17:49,533 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:17:49,712 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:17:50,007 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:17:50,040 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:17:51,157 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:17:51,336 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:17:51,538 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:17:51,571 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:18:39,885 [INFO] DnDAssistant.Storage: Successfully loaded character from data/characters/seraphina_blackwood_c5acb247.json
+2026-04-25 23:18:39,952 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:18:40,134 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:18:40,324 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:18:40,356 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).
+2026-04-25 23:18:42,457 [INFO] DnDAssistant.PDFExporter: Exporting character Seraphina Blackwood to PDF.
+2026-04-25 23:18:42,632 [INFO] DnDAssistant.PDFExporter: Generating portrait overlay for PDF...
+2026-04-25 23:18:42,847 [INFO] DnDAssistant.PDFExporter: Merged portrait overlay onto page 2.
+2026-04-25 23:18:42,883 [INFO] DnDAssistant.PDFExporter: PDF generation successful (returned as bytes).

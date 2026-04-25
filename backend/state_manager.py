@@ -12,6 +12,8 @@ def init_session_state(session_state):
         session_state.player_view = "sheet"
     if "char_portrait" not in session_state:
         session_state.char_portrait = None
+    if "gender" not in session_state:
+        session_state.gender = "Male"
 
     if "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]
@@ -19,6 +21,7 @@ def init_session_state(session_state):
         session_state.char_class = "Paladin"
         session_state.char_level = 5
         session_state.race = "Human"
+        session_state.gender = "Male"
         session_state.background = "Soldier"
         session_state.alignment = "Lawful Good"
         session_state.backstory = (
@@ -87,6 +90,7 @@ def get_character_dict(session_state) -> dict:
         "char_class": session_state.char_class,
         "char_level": session_state.char_level,
         "race": session_state.race,
+        "gender": getattr(session_state, "gender", "Unknown"),
         "background": session_state.background,
         "alignment": session_state.alignment,
         "backstory": session_state.backstory,
@@ -122,6 +126,7 @@ def update_session_from_dict(session_state, data: dict):
     session_state.char_class = data.get("char_class", "Commoner")
     session_state.char_level = data.get("char_level", 1)
     session_state.race = data.get("race", "Unknown")
+    session_state.gender = data.get("gender", "Unknown")
     session_state.background = data.get("background", "Unknown")
     session_state.alignment = data.get("alignment", "Unknown")
     session_state.backstory = data.get("backstory", "")

@@ -2,7 +2,11 @@ import os
 import json
 import logging
 import streamlit as st
+from dotenv import load_dotenv
 from google import genai
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger("DnDAssistant.AIClient")
 
@@ -10,14 +14,23 @@ logger = logging.getLogger("DnDAssistant.AIClient")
 # ==========================================
 # AI Helper Functions
 # ==========================================
-@st.cache_resource
 def get_ai_client():
-    logger.info("Attempting to initialize Gemini AI Client.")
-    if not os.getenv("GEMINI_API_KEY"):
+    """Initializes the Gemini AI Client. Not cached if it fails to find the API key."""
+    # Ensure environment variables are loaded
+    load_dotenv()
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
         logger.error("GEMINI_API_KEY is missing from environment variables.")
         return None
-    logger.info("Gemini AI Client successfully initialized.")
-    return genai.Client()
+
+    # We use a local cache-like behavior only on success to avoid re-initializing every time
+    if not hasattr(st, "_genai_client"):
+        logger.info("Attempting to initialize Gemini AI Client.")
+        st._genai_client = genai.Client(api_key=api_key)
+        logger.info("Gemini AI Client successfully initialized.")
+
+    return st._genai_client
 
 
 def get_flash_model(client):
@@ -116,18 +129,61 @@ def forge_character(
     forge_class,
     forge_background,
     concept,
+    gender="AI Choice",
     stats_mode="standard",
     char_name=None,
 ) -> dict:
-    race_prompt = forge_race if forge_race != "AI Choice" else "Choose an optimal race"
+    allowed_races = [
+        "Human",
+        "Elf",
+        "Dwarf",
+        "Halfling",
+        "Dragonborn",
+        "Tiefling",
+        "Half-Orc",
+        "Gnome",
+    ]
+    allowed_classes = [
+        "Fighter",
+        "Wizard",
+        "Rogue",
+        "Cleric",
+        "Paladin",
+        "Ranger",
+        "Barbarian",
+        "Bard",
+        "Warlock",
+        "Monk",
+        "Druid",
+        "Sorcerer",
+    ]
+    allowed_backgrounds = [
+        "Acolyte",
+        "Criminal",
+        "Folk Hero",
+        "Noble",
+        "Soldier",
+        "Sage",
+        "Charlatan",
+        "Entertainer",
+    ]
+
+    race_prompt = (
+        forge_race
+        if forge_race != "AI Choice"
+        else f"Choose one from: {', '.join(allowed_races)}"
+    )
     class_prompt = (
-        forge_class if forge_class != "AI Choice" else "Choose an optimal class"
+        forge_class
+        if forge_class != "AI Choice"
+        else f"Choose one from: {', '.join(allowed_classes)}"
     )
     bg_prompt = (
         forge_background
         if forge_background != "AI Choice"
-        else "Choose an optimal background"
+        else f"Choose one from: {', '.join(allowed_backgrounds)}"
     )
+    gender_prompt = gender if gender != "AI Choice" else "Choose Male or Female"
 
     name_instruction = (
         f"Character Name: {char_name}"
@@ -143,10 +199,16 @@ def forge_character(
     prompt = f"""
     Create a fully fleshed out level {target_level} D&D 5e (2014 edition) character.
     {name_instruction}
+    Gender: {gender_prompt}
     Race: {race_prompt}
     Class: {class_prompt}
     Background: {bg_prompt}
     Flavor/Concept: {concept}
+
+    STRICT RULES:
+    1. Race MUST be one of: {allowed_races}
+    2. Class MUST be one of: {allowed_classes}
+    3. Background MUST be one of: {allowed_backgrounds}
 
     {stats_instruction}
 
@@ -155,6 +217,7 @@ def forge_character(
     Output the character strictly as a JSON object with exactly the following schema:
     {{
         "char_name": "Name of the character",
+        "gender": "{gender_prompt if gender != "AI Choice" else "Male/Female"}",
         "char_class": "Class (e.g., Fighter, Wizard)",
         "char_level": {target_level},
         "race": "Race",

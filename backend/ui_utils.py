@@ -98,20 +98,29 @@ def render_character_header(
     accent_color: str,
     portrait_url: str = None,
 ):
-    """Renders a visually striking header for the character sheet."""
-    st.markdown(
-        f"""
-        <div class="character-header" style="border-left: 10px solid {accent_color}; padding-left: 20px; margin-bottom: 25px;">
-            <div style="display: flex; align-items: center; gap: 25px;">
-                {f'<div class="portrait-container"><img src="{portrait_url}" class="portrait-img"></div>' if portrait_url else ""}
-                <div>
-                    <h1 style="margin: 0; padding: 0; font-size: 2.5rem; color: white !important;">{name}</h1>
-                    <p style="margin: 5px 0 0 0; font-size: 1.2rem; opacity: 0.9; color: white;">
-                        Level {level} {race} {char_class} • {background} • {alignment}
-                    </p>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """Renders a visually striking header using native Streamlit components."""
+    with st.container():
+        # Add a custom CSS anchor point for the banner style
+        st.markdown('<div class="char-banner">', unsafe_allow_html=True)
+
+        col_img, col_text = st.columns([1, 5])
+
+        if portrait_url:
+            with col_img:
+                st.markdown(
+                    f"""
+                    <div class="portrait-container">
+                        <img src="{portrait_url}" class="portrait-img">
+                    </div>
+                """,
+                    unsafe_allow_html=True,
+                )
+
+        with col_text:
+            st.markdown(
+                f"<h1 style='margin-bottom: 0;'>{name}</h1>", unsafe_allow_html=True
+            )
+            st.markdown(f"**Level {level} {race} {char_class}**")
+            st.caption(f"{background} • {alignment}")
+
+        st.markdown("</div>", unsafe_allow_html=True)

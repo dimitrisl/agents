@@ -33,8 +33,13 @@ with st.sidebar:
     st.title("🎲 D&D AI Assistant")
     st.markdown("---")
 
+    # Dynamic labels based on state
+    player_label = "🗡️ Player Dashboard"
+    if st.session_state.get("character_active") and st.session_state.get("char_name"):
+        player_label = f"🗡️ Hero: {st.session_state.char_name}"
+
     view_mode = st.radio(
-        "Select Mode:", ["🗡️ Player Dashboard", "🏰 Dungeon Master View"], index=0
+        "Select Mode:", [player_label, "🏰 Dungeon Master View"], index=0
     )
 
     # Theme configuration
@@ -45,7 +50,7 @@ with st.sidebar:
     inject_custom_css(primary_color, accent_color)
 
     st.markdown("---")
-    if st.button("✨ Reset App State", use_container_width=True):
+    if st.button("✨ Reset App State", width="stretch"):
         logger.warning("User initiated App State Reset.")
         st.session_state.clear()
         st.rerun()
@@ -53,7 +58,7 @@ with st.sidebar:
 # ==========================================
 # Main Content Router
 # ==========================================
-if view_mode == "🗡️ Player Dashboard":
-    render_player_dashboard(accent_color)
-else:
+if view_mode == "🏰 Dungeon Master View":
     render_dm_workspace()
+else:
+    render_player_dashboard(accent_color)

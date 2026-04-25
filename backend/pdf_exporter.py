@@ -1,13 +1,51 @@
 import os
 import logging
+import requests
+import io
+from dotenv import load_dotenv
 from pypdf import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from backend.calculations import calculate_modifier
+
+load_dotenv()
 
 logger = logging.getLogger("DnDAssistant.PDFExporter")
 
 
 def format_mod(mod: int) -> str:
     return f"+{mod}" if mod >= 0 else str(mod)
+
+
+def create_image_overlay(image_url: str) -> io.BytesIO:
+    """Creates a transparent PDF page with the image at specific coordinates."""
+    try:
+        resp = requests.get(image_url, timeout=10)
+        if resp.status_code != 200:
+            return None
+
+        img_data = io.BytesIO(resp.content)
+        overlay_stream = io.BytesIO()
+
+        # Create a canvas for a Letter size page (standard for 5e sheets)
+        from reportlab.lib.pagesizes import letter
+
+        can = canvas.Canvas(overlay_stream, pagesize=letter)
+
+        # Coordinates for "Character Appearance" on Page 2 of standard 5e sheet
+        # Adjusting to middle-left based on user feedback
+        # x, y, width, height
+        can.drawImage(
+            ImageReader(img_data), 45, 450, width=175, height=180, mask="auto"
+        )
+        can.showPage()
+        can.save()
+
+        overlay_stream.seek(0)
+        return overlay_stream
+    except Exception as e:
+        logger.error(f"Failed to create image overlay: {e}")
+        return None
 
 
 def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
@@ -21,13 +59,12 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
     try:
         reader = PdfReader(template_path)
         writer = PdfWriter()
+
+        # 1. Append the template to preserve AcroForm (form fields)
         writer.append(reader)
 
-        # ... (rest of the mapping logic stays the same)
-
+        # 1. Fill all fields first (before merging images)
         stats = char_data.get("stats", {})
-
-        # 1. Base Core Fields
         field_data = {
             "CharacterName": char_data.get("char_name", ""),
             "ClassLevel": f"{char_data.get('char_class', '')} {char_data.get('char_level', '')}",
@@ -42,7 +79,7 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "ProfBonus": format_mod(char_data.get("proficiency_bonus", 2)),
         }
 
-        # 2. Ability Scores & Modifiers
+        # ... (rest of mapping logic)
         stat_keys = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
         mod_keys = {
             "STR": "STRmod",
@@ -52,18 +89,15 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "WIS": "WISmod",
             "CHA": "CHamod",
         }
-
         for st in stat_keys:
             val = stats.get(st, 10)
             mod = calculate_modifier(val)
             field_data[st] = str(val)
             field_data[mod_keys[st]] = format_mod(mod)
 
-        # Initiative is usually DEX mod
         dex_mod = calculate_modifier(stats.get("DEX", 10))
         field_data["Initiative"] = format_mod(dex_mod)
 
-        # 3. Skills Mapping
         skill_map = {
             "Acrobatics": "Acrobatics",
             "Animal Handling": "Animal",
@@ -84,13 +118,11 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "Stealth": "Stealth ",
             "Survival": "Survival",
         }
-
         char_skills = char_data.get("skills", {})
         for sk_name, sk_val in char_skills.items():
             if sk_name in skill_map:
                 field_data[skill_map[sk_name]] = str(sk_val)
 
-        # 4. Saving Throws
         save_map = {
             "STR": "ST Strength",
             "DEX": "ST Dexterity",
@@ -105,7 +137,6 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
                 mod = calculate_modifier(val) + char_data.get("proficiency_bonus", 2)
                 field_data[save_map[sv]] = format_mod(mod)
 
-        # 5. Weapons (up to 3)
         weapons = char_data.get("weapons", [])
         if len(weapons) > 0:
             field_data["Wpn Name"] = weapons[0].get("name", "")
@@ -120,10 +151,8 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             field_data["Wpn3 AtkBonus  "] = weapons[2].get("attack_bonus", "")
             field_data["Wpn3 Damage "] = weapons[2].get("damage", "")
 
-        # 6. Equipment, Features & Personality
         equip_text = "\\n".join(char_data.get("equipment", []))
         field_data["Equipment"] = equip_text
-
         feats = char_data.get("features_traits", [])
         feat_text = "\\n".join(
             [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
@@ -137,7 +166,6 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
         field_data["Passive"] = str(char_data.get("passive_perception", 10))
         field_data["HDTotal"] = char_data.get("hit_dice", "")
 
-        # Append spells to correct spell fields
         spells = char_data.get("spells", {})
         if spells:
             spell_field_map = {
@@ -159,7 +187,7 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
                         if i < len(target_fields):
                             field_data[target_fields[i]] = spell
 
-        # 7. Spellcasting Header Mapping (Page 3)
+        char_class = char_data.get("char_class", "")
         spell_ability_map = {
             "Wizard": "INT",
             "Artificer": "INT",
@@ -171,8 +199,6 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "Warlock": "CHA",
             "Bard": "CHA",
         }
-        char_class = char_data.get("char_class", "")
-        # Try to get from data first, otherwise calculate
         spell_stat = char_data.get(
             "spell_ability", spell_ability_map.get(char_class, "INT")
         )
@@ -188,11 +214,20 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "spell_attack_bonus", format_mod(spell_mod + prof_bonus)
         )
 
-        # Update all fields on all pages (to ensure spells on page 3 are filled)
         for page in writer.pages:
             writer.update_page_form_field_values(page, field_data)
 
-        import io
+        # 2. Add portrait overlay AFTER filling fields
+        portrait_url = char_data.get("char_portrait")
+        if portrait_url:
+            logger.info("Generating portrait overlay for PDF...")
+            overlay_stream = create_image_overlay(portrait_url)
+            if overlay_stream:
+                overlay_reader = PdfReader(overlay_stream)
+                overlay_page = overlay_reader.pages[0]
+                if len(writer.pages) > 1:
+                    writer.pages[1].merge_page(overlay_page)
+                    logger.info("Merged portrait overlay onto page 2.")
 
         output_stream = io.BytesIO()
         writer.write(output_stream)

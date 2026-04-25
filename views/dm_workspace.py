@@ -53,7 +53,7 @@ def _render_campaign_notes():
         if camp_list:
             selected_camp = st.selectbox("Load Campaign", ["-- Select --"] + camp_list)
             if selected_camp != "-- Select --" and st.button(
-                "Load Campaign", use_container_width=True
+                "Load Campaign", width="stretch"
             ):
                 data = load_campaign(selected_camp)
                 if data:
@@ -64,7 +64,7 @@ def _render_campaign_notes():
 
         col_cname, col_csave = st.columns([3, 1], vertical_alignment="bottom")
         camp_name = col_cname.text_input("Campaign Name", "The Sunless Citadel")
-        if col_csave.button("Save Notes", type="primary", use_container_width=True):
+        if col_csave.button("Save Notes", type="primary", width="stretch"):
             if save_campaign(camp_name, st.session_state.campaign_notes):
                 st.toast("Notes saved!")
             else:
@@ -72,7 +72,7 @@ def _render_campaign_notes():
 
     st.markdown("---")
     st.subheader("✨ AI Session Prep")
-    if st.button("Generate Next Session Prep", use_container_width=True):
+    if st.button("Generate Next Session Prep", width="stretch"):
         party_info = (
             ", ".join(
                 [
@@ -110,7 +110,7 @@ def _render_party_tracker():
                 format_func=format_char_filename,
                 key="dm_ingest_select",
             )
-            if st.button("Add to Party", use_container_width=True):
+            if st.button("Add to Party", width="stretch"):
                 char_data = load_character(char_to_add)
                 if char_data:
                     if "char_id" not in char_data:
@@ -157,7 +157,7 @@ def _render_party_tracker():
             key="q_concept",
         )
 
-        if st.button("Forge & Add", use_container_width=True):
+        if st.button("Forge & Add", width="stretch"):
             with st.spinner("Forging..."):
                 result = forge_character(
                     q_level,
