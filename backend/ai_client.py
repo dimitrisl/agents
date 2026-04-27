@@ -14,6 +14,12 @@ logger = logging.getLogger("DnDAssistant.AIClient")
 
 
 # ==========================================
+# AI Constants & Config
+# ==========================================
+DEFAULT_TEMPERATURE = 0.9
+
+
+# ==========================================
 # AI Helper Functions
 # ==========================================
 def get_ai_client():
@@ -60,7 +66,13 @@ def generate_ai_response(prompt: str) -> str:
 
     try:
         model = get_flash_model(client)
-        response = client.models.generate_content(model=model, contents=prompt)
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                temperature=DEFAULT_TEMPERATURE,
+            ),
+        )
         logger.info("Successfully received standard response from Gemini.")
         return response.text
     except Exception as e:
@@ -87,6 +99,7 @@ def generate_ai_json(prompt: str) -> dict:
             contents=prompt,
             config=genai.types.GenerateContentConfig(
                 response_mime_type="application/json",
+                temperature=DEFAULT_TEMPERATURE,
             ),
         )
         logger.info("Received JSON response from Gemini. Attempting to parse...")
