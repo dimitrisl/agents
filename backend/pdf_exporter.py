@@ -126,10 +126,32 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "Stealth": "Stealth ",
             "Survival": "Survival",
         }
+        skill_check_map = {
+            "Acrobatics": "Check Box 23",
+            "Animal Handling": "Check Box 24",
+            "Arcana": "Check Box 25",
+            "Athletics": "Check Box 26",
+            "Deception": "Check Box 27",
+            "History": "Check Box 28",
+            "Insight": "Check Box 29",
+            "Intimidation": "Check Box 30",
+            "Investigation": "Check Box 31",
+            "Medicine": "Check Box 32",
+            "Nature": "Check Box 33",
+            "Perception": "Check Box 34",
+            "Performance": "Check Box 35",
+            "Persuasion": "Check Box 36",
+            "Religion": "Check Box 37",
+            "Sleight of Hand": "Check Box 38",
+            "Stealth": "Check Box 39",
+            "Survival": "Check Box 40",
+        }
         char_skills = char_data.get("skills", {})
         for sk_name, sk_val in char_skills.items():
             if sk_name in skill_map:
                 field_data[skill_map[sk_name]] = str(sk_val)
+            if sk_name in skill_check_map:
+                field_data[skill_check_map[sk_name]] = "/Yes"
 
         save_map = {
             "STR": "ST Strength",
@@ -139,11 +161,21 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "WIS": "ST Wisdom",
             "CHA": "ST Charisma",
         }
+        save_check_map = {
+            "STR": "Check Box 11",
+            "DEX": "Check Box 12",
+            "CON": "Check Box 13",
+            "INT": "Check Box 14",
+            "WIS": "Check Box 15",
+            "CHA": "Check Box 16",
+        }
         for sv in char_data.get("saving_throws", []):
             if sv in save_map:
                 val = stats.get(sv, 10)
                 mod = calculate_modifier(val) + char_data.get("proficiency_bonus", 2)
                 field_data[save_map[sv]] = format_mod(mod)
+            if sv in save_check_map:
+                field_data[save_check_map[sv]] = "/Yes"
 
         weapons = char_data.get("weapons", [])
         if len(weapons) > 0:

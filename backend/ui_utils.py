@@ -82,6 +82,44 @@ def inject_custom_css(primary_color: str, accent_color: str):
                 padding-left: 15px;
                 margin-bottom: 25px;
             }}
+
+            /* Sidebar Radio Buttons as Segmented Control (Pills) */
+            [data-testid="stSidebar"] .stRadio > div[role="radiogroup"] {{
+                flex-direction: column !important;
+                gap: 10px;
+                padding: 5px 0;
+            }}
+            [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] {{
+                background-color: rgba(255, 255, 255, 0.03) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                border-radius: 10px !important;
+                padding: 10px 14px !important;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                width: 100% !important;
+                margin: 0 !important;
+            }}
+            [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] div[data-testid="stMarkdownContainer"] p {{
+                font-weight: 600 !important;
+                font-size: 0.95rem !important;
+                margin: 0 !important;
+            }}
+            [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"] > div:first-child {{
+                display: none !important; /* Hide standard radio circle */
+            }}
+            [data-testid="stSidebar"] .stRadio label[data-baseweb="radio"]:hover {{
+                background-color: rgba(255, 255, 255, 0.08) !important;
+                border-color: rgba(255, 255, 255, 0.2) !important;
+            }}
+            /* Target the selected state */
+            [data-testid="stSidebar"] .stRadio label:has(input:checked) {{
+                background-color: {primary_color} !important;
+                border-color: {primary_color} !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+            }}
+            [data-testid="stSidebar"] .stRadio label:has(input:checked) p {{
+                color: white !important;
+            }}
         </style>
     """,
         unsafe_allow_html=True,

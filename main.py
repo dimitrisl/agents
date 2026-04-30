@@ -35,7 +35,16 @@ init_session_state(st.session_state)
 # Sidebar Navigation & Themes
 # ==========================================
 with st.sidebar:
-    st.title("🎲 D&D AI Assistant")
+    # App Logo
+    st.image("assets/logo.png", use_container_width=True)
+    st.markdown(
+        "<h2 style='text-align: center; margin-top: -20px; color: #ff4b4b;'>Phyrexian Forge</h2>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p style='text-align: center; font-style: italic; margin-top: -15px; color: #888;'>\"All will be one.\"</p>",
+        unsafe_allow_html=True,
+    )
     st.markdown("---")
 
     player_label = "🗡️ Player Dashboard"
@@ -49,8 +58,12 @@ with st.sidebar:
 
     st.markdown("---")
 
+    st.markdown("**🎮 Application Mode:**")
     view_mode = st.radio(
-        "Select Mode:", [player_label, "🏰 Dungeon Master View"], index=0
+        "Application Mode",
+        [player_label, "🏰 Dungeon Master View"],
+        index=0,
+        label_visibility="collapsed",
     )
 
     # Theme configuration
