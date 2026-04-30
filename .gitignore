@@ -7,3 +7,4 @@ poetry.lock
 .temp_env/
 *.log
 data/
+app_debug.log
