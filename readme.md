@@ -1,29 +1,39 @@
-# 🎲 D&D AI Assistant
+# 🩸 Phyrexian Forge
+> *"All will be one."*
 
-A comprehensive, AI-powered personal assistant designed for both **Dungeons & Dragons Players** and **Dungeon Masters (DMs)**. This application serves as a dynamic tool for character management, campaign tracking, and AI-assisted content generation using Google's Gemini LLM.
+**Phyrexian Forge** is a premium, AI-powered specialized tool for **Dungeons & Dragons (5e & 5.5e)**. It serves as a bio-mechanical forge for character creation, strategic optimization, and campaign management, powered by Google's Gemini LLM.
+
+---
 
 ## ✨ Features
 
 ### 🗡️ For the Player
-- **Character Dashboard:** Manage and view your character's stats and abilities using interactive data grids.
-- **AI Character Forge:** Generate a fully equipped character of any level from a simple text concept.
-- **AI Build Suggestions:** Receive optimized class and leveling suggestions based on your character's personality and current stats.
-- **PDF Export:** Export your characters to a standard D&D PDF format.
-- *(Coming Soon)* **Automated Progression:** Easily increment character levels with the system automatically recalculating stats and features.
+- **AI Character Forge:** Generate fully equipped, thematic heroes from a simple text concept.
+- **📖 AI Playstyle Guide:** On-demand generation of a comprehensive strategic guide (Combat & Roleplay) tailored to your specific build and level.
+- **Dual Edition Support (5.5e Ready):** Seamlessly toggle between **D&D 2014** and **2024 Revision (5.5e)** rulesets with a global UI switch.
+- **Character Vault:** Manage, view, and persist your characters with deep integration for stats, alignment, and features.
+- **Premium PDF Export:** Export your character to a standard 5e fillable PDF, featuring automated proficiency marks and character portraits.
 
 ### 🏰 For the Dungeon Master
-- **Campaign Workspace:** Track session logs and active campaign notes.
-- **Party Management:** Ingest existing characters into a party list to track stats across the entire group.
-- **AI Encounter Generator:** Dynamically generate story-appropriate NPCs, monsters, and random encounters tailored to your party's level.
-- *(Coming Soon)* **Campaign Book Export:** Export the entire campaign into a beautifully formatted D&D PDF.
+- **DM Quick Forge:** Rapidly generate NPCs and monsters to populate your world.
+- **Campaign Workspace:** Track session logs, plot hooks, and active campaign developments with AI assistance.
+- **Party Tracking:** Monitor the entire party's stats from a centralized dashboard.
+
+---
+
+## 🎨 Aesthetics & UI
+- **Bio-mechanical Design:** High-contrast dark theme with a custom Phyrexian aesthetic.
+- **Segmented Control Navigation:** Modern, pill-shaped navigation for a faster, premium workflow.
+- **Custom AI Logo:** Iconic Cyber-D20 branding integrated with Phyrexian lore.
 
 ---
 
 ## 🛠️ Tech Stack
-- **Environment & Dependency Management:** [Poetry](https://python-poetry.org/)
-- **UI Framework:** [Streamlit](https://streamlit.io/) (Pure Python, zero-Javascript frontend)
-- **AI Integration:** [Google GenAI SDK](https://pypi.org/project/google-genai/) (Gemini 2.5 Flash)
-- **Code Quality:** `pre-commit`, `ruff`
+- **Dependency Management:** [Poetry](https://python-poetry.org/)
+- **Frontend:** [Streamlit](https://streamlit.io/) (Styled with Custom CSS & Segmented Controls)
+- **AI Engine:** [Google GenAI SDK](https://pypi.org/project/google-genai/) (Gemini 2.5 Flash)
+- **PDF Engine:** `pypdf`, `reportlab`
+- **Quality Control:** `pre-commit`, `ruff`
 
 ---
 
@@ -31,53 +41,26 @@ A comprehensive, AI-powered personal assistant designed for both **Dungeons & Dr
 
 ### 1. Prerequisites
 - **Python 3.13+**
-- **Poetry** installed on your system.
-- A **Google Gemini API Key**. You can get one for free at [Google AI Studio](https://aistudio.google.com/).
+- **Poetry**
+- **Google Gemini API Key** (Available at [Google AI Studio](https://aistudio.google.com/))
 
 ### 2. Installation
-Clone the repository and install the dependencies using Poetry:
-
 ```bash
 git clone https://github.com/dimitrisl/agents.git
 cd agents
-
-# Install dependencies and create the virtual environment
 poetry install
 ```
 
-### 3. Environment Variables
-Copy the `.env_example` file to create a `.env` file:
-```bash
-cp .env_example .env
-```
-Open `.env` and add your Gemini API Key:
-```env
-GEMINI_API_KEY=your_actual_api_key_here
-```
+### 3. Environment Setup
+Copy `.env_example` to `.env` and add your `GEMINI_API_KEY`.
 
-### 4. Running the Application
-To launch the Streamlit dashboard, run:
+### 4. Run
 ```bash
 poetry run streamlit run main.py
 ```
-This will automatically open the web UI in your default browser at `http://localhost:8501`.
 
 ---
 
-## 🧪 Testing & Development
-
-**Test API Connectivity:**
-To verify that your Gemini API key is working correctly:
-```bash
-poetry run python tests/test_gemini_connection.py
-```
-
-**Code Quality (Pre-commit & Ruff):**
-This project uses `ruff` for extremely fast linting and formatting. Ensure hooks are installed:
-```bash
-poetry run pre-commit install
-```
-To manually run the formatting and lint checks on all files:
-```bash
-poetry run pre-commit run --all-files
-```
+## 🧪 Development
+- **Pre-commit Hooks:** `poetry run pre-commit install`
+- **Linting & Formatting:** `poetry run pre-commit run --all-files`
