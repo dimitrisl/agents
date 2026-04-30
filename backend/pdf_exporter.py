@@ -159,10 +159,10 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             field_data["Wpn3 AtkBonus  "] = weapons[2].get("attack_bonus", "")
             field_data["Wpn3 Damage "] = weapons[2].get("damage", "")
 
-        equip_text = "\\n".join(char_data.get("equipment", []))
+        equip_text = "\n".join(char_data.get("equipment", []))
         field_data["Equipment"] = equip_text
         feats = char_data.get("features_traits", [])
-        feat_text = "\\n".join(
+        feat_text = "\n".join(
             [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
         )
         field_data["Features and Traits"] = feat_text

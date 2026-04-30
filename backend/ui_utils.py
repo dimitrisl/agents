@@ -97,6 +97,7 @@ def render_character_header(
     alignment: str,
     accent_color: str,
     portrait_url: str = None,
+    subclass: str = None,
 ):
     """Renders a visually striking header using native Streamlit components."""
     with st.container():
@@ -120,7 +121,8 @@ def render_character_header(
             st.markdown(
                 f"<h1 style='margin-bottom: 0;'>{name}</h1>", unsafe_allow_html=True
             )
-            st.markdown(f"**Level {level} {race} {char_class}**")
+            class_str = f"{char_class} ({subclass})" if subclass else char_class
+            st.markdown(f"**Level {level} {race} {class_str}**")
             st.caption(f"{background} • {alignment}")
 
         st.markdown("</div>", unsafe_allow_html=True)

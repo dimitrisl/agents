@@ -15,14 +15,18 @@ def init_session_state(session_state):
         session_state.char_portrait = None
     if "gender" not in session_state:
         session_state.gender = "Male"
+    if "dnd_edition" not in session_state:
+        session_state.dnd_edition = "2014 Edition"
 
     if "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]
         session_state.char_name = "Eldred the Valiant"
         session_state.char_class = "Paladin"
+        session_state.subclass = "Oath of Devotion"
         session_state.char_level = 5
         session_state.race = "Human"
         session_state.gender = "Male"
+        session_state.dnd_edition = "2014 Edition"
         session_state.background = "Soldier"
         session_state.alignment = "Lawful Good"
         session_state.backstory = (
@@ -81,6 +85,7 @@ def init_session_state(session_state):
         session_state.session_prep_result = ""
         session_state.party = []
         session_state.temp_forged_char = None
+        session_state.advancements = []
 
 
 def get_character_dict(session_state) -> dict:
@@ -89,6 +94,7 @@ def get_character_dict(session_state) -> dict:
         "char_id": getattr(session_state, "char_id", str(uuid.uuid4())[:8]),
         "char_name": session_state.char_name,
         "char_class": session_state.char_class,
+        "subclass": getattr(session_state, "subclass", None),
         "char_level": session_state.char_level,
         "race": session_state.race,
         "gender": getattr(session_state, "gender", "Unknown"),
@@ -116,6 +122,8 @@ def get_character_dict(session_state) -> dict:
         "bonds": session_state.bonds,
         "flaws": session_state.flaws,
         "char_portrait": session_state.char_portrait,
+        "dnd_edition": getattr(session_state, "dnd_edition", "2014 Edition"),
+        "advancements": getattr(session_state, "advancements", []),
     }
 
 
@@ -125,11 +133,13 @@ def update_session_from_dict(session_state, data: dict):
     session_state.char_id = data.get("char_id", str(uuid.uuid4())[:8])
     session_state.char_name = data.get("char_name", "Unknown")
     session_state.char_class = data.get("char_class", "Commoner")
+    session_state.subclass = data.get("subclass", None)
     session_state.char_level = data.get("char_level", 1)
     session_state.race = data.get("race", "Unknown")
     session_state.gender = data.get("gender", "Unknown")
     session_state.background = data.get("background", "Unknown")
     session_state.alignment = data.get("alignment", "Unknown")
+    session_state.dnd_edition = data.get("dnd_edition", "2014 Edition")
     session_state.backstory = data.get("backstory", "")
     session_state.armor_class = data.get("armor_class", 10)
     session_state.hp_max = data.get("hp_max", 10)
@@ -151,6 +161,7 @@ def update_session_from_dict(session_state, data: dict):
     session_state.bonds = data.get("bonds", "")
     session_state.flaws = data.get("flaws", "")
     session_state.char_portrait = data.get("char_portrait", None)
+    session_state.advancements = data.get("advancements", [])
 
     if "stats" in data:
         session_state.stats = data["stats"]

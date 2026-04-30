@@ -1,6 +1,15 @@
 # Shared constants for the D&D AI Assistant
 
-ALLOWED_RACES = [
+EDITION_2014 = "2014 Edition"
+EDITION_2024 = "2024 Revision (5.5e)"
+EDITIONS = [EDITION_2014, EDITION_2024]
+
+GENDERS = ["Male", "Female"]
+
+# ==========================================
+# 2014 Ruleset (5e)
+# ==========================================
+RACES_2014 = [
     "Human",
     "Elf",
     "Dwarf",
@@ -9,35 +18,158 @@ ALLOWED_RACES = [
     "Tiefling",
     "Half-Orc",
     "Gnome",
+    "Half-Elf",
 ]
 
-ALLOWED_CLASSES = [
-    "Fighter",
-    "Wizard",
-    "Rogue",
-    "Cleric",
-    "Paladin",
-    "Ranger",
+CLASSES_2014 = [
     "Barbarian",
     "Bard",
-    "Warlock",
-    "Monk",
+    "Cleric",
     "Druid",
+    "Fighter",
+    "Monk",
+    "Paladin",
+    "Ranger",
+    "Rogue",
     "Sorcerer",
+    "Warlock",
+    "Wizard",
 ]
 
-ALLOWED_BACKGROUNDS = [
+BACKGROUNDS_2014 = [
     "Acolyte",
-    "Criminal",
-    "Folk Hero",
-    "Noble",
-    "Soldier",
-    "Sage",
     "Charlatan",
+    "Criminal",
     "Entertainer",
+    "Folk Hero",
+    "Guild Artisan",
+    "Hermit",
+    "Noble",
+    "Outlander",
+    "Sage",
+    "Sailor",
+    "Soldier",
+    "Urchin",
 ]
 
-GENDERS = ["Male", "Female"]
+SUBCLASSES_2014 = {
+    "Barbarian": ["Path of the Berserker", "Path of the Totem Warrior"],
+    "Bard": ["College of Lore", "College of Valor"],
+    "Cleric": [
+        "Knowledge Domain",
+        "Life Domain",
+        "Light Domain",
+        "Nature Domain",
+        "Tempest Domain",
+        "Trickery Domain",
+        "War Domain",
+    ],
+    "Druid": ["Circle of the Land", "Circle of the Moon"],
+    "Fighter": ["Champion", "Battle Master", "Eldritch Knight"],
+    "Monk": ["Way of the Open Hand", "Way of Shadow", "Way of the Four Elements"],
+    "Paladin": ["Oath of Devotion", "Oath of the Ancients", "Oath of Vengeance"],
+    "Ranger": ["Hunter", "Beast Master"],
+    "Rogue": ["Thief", "Assassin", "Arcane Trickster"],
+    "Sorcerer": ["Draconic Bloodline", "Wild Magic"],
+    "Warlock": ["The Archfey", "The Fiend", "The Great Old One"],
+    "Wizard": [
+        "School of Abjuration",
+        "School of Conjuration",
+        "School of Divination",
+        "School of Enchantment",
+        "School of Evocation",
+        "School of Illusion",
+        "School of Necromancy",
+        "School of Transmutation",
+    ],
+}
+
+# ==========================================
+# 2024 Ruleset (5.5e)
+# ==========================================
+SPECIES_2024 = [
+    "Aasimar",
+    "Dragonborn",
+    "Dwarf",
+    "Elf",
+    "Gnome",
+    "Goliath",
+    "Halfling",
+    "Human",
+    "Orc",
+    "Tiefling",
+]
+
+CLASSES_2024 = CLASSES_2014  # Same core classes
+
+BACKGROUNDS_2024 = [
+    "Acolyte",
+    "Artisan",
+    "Charlatan",
+    "Criminal",
+    "Entertainer",
+    "Farmer",
+    "Guard",
+    "Guide",
+    "Hermit",
+    "Merchant",
+    "Noble",
+    "Sage",
+    "Sailor",
+    "Scribe",
+    "Soldier",
+    "Wayfarer",
+]
+
+SUBCLASSES_2024 = {
+    "Barbarian": [
+        "Path of the Berserker",
+        "Path of the Wild Heart",
+        "Path of the World Tree",
+        "Path of the Zealot",
+    ],
+    "Bard": [
+        "College of Dance",
+        "College of Glamour",
+        "College of Lore",
+        "College of Valor",
+    ],
+    "Cleric": ["Life Domain", "Light Domain", "Trickery Domain", "War Domain"],
+    "Druid": [
+        "Circle of the Land",
+        "Circle of the Moon",
+        "Circle of the Sea",
+        "Circle of the Stars",
+    ],
+    "Fighter": ["Battle Master", "Champion", "Eldritch Knight", "Psi Warrior"],
+    "Monk": [
+        "Warrior of Mercy",
+        "Warrior of Shadow",
+        "Warrior of the Elements",
+        "Warrior of the Open Hand",
+    ],
+    "Paladin": [
+        "Oath of Devotion",
+        "Oath of Glory",
+        "Oath of the Ancients",
+        "Oath of Vengeance",
+    ],
+    "Ranger": ["Beast Master", "Fey Wanderer", "Gloom Stalker", "Hunter"],
+    "Rogue": ["Arcane Trickster", "Assassin", "Soulknife", "Thief"],
+    "Sorcerer": [
+        "Aberrant Sorcery",
+        "Clockwork Sorcery",
+        "Draconic Sorcery",
+        "Wild Magic",
+    ],
+    "Warlock": [
+        "Archfey Patron",
+        "Celestial Patron",
+        "Fiend Patron",
+        "Great Old One Patron",
+    ],
+    "Wizard": ["Abjurer", "Diviner", "Evoker", "Illusionist"],
+}
 
 # PDF Positioning
 PDF_PORTRAIT_X = 45

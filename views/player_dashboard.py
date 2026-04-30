@@ -17,9 +17,16 @@ from backend.pdf_exporter import export_character_to_pdf
 from backend.ui_utils import render_character_header
 from backend.image_utils import generate_portrait_url
 from backend.constants import (
-    ALLOWED_RACES,
-    ALLOWED_CLASSES,
-    ALLOWED_BACKGROUNDS,
+    EDITION_2014,
+    EDITION_2024,
+    RACES_2014,
+    CLASSES_2014,
+    BACKGROUNDS_2014,
+    SUBCLASSES_2014,
+    SPECIES_2024,
+    CLASSES_2024,
+    BACKGROUNDS_2024,
+    SUBCLASSES_2024,
     GENDERS,
 )
 
@@ -75,12 +82,19 @@ def render_selection_screen():
                 display_name = " ".join(name_parts[:-1]).title()
 
                 c_col1, c_col2 = st.columns([4, 1])
+                char_data = load_character(char_file)
+                edition_tag = ""
+                if char_data:
+                    edition = char_data.get("dnd_edition", "2014 Edition")
+                    edition_tag = f" ({'2024' if '2024' in edition else '2014'})"
+
                 if c_col1.button(
-                    f"🛡️ {display_name}", width="stretch", key=f"load_{char_file}"
+                    f"🛡️ {display_name}{edition_tag}",
+                    width="stretch",
+                    key=f"load_{char_file}",
                 ):
-                    data = load_character(char_file)
-                    if data:
-                        update_session_from_dict(st.session_state, data)
+                    if char_data:
+                        update_session_from_dict(st.session_state, char_data)
                         st.session_state.character_active = True
                         st.rerun()
 
@@ -137,7 +151,9 @@ def render_active_character(accent_color: str):
         st.session_state.alignment,
         accent_color,
         portrait_url=st.session_state.char_portrait,
+        subclass=st.session_state.get("subclass"),
     )
+    st.caption(f"📜 Ruleset: {st.session_state.dnd_edition}")
 
     edit_col1, edit_col2, edit_col3 = st.columns([3, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")
@@ -185,6 +201,7 @@ def render_active_character(accent_color: str):
                 st.session_state.char_class,
                 st.session_state.char_name,
                 st.session_state.stats,
+                edition=st.session_state.dnd_edition,
             )
             st.rerun()
 
@@ -253,6 +270,9 @@ def _render_core_stats(edit_mode: bool):
         st.session_state.char_name = c_n.text_input("Name", st.session_state.char_name)
         st.session_state.char_class = c_c.text_input(
             "Class", st.session_state.char_class
+        )
+        st.session_state.subclass = c_c.text_input(
+            "Subclass", getattr(st.session_state, "subclass", "")
         )
         st.session_state.char_level = c_l.number_input(
             "Level", 1, 20, st.session_state.char_level
@@ -353,6 +373,33 @@ def _render_core_stats(edit_mode: bool):
             st.markdown("#### Saving Throws")
             st.write(", ".join(st.session_state.saving_throws))
 
+    st.markdown("---")
+    st.markdown("#### ✨ Heroic Advancements (Feats & ASI)")
+    if edit_mode:
+        st.session_state.advancements = st.data_editor(
+            st.session_state.advancements,
+            num_rows="dynamic",
+            key="edit_advancements",
+            column_config={
+                "level": st.column_config.NumberColumn(
+                    "Level", min_value=1, max_value=20
+                ),
+                "type": st.column_config.SelectboxColumn(
+                    "Type", options=["Feat", "Origin Feat", "ASI"]
+                ),
+                "name": st.column_config.TextColumn("Name / Details"),
+                "description": st.column_config.TextColumn("Description"),
+            },
+        )
+    else:
+        if not st.session_state.advancements:
+            st.write("No advancements recorded.")
+        else:
+            for adv in st.session_state.advancements:
+                st.write(
+                    f"🔹 **Lv.{adv.get('level', '?')} {adv.get('type', '')}:** {adv.get('name', '')} — *{adv.get('description', '')}*"
+                )
+
 
 def _render_combat_inventory(edit_mode: bool):
     """Renders weapons and equipment sections."""
@@ -390,7 +437,12 @@ def _render_features_spells(edit_mode: bool):
         )
     else:
         for f in st.session_state.features_traits:
-            st.write(f"**{f.get('name', '')}:** {f.get('description', '')}")
+            name = f.get("name", "Feature")
+            desc = f.get("description", "").replace(
+                "\n", "  \n"
+            )  # Ensure markdown line breaks
+            st.markdown(f"**{name}**  \n{desc}")
+            st.divider()
 
     st.markdown("#### Spells")
     if edit_mode:
@@ -456,45 +508,89 @@ def _render_features_spells(edit_mode: bool):
 
 
 def render_character_creator():
-    """Renders the AI Character Forge interface."""
+    """Renders the AI Character Forge interface with dynamic edition-based options."""
     st.markdown("### Forge a New Hero")
     st.write(
-        "Select your core character pillars or let the AI decide, and provide any additional flavor to forge your hero!"
+        "Choose your D&D edition first, then select your core pillars or let the AI decide!"
     )
 
     with st.container(border=True):
+        # Determine lists based on edition
+        forge_edition = st.session_state.dnd_edition
+
+        if forge_edition == EDITION_2014:
+            race_label = "Race"
+            race_options = RACES_2014
+            bg_options = BACKGROUNDS_2014
+            class_options = CLASSES_2014
+            subclass_map = SUBCLASSES_2014
+        else:
+            race_label = "Species"
+            race_options = SPECIES_2024
+            bg_options = BACKGROUNDS_2024
+            class_options = CLASSES_2024
+            subclass_map = SUBCLASSES_2024
+
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             forge_race = st.selectbox(
-                "Race",
-                ["AI Choice"] + ALLOWED_RACES,
+                race_label,
+                ["AI Choice"] + race_options,
             )
         with col_b:
             forge_class = st.selectbox(
                 "Class",
-                ["AI Choice"] + ALLOWED_CLASSES,
+                ["AI Choice"] + class_options,
             )
         with col_c:
             forge_background = st.selectbox(
                 "Background",
-                ["AI Choice"] + ALLOWED_BACKGROUNDS,
+                ["AI Choice"] + bg_options,
             )
 
-        col_d, col_e, col_f = st.columns(3)
-        with col_d:
+        col_lvl, col_g, col_sub = st.columns(3)
+        with col_lvl:
             forge_level = st.number_input(
                 "Target Level", min_value=1, max_value=20, value=1
             )
-        with col_e:
+        with col_g:
             forge_gender = st.selectbox("Gender", ["AI Choice"] + GENDERS)
-        with col_f:
-            custom_name = st.text_input(
-                "Character Name (Optional)", placeholder="Leave blank..."
-            )
+
+        # Subclass Logic
+        subclass_options = ["AI Choice"]
+        show_subclass = False
+
+        if forge_class != "AI Choice":
+            # 2024 rules: Subclass always at level 3
+            if forge_edition == EDITION_2024:
+                if forge_level >= 3:
+                    show_subclass = True
+                    subclass_options += subclass_map.get(forge_class, [])
+            # 2014 rules: Subclass level varies
+            else:
+                sub_lvls = {
+                    "Cleric": 1,
+                    "Sorcerer": 1,
+                    "Warlock": 1,
+                    "Wizard": 2,
+                    "Druid": 2,
+                }
+                req_lvl = sub_lvls.get(forge_class, 3)
+                if forge_level >= req_lvl:
+                    show_subclass = True
+                    subclass_options += subclass_map.get(forge_class, [])
+
+        with col_sub:
+            if show_subclass:
+                forge_subclass = st.selectbox("Subclass", subclass_options)
+            else:
+                st.info("Subclass unlocks at higher levels.")
+                forge_subclass = None
 
         concept = st.text_area(
             "Additional Flavor / Concept:",
             placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon.",
+            height=100,
         )
         use_rolled = st.toggle(
             "🎲 Use Rolled Stats (instead of Standard Array)", value=False
@@ -503,7 +599,7 @@ def render_character_creator():
     if st.session_state.temp_forged_char is None:
         if st.button("Generate Character", type="primary", width="stretch"):
             logger.info(
-                f"User requested AI Character Forge: Name={custom_name}, Race={forge_race}, Class={forge_class}, Level={forge_level}, Flavor={concept}"
+                f"User requested AI Character Forge: Edition={forge_edition}, Race={forge_race}, Class={forge_class}, Subclass={forge_subclass}, Level={forge_level}"
             )
             with st.spinner("Rolling stats and forging character..."):
                 result = forge_character(
@@ -514,13 +610,12 @@ def render_character_creator():
                     concept,
                     gender=forge_gender,
                     stats_mode="rolled" if use_rolled else "standard",
-                    char_name=custom_name if custom_name else None,
+                    edition=forge_edition,
+                    subclass=forge_subclass,
                 )
                 if result and "char_name" in result:
-                    # Automatically generate portrait during forging
                     result["char_portrait"] = generate_portrait_url(result)
                     st.session_state.temp_forged_char = result
-                    # Also set temp_portrait for the preview
                     st.session_state.temp_portrait = result["char_portrait"]
                     st.rerun()
                 else:
@@ -533,12 +628,20 @@ def render_character_creator():
             col_p1, col_p2 = st.columns([2, 1])
             with col_p1:
                 st.markdown(f"**Name:** {char['char_name']}")
+                class_info = f"{char['char_class']}"
+                if char.get("subclass"):
+                    class_info += f" ({char['subclass']})"
+                st.markdown(f"**Class:** {class_info} (Level {char['char_level']})")
                 st.markdown(
-                    f"**Class:** {char['char_class']} (Level {char['char_level']})"
+                    f"**Race/Species:** {char['race']} | **Background:** {char['background']}"
                 )
-                st.markdown(
-                    f"**Race:** {char['race']} | **Background:** {char['background']}"
-                )
+                st.markdown(f"**Edition:** {char.get('dnd_edition', '2014 Edition')}")
+                if char.get("advancements"):
+                    st.markdown("**Advancements:**")
+                    for adv in char["advancements"]:
+                        st.write(
+                            f"- Lv.{adv.get('level')} {adv.get('type')}: {adv.get('name')}"
+                        )
                 st.markdown(f"**Backstory Snippet:** {char['backstory'][:200]}...")
             with col_p2:
                 st.markdown("**Stats:**")
@@ -548,7 +651,6 @@ def render_character_creator():
             if st.button("🔄 Regenerate Portrait", width="stretch"):
                 with st.spinner("Forging visual identity..."):
                     portrait_url = generate_portrait_url(char)
-                    # Use a temp state for forge preview
                     st.session_state.temp_portrait = portrait_url
                     st.rerun()
 
@@ -563,7 +665,6 @@ def render_character_creator():
             if c_btn1.button("✅ Accept & Equip Hero", width="stretch", type="primary"):
                 char["char_id"] = str(uuid.uuid4())[:8]
                 update_session_from_dict(st.session_state, char)
-                # Apply the temp portrait if it was generated
                 if "temp_portrait" in st.session_state:
                     st.session_state.char_portrait = st.session_state.temp_portrait
                     st.session_state.temp_portrait = None
@@ -573,10 +674,6 @@ def render_character_creator():
                 st.session_state.temp_forged_char = None
                 st.session_state.player_view = "sheet"
                 st.session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get recommendations for your newly forged character!"
-
-                st.success(
-                    f"Successfully equipped and saved **{st.session_state.char_name}**!"
-                )
                 st.rerun()
 
             if c_btn2.button("❌ Discard", width="stretch"):

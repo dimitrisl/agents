@@ -5,6 +5,7 @@ from backend.state_manager import init_session_state
 from backend.ui_utils import inject_custom_css
 from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
+from backend.constants import EDITIONS
 
 # Load environment variables once at the entry point
 load_dotenv()
@@ -37,10 +38,17 @@ with st.sidebar:
     st.title("🎲 D&D AI Assistant")
     st.markdown("---")
 
-    # Dynamic labels based on state
     player_label = "🗡️ Player Dashboard"
-    if st.session_state.get("character_active") and st.session_state.get("char_name"):
-        player_label = f"🗡️ Hero: {st.session_state.char_name}"
+
+    st.session_state.dnd_edition = st.selectbox(
+        "📜 Ruleset / Edition:",
+        EDITIONS,
+        index=EDITIONS.index(st.session_state.dnd_edition)
+        if st.session_state.dnd_edition in EDITIONS
+        else 0,
+    )
+
+    st.markdown("---")
 
     view_mode = st.radio(
         "Select Mode:", [player_label, "🏰 Dungeon Master View"], index=0

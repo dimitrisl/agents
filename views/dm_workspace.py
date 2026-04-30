@@ -16,8 +16,11 @@ from backend.storage import (
 )
 from backend.calculations import calculate_modifier
 from backend.constants import (
-    ALLOWED_RACES,
-    ALLOWED_CLASSES,
+    EDITION_2014,
+    RACES_2014,
+    CLASSES_2014,
+    SPECIES_2024,
+    CLASSES_2024,
 )
 
 logger = logging.getLogger("DnDAssistant.DMView")
@@ -133,20 +136,26 @@ def _render_party_tracker():
 
     # --- Quick Forge Section ---
     with st.expander("✨ AI Quick Forge (New Party Member)", expanded=False):
+        q_edition = st.session_state.dnd_edition
+
+        if q_edition == EDITION_2014:
+            q_race_options = RACES_2014
+            q_class_options = CLASSES_2014
+        else:
+            q_race_options = SPECIES_2024
+            q_class_options = CLASSES_2024
+
         q_race = st.selectbox(
-            "Race",
-            ["AI Choice"] + ALLOWED_RACES,
+            "Race/Species",
+            ["AI Choice"] + q_race_options,
             key="q_race",
         )
         q_class = st.selectbox(
             "Class",
-            ["AI Choice"] + ALLOWED_CLASSES,
+            ["AI Choice"] + q_class_options,
             key="q_class",
         )
         q_level = st.number_input("Level", 1, 20, 1, key="q_level")
-        q_name = st.text_input(
-            "Name (Optional)", placeholder="Let AI decide...", key="q_name"
-        )
         q_concept = st.text_input(
             "Concept",
             placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon.",
@@ -156,12 +165,7 @@ def _render_party_tracker():
         if st.button("Forge & Add", width="stretch"):
             with st.spinner("Forging..."):
                 result = forge_character(
-                    q_level,
-                    q_race,
-                    q_class,
-                    "AI Choice",
-                    q_concept,
-                    char_name=q_name if q_name else None,
+                    q_level, q_race, q_class, "AI Choice", q_concept, edition=q_edition
                 )
                 if result:
                     result["char_id"] = str(uuid.uuid4())[:8]
@@ -179,7 +183,7 @@ def _render_party_tracker():
                 with c_info:
                     st.markdown(f"**{member['char_name']}**")
                     st.caption(
-                        f"{member['race']} {member['char_class']} (Lv.{member['char_level']})"
+                        f"{member['race']} {member['char_class']} (Lv.{member['char_level']}) • {member.get('dnd_edition', '2014 Edition')}"
                     )
                 with c_hp:
                     st.metric("HP", f"{member['hp_max']}")
@@ -212,7 +216,10 @@ def _render_ai_generators():
         if st.button("Generate Random Encounter"):
             with st.spinner("Generating encounter..."):
                 st.session_state.encounter_result = generate_random_encounter(
-                    party_size, avg_level, location
+                    party_size,
+                    avg_level,
+                    location,
+                    edition=st.session_state.dnd_edition,
                 )
         if st.session_state.encounter_result:
             st.success(st.session_state.encounter_result)
@@ -222,6 +229,8 @@ def _render_ai_generators():
         )
         if st.button("Generate NPC"):
             with st.spinner("Forging NPC..."):
-                st.session_state.npc_result = generate_npc(npc_concept)
+                st.session_state.npc_result = generate_npc(
+                    npc_concept, edition=st.session_state.dnd_edition
+                )
         if st.session_state.npc_result:
             st.info(st.session_state.npc_result)

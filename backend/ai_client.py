@@ -4,9 +4,13 @@ import logging
 import streamlit as st
 from google import genai
 from backend.constants import (
-    ALLOWED_RACES,
-    ALLOWED_CLASSES,
-    ALLOWED_BACKGROUNDS,
+    EDITION_2014,
+    RACES_2014,
+    CLASSES_2014,
+    BACKGROUNDS_2014,
+    SPECIES_2024,
+    CLASSES_2024,
+    BACKGROUNDS_2024,
     GENDERS,
 )
 
@@ -125,9 +129,11 @@ def generate_ai_json(prompt: str) -> dict:
         return None
 
 
-def get_build_suggestion(char_level, char_class, char_name, stats) -> str:
+def get_build_suggestion(
+    char_level, char_class, char_name, stats, edition="2014 Edition"
+) -> str:
     prompt = f"""
-    I am playing a Level {char_level} {char_class} in D&D 5e (2014 edition) named {char_name}.
+    I am playing a Level {char_level} {char_class} in D&D {edition} named {char_name}.
     Stats: STR {stats.get("STR")}, DEX {stats.get("DEX")}, CON {stats.get("CON")},
     INT {stats.get("INT")}, WIS {stats.get("WIS")}, CHA {stats.get("CHA")}.
     Give me a very short, 2-sentence creative build or multiclass suggestion for my next level up based on these specific stats.
@@ -144,21 +150,33 @@ def forge_character(
     gender="AI Choice",
     stats_mode="standard",
     char_name=None,
+    edition="2014 Edition",
+    subclass=None,
 ) -> dict:
+    # Determine which lists to use based on edition
+    if edition == EDITION_2014:
+        current_races = RACES_2014
+        current_classes = CLASSES_2014
+        current_backgrounds = BACKGROUNDS_2014
+    else:
+        current_races = SPECIES_2024
+        current_classes = CLASSES_2024
+        current_backgrounds = BACKGROUNDS_2024
+
     race_prompt = (
         forge_race
         if forge_race != "AI Choice"
-        else f"Choose one from: {', '.join(ALLOWED_RACES)}"
+        else f"Choose one from: {', '.join(current_races)}"
     )
     class_prompt = (
         forge_class
         if forge_class != "AI Choice"
-        else f"Choose one from: {', '.join(ALLOWED_CLASSES)}"
+        else f"Choose one from: {', '.join(current_classes)}"
     )
     bg_prompt = (
         forge_background
         if forge_background != "AI Choice"
-        else f"Choose one from: {', '.join(ALLOWED_BACKGROUNDS)}"
+        else f"Choose one from: {', '.join(current_backgrounds)}"
     )
     gender_prompt = (
         gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
@@ -176,28 +194,31 @@ def forge_character(
         stats_instruction = "You must assign them a balanced, high-quality array of 6 ability scores (equivalent to rolling 4d6 drop lowest)."
 
     prompt = f"""
-    Create a fully fleshed out level {target_level} D&D 5e (2014 edition) character.
+    Create a fully fleshed out level {target_level} D&D {edition} character.
     {name_instruction}
     Gender: {gender_prompt}
     Race: {race_prompt}
     Class: {class_prompt}
     Background: {bg_prompt}
     Flavor/Concept: {concept}
+    Subclass: {subclass if subclass else "AI Choice (if applicable for level)"}
 
     STRICT RULES:
-    1. Race MUST be one of: {ALLOWED_RACES}
-    2. Class MUST be one of: {ALLOWED_CLASSES}
-    3. Background MUST be one of: {ALLOWED_BACKGROUNDS}
+    1. Race/Species MUST be one of: {current_races}
+    2. Class MUST be one of: {current_classes}
+    3. Background MUST be one of: {current_backgrounds}
 
     {stats_instruction}
 
     Calculate their HP, AC, Proficiency Bonus, and choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
+    If the level is 4 or higher (or 1 if 2024 edition), explicitly list their Feats and Ability Score Improvements (ASI) in the 'advancements' field.
 
     Output the character strictly as a JSON object with exactly the following schema:
     {{
         "char_name": "Name of the character",
         "gender": "{gender_prompt if gender != "AI Choice" else "Male/Female"}",
         "char_class": "Class (e.g., Fighter, Wizard)",
+        "subclass": "Subclass name (if applicable)",
         "char_level": {target_level},
         "race": "Race",
         "background": "Background",
@@ -221,18 +242,27 @@ def forge_character(
         "spell_attack_bonus": "+7",
         "hit_dice": "1d10",
         "passive_perception": 12,
+        "advancements": [
+            {"level": 1, "type": "Origin Feat", "name": "Tough", "description": "+2 HP per level"},
+            {"level": 4, "type": "Feat", "name": "Great Weapon Master", "description": "Deal more damage..."}
+        ],
         "personality_traits": "...",
         "ideals": "...",
         "bonds": "...",
         "flaws": "..."
     }}
     """
-    return generate_ai_json(prompt)
+    result = generate_ai_json(prompt)
+    if result:
+        result["dnd_edition"] = edition
+    return result
 
 
-def generate_random_encounter(party_size, avg_level, location) -> str:
+def generate_random_encounter(
+    party_size, avg_level, location, edition="2014 Edition"
+) -> str:
     prompt = f"""
-    Generate a short, flavorful random encounter for a D&D 5e (2014 edition) party of {party_size} level {avg_level} characters.
+    Generate a short, flavorful random encounter for a D&D {edition} party of {party_size} level {avg_level} characters.
     The setting is {location}.
     Include the monsters, a brief description of the environment, and a small twist.
     Format it nicely using markdown. Keep it under 150 words.
@@ -240,10 +270,10 @@ def generate_random_encounter(party_size, avg_level, location) -> str:
     return generate_ai_response(prompt)
 
 
-def generate_npc(npc_concept) -> str:
+def generate_npc(npc_concept, edition="2014 Edition") -> str:
     prompt = f"""
-    Create a D&D 5e (2014 edition) NPC based on: "{npc_concept}".
-    Include their Name, Race, Appearance, Personality Trait, and a secret they are hiding.
+    Create a D&D {edition} NPC based on: "{npc_concept}".
+    Include their Name, Race/Species, Appearance, Personality Trait, and a secret they are hiding.
     Format nicely with Markdown. Keep it brief and punchy.
     """
     return generate_ai_response(prompt)
