@@ -47,16 +47,16 @@ def render_player_dashboard(accent_color: str):
         with col1:
             st.title("Player Dashboard")
         with col2:
-            label = (
-                "✨ Forge Hero"
-                if st.session_state.player_view == "sheet"
-                else "🛡️ View Sheet"
-            )
-            if st.button(label, width="stretch"):
-                st.session_state.player_view = (
-                    "forge" if st.session_state.player_view == "sheet" else "sheet"
-                )
-                st.rerun()
+            if st.session_state.player_view == "sheet":
+                if st.button("✨ Forge New Hero", width="stretch"):
+                    st.session_state.player_view = "forge"
+                    st.rerun()
+            else:
+                if st.button(
+                    f"🔙 Back to {st.session_state.char_name}", width="stretch"
+                ):
+                    st.session_state.player_view = "sheet"
+                    st.rerun()
         with col3:
             if st.button("🔄 Exit Hero", width="stretch"):
                 st.session_state.character_active = False
@@ -536,8 +536,9 @@ def _render_playstyle_guide(edit_mode: bool):
             with st.spinner("Analyzing character build and strategy..."):
                 char_data = get_character_dict(st.session_state)
                 st.session_state.playstyle_guide = generate_playstyle_guide(char_data)
-                # Auto-save after generating guide
-                save_character(char_data)
+                # Re-get dict to include the new guide
+                updated_char_data = get_character_dict(st.session_state)
+                save_character(updated_char_data)
                 st.rerun()
     else:
         if edit_mode:

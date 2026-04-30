@@ -61,8 +61,8 @@ with st.sidebar:
     inject_custom_css(primary_color, accent_color)
 
     st.markdown("---")
-    if st.button("✨ Reset App State", width="stretch"):
-        logger.warning("User initiated App State Reset.")
+    if st.button("🏠 Return to Main Menu", width="stretch"):
+        logger.warning("User returned to main menu (Resetting state).")
         st.session_state.clear()
         st.rerun()
 
