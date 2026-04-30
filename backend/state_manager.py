@@ -86,6 +86,7 @@ def init_session_state(session_state):
         session_state.party = []
         session_state.temp_forged_char = None
         session_state.advancements = []
+        session_state.weapon_masteries = []
         session_state.playstyle_guide = ""
 
 
@@ -125,6 +126,7 @@ def get_character_dict(session_state) -> dict:
         "char_portrait": session_state.char_portrait,
         "dnd_edition": getattr(session_state, "dnd_edition", "2014 Edition"),
         "advancements": getattr(session_state, "advancements", []),
+        "weapon_masteries": getattr(session_state, "weapon_masteries", []),
         "playstyle_guide": getattr(session_state, "playstyle_guide", ""),
     }
 
@@ -164,6 +166,7 @@ def update_session_from_dict(session_state, data: dict):
     session_state.flaws = data.get("flaws", "")
     session_state.char_portrait = data.get("char_portrait", None)
     session_state.advancements = data.get("advancements", [])
+    session_state.weapon_masteries = data.get("weapon_masteries", [])
     session_state.playstyle_guide = data.get("playstyle_guide", "")
 
     if "stats" in data:

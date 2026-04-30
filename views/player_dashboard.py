@@ -160,26 +160,40 @@ def render_active_character(accent_color: str):
     )
     st.caption(f"📜 Ruleset: {st.session_state.dnd_edition}")
 
-    edit_col1, edit_col2, edit_col3 = st.columns([3, 1, 1])
+    if st.session_state.get("leveling_up", False):
+        with st.expander("⬆️ Level Up Wizard", expanded=True):
+            st.write(f"Leveling up to {st.session_state.char_level + 1}...")
+            if st.button("Confirm Level Up"):
+                st.session_state.char_level += 1
+                st.session_state.leveling_up = False
+                st.rerun()
+            if st.button("Cancel"):
+                st.session_state.leveling_up = False
+                st.rerun()
+
+    edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([2, 1, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")
 
-    if edit_col2.button("🎨 Portrait", width="stretch"):
+    if edit_col2.button("🔼 Level Up", width="stretch", type="primary"):
+        run_level_up_wizard()
+
+    if edit_col3.button("🎨 Portrait", width="stretch"):
         with st.spinner("Forging visual identity..."):
             char_data = get_character_dict(st.session_state)
             st.session_state.char_portrait = generate_portrait_url(char_data)
             st.rerun()
 
-    if st.session_state.char_portrait:
-        with st.expander("🖼️ Portrait Preview", expanded=False):
-            st.image(st.session_state.char_portrait, width="stretch")
-
     if edit_mode:
-        if edit_col3.button("💾 Save", width="stretch"):
+        if edit_col4.button("💾 Save", width="stretch"):
             char_data = get_character_dict(st.session_state)
             if save_character(char_data):
                 st.toast("Changes saved!")
             else:
                 st.error("Save failed.")
+
+    if st.session_state.char_portrait:
+        with st.expander("🖼️ Portrait Preview", expanded=False):
+            st.image(st.session_state.char_portrait, width="stretch")
 
     char_tab1, char_tab2, char_tab3, char_tab4 = st.tabs(
         [
@@ -426,6 +440,26 @@ def _render_combat_inventory(edit_mode: bool):
             st.write(
                 f"🗡️ **{w.get('name', 'Unknown')}** | Atk: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
             )
+
+    # 5.5e Weapon Masteries
+    if st.session_state.dnd_edition == "2024 Revision (5.5e)":
+        st.markdown("#### ⚔️ Weapon Masteries")
+        if edit_mode:
+            from backend.constants import WEAPON_MASTERIES_2024
+
+            st.session_state.weapon_masteries = st.multiselect(
+                "Mastered Properties:",
+                options=WEAPON_MASTERIES_2024,
+                default=st.session_state.weapon_masteries,
+            )
+        else:
+            if st.session_state.weapon_masteries:
+                cols = st.columns(len(st.session_state.weapon_masteries))
+                for idx, mastery in enumerate(st.session_state.weapon_masteries):
+                    with cols[idx]:
+                        st.info(f"**{mastery}**")
+            else:
+                st.write("No weapon masteries unlocked.")
 
     st.markdown("#### Equipment")
     if edit_mode:
@@ -729,3 +763,116 @@ def render_character_creator():
             if c_btn2.button("❌ Discard", width="stretch"):
                 st.session_state.temp_forged_char = None
                 st.rerun()
+
+
+@st.dialog("📖 Level Up Guide")
+def run_level_up_wizard():
+    """Comprehensive guide for leveling up a character."""
+    target_lv = st.session_state.char_level + 1
+    st.markdown(f"### Elevating to Level {target_lv}")
+    st.write(
+        f"The Phyrexian Forge is analyzing the potential growth for **{st.session_state.char_name}**."
+    )
+
+    if "level_up_analysis" not in st.session_state:
+        with st.spinner("Consulting the Arcane Rules..."):
+            char_data = get_character_dict(st.session_state)
+            from backend.ai_client import analyze_level_up
+
+            st.session_state.level_up_analysis = analyze_level_up(char_data)
+
+    analysis = st.session_state.level_up_analysis
+    if not analysis:
+        st.error(
+            "The Oracle is currently silent. (AI service may be busy or returned invalid data)"
+        )
+        col_err1, col_err2 = st.columns(2)
+        if col_err1.button("🔄 Try Oracle Again"):
+            del st.session_state.level_up_analysis
+            st.rerun()
+        if col_err2.button("🛠️ Manual Level Up (No Guide)"):
+            st.session_state.char_level += 1
+            st.toast(f"Level increased to {st.session_state.char_level}")
+            st.rerun()
+        return
+
+    # Section 1: Mandatory Stat Changes
+    st.markdown("#### ✅ Mandatory Adjustments")
+    hp_inc = analysis.get("hp_increase", 0)
+    new_hp = analysis.get("new_total_hp", st.session_state.hp_max + hp_inc)
+
+    col1, col2 = st.columns(2)
+    col1.metric("HP Increase", f"+{hp_inc}", help=f"New Max HP should be {new_hp}")
+
+    prof_bonus = analysis.get("updated_proficiency_bonus")
+    if prof_bonus:
+        col2.metric("Proficiency Bonus", f"+{prof_bonus}", delta=1)
+    else:
+        col2.metric(
+            "Proficiency Bonus", f"+{st.session_state.proficiency_bonus}", delta=0
+        )
+
+    # Section 2: New Class Features
+    st.markdown("#### ✨ New Features Gained")
+    for feat in analysis.get("automatic_changes", []):
+        with st.expander(f"🔹 {feat.get('name')}", expanded=True):
+            st.write(feat.get("description"))
+            if st.button("Copy to Traits", key=f"copy_{feat.get('name')}"):
+                st.session_state.features_traits.append(feat)
+                st.toast(f"Added {feat.get('name')} to features!")
+
+    # Section 3: Choices & Recommendations
+    choices = analysis.get("choices_required", [])
+    user_choices = {}
+
+    if choices:
+        st.markdown("#### ⚖️ Tactical Decisions")
+        for i, choice in enumerate(choices):
+            st.info(f"**{choice.get('label')}**")
+            st.caption(f"💡 **AI Recommendation:** {choice.get('ai_recommendation')}")
+            user_choices[i] = st.selectbox(
+                f"Select an option for {choice.get('type')}:",
+                options=choice.get("options", []),
+                key=f"choice_sel_{i}",
+            )
+
+    # Section 4: Spellcasting (if applicable)
+    if analysis.get("updated_spell_slots"):
+        st.markdown("#### 🔮 Spellcasting Growth")
+        st.write("Your magical capacity has increased:")
+        st.json(analysis["updated_spell_slots"])
+
+    st.markdown("---")
+
+    # Final Action Buttons
+    c1, c2 = st.columns(2)
+
+    if c1.button("🤖 Apply Automatically", type="primary", use_container_width=True):
+        # Automated application logic
+        st.session_state.char_level = target_lv
+        st.session_state.hp_max = int(new_hp)
+        if prof_bonus:
+            st.session_state.proficiency_bonus = int(prof_bonus)
+
+        # Add features from choices
+        for i, val in user_choices.items():
+            st.session_state.features_traits.append(
+                {"name": choices[i].get("label"), "description": f"Selected: {val}"}
+            )
+
+        # Update spell slots
+        if analysis.get("updated_spell_slots"):
+            if "slots" not in st.session_state.spells:
+                st.session_state.spells["slots"] = {}
+            for k, v in analysis["updated_spell_slots"].items():
+                st.session_state.spells["slots"][k] = v
+
+        del st.session_state.level_up_analysis
+        st.toast("Level Up Applied! All will be one.")
+        st.rerun()
+
+    if c2.button("🛠️ I'll Edit Manually", use_container_width=True):
+        del st.session_state.level_up_analysis
+        st.session_state.char_level = target_lv  # At least update the level number
+        st.toast("Level updated. Please adjust your stats in Edit Mode.")
+        st.rerun()

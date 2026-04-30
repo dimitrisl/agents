@@ -36,7 +36,7 @@ init_session_state(st.session_state)
 # ==========================================
 with st.sidebar:
     # App Logo
-    st.image("assets/logo.png", use_container_width=True)
+    st.image("assets/logo.png", width="stretch")
     st.markdown(
         "<h2 style='text-align: center; margin-top: -20px; color: #ff4b4b;'>Phyrexian Forge</h2>",
         unsafe_allow_html=True,

@@ -109,7 +109,10 @@ def generate_ai_json(prompt: str) -> dict:
                 temperature=DEFAULT_TEMPERATURE,
             ),
         )
-        logger.info("Received JSON response from Gemini. Attempting to parse...")
+        if not response or not response.text:
+            logger.error("Gemini returned an empty or null response text.")
+            return None
+
         cleaned_text = response.text.strip()
         if cleaned_text.startswith("```"):
             first_newline = cleaned_text.find("\n")
@@ -239,6 +242,7 @@ def forge_character(
         }},
         "saving_throws": ["STR", "CON"],
         "skills": {{"Athletics": 5, "Intimidation": 2}},
+        "weapon_masteries": ["Slow", "Topple"],
         "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage": "1d8+3 bludgeoning"}}],
         "equipment": ["Chain mail", "Backpack"],
         "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
@@ -249,8 +253,8 @@ def forge_character(
         "hit_dice": "1d10",
         "passive_perception": 12,
         "advancements": [
-            {"level": 1, "type": "Origin Feat", "name": "Tough", "description": "+2 HP per level"},
-            {"level": 4, "type": "Feat", "name": "Great Weapon Master", "description": "Deal more damage..."}
+            {{"level": 1, "type": "Origin Feat", "name": "Tough", "description": "+2 HP per level"}},
+            {{"level": 4, "type": "Feat", "name": "Great Weapon Master", "description": "Deal more damage..."}}
         ],
         "personality_traits": "...",
         "ideals": "...",
@@ -322,3 +326,48 @@ def generate_playstyle_guide(char_data: dict) -> str:
     Use beautiful markdown formatting with headings, bullet points, and emphasis.
     """
     return generate_ai_response(prompt)
+
+
+def analyze_level_up(char_data: dict) -> dict:
+    """Uses AI to determine what changes occur when leveling up."""
+    current_level = char_data.get("char_level", 1)
+    target_level = current_level + 1
+    edition = char_data.get("dnd_edition", "2014 Edition")
+
+    prompt = f"""
+    Act as a D&D {edition} Rules Expert.
+    Analyze the following character and determine EXACTLY what changes when they level up from Level {current_level} to Level {target_level}.
+
+    Character Info:
+    - Class: {char_data.get("char_class")}
+    - Subclass: {char_data.get("subclass", "None")}
+    - Race/Species: {char_data.get("race")}
+    - Stats: {char_data.get("stats")}
+
+    Return a JSON object with the following structure:
+    {{
+        "automatic_changes": [
+            {{"name": "Feature Name", "description": "Brief description of the new feature"}}
+        ],
+        "hp_increase": 8, // The exact number to add to Max HP (Die Average + CON mod)
+        "new_total_hp": 42, // The expected total Max HP after level up
+        "choices_required": [
+            {{
+                "type": "subclass|feat|spell|other",
+                "label": "Prompt for the user",
+                "options": ["Option 1", "Option 2"],
+                "ai_recommendation": "Recommendation text"
+            }}
+        ],
+        "updated_proficiency_bonus": 3, // New total bonus or null
+        "updated_spell_slots": {{ "level_1": 4, "level_2": 2 }} // Total slots or null
+    }}
+
+    Ruleset specific notes:
+    - If 2024 Edition, remember that Subclasses are now ALWAYS chosen at Level 3.
+    - If 2024 Edition, Fighter/Barbarian/etc might gain more Weapon Masteries.
+    - If Level 4, 8, 12, 16, 19, there is always a Choice (Feat or ASI).
+
+    Be precise and follow the {edition} rules strictly.
+    """
+    return generate_ai_json(prompt)

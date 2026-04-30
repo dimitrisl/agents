@@ -183,6 +183,17 @@ SUBCLASSES_2024 = {
     "Wizard": ["Abjurer", "Diviner", "Evoker", "Illusionist"],
 }
 
+WEAPON_MASTERIES_2024 = [
+    "Cleave",
+    "Graze",
+    "Nick",
+    "Push",
+    "Sap",
+    "Slow",
+    "Topple",
+    "Vex",
+]
+
 # PDF Positioning
 PDF_PORTRAIT_X = 45
 PDF_PORTRAIT_Y = 450
