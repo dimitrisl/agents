@@ -6,6 +6,18 @@ EDITIONS = [EDITION_2014, EDITION_2024]
 
 GENDERS = ["Male", "Female"]
 
+ALIGNMENTS = [
+    "Lawful Good",
+    "Neutral Good",
+    "Chaotic Good",
+    "Lawful Neutral",
+    "True Neutral",
+    "Chaotic Neutral",
+    "Lawful Evil",
+    "Neutral Evil",
+    "Chaotic Evil",
+]
+
 # ==========================================
 # 2014 Ruleset (5e)
 # ==========================================

@@ -1,7 +1,11 @@
 import streamlit as st
 import logging
 import uuid
-from backend.ai_client import get_build_suggestion, forge_character
+from backend.ai_client import (
+    get_build_suggestion,
+    forge_character,
+    generate_playstyle_guide,
+)
 from backend.storage import (
     save_character,
     load_character,
@@ -28,6 +32,7 @@ from backend.constants import (
     BACKGROUNDS_2024,
     SUBCLASSES_2024,
     GENDERS,
+    ALIGNMENTS,
 )
 
 logger = logging.getLogger("DnDAssistant.PlayerView")
@@ -176,8 +181,13 @@ def render_active_character(accent_color: str):
             else:
                 st.error("Save failed.")
 
-    char_tab1, char_tab2, char_tab3 = st.tabs(
-        ["📊 Core Stats & Skills", "⚔️ Combat & Inventory", "✨ Features & Spells"]
+    char_tab1, char_tab2, char_tab3, char_tab4 = st.tabs(
+        [
+            "📊 Core Stats & Skills",
+            "⚔️ Combat & Inventory",
+            "🧙 Features & Spells",
+            "📖 Playstyle Guide",
+        ]
     )
 
     with char_tab1:
@@ -188,6 +198,9 @@ def render_active_character(accent_color: str):
 
     with char_tab3:
         _render_features_spells(edit_mode)
+
+    with char_tab4:
+        _render_playstyle_guide(edit_mode)
 
     st.markdown("---")
     st.subheader("🤖 AI Build Suggestions")
@@ -447,12 +460,16 @@ def _render_features_spells(edit_mode: bool):
     st.markdown("#### Spells")
     if edit_mode:
         cs1, cs2, cs3 = st.columns(3)
+        options = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+        current_ability = st.session_state.spell_ability
+        ability_index = (
+            options.index(current_ability) if current_ability in options else 3
+        )
+
         st.session_state.spell_ability = cs1.selectbox(
             "Spellcasting Ability",
-            ["STR", "DEX", "CON", "INT", "WIS", "CHA"],
-            index=["STR", "DEX", "CON", "INT", "WIS", "CHA"].index(
-                st.session_state.spell_ability
-            ),
+            options,
+            index=ability_index,
         )
         st.session_state.spell_save_dc = cs2.number_input(
             "Spell Save DC", 0, 30, st.session_state.spell_save_dc
@@ -505,6 +522,35 @@ def _render_features_spells(edit_mode: bool):
                 st.write(
                     f"**{lvl.title().replace('_', ' ')}:** {', '.join(spell_list)}"
                 )
+
+
+def _render_playstyle_guide(edit_mode: bool):
+    """Renders the AI-generated strategy and roleplay guide."""
+    st.markdown("### 📖 Strategic Playstyle Guide")
+    st.info(
+        "This guide helps you master your character's mechanics and roleplay. It is generated via a separate AI analysis."
+    )
+
+    if not st.session_state.playstyle_guide:
+        if st.button("✨ Generate Playstyle Guide", width="stretch", type="primary"):
+            with st.spinner("Analyzing character build and strategy..."):
+                char_data = get_character_dict(st.session_state)
+                st.session_state.playstyle_guide = generate_playstyle_guide(char_data)
+                # Auto-save after generating guide
+                save_character(char_data)
+                st.rerun()
+    else:
+        if edit_mode:
+            st.session_state.playstyle_guide = st.text_area(
+                "Playstyle Guide (Markdown supported)",
+                st.session_state.playstyle_guide,
+                height=500,
+            )
+        else:
+            st.markdown(st.session_state.playstyle_guide)
+            if st.button("🔄 Regenerate Guide", width="stretch"):
+                st.session_state.playstyle_guide = ""
+                st.rerun()
 
 
 def render_character_creator():
@@ -592,9 +638,11 @@ def render_character_creator():
             placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon.",
             height=100,
         )
-        use_rolled = st.toggle(
-            "🎲 Use Rolled Stats (instead of Standard Array)", value=False
-        )
+        col_align, col_rolled = st.columns(2)
+        with col_align:
+            forge_alignment = st.selectbox("Alignment", ["AI Choice"] + ALIGNMENTS)
+        with col_rolled:
+            use_rolled = st.toggle("🎲 Use Rolled Stats", value=False)
 
     if st.session_state.temp_forged_char is None:
         if st.button("Generate Character", type="primary", width="stretch"):
@@ -610,6 +658,7 @@ def render_character_creator():
                     concept,
                     gender=forge_gender,
                     stats_mode="rolled" if use_rolled else "standard",
+                    alignment=forge_alignment,
                     edition=forge_edition,
                     subclass=forge_subclass,
                 )

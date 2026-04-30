@@ -80,8 +80,11 @@ def generate_ai_response(prompt: str) -> str:
         logger.info("Successfully received standard response from Gemini.")
         return response.text
     except Exception as e:
+        error_msg = str(e)
+        if "503" in error_msg or "high demand" in error_msg.lower():
+            return "⚠️ The AI is currently experiencing high demand. Please wait a few seconds and try again."
         logger.error(f"Failed to generate response: {e}", exc_info=True)
-        return f"❌ Failed to generate response: {e}"
+        return f"❌ Failed to generate response: {error_msg}"
 
 
 def generate_ai_json(prompt: str) -> dict:
@@ -125,7 +128,13 @@ def generate_ai_json(prompt: str) -> dict:
         )
         return None
     except Exception as e:
-        logger.error(f"Failed to generate JSON response: {e}", exc_info=True)
+        error_msg = str(e)
+        if "503" in error_msg or "high demand" in error_msg.lower():
+            st.error(
+                "⚠️ The AI is currently experiencing high demand. Please try again in a moment."
+            )
+            return None
+        logger.error(f"Failed to parse JSON response from Gemini: {e}", exc_info=True)
         return None
 
 
@@ -149,7 +158,7 @@ def forge_character(
     concept,
     gender="AI Choice",
     stats_mode="standard",
-    char_name=None,
+    alignment="AI Choice",
     edition="2014 Edition",
     subclass=None,
 ) -> dict:
@@ -182,11 +191,7 @@ def forge_character(
         gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
     )
 
-    name_instruction = (
-        f"Character Name: {char_name}"
-        if char_name
-        else "Assign them a creative and thematic name."
-    )
+    name_instruction = "Assign them a creative and thematic name."
 
     if stats_mode == "standard":
         stats_instruction = "You MUST use the Standard Array (15, 14, 13, 12, 10, 8) for their base ability scores, distributed optimally for their class/race."
@@ -202,6 +207,7 @@ def forge_character(
     Background: {bg_prompt}
     Flavor/Concept: {concept}
     Subclass: {subclass if subclass else "AI Choice (if applicable for level)"}
+    Alignment: {alignment}
 
     STRICT RULES:
     1. Race/Species MUST be one of: {current_races}
@@ -292,5 +298,27 @@ def generate_session_prep(campaign_notes, party_info) -> str:
     Based on the notes and the party, generate 3 creative plot hooks, twists, or developments for the next session.
     Format your response with markdown, using clear headings for each hook.
     Keep the total response under 250 words.
+    """
+    return generate_ai_response(prompt)
+
+
+def generate_playstyle_guide(char_data: dict) -> str:
+    """Generates a detailed strategic and roleplay guide for a character."""
+    prompt = f"""
+    Create a detailed D&D {char_data.get("dnd_edition", "2014 Edition")} Playstyle Guide for the following character:
+    Name: {char_data.get("char_name")}
+    Class: {char_data.get("char_class")} (Subclass: {char_data.get("subclass", "N/A")})
+    Level: {char_data.get("char_level")}
+    Race/Species: {char_data.get("race")}
+    Background: {char_data.get("background")}
+    Stats: {char_data.get("stats")}
+    Features: {[f.get("name") for f in char_data.get("features_traits", [])]}
+
+    The guide should include:
+    1. **Combat Strategy**: How to use their actions, bonus actions, and features optimally.
+    2. **Roleplay Tips**: How to portray their personality and background in the world.
+    3. **Key Synergies**: How their features work together.
+
+    Use beautiful markdown formatting with headings, bullet points, and emphasis.
     """
     return generate_ai_response(prompt)

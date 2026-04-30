@@ -21,6 +21,7 @@ from backend.constants import (
     CLASSES_2014,
     SPECIES_2024,
     CLASSES_2024,
+    ALIGNMENTS,
 )
 
 logger = logging.getLogger("DnDAssistant.DMView")
@@ -161,11 +162,20 @@ def _render_party_tracker():
             placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon.",
             key="q_concept",
         )
+        q_alignment = st.selectbox(
+            "Alignment", ["AI Choice"] + ALIGNMENTS, key="q_alignment"
+        )
 
         if st.button("Forge & Add", width="stretch"):
             with st.spinner("Forging..."):
                 result = forge_character(
-                    q_level, q_race, q_class, "AI Choice", q_concept, edition=q_edition
+                    q_level,
+                    q_race,
+                    q_class,
+                    "AI Choice",
+                    q_concept,
+                    alignment=q_alignment,
+                    edition=q_edition,
                 )
                 if result:
                     result["char_id"] = str(uuid.uuid4())[:8]

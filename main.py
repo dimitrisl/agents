@@ -5,7 +5,7 @@ from backend.state_manager import init_session_state
 from backend.ui_utils import inject_custom_css
 from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
-from backend.constants import EDITIONS
+from backend.constants import EDITION_2014, EDITION_2024
 
 # Load environment variables once at the entry point
 load_dotenv()
@@ -40,13 +40,12 @@ with st.sidebar:
 
     player_label = "🗡️ Player Dashboard"
 
-    st.session_state.dnd_edition = st.selectbox(
-        "📜 Ruleset / Edition:",
-        EDITIONS,
-        index=EDITIONS.index(st.session_state.dnd_edition)
-        if st.session_state.dnd_edition in EDITIONS
-        else 0,
+    is_2024 = st.toggle(
+        "Use 2024 Revision (5.5e)",
+        value=("2024" in st.session_state.dnd_edition),
     )
+    st.session_state.dnd_edition = EDITION_2024 if is_2024 else EDITION_2014
+    st.info(f"Currently using: **{st.session_state.dnd_edition}**")
 
     st.markdown("---")
 
