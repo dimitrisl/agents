@@ -6,7 +6,9 @@ from backend.ai_client import (
     forge_character,
     generate_playstyle_guide,
     validate_character_build,
+    parse_character_from_text,
 )
+import pypdf
 from backend.storage import (
     save_character,
     load_character,
@@ -143,6 +145,78 @@ def render_selection_screen():
             st.session_state.character_active = True
             st.session_state.player_view = "forge"
             st.rerun()
+
+        st.markdown("---")
+        st.subheader("📄 Import from PDF")
+        st.write("Upload an existing D&D Character Sheet (PDF).")
+
+        # Edition selection for import
+        import_edition = st.selectbox(
+            "Character Ruleset Edition",
+            ["2014 Edition", "2024 Revision (5.5e)"],
+            index=0 if "2014" in st.session_state.dnd_edition else 1,
+            key="pdf_import_edition",
+        )
+
+        uploaded_pdf = st.file_uploader(
+            "Upload PDF", type=["pdf"], label_visibility="collapsed"
+        )
+
+        if uploaded_pdf is not None:
+            if st.button("🧠 Parse with AI", type="primary", width="stretch"):
+                with st.spinner(
+                    f"Extracting and parsing {import_edition} character data..."
+                ):
+                    try:
+                        pdf_reader = pypdf.PdfReader(uploaded_pdf)
+                        extracted_text = ""
+
+                        # 1. Try to extract form fields (common in D&D sheets)
+                        fields = pdf_reader.get_fields()
+                        if fields:
+                            extracted_text += "--- FORM FIELDS ---\n"
+                            for field_name, field_data in fields.items():
+                                val = field_data.get("/V")
+                                if val:
+                                    extracted_text += f"{field_name}: {val}\n"
+                            extracted_text += "--- END FORM FIELDS ---\n\n"
+
+                        # 2. Extract regular text
+                        for page in pdf_reader.pages:
+                            text = page.extract_text()
+                            if text:
+                                extracted_text += text + "\n"
+
+                        if not extracted_text.strip():
+                            st.error(
+                                "Could not extract any text or fields from the PDF. It might be an image-only PDF."
+                            )
+                        else:
+                            parsed_data = parse_character_from_text(
+                                extracted_text, edition=import_edition
+                            )
+                            if parsed_data:
+                                # Ensure we have a unique ID and save the portrait
+                                parsed_data["char_id"] = str(uuid.uuid4())[:8]
+                                parsed_data["dnd_edition"] = import_edition
+
+                                # Generate and save portrait locally based on parsed data
+                                local_portrait_path = generate_portrait_url(parsed_data)
+                                if local_portrait_path:
+                                    parsed_data["char_portrait"] = local_portrait_path
+
+                                update_session_from_dict(st.session_state, parsed_data)
+                                st.session_state.character_active = True
+                                st.session_state.player_view = "sheet"
+                                save_character(get_character_dict(st.session_state))
+                                st.toast("Character imported successfully!")
+                                st.rerun()
+                            else:
+                                st.error(
+                                    "AI failed to parse the character data correctly."
+                                )
+                    except Exception as e:
+                        st.error(f"Error reading PDF: {e}")
 
 
 def render_active_character(accent_color: str):

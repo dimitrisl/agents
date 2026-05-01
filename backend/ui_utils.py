@@ -1,4 +1,19 @@
 import streamlit as st
+import os
+import base64
+
+
+def get_image_base64(path):
+    """Helper to convert a local image path to a base64 string for HTML embedding."""
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with open(path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+            ext = os.path.splitext(path)[1].lower().replace(".", "")
+            return f"data:image/{ext};base64,{encoded_string}"
+    except Exception:
+        return None
 
 
 def inject_custom_css(primary_color: str, accent_color: str):
@@ -138,18 +153,27 @@ def render_character_header(
     subclass: str = None,
 ):
     """Renders a visually striking header using native Streamlit components."""
+    # Convert local path to base64 if it looks like a local path
+    display_portrait = portrait_url
+    if (
+        portrait_url
+        and not portrait_url.startswith("http")
+        and not portrait_url.startswith("data:")
+    ):
+        display_portrait = get_image_base64(portrait_url)
+
     with st.container():
         # Add a custom CSS anchor point for the banner style
         st.markdown('<div class="char-banner">', unsafe_allow_html=True)
 
         col_img, col_text = st.columns([1, 5])
 
-        if portrait_url:
+        if display_portrait:
             with col_img:
                 st.markdown(
                     f"""
                     <div class="portrait-container">
-                        <img src="{portrait_url}" class="portrait-img">
+                        <img src="{display_portrait}" class="portrait-img">
                     </div>
                 """,
                     unsafe_allow_html=True,

@@ -62,7 +62,7 @@ with st.sidebar:
     view_mode = st.radio(
         "Application Mode",
         [player_label, "🏰 Dungeon Master View"],
-        index=0,
+        key="app_view_mode",
         label_visibility="collapsed",
     )
 

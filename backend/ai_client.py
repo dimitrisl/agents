@@ -14,13 +14,13 @@ from backend.constants import (
     GENDERS,
 )
 
+from backend.config_loader import load_config
+
 logger = logging.getLogger("DnDAssistant.AIClient")
 
-
 # ==========================================
-# AI Constants & Config
+# AI Helper Functions
 # ==========================================
-DEFAULT_TEMPERATURE = 0.9
 
 
 # ==========================================
@@ -43,19 +43,48 @@ def get_ai_client():
 
 
 def get_flash_model(client):
+    """Selects the best available Flash model based on config preferences."""
+    config = load_config()
+    ai_settings = config.get("ai_settings", {})
+    preferred = ai_settings.get("preferred_model")
+    fallback = ai_settings.get("fallback_model")
+
     try:
         models = list(client.models.list())
+        model_names = [m.name.lower() for m in models]
+
+        # 1. Try the preferred model from config
+        for name in model_names:
+            if preferred.lower() in name:
+                target = name
+                if target.startswith("models/"):
+                    target = target[7:]
+                logger.info(f"Using preferred model from config: {target}")
+                return target
+
+        # 2. Try the fallback model from config
+        for name in model_names:
+            if fallback.lower() in name:
+                target = name
+                if target.startswith("models/"):
+                    target = target[7:]
+                logger.info(f"Preferred model missing, using fallback: {target}")
+                return target
+
+        # 3. Last resort: first available flash model
         flash_models = [m.name for m in models if "flash" in m.name.lower()]
         model_to_use = flash_models[0] if flash_models else "gemini-1.5-flash"
         if model_to_use.startswith("models/"):
             model_to_use = model_to_use[7:]
-        logger.debug(f"Selected Gemini model: {model_to_use}")
+        logger.warning(
+            f"Config models missing, using auto-selected fallback: {model_to_use}"
+        )
         return model_to_use
     except Exception as e:
         logger.warning(
-            f"Failed to fetch model list, defaulting to gemini-1.5-flash. Error: {e}"
+            f"Failed to fetch model list, defaulting to {fallback}. Error: {e}"
         )
-        return "gemini-1.5-flash"
+        return fallback
 
 
 def generate_ai_response(prompt: str) -> str:
@@ -69,12 +98,17 @@ def generate_ai_response(prompt: str) -> str:
         return "❌ Error: GEMINI_API_KEY is missing in your .env file."
 
     try:
+        # Load temperature from config
+        config = load_config()
+        ai_settings = config.get("ai_settings", {})
+        temp = ai_settings.get("temperature")
+
         model = get_flash_model(client)
         response = client.models.generate_content(
             model=model,
             contents=prompt,
             config=genai.types.GenerateContentConfig(
-                temperature=DEFAULT_TEMPERATURE,
+                temperature=temp,
             ),
         )
         logger.info("Successfully received standard response from Gemini.")
@@ -98,6 +132,11 @@ def generate_ai_json(prompt: str) -> dict:
         return None
 
     try:
+        # Load temperature from config
+        config = load_config()
+        ai_settings = config.get("ai_settings", {})
+        temp = ai_settings.get("temperature")
+
         prompt += "\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown blocks or any other text."
         model = get_flash_model(client)
 
@@ -106,7 +145,7 @@ def generate_ai_json(prompt: str) -> dict:
             contents=prompt,
             config=genai.types.GenerateContentConfig(
                 response_mime_type="application/json",
-                temperature=DEFAULT_TEMPERATURE,
+                temperature=temp,
             ),
         )
         if not response or not response.text:
@@ -396,4 +435,65 @@ def validate_character_build(char_data: dict) -> dict:
         "suggestions": ["List of suggestions to fix the issues (leave empty if none)"]
     }}
     """
+    return generate_ai_json(prompt)
+
+
+def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") -> dict:
+    """Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure."""
+    prompt = f"""
+    You are an expert D&D {edition} character parser.
+    I am providing you with the raw text extracted from a D&D character sheet PDF.
+    Extract the character's details and return a strict JSON object that exactly matches the structure below.
+    If any information is missing (like backstory or background), make an educated guess or leave it empty, but the keys must exist.
+    Do NOT include any markdown formatting, only the JSON.
+
+    Required JSON Structure:
+    {{
+        "char_name": "string",
+        "char_class": "string",
+        "char_level": integer,
+        "race": "string",
+        "background": "string",
+        "alignment": "string",
+        "backstory": "string (summarize if too long, max 500 chars)",
+        "armor_class": integer,
+        "hp_max": integer,
+        "speed": integer,
+        "proficiency_bonus": integer,
+        "stats": {{
+            "STR": integer,
+            "DEX": integer,
+            "CON": integer,
+            "INT": integer,
+            "WIS": integer,
+            "CHA": integer
+        }},
+        "saving_throws": ["string", "string"], // list of ability abbreviations like "STR", "DEX" that the character is proficient in
+        "skills": {{
+            "Acrobatics": integer,
+            "Animal Handling": integer,
+            "Arcana": integer,
+            "Athletics": integer,
+            "Deception": integer,
+            "History": integer,
+            "Insight": integer,
+            "Intimidation": integer,
+            "Investigation": integer,
+            "Medicine": integer,
+            "Nature": integer,
+            "Perception": integer,
+            "Performance": integer,
+            "Persuasion": integer,
+            "Religion": integer,
+            "Sleight of Hand": integer,
+            "Stealth": integer,
+            "Survival": integer
+        }},
+        "skill_proficiencies": ["string", "string"] // list of skill names from above that the character is PROFICIENT in
+    }}
+
+    Raw PDF Text:
+    {sheet_text}
+    """
+
     return generate_ai_json(prompt)

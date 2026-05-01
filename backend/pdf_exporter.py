@@ -23,11 +23,14 @@ def format_mod(mod: int) -> str:
 def create_image_overlay(image_url: str) -> io.BytesIO:
     """Creates a transparent PDF page with the image at specific coordinates."""
     try:
-        resp = requests.get(image_url, timeout=10)
-        if resp.status_code != 200:
-            return None
-
-        img_data = io.BytesIO(resp.content)
+        if os.path.exists(image_url):
+            with open(image_url, "rb") as f:
+                img_data = io.BytesIO(f.read())
+        else:
+            resp = requests.get(image_url, timeout=10)
+            if resp.status_code != 200:
+                return None
+            img_data = io.BytesIO(resp.content)
         overlay_stream = io.BytesIO()
 
         # Create a canvas for a Letter size page (standard for 5e sheets)
@@ -147,10 +150,12 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             "Survival": "Check Box 40",
         }
         char_skills = char_data.get("skills", {})
+        skill_profs = char_data.get("skill_proficiencies", [])
         for sk_name, sk_val in char_skills.items():
             if sk_name in skill_map:
                 field_data[skill_map[sk_name]] = str(sk_val)
-            if sk_name in skill_check_map:
+            # Only mark proficiency dot if explicitly in skill_proficiencies
+            if sk_name in skill_check_map and sk_name in skill_profs:
                 field_data[skill_check_map[sk_name]] = "/Yes"
 
         save_map = {
