@@ -17,6 +17,10 @@ def init_session_state(session_state):
         session_state.gender = "Male"
     if "dnd_edition" not in session_state:
         session_state.dnd_edition = "2014 Edition"
+    if "needs_validation" not in session_state:
+        session_state.needs_validation = False
+    if "validation_result" not in session_state:
+        session_state.validation_result = None
 
     if "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]

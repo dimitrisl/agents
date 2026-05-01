@@ -5,6 +5,7 @@ from backend.ai_client import (
     get_build_suggestion,
     forge_character,
     generate_playstyle_guide,
+    validate_character_build,
 )
 from backend.storage import (
     save_character,
@@ -187,9 +188,42 @@ def render_active_character(accent_color: str):
         if edit_col4.button("💾 Save", width="stretch"):
             char_data = get_character_dict(st.session_state)
             if save_character(char_data):
-                st.toast("Changes saved!")
+                st.session_state.needs_validation = True
+                st.toast("Changes saved! You can now validate your build.")
+                st.rerun()
             else:
                 st.error("Save failed.")
+
+    if st.session_state.needs_validation:
+        if st.button("⚖️ Validate Character Build", type="primary"):
+            with st.spinner("Checking build against the rules..."):
+                char_data = get_character_dict(st.session_state)
+                val_result = validate_character_build(char_data)
+                if val_result:
+                    st.session_state.validation_result = val_result
+                    st.session_state.needs_validation = False
+                else:
+                    st.error("Validation failed to complete.")
+            st.rerun()
+
+    if st.session_state.validation_result:
+        val = st.session_state.validation_result
+        if val.get("is_valid"):
+            st.success("✅ **Character is Rules-Compliant!**")
+        else:
+            st.warning("⚠️ **Character may have rules violations.**")
+
+        if val.get("issues"):
+            with st.expander("🚨 Issues Found", expanded=True):
+                for issue in val["issues"]:
+                    st.write(f"- {issue}")
+        if val.get("suggestions"):
+            with st.expander("💡 Suggestions", expanded=True):
+                for sug in val["suggestions"]:
+                    st.write(f"- {sug}")
+        if st.button("Dismiss Validation"):
+            st.session_state.validation_result = None
+            st.rerun()
 
     if st.session_state.char_portrait:
         with st.expander("🖼️ Portrait Preview", expanded=False):
@@ -845,33 +879,9 @@ def run_level_up_wizard():
     st.markdown("---")
 
     # Final Action Buttons
-    c1, c2 = st.columns(2)
-
-    if c1.button("🤖 Apply Automatically", type="primary", use_container_width=True):
-        # Automated application logic
-        st.session_state.char_level = target_lv
-        st.session_state.hp_max = int(new_hp)
-        if prof_bonus:
-            st.session_state.proficiency_bonus = int(prof_bonus)
-
-        # Add features from choices
-        for i, val in user_choices.items():
-            st.session_state.features_traits.append(
-                {"name": choices[i].get("label"), "description": f"Selected: {val}"}
-            )
-
-        # Update spell slots
-        if analysis.get("updated_spell_slots"):
-            if "slots" not in st.session_state.spells:
-                st.session_state.spells["slots"] = {}
-            for k, v in analysis["updated_spell_slots"].items():
-                st.session_state.spells["slots"][k] = v
-
-        del st.session_state.level_up_analysis
-        st.toast("Level Up Applied! All will be one.")
-        st.rerun()
-
-    if c2.button("🛠️ I'll Edit Manually", use_container_width=True):
+    if st.button(
+        "🛠️ Acknowledge & Edit Manually", use_container_width=True, type="primary"
+    ):
         del st.session_state.level_up_analysis
         st.session_state.char_level = target_lv  # At least update the level number
         st.toast("Level updated. Please adjust your stats in Edit Mode.")

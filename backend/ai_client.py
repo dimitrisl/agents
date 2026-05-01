@@ -371,3 +371,29 @@ def analyze_level_up(char_data: dict) -> dict:
     Be precise and follow the {edition} rules strictly.
     """
     return generate_ai_json(prompt)
+
+
+def validate_character_build(char_data: dict) -> dict:
+    """Uses AI to validate a character's build based on their level, class, and edition."""
+    prompt = f"""
+    You are an expert Dungeon Master and Rules Arbiter for Dungeons & Dragons.
+    Your task is to validate a character sheet to ensure it complies with the official rules.
+
+    Character Data:
+    {json.dumps(char_data, indent=2)}
+
+    Validate the following aspects based on their edition ({char_data.get("dnd_edition", "2014")}):
+    1. Are the Ability Scores possible? (e.g., standard array/point buy + racial bonuses, no score above 20 unless a specific feature allows it).
+    2. Is the Max HP reasonable for their class, level, and CON modifier?
+    3. Is the Proficiency Bonus correct for their level ({char_data.get("char_level")})?
+    4. Do they have too many or too few features/traits for their level and class?
+    5. Are their spell slots correct for their class and level?
+
+    Return a JSON object with the following structure exactly:
+    {{
+        "is_valid": true, // false if there are any major violations
+        "issues": ["List of any rules violations or discrepancies found (leave empty if none)"],
+        "suggestions": ["List of suggestions to fix the issues (leave empty if none)"]
+    }}
+    """
+    return generate_ai_json(prompt)
