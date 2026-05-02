@@ -4,7 +4,7 @@ EDITION_2014 = "2014 Edition"
 EDITION_2024 = "2024 Revision (5.5e)"
 EDITIONS = [EDITION_2014, EDITION_2024]
 
-GENDERS = ["Male", "Female"]
+GENDERS = ["Male", "Female", "Non-binary", "Other"]
 
 ALIGNMENTS = [
     "Lawful Good",
@@ -19,7 +19,7 @@ ALIGNMENTS = [
 ]
 
 # ==========================================
-# 2014 Ruleset (5e)
+# 2014 Ruleset (5e) - Expanded with XGtE, TCoE, etc.
 # ==========================================
 RACES_2014 = [
     "Human",
@@ -31,9 +31,38 @@ RACES_2014 = [
     "Half-Orc",
     "Gnome",
     "Half-Elf",
+    "Aasimar",
+    "Firbolg",
+    "Goliath",
+    "Kenku",
+    "Lizardfolk",
+    "Tabaxi",
+    "Triton",
+    "Bugbear",
+    "Goblin",
+    "Hobgoblin",
+    "Kobold",
+    "Orc",
+    "Yuan-ti Pureblood",
+    "Tortle",
+    "Changeling",
+    "Kalashtar",
+    "Shifter",
+    "Warforged",
+    "Centaur",
+    "Loxodon",
+    "Minotaur",
+    "Simic Hybrid",
+    "Vedalken",
+    "Satyr",
+    "Leonin",
+    "Fairy",
+    "Harengon",
+    "Owlin",
 ]
 
 CLASSES_2014 = [
+    "Artificer",
     "Barbarian",
     "Bard",
     "Cleric",
@@ -62,11 +91,48 @@ BACKGROUNDS_2014 = [
     "Sailor",
     "Soldier",
     "Urchin",
+    "Anthropologist",
+    "Archaeologist",
+    "Athlete",
+    "City Watch",
+    "Clan Crafter",
+    "Cloistered Scholar",
+    "Courtier",
+    "Faction Agent",
+    "Far Traveler",
+    "Fisher",
+    "Gladiator",
+    "Inheritor",
+    "Knight",
+    "Knight of the Order",
+    "Marine",
+    "Mercenary Veteran",
+    "Urban Bounty Hunter",
+    "Uthgardt Tribe Member",
+    "Waterdhavian Noble",
 ]
 
 SUBCLASSES_2014 = {
-    "Barbarian": ["Path of the Berserker", "Path of the Totem Warrior"],
-    "Bard": ["College of Lore", "College of Valor"],
+    "Artificer": ["Alchemist", "Armorer", "Artillerist", "Battle Smith"],
+    "Barbarian": [
+        "Path of the Berserker",
+        "Path of the Totem Warrior",
+        "Path of the Ancestral Guardian",
+        "Path of the Storm Herald",
+        "Path of the Zealot",
+        "Path of the Beast",
+        "Path of Wild Magic",
+    ],
+    "Bard": [
+        "College of Lore",
+        "College of Valor",
+        "College of Glamour",
+        "College of Swords",
+        "College of Whispers",
+        "College of Creation",
+        "College of Eloquence",
+        "College of Spirits",
+    ],
     "Cleric": [
         "Knowledge Domain",
         "Life Domain",
@@ -75,15 +141,98 @@ SUBCLASSES_2014 = {
         "Tempest Domain",
         "Trickery Domain",
         "War Domain",
+        "Forge Domain",
+        "Grave Domain",
+        "Order Domain",
+        "Peace Domain",
+        "Twilight Domain",
+        "Arcana Domain",
+        "Death Domain",
     ],
-    "Druid": ["Circle of the Land", "Circle of the Moon"],
-    "Fighter": ["Champion", "Battle Master", "Eldritch Knight"],
-    "Monk": ["Way of the Open Hand", "Way of Shadow", "Way of the Four Elements"],
-    "Paladin": ["Oath of Devotion", "Oath of the Ancients", "Oath of Vengeance"],
-    "Ranger": ["Hunter", "Beast Master"],
-    "Rogue": ["Thief", "Assassin", "Arcane Trickster"],
-    "Sorcerer": ["Draconic Bloodline", "Wild Magic"],
-    "Warlock": ["The Archfey", "The Fiend", "The Great Old One"],
+    "Druid": [
+        "Circle of the Land",
+        "Circle of the Moon",
+        "Circle of Dreams",
+        "Circle of the Shepherd",
+        "Circle of Spores",
+        "Circle of Stars",
+        "Circle of Wildfire",
+    ],
+    "Fighter": [
+        "Champion",
+        "Battle Master",
+        "Eldritch Knight",
+        "Arcane Archer",
+        "Cavalier",
+        "Samurai",
+        "Echo Knight",
+        "Psi Warrior",
+        "Rune Knight",
+    ],
+    "Monk": [
+        "Way of the Open Hand",
+        "Way of Shadow",
+        "Way of the Four Elements",
+        "Way of the Long Death",
+        "Way of the Sun Soul",
+        "Way of the Drunken Master",
+        "Way of the Kensei",
+        "Way of the Astral Self",
+        "Way of the Mercy",
+        "Way of the Ascendant Dragon",
+    ],
+    "Paladin": [
+        "Oath of Devotion",
+        "Oath of the Ancients",
+        "Oath of Vengeance",
+        "Oath of the Crown",
+        "Oath of Conquest",
+        "Oath of Redemption",
+        "Oath of Glory",
+        "Oath of the Watchers",
+        "Oathbreaker",
+    ],
+    "Ranger": [
+        "Hunter",
+        "Beast Master",
+        "Gloom Stalker",
+        "Horizon Walker",
+        "Monster Slayer",
+        "Fey Wanderer",
+        "Swarmkeeper",
+        "Drakewarden",
+    ],
+    "Rogue": [
+        "Thief",
+        "Assassin",
+        "Arcane Trickster",
+        "Inquisitive",
+        "Mastermind",
+        "Scout",
+        "Swashbuckler",
+        "Phantom",
+        "Soulknife",
+    ],
+    "Sorcerer": [
+        "Draconic Bloodline",
+        "Wild Magic",
+        "Divine Soul",
+        "Shadow Magic",
+        "Storm Sorcery",
+        "Aberrant Mind",
+        "Clockwork Soul",
+    ],
+    "Warlock": [
+        "The Archfey",
+        "The Fiend",
+        "The Great Old One",
+        "The Undying",
+        "The Celestial",
+        "The Hexblade",
+        "The Fathomless",
+        "The Genie",
+        "The Undead",
+    ],
     "Wizard": [
         "School of Abjuration",
         "School of Conjuration",
@@ -93,6 +242,11 @@ SUBCLASSES_2014 = {
         "School of Illusion",
         "School of Necromancy",
         "School of Transmutation",
+        "Bladesinging",
+        "War Magic",
+        "Chronurgy Magic",
+        "Graviturgy Magic",
+        "Order of Scribes",
     ],
 }
 
@@ -112,7 +266,20 @@ SPECIES_2024 = [
     "Tiefling",
 ]
 
-CLASSES_2024 = CLASSES_2014  # Same core classes
+CLASSES_2024 = [
+    "Barbarian",
+    "Bard",
+    "Cleric",
+    "Druid",
+    "Fighter",
+    "Monk",
+    "Paladin",
+    "Ranger",
+    "Rogue",
+    "Sorcerer",
+    "Warlock",
+    "Wizard",
+]
 
 BACKGROUNDS_2024 = [
     "Acolyte",
@@ -194,7 +361,7 @@ WEAPON_MASTERIES_2024 = [
     "Vex",
 ]
 
-# PDF Positioning
+# PDF Positioning (Constants for drawing on the template)
 PDF_PORTRAIT_X = 45
 PDF_PORTRAIT_Y = 450
 PDF_PORTRAIT_WIDTH = 175
