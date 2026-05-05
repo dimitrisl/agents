@@ -637,7 +637,13 @@ def _render_core_stats(edit_mode: bool):
         with col_sk:
             st.markdown("#### Skills")
             for k, v in st.session_state.skills.items():
-                st.write(f"**{k}:** {v}")
+                indicator = ""
+                if k in st.session_state.skill_proficiencies:
+                    indicator = "● "
+                if k in getattr(st.session_state, "skill_expertise", []):
+                    indicator = "★ "
+
+                st.write(f"{indicator}**{k}:** {v}")
         with col_sv:
             st.markdown("#### Saving Throws")
             st.write(", ".join(st.session_state.saving_throws))
@@ -915,7 +921,11 @@ def render_character_creator():
             placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon.",
             height=100,
         )
-        col_align, col_rolled = st.columns(2)
+        col_name, col_align, col_rolled = st.columns([2, 1, 1])
+        with col_name:
+            forge_name = st.text_input(
+                "Character Name (optional)", placeholder="AI Choice"
+            )
         with col_align:
             forge_alignment = st.selectbox("Alignment", ["AI Choice"] + ALIGNMENTS)
         with col_rolled:
@@ -933,6 +943,7 @@ def render_character_creator():
                     forge_class,
                     forge_background,
                     concept,
+                    name=forge_name if forge_name.strip() else "AI Choice",
                     gender=forge_gender,
                     stats_mode="rolled" if use_rolled else "standard",
                     alignment=forge_alignment,

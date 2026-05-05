@@ -190,6 +190,7 @@ def forge_character(
     forge_class,
     forge_background,
     concept,
+    name="AI Choice",
     gender="AI Choice",
     stats_mode="standard",
     alignment="AI Choice",
@@ -225,7 +226,10 @@ def forge_character(
         gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
     )
 
-    name_instruction = "Assign them a creative and thematic name."
+    if name != "AI Choice":
+        name_instruction = f"The character's name MUST be: {name}"
+    else:
+        name_instruction = "Assign them a creative and thematic name."
 
     if stats_mode == "standard":
         stats_instruction = "You MUST use the Standard Array (15, 14, 13, 12, 10, 8) for their base ability scores, distributed optimally for their class/race."

@@ -243,12 +243,19 @@ def _render_party_tracker():
         )
         q_class = st.selectbox("Class", ["AI Choice"] + q_class_options, key="q_class")
         q_level = st.number_input("Level", 1, 20, 1, key="q_level")
+        q_name = st.text_input("Name (optional)", placeholder="AI Choice", key="q_name")
         q_concept = st.text_input("Concept", key="q_concept")
 
         if st.button("Forge & Add", key="forge_add_btn", use_container_width=True):
             with st.spinner("Forging & Generating Portrait..."):
                 result = forge_character(
-                    q_level, q_race, q_class, "AI Choice", q_concept, edition=q_edition
+                    q_level,
+                    q_race,
+                    q_class,
+                    "AI Choice",
+                    q_concept,
+                    name=q_name if q_name.strip() else "AI Choice",
+                    edition=q_edition,
                 )
                 if result:
                     result["char_id"] = str(uuid.uuid4())[:8]
