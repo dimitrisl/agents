@@ -65,8 +65,20 @@ def list_characters() -> list:
 
 
 def delete_character(filename: str) -> bool:
-    """Delete a character JSON file."""
+    """Delete a character JSON file and its associated portrait."""
     filepath = os.path.join(CHAR_DIR, filename)
+
+    # Attempt to delete the portrait first
+    try:
+        # Filename is usually name_id.json
+        char_id = filename.split("_")[-1].replace(".json", "")
+        portrait_path = os.path.join(DATA_DIR, "portraits", f"{char_id}.png")
+        if os.path.exists(portrait_path):
+            os.remove(portrait_path)
+            logger.info(f"Successfully deleted portrait: {portrait_path}")
+    except Exception as e:
+        logger.warning(f"Failed to delete portrait during character deletion: {e}")
+
     if os.path.exists(filepath):
         try:
             os.remove(filepath)
@@ -78,8 +90,8 @@ def delete_character(filename: str) -> bool:
     return False
 
 
-def save_campaign(campaign_name: str, notes: str) -> bool:
-    """Save campaign notes to a local JSON file."""
+def save_campaign(campaign_name: str, notes: str, party: list = None) -> bool:
+    """Save campaign notes and party list to a local JSON file."""
     _ensure_dirs()
     if not campaign_name:
         return False
@@ -87,9 +99,15 @@ def save_campaign(campaign_name: str, notes: str) -> bool:
     filename = f"{campaign_name.replace(' ', '_').lower()}.json"
     filepath = os.path.join(CAMP_DIR, filename)
 
+    data = {
+        "campaign_name": campaign_name,
+        "notes": notes,
+        "party": party if party is not None else [],
+    }
+
     try:
         with open(filepath, "w") as f:
-            json.dump({"campaign_name": campaign_name, "notes": notes}, f, indent=4)
+            json.dump(data, f, indent=4)
         logger.info(f"Successfully saved campaign to {filepath}")
         return True
     except Exception as e:
@@ -124,3 +142,16 @@ def list_campaigns() -> list:
         if f.endswith(".json"):
             camps.append(f.replace(".json", "").replace("_", " ").title())
     return camps
+
+
+def join_campaign(campaign_name: str, char_filename: str) -> bool:
+    """Add a character filename to a campaign's party list."""
+    data = load_campaign(campaign_name)
+    if not data:
+        return False
+
+    party = data.get("party", [])
+    if char_filename not in party:
+        party.append(char_filename)
+        return save_campaign(campaign_name, data.get("notes", ""), party)
+    return True

@@ -1,6 +1,7 @@
 import streamlit as st
 import logging
 import uuid
+import os
 from backend.ai_client import (
     get_build_suggestion,
     forge_character,
@@ -14,6 +15,7 @@ from backend.storage import (
     load_character,
     list_characters,
     delete_character,
+    list_campaigns,
 )
 from backend.state_manager import (
     get_character_dict,
@@ -55,14 +57,23 @@ def render_player_dashboard(accent_color: str):
                     st.session_state.player_view = "forge"
                     st.rerun()
             else:
-                if st.button(
-                    f"🔙 Back to {st.session_state.char_name}", width="stretch"
-                ):
+                # Definitive fix: In forge mode, always show "Cancel" to avoid old name persistence
+                if st.button("🔙 Cancel", width="stretch"):
                     st.session_state.player_view = "sheet"
+                    # If we don't have an active character (meaning we came from selection), go back to selection
+                    if (
+                        st.session_state.char_name == "New Hero"
+                        or not st.session_state.get("character_active")
+                    ):
+                        st.session_state.character_active = False
                     st.rerun()
         with col3:
             if st.button("🔄 Exit Hero", width="stretch"):
+                # Clear critical session state before exiting
+                from backend.state_manager import init_session_state
+
                 st.session_state.character_active = False
+                init_session_state(st.session_state)  # Reset to defaults
                 st.rerun()
 
         if st.session_state.player_view == "sheet":
@@ -142,6 +153,10 @@ def render_selection_screen():
         st.subheader("✨ Forge a New Hero")
         st.write("Let AI assist you in creating a brand new legendary character.")
         if st.button("Go to Character Forge", width="stretch"):
+            from backend.state_manager import init_session_state
+
+            # Force a reset to default values (New Hero)
+            init_session_state(st.session_state)
             st.session_state.character_active = True
             st.session_state.player_view = "forge"
             st.rerun()
@@ -246,7 +261,30 @@ def render_active_character(accent_color: str):
                 st.session_state.leveling_up = False
                 st.rerun()
 
-    edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([2, 1, 1, 1])
+    # --- Join Campaign Section ---
+    st.markdown("---")
+    with st.expander("🏰 Join a Campaign", expanded=False):
+        camps = list_campaigns()
+        if camps:
+            selected_camp = st.selectbox("Select Campaign to Join", camps)
+            if st.button("Request to Join"):
+                from backend.storage import join_campaign
+
+                # We need the filename of the current character
+                # Let's derive it or store it in session state
+                char_id = st.session_state.char_id
+                char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
+
+                if join_campaign(selected_camp, char_filename):
+                    st.success(
+                        f"Successfully joined {selected_camp}! The DM can now see you."
+                    )
+                else:
+                    st.error("Failed to join campaign.")
+        else:
+            st.info("No active campaigns found. Ask your DM to create one first!")
+
+    edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([1, 1, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")
 
     if edit_col2.button("🔼 Level Up", width="stretch", type="primary"):
@@ -457,11 +495,78 @@ def _render_core_stats(edit_mode: bool):
             "CHA", 1, 30, st.session_state.stats["CHA"]
         )
 
-        st.markdown("#### Skills & Saves")
-        st.session_state.skills = st.data_editor(
-            st.session_state.skills, num_rows="dynamic", key="edit_skills"
+        st.markdown("#### Skills & Proficiencies")
+
+        # Create a list of all 18 standard skills
+        standard_skills = [
+            "Acrobatics",
+            "Animal Handling",
+            "Arcana",
+            "Athletics",
+            "Deception",
+            "History",
+            "Insight",
+            "Intimidation",
+            "Investigation",
+            "Medicine",
+            "Nature",
+            "Perception",
+            "Performance",
+            "Persuasion",
+            "Religion",
+            "Sleight of Hand",
+            "Stealth",
+            "Survival",
+        ]
+
+        import pandas as pd
+
+        # Build a DataFrame for the editor
+        skill_data = []
+        for sk in standard_skills:
+            skill_data.append(
+                {
+                    "Skill": sk,
+                    "Bonus": st.session_state.skills.get(sk, 0),
+                    "Proficient": sk in st.session_state.skill_proficiencies,
+                    "Expert": sk in getattr(st.session_state, "skill_expertise", []),
+                }
+            )
+
+        df_skills = pd.DataFrame(skill_data)
+
+        edited_df = st.data_editor(
+            df_skills,
+            column_config={
+                "Proficient": st.column_config.CheckboxColumn("P", help="Proficient?"),
+                "Expert": st.column_config.CheckboxColumn("E", help="Expertise?"),
+                "Bonus": st.column_config.NumberColumn("Bonus", disabled=False),
+            },
+            disabled=["Skill"],
+            hide_index=True,
+            use_container_width=True,
+            key="skill_data_editor",
         )
-        st.write("Saving Throws:", st.session_state.saving_throws)
+
+        # Sync back to session state
+        if st.session_state.get("skill_data_editor"):
+            new_skills = {}
+            new_profs = []
+            new_exps = []
+            for _, row in edited_df.iterrows():
+                new_skills[row["Skill"]] = row["Bonus"]
+                if row["Proficient"]:
+                    new_profs.append(row["Skill"])
+                if row["Expert"]:
+                    new_exps.append(row["Skill"])
+
+            st.session_state.skills = new_skills
+            st.session_state.skill_proficiencies = new_profs
+            st.session_state.skill_expertise = new_exps
+
+        st.write(
+            "Saving Throws (Proficient):", ", ".join(st.session_state.saving_throws)
+        )
     else:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Max HP", st.session_state.hp_max)
@@ -485,6 +590,12 @@ def _render_core_stats(edit_mode: bool):
             """,
                 unsafe_allow_html=True,
             )
+            # Add the roll button below the visual box
+            if st.button("🎲 Roll", key=f"p_roll_{label}"):
+                from backend.dice import quick_roll
+
+                res, raw = quick_roll(20, mod)
+                st.toast(f"**{label}** Check: **{res}** (d20: {raw}, Mod: {mod_str})")
 
         with c1:
             render_score("STR", st.session_state.stats["STR"])
@@ -498,6 +609,29 @@ def _render_core_stats(edit_mode: bool):
             render_score("WIS", st.session_state.stats["WIS"])
         with c6:
             render_score("CHA", st.session_state.stats["CHA"])
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Add a global Custom Roll for players too
+        with st.popover("🎲 Custom / Damage Roll", use_container_width=True):
+            st.markdown("### Custom Roll")
+            pd_c1, pd_c2 = st.columns(2)
+            p_dtype = pd_c1.selectbox("Dice Type", [20, 12, 10, 8, 6, 4, 100], index=0)
+            p_extra = pd_c2.number_input("Extra Modifier", value=0)
+            p_adv = st.radio(
+                "Advantage?", ["None", "Advantage", "Disadvantage"], horizontal=True
+            )
+
+            if st.button("Roll!", type="primary", use_container_width=True):
+                from backend.dice import quick_roll
+
+                if p_adv == "None":
+                    res, raw = quick_roll(p_dtype, p_extra)
+                    st.success(f"Result: **{res}** (d{p_dtype}: {raw} + {p_extra})")
+                else:
+                    r1, raw1 = quick_roll(p_dtype, p_extra)
+                    r2, raw2 = quick_roll(p_dtype, p_extra)
+                    final = max(r1, r2) if p_adv == "Advantage" else min(r1, r2)
+                    st.success(f"**{p_adv}**: **{final}** (Rolls: {r1}, {r2})")
 
         col_sk, col_sv = st.columns(2)
         with col_sk:
@@ -869,7 +1003,22 @@ def render_character_creator():
                 st.rerun()
 
             if c_btn2.button("❌ Discard", width="stretch"):
+                # Clean up the portrait if discarded
+                if (
+                    "temp_portrait" in st.session_state
+                    and st.session_state.temp_portrait
+                ):
+                    try:
+                        if os.path.exists(st.session_state.temp_portrait):
+                            os.remove(st.session_state.temp_portrait)
+                            logger.info(
+                                f"Cleaned up discarded portrait: {st.session_state.temp_portrait}"
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to clean up discarded portrait: {e}")
+
                 st.session_state.temp_forged_char = None
+                st.session_state.temp_portrait = None
                 st.rerun()
 
 

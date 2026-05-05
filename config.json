@@ -1,7 +1,7 @@
 {
     "ai_settings": {
-        "preferred_model": "gemini-1.5-pro",
-        "fallback_model": "gemini-1.5-flash",
+        "preferred_model": "gemini-3.1-pro-preview",
+        "fallback_model": "gemini-flash-latest",
         "temperature": 0.7
     },
     "app_settings": {

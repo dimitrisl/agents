@@ -151,12 +151,17 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
         }
         char_skills = char_data.get("skills", {})
         skill_profs = char_data.get("skill_proficiencies", [])
+        skill_exps = char_data.get("skill_expertise", [])
         for sk_name, sk_val in char_skills.items():
             if sk_name in skill_map:
                 field_data[skill_map[sk_name]] = str(sk_val)
-            # Only mark proficiency dot if explicitly in skill_proficiencies
-            if sk_name in skill_check_map and sk_name in skill_profs:
-                field_data[skill_check_map[sk_name]] = "/Yes"
+
+            # CRITICAL: Dot ONLY blackens if in Proficiency or Expertise list
+            if sk_name in skill_check_map:
+                if sk_name in skill_profs or sk_name in skill_exps:
+                    field_data[skill_check_map[sk_name]] = "/Yes"
+                else:
+                    field_data[skill_check_map[sk_name]] = "/No"
 
         save_map = {
             "STR": "ST Strength",

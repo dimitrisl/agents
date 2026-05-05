@@ -46,45 +46,35 @@ def get_flash_model(client):
     """Selects the best available Flash model based on config preferences."""
     config = load_config()
     ai_settings = config.get("ai_settings", {})
-    preferred = ai_settings.get("preferred_model")
-    fallback = ai_settings.get("fallback_model")
+    preferred = ai_settings.get("preferred_model", "models/gemini-1.5-flash")
+    fallback = ai_settings.get("fallback_model", "models/gemini-1.5-flash")
 
     try:
+        # gemini-flash-latest is the most stable auto-updating identifier in 2026
+        stable_default = "gemini-flash-latest"
+
         models = list(client.models.list())
         model_names = [m.name.lower() for m in models]
 
         # 1. Try the preferred model from config
         for name in model_names:
             if preferred.lower() in name:
-                target = name
-                if target.startswith("models/"):
-                    target = target[7:]
-                logger.info(f"Using preferred model from config: {target}")
+                target = name[7:] if name.startswith("models/") else name
                 return target
 
-        # 2. Try the fallback model from config
+        # 2. Try the stable default
         for name in model_names:
-            if fallback.lower() in name:
-                target = name
-                if target.startswith("models/"):
-                    target = target[7:]
-                logger.info(f"Preferred model missing, using fallback: {target}")
+            if stable_default in name:
+                target = name[7:] if name.startswith("models/") else name
                 return target
 
-        # 3. Last resort: first available flash model
-        flash_models = [m.name for m in models if "flash" in m.name.lower()]
-        model_to_use = flash_models[0] if flash_models else "gemini-1.5-flash"
-        if model_to_use.startswith("models/"):
-            model_to_use = model_to_use[7:]
-        logger.warning(
-            f"Config models missing, using auto-selected fallback: {model_to_use}"
-        )
-        return model_to_use
+        # 3. Fallback to whatever is in the config
+        return fallback[7:] if fallback.startswith("models/") else fallback
     except Exception as e:
         logger.warning(
             f"Failed to fetch model list, defaulting to {fallback}. Error: {e}"
         )
-        return fallback
+        return fallback[7:] if fallback.startswith("models/") else fallback
 
 
 def generate_ai_response(prompt: str) -> str:
@@ -438,6 +428,33 @@ def validate_character_build(char_data: dict) -> dict:
     return generate_ai_json(prompt)
 
 
+def query_rules(query: str, edition: str = "2014 Edition") -> str:
+    """Uses AI to answer questions about D&D rules, spells, and features."""
+    prompt = f"""
+    You are the 'Phyrexian Oracle', an expert on Dungeons & Dragons {edition} rules.
+    Answer the following question clearly and concisely.
+    If the rule changed between 2014 and 2024, and the user is asking about {edition}, make sure to provide the version-accurate answer.
+
+    Question: {query}
+
+    Answer (be helpful, use markdown for formatting):
+    """
+    from backend.config_loader import load_config
+
+    config = load_config()
+    model_name = config.get("ai_settings", {}).get("preferred_model", "gemini-1.5-pro")
+
+    try:
+        from google import genai
+        import os
+
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        response = client.models.generate_content(model=model_name, contents=prompt)
+        return response.text
+    except Exception as e:
+        return f"The Oracle is silent... (Error: {str(e)})"
+
+
 def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") -> dict:
     """Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure."""
     prompt = f"""
@@ -489,7 +506,8 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
             "Stealth": integer,
             "Survival": integer
         }},
-        "skill_proficiencies": ["string", "string"] // list of skill names from above that the character is PROFICIENT in
+        "skill_proficiencies": ["string", "string"], // list of skill names from above that the character is PROFICIENT in
+        "skill_expertise": ["string", "string"] // list of skill names from above that the character has EXPERTISE in
     }}
 
     Raw PDF Text:

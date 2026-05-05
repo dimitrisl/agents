@@ -5,6 +5,7 @@ from backend.state_manager import init_session_state
 from backend.ui_utils import inject_custom_css
 from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
+from views.settings_view import render_settings_view
 from backend.constants import EDITION_2014, EDITION_2024
 
 # Load environment variables once at the entry point
@@ -48,6 +49,8 @@ with st.sidebar:
     st.markdown("---")
 
     player_label = "🗡️ Player Dashboard"
+    dm_label = "🏰 Dungeon Master View"
+    settings_label = "⚙️ Settings"
 
     is_2024 = st.toggle(
         "Use 2024 Revision (5.5e)",
@@ -61,7 +64,7 @@ with st.sidebar:
     st.markdown("**🎮 Application Mode:**")
     view_mode = st.radio(
         "Application Mode",
-        [player_label, "🏰 Dungeon Master View"],
+        [player_label, dm_label, settings_label],
         key="app_view_mode",
         label_visibility="collapsed",
     )
@@ -79,10 +82,36 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
+    st.markdown("---")
+    st.markdown("### 📜 AI Rules Oracle")
+    rule_query = st.text_input(
+        "Ask about a rule or feature:",
+        placeholder="e.g. How does Sneak Attack work?",
+        key="rule_query_input",
+    )
+    if st.button("Query Oracle", key="rule_query_btn", use_container_width=True):
+        if rule_query:
+            from backend.ai_client import query_rules
+
+            with st.sidebar.status("Consulting the archives..."):
+                answer = query_rules(rule_query, st.session_state.dnd_edition)
+                st.session_state.last_rule_answer = answer
+        else:
+            st.warning("Please enter a question.")
+
+    if st.session_state.get("last_rule_answer"):
+        with st.expander("Oracle's Answer", expanded=True):
+            st.markdown(st.session_state.last_rule_answer)
+            if st.button("Clear Answer"):
+                st.session_state.last_rule_answer = None
+                st.rerun()
+
 # ==========================================
 # Main Content Router
 # ==========================================
-if view_mode == "🏰 Dungeon Master View":
+if view_mode == dm_label:
     render_dm_workspace()
+elif view_mode == settings_label:
+    render_settings_view()
 else:
     render_player_dashboard(accent_color)

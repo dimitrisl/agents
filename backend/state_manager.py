@@ -24,7 +24,7 @@ def init_session_state(session_state):
 
     if "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]
-        session_state.char_name = "Eldred the Valiant"
+        session_state.char_name = "New Hero"
         session_state.char_class = "Paladin"
         session_state.subclass = "Oath of Devotion"
         session_state.char_level = 5
@@ -118,6 +118,8 @@ def get_character_dict(session_state) -> dict:
         "stats",
         "saving_throws",
         "skills",
+        "skill_proficiencies",
+        "skill_expertise",
         "weapons",
         "equipment",
         "features_traits",
@@ -195,6 +197,7 @@ def update_session_from_dict(session_state, data: dict):
         "saving_throws",
         "skills",
         "skill_proficiencies",
+        "skill_expertise",
         "weapons",
         "equipment",
         "features_traits",
@@ -225,6 +228,7 @@ def update_session_from_dict(session_state, data: dict):
         elif field in [
             "saving_throws",
             "skill_proficiencies",
+            "skill_expertise",
             "weapons",
             "equipment",
             "features_traits",
