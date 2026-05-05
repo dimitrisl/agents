@@ -5,24 +5,24 @@ import uuid
 logger = logging.getLogger("DnDAssistant.StateManager")
 
 
-def init_session_state(session_state):
+def init_session_state(session_state, force=False):
     """Initializes default Streamlit session state variables."""
-    if "character_active" not in session_state:
+    if force or "character_active" not in session_state:
         session_state.character_active = False
-    if "player_view" not in session_state:
+    if force or "player_view" not in session_state:
         session_state.player_view = "sheet"
-    if "char_portrait" not in session_state:
+    if force or "char_portrait" not in session_state:
         session_state.char_portrait = None
-    if "gender" not in session_state:
+    if force or "gender" not in session_state:
         session_state.gender = "Male"
-    if "dnd_edition" not in session_state:
+    if force or "dnd_edition" not in session_state:
         session_state.dnd_edition = "2014 Edition"
-    if "needs_validation" not in session_state:
+    if force or "needs_validation" not in session_state:
         session_state.needs_validation = False
-    if "validation_result" not in session_state:
+    if force or "validation_result" not in session_state:
         session_state.validation_result = None
 
-    if "char_name" not in session_state:
+    if force or "char_name" not in session_state:
         session_state.char_id = str(uuid.uuid4())[:8]
         session_state.char_name = "New Hero"
         session_state.char_class = "Paladin"
@@ -176,6 +176,7 @@ def update_session_from_dict(session_state, data: dict):
         return
 
     session_state.character_active = True
+    session_state.player_view = "sheet"
 
     # List of all character-related fields to manage
     fields = [

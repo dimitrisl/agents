@@ -73,7 +73,7 @@ def render_player_dashboard(accent_color: str):
                 from backend.state_manager import init_session_state
 
                 st.session_state.character_active = False
-                init_session_state(st.session_state)  # Reset to defaults
+                init_session_state(st.session_state, force=True)  # Reset to defaults
                 st.rerun()
 
         if st.session_state.player_view == "sheet":
@@ -115,6 +115,7 @@ def render_selection_screen():
                     if char_data:
                         update_session_from_dict(st.session_state, char_data)
                         st.session_state.character_active = True
+                        st.session_state.player_view = "sheet"
                         st.rerun()
 
                 # Delete button with double-click confirmation pattern
@@ -156,7 +157,7 @@ def render_selection_screen():
             from backend.state_manager import init_session_state
 
             # Force a reset to default values (New Hero)
-            init_session_state(st.session_state)
+            init_session_state(st.session_state, force=True)
             st.session_state.character_active = True
             st.session_state.player_view = "forge"
             st.rerun()

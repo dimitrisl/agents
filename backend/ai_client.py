@@ -439,26 +439,14 @@ def query_rules(query: str, edition: str = "2014 Edition") -> str:
     prompt = f"""
     You are the 'Phyrexian Oracle', an expert on Dungeons & Dragons {edition} rules.
     Answer the following question clearly and concisely.
+    The answer MUST BE no more than 5 sentences long.
     If the rule changed between 2014 and 2024, and the user is asking about {edition}, make sure to provide the version-accurate answer.
 
     Question: {query}
 
     Answer (be helpful, use markdown for formatting):
     """
-    from backend.config_loader import load_config
-
-    config = load_config()
-    model_name = config.get("ai_settings", {}).get("preferred_model", "gemini-1.5-pro")
-
-    try:
-        from google import genai
-        import os
-
-        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-        response = client.models.generate_content(model=model_name, contents=prompt)
-        return response.text
-    except Exception as e:
-        return f"The Oracle is silent... (Error: {str(e)})"
+    return generate_ai_response(prompt)
 
 
 def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") -> dict:

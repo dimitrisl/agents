@@ -83,25 +83,35 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    st.markdown("### 📜 AI Rules Oracle")
-    rule_query = st.text_input(
-        "Ask about a rule or feature:",
-        placeholder="e.g. How does Sneak Attack work?",
-        key="rule_query_input",
-    )
-    if st.button("Query Oracle", key="rule_query_btn", use_container_width=True):
-        if rule_query:
-            from backend.ai_client import query_rules
+    # --- AI Rules Oracle in a Popover ---
+    with st.popover("📜 AI Rules Oracle", use_container_width=True):
+        st.markdown("### Ask the Oracle")
+        rule_query = st.text_input(
+            "Ask about a rule or feature:",
+            placeholder="e.g. How does Sneak Attack work?",
+            key="rule_query_input",
+        )
 
-            with st.sidebar.status("Consulting the archives..."):
-                answer = query_rules(rule_query, st.session_state.dnd_edition)
-                st.session_state.last_rule_answer = answer
-        else:
-            st.warning("Please enter a question.")
+        if st.button("Query Oracle", key="rule_query_btn", use_container_width=True):
+            if rule_query:
+                from backend.ai_client import query_rules
 
-    if st.session_state.get("last_rule_answer"):
-        with st.expander("Oracle's Answer", expanded=True):
-            st.markdown(st.session_state.last_rule_answer)
+                with st.spinner("Consulting the archives..."):
+                    answer = query_rules(rule_query, st.session_state.dnd_edition)
+                    st.session_state.last_rule_answer = answer
+            else:
+                st.warning("Please enter a question.")
+
+        if st.session_state.get("last_rule_answer"):
+            st.markdown("---")
+            if (
+                "⚠️" in st.session_state.last_rule_answer
+                or "❌" in st.session_state.last_rule_answer
+            ):
+                st.error(st.session_state.last_rule_answer)
+            else:
+                st.info(st.session_state.last_rule_answer)
+
             if st.button("Clear Answer"):
                 st.session_state.last_rule_answer = None
                 st.rerun()
