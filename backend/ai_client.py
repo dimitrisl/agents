@@ -23,9 +23,6 @@ logger = logging.getLogger("DnDAssistant.AIClient")
 # ==========================================
 
 
-# ==========================================
-# AI Helper Functions
-# ==========================================
 def get_ai_client():
     """Initializes the Gemini AI Client. Not cached if it fails to find the API key."""
     api_key = os.getenv("GEMINI_API_KEY")
@@ -168,6 +165,11 @@ def generate_ai_json(prompt: str) -> dict:
             return None
         logger.error(f"Failed to parse JSON response from Gemini: {e}", exc_info=True)
         return None
+
+
+# ==========================================
+# Specialized AI Methods
+# ==========================================
 
 
 def get_build_suggestion(
@@ -456,25 +458,24 @@ def query_rules(query: str, edition: str = "2014 Edition") -> str:
 
 
 def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") -> dict:
-    """Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure."""
-    prompt = f"""
-    You are an expert D&D {edition} character parser.
-    I am providing you with the raw text extracted from a D&D character sheet PDF.
+    """
+    Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure.
+    Uses a 2-step chained process for maximum precision.
+    """
+    logger.info("Starting Chained Character Parsing (Step 1: Core Stats)...")
 
-    IMPORTANT: The text may contain labels in languages other than English (e.g., Italian labels like 'Classe e livello' for class, 'Nome' for name, 'Forza' for Strength, 'Destrezza' for Dexterity).
-    Identify these fields by their context and map them correctly to the English JSON keys requested below.
+    # STEP 1: Core Statistics & Identity
+    step1_prompt = f"""
+    Act as an expert D&D {edition} parser.
+    Analyze the following raw text from a character sheet and extract the CORE identity and statistics.
 
-    Extract the character's details and return a strict JSON object that exactly matches the structure below.
+    IMPORTANT: The text may contain labels in languages other than English (e.g., Italian like 'Classe e livello', 'Nome', 'Forza', 'Destrezza').
+    Identify these fields by their context and map them correctly.
 
-    IMPORTANT RULES FOR MISSING DATA:
-    - If a character has NO weapons, return an empty list: "weapons": [].
-    - If a character has NO spells, return an object with empty lists for all levels: "spells": {{"cantrips": [], "level_1": [], "level_2": [], "level_3": [], "level_4": [], "level_5": []}}.
-    - If a character has NO equipment or features, return an empty list: [].
-    - If any other information is missing, leave the string empty "" or the number as 0, but the keys MUST always exist in the response.
+    Raw PDF Text:
+    {sheet_text}
 
-    Do NOT include any markdown formatting, only the JSON.
-
-    Required JSON Structure:
+    Return a JSON object with this exact structure:
     {{
         "char_name": "string",
         "char_class": "string",
@@ -482,52 +483,59 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
         "race": "string",
         "background": "string",
         "alignment": "string",
-        "backstory": "string (summarize if too long, max 500 chars)",
         "armor_class": integer,
         "hp_max": integer,
         "speed": integer,
         "proficiency_bonus": integer,
         "stats": {{
-            "STR": integer,
-            "DEX": integer,
-            "CON": integer,
-            "INT": integer,
-            "WIS": integer,
-            "CHA": integer
+            "STR": integer, "DEX": integer, "CON": integer, "INT": integer, "WIS": integer, "CHA": integer
         }},
-        "saving_throws": ["string", "string"], // list of ability abbreviations like "STR", "DEX" that the character is proficient in
-        "skills": {{
-            "Acrobatics": integer,
-            "Animal Handling": integer,
-            "Arcana": integer,
-            "Athletics": integer,
-            "Deception": integer,
-            "History": integer,
-            "Insight": integer,
-            "Intimidation": integer,
-            "Investigation": integer,
-            "Medicine": integer,
-            "Nature": integer,
-            "Perception": integer,
-            "Performance": integer,
-            "Persuasion": integer,
-            "Religion": integer,
-            "Sleight of Hand": integer,
-            "Stealth": integer,
-            "Survival": integer
-        }},
-        "skill_proficiencies": ["string", "string"], // list of skill names from above that the character is PROFICIENT in
-        "skill_expertise": ["string", "string"], // list of skill names from above that the character has EXPERTISE in
+        "saving_throws": ["string"],
+        "skills": {{"SkillName": BonusInteger}},
+        "skill_proficiencies": ["string"],
+        "skill_expertise": ["string"]
+    }}
+    """
+    core_data = generate_ai_json(step1_prompt)
+    if not core_data:
+        logger.error("Step 1 of chained parsing failed.")
+        return None
+
+    logger.info(
+        f"Step 1 Complete (Name: {core_data.get('char_name')}). Starting Step 2 (Combat & Features)..."
+    )
+
+    # STEP 2: Combat, Equipment, Spells & Lore
+    # We provide the AI with the Core Data found in Step 1 to give it context.
+    step2_prompt = f"""
+    Act as an expert D&D {edition} parser.
+    I have already extracted some core data for this character: {json.dumps(core_data)}.
+    Now, focus on extracting the following details from the same raw text:
+    - Weapons & Attacks
+    - Equipment & Inventory
+    - Spells (by level)
+    - Features, Traits, and Lore (Backstory, Personality)
+
+    Raw PDF Text:
+    {sheet_text}
+
+    Return a JSON object with this exact structure (combine with core data if necessary):
+    {{
+        "backstory": "string (summarize if too long, max 500 chars)",
+        "personality_traits": "string",
+        "ideals": "string",
+        "bonds": "string",
+        "flaws": "string",
         "weapons": [
             {{
                 "name": "string",
-                "attack_bonus": "string (e.g. +7)",
-                "damage": "string (e.g. 1d8+4 piercing)",
+                "attack_bonus": "string",
+                "damage": "string",
                 "range": "string (optional)",
                 "properties": "string (optional)"
             }}
         ],
-        "equipment": ["string", "string"], // list of items found in the inventory/equipment section
+        "equipment": ["string"],
         "spells": {{
             "cantrips": ["string"],
             "level_1": ["string"],
@@ -539,14 +547,18 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
         "features_traits": [
             {{
                 "name": "string",
-                "source": "string (e.g. Race, Class, Feat)",
+                "source": "string",
                 "description": "string"
             }}
         ]
     }}
-
-    Raw PDF Text:
-    {sheet_text}
     """
+    combat_data = generate_ai_json(step2_prompt)
+    if not combat_data:
+        logger.warning("Step 2 of chained parsing failed. Returning core data only.")
+        return core_data
 
-    return generate_ai_json(prompt)
+    # Merge the results
+    final_data = {**core_data, **combat_data}
+    logger.info("Chained parsing successfully completed.")
+    return final_data
