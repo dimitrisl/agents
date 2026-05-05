@@ -1,6 +1,6 @@
 {
     "ai_settings": {
-        "preferred_model": "gemini-2.5-flash",
+        "preferred_model": "gemini-2.5-pro",
         "fallback_model": "gemini-flash-latest",
         "temperature": 0.7
     },

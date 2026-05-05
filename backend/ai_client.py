@@ -464,6 +464,10 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
     IMPORTANT: The text may contain labels in languages other than English (e.g., Italian like 'Classe e livello', 'Nome', 'Forza', 'Destrezza').
     Identify these fields by their context and map them correctly.
 
+    The input text is organized into two primary sections for clarity:
+    1. '--- FORM FIELDS ---': Contains raw key-value pairs from PDF form fields. These are often high-fidelity but may have cryptic names (e.g. 'STR' or 'Check Box 11').
+    2. '--- VISUAL LAYOUT TEXT ---': Contains text extracted directly from the page, preserving the visual alignment. Use this to cross-reference field names with their nearby labels.
+
     Raw PDF Text:
     {sheet_text}
 
@@ -507,6 +511,10 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
     - Equipment & Inventory
     - Spells (by level)
     - Features, Traits, and Lore (Backstory, Personality)
+
+    The input text is organized into two primary sections for clarity:
+    1. '--- FORM FIELDS ---': Contains raw key-value pairs from PDF form fields.
+    2. '--- VISUAL LAYOUT TEXT ---': Contains text extracted directly from the page, preserving the visual alignment.
 
     Raw PDF Text:
     {sheet_text}
