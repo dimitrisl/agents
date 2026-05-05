@@ -460,8 +460,18 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
     prompt = f"""
     You are an expert D&D {edition} character parser.
     I am providing you with the raw text extracted from a D&D character sheet PDF.
+
+    IMPORTANT: The text may contain labels in languages other than English (e.g., Italian labels like 'Classe e livello' for class, 'Nome' for name, 'Forza' for Strength, 'Destrezza' for Dexterity).
+    Identify these fields by their context and map them correctly to the English JSON keys requested below.
+
     Extract the character's details and return a strict JSON object that exactly matches the structure below.
-    If any information is missing (like backstory or background), make an educated guess or leave it empty, but the keys must exist.
+
+    IMPORTANT RULES FOR MISSING DATA:
+    - If a character has NO weapons, return an empty list: "weapons": [].
+    - If a character has NO spells, return an object with empty lists for all levels: "spells": {{"cantrips": [], "level_1": [], "level_2": [], "level_3": [], "level_4": [], "level_5": []}}.
+    - If a character has NO equipment or features, return an empty list: [].
+    - If any other information is missing, leave the string empty "" or the number as 0, but the keys MUST always exist in the response.
+
     Do NOT include any markdown formatting, only the JSON.
 
     Required JSON Structure:
@@ -507,7 +517,32 @@ def parse_character_from_text(sheet_text: str, edition: str = "2014 Edition") ->
             "Survival": integer
         }},
         "skill_proficiencies": ["string", "string"], // list of skill names from above that the character is PROFICIENT in
-        "skill_expertise": ["string", "string"] // list of skill names from above that the character has EXPERTISE in
+        "skill_expertise": ["string", "string"], // list of skill names from above that the character has EXPERTISE in
+        "weapons": [
+            {{
+                "name": "string",
+                "attack_bonus": "string (e.g. +7)",
+                "damage": "string (e.g. 1d8+4 piercing)",
+                "range": "string (optional)",
+                "properties": "string (optional)"
+            }}
+        ],
+        "equipment": ["string", "string"], // list of items found in the inventory/equipment section
+        "spells": {{
+            "cantrips": ["string"],
+            "level_1": ["string"],
+            "level_2": ["string"],
+            "level_3": ["string"],
+            "level_4": ["string"],
+            "level_5": ["string"]
+        }},
+        "features_traits": [
+            {{
+                "name": "string",
+                "source": "string (e.g. Race, Class, Feat)",
+                "description": "string"
+            }}
+        ]
     }}
 
     Raw PDF Text:
