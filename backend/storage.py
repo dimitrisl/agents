@@ -81,6 +81,11 @@ def delete_character(filename: str) -> bool:
 
     if os.path.exists(filepath):
         try:
+            # Check if character is in a campaign and remove them from it
+            char_data = load_character(filename)
+            if char_data and char_data.get("active_campaign"):
+                remove_from_campaign(char_data["active_campaign"], filename)
+
             os.remove(filepath)
             logger.info(f"Successfully deleted character: {filepath}")
             return True
@@ -99,10 +104,18 @@ def save_campaign(campaign_name: str, notes: str, party: list = None) -> bool:
     filename = f"{campaign_name.replace(' ', '_').lower()}.json"
     filepath = os.path.join(CAMP_DIR, filename)
 
+    # If party is not provided, try to load existing party to avoid wiping it
+    if party is None:
+        existing_data = load_campaign(campaign_name)
+        if existing_data:
+            party = existing_data.get("party", [])
+        else:
+            party = []
+
     data = {
         "campaign_name": campaign_name,
         "notes": notes,
-        "party": party if party is not None else [],
+        "party": party,
     }
 
     try:
@@ -145,7 +158,7 @@ def list_campaigns() -> list:
 
 
 def join_campaign(campaign_name: str, char_filename: str) -> bool:
-    """Add a character filename to a campaign's party list."""
+    """Add a character filename to a campaign's party list and update character data."""
     data = load_campaign(campaign_name)
     if not data:
         return False
@@ -153,5 +166,34 @@ def join_campaign(campaign_name: str, char_filename: str) -> bool:
     party = data.get("party", [])
     if char_filename not in party:
         party.append(char_filename)
-        return save_campaign(campaign_name, data.get("notes", ""), party)
+        if not save_campaign(campaign_name, data.get("notes", ""), party):
+            return False
+
+    # Also update the character file to remember the campaign
+    char_data = load_character(char_filename)
+    if char_data:
+        char_data["active_campaign"] = campaign_name
+        save_character(char_data)
+
+    return True
+
+
+def remove_from_campaign(campaign_name: str, char_filename: str) -> bool:
+    """Remove a character from a campaign and update character data."""
+    data = load_campaign(campaign_name)
+    if not data:
+        return False
+
+    party = data.get("party", [])
+    if char_filename in party:
+        party.remove(char_filename)
+        if not save_campaign(campaign_name, data.get("notes", ""), party):
+            return False
+
+    # Also update the character file to forget the campaign
+    char_data = load_character(char_filename)
+    if char_data and char_data.get("active_campaign") == campaign_name:
+        char_data["active_campaign"] = None
+        save_character(char_data)
+
     return True

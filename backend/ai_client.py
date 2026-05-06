@@ -305,14 +305,30 @@ def forge_character(
 
 def generate_random_encounter(
     party_size, avg_level, location, edition="2014 Edition"
-) -> str:
+) -> dict:
     prompt = f"""
-    Generate a short, flavorful random encounter for a D&D {edition} party of {party_size} level {avg_level} characters.
+    Generate a flavorful random encounter for a D&D {edition} party of {party_size} level {avg_level} characters.
     The setting is {location}.
-    Include the monsters, a brief description of the environment, and a small twist.
-    Format it nicely using markdown. Keep it under 150 words.
+
+    You must return a JSON object with the following structure:
+    {{
+        "encounter_text": "Markdown formatted description of the environment, encounter, and twist.",
+        "monsters": [
+            {{
+                "name": "Monster Name",
+                "hp": 45,
+                "ac": 15,
+                "dex": 12,
+                "quantity": 3,
+                "statblock_summary": "Brief summary of attacks and abilities"
+            }}
+        ]
+    }}
+
+    Make the encounter_text engaging and flavorful.
+    Ensure the monster stats are balanced for the party level.
     """
-    return generate_ai_response(prompt)
+    return generate_ai_json(prompt)
 
 
 def generate_npc(npc_concept, edition="2014 Edition") -> str:

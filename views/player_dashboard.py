@@ -321,28 +321,49 @@ def render_active_character(accent_color: str):
                 st.session_state.leveling_up = False
                 st.rerun()
 
-    # --- Join Campaign Section ---
+    # --- Campaign Section ---
     st.markdown("---")
-    with st.expander("🏰 Join a Campaign", expanded=False):
-        camps = list_campaigns()
-        if camps:
-            selected_camp = st.selectbox("Select Campaign to Join", camps)
-            if st.button("Request to Join"):
-                from backend.storage import join_campaign
+    current_camp = st.session_state.get("active_campaign")
 
-                # We need the filename of the current character
-                # Let's derive it or store it in session state
+    if current_camp:
+        with st.container(border=True):
+            col_camp1, col_camp2 = st.columns([3, 1])
+            col_camp1.markdown(f"🏰 **Active Campaign:** {current_camp}")
+            if col_camp2.button(
+                "🚪 Leave", key="leave_camp_btn", use_container_width=True
+            ):
+                from backend.storage import remove_from_campaign
+
                 char_id = st.session_state.char_id
                 char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
 
-                if join_campaign(selected_camp, char_filename):
-                    st.success(
-                        f"Successfully joined {selected_camp}! The DM can now see you."
-                    )
+                if remove_from_campaign(current_camp, char_filename):
+                    st.session_state.active_campaign = None
+                    st.success(f"Left {current_camp}.")
+                    st.rerun()
                 else:
-                    st.error("Failed to join campaign.")
-        else:
-            st.info("No active campaigns found. Ask your DM to create one first!")
+                    st.error("Failed to leave campaign.")
+    else:
+        with st.expander("🏰 Join a Campaign", expanded=False):
+            camps = list_campaigns()
+            if camps:
+                selected_camp = st.selectbox("Select Campaign to Join", camps)
+                if st.button("Request to Join"):
+                    from backend.storage import join_campaign
+
+                    char_id = st.session_state.char_id
+                    char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
+
+                    if join_campaign(selected_camp, char_filename):
+                        st.session_state.active_campaign = selected_camp
+                        st.success(
+                            f"Successfully joined {selected_camp}! The DM can now see you."
+                        )
+                        st.rerun()
+                    else:
+                        st.error("Failed to join campaign.")
+            else:
+                st.info("No active campaigns found. Ask your DM to create one first!")
 
     edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([1, 1, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")

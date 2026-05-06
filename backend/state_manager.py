@@ -84,6 +84,7 @@ def init_session_state(session_state, force=False):
         session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get an AI recommendation based on your current stats!"
 
         session_state.encounter_result = ""
+        session_state.active_campaign = None
         session_state.active_campaign_name = None
         session_state.campaign_notes = ""
         session_state.npc_result = ""
@@ -138,6 +139,7 @@ def get_character_dict(session_state) -> dict:
         "advancements",
         "weapon_masteries",
         "playstyle_guide",
+        "active_campaign",
     ]
     char_data = {}
     for field in fields:
@@ -217,6 +219,7 @@ def update_session_from_dict(session_state, data: dict):
         "advancements",
         "weapon_masteries",
         "playstyle_guide",
+        "active_campaign",
     ]
 
     # RESET all fields first to prevent state bleeding from previous character

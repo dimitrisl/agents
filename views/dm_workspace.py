@@ -93,7 +93,17 @@ def _render_campaign_selection():
                     st.session_state.campaign_notes = data.get("notes", "")
                     st.session_state.active_campaign_name = selected_camp
                     st.session_state.campaign_party_files = data.get("party", [])
-                    logger.info(f"Loaded campaign: {selected_camp}")
+
+                    # Automatically populate the party in session state
+                    st.session_state.party = []
+                    for f in st.session_state.campaign_party_files:
+                        char_data = load_character(f)
+                        if char_data:
+                            st.session_state.party.append(char_data)
+
+                    logger.info(
+                        f"Loaded campaign: {selected_camp} with {len(st.session_state.party)} members."
+                    )
                     st.toast(f"Loaded campaign: {selected_camp}")
                     st.rerun()
         else:
@@ -230,6 +240,14 @@ def _render_party_tracker():
                         st.warning(f"{char_data['char_name']} is already in the party.")
                     else:
                         st.session_state.party.append(char_data)
+
+                        # Persist to campaign file
+                        from backend.storage import join_campaign
+
+                        join_campaign(
+                            st.session_state.active_campaign_name, char_to_add
+                        )
+
                         st.success(f"Added {char_data['char_name']} to the party!")
                         st.rerun()
 
@@ -269,6 +287,15 @@ def _render_party_tracker():
 
                     if save_character(result):
                         st.session_state.party.append(result)
+
+                        # Persist to campaign file
+                        from backend.storage import join_campaign
+
+                        char_filename = f"{result['char_name'].replace(' ', '_').lower()}_{result['char_id']}.json"
+                        join_campaign(
+                            st.session_state.active_campaign_name, char_filename
+                        )
+
                         st.success(f"Forged and saved {result['char_name']}!")
                         st.rerun()
                     else:
@@ -290,7 +317,24 @@ def _render_party_tracker():
                 pp = 10 + calculate_modifier(member["stats"]["WIS"])
                 c4.metric("Perc.", f"{pp}")
                 if c5.button("🗑️", key=f"rem_party_{i}"):
+                    from backend.storage import remove_from_campaign
+
+                    char_id = member.get("char_id")
+                    char_filename = f"{member['char_name'].replace(' ', '_').lower()}_{char_id}.json"
+
+                    # Remove from the session state party
                     st.session_state.party.pop(i)
+
+                    # Also remove from the campaign storage if it's there
+                    remove_from_campaign(
+                        st.session_state.active_campaign_name, char_filename
+                    )
+
+                    # Update the campaign_party_files in session state to reflect storage change
+                    data = load_campaign(st.session_state.active_campaign_name)
+                    if data:
+                        st.session_state.campaign_party_files = data.get("party", [])
+
                     st.rerun()
 
 
@@ -315,7 +359,55 @@ def _render_ai_generators():
                     edition=st.session_state.dnd_edition,
                 )
         if st.session_state.encounter_result:
-            st.success(st.session_state.encounter_result)
+            res = st.session_state.encounter_result
+            if isinstance(res, dict):
+                st.markdown(res.get("encounter_text", ""))
+                if res.get("monsters"):
+                    st.markdown("#### 🧟 Monsters in this Encounter:")
+                    for m in res["monsters"]:
+                        st.write(
+                            f"- **{m['name']}** (x{m.get('quantity', 1)}) | HP: {m.get('hp')} | AC: {m.get('ac')}"
+                        )
+
+                    if st.button(
+                        "⚔️ Add Monsters to Initiative",
+                        key="add_enc_to_init",
+                        use_container_width=True,
+                        type="primary",
+                    ):
+                        for m in res["monsters"]:
+                            qty = m.get("quantity", 1)
+                            for i in range(1, qty + 1):
+                                name = f"{m['name']} {i}" if qty > 1 else m["name"]
+                                # Basic initiative roll based on DEX
+                                dex_mod = (m.get("dex", 10) - 10) // 2
+                                from backend.dice import quick_roll
+
+                                init_roll, _ = quick_roll(20, dex_mod)
+
+                                st.session_state.initiative_order.append(
+                                    {
+                                        "id": str(uuid.uuid4())[:8],
+                                        "name": name,
+                                        "init": init_roll,
+                                        "hp": m.get("hp", 10),
+                                        "max_hp": m.get("hp", 10),
+                                        "ac": m.get("ac", 10),
+                                        "dex": m.get("dex", 10),
+                                        "portrait": "https://img.icons8.com/color/96/monster.png",
+                                        "conditions": [],
+                                        "concentration": False,
+                                        "statblock": m.get("statblock_summary", ""),
+                                    }
+                                )
+                        st.session_state.initiative_order.sort(
+                            key=lambda x: (x["init"], x["dex"]), reverse=True
+                        )
+                        st.success("Monsters added to initiative tracker!")
+                        st.toast("Switched to Initiative Tracker tab or check below.")
+                        st.rerun()
+            else:
+                st.info(res)
     else:
         npc_concept = st.text_input(
             "Concept", "A sketchy merchant", key="npc_concept_input"
@@ -458,7 +550,17 @@ def _render_initiative_tracker():
                         else "https://img.icons8.com/color/96/monster.png"
                     )
                     cp1.image(p_url, width=40)
-                    cp2.markdown(f"**{c['name']}** (Init: {c['init']})")
+                    cp2.markdown(f"**{c['name']}**")
+                    new_init = cp2.number_input(
+                        "Initiative", value=c["init"], key=f"prev_init_{c['id']}"
+                    )
+                    if new_init != c["init"]:
+                        c["init"] = new_init
+                        st.session_state.initiative_order.sort(
+                            key=lambda x: (x["init"], x["dex"]), reverse=True
+                        )
+                        st.rerun()
+
                     cp3.markdown(f"HP: {c['hp']} | AC: {c['ac']}")
 
             if st.button(
@@ -535,8 +637,30 @@ def _render_initiative_tracker():
 </div>
 """)
 
-                cols = st.columns([1.5, 2, 2, 0.5])
-                new_hp = cols[0].number_input(
+                cols = st.columns([1, 1.5, 2, 2, 0.5])
+                new_init = cols[0].number_input(
+                    "Init",
+                    value=c["init"],
+                    key=f"init_act_{c['id']}_{i}",
+                    label_visibility="collapsed",
+                )
+                if new_init != c["init"]:
+                    c["init"] = new_init
+                    # Track who is currently active to preserve their turn
+                    active_id = st.session_state.initiative_order[
+                        st.session_state.active_turn_index
+                    ]["id"]
+                    st.session_state.initiative_order.sort(
+                        key=lambda x: (x["init"], x["dex"]), reverse=True
+                    )
+                    # Update active index
+                    for idx, item in enumerate(st.session_state.initiative_order):
+                        if item["id"] == active_id:
+                            st.session_state.active_turn_index = idx
+                            break
+                    st.rerun()
+
+                new_hp = cols[1].number_input(
                     "HP",
                     value=c["hp"],
                     key=f"hp_act_{c['id']}_{i}",
@@ -572,13 +696,19 @@ def _render_initiative_tracker():
                         st.session_state.combat_active = False
                     st.rerun()
 
-                r1, r2 = st.columns([1, 4])
+                r1, r2, r3 = st.columns([1, 2, 2])
                 c["concentration"] = r1.toggle(
                     "Conc.",
                     value=c.get("concentration", False),
                     key=f"conc_act_{c['id']}_{i}",
                 )
-                with r2.popover("🎲 Quick Roll"):
+
+                if c.get("statblock"):
+                    with r2.popover("📜 Statblock"):
+                        st.caption("Quick Reference:")
+                        st.write(c["statblock"])
+
+                with r3.popover("🎲 Quick Roll"):
                     d_type = st.selectbox(
                         "Die", [20, 12, 10, 8, 6, 4], key=f"roll_d_{c['id']}_{i}"
                     )
