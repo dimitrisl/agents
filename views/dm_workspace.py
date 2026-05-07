@@ -363,10 +363,12 @@ def _render_ai_generators():
             if isinstance(res, dict):
                 st.markdown(res.get("encounter_text", ""))
                 if res.get("monsters"):
+                    st.markdown("---")
                     st.markdown("#### 🧟 Monsters in this Encounter:")
                     for m in res["monsters"]:
+                        qty = m.get("quantity", 1)
                         st.write(
-                            f"- **{m['name']}** (x{m.get('quantity', 1)}) | HP: {m.get('hp')} | AC: {m.get('ac')}"
+                            f"- **{m['name']}** (x{qty}) | HP: {m.get('hp')} | AC: {m.get('ac')}"
                         )
 
                     if st.button(
@@ -380,7 +382,8 @@ def _render_ai_generators():
                             for i in range(1, qty + 1):
                                 name = f"{m['name']} {i}" if qty > 1 else m["name"]
                                 # Basic initiative roll based on DEX
-                                dex_mod = (m.get("dex", 10) - 10) // 2
+                                dex_val = m.get("dex", 10)
+                                dex_mod = (dex_val - 10) // 2
                                 from backend.dice import quick_roll
 
                                 init_roll, _ = quick_roll(20, dex_mod)
@@ -393,7 +396,7 @@ def _render_ai_generators():
                                         "hp": m.get("hp", 10),
                                         "max_hp": m.get("hp", 10),
                                         "ac": m.get("ac", 10),
-                                        "dex": m.get("dex", 10),
+                                        "dex": dex_val,
                                         "portrait": "https://img.icons8.com/color/96/monster.png",
                                         "conditions": [],
                                         "concentration": False,
@@ -404,10 +407,18 @@ def _render_ai_generators():
                             key=lambda x: (x["init"], x["dex"]), reverse=True
                         )
                         st.success("Monsters added to initiative tracker!")
-                        st.toast("Switched to Initiative Tracker tab or check below.")
+                        st.toast("Check the Initiative Tracker tab.")
                         st.rerun()
+                else:
+                    st.warning(
+                        "No monsters were extracted for this encounter. You'll need to add them manually to initiative."
+                    )
             else:
+                # Legacy or failed JSON fallback
                 st.info(res)
+                st.warning(
+                    "⚠️ This encounter is in 'Legacy Format' or failed to generate monster data. Click 'Generate Encounter' again to enable the Initiative Tracker integration."
+                )
     else:
         npc_concept = st.text_input(
             "Concept", "A sketchy merchant", key="npc_concept_input"

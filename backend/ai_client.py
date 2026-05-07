@@ -140,12 +140,11 @@ def generate_ai_json(prompt: str) -> dict:
             return None
 
         cleaned_text = response.text.strip()
-        if cleaned_text.startswith("```"):
-            first_newline = cleaned_text.find("\n")
-            if first_newline != -1:
-                cleaned_text = cleaned_text[first_newline:].strip()
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text[:-3].strip()
+        # More robust cleaning of markdown blocks
+        if "```json" in cleaned_text:
+            cleaned_text = cleaned_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in cleaned_text:
+            cleaned_text = cleaned_text.split("```")[1].split("```")[0].strip()
 
         parsed_data = json.loads(cleaned_text)
         logger.info("Successfully parsed JSON data from Gemini.")
