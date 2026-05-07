@@ -6,6 +6,7 @@ from backend.ai_client import (
     generate_session_prep,
     generate_npc,
     generate_random_encounter,
+    generate_riddle,
 )
 from backend.storage import (
     save_campaign,
@@ -350,13 +351,24 @@ def _render_ai_generators():
         avg_level = col2.number_input("Avg Level", 1, 20, 5, key="enc_p_level")
         location = st.text_input("Location", "Dungeon", key="enc_loc")
 
-        if st.button("Generate Encounter", key="gen_enc_btn"):
-            with st.spinner("Generating..."):
+        if st.button("Generate Encounter", key="gen_enc_btn", use_container_width=True):
+            with st.spinner("Generating Encounter..."):
                 st.session_state.encounter_result = generate_random_encounter(
                     party_size,
                     avg_level,
                     location,
                     edition=st.session_state.dnd_edition,
+                )
+                st.session_state.riddle_result = None  # Clear previous riddle
+
+        if st.button(
+            "✨ Generate Thematic Riddle",
+            key="gen_riddle_btn",
+            use_container_width=True,
+        ):
+            with st.spinner("Crafting a puzzle..."):
+                st.session_state.riddle_result = generate_riddle(
+                    location, edition=st.session_state.dnd_edition
                 )
         if st.session_state.encounter_result:
             res = st.session_state.encounter_result
@@ -419,6 +431,15 @@ def _render_ai_generators():
                 st.warning(
                     "⚠️ This encounter is in 'Legacy Format' or failed to generate monster data. Click 'Generate Encounter' again to enable the Initiative Tracker integration."
                 )
+
+        if st.session_state.get("riddle_result"):
+            st.markdown("---")
+            with st.container(border=True):
+                st.markdown("### 🧩 The Oracle's Riddle")
+                st.markdown(st.session_state.riddle_result)
+                if st.button("🗑️ Clear Riddle", key="clear_riddle_btn"):
+                    st.session_state.riddle_result = None
+                    st.rerun()
     else:
         npc_concept = st.text_input(
             "Concept", "A sketchy merchant", key="npc_concept_input"

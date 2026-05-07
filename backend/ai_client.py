@@ -330,6 +330,22 @@ def generate_random_encounter(
     return generate_ai_json(prompt)
 
 
+def generate_riddle(location, edition="2014 Edition") -> str:
+    """Generates a thematic riddle based on the environment."""
+    prompt = f"""
+    You are a master of puzzles and enigmas in D&D {edition}.
+    Generate a clever riddle that fits perfectly within the environment: {location}.
+
+    The response should be formatted in markdown and include:
+    1. **The Riddle**: A short, poetic, or cryptic puzzle.
+    2. **Hint**: A subtle clue for the DM to give if the players are stuck.
+    3. **The Answer**: The solution to the riddle.
+
+    Keep it thematic and engaging!
+    """
+    return generate_ai_response(prompt)
+
+
 def generate_npc(npc_concept, edition="2014 Edition") -> str:
     prompt = f"""
     Create a D&D {edition} NPC based on: "{npc_concept}".
