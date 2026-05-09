@@ -90,7 +90,9 @@ Output the character strictly as a JSON object with exactly the following schema
     "personality_traits": "...",
     "ideals": "...",
     "bonds": "...",
-    "flaws": "..."
+    "flaws": "...",
+    "languages": ["Common", "Elvish"],
+    "tool_proficiencies": ["Thieves' Tools", "Lute"]
 }}
 """
 
@@ -224,7 +226,9 @@ Return JSON:
     "saving_throws": [],
     "skills": {{"Name": 0}},
     "skill_proficiencies": [],
-    "skill_expertise": []
+    "skill_expertise": [],
+    "languages": [],
+    "tool_proficiencies": []
 }}
 """
 
@@ -246,6 +250,8 @@ Return JSON:
     "weapons": [{{ "name": "...", "attack_bonus": "...", "damage": "..." }}],
     "equipment": [],
     "spells": {{ "cantrips": [], "level_1": [] }},
-    "features_traits": [{{ "name": "...", "description": "..." }}]
+    "features_traits": [{{ "name": "...", "description": "..." }}],
+    "languages": [],
+    "tool_proficiencies": []
 }}
 """

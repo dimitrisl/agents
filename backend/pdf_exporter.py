@@ -118,11 +118,26 @@ class PDFMappingProvider:
                 field_data[w_map["dmg"]] = w.get("damage", "")
 
         # 8. Equipment & Features
-        field_data["Equipment"] = "\n".join(char_data.get("equipment", []))
-        feats = char_data.get("features_traits", [])
-        field_data["Features and Traits"] = "\n".join(
-            [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
-        )
+        blocks = self.mapping.get("blocks", {})
+        if "Equipment" in blocks:
+            field_data[blocks["Equipment"]] = "\n".join(char_data.get("equipment", []))
+
+        if "Features and Traits" in blocks:
+            feats = char_data.get("features_traits", [])
+            field_data[blocks["Features and Traits"]] = "\n".join(
+                [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
+            )
+
+        if "Proficiencies and Languages" in blocks:
+            langs = char_data.get("languages", [])
+            tools = char_data.get("tool_proficiencies", [])
+            combined = []
+            if langs:
+                combined.append(f"Languages: {', '.join(langs)}")
+            if tools:
+                combined.append(f"Tools: {', '.join(tools)}")
+
+            field_data[blocks["Proficiencies and Languages"]] = "\n".join(combined)
 
         # 9. Spells
         char_spells = char_data.get("spells", {})
@@ -214,8 +229,12 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
         writer.append(reader)
 
         # Load mapping and translate data
-        # In the future, we could choose mapping based on char_data['dnd_edition']
-        mapping_provider = PDFMappingProvider("standard_5e")
+        edition = char_data.get("dnd_edition", "2014 Edition")
+        mapping_name = "standard_5e"
+        if "2024" in edition:
+            mapping_name = "standard_2024"
+
+        mapping_provider = PDFMappingProvider(mapping_name)
         field_data = mapping_provider.get_field_data(char_data)
 
         # Fill fields
