@@ -7,7 +7,6 @@ from backend.prompts import (
     SESSION_PREP_PROMPT,
 )
 from backend.constants import EDITION_2014
-
 from backend.schemas import EncounterSchema
 
 logger = logging.getLogger("DnDAssistant.DMService")
