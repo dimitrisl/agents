@@ -1,8 +1,8 @@
 import streamlit as st
 import logging
 import uuid
-from backend.ai_client import (
-    forge_character,
+from backend.services.forge_service import forge_character
+from backend.services.dm_service import (
     generate_session_prep,
     generate_npc,
     generate_random_encounter,

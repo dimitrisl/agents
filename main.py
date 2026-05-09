@@ -94,7 +94,7 @@ with st.sidebar:
 
         if st.button("Query Oracle", key="rule_query_btn", use_container_width=True):
             if rule_query:
-                from backend.ai_client import query_rules
+                from backend.services.rules_service import query_rules
 
                 with st.spinner("Consulting the archives..."):
                     answer = query_rules(rule_query, st.session_state.dnd_edition)

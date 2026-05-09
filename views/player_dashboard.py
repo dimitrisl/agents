@@ -2,10 +2,13 @@ import streamlit as st
 import logging
 import uuid
 import os
-from backend.ai_client import (
+from backend.services.forge_service import (
     get_build_suggestion,
     forge_character,
     generate_playstyle_guide,
+    analyze_level_up,
+)
+from backend.services.rules_service import (
     validate_character_build,
     parse_character_from_text,
 )
@@ -1126,7 +1129,7 @@ def run_level_up_wizard():
     if "level_up_analysis" not in st.session_state:
         with st.spinner("Consulting the Arcane Rules..."):
             char_data = get_character_dict(st.session_state)
-            from backend.ai_client import analyze_level_up
+            # Using analyze_level_up from ForgeService imported at top level
 
             st.session_state.level_up_analysis = analyze_level_up(char_data)
 
