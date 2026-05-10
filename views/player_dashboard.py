@@ -698,24 +698,64 @@ def _render_core_stats(edit_mode: bool):
         # Add a global Custom Roll for players too
         with st.popover("🎲 Custom / Damage Roll", use_container_width=True):
             st.markdown("### Custom Roll")
-            pd_c1, pd_c2 = st.columns(2)
-            p_dtype = pd_c1.selectbox("Dice Type", [20, 12, 10, 8, 6, 4, 100], index=0)
-            p_extra = pd_c2.number_input("Extra Modifier", value=0)
-            p_adv = st.radio(
-                "Advantage?", ["None", "Advantage", "Disadvantage"], horizontal=True
+            pd_c1, pd_c2, pd_c3, pd_c4 = st.columns([1, 1, 1, 1])
+            p_dtype = pd_c1.selectbox("Dice", [20, 12, 10, 8, 6, 4, 100], index=0)
+
+            # Ability Modifier Picker
+            abilities = ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"]
+            p_ability = pd_c2.selectbox("Ability", abilities, index=0)
+
+            # Skill Modifier Picker
+            skill_list = ["None"] + sorted(
+                list(st.session_state.get("skills", {}).keys())
+            )
+            p_skill = pd_c3.selectbox("Skill", skill_list, index=0)
+
+            p_extra = pd_c4.number_input("Bonus", value=0)
+            st.caption(
+                "Note: Skill bonuses usually include their relevant ability modifier."
             )
 
-            if st.button("Roll!", type="primary", use_container_width=True):
+            p_adv = st.radio(
+                "Advantage?",
+                ["None", "Advantage", "Disadvantage"],
+                horizontal=True,
+                key="custom_roll_adv",
+            )
+
+            if st.button(
+                "Roll!", type="primary", use_container_width=True, key="custom_roll_btn"
+            ):
                 from backend.dice import quick_roll
 
+                # Calculate total modifier
+                total_mod = p_extra
+                mod_parts = []
+                if p_extra != 0:
+                    mod_parts.append(f"{p_extra}")
+
+                if p_ability != "None":
+                    a_mod = calculate_modifier(st.session_state.stats[p_ability])
+                    total_mod += a_mod
+                    mod_parts.append(f"{p_ability}({'+' if a_mod >= 0 else ''}{a_mod})")
+
+                if p_skill != "None":
+                    s_mod = st.session_state.skills[p_skill]
+                    total_mod += s_mod
+                    mod_parts.append(f"{p_skill}({'+' if s_mod >= 0 else ''}{s_mod})")
+
+                mod_desc = " + ".join(mod_parts) if mod_parts else "0"
+
                 if p_adv == "None":
-                    res, raw = quick_roll(p_dtype, p_extra)
-                    st.success(f"Result: **{res}** (d{p_dtype}: {raw} + {p_extra})")
+                    res, raw = quick_roll(p_dtype, total_mod)
+                    st.success(f"Result: **{res}** (d{p_dtype}: {raw} + {mod_desc})")
                 else:
-                    r1, raw1 = quick_roll(p_dtype, p_extra)
-                    r2, raw2 = quick_roll(p_dtype, p_extra)
+                    r1, raw1 = quick_roll(p_dtype, total_mod)
+                    r2, raw2 = quick_roll(p_dtype, total_mod)
                     final = max(r1, r2) if p_adv == "Advantage" else min(r1, r2)
-                    st.success(f"**{p_adv}**: **{final}** (Rolls: {r1}, {r2})")
+                    st.success(
+                        f"**{p_adv}**: **{final}** (Rolls: {r1}, {r2} | Mod: {mod_desc})"
+                    )
 
         col_sk, col_sv = st.columns(2)
         with col_sk:
@@ -727,10 +767,33 @@ def _render_core_stats(edit_mode: bool):
                 if k in getattr(st.session_state, "skill_expertise", []):
                     indicator = "★ "
 
-                st.write(f"{indicator}**{k}:** {v}")
+                sc1, sc2 = st.columns([4, 1])
+                sc1.write(f"{indicator}**{k}:** {v}")
+                if sc2.button("🎲", key=f"roll_skill_{k}"):
+                    from backend.dice import quick_roll
+
+                    res, raw = quick_roll(20, v)
+                    st.toast(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
         with col_sv:
             st.markdown("#### Saving Throws")
-            st.write(", ".join(st.session_state.saving_throws))
+            for stat in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+                prof = stat in st.session_state.saving_throws
+                indicator = "● " if prof else "○ "
+
+                base_mod = calculate_modifier(st.session_state.stats[stat])
+                total_sv = base_mod + (
+                    st.session_state.proficiency_bonus if prof else 0
+                )
+
+                svc1, svc2 = st.columns([4, 1])
+                svc1.write(f"{indicator}**{stat}:** {total_sv}")
+                if svc2.button("🎲", key=f"roll_sv_{stat}"):
+                    from backend.dice import quick_roll
+
+                    res, raw = quick_roll(20, total_sv)
+                    st.toast(
+                        f"**{stat}** Saving Throw: **{res}** (d20: {raw} + {total_sv})"
+                    )
 
     st.markdown("---")
     st.markdown("#### ✨ Heroic Advancements (Feats & ASI)")
@@ -768,10 +831,44 @@ def _render_combat_inventory(edit_mode: bool):
             st.session_state.weapons, num_rows="dynamic", key="edit_weapons"
         )
     else:
-        for w in st.session_state.weapons:
-            st.write(
-                f"🗡️ **{w.get('name', 'Unknown')}** | Atk: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
-            )
+        for i, w in enumerate(st.session_state.weapons):
+            with st.container(border=True):
+                w_col1, w_col2, w_col3 = st.columns([3, 1, 1])
+                w_col1.markdown(f"🗡️ **{w.get('name', 'Unknown')}**")
+                w_col1.caption(
+                    f"Atk: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
+                )
+
+                if w_col2.button("🎯 Atk", key=f"atk_{i}", use_container_width=True):
+                    from backend.dice import quick_roll
+
+                    atk_bonus_str = str(w.get("attack_bonus", "+0")).replace("+", "")
+                    try:
+                        atk_bonus = int(atk_bonus_str)
+                    except (ValueError, TypeError):
+                        atk_bonus = 0
+
+                    res, raw = quick_roll(20, atk_bonus)
+                    st.toast(
+                        f"**{w.get('name')}** Attack: **{res}** (d20: {raw} + {atk_bonus})"
+                    )
+                    if raw == 20:
+                        st.balloons()
+                        st.success("CRITICAL HIT! 🎯")
+                    elif raw == 1:
+                        st.error("NATURAL 1! 💀")
+
+                if w_col3.button("💥 Dmg", key=f"dmg_{i}", use_container_width=True):
+                    from backend.dice import roll_dice
+
+                    dmg_str = w.get("damage", "1d4")
+                    res = roll_dice(dmg_str)
+                    if "error" in res:
+                        st.error(f"Error rolling damage: {res['error']}")
+                    else:
+                        st.toast(
+                            f"**{w.get('name')}** Damage: **{res['total']}** ({res['result_text']})"
+                        )
 
     # 5.5e Weapon Masteries
     if st.session_state.dnd_edition == "2024 Revision (5.5e)":

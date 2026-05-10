@@ -7,8 +7,9 @@ def roll_dice(dice_str: str):
     Parses and rolls dice strings like '1d20+5' or '2d8-2'.
     Returns a dictionary with details.
     """
-    # Clean string
+    # Clean string: remove spaces and keep only dice-related characters
     dice_str = dice_str.lower().replace(" ", "")
+    dice_str = "".join(c for c in dice_str if c in "0123456789d+-")
 
     # Regex to match X d Y (+/-) Z
     match = re.match(r"(\d+)d(\d+)([+-]\d+)?", dice_str)
