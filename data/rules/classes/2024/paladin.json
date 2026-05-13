@@ -1,0 +1,201 @@
+{
+    "class_name": "Paladin",
+    "edition": "2024 Revision (5.5e)",
+    "hit_die": "d10",
+    "primary_ability": [
+        "Strength",
+        "Charisma"
+    ],
+    "progression": {
+        "1": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Lay On Hands",
+                    "description": "Feature from the 2024 Revision: Lay On Hands. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Spellcasting",
+                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Weapon Mastery",
+                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "2": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Fighting Style",
+                    "description": "Feature from the 2024 Revision: Fighting Style. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Paladin's Smite",
+                    "description": "Feature from the 2024 Revision: Paladin's Smite. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "3": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Channel Divinity",
+                    "description": "Feature from the 2024 Revision: Channel Divinity. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Paladin Subclass",
+                    "description": "Feature from the 2024 Revision: Paladin Subclass. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "4": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "5": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Extra Attack",
+                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Faithful Steed",
+                    "description": "Feature from the 2024 Revision: Faithful Steed. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "6": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Aura of Protection",
+                    "description": "Feature from the 2024 Revision: Aura of Protection. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "7": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "8": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "9": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Abjure Foes",
+                    "description": "Feature from the 2024 Revision: Abjure Foes. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "10": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Aura of Courage",
+                    "description": "Feature from the 2024 Revision: Aura of Courage. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "11": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Radiant Strikes",
+                    "description": "Feature from the 2024 Revision: Radiant Strikes. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "12": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "13": {
+            "proficiency_bonus": 5,
+            "features": []
+        },
+        "14": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Restoring Touch",
+                    "description": "Feature from the 2024 Revision: Restoring Touch. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "15": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "16": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "17": {
+            "proficiency_bonus": 6,
+            "features": []
+        },
+        "18": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Aura Expansion",
+                    "description": "Feature from the 2024 Revision: Aura Expansion. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "19": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Epic Boon",
+                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "20": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        }
+    }
+}

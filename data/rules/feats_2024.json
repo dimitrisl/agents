@@ -1,0 +1,104 @@
+[
+    {
+        "name": "Alert",
+        "prerequisites": "None",
+        "description": "Initiative Proficiency and Initiative Swap.",
+        "category": "Origin Feats"
+    },
+    {
+        "name": "Magic Initiate",
+        "prerequisites": "None",
+        "description": "Two Cantrips and one Level 1 Spell from a chosen list.",
+        "category": "Origin Feats"
+    },
+    {
+        "name": "Savage Attacker",
+        "prerequisites": "None",
+        "description": "Roll weapon damage twice and use either roll once per turn.",
+        "category": "Origin Feats"
+    },
+    {
+        "name": "Skilled",
+        "prerequisites": "None",
+        "description": "Proficiency in any combination of three skills or tools.",
+        "category": "Origin Feats"
+    },
+    {
+        "name": "Ability Score Improvement",
+        "prerequisites": "Level 4+",
+        "description": "Increase one score by 2 or two scores by 1.",
+        "category": "General Feats"
+    },
+    {
+        "name": "Grappler",
+        "prerequisites": "Level 4+, Strength or Dexterity 13+",
+        "description": "ASI +1, Punch and Grab, Attack Advantage, Fast Wrestler.",
+        "category": "General Feats"
+    },
+    {
+        "name": "Archery",
+        "prerequisites": "Fighting Style Feature",
+        "description": "+2 to ranged attack rolls.",
+        "category": "Fighting Style Feats"
+    },
+    {
+        "name": "Defense",
+        "prerequisites": "Fighting Style Feature",
+        "description": "+1 to AC while wearing armor.",
+        "category": "Fighting Style Feats"
+    },
+    {
+        "name": "Great Weapon Fighting",
+        "prerequisites": "Fighting Style Feature",
+        "description": "Reroll 1s and 2s on two-handed/versatile melee damage.",
+        "category": "Fighting Style Feats"
+    },
+    {
+        "name": "Two-Weapon Fighting",
+        "prerequisites": "Fighting Style Feature",
+        "description": "Add modifier to extra attack damage.",
+        "category": "Fighting Style Feats"
+    },
+    {
+        "name": "Boon of Combat Prowess",
+        "prerequisites": "Level 19+",
+        "description": "ASI +1, Turn a miss into a hit once per turn.",
+        "category": "Epic Boon Feats"
+    },
+    {
+        "name": "Boon of Dimensional Travel",
+        "prerequisites": "Level 19+",
+        "description": "ASI +1, Teleport 30ft after Attack or Magic action.",
+        "category": "Epic Boon Feats"
+    },
+    {
+        "name": "Boon of Fate",
+        "prerequisites": "Level 19+",
+        "description": "ASI +1, Add/subtract 2d4 to a d20 test within 60ft.",
+        "category": "Epic Boon Feats"
+    },
+    {
+        "name": "Boon of Irresistible Offense",
+        "prerequisites": "Level 19+",
+        "description": "ASI +1, Ignore resistance to physical damage, extra damage on Nat 20.",
+        "category": "Epic Boon Feats"
+    },
+    {
+        "name": "Boon of Spell Recall",
+        "prerequisites": "Level 19+, Spellcasting",
+        "description": "ASI +1, Chance to not expend slots for levels 1-4.",
+        "category": "Epic Boon Feats"
+    },
+    {
+        "name": "Boon of the Night Spirit",
+        "prerequisites": "Level 19+",
+        "description": "ASI +1, Invisibility and resistance in dim light/darkness.",
+        "category": "Epic Boon Feats"
+    },
+    {
+        "name": "Boon of Truesight",
+        "prerequisites": "Level 19+",
+        "description": "ASI +1, Gain 60ft Truesight.",
+        "category": "Epic Boon Feats"
+    }
+]

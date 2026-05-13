@@ -1,0 +1,168 @@
+{
+    "class_name": "Wizard",
+    "edition": "2024 Revision (5.5e)",
+    "hit_die": "d6",
+    "primary_ability": [
+        "Intelligence"
+    ],
+    "progression": {
+        "1": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Spellcasting",
+                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Ritual Adept",
+                    "description": "Feature from the 2024 Revision: Ritual Adept. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Arcane Recovery",
+                    "description": "Feature from the 2024 Revision: Arcane Recovery. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "2": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Scholar",
+                    "description": "Feature from the 2024 Revision: Scholar. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "3": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Wizard Subclass",
+                    "description": "Feature from the 2024 Revision: Wizard Subclass. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "4": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "5": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Memorize Spell",
+                    "description": "Feature from the 2024 Revision: Memorize Spell. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "6": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "7": {
+            "proficiency_bonus": 3,
+            "features": []
+        },
+        "8": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "9": {
+            "proficiency_bonus": 4,
+            "features": []
+        },
+        "10": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "11": {
+            "proficiency_bonus": 4,
+            "features": []
+        },
+        "12": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "13": {
+            "proficiency_bonus": 5,
+            "features": []
+        },
+        "14": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "15": {
+            "proficiency_bonus": 5,
+            "features": []
+        },
+        "16": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "17": {
+            "proficiency_bonus": 6,
+            "features": []
+        },
+        "18": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Spell Mastery",
+                    "description": "Feature from the 2024 Revision: Spell Mastery. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "19": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Epic Boon",
+                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "20": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Signature Spells",
+                    "description": "Feature from the 2024 Revision: Signature Spells. Refer to the PHB (2024) for full details."
+                }
+            ]
+        }
+    }
+}

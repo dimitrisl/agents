@@ -1,0 +1,216 @@
+{
+    "class_name": "Fighter",
+    "edition": "2024 Revision (5.5e)",
+    "hit_die": "d10",
+    "primary_ability": "Strength or Dexterity",
+    "progression": {
+        "1": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Fighting Style",
+                    "description": "Feature from the 2024 Revision: Fighting Style. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Second Wind",
+                    "description": "Feature from the 2024 Revision: Second Wind. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Weapon Mastery",
+                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "2": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Action Surge (one use)",
+                    "description": "Feature from the 2024 Revision: Action Surge (one use). Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Tactical Mind",
+                    "description": "Feature from the 2024 Revision: Tactical Mind. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "3": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Fighter Subclass",
+                    "description": "Feature from the 2024 Revision: Fighter Subclass. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "4": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "5": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Extra Attack",
+                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Tactical Shift",
+                    "description": "Feature from the 2024 Revision: Tactical Shift. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "6": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "7": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "8": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "9": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Indomitable (one use)",
+                    "description": "Feature from the 2024 Revision: Indomitable (one use). Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Tactical Master",
+                    "description": "Feature from the 2024 Revision: Tactical Master. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "10": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "11": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Two Extra Attacks",
+                    "description": "Feature from the 2024 Revision: Two Extra Attacks. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "12": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "13": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Indomitable (two uses)",
+                    "description": "Feature from the 2024 Revision: Indomitable (two uses). Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Studied Attacks",
+                    "description": "Feature from the 2024 Revision: Studied Attacks. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "14": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "15": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "16": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "17": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Action Surge (two uses)",
+                    "description": "Feature from the 2024 Revision: Action Surge (two uses). Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Indomitable (three uses)",
+                    "description": "Feature from the 2024 Revision: Indomitable (three uses). Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "18": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "19": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Epic Boon",
+                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "20": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Three Extra Attacks",
+                    "description": "Feature from the 2024 Revision: Three Extra Attacks. Refer to the PHB (2024) for full details."
+                }
+            ]
+        }
+    }
+}

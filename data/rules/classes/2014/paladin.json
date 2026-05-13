@@ -1,0 +1,200 @@
+{
+    "class_name": "Paladin",
+    "edition": "2014 Edition",
+    "hit_die": "d10",
+    "primary_ability": [
+        "WIS",
+        "CHA"
+    ],
+    "progression": {
+        "1": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Divine Sense",
+                    "description": "The presence of strong evil registers on your senses like a noxious odor, and powerful good rings like heavenly music in your ears. As an action, you can open your awareness to detect such forces. Until the end of your next turn, you know the location of any celestial, fiend, or undead within 60 feet of you that is not behind total cover. You know the type (celestial, fiend, or undead) of any being whose presence you sense, but not its identity. Within the same radius, you also detect the presence of any place or object that has been consecrated or desecrated, as with the hallow spell.\nYou can use this feature a number of times equal to 1 + your Charisma modifier. When you finish a long rest, you regain all expended uses."
+                },
+                {
+                    "name": "Lay on Hands",
+                    "description": "Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you take a long rest. With that pool, you can restore a total number of hit points equal to your paladin level x 5.\nAs an action, you can touch a creature and draw power from the pool to restore a number of hit points to that creature, up to the maximum amount remaining in your pool.\nAlternatively, you can expend 5 hit points from your pool of healing to cure the target of one disease or neutralize one poison affecting it. You can cure multiple diseases and neutralize multiple poisons with a single use of Lay on Hands, expending hit points separately for each one.\nThis feature has no effect on undead and constructs."
+                }
+            ]
+        },
+        "2": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Fighting Style",
+                    "description": "At 2nd level, you adopt a style of fighting as your specialty. Choose one of the following options. You can't take a Fighting Style option more than once, even if you later get to choose again."
+                },
+                {
+                    "name": "Spellcasting: Paladin",
+                    "description": "By 2nd level, you have learned to draw on divine magic through meditation and prayer to cast spells as a cleric does."
+                },
+                {
+                    "name": "Divine Smite",
+                    "description": "Starting at 2nd level, when you hit a creature with a melee weapon attack, you can expend one spell slot to deal radiant damage to the target, in addition to the weapon's damage. The extra damage is 2d8 for a 1st-level spell slot, plus 1d8 for each spell level higher than 1st, to a maximum of 5d8. The damage increases by 1d8 if the target is an undead or a fiend."
+                }
+            ]
+        },
+        "3": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Divine Health",
+                    "description": "By 3rd level, the divine magic flowing through you makes you immune to disease."
+                },
+                {
+                    "name": "Sacred Oath",
+                    "description": "When you reach 3rd level, you swear the oath that binds you as a paladin forever. Up to this time you have been in a preparatory stage, committed to the path but not yet sworn to it. Now you choose an oath, such as the Oath of Devotion.\nYour choice grants you features at 3rd level and again at 7th, 15th, and 20th level. Those features include oath spells and the Channel Divinity feature."
+                },
+                {
+                    "name": "Oath Spells",
+                    "description": "Each oath has a list of associated spells. You gain access to these spells at the levels specified in the oath description. Once you gain access to an oath spell, you always have it prepared. Oath spells don't count against the number of spells you can prepare each day.\nIf you gain an oath spell that doesn't appear on the paladin spell list, the spell is nonetheless a paladin spell for you."
+                },
+                {
+                    "name": "Channel Divinity",
+                    "description": "Your oath allows you to channel divine energy to fuel magical effects. Each Channel Divinity option provided by your oath explains how to use it.\nWhen you use your Channel Divinity, you choose which option to use. You must then finish a short or long rest to use your Channel Divinity again.\nSome Channel Divinity effects require saving throws. When you use such an effect from this class, the DC equals your paladin spell save DC."
+                }
+            ]
+        },
+        "4": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature."
+                }
+            ]
+        },
+        "5": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Extra Attack",
+                    "description": "Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn."
+                }
+            ]
+        },
+        "6": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Aura of Protection",
+                    "description": "Starting at 6th level, whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier (with a minimum bonus of +1). You must be conscious to grant this bonus.\nAt 18th level, the range of this aura increases to 30 feet."
+                }
+            ]
+        },
+        "7": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Sacred Oath feature",
+                    "description": "When you reach 3rd level, you swear the oath that binds you as a paladin forever. Up to this time you have been in a preparatory stage, committed to the path but not yet sworn to it. Now you choose an oath, such as the Oath of Devotion.\nYour choice grants you features at 3rd level and again at 7th, 15th, and 20th level. Those features include oath spells and the Channel Divinity feature."
+                }
+            ]
+        },
+        "8": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature."
+                }
+            ]
+        },
+        "9": {
+            "proficiency_bonus": 4,
+            "features": []
+        },
+        "10": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Aura of Courage",
+                    "description": "Starting at 10th level, you and friendly creatures within 10 feet of you can't be frightened while you are conscious.\nAt 18th level, the range of this aura increases to 30 feet."
+                }
+            ]
+        },
+        "11": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Improved Divine Smite",
+                    "description": "By 11th level, you are so suffused with righteous might that all your melee weapon strikes carry divine power with them. Whenever you hit a creature with a melee weapon, the creature takes an extra 1d8 radiant damage. If you also use your Divine Smite with an attack, you add this damage to the extra damage of your Divine Smite."
+                }
+            ]
+        },
+        "12": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature."
+                }
+            ]
+        },
+        "13": {
+            "proficiency_bonus": 5,
+            "features": []
+        },
+        "14": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Cleansing Touch",
+                    "description": "Beginning at 14th level, you can use your action to end one spell on yourself or on one willing creature that you touch.\nYou can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain expended uses when you finish a long rest."
+                }
+            ]
+        },
+        "15": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Sacred Oath feature",
+                    "description": "When you reach 3rd level, you swear the oath that binds you as a paladin forever. Up to this time you have been in a preparatory stage, committed to the path but not yet sworn to it. Now you choose an oath, such as the Oath of Devotion.\nYour choice grants you features at 3rd level and again at 7th, 15th, and 20th level. Those features include oath spells and the Channel Divinity feature."
+                }
+            ]
+        },
+        "16": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature."
+                }
+            ]
+        },
+        "17": {
+            "proficiency_bonus": 6,
+            "features": []
+        },
+        "18": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Aura improvements",
+                    "description": "At 18th level, the range of your auras increase to 30 feet."
+                }
+            ]
+        },
+        "19": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature."
+                }
+            ]
+        },
+        "20": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Sacred Oath feature",
+                    "description": "When you reach 3rd level, you swear the oath that binds you as a paladin forever. Up to this time you have been in a preparatory stage, committed to the path but not yet sworn to it. Now you choose an oath, such as the Oath of Devotion.\nYour choice grants you features at 3rd level and again at 7th, 15th, and 20th level. Those features include oath spells and the Channel Divinity feature."
+                }
+            ]
+        }
+    }
+}

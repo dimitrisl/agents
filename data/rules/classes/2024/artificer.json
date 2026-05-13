@@ -1,0 +1,145 @@
+{
+  "class_name": "Artificer",
+  "edition": "2024 Revision (5.5e)",
+  "hit_die": "d8",
+  "primary_ability": ["Intelligence"],
+  "progression": {
+    "1": {
+      "proficiency_bonus": 2,
+      "features": [
+        {
+          "name": "Tinker's Magic",
+          "description": "Revised version of Magical Tinkering. You can invest magic into objects to create actual practical items or effects. You can create a number of magical objects equal to your Intelligence modifier."
+        },
+        {
+          "name": "Spellcasting",
+          "description": "You use Intelligence as your spellcasting ability. Artificers are half-casters who prepare spells from the Artificer spell list. You must use a tool or an infusion as a focus."
+        }
+      ]
+    },
+    "2": {
+      "proficiency_bonus": 2,
+      "features": [
+        {
+          "name": "Replicate Magic Item",
+          "description": "Revised version of Infuse Item. You learn 'Plans' that allow you to create specific magic items. The flexibility is increased, allowing for broader categories of items at higher levels."
+        }
+      ]
+    },
+    "3": {
+      "proficiency_bonus": 2,
+      "features": [
+        {
+          "name": "Artificer Subclass",
+          "description": "You choose your specialist archetype: Alchemist, Armorer, Artillerist, Battle Smith, or Cartographer. You gain subclass features at levels 3, 6, 10, and 14."
+        }
+      ]
+    },
+    "4": {
+      "proficiency_bonus": 2,
+      "features": [
+        {
+          "name": "Ability Score Improvement",
+          "description": "Standard 2024 ASI rules apply. You gain a feat of your choice, typically increasing an ability score."
+        }
+      ]
+    },
+    "5": {
+      "proficiency_bonus": 3,
+      "features": [
+        {
+          "name": "Extra Attack",
+          "description": "If you are a Battle Smith or Armorer, you typically gain this or a similar combat-enhancing feature. Otherwise, you gain a specialist feature."
+        }
+      ]
+    },
+    "6": {
+      "proficiency_bonus": 3,
+      "features": [
+        {
+          "name": "Magic Item Tinker",
+          "description": "You gain expertise with all tools you are proficient with, and your ability to craft and manipulate magic items improves."
+        },
+        {
+          "name": "Subclass Feature",
+          "description": "You gain a feature from your chosen specialist archetype."
+        }
+      ]
+    },
+    "7": {
+      "proficiency_bonus": 3,
+      "features": [
+        {
+          "name": "Flash of Genius (Revised)",
+          "description": "You can add your Intelligence modifier to an ability check or saving throw for yourself or a creature within 30 feet. In the 2024 version, you regain all expended uses when you finish a Short or Long Rest."
+        }
+      ]
+    },
+    "10": {
+      "proficiency_bonus": 4,
+      "features": [
+        {
+          "name": "Magic Item Adept",
+          "description": "You can attune to up to four magic items at once, and crafting common/uncommon items is faster and cheaper."
+        },
+        {
+          "name": "Subclass Feature",
+          "description": "You gain a feature from your chosen specialist archetype."
+        }
+      ]
+    },
+    "11": {
+      "proficiency_bonus": 4,
+      "features": [
+        {
+          "name": "Spell-Storing Item (Buffed)",
+          "description": "You can store a spell of up to 3rd level from the Artificer spell list in an object. A creature holding the object can use an action to cast the spell using your spellcasting ability modifier."
+        }
+      ]
+    },
+    "14": {
+      "proficiency_bonus": 5,
+      "features": [
+        {
+          "name": "Magic Item Savant",
+          "description": "You can attune to up to five magic items at once and ignore all requirements for attunement."
+        },
+        {
+          "name": "Subclass Feature",
+          "description": "You gain a feature from your chosen specialist archetype."
+        }
+      ]
+    },
+    "18": {
+      "proficiency_bonus": 6,
+      "features": [
+        {
+          "name": "Magic Item Master",
+          "description": "You can attune to up to six magic items at once."
+        }
+      ]
+    },
+    "19": {
+      "proficiency_bonus": 6,
+      "features": [
+        {
+          "name": "Ability Score Improvement",
+          "description": "Standard 2024 ASI rules apply."
+        }
+      ]
+    },
+    "20": {
+      "proficiency_bonus": 6,
+      "features": [
+        {
+          "name": "Epic Boon",
+          "description": "You gain an Epic Boon of your choice, a powerful feat available only at level 20."
+        },
+        {
+          "name": "Soul of Artifice",
+          "description": "You gain a +1 bonus to all saving throws per magic item you are currently attuned to."
+        }
+      ]
+    }
+  }
+}

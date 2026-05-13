@@ -1,0 +1,203 @@
+{
+    "class_name": "Ranger",
+    "edition": "2024 Revision (5.5e)",
+    "hit_die": "d10",
+    "primary_ability": [
+        "Dexterity",
+        "Wisdom"
+    ],
+    "progression": {
+        "1": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Spellcasting",
+                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Favored Enemy",
+                    "description": "Feature from the 2024 Revision: Favored Enemy. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Weapon Mastery",
+                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "2": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Deft Explorer",
+                    "description": "Feature from the 2024 Revision: Deft Explorer. Refer to the PHB (2024) for full details."
+                },
+                {
+                    "name": "Fighting Style",
+                    "description": "Feature from the 2024 Revision: Fighting Style. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "3": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ranger Subclass",
+                    "description": "Feature from the 2024 Revision: Ranger Subclass. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "4": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "5": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Extra Attack",
+                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "6": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Roving",
+                    "description": "Feature from the 2024 Revision: Roving. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "7": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "8": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "9": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Expertise",
+                    "description": "Feature from the 2024 Revision: Expertise. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "10": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Tireless",
+                    "description": "Feature from the 2024 Revision: Tireless. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "11": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "12": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "13": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Relentless Hunter",
+                    "description": "Feature from the 2024 Revision: Relentless Hunter. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "14": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Nature's Veil",
+                    "description": "Feature from the 2024 Revision: Nature's Veil. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "15": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Subclass feature",
+                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "16": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "17": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Precise Hunter",
+                    "description": "Feature from the 2024 Revision: Precise Hunter. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "18": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Feral Senses",
+                    "description": "Feature from the 2024 Revision: Feral Senses. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "19": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Epic Boon",
+                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                }
+            ]
+        },
+        "20": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Foe Slayer",
+                    "description": "Feature from the 2024 Revision: Foe Slayer. Refer to the PHB (2024) for full details."
+                }
+            ]
+        }
+    }
+}
