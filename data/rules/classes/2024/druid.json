@@ -2,22 +2,24 @@
     "class_name": "Druid",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d8",
-    "primary_ability": "Wisdom",
+    "primary_ability": [
+        "Wisdom"
+    ],
     "progression": {
         "1": {
             "proficiency_bonus": 2,
             "features": [
                 {
                     "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "description": "You can cast Druid spells using Wisdom as your spellcasting ability. You prepare a list of spells each day and can use a Druidic Focus as a spellcasting focus."
                 },
                 {
                     "name": "Druidic",
-                    "description": "Feature from the 2024 Revision: Druidic. Refer to the PHB (2024) for full details."
+                    "description": "You know Druidic, the secret language of druids. You can speak the language and use it to leave hidden messages."
                 },
                 {
                     "name": "Primal Order",
-                    "description": "Feature from the 2024 Revision: Primal Order. Refer to the PHB (2024) for full details."
+                    "description": "You choose one of two primal paths: Magician (gain one extra Cantrip and add your Wisdom modifier to Arcana and Nature checks) or Warden (gain proficiency with Martial Weapons and Medium Armor)."
                 }
             ]
         },
@@ -26,11 +28,11 @@
             "features": [
                 {
                     "name": "Wild Shape",
-                    "description": "Feature from the 2024 Revision: Wild Shape. Refer to the PHB (2024) for full details."
+                    "description": "As a Bonus Action, you can assume the form of a beast you have seen. While in this form, you gain Temporary Hit Points equal to your Druid level and can stay in the form for a number of hours equal to half your Druid level."
                 },
                 {
                     "name": "Wild Companion",
-                    "description": "Feature from the 2024 Revision: Wild Companion. Refer to the PHB (2024) for full details."
+                    "description": "You can expend a use of Wild Shape to cast the Find Familiar spell without material components. The familiar is a fey instead of its normal type and disappears when you finish a Long Rest."
                 }
             ]
         },
@@ -39,7 +41,7 @@
             "features": [
                 {
                     "name": "Druid Subclass",
-                    "description": "Feature from the 2024 Revision: Druid Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Druid Circle that represents your connection to the natural world. Your subclass grants you features at level 3 and again at levels 6, 10, and 14."
                 }
             ]
         },
@@ -48,7 +50,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -57,7 +59,7 @@
             "features": [
                 {
                     "name": "Wild Resurgence",
-                    "description": "Feature from the 2024 Revision: Wild Resurgence. Refer to the PHB (2024) for full details."
+                    "description": "Once per day, you can expend a spell slot to regain one use of Wild Shape, or you can expend a use of Wild Shape to regain one 1st-level spell slot."
                 }
             ]
         },
@@ -66,7 +68,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Druid Circle."
                 }
             ]
         },
@@ -75,7 +77,7 @@
             "features": [
                 {
                     "name": "Elemental Fury",
-                    "description": "Feature from the 2024 Revision: Elemental Fury. Refer to the PHB (2024) for full details."
+                    "description": "You choose between Potent Cantrip (add your Wisdom modifier to the damage of your Druid cantrips) or Primal Strike (add 1d8 Cold, Fire, Lightning, or Thunder damage to your weapon attacks once per turn)."
                 }
             ]
         },
@@ -84,7 +86,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -97,7 +99,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Druid Circle."
                 }
             ]
         },
@@ -110,7 +112,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -123,7 +125,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Druid Circle."
                 }
             ]
         },
@@ -132,7 +134,7 @@
             "features": [
                 {
                     "name": "Improved Elemental Fury",
-                    "description": "Feature from the 2024 Revision: Improved Elemental Fury. Refer to the PHB (2024) for full details."
+                    "description": "Your Elemental Fury feature is enhanced. If you chose Primal Strike, the extra damage increases to 2d8 and its range increases to 30 feet. If you chose Potent Cantrip, the range of your cantrips increases by 30 feet."
                 }
             ]
         },
@@ -141,7 +143,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -154,7 +156,7 @@
             "features": [
                 {
                     "name": "Beast Spells",
-                    "description": "Feature from the 2024 Revision: Beast Spells. Refer to the PHB (2024) for full details."
+                    "description": "You can cast many of your Druid spells while in Wild Shape. You can perform the somatic and verbal components of a Druid spell while in a beast form, but you still cannot provide material components."
                 }
             ]
         },
@@ -163,7 +165,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -172,7 +174,7 @@
             "features": [
                 {
                     "name": "Archdruid",
-                    "description": "Feature from the 2024 Revision: Archdruid. Refer to the PHB (2024) for full details."
+                    "description": "You can use Wild Shape an unlimited number of times. Additionally, whenever you roll Initiative and have no uses of Wild Resurgence left, you regain one use of that feature."
                 }
             ]
         }

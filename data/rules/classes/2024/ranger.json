@@ -12,15 +12,15 @@
             "features": [
                 {
                     "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "description": "You can cast Ranger spells using Wisdom as your spellcasting ability. You prepare a list of spells and can use a Druidic Focus as a spellcasting focus. Ranger spellcasting now begins at level 1."
                 },
                 {
                     "name": "Favored Enemy",
-                    "description": "Feature from the 2024 Revision: Favored Enemy. Refer to the PHB (2024) for full details."
+                    "description": "You always have the Hunter's Mark spell prepared. You can cast it a number of times equal to your Wisdom modifier (minimum of once) without expending a spell slot, and you regain all expended uses when you finish a Long Rest."
                 },
                 {
                     "name": "Weapon Mastery",
-                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                    "description": "You gain the ability to use the mastery properties of two kinds of weapons of your choice."
                 }
             ]
         },
@@ -29,11 +29,11 @@
             "features": [
                 {
                     "name": "Deft Explorer",
-                    "description": "Feature from the 2024 Revision: Deft Explorer. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in one of your skill proficiencies and you learn two additional languages."
                 },
                 {
                     "name": "Fighting Style",
-                    "description": "Feature from the 2024 Revision: Fighting Style. Refer to the PHB (2024) for full details."
+                    "description": "You gain a Fighting Style feat of your choice. If you later gain a new Fighting Style feat, you can replace this one with a different one."
                 }
             ]
         },
@@ -42,7 +42,7 @@
             "features": [
                 {
                     "name": "Ranger Subclass",
-                    "description": "Feature from the 2024 Revision: Ranger Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Ranger Archetype. Your subclass grants you features at level 3 and again at levels 7, 11, and 15."
                 }
             ]
         },
@@ -51,7 +51,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -60,7 +60,7 @@
             "features": [
                 {
                     "name": "Extra Attack",
-                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                    "description": "You can attack twice, instead of once, whenever you take the Attack action on your turn."
                 }
             ]
         },
@@ -69,7 +69,7 @@
             "features": [
                 {
                     "name": "Roving",
-                    "description": "Feature from the 2024 Revision: Roving. Refer to the PHB (2024) for full details."
+                    "description": "Your walking speed increases by 5 feet, and you gain a climbing speed and a swimming speed equal to your walking speed."
                 }
             ]
         },
@@ -78,7 +78,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Ranger Archetype."
                 }
             ]
         },
@@ -87,7 +87,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -96,7 +96,7 @@
             "features": [
                 {
                     "name": "Expertise",
-                    "description": "Feature from the 2024 Revision: Expertise. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in two more of your skill proficiencies."
                 }
             ]
         },
@@ -105,7 +105,7 @@
             "features": [
                 {
                     "name": "Tireless",
-                    "description": "Feature from the 2024 Revision: Tireless. Refer to the PHB (2024) for full details."
+                    "description": "As an action, you can give yourself Temporary Hit Points equal to 1d8 + your Wisdom modifier. You can use this action a number of times equal to your Proficiency Bonus. Additionally, your exhaustion level decreases by 1 whenever you finish a Short Rest."
                 }
             ]
         },
@@ -114,7 +114,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Ranger Archetype."
                 }
             ]
         },
@@ -123,7 +123,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -132,7 +132,7 @@
             "features": [
                 {
                     "name": "Relentless Hunter",
-                    "description": "Feature from the 2024 Revision: Relentless Hunter. Refer to the PHB (2024) for full details."
+                    "description": "Your focus on your Hunter's Mark target is so intense that your concentration on the spell cannot be broken by taking damage."
                 }
             ]
         },
@@ -141,7 +141,7 @@
             "features": [
                 {
                     "name": "Nature's Veil",
-                    "description": "Feature from the 2024 Revision: Nature's Veil. Refer to the PHB (2024) for full details."
+                    "description": "As a Bonus Action, you can magically become Invisible until the end of your next turn. You can use this feature a number of times equal to your Proficiency Bonus."
                 }
             ]
         },
@@ -150,7 +150,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Ranger Archetype."
                 }
             ]
         },
@@ -159,7 +159,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -168,7 +168,7 @@
             "features": [
                 {
                     "name": "Precise Hunter",
-                    "description": "Feature from the 2024 Revision: Precise Hunter. Refer to the PHB (2024) for full details."
+                    "description": "You have Advantage on attack rolls against the creature currently marked by your Hunter's Mark spell."
                 }
             ]
         },
@@ -177,7 +177,7 @@
             "features": [
                 {
                     "name": "Feral Senses",
-                    "description": "Feature from the 2024 Revision: Feral Senses. Refer to the PHB (2024) for full details."
+                    "description": "You gain Blindsight out to a range of 30 feet."
                 }
             ]
         },
@@ -186,7 +186,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -195,7 +195,7 @@
             "features": [
                 {
                     "name": "Foe Slayer",
-                    "description": "Feature from the 2024 Revision: Foe Slayer. Refer to the PHB (2024) for full details."
+                    "description": "Your Hunter's Mark damage increases from 1d6 to 1d10."
                 }
             ]
         }

@@ -12,15 +12,15 @@
             "features": [
                 {
                     "name": "Lay On Hands",
-                    "description": "Feature from the 2024 Revision: Lay On Hands. Refer to the PHB (2024) for full details."
+                    "description": "You have a pool of healing power that replenishes when you finish a Long Rest. As a Bonus Action, you can touch a creature and draw power from the pool to restore a number of Hit Points to that creature, up to the maximum amount remaining in your pool. You can also expend 5 Hit Points from your pool to cure the target of the Poisoned condition."
                 },
                 {
                     "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "description": "You can cast Paladin spells using Charisma as your spellcasting ability. You prepare a list of spells each day and can use a Holy Symbol as a spellcasting focus."
                 },
                 {
                     "name": "Weapon Mastery",
-                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                    "description": "You gain the ability to use the mastery properties of two kinds of weapons of your choice."
                 }
             ]
         },
@@ -29,11 +29,11 @@
             "features": [
                 {
                     "name": "Fighting Style",
-                    "description": "Feature from the 2024 Revision: Fighting Style. Refer to the PHB (2024) for full details."
+                    "description": "You gain a Fighting Style feat of your choice. If you later gain a new Fighting Style feat, you can replace this one with a different one."
                 },
                 {
                     "name": "Paladin's Smite",
-                    "description": "Feature from the 2024 Revision: Paladin's Smite. Refer to the PHB (2024) for full details."
+                    "description": "You always have the Divine Smite spell prepared. Additionally, you can cast one Smite spell (including Divine Smite) once per Long Rest without expending a spell slot."
                 }
             ]
         },
@@ -42,11 +42,11 @@
             "features": [
                 {
                     "name": "Channel Divinity",
-                    "description": "Feature from the 2024 Revision: Channel Divinity. Refer to the PHB (2024) for full details."
+                    "description": "You can channel divine energy from your deity to fuel magical effects. You gain one use of Channel Divinity, which you regain when you finish a Short or Long Rest. You gain one or more options for this feature from your subclass."
                 },
                 {
                     "name": "Paladin Subclass",
-                    "description": "Feature from the 2024 Revision: Paladin Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Sacred Oath that represents your commitment to a divine cause. Your subclass grants you features at level 3 and again at levels 7, 15, and 20."
                 }
             ]
         },
@@ -55,7 +55,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -64,11 +64,11 @@
             "features": [
                 {
                     "name": "Extra Attack",
-                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                    "description": "You can attack twice, instead of once, whenever you take the Attack action on your turn."
                 },
                 {
                     "name": "Faithful Steed",
-                    "description": "Feature from the 2024 Revision: Faithful Steed. Refer to the PHB (2024) for full details."
+                    "description": "You always have the Find Steed spell prepared. You can cast it once per Long Rest without expending a spell slot."
                 }
             ]
         },
@@ -77,7 +77,7 @@
             "features": [
                 {
                     "name": "Aura of Protection",
-                    "description": "Feature from the 2024 Revision: Aura of Protection. Refer to the PHB (2024) for full details."
+                    "description": "Whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier (with a minimum bonus of +1). You must be conscious to grant this bonus."
                 }
             ]
         },
@@ -86,7 +86,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Sacred Oath."
                 }
             ]
         },
@@ -95,7 +95,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -104,7 +104,7 @@
             "features": [
                 {
                     "name": "Abjure Foes",
-                    "description": "Feature from the 2024 Revision: Abjure Foes. Refer to the PHB (2024) for full details."
+                    "description": "As an action, you can expend one use of your Channel Divinity to force each creature of your choice within 30 feet to make a Wisdom saving throw. On a failed save, a creature is Frightened for 1 minute or until it takes damage. While Frightened, its speed is 0."
                 }
             ]
         },
@@ -113,7 +113,7 @@
             "features": [
                 {
                     "name": "Aura of Courage",
-                    "description": "Feature from the 2024 Revision: Aura of Courage. Refer to the PHB (2024) for full details."
+                    "description": "You and friendly creatures within 10 feet of you can't be Frightened while you are conscious."
                 }
             ]
         },
@@ -122,7 +122,7 @@
             "features": [
                 {
                     "name": "Radiant Strikes",
-                    "description": "Feature from the 2024 Revision: Radiant Strikes. Refer to the PHB (2024) for full details."
+                    "description": "You are so suffused with righteous might that all your melee weapon strikes carry divine power with them. Whenever you hit a creature with a melee weapon, the creature takes an extra 1d8 Radiant damage."
                 }
             ]
         },
@@ -131,7 +131,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -144,7 +144,7 @@
             "features": [
                 {
                     "name": "Restoring Touch",
-                    "description": "Feature from the 2024 Revision: Restoring Touch. Refer to the PHB (2024) for full details."
+                    "description": "You can use a Bonus Action to expend 5 points from your Lay on Hands pool to end one of the following conditions on a creature you touch: Charmed, Frightened, or Stunned."
                 }
             ]
         },
@@ -153,7 +153,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Sacred Oath."
                 }
             ]
         },
@@ -162,7 +162,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -175,7 +175,7 @@
             "features": [
                 {
                     "name": "Aura Expansion",
-                    "description": "Feature from the 2024 Revision: Aura Expansion. Refer to the PHB (2024) for full details."
+                    "description": "The range of your auras (Aura of Protection, Aura of Courage, and any aura granted by your subclass) increases to 30 feet."
                 }
             ]
         },
@@ -184,7 +184,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -193,7 +193,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Sacred Oath."
                 }
             ]
         }

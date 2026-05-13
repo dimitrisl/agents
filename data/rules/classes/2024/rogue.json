@@ -11,19 +11,19 @@
             "features": [
                 {
                     "name": "Expertise",
-                    "description": "Feature from the 2024 Revision: Expertise. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in two of your skill proficiencies. Your Proficiency Bonus is doubled for any ability check you make that uses either of the chosen proficiencies."
                 },
                 {
                     "name": "Sneak Attack",
-                    "description": "Feature from the 2024 Revision: Sneak Attack. Refer to the PHB (2024) for full details."
+                    "description": "Once per turn, you can deal an extra 1d6 damage to one creature you hit with an attack if you have Advantage on the attack roll. The attack must use a Finesse or a Ranged weapon. You don't need Advantage if another enemy of the target is within 5 feet of it, that enemy isn't Incapacitated, and you don't have Disadvantage on the attack roll. The extra damage increases as you level up."
                 },
                 {
                     "name": "Thieves' Cant",
-                    "description": "Feature from the 2024 Revision: Thieves' Cant. Refer to the PHB (2024) for full details."
+                    "description": "You know Thieves' Cant, a secret mix of dialect, jargon, and code. You also gain proficiency in one additional language of your choice."
                 },
                 {
                     "name": "Weapon Mastery",
-                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                    "description": "You gain the ability to use the mastery properties of two kinds of weapons of your choice."
                 }
             ]
         },
@@ -32,7 +32,7 @@
             "features": [
                 {
                     "name": "Cunning Action",
-                    "description": "Feature from the 2024 Revision: Cunning Action. Refer to the PHB (2024) for full details."
+                    "description": "Your quick wits and agility allow you to move and act quickly. You can take a Bonus Action on each of your turns in combat. This action can be used only to take the Dash, Disengage, or Hide action."
                 }
             ]
         },
@@ -41,11 +41,11 @@
             "features": [
                 {
                     "name": "Rogue Subclass",
-                    "description": "Feature from the 2024 Revision: Rogue Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Roguish Archetype that represents your specialization. Your subclass grants you features at level 3 and again at levels 9, 13, and 17."
                 },
                 {
                     "name": "Steady Aim",
-                    "description": "Feature from the 2024 Revision: Steady Aim. Refer to the PHB (2024) for full details."
+                    "description": "As a Bonus Action, you can give yourself Advantage on your next attack roll on the current turn. You can use this feature only if you haven't moved during this turn, and after you use it, your speed is 0 until the end of the current turn."
                 }
             ]
         },
@@ -54,7 +54,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -63,11 +63,11 @@
             "features": [
                 {
                     "name": "Cunning Strike",
-                    "description": "Feature from the 2024 Revision: Cunning Strike. Refer to the PHB (2024) for full details."
+                    "description": "When you deal Sneak Attack damage, you can forgo 1d6 of that damage to add a Cunning Strike effect to the attack. Options include Poison (target must succeed on a CON save or be Poisoned), Trip (target must succeed on a STR save or be Prone), and Withdraw (you move up to half your speed without provoking Opportunity Attacks)."
                 },
                 {
                     "name": "Uncanny Dodge",
-                    "description": "Feature from the 2024 Revision: Uncanny Dodge. Refer to the PHB (2024) for full details."
+                    "description": "When an attacker that you can see hits you with an attack, you can use your Reaction to halve the attack's damage against you."
                 }
             ]
         },
@@ -76,7 +76,7 @@
             "features": [
                 {
                     "name": "Expertise",
-                    "description": "Feature from the 2024 Revision: Expertise. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in two more of your skill proficiencies."
                 }
             ]
         },
@@ -85,11 +85,11 @@
             "features": [
                 {
                     "name": "Evasion",
-                    "description": "Feature from the 2024 Revision: Evasion. Refer to the PHB (2024) for full details."
+                    "description": "When you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail."
                 },
                 {
                     "name": "Reliable Talent",
-                    "description": "Feature from the 2024 Revision: Reliable Talent. Refer to the PHB (2024) for full details."
+                    "description": "Whenever you make an ability check that lets you add your Proficiency Bonus, you can treat a d20 roll of 9 or lower as a 10."
                 }
             ]
         },
@@ -98,7 +98,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -107,7 +107,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Roguish Archetype."
                 }
             ]
         },
@@ -116,7 +116,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -125,7 +125,7 @@
             "features": [
                 {
                     "name": "Improved Cunning Strike",
-                    "description": "Feature from the 2024 Revision: Improved Cunning Strike. Refer to the PHB (2024) for full details."
+                    "description": "You can now use two Cunning Strike effects on the same attack by forgoing the necessary number of Sneak Attack damage dice."
                 }
             ]
         },
@@ -134,7 +134,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -143,7 +143,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Roguish Archetype."
                 }
             ]
         },
@@ -152,7 +152,7 @@
             "features": [
                 {
                     "name": "Devious Strikes",
-                    "description": "Feature from the 2024 Revision: Devious Strikes. Refer to the PHB (2024) for full details."
+                    "description": "You gain new, more powerful Cunning Strike options. These require you to forgo more Sneak Attack damage dice and include effects like Daze (target cannot take Reactions and can only move or take an action/bonus action), Knock Out (target is Unconscious), and Obscure (target is Blinded)."
                 }
             ]
         },
@@ -161,7 +161,7 @@
             "features": [
                 {
                     "name": "Slippery Mind",
-                    "description": "Feature from the 2024 Revision: Slippery Mind. Refer to the PHB (2024) for full details."
+                    "description": "Your greater mental strength allows you to resist more effectively. You gain proficiency in Wisdom and Charisma saving throws."
                 }
             ]
         },
@@ -170,7 +170,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -179,7 +179,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Roguish Archetype."
                 }
             ]
         },
@@ -188,7 +188,7 @@
             "features": [
                 {
                     "name": "Elusive",
-                    "description": "Feature from the 2024 Revision: Elusive. Refer to the PHB (2024) for full details."
+                    "description": "You are so evasive that attackers rarely gain the upper hand against you. No attack roll has Advantage against you while you aren't Incapacitated."
                 }
             ]
         },
@@ -197,7 +197,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -206,7 +206,7 @@
             "features": [
                 {
                     "name": "Stroke of Luck",
-                    "description": "Feature from the 2024 Revision: Stroke of Luck. Refer to the PHB (2024) for full details."
+                    "description": "If you fail an ability check or miss with an attack roll, you can treat the roll as a 20. Once you use this feature, you can't use it again until you finish a Short or Long Rest."
                 }
             ]
         }

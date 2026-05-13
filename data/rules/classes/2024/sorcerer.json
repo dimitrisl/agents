@@ -10,12 +10,12 @@
             "proficiency_bonus": 2,
             "features": [
                 {
-                    "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "name": "Innate Sorcery",
+                    "description": "As a Bonus Action, you can unleash the magic within you for 1 minute. During this time, your Sorcerer spell save DC increases by 1, and you have Advantage on attack rolls for Sorcerer spells you cast. You can use this feature twice per Long Rest."
                 },
                 {
-                    "name": "Innate Sorcery",
-                    "description": "Feature from the 2024 Revision: Innate Sorcery. Refer to the PHB (2024) for full details."
+                    "name": "Spellcasting",
+                    "description": "You prepare a fixed number of spells from the Sorcerer spell list (starting with 4 at level 1). Charisma is your spellcasting ability."
                 }
             ]
         },
@@ -24,11 +24,11 @@
             "features": [
                 {
                     "name": "Font of Magic",
-                    "description": "Feature from the 2024 Revision: Font of Magic. Refer to the PHB (2024) for full details."
+                    "description": "You can tap into a wellspring of magic within yourself, represented by Sorcery Points. You can use these points to create additional spell slots or convert spell slots into points."
                 },
                 {
                     "name": "Metamagic",
-                    "description": "Feature from the 2024 Revision: Metamagic. Refer to the PHB (2024) for full details."
+                    "description": "You gain two Metamagic options of your choice. You can use these to augment your spells (e.g., Careful Spell, Quickened Spell)."
                 }
             ]
         },
@@ -37,7 +37,7 @@
             "features": [
                 {
                     "name": "Sorcerer Subclass",
-                    "description": "Feature from the 2024 Revision: Sorcerer Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose your subclass (Sorcerous Origin). You gain features from this subclass at levels 3, 6, 14, and 18."
                 }
             ]
         },
@@ -46,7 +46,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -55,7 +55,7 @@
             "features": [
                 {
                     "name": "Sorcerous Restoration",
-                    "description": "Feature from the 2024 Revision: Sorcerous Restoration. Refer to the PHB (2024) for full details."
+                    "description": "When you finish a Short Rest, you can regain expended Sorcery Points equal to half your Sorcerer level (rounded down)."
                 }
             ]
         },
@@ -63,8 +63,8 @@
             "proficiency_bonus": 3,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen subclass."
                 }
             ]
         },
@@ -73,7 +73,7 @@
             "features": [
                 {
                     "name": "Sorcery Incarnate",
-                    "description": "Feature from the 2024 Revision: Sorcery Incarnate. Refer to the PHB (2024) for full details."
+                    "description": "While your Innate Sorcery feature is active, you can use up to two Metamagic options on a single spell."
                 }
             ]
         },
@@ -82,7 +82,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -95,7 +95,7 @@
             "features": [
                 {
                     "name": "Metamagic",
-                    "description": "Feature from the 2024 Revision: Metamagic. Refer to the PHB (2024) for full details."
+                    "description": "You gain an additional Metamagic option."
                 }
             ]
         },
@@ -108,7 +108,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -120,8 +120,8 @@
             "proficiency_bonus": 5,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen subclass."
                 }
             ]
         },
@@ -134,7 +134,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -143,7 +143,7 @@
             "features": [
                 {
                     "name": "Metamagic",
-                    "description": "Feature from the 2024 Revision: Metamagic. Refer to the PHB (2024) for full details."
+                    "description": "You gain an additional Metamagic option."
                 }
             ]
         },
@@ -151,8 +151,8 @@
             "proficiency_bonus": 6,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen subclass."
                 }
             ]
         },
@@ -161,7 +161,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat of your choice."
                 }
             ]
         },
@@ -170,7 +170,7 @@
             "features": [
                 {
                     "name": "Arcane Apotheosis",
-                    "description": "Feature from the 2024 Revision: Arcane Apotheosis. Refer to the PHB (2024) for full details."
+                    "description": "While your Innate Sorcery is active, you can use one Metamagic option on each of your spells without spending Sorcery Points."
                 }
             ]
         }

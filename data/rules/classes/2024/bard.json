@@ -2,18 +2,20 @@
     "class_name": "Bard",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d8",
-    "primary_ability": "Charisma",
+    "primary_ability": [
+        "Charisma"
+    ],
     "progression": {
         "1": {
             "proficiency_bonus": 2,
             "features": [
                 {
                     "name": "Bardic Inspiration",
-                    "description": "Feature from the 2024 Revision: Bardic Inspiration. Refer to the PHB (2024) for full details."
+                    "description": "As a Bonus Action, you can inspire another creature within 60 feet. They gain a Bardic Inspiration die (d6) that they can add to one ability check, attack roll, or saving throw they make within the next hour. Additionally, you can use a Reaction to expend a use of Bardic Inspiration to heal a creature that has just failed a saving throw or is at 0 Hit Points."
                 },
                 {
                     "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "description": "You can cast Bard spells using Charisma as your spellcasting ability. You prepare a specific number of spells from the Bard spell list, and you can use a Musical Instrument as a spellcasting focus."
                 }
             ]
         },
@@ -22,11 +24,11 @@
             "features": [
                 {
                     "name": "Expertise",
-                    "description": "Feature from the 2024 Revision: Expertise. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in two of your skill proficiencies. Your Proficiency Bonus is doubled for any ability check you make that uses either of the chosen proficiencies."
                 },
                 {
                     "name": "Jack of All Trades",
-                    "description": "Feature from the 2024 Revision: Jack of All Trades. Refer to the PHB (2024) for full details."
+                    "description": "You can add half your Proficiency Bonus, rounded down, to any ability check you make that doesn't already include your Proficiency Bonus."
                 }
             ]
         },
@@ -35,7 +37,7 @@
             "features": [
                 {
                     "name": "Bard Subclass",
-                    "description": "Feature from the 2024 Revision: Bard Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Bard College that represents your artistic specialization. Your subclass grants you features at level 3 and again at levels 6 and 14."
                 }
             ]
         },
@@ -44,7 +46,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -53,7 +55,7 @@
             "features": [
                 {
                     "name": "Font of Inspiration",
-                    "description": "Feature from the 2024 Revision: Font of Inspiration. Refer to the PHB (2024) for full details."
+                    "description": "You now regain all of your expended uses of Bardic Inspiration when you finish a Short or Long Rest. Additionally, your Bardic Inspiration die increases to a d8."
                 }
             ]
         },
@@ -62,7 +64,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Bard College."
                 }
             ]
         },
@@ -71,7 +73,7 @@
             "features": [
                 {
                     "name": "Countercharm",
-                    "description": "Feature from the 2024 Revision: Countercharm. Refer to the PHB (2024) for full details."
+                    "description": "As a Reaction when you or an ally within 30 feet fails a saving throw against being Charmed or Frightened, you can use your performance to allow the creature to reroll the save with Advantage."
                 }
             ]
         },
@@ -80,7 +82,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -89,7 +91,7 @@
             "features": [
                 {
                     "name": "Expertise",
-                    "description": "Feature from the 2024 Revision: Expertise. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in two more of your skill proficiencies."
                 }
             ]
         },
@@ -98,7 +100,7 @@
             "features": [
                 {
                     "name": "Magical Secrets",
-                    "description": "Feature from the 2024 Revision: Magical Secrets. Refer to the PHB (2024) for full details."
+                    "description": "You can now choose spells from the Cleric, Druid, and Wizard spell lists in addition to the Bard list whenever you learn or replace a Bard spell. Your Bardic Inspiration die also increases to a d10."
                 }
             ]
         },
@@ -111,7 +113,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -124,20 +126,25 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Bard College."
                 }
             ]
         },
         "15": {
             "proficiency_bonus": 5,
-            "features": []
+            "features": [
+                {
+                  "name": "Bardic Inspiration Die (d12)",
+                  "description": "Your Bardic Inspiration die increases to a d12."
+                }
+            ]
         },
         "16": {
             "proficiency_bonus": 5,
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -150,7 +157,7 @@
             "features": [
                 {
                     "name": "Superior Inspiration",
-                    "description": "Feature from the 2024 Revision: Superior Inspiration. Refer to the PHB (2024) for full details."
+                    "description": "When you roll Initiative, if you have no uses of Bardic Inspiration left, you regain two uses."
                 }
             ]
         },
@@ -159,7 +166,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -168,7 +175,7 @@
             "features": [
                 {
                     "name": "Words of Creation",
-                    "description": "Feature from the 2024 Revision: Words of Creation. Refer to the PHB (2024) for full details."
+                    "description": "You always have the Power Word Heal and Power Word Kill spells prepared. When you cast either of them, you can target a second creature within range."
                 }
             ]
         }

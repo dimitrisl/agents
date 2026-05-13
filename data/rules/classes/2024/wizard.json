@@ -11,15 +11,15 @@
             "features": [
                 {
                     "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "description": "You prepare a fixed number of spells from your spellbook (starting with 4 at level 1). Intelligence is your spellcasting ability. You can use your spellbook as a spellcasting focus."
                 },
                 {
                     "name": "Ritual Adept",
-                    "description": "Feature from the 2024 Revision: Ritual Adept. Refer to the PHB (2024) for full details."
+                    "description": "You can cast any spell in your spellbook as a ritual, even if it isn't prepared, provided the spell has the ritual tag."
                 },
                 {
                     "name": "Arcane Recovery",
-                    "description": "Feature from the 2024 Revision: Arcane Recovery. Refer to the PHB (2024) for full details."
+                    "description": "Once per day when you finish a Short Rest, you can choose expended spell slots to recover. The spell slots can have a combined level that is equal to or less than half your wizard level (rounded up)."
                 }
             ]
         },
@@ -28,7 +28,7 @@
             "features": [
                 {
                     "name": "Scholar",
-                    "description": "Feature from the 2024 Revision: Scholar. Refer to the PHB (2024) for full details."
+                    "description": "You gain Expertise in one of the following skills in which you are proficient: Arcana, History, Investigation, Medicine, Nature, or Religion."
                 }
             ]
         },
@@ -37,7 +37,11 @@
             "features": [
                 {
                     "name": "Wizard Subclass",
-                    "description": "Feature from the 2024 Revision: Wizard Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose your Arcane Tradition subclass. You gain features at levels 3, 6, 10, and 14."
+                },
+                {
+                    "name": "Savant",
+                    "description": "When you choose your subclass, you gain two free spells of that school of magic. Each time you gain a new level of spell slots, you gain another free spell of that school."
                 }
             ]
         },
@@ -46,7 +50,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -55,7 +59,7 @@
             "features": [
                 {
                     "name": "Memorize Spell",
-                    "description": "Feature from the 2024 Revision: Memorize Spell. Refer to the PHB (2024) for full details."
+                    "description": "Whenever you finish a Short Rest, you can choose one of the spells you have prepared and replace it with another spell from your spellbook."
                 }
             ]
         },
@@ -63,8 +67,8 @@
             "proficiency_bonus": 3,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen subclass."
                 }
             ]
         },
@@ -77,7 +81,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -89,8 +93,8 @@
             "proficiency_bonus": 4,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen subclass."
                 }
             ]
         },
@@ -103,7 +107,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -115,8 +119,8 @@
             "proficiency_bonus": 5,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen subclass."
                 }
             ]
         },
@@ -129,7 +133,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -142,7 +146,7 @@
             "features": [
                 {
                     "name": "Spell Mastery",
-                    "description": "Feature from the 2024 Revision: Spell Mastery. Refer to the PHB (2024) for full details."
+                    "description": "Choose a 1st-level spell and a 2nd-level spell in your spellbook. You can cast those spells at their lowest level without expending a spell slot when you have them prepared."
                 }
             ]
         },
@@ -151,7 +155,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat of your choice."
                 }
             ]
         },
@@ -160,7 +164,7 @@
             "features": [
                 {
                     "name": "Signature Spells",
-                    "description": "Feature from the 2024 Revision: Signature Spells. Refer to the PHB (2024) for full details."
+                    "description": "Choose two 3rd-level spells in your spellbook as your signature spells. You always have them prepared, and you can cast each of them once at 3rd level without expending a spell slot."
                 }
             ]
         }

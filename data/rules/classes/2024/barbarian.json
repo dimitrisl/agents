@@ -2,22 +2,24 @@
     "class_name": "Barbarian",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d12",
-    "primary_ability": "Strength",
+    "primary_ability": [
+        "Strength"
+    ],
     "progression": {
         "1": {
             "proficiency_bonus": 2,
             "features": [
                 {
                     "name": "Rage",
-                    "description": "Feature from the 2024 Revision: Rage. Refer to the PHB (2024) for full details."
+                    "description": "You can enter a Rage as a Bonus Action. While Raging, you have Advantage on Strength checks and saving throws, a bonus to damage with Strength-based attacks, and Resistance to Bludgeoning, Piercing, and Slashing damage. It lasts for 10 minutes and can be maintained by attacking, using a Bonus Action to extend it, or forcing an enemy to make a saving throw. You regain one use of Rage on a Short Rest."
                 },
                 {
                     "name": "Unarmored Defense",
-                    "description": "Feature from the 2024 Revision: Unarmored Defense. Refer to the PHB (2024) for full details."
+                    "description": "While you are not wearing any armor, your Armor Class equals 10 + your Dexterity modifier + your Constitution modifier. You can use a shield and still gain this benefit."
                 },
                 {
                     "name": "Weapon Mastery",
-                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                    "description": "You gain the ability to use the mastery properties of two kinds of weapons of your choice."
                 }
             ]
         },
@@ -26,11 +28,11 @@
             "features": [
                 {
                     "name": "Danger Sense",
-                    "description": "Feature from the 2024 Revision: Danger Sense. Refer to the PHB (2024) for full details."
+                    "description": "You have Advantage on Dexterity saving throws against effects that you can see while you aren't Incapacitated."
                 },
                 {
                     "name": "Reckless Attack",
-                    "description": "Feature from the 2024 Revision: Reckless Attack. Refer to the PHB (2024) for full details."
+                    "description": "When you make your first manual attack on your turn, you can decide to attack recklessly. Doing so gives you Advantage on melee weapon attack rolls using Strength during this turn, but attack rolls against you have Advantage until the start of your next turn."
                 }
             ]
         },
@@ -39,11 +41,11 @@
             "features": [
                 {
                     "name": "Barbarian Subclass",
-                    "description": "Feature from the 2024 Revision: Barbarian Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a subclass that represents your primal path. Your subclass grants you features at level 3 and again at levels 6, 10, and 14."
                 },
                 {
                     "name": "Primal Knowledge",
-                    "description": "Feature from the 2024 Revision: Primal Knowledge. Refer to the PHB (2024) for full details."
+                    "description": "You gain proficiency in one skill of your choice from the Barbarian skill list. While your Rage is active, you can use your Strength modifier in place of the normal ability modifier for the following skills: Acrobatics, Intimidation, Perception, Stealth, and Survival."
                 }
             ]
         },
@@ -52,7 +54,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -61,11 +63,11 @@
             "features": [
                 {
                     "name": "Extra Attack",
-                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                    "description": "You can attack twice, instead of once, whenever you take the Attack action on your turn."
                 },
                 {
                     "name": "Fast Movement",
-                    "description": "Feature from the 2024 Revision: Fast Movement. Refer to the PHB (2024) for full details."
+                    "description": "Your speed increases by 10 feet while you aren't wearing Heavy Armor."
                 }
             ]
         },
@@ -74,7 +76,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Barbarian subclass."
                 }
             ]
         },
@@ -83,11 +85,11 @@
             "features": [
                 {
                     "name": "Feral Instinct",
-                    "description": "Feature from the 2024 Revision: Feral Instinct. Refer to the PHB (2024) for full details."
+                    "description": "You have Advantage on Initiative rolls. Additionally, if you are Surprised, you can act normally on your first turn if you enter a Rage as part of that turn."
                 },
                 {
                     "name": "Instinctive Pounce",
-                    "description": "Feature from the 2024 Revision: Instinctive Pounce. Refer to the PHB (2024) for full details."
+                    "description": "As part of the Bonus Action you take to enter your Rage, you can move up to half your speed."
                 }
             ]
         },
@@ -96,7 +98,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -105,7 +107,7 @@
             "features": [
                 {
                     "name": "Brutal Strike",
-                    "description": "Feature from the 2024 Revision: Brutal Strike. Refer to the PHB (2024) for full details."
+                    "description": "When you use Reckless Attack, you can forgo having Advantage on the attack roll to deal an extra 1d10 damage of the weapon's type. If the attack hits, you also apply a debuff of your choice, such as pushing the target 15 feet (Forceful Blow) or reducing their speed by 15 feet (Hamstring Blow)."
                 }
             ]
         },
@@ -114,7 +116,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Barbarian subclass."
                 }
             ]
         },
@@ -123,7 +125,7 @@
             "features": [
                 {
                     "name": "Relentless Rage",
-                    "description": "Feature from the 2024 Revision: Relentless Rage. Refer to the PHB (2024) for full details."
+                    "description": "If you drop to 0 Hit Points while Raging and don't die outright, you can make a DC 10 Constitution saving throw. If you succeed, your Hit Points instead become equal to twice your Barbarian level. Each time you use this feature after the first, the DC increases by 5."
                 }
             ]
         },
@@ -132,7 +134,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -141,7 +143,7 @@
             "features": [
                 {
                     "name": "Improved Brutal Strike",
-                    "description": "Feature from the 2024 Revision: Improved Brutal Strike. Refer to the PHB (2024) for full details."
+                    "description": "The extra damage from your Brutal Strike increases to 2d10, and you gain additional options for the debuffs you can apply."
                 }
             ]
         },
@@ -150,7 +152,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Barbarian subclass."
                 }
             ]
         },
@@ -159,7 +161,7 @@
             "features": [
                 {
                     "name": "Persistent Rage",
-                    "description": "Feature from the 2024 Revision: Persistent Rage. Refer to the PHB (2024) for full details."
+                    "description": "Your Rage now lasts for its full duration regardless of whether you attack or take damage, ending only if you are Incapacitated or choose to end it. Additionally, when you roll Initiative, you regain all expended uses of Rage (once per Long Rest)."
                 }
             ]
         },
@@ -168,7 +170,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -177,7 +179,7 @@
             "features": [
                 {
                     "name": "Improved Brutal Strike",
-                    "description": "Feature from the 2024 Revision: Improved Brutal Strike. Refer to the PHB (2024) for full details."
+                    "description": "The extra damage from your Brutal Strike increases to 3d10."
                 }
             ]
         },
@@ -186,7 +188,7 @@
             "features": [
                 {
                     "name": "Indomitable Might",
-                    "description": "Feature from the 2024 Revision: Indomitable Might. Refer to the PHB (2024) for full details."
+                    "description": "If your total for a Strength check is less than your Strength score, you can use that score in place of the total."
                 }
             ]
         },
@@ -195,7 +197,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -204,7 +206,7 @@
             "features": [
                 {
                     "name": "Primal Champion",
-                    "description": "Feature from the 2024 Revision: Primal Champion. Refer to the PHB (2024) for full details."
+                    "description": "Your Strength and Constitution scores increase by 4, to a maximum of 24."
                 }
             ]
         }

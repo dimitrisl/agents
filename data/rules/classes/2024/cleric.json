@@ -2,18 +2,20 @@
     "class_name": "Cleric",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d8",
-    "primary_ability": "Wisdom",
+    "primary_ability": [
+        "Wisdom"
+    ],
     "progression": {
         "1": {
             "proficiency_bonus": 2,
             "features": [
                 {
                     "name": "Divine Order",
-                    "description": "Feature from the 2024 Revision: Divine Order. Refer to the PHB (2024) for full details."
+                    "description": "You choose one of two divine callings: Protector (gain proficiency with Heavy Armor and Martial Weapons) or Thaumaturge (gain one extra Cantrip and add your Wisdom modifier to Arcana and Religion checks)."
                 },
                 {
                     "name": "Spellcasting",
-                    "description": "Feature from the 2024 Revision: Spellcasting. Refer to the PHB (2024) for full details."
+                    "description": "You can cast Cleric spells using Wisdom as your spellcasting ability. You prepare a list of spells each day and can use a Holy Symbol as a spellcasting focus."
                 }
             ]
         },
@@ -22,7 +24,7 @@
             "features": [
                 {
                     "name": "Channel Divinity",
-                    "description": "Feature from the 2024 Revision: Channel Divinity. Refer to the PHB (2024) for full details."
+                    "description": "You can channel divine energy from your deity to fuel magical effects. You start with two uses per Long Rest (regaining one on a Short Rest) and gain two options: Turn Undead and Divine Spark (heal or damage a creature with Radiant or Necrotic damage)."
                 }
             ]
         },
@@ -31,7 +33,7 @@
             "features": [
                 {
                     "name": "Cleric Subclass",
-                    "description": "Feature from the 2024 Revision: Cleric Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Divine Domain that represents your deity's influence. Your subclass grants you features at level 3 and again at levels 6 and 17."
                 }
             ]
         },
@@ -40,7 +42,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -49,7 +51,7 @@
             "features": [
                 {
                     "name": "Sear Undead",
-                    "description": "Feature from the 2024 Revision: Sear Undead. Refer to the PHB (2024) for full details."
+                    "description": "When you use Turn Undead, each undead that fails its saving throw takes Radiant damage equal to a number of d8s equal to your Wisdom modifier."
                 }
             ]
         },
@@ -58,7 +60,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Divine Domain."
                 }
             ]
         },
@@ -67,7 +69,7 @@
             "features": [
                 {
                     "name": "Blessed Strikes",
-                    "description": "Feature from the 2024 Revision: Blessed Strikes. Refer to the PHB (2024) for full details."
+                    "description": "You can choose between Divine Strike (add 1d8 Radiant/Necrotic damage to weapon attacks) or Potent Cantrip (add your Wisdom modifier to cantrip damage)."
                 }
             ]
         },
@@ -76,7 +78,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -89,7 +91,7 @@
             "features": [
                 {
                     "name": "Divine Intervention",
-                    "description": "Feature from the 2024 Revision: Divine Intervention. Refer to the PHB (2024) for full details."
+                    "description": "You can call upon your deity for aid. As an action, you can name any Cleric spell of 5th level or lower and cast it without expending a spell slot or providing material components. Once you use this feature, you can't use it again until you finish a Long Rest."
                 }
             ]
         },
@@ -102,7 +104,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -115,7 +117,7 @@
             "features": [
                 {
                     "name": "Improved Blessed Strikes",
-                    "description": "Feature from the 2024 Revision: Improved Blessed Strikes. Refer to the PHB (2024) for full details."
+                    "description": "Your Blessed Strikes feature is enhanced. If you chose Divine Strike, the damage increases to 2d8. If you chose Potent Cantrip, you also gain Temporary HP when you deal damage with a cantrip."
                 }
             ]
         },
@@ -128,7 +130,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -137,7 +139,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Divine Domain."
                 }
             ]
         },
@@ -150,7 +152,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -159,7 +161,7 @@
             "features": [
                 {
                     "name": "Greater Divine Intervention",
-                    "description": "Feature from the 2024 Revision: Greater Divine Intervention. Refer to the PHB (2024) for full details."
+                    "description": "You can now use your Divine Intervention feature to cast the Wish spell."
                 }
             ]
         }

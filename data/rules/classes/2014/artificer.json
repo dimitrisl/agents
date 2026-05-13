@@ -1,178 +1,188 @@
 {
-  "class_name": "Artificer",
-  "edition": "2014 Edition",
-  "hit_die": "d8",
-  "primary_ability": ["Intelligence"],
-  "progression": {
-    "1": {
-      "proficiency_bonus": 2,
-      "features": [
-        {
-          "name": "Magical Tinkering",
-          "description": "You learn how to invest a spark of magic into mundane objects. To use this feature, you must have thieves' tools or artisan's tools in hand. You then touch a tiny nonmagical object as an action and give it one of a variety of magical properties: emitting light, playing a recorded message, emitting an odor, or showing a static image."
+    "class_name": "Artificer",
+    "edition": "2014 Edition",
+    "hit_die": "d8",
+    "primary_ability": [
+        "Intelligence"
+    ],
+    "progression": {
+        "1": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Magical Tinkering",
+                    "description": "You learn how to invest a spark of magic into mundane objects. To use this feature, you must have thieves' tools or artisan's tools in hand. You then touch a tiny nonmagical object as an action and give it one of a variety of magical properties: emitting light, playing a recorded message, emitting an odor, or showing a static image."
+                },
+                {
+                    "name": "Spellcasting",
+                    "description": "You have studied the workings of magic and how to channel it through objects. As a result, you have gained the ability to cast spells. To the observers, you don't appear to be casting spells in a conventional way; you look as though you're producing wonders through various tools."
+                }
+            ]
         },
-        {
-          "name": "Spellcasting",
-          "description": "You have studied the workings of magic and how to channel it through objects. As a result, you have gained the ability to cast spells. To the observers, you don't appear to be casting spells in a conventional way; you look as though you're producing wonders through various tools."
-        }
-      ]
-    },
-    "2": {
-      "proficiency_bonus": 2,
-      "features": [
-        {
-          "name": "Infuse Item",
-          "description": "You've gained the ability to imbue mundane items with magical infusions. The magic items you create with this feature are effectively prototypes of permanent magic items."
-        }
-      ]
-    },
-    "3": {
-      "proficiency_bonus": 2,
-      "features": [
-        {
-          "name": "Artificer Specialist",
-          "description": "You choose the type of specialist you are: Alchemist, Armorer, Artillerist, or Battle Smith. Your choice grants you features at 3rd level and again at 5th, 9th, and 15th level."
+        "2": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Infuse Item",
+                    "description": "You've gained the ability to imbue mundane items with magical infusions. The magic items you create with this feature are effectively prototypes of permanent magic items."
+                }
+            ]
         },
-        {
-          "name": "The Right Tool for the Job",
-          "description": "You've learned how to produce exactly the tool you need: with thieves' tools or artisan's tools in hand, you can magically create one set of artisan's tools in an unoccupied space within 5 feet of you. This creation requires 1 hour of uninterrupted work, which can coincide with a short or long rest. Plus, the tools disappear when you use this feature again."
+        "3": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Artificer Specialist",
+                    "description": "You choose the type of specialist you are: Alchemist, Armorer, Artillerist, or Battle Smith. Your choice grants you features at 3rd level and again at 5th, 9th, and 15th level."
+                },
+                {
+                    "name": "The Right Tool for the Job",
+                    "description": "You've learned how to produce exactly the tool you need: with thieves' tools or artisan's tools in hand, you can magically create one set of artisan's tools in an unoccupied space within 5 feet of you. This creation requires 1 hour of uninterrupted work, which can coincide with a short or long rest. Plus, the tools disappear when you use this feature again."
+                }
+            ]
+        },
+        "4": {
+            "proficiency_bonus": 2,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
+                }
+            ]
+        },
+        "5": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Artificer Specialist Feature",
+                    "description": "You gain a feature from your Artificer Specialist choice."
+                }
+            ]
+        },
+        "6": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Tool Expertise",
+                    "description": "Your proficiency bonus is now doubled for any ability check you make that uses your proficiency with a tool."
+                }
+            ]
+        },
+        "7": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Flash of Genius",
+                    "description": "You've gained the ability to come up with solutions under pressure. When you or another creature you can see within 30 feet of you makes an ability check or a saving throw, you can use your reaction to add your Intelligence modifier to the roll."
+                }
+            ]
+        },
+        "8": {
+            "proficiency_bonus": 3,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 8th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
+                }
+            ]
+        },
+        "9": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Artificer Specialist Feature",
+                    "description": "You gain a feature from your Artificer Specialist choice."
+                }
+            ]
+        },
+        "10": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Magic Item Adept",
+                    "description": "You've achieved a profound understanding of how to use and make magic items: You can attune to up to four magic items at once, and if you craft a magic item with a rarity of common or uncommon, it takes you a quarter of the normal time, and it costs you half as much of the usual gold."
+                }
+            ]
+        },
+        "11": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Spell-Storing Item",
+                    "description": "You can now store a spell in an object. Whenever you finish a long rest, you can touch one simple or martial weapon or one item that you can use as a spellcasting focus, and you store a spell in it, choosing a 1st- or 2nd-level spell from the artificer spell list that requires 1 action to cast."
+                }
+            ]
+        },
+        "12": {
+            "proficiency_bonus": 4,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 12th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
+                }
+            ]
+        },
+        "13": {
+            "proficiency_bonus": 5,
+            "features": []
+        },
+        "14": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Magic Item Savant",
+                    "description": "Your control over magic items continues to improve: You can attune to up to five magic items at once, and you ignore all class, race, spell, and level requirements on attuning to or using a magic item."
+                }
+            ]
+        },
+        "15": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Artificer Specialist Feature",
+                    "description": "You gain a feature from your Artificer Specialist choice."
+                }
+            ]
+        },
+        "16": {
+            "proficiency_bonus": 5,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 16th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
+                }
+            ]
+        },
+        "17": {
+            "proficiency_bonus": 6,
+            "features": []
+        },
+        "18": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Magic Item Master",
+                    "description": "You can attune to up to six magic items at once."
+                }
+            ]
+        },
+        "19": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Ability Score Improvement",
+                    "description": "When you reach 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
+                }
+            ]
+        },
+        "20": {
+            "proficiency_bonus": 6,
+            "features": [
+                {
+                    "name": "Soul of Artifice",
+                    "description": "You gain a +1 bonus to all saving throws per magic item you are currently attuned to. If you're reduced to 0 hit points but not killed outright, you can use your reaction to end one of your artificer infusions, causing you to drop to 1 hit point instead of 0."
+                }
+            ]
         }
-      ]
-    },
-    "4": {
-      "proficiency_bonus": 2,
-      "features": [
-        {
-          "name": "Ability Score Improvement",
-          "description": "When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
-        }
-      ]
-    },
-    "5": {
-      "proficiency_bonus": 3,
-      "features": [
-        {
-          "name": "Artificer Specialist Feature",
-          "description": "You gain a feature from your Artificer Specialist choice."
-        }
-      ]
-    },
-    "6": {
-      "proficiency_bonus": 3,
-      "features": [
-        {
-          "name": "Tool Expertise",
-          "description": "Your proficiency bonus is now doubled for any ability check you make that uses your proficiency with a tool."
-        }
-      ]
-    },
-    "7": {
-      "proficiency_bonus": 3,
-      "features": [
-        {
-          "name": "Flash of Genius",
-          "description": "You've gained the ability to come up with solutions under pressure. When you or another creature you can see within 30 feet of you makes an ability check or a saving throw, you can use your reaction to add your Intelligence modifier to the roll."
-        }
-      ]
-    },
-    "8": {
-      "proficiency_bonus": 3,
-      "features": [
-        {
-          "name": "Ability Score Improvement",
-          "description": "When you reach 8th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
-        }
-      ]
-    },
-    "9": {
-      "proficiency_bonus": 4,
-      "features": [
-        {
-          "name": "Artificer Specialist Feature",
-          "description": "You gain a feature from your Artificer Specialist choice."
-        }
-      ]
-    },
-    "10": {
-      "proficiency_bonus": 4,
-      "features": [
-        {
-          "name": "Magic Item Adept",
-          "description": "You've achieved a profound understanding of how to use and make magic items: You can attune to up to four magic items at once, and if you craft a magic item with a rarity of common or uncommon, it takes you a quarter of the normal time, and it costs you half as much of the usual gold."
-        }
-      ]
-    },
-    "11": {
-      "proficiency_bonus": 4,
-      "features": [
-        {
-          "name": "Spell-Storing Item",
-          "description": "You can now store a spell in an object. Whenever you finish a long rest, you can touch one simple or martial weapon or one item that you can use as a spellcasting focus, and you store a spell in it, choosing a 1st- or 2nd-level spell from the artificer spell list that requires 1 action to cast."
-        }
-      ]
-    },
-    "12": {
-      "proficiency_bonus": 4,
-      "features": [
-        {
-          "name": "Ability Score Improvement",
-          "description": "When you reach 12th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
-        }
-      ]
-    },
-    "14": {
-      "proficiency_bonus": 5,
-      "features": [
-        {
-          "name": "Magic Item Savant",
-          "description": "Your control over magic items continues to improve: You can attune to up to five magic items at once, and you ignore all class, race, spell, and level requirements on attuning to or using a magic item."
-        }
-      ]
-    },
-    "15": {
-      "proficiency_bonus": 5,
-      "features": [
-        {
-          "name": "Artificer Specialist Feature",
-          "description": "You gain a feature from your Artificer Specialist choice."
-        }
-      ]
-    },
-    "16": {
-      "proficiency_bonus": 5,
-      "features": [
-        {
-          "name": "Ability Score Improvement",
-          "description": "When you reach 16th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
-        }
-      ]
-    },
-    "18": {
-      "proficiency_bonus": 6,
-      "features": [
-        {
-          "name": "Magic Item Master",
-          "description": "You can attune to up to six magic items at once."
-        }
-      ]
-    },
-    "19": {
-      "proficiency_bonus": 6,
-      "features": [
-        {
-          "name": "Ability Score Improvement",
-          "description": "When you reach 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1."
-        }
-      ]
-    },
-    "20": {
-      "proficiency_bonus": 6,
-      "features": [
-        {
-          "name": "Soul of Artifice",
-          "description": "You gain a +1 bonus to all saving throws per magic item you are currently attuned to. If you're reduced to 0 hit points but not killed outright, you can use your reaction to end one of your artificer infusions, causing you to drop to 1 hit point instead of 0."
-        }
-      ]
     }
-  }
 }

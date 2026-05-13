@@ -2,22 +2,25 @@
     "class_name": "Fighter",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d10",
-    "primary_ability": "Strength or Dexterity",
+    "primary_ability": [
+        "Strength",
+        "Dexterity"
+    ],
     "progression": {
         "1": {
             "proficiency_bonus": 2,
             "features": [
                 {
                     "name": "Fighting Style",
-                    "description": "Feature from the 2024 Revision: Fighting Style. Refer to the PHB (2024) for full details."
+                    "description": "You gain a Fighting Style feat of your choice. If you later gain a new Fighting Style feat, you can replace this one with a different one."
                 },
                 {
                     "name": "Second Wind",
-                    "description": "Feature from the 2024 Revision: Second Wind. Refer to the PHB (2024) for full details."
+                    "description": "You have a limited well of stamina that you can draw on to protect yourself from harm. You can use a Bonus Action to regain HP equal to 1d10 + your Fighter level. You have multiple uses (2 at level 1), regain one use on a Short Rest, and all uses on a Long Rest."
                 },
                 {
                     "name": "Weapon Mastery",
-                    "description": "Feature from the 2024 Revision: Weapon Mastery. Refer to the PHB (2024) for full details."
+                    "description": "Your training with weapons allows you to use the mastery properties of three kinds of weapons of your choice (e.g., Topple, Push, Cleave). You can change your choices whenever you finish a Long Rest."
                 }
             ]
         },
@@ -26,11 +29,11 @@
             "features": [
                 {
                     "name": "Action Surge (one use)",
-                    "description": "Feature from the 2024 Revision: Action Surge (one use). Refer to the PHB (2024) for full details."
+                    "description": "You can push yourself beyond your normal limits for a moment. On your turn, you can take one additional action, provided that action is the Attack, Dash, Disengage, or Dodge action."
                 },
                 {
                     "name": "Tactical Mind",
-                    "description": "Feature from the 2024 Revision: Tactical Mind. Refer to the PHB (2024) for full details."
+                    "description": "If you fail an ability check, you can expend one use of your Second Wind to roll 1d10 and add the number rolled to the check. If the check still fails, the use of Second Wind isn't expended."
                 }
             ]
         },
@@ -39,7 +42,7 @@
             "features": [
                 {
                     "name": "Fighter Subclass",
-                    "description": "Feature from the 2024 Revision: Fighter Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a subclass that represents your martial specialization, such as Battle Master or Champion. Your subclass grants you features at level 3 and again at levels 7, 10, 15, and 18."
                 }
             ]
         },
@@ -48,7 +51,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -57,11 +60,11 @@
             "features": [
                 {
                     "name": "Extra Attack",
-                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                    "description": "You can attack twice, instead of once, whenever you take the Attack action on your turn."
                 },
                 {
                     "name": "Tactical Shift",
-                    "description": "Feature from the 2024 Revision: Tactical Shift. Refer to the PHB (2024) for full details."
+                    "description": "Whenever you use your Second Wind, you can move up to half your speed without provoking Opportunity Attacks."
                 }
             ]
         },
@@ -70,7 +73,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -79,7 +82,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Fighter subclass."
                 }
             ]
         },
@@ -88,7 +91,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -97,11 +100,11 @@
             "features": [
                 {
                     "name": "Indomitable (one use)",
-                    "description": "Feature from the 2024 Revision: Indomitable (one use). Refer to the PHB (2024) for full details."
+                    "description": "You can reroll a saving throw that you fail. If you do so, you must use the new roll, and you add your Fighter level to the roll. Once you use this feature, you can't use it again until you finish a Long Rest."
                 },
                 {
                     "name": "Tactical Master",
-                    "description": "Feature from the 2024 Revision: Tactical Master. Refer to the PHB (2024) for full details."
+                    "description": "When you use a mastery property of a weapon you're wielding, you can swap that property for the Push, Sap, or Slow property."
                 }
             ]
         },
@@ -110,7 +113,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Fighter subclass."
                 }
             ]
         },
@@ -119,7 +122,7 @@
             "features": [
                 {
                     "name": "Two Extra Attacks",
-                    "description": "Feature from the 2024 Revision: Two Extra Attacks. Refer to the PHB (2024) for full details."
+                    "description": "You can attack three times, instead of once, whenever you take the Attack action on your turn."
                 }
             ]
         },
@@ -128,7 +131,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -137,11 +140,11 @@
             "features": [
                 {
                     "name": "Indomitable (two uses)",
-                    "description": "Feature from the 2024 Revision: Indomitable (two uses). Refer to the PHB (2024) for full details."
+                    "description": "You can use Indomitable twice between Long Rests."
                 },
                 {
                     "name": "Studied Attacks",
-                    "description": "Feature from the 2024 Revision: Studied Attacks. Refer to the PHB (2024) for full details."
+                    "description": "If you miss with an attack roll against a creature, you have Advantage on your next attack roll against that creature before the end of your next turn."
                 }
             ]
         },
@@ -150,7 +153,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -159,7 +162,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Fighter subclass."
                 }
             ]
         },
@@ -168,7 +171,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -177,11 +180,11 @@
             "features": [
                 {
                     "name": "Action Surge (two uses)",
-                    "description": "Feature from the 2024 Revision: Action Surge (two uses). Refer to the PHB (2024) for full details."
+                    "description": "You can use Action Surge twice between Long Rests, but only once on the same turn."
                 },
                 {
                     "name": "Indomitable (three uses)",
-                    "description": "Feature from the 2024 Revision: Indomitable (three uses). Refer to the PHB (2024) for full details."
+                    "description": "You can use Indomitable three times between Long Rests."
                 }
             ]
         },
@@ -190,7 +193,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Fighter subclass."
                 }
             ]
         },
@@ -199,7 +202,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -208,7 +211,7 @@
             "features": [
                 {
                     "name": "Three Extra Attacks",
-                    "description": "Feature from the 2024 Revision: Three Extra Attacks. Refer to the PHB (2024) for full details."
+                    "description": "You can attack four times, instead of once, whenever you take the Attack action on your turn."
                 }
             ]
         }

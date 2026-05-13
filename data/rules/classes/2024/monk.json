@@ -12,11 +12,11 @@
             "features": [
                 {
                     "name": "Martial Arts",
-                    "description": "Feature from the 2024 Revision: Martial Arts. Refer to the PHB (2024) for full details."
+                    "description": "You can use Dexterity instead of Strength for the attack and damage rolls of your unarmed strikes and Monk weapons. Your unarmed strikes deal damage based on your Martial Arts die (starting at 1d6). You can make one unarmed strike as a Bonus Action, and you can use Dexterity instead of Strength when making Grapple or Shove attempts."
                 },
                 {
                     "name": "Unarmored Defense",
-                    "description": "Feature from the 2024 Revision: Unarmored Defense. Refer to the PHB (2024) for full details."
+                    "description": "While you are not wearing any armor and not wielding a shield, your Armor Class equals 10 + your Dexterity modifier + your Wisdom modifier."
                 }
             ]
         },
@@ -25,15 +25,15 @@
             "features": [
                 {
                     "name": "Monk's Focus",
-                    "description": "Feature from the 2024 Revision: Monk's Focus. Refer to the PHB (2024) for full details."
+                    "description": "You gain Focus Points (equal to your Monk level) to fuel special abilities: Flurry of Blows (two unarmed strikes as a Bonus Action), Patient Defense (Disengage as a Bonus Action), and Step of the Wind (Dash as a Bonus Action). You can also expend Focus Points to enhance these abilities."
                 },
                 {
                     "name": "Unarmored Movement",
-                    "description": "Feature from the 2024 Revision: Unarmored Movement. Refer to the PHB (2024) for full details."
+                    "description": "Your speed increases by 10 feet while you are not wearing armor or wielding a shield. This bonus increases as you reach higher Monk levels."
                 },
                 {
                     "name": "Uncanny Metabolism",
-                    "description": "Feature from the 2024 Revision: Uncanny Metabolism. Refer to the PHB (2024) for full details."
+                    "description": "Once per Long Rest, when you roll Initiative, you can regain all of your expended Focus Points. Additionally, you regain Hit Points equal to your Monk level plus a roll of your Martial Arts die."
                 }
             ]
         },
@@ -42,11 +42,11 @@
             "features": [
                 {
                     "name": "Deflect Attacks",
-                    "description": "Feature from the 2024 Revision: Deflect Attacks. Refer to the PHB (2024) for full details."
+                    "description": "As a Reaction when you are hit by a melee or ranged attack, you can reduce the damage by 1d10 + Dexterity modifier + Monk level. If you reduce the damage to 0, you can expend 1 Focus Point to make an unarmed strike or a ranged attack with the caught object as part of the same Reaction."
                 },
                 {
                     "name": "Monk Subclass",
-                    "description": "Feature from the 2024 Revision: Monk Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose a Monk Warrior Path. Your subclass grants you features at level 3 and again at levels 6, 11, and 17."
                 }
             ]
         },
@@ -55,11 +55,11 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 },
                 {
                     "name": "Slow Fall",
-                    "description": "Feature from the 2024 Revision: Slow Fall. Refer to the PHB (2024) for full details."
+                    "description": "You can use your Reaction when you fall to reduce any falling damage you take by an amount equal to five times your Monk level."
                 }
             ]
         },
@@ -68,11 +68,11 @@
             "features": [
                 {
                     "name": "Extra Attack",
-                    "description": "Feature from the 2024 Revision: Extra Attack. Refer to the PHB (2024) for full details."
+                    "description": "You can attack twice, instead of once, whenever you take the Attack action on your turn."
                 },
                 {
                     "name": "Stunning Strike",
-                    "description": "Feature from the 2024 Revision: Stunning Strike. Refer to the PHB (2024) for full details."
+                    "description": "Once per turn, when you hit a creature with a melee attack, you can expend 1 Focus Point to attempt a Stunning Strike. The target must succeed on a Constitution saving throw or be Stunned until the end of your next turn. If they succeed, their speed is halved until the start of your next turn."
                 }
             ]
         },
@@ -81,11 +81,11 @@
             "features": [
                 {
                     "name": "Empowered Strikes",
-                    "description": "Feature from the 2024 Revision: Empowered Strikes. Refer to the PHB (2024) for full details."
+                    "description": "Your unarmed strikes can deal Force damage instead of their normal damage type."
                 },
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Monk subclass."
                 }
             ]
         },
@@ -94,7 +94,7 @@
             "features": [
                 {
                     "name": "Evasion",
-                    "description": "Feature from the 2024 Revision: Evasion. Refer to the PHB (2024) for full details."
+                    "description": "When you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail."
                 }
             ]
         },
@@ -103,7 +103,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -112,7 +112,7 @@
             "features": [
                 {
                     "name": "Acrobatic Movement",
-                    "description": "Feature from the 2024 Revision: Acrobatic Movement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the ability to move along vertical surfaces and across liquids on your turn without falling during the move."
                 }
             ]
         },
@@ -121,11 +121,11 @@
             "features": [
                 {
                     "name": "Heightened Focus",
-                    "description": "Feature from the 2024 Revision: Heightened Focus. Refer to the PHB (2024) for full details."
+                    "description": "Your Monk's Focus abilities are improved. Flurry of Blows now allows for three unarmed strikes, Patient Defense grants Temporary Hit Points, and Step of the Wind allows you to move an ally with you."
                 },
                 {
                     "name": "Self-Restoration",
-                    "description": "Feature from the 2024 Revision: Self-Restoration. Refer to the PHB (2024) for full details."
+                    "description": "You can use a Bonus Action to end the Charmed, Frightened, or Poisoned condition on yourself. Additionally, you no longer suffer the frailty of old age and do not require food or water."
                 }
             ]
         },
@@ -134,7 +134,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Monk subclass."
                 }
             ]
         },
@@ -143,7 +143,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -152,7 +152,7 @@
             "features": [
                 {
                     "name": "Deflect Energy",
-                    "description": "Feature from the 2024 Revision: Deflect Energy. Refer to the PHB (2024) for full details."
+                    "description": "Your Deflect Attacks feature now works against any damage type from an attack, not just Bludgeoning, Piercing, or Slashing damage."
                 }
             ]
         },
@@ -161,7 +161,7 @@
             "features": [
                 {
                     "name": "Disciplined Survivor",
-                    "description": "Feature from the 2024 Revision: Disciplined Survivor. Refer to the PHB (2024) for full details."
+                    "description": "You gain proficiency in all saving throws. Additionally, whenever you make a saving throw and fail, you can expend 1 Focus Point to reroll the die and must use the new roll."
                 }
             ]
         },
@@ -170,7 +170,7 @@
             "features": [
                 {
                     "name": "Perfect Focus",
-                    "description": "Feature from the 2024 Revision: Perfect Focus. Refer to the PHB (2024) for full details."
+                    "description": "When you roll Initiative, if you have fewer than 4 Focus Points, your total Focus Points becomes 4."
                 }
             ]
         },
@@ -179,7 +179,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -188,7 +188,7 @@
             "features": [
                 {
                     "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "description": "You gain a feature from your chosen Monk subclass."
                 }
             ]
         },
@@ -197,7 +197,7 @@
             "features": [
                 {
                     "name": "Superior Defense",
-                    "description": "Feature from the 2024 Revision: Superior Defense. Refer to the PHB (2024) for full details."
+                    "description": "As a Bonus Action, you can expend 3 Focus Points to gain Resistance to all damage types except Force damage for 1 minute or until you are Incapacitated."
                 }
             ]
         },
@@ -206,7 +206,7 @@
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat or another feat of your choice for which you qualify."
                 }
             ]
         },
@@ -215,7 +215,7 @@
             "features": [
                 {
                     "name": "Body and Mind",
-                    "description": "Feature from the 2024 Revision: Body and Mind. Refer to the PHB (2024) for full details."
+                    "description": "Your Dexterity and Wisdom scores increase by 4, to a maximum of 26."
                 }
             ]
         }

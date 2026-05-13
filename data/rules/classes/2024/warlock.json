@@ -11,11 +11,11 @@
             "features": [
                 {
                     "name": "Eldritch Invocations",
-                    "description": "Feature from the 2024 Revision: Eldritch Invocations. Refer to the PHB (2024) for full details."
+                    "description": "You gain two Eldritch Invocations of your choice. These include options like Pact of the Blade, Pact of the Chain, and Pact of the Tome, which were previously separate Pact Boon features."
                 },
                 {
-                    "name": "Pact Magic",
-                    "description": "Feature from the 2024 Revision: Pact Magic. Refer to the PHB (2024) for full details."
+                    "name": "Spellcasting (Pact Magic)",
+                    "description": "You prepare a fixed number of spells from the Warlock spell list. Charisma is your spellcasting ability. Your spell slots are all of the same level and regain on a Short or Long Rest."
                 }
             ]
         },
@@ -24,7 +24,11 @@
             "features": [
                 {
                     "name": "Magical Cunning",
-                    "description": "Feature from the 2024 Revision: Magical Cunning. Refer to the PHB (2024) for full details."
+                    "description": "Once per day, you can spend 1 minute to regain half of your expended Pact Magic spell slots (rounded up)."
+                },
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
                 }
             ]
         },
@@ -33,7 +37,7 @@
             "features": [
                 {
                     "name": "Warlock Subclass",
-                    "description": "Feature from the 2024 Revision: Warlock Subclass. Refer to the PHB (2024) for full details."
+                    "description": "You choose your Otherworldly Patron subclass. You gain features at levels 3, 6, 10, and 14."
                 }
             ]
         },
@@ -42,33 +46,43 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
         "5": {
             "proficiency_bonus": 3,
-            "features": []
+            "features": [
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
+                }
+            ]
         },
         "6": {
             "proficiency_bonus": 3,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen patron."
                 }
             ]
         },
         "7": {
             "proficiency_bonus": 3,
-            "features": []
+            "features": [
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
+                }
+            ]
         },
         "8": {
             "proficiency_bonus": 3,
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -77,7 +91,11 @@
             "features": [
                 {
                     "name": "Contact Patron",
-                    "description": "Feature from the 2024 Revision: Contact Patron. Refer to the PHB (2024) for full details."
+                    "description": "You can cast the Contact Other Plane spell once per Long Rest without spending a spell slot to consult your patron. you automatically succeed on the Intelligence saving throw."
+                },
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
                 }
             ]
         },
@@ -85,8 +103,8 @@
             "proficiency_bonus": 4,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen patron."
                 }
             ]
         },
@@ -94,8 +112,8 @@
             "proficiency_bonus": 4,
             "features": [
                 {
-                    "name": "Mystic Arcanum (level 6 spell)",
-                    "description": "Feature from the 2024 Revision: Mystic Arcanum (level 6 spell). Refer to the PHB (2024) for full details."
+                    "name": "Mystic Arcanum (6th level)",
+                    "description": "Your patron bestows upon you a magical secret called an arcanum. Choose one 6th-level spell from the warlock spell list as this arcanum. You can cast your arcanum spell once without expending a spell slot."
                 }
             ]
         },
@@ -104,7 +122,11 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
+                },
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
                 }
             ]
         },
@@ -112,8 +134,8 @@
             "proficiency_bonus": 5,
             "features": [
                 {
-                    "name": "Mystic Arcanum (level 7 spell)",
-                    "description": "Feature from the 2024 Revision: Mystic Arcanum (level 7 spell). Refer to the PHB (2024) for full details."
+                    "name": "Mystic Arcanum (7th level)",
+                    "description": "You choose one 7th-level spell from the warlock spell list as an arcanum, which you can cast once per Long Rest."
                 }
             ]
         },
@@ -121,8 +143,8 @@
             "proficiency_bonus": 5,
             "features": [
                 {
-                    "name": "Subclass feature",
-                    "description": "Feature from the 2024 Revision: Subclass feature. Refer to the PHB (2024) for full details."
+                    "name": "Subclass Feature",
+                    "description": "You gain a feature from your chosen patron."
                 }
             ]
         },
@@ -130,8 +152,12 @@
             "proficiency_bonus": 5,
             "features": [
                 {
-                    "name": "Mystic Arcanum (level 8 spell)",
-                    "description": "Feature from the 2024 Revision: Mystic Arcanum (level 8 spell). Refer to the PHB (2024) for full details."
+                    "name": "Mystic Arcanum (8th level)",
+                    "description": "You choose one 8th-level spell from the warlock spell list as an arcanum, which you can cast once per Long Rest."
+                },
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
                 }
             ]
         },
@@ -140,7 +166,7 @@
             "features": [
                 {
                     "name": "Ability Score Improvement",
-                    "description": "Feature from the 2024 Revision: Ability Score Improvement. Refer to the PHB (2024) for full details."
+                    "description": "You can increase one ability score by 2, or two scores by 1, or take a feat."
                 }
             ]
         },
@@ -148,21 +174,26 @@
             "proficiency_bonus": 6,
             "features": [
                 {
-                    "name": "Mystic Arcanum (level 9 spell)",
-                    "description": "Feature from the 2024 Revision: Mystic Arcanum (level 9 spell). Refer to the PHB (2024) for full details."
+                    "name": "Mystic Arcanum (9th level)",
+                    "description": "You choose one 9th-level spell from the warlock spell list as an arcanum, which you can cast once per Long Rest."
                 }
             ]
         },
         "18": {
             "proficiency_bonus": 6,
-            "features": []
+            "features": [
+                {
+                    "name": "Eldritch Invocations",
+                    "description": "You gain another Eldritch Invocation."
+                }
+            ]
         },
         "19": {
             "proficiency_bonus": 6,
             "features": [
                 {
                     "name": "Epic Boon",
-                    "description": "Feature from the 2024 Revision: Epic Boon. Refer to the PHB (2024) for full details."
+                    "description": "You gain an Epic Boon feat of your choice."
                 }
             ]
         },
@@ -171,7 +202,7 @@
             "features": [
                 {
                     "name": "Eldritch Master",
-                    "description": "Feature from the 2024 Revision: Eldritch Master. Refer to the PHB (2024) for full details."
+                    "description": "You can use your Magical Cunning feature any number of times per day."
                 }
             ]
         }
