@@ -60,10 +60,18 @@ class CharacterRepository:
         return [f for f in os.listdir(CHAR_DIR) if f.endswith(".json")]
 
     def delete(self, filename: str) -> bool:
-        """Delete a character JSON file."""
+        """Delete a character JSON file and its portrait."""
         filepath = os.path.join(CHAR_DIR, filename)
         if os.path.exists(filepath):
             try:
+                # Load char to get portrait path
+                char_data = self.load(filename)
+                if char_data and char_data.get("char_portrait"):
+                    portrait_path = char_data.get("char_portrait")
+                    if os.path.exists(portrait_path):
+                        os.remove(portrait_path)
+                        logger.info(f"Deleted portrait {portrait_path}")
+
                 os.remove(filepath)
                 return True
             except Exception as e:

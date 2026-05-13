@@ -267,6 +267,7 @@ SPECIES_2024 = [
 ]
 
 CLASSES_2024 = [
+    "Artificer",
     "Barbarian",
     "Bard",
     "Cleric",
@@ -301,6 +302,13 @@ BACKGROUNDS_2024 = [
 ]
 
 SUBCLASSES_2024 = {
+    "Artificer": [
+        "Alchemist",
+        "Armorer",
+        "Artillerist",
+        "Battle Smith",
+        "Cartographer",
+    ],
     "Barbarian": [
         "Path of the Berserker",
         "Path of the Wild Heart",

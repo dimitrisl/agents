@@ -10,8 +10,11 @@ from backend.prompts import (
 from backend.constants import EDITION_2014
 
 from backend.schemas import CharacterSchema, BuildValidationSchema
+from backend.repositories.rules_repository import RulesRepository
 
 logger = logging.getLogger("DnDAssistant.RulesService")
+
+_rules_repo = RulesRepository()
 
 
 def query_rules(query: str, edition: str = EDITION_2014) -> str:
@@ -79,3 +82,10 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
     except Exception as e:
         logger.warning(f"Parsed data failed validation: {e}. Returning raw data.")
         return final_raw
+
+
+def get_static_class_features(
+    class_name: str, level: int, edition: str = EDITION_2014
+) -> list:
+    """Fetches features from the knowledge base if available."""
+    return _rules_repo.get_features_at_level(class_name, level, edition)

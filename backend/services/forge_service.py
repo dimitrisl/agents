@@ -1,5 +1,8 @@
 import logging
 from backend.ai_client import generate_ai_response, generate_ai_json
+from backend.services.rules_service import (
+    get_static_class_features,
+)
 from backend.prompts import (
     CHARACTER_FORGE_PROMPT,
     BUILD_SUGGESTION_PROMPT,
@@ -165,8 +168,25 @@ def analyze_level_up(char_data: dict) -> dict:
         race=char_data.get("race"),
         stats=char_data.get("stats"),
     )
+    static_features_readiness = False
     result = generate_ai_json(prompt)
     if result:
+        if static_features_readiness:
+            # MERGE: Check static knowledge base for features
+            static_features = get_static_class_features(
+                char_data.get("char_class"), target_level, edition
+            )
+            if static_features:
+                logger.info(
+                    f"Found {len(static_features)} static features for {char_data.get('char_class')} level {target_level}"
+                )
+                # Ensure static features are in the automatic_changes
+                existing_names = [
+                    f.get("name") for f in result.get("automatic_changes", [])
+                ]
+                for sf in static_features:
+                    if sf.get("name") not in existing_names:
+                        result.setdefault("automatic_changes", []).append(sf)
         try:
             return LevelUpAnalysisSchema(**result).model_dump()
         except Exception as e:
