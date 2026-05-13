@@ -50,6 +50,7 @@ def init_session_state(session_state, force=False):
         }
         session_state.saving_throws = ["WIS", "CHA"]
         session_state.skills = {"Athletics": 7, "Intimidation": 6, "Persuasion": 6}
+        session_state.skill_proficiencies = ["Athletics", "Intimidation", "Persuasion"]
         session_state.weapons = [
             {"name": "Longsword", "attack_bonus": "+7", "damage": "1d8+4 slashing"}
         ]

@@ -95,6 +95,12 @@ def forge_character(
     result = generate_ai_json(prompt)
     if result:
         result["dnd_edition"] = edition
+        # Ensure char_id is present
+        if not result.get("char_id"):
+            import uuid
+
+            result["char_id"] = str(uuid.uuid4())[:8]
+
         try:
             return CharacterSchema(**result).model_dump()
         except Exception as e:

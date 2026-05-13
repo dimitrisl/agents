@@ -3,7 +3,7 @@ import logging
 import requests
 import io
 import json
-from pypdf import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter, generic
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from backend.calculations import calculate_modifier
@@ -79,6 +79,10 @@ class PDFMappingProvider:
         skill_profs = char_data.get("skill_proficiencies", [])
         skill_exps = char_data.get("skill_expertise", [])
 
+        logger.debug(
+            f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}"
+        )
+
         for skill_name, pdf_key in self.mapping.get("skills", {}).items():
             if skill_name in char_skills:
                 field_data[pdf_key] = str(char_skills[skill_name])
@@ -86,9 +90,9 @@ class PDFMappingProvider:
             check_pdf_key = self.mapping.get("skill_checks", {}).get(skill_name)
             if check_pdf_key:
                 field_data[check_pdf_key] = (
-                    "/Yes"
+                    "Yes"
                     if (skill_name in skill_profs or skill_name in skill_exps)
-                    else "/No"
+                    else "/Off"
                 )
 
         # 5. Saving Throws
@@ -101,7 +105,7 @@ class PDFMappingProvider:
 
             check_pdf_key = self.mapping.get("save_checks", {}).get(stat)
             if check_pdf_key:
-                field_data[check_pdf_key] = "/Yes" if stat in char_saves else "/No"
+                field_data[check_pdf_key] = "Yes" if stat in char_saves else "/Off"
 
         # 6. Personality
         for pdf_key, data_key in self.mapping.get("personality", {}).items():
@@ -228,6 +232,31 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
         writer = PdfWriter()
         writer.append(reader)
 
+        # Set NeedAppearances to True to ensure the viewer renders the form fields
+        try:
+            if "/AcroForm" not in writer.root_object:
+                writer.root_object.update(
+                    {
+                        generic.NameObject("/AcroForm"): generic.DictionaryObject(
+                            {
+                                generic.NameObject(
+                                    "/NeedAppearances"
+                                ): generic.BooleanObject(True)
+                            }
+                        )
+                    }
+                )
+            else:
+                writer.root_object["/AcroForm"].update(
+                    {
+                        generic.NameObject("/NeedAppearances"): generic.BooleanObject(
+                            True
+                        )
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Failed to set NeedAppearances: {e}")
+
         # Load mapping and translate data
         edition = char_data.get("dnd_edition", "2014 Edition")
         mapping_name = "standard_5e"
@@ -237,9 +266,37 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
         mapping_provider = PDFMappingProvider(mapping_name)
         field_data = mapping_provider.get_field_data(char_data)
 
+        # 11. Final preparation of field data for pypdf
+        # Checkboxes need NameObjects starting with /
+        final_field_data = {}
+        checkbox_fields = set()
+        for k, v in field_data.items():
+            if v == "Yes":
+                final_field_data[k] = generic.NameObject("/Yes")
+                checkbox_fields.add(k)
+            elif v == "/Off":
+                final_field_data[k] = generic.NameObject("/Off")
+                checkbox_fields.add(k)
+            else:
+                final_field_data[k] = v
+
         # Fill fields
         for page in writer.pages:
-            writer.update_page_form_field_values(page, field_data)
+            writer.update_page_form_field_values(page, final_field_data)
+
+            # CRITICAL: Manually sync the Appearance State (/AS) for checkboxes
+            # Many PDF viewers (like Chrome) won't show the dot without this.
+            if "/Annots" in page:
+                for annot in page["/Annots"]:
+                    obj = annot.get_object()
+                    if "/T" in obj and obj["/T"] in checkbox_fields:
+                        val = final_field_data[obj["/T"]]
+                        obj.update(
+                            {
+                                generic.NameObject("/AS"): val,
+                                generic.NameObject("/V"): val,
+                            }
+                        )
 
         # Add portrait overlay
         portrait_url = char_data.get("char_portrait")

@@ -55,7 +55,7 @@ def generate_portrait_url(char_data: dict) -> str:
     encoded_prompt = urllib.parse.quote(prompt)
 
     # Use a stable seed based on char_id to keep the URL consistent
-    char_id = char_data.get("char_id", str(uuid.uuid4())[:8])
+    char_id = char_data.get("char_id") or str(uuid.uuid4())[:8]
     seed = int(hashlib.md5(char_id.encode()).hexdigest(), 16) % 999999
 
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed={seed}&nologo=true"
