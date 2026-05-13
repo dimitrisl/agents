@@ -6,6 +6,7 @@ __pycache__/
 .temp_env/
 *.log
 data/
+!data/rules/
 app_debug.log
 
 # Temporary scratch files
