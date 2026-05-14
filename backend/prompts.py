@@ -80,7 +80,7 @@ Output the character strictly as a JSON object with exactly the following schema
     "skill_expertise": [],
     "weapon_masteries": ["Slow", "Topple"],
     "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage": "1d8+3 bludgeoning"}}],
-    "equipment": ["Chain mail", "Backpack"],
+    "equipment": [{"name": "Chain mail", "equipped": true, "ac_base": 16}, {"name": "Shield", "equipped": true, "ac_bonus": 2}, {"name": "Backpack", "equipped": false}],
     "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
     "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"]}},
     "spell_ability": "INT",
@@ -98,11 +98,6 @@ Output the character strictly as a JSON object with exactly the following schema
 }}
 """
 
-BUILD_SUGGESTION_PROMPT = """
-I am playing a Level {char_level} {char_class} in D&D {edition} named {char_name}.
-Stats: STR {str_val}, DEX {dex_val}, CON {con_val}, INT {int_val}, WIS {wis_val}, CHA {cha_val}.
-Give me a very short, 2-sentence creative build or multiclass suggestion for my next level up based on these specific stats.
-"""
 
 PLAYSTYLE_GUIDE_PROMPT = """
 Create a detailed D&D {edition} Playstyle Guide for the following character:
@@ -123,7 +118,7 @@ Use beautiful markdown formatting with headings, bullet points, and emphasis.
 """
 
 LEVEL_UP_ANALYSIS_PROMPT = """
-Act as a D&D {edition} Rules Expert.
+Act as a D&D {edition} Rules Expert and Tactical Optimizer.
 Analyze the following character and determine EXACTLY what changes when they level up from Level {current_level} to Level {target_level}.
 
 Character Info:
@@ -141,19 +136,27 @@ Return a JSON object with the following structure:
     "new_total_hp": 42,
     "choices_required": [
         {{
-            "type": "subclass|feat|spell|other",
-            "label": "...",
-            "options": [],
-            "ai_recommendation": "..."
+            "type": "subclass|feat|spell|infusion|invocation|other",
+            "label": "Give a clear title for this choice",
+            "options": ["Option 1", "Option 2"],
+            "ai_recommendation": "Explain WHY this is the best choice for this specific build."
         }}
     ],
     "updated_proficiency_bonus": 3,
-    "updated_spell_slots": {{ "level_1": 4 }}
+    "updated_spell_slots": {{ "level_1": 4 }},
+    "suggestions": [
+        "A tactical tip for playing this character at the new level."
+    ]
 }}
+
+STRICT CLASS RULES:
+- ARTIFICER: If Level 2, 6, 10, 14, they gain NEW Infusion options. List them in choices or features.
+- WARLOCK: If Level 2, 5, 7, 9, 12, 15, 18, they gain NEW Eldritch Invocations.
+- FIGHTER: Gain extra ASI/Feats at levels 4, 6, 8, 12, 14, 16, 19.
+- SPELLCASTERS: If they learn new spells (e.g. Sorcerer, Bard, Ranger), include them in choices_required.
 
 Ruleset specific notes:
 - If 2024 Edition, remember that Subclasses are now ALWAYS chosen at Level 3.
-- If 2024 Edition, Fighter/Barbarian/etc might gain more Weapon Masteries.
 - If Level 4, 8, 12, 16, 19, there is always a Choice (Feat or ASI).
 """
 

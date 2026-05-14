@@ -16,7 +16,7 @@ from backend.storage import (
     load_character,
 )
 from backend.image_utils import generate_portrait_url
-from backend.calculations import calculate_modifier
+from backend.services.mechanics_service import get_modifier as calculate_modifier
 from backend.constants import (
     EDITION_2014,
     RACES_2014,

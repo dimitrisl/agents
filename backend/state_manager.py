@@ -1,252 +1,185 @@
 import logging
 import uuid
-
+from typing import Any, Dict
 
 logger = logging.getLogger("DnDAssistant.StateManager")
 
+# Field definitions for consistent access
+CHARACTER_FIELDS = [
+    "char_id",
+    "char_name",
+    "char_class",
+    "subclass",
+    "char_level",
+    "race",
+    "gender",
+    "background",
+    "alignment",
+    "backstory",
+    "armor_class",
+    "hp_max",
+    "speed",
+    "proficiency_bonus",
+    "stats",
+    "saving_throws",
+    "skills",
+    "skill_proficiencies",
+    "skill_expertise",
+    "weapons",
+    "equipment",
+    "features_traits",
+    "spells",
+    "spell_ability",
+    "spell_save_dc",
+    "spell_attack_bonus",
+    "hit_dice",
+    "passive_perception",
+    "personality_traits",
+    "ideals",
+    "bonds",
+    "flaws",
+    "char_portrait",
+    "dnd_edition",
+    "advancements",
+    "weapon_masteries",
+    "playstyle_guide",
+    "active_campaign",
+    "saving_throw_values",
+    "initiative_modifier",
+]
 
-def init_session_state(session_state, force=False):
-    """Initializes default Streamlit session state variables."""
-    if force or "character_active" not in session_state:
-        session_state.character_active = False
-    if force or "player_view" not in session_state:
-        session_state.player_view = "sheet"
-    if force or "char_portrait" not in session_state:
-        session_state.char_portrait = None
-    if force or "gender" not in session_state:
-        session_state.gender = "Male"
-    if force or "dnd_edition" not in session_state:
-        session_state.dnd_edition = "2014 Edition"
-    if force or "needs_validation" not in session_state:
-        session_state.needs_validation = False
-    if force or "validation_result" not in session_state:
-        session_state.validation_result = None
 
-    if force or "char_name" not in session_state:
-        session_state.char_id = str(uuid.uuid4())[:8]
-        session_state.char_name = "New Hero"
-        session_state.char_class = "Paladin"
-        session_state.subclass = "Oath of Devotion"
-        session_state.char_level = 5
-        session_state.race = "Human"
-        session_state.gender = "Male"
-        session_state.dnd_edition = "2014 Edition"
-        session_state.background = "Soldier"
-        session_state.alignment = "Lawful Good"
-        session_state.backstory = (
-            "A valiant paladin who swore an oath of devotion to protect the innocent."
-        )
-        session_state.armor_class = 18
-        session_state.hp_max = 44
-        session_state.speed = 30
-        session_state.proficiency_bonus = 3
-        session_state.stats = {
-            "STR": 18,
-            "DEX": 12,
-            "CON": 15,
-            "INT": 10,
-            "WIS": 14,
-            "CHA": 16,
-        }
-        session_state.saving_throws = ["WIS", "CHA"]
-        session_state.skills = {"Athletics": 7, "Intimidation": 6, "Persuasion": 6}
-        session_state.skill_proficiencies = ["Athletics", "Intimidation", "Persuasion"]
-        session_state.weapons = [
+def get_default_character() -> Dict[str, Any]:
+    """Returns a fresh character dictionary with default values."""
+    return {
+        "char_id": str(uuid.uuid4())[:8],
+        "char_name": "New Hero",
+        "char_class": "Paladin",
+        "subclass": "Oath of Devotion",
+        "char_level": 5,
+        "race": "Human",
+        "gender": "Male",
+        "dnd_edition": "2014 Edition",
+        "background": "Soldier",
+        "alignment": "Lawful Good",
+        "backstory": "A valiant paladin who swore an oath of devotion to protect the innocent.",
+        "armor_class": 18,
+        "hp_max": 44,
+        "speed": 30,
+        "proficiency_bonus": 3,
+        "stats": {"STR": 18, "DEX": 12, "CON": 15, "INT": 10, "WIS": 14, "CHA": 16},
+        "saving_throws": ["WIS", "CHA"],
+        "skills": {"Athletics": 7, "Intimidation": 6, "Persuasion": 6},
+        "skill_proficiencies": ["Athletics", "Intimidation", "Persuasion"],
+        "weapons": [
             {"name": "Longsword", "attack_bonus": "+7", "damage": "1d8+4 slashing"}
-        ]
-        session_state.equipment = ["Chain mail", "Shield", "Explorer's pack"]
-        session_state.features_traits = [
+        ],
+        "equipment": [
+            {"name": "Chain mail", "equipped": True},
+            {"name": "Shield", "equipped": True},
+        ],
+        "features_traits": [
             {
                 "name": "Divine Smite",
                 "description": "Expend a spell slot to deal radiant damage.",
             }
-        ]
-        session_state.spells = {
-            "level_1": ["Bless", "Cure Wounds", "Shield of Faith"],
-            "level_2": ["Find Steed", "Lesser Restoration"],
-        }
-        session_state.spell_ability = "CHA"
-        session_state.spell_save_dc = 14
-        session_state.spell_attack_bonus = "+6"
-
-        session_state.hit_dice = "5d10"
-        session_state.passive_perception = 12
-        session_state.personality_traits = "I'm always polite and respectful."
-        session_state.ideals = (
-            "Responsibility. I do what I must and obey just authority."
-        )
-        session_state.bonds = (
-            "I'll never forget the crushing defeat my company suffered."
-        )
-        session_state.flaws = (
-            "I have little respect for anyone who is not a proven warrior."
-        )
-
-        session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get an AI recommendation based on your current stats!"
-
-        session_state.encounter_result = ""
-        session_state.active_campaign = None
-        session_state.active_campaign_name = None
-        session_state.campaign_notes = ""
-        session_state.npc_result = ""
-        session_state.session_prep_result = ""
-        session_state.party = []
-        session_state.temp_forged_char = None
-        session_state.advancements = []
-        session_state.weapon_masteries = []
-        session_state.playstyle_guide = ""
-        session_state.initiative_order = []
-        session_state.active_turn_index = 0
-        session_state.combat_active = False
+        ],
+        "spells": {"level_1": ["Bless", "Cure Wounds"], "level_2": ["Find Steed"]},
+        "spell_ability": "CHA",
+        "spell_save_dc": 14,
+        "spell_attack_bonus": "+6",
+        "hit_dice": "5d10",
+        "passive_perception": 12,
+        "personality_traits": "I'm always polite and respectful.",
+        "ideals": "Responsibility. I do what I must and obey just authority.",
+        "bonds": "I'll never forget the crushing defeat my company suffered.",
+        "flaws": "I have little respect for anyone who is not a proven warrior.",
+    }
 
 
-def get_character_dict(session_state) -> dict:
-    """Extracts character data safely from the Streamlit session state into a dictionary."""
-    fields = [
-        "char_id",
-        "char_name",
-        "char_class",
-        "subclass",
-        "char_level",
-        "race",
-        "gender",
-        "background",
-        "alignment",
-        "backstory",
-        "armor_class",
-        "hp_max",
-        "speed",
-        "proficiency_bonus",
-        "stats",
-        "saving_throws",
-        "skills",
-        "skill_proficiencies",
-        "skill_expertise",
-        "weapons",
-        "equipment",
-        "features_traits",
-        "spells",
-        "spell_ability",
-        "spell_save_dc",
-        "spell_attack_bonus",
-        "hit_dice",
-        "passive_perception",
-        "personality_traits",
-        "ideals",
-        "bonds",
-        "flaws",
-        "char_portrait",
-        "dnd_edition",
-        "advancements",
-        "weapon_masteries",
-        "playstyle_guide",
-        "active_campaign",
-    ]
+def _set_val(obj: Any, key: str, val: Any):
+    """Universal setter for dict or object."""
+    if isinstance(obj, dict):
+        obj[key] = val
+    else:
+        setattr(obj, key, val)
+
+
+def _get_val(obj: Any, key: str, default: Any = None) -> Any:
+    """Universal getter for dict or object."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def init_session_state(state: Any, force: bool = False):
+    """Initializes session state using the universal setters."""
+    # App UI state
+    if force or not _get_val(state, "character_active"):
+        _set_val(state, "character_active", False)
+    if force or not _get_val(state, "player_view"):
+        _set_val(state, "player_view", "sheet")
+
+    # Character data
+    if force or not _get_val(state, "char_name"):
+        defaults = get_default_character()
+        for k, v in defaults.items():
+            _set_val(state, k, v)
+
+    extra_fields = {
+        "roll_history": [],
+        "combat_active": False,
+        "needs_validation": False,
+        "dnd_edition": "2014 Edition",
+        "temp_forged_char": None,
+        "validation_result": None,
+    }
+    for k, v in extra_fields.items():
+        if force or _get_val(state, k) is None:
+            _set_val(state, k, v)
+
+
+def get_character_dict(state: Any) -> Dict[str, Any]:
+    """Extracts character data into a clean dictionary."""
     char_data = {}
-    for field in fields:
-        # Fallback values for critical fields
-        default = None
-        if field == "stats":
-            default = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
-        elif field == "char_level":
-            default = 1
-        elif field == "gender":
-            default = "Unknown"
-        elif field in [
-            "saving_throws",
-            "weapons",
-            "equipment",
-            "features_traits",
-            "advancements",
-            "weapon_masteries",
-        ]:
-            default = []
-        elif field == "skills":
-            default = {}
-        elif field == "spells":
-            default = {}
-        elif field == "dnd_edition":
-            default = "2014 Edition"
+    for field in CHARACTER_FIELDS:
+        val = _get_val(state, field)
 
-        char_data[field] = getattr(session_state, field, default)
+        # Cleanup equipment/features if they are strings or models
+        if field == "equipment" and isinstance(val, list):
+            val = [
+                {"name": item, "equipped": False}
+                if isinstance(item, str)
+                else (item.model_dump() if hasattr(item, "model_dump") else item)
+                for item in val
+            ]
 
+        char_data[field] = val
     return char_data
 
 
-def update_session_from_dict(session_state, data: dict):
-    """Updates Streamlit session state variables from a character dictionary."""
+def update_session_from_dict(state: Any, data: Dict[str, Any]):
+    """Updates state from a dictionary."""
     if not data:
         return
 
-    session_state.character_active = True
-    session_state.player_view = "sheet"
+    _set_val(state, "character_active", True)
 
-    # List of all character-related fields to manage
-    fields = [
-        "char_id",
-        "char_name",
-        "char_class",
-        "subclass",
-        "char_level",
-        "race",
-        "gender",
-        "background",
-        "alignment",
-        "backstory",
-        "armor_class",
-        "hp_max",
-        "speed",
-        "proficiency_bonus",
-        "stats",
-        "saving_throws",
-        "skills",
-        "skill_proficiencies",
-        "skill_expertise",
-        "weapons",
-        "equipment",
-        "features_traits",
-        "spells",
-        "spell_ability",
-        "spell_save_dc",
-        "spell_attack_bonus",
-        "hit_dice",
-        "passive_perception",
-        "personality_traits",
-        "ideals",
-        "bonds",
-        "flaws",
-        "char_portrait",
-        "dnd_edition",
-        "advancements",
-        "weapon_masteries",
-        "playstyle_guide",
-        "active_campaign",
-    ]
-
-    # RESET all fields first to prevent state bleeding from previous character
-    for field in fields:
-        default = None
-        if field == "stats":
-            default = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
-        elif field == "char_level":
-            default = 1
-        elif field in [
-            "saving_throws",
-            "skill_proficiencies",
-            "skill_expertise",
-            "weapons",
-            "equipment",
-            "features_traits",
-            "advancements",
-            "weapon_masteries",
-        ]:
-            default = []
-        elif field in ["skills", "spells"]:
-            default = {}
-
-        setattr(session_state, field, default)
-
-    # APPLY new data
-    for field in fields:
+    for field in CHARACTER_FIELDS:
         if field in data:
-            setattr(session_state, field, data[field])
+            _set_val(state, field, data[field])
+        else:
+            # Set defaults for missing fields to prevent bleed
+            default = None
+            if field == "stats":
+                default = {
+                    "STR": 10,
+                    "DEX": 10,
+                    "CON": 10,
+                    "INT": 10,
+                    "WIS": 10,
+                    "CHA": 10,
+                }
+            elif field in ["equipment", "features_traits", "weapons"]:
+                default = []
+            _set_val(state, field, default)

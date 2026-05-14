@@ -3,7 +3,6 @@ import logging
 import uuid
 import os
 from backend.services.forge_service import (
-    get_build_suggestion,
     forge_character,
     generate_playstyle_guide,
     analyze_level_up,
@@ -24,7 +23,11 @@ from backend.state_manager import (
     get_character_dict,
     update_session_from_dict,
 )
-from backend.calculations import calculate_modifier
+from backend.services.mechanics_service import (
+    get_modifier as calculate_modifier,
+    get_level_up_vitals,
+    check_progression_features,
+)
 from backend.pdf_exporter import export_character_to_pdf
 from backend.ui_utils import render_character_header
 from backend.image_utils import generate_portrait_url
@@ -46,6 +49,49 @@ from backend.constants import (
 logger = logging.getLogger("DnDAssistant.PlayerView")
 
 
+def log_roll(message: str):
+    """Helper to log rolls to the session state history."""
+    if "roll_history" not in st.session_state:
+        st.session_state.roll_history = []
+    st.session_state.roll_history.insert(0, message)
+    if len(st.session_state.roll_history) > 20:
+        st.session_state.roll_history = st.session_state.roll_history[:20]
+    st.toast(message)
+
+
+@st.cache_data
+def get_item_effect(name: str) -> str:
+    """Detects what a specific item does for the UI display using the KB."""
+    from backend.repositories.rules_repository import RulesRepository
+
+    _rules_repo = RulesRepository()
+    all_items = _rules_repo.get_all_items()
+
+    n = name.lower()
+    item_data = next((i for i in all_items if i["name"].lower() == n), None)
+
+    if not item_data:
+        return "-"
+
+    effects = []
+    if "ac_base" in item_data:
+        limit = item_data.get("dex_limit", 10)
+        dex_str = f" + DEX (max {limit})" if limit < 10 else " + DEX"
+        if limit == 0:
+            dex_str = " (No DEX)"
+        effects.append(f"Base AC {item_data['ac_base']}{dex_str}")
+    if "ac_bonus" in item_data:
+        effects.append(f"+{item_data['ac_bonus']} AC")
+    if "stat_set" in item_data:
+        for s, v in item_data["stat_set"].items():
+            effects.append(f"{s} becomes {v}")
+    if "stat_bonus" in item_data:
+        for s, v in item_data["stat_bonus"].items():
+            effects.append(f"+{v} {s}")
+
+    return ", ".join(effects) if effects else "-"
+
+
 def render_player_dashboard(accent_color: str):
     """Renders the main Player Dashboard view."""
     if not st.session_state.character_active:
@@ -53,12 +99,20 @@ def render_player_dashboard(accent_color: str):
     else:
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
-            st.title("Player Dashboard")
+            pass  # Title removed for cleaner UI
         with col2:
             if st.session_state.player_view == "sheet":
-                if st.button("✨ Forge New Hero", width="stretch"):
-                    st.session_state.player_view = "forge"
-                    st.rerun()
+                char_dict = get_character_dict(st.session_state)
+                template_path = "5E_CharacterSheet_Fillable.pdf"
+                pdf_bytes = export_character_to_pdf(char_dict, template_path)
+                if pdf_bytes:
+                    st.download_button(
+                        label="📥 Download PDF",
+                        data=pdf_bytes,
+                        file_name=f"{char_dict['char_name']}_Sheet.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
             else:
                 # Definitive fix: In forge mode, always show "Cancel" to avoid old name persistence
                 if st.button("🔙 Cancel", width="stretch"):
@@ -80,6 +134,33 @@ def render_player_dashboard(accent_color: str):
                 st.rerun()
 
         if st.session_state.player_view == "sheet":
+            # --- Sidebar Global Actions ---
+            with st.sidebar:
+                st.markdown("### ⚙️ Hero Controls")
+                if st.button(
+                    "🔄 Sync & Refresh Sheet",
+                    type="primary",
+                    use_container_width=True,
+                    key="side_sync",
+                ):
+                    trigger_sync()
+                    st.rerun()
+
+                if st.button(
+                    "💾 Save to File", use_container_width=True, key="side_save"
+                ):
+                    if st.session_state.char_name.strip():
+                        trigger_sync()
+                        from backend.storage import save_character as save_to_disk
+
+                        char_data = get_character_dict(st.session_state)
+                        save_to_disk(char_data)
+                        st.success("Character Saved!")
+                    else:
+                        st.warning("⚠️ Please name your character before saving.")
+                st.markdown("---")
+
+            # --- Main Content ---
             render_active_character(accent_color)
         else:
             render_character_creator()
@@ -283,6 +364,21 @@ def render_selection_screen():
                                 if local_portrait_path:
                                     parsed_data["char_portrait"] = local_portrait_path
 
+                                from backend.services.mechanics_service import (
+                                    sync_character_stats,
+                                )
+                                from backend.repositories.rules_repository import (
+                                    RulesRepository,
+                                )
+
+                                _rules_repo = RulesRepository()
+                                class_data = _rules_repo.get_class_progression(
+                                    parsed_data.get("char_class"), import_edition
+                                )
+                                parsed_data = sync_character_stats(
+                                    parsed_data, class_data
+                                )
+
                                 update_session_from_dict(st.session_state, parsed_data)
                                 st.session_state.character_active = True
                                 st.session_state.player_view = "sheet"
@@ -382,6 +478,7 @@ def render_active_character(accent_color: str):
 
     if edit_mode:
         if edit_col4.button("💾 Save", width="stretch"):
+            trigger_sync()
             char_data = get_character_dict(st.session_state)
             if save_character(char_data):
                 st.session_state.needs_validation = True
@@ -422,15 +519,22 @@ def render_active_character(accent_color: str):
             st.rerun()
 
     if st.session_state.char_portrait:
-        with st.expander("🖼️ Portrait Preview", expanded=False):
-            st.image(st.session_state.char_portrait, width="stretch")
+        import os
 
-    char_tab1, char_tab2, char_tab3, char_tab4 = st.tabs(
+        if os.path.exists(st.session_state.char_portrait):
+            with st.expander("🖼️ Portrait Preview", expanded=False):
+                st.image(st.session_state.char_portrait, width="stretch")
+        else:
+            st.warning("🖼️ Portrait file missing. Using default.")
+            st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=100)
+
+    char_tab1, char_tab2, char_tab3, char_tab4, char_tab5 = st.tabs(
         [
             "📊 Core Stats & Skills",
             "⚔️ Combat & Inventory",
             "🧙 Features & Spells",
             "📖 Playstyle Guide",
+            "🎭 Roleplay",
         ]
     )
 
@@ -446,47 +550,63 @@ def render_active_character(accent_color: str):
     with char_tab4:
         _render_playstyle_guide(edit_mode)
 
-    st.markdown("---")
-    st.subheader("🤖 AI Build Suggestions")
-    st.info(st.session_state.build_suggestion)
+    with char_tab5:
+        _render_roleplay(edit_mode)
 
-    if st.button("Generate New Build Suggestion"):
-        logger.info("User requested a new AI Build Suggestion.")
-        with st.spinner("Consulting the AI for build options..."):
-            st.session_state.build_suggestion = get_build_suggestion(
-                st.session_state.char_level,
-                st.session_state.char_class,
-                st.session_state.char_name,
-                st.session_state.stats,
-                edition=st.session_state.dnd_edition,
+
+def trigger_sync():
+    """Forces a synchronization of derived stats using the backend service."""
+    from backend.services.forge_service import process_character_update
+
+    # 1. Collect Stat Updates & Level
+    stat_updates = {}
+    for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+        temp_key = f"stat_val_{k}"
+        if temp_key in st.session_state:
+            stat_updates[k] = st.session_state[temp_key]
+
+    # Explicitly catch the level from the widget key
+    if "char_level" in st.session_state:
+        stat_updates["char_level"] = st.session_state.char_level
+
+    # 2. Collect Equipment Deltas
+    equipment_deltas = st.session_state.get("edit_equip_table", {})
+
+    # 3. Call Backend Service
+    current_char = get_character_dict(st.session_state)
+
+    # Safety Check: Don't sync if basic info is missing (prevents accidental resets)
+    if not current_char.get("char_name") or current_char.get("char_name") == "New Hero":
+        # Check if we have it in session state keys directly as a fallback
+        alt_name = st.session_state.get("char_name")
+        if alt_name and alt_name != "New Hero":
+            current_char["char_name"] = alt_name
+        else:
+            st.error(
+                "⚠️ Cannot sync: Character name is missing. Please ensure your character is loaded correctly."
             )
-            st.rerun()
+            return
 
-    st.markdown("---")
-    st.subheader("📄 PDF Export")
+    updated = process_character_update(current_char, stat_updates, equipment_deltas)
 
-    char_dict = get_character_dict(st.session_state)
-    template_path = "5E_CharacterSheet_Fillable.pdf"
+    # 4. Update UI State
+    update_session_from_dict(st.session_state, updated)
 
-    def get_pdf_bytes(data):
-        return export_character_to_pdf(data, template_path)
+    # Update widget temp keys from the fresh data
+    for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+        st.session_state[f"stat_val_{k}"] = st.session_state.stats[k]
 
-    pdf_bytes = get_pdf_bytes(char_dict)
-
-    if pdf_bytes:
-        st.download_button(
-            label="📥 Download Character PDF",
-            data=pdf_bytes,
-            file_name=f"{char_dict['char_name']}_Sheet.pdf",
-            mime="application/pdf",
-            width="stretch",
-        )
-    else:
-        st.error("Failed to generate PDF. Please ensure the template is present.")
+    # 5. CLEAR the editor state
+    if "edit_equip_table" in st.session_state:
+        st.session_state["edit_equip_table"] = {
+            "edited_rows": {},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
 
 
-def _render_core_stats(edit_mode: bool):
-    """Renders backstory, personality, ability scores, and skills."""
+def _render_roleplay(edit_mode: bool):
+    """Renders backstory, personality traits, ideals, bonds, and flaws."""
     st.markdown("#### Backstory")
     if edit_mode:
         st.session_state.backstory = st.text_area(
@@ -521,63 +641,52 @@ def _render_core_stats(edit_mode: bool):
         col_p2.write(f"**Bonds:** {st.session_state.bonds}")
         col_p2.write(f"**Flaws:** {st.session_state.flaws}")
 
-    st.markdown("---")
+
+def _render_core_stats(edit_mode: bool):
+    """Renders ability scores, core attributes, and skills."""
     if edit_mode:
         c_n, c_c, c_l, c_r = st.columns(4)
-        st.session_state.char_name = c_n.text_input("Name", st.session_state.char_name)
-        st.session_state.char_class = c_c.text_input(
-            "Class", st.session_state.char_class
-        )
-        st.session_state.subclass = c_c.text_input(
-            "Subclass", getattr(st.session_state, "subclass", "")
-        )
-        st.session_state.char_level = c_l.number_input(
-            "Level", 1, 20, st.session_state.char_level
-        )
-        st.session_state.race = c_r.text_input("Race", st.session_state.race)
+        c_n.text_input("Name", key="char_name")
+        c_c.text_input("Class", key="char_class")
+        c_c.text_input("Subclass", key="subclass")
+        c_l.number_input("Level", 1, 20, key="char_level")
+        c_r.text_input("Race", key="race")
 
         c_b, c_a, c_hp, c_ac = st.columns(4)
-        st.session_state.background = c_b.text_input(
-            "Background", st.session_state.background
-        )
-        st.session_state.alignment = c_a.text_input(
-            "Alignment", st.session_state.alignment
-        )
-        st.session_state.hp_max = c_hp.number_input(
-            "Max HP", 1, 500, st.session_state.hp_max
-        )
-        st.session_state.armor_class = c_ac.number_input(
-            "Armor Class", 1, 50, st.session_state.armor_class
+        c_b.text_input("Background", key="background")
+        c_a.text_input("Alignment", key="alignment")
+        c_hp.number_input("Max HP (Derived)", 1, 500, key="hp_max", disabled=True)
+        c_ac.number_input(
+            "Armor Class (Derived)", 1, 50, key="armor_class", disabled=True
         )
 
         c_hd, c_pass = st.columns(2)
-        st.session_state.hit_dice = c_hd.text_input(
-            "Hit Dice", st.session_state.hit_dice
-        )
-        st.session_state.passive_perception = c_pass.number_input(
-            "Passive Perception", 0, 30, st.session_state.passive_perception
+        c_hd.text_input("Hit Dice (Derived)", key="hit_dice", disabled=True)
+        c_pass.number_input(
+            "Passive Perception (Derived)",
+            0,
+            30,
+            key="passive_perception",
+            disabled=True,
         )
 
         st.markdown("#### Ability Scores")
         c1, c2, c3, c4, c5, c6 = st.columns(6)
-        st.session_state.stats["STR"] = c1.number_input(
-            "STR", 1, 30, st.session_state.stats["STR"]
-        )
-        st.session_state.stats["DEX"] = c2.number_input(
-            "DEX", 1, 30, st.session_state.stats["DEX"]
-        )
-        st.session_state.stats["CON"] = c3.number_input(
-            "CON", 1, 30, st.session_state.stats["CON"]
-        )
-        st.session_state.stats["INT"] = c4.number_input(
-            "INT", 1, 30, st.session_state.stats["INT"]
-        )
-        st.session_state.stats["WIS"] = c5.number_input(
-            "WIS", 1, 30, st.session_state.stats["WIS"]
-        )
-        st.session_state.stats["CHA"] = c6.number_input(
-            "CHA", 1, 30, st.session_state.stats["CHA"]
-        )
+
+        def stat_input(col, label, key):
+            col.number_input(label, 1, 30, key=f"stat_val_{key}")
+
+        # Ensure temp keys exist
+        for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+            if f"stat_val_{k}" not in st.session_state:
+                st.session_state[f"stat_val_{k}"] = st.session_state.stats[k]
+
+        stat_input(c1, "STR", "STR")
+        stat_input(c2, "DEX", "DEX")
+        stat_input(c3, "CON", "CON")
+        stat_input(c4, "INT", "INT")
+        stat_input(c5, "WIS", "WIS")
+        stat_input(c6, "CHA", "CHA")
 
         st.markdown("#### Skills & Proficiencies")
 
@@ -679,7 +788,7 @@ def _render_core_stats(edit_mode: bool):
                 from backend.dice import quick_roll
 
                 res, raw = quick_roll(20, mod)
-                st.toast(f"**{label}** Check: **{res}** (d20: {raw}, Mod: {mod_str})")
+                log_roll(f"**{label}** Check: **{res}** (d20: {raw}, Mod: {mod_str})")
 
         with c1:
             render_score("STR", st.session_state.stats["STR"])
@@ -698,8 +807,42 @@ def _render_core_stats(edit_mode: bool):
         # Add a global Custom Roll for players too
         with st.popover("🎲 Custom / Damage Roll", use_container_width=True):
             st.markdown("### Custom Roll")
+
+            # Extract relevant dice for this character
+            relevant_dice = {20}  # Always include d20
+
+            # 1. Hit Die
+            try:
+                hd_size = int(st.session_state.hit_dice.lower().split("d")[-1])
+                relevant_dice.add(hd_size)
+            except Exception:
+                pass
+
+            # 2. Weapon Dice
+            import re
+
+            for w in st.session_state.weapons:
+                dmg = w.get("damage", "")
+                found = re.findall(r"d(\d+)", dmg)
+                for d in found:
+                    relevant_dice.add(int(d))
+
+            # 3. Spell Dice (Quick scan of descriptions/names)
+            # This is a bit more complex but we can scan the spells
+            for lvl_spells in st.session_state.spells.values():
+                for s in lvl_spells:
+                    found = re.findall(r"d(\d+)", s)
+                    for d in found:
+                        relevant_dice.add(int(d))
+
+            # Sort and format for display
+            dice_options = sorted(list(relevant_dice), reverse=True)
+            if not any(d in dice_options for d in [12, 10, 8, 6, 4]):
+                # Fallback if character is empty/new
+                dice_options = [20, 12, 10, 8, 6, 4]
+
             pd_c1, pd_c2, pd_c3, pd_c4 = st.columns([1, 1, 1, 1])
-            p_dtype = pd_c1.selectbox("Dice", [20, 12, 10, 8, 6, 4, 100], index=0)
+            p_dtype = pd_c1.selectbox("Dice", dice_options, index=0)
 
             # Ability Modifier Picker
             abilities = ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"]
@@ -748,14 +891,16 @@ def _render_core_stats(edit_mode: bool):
 
                 if p_adv == "None":
                     res, raw = quick_roll(p_dtype, total_mod)
-                    st.success(f"Result: **{res}** (d{p_dtype}: {raw} + {mod_desc})")
+                    msg = f"**Custom Roll ({p_dtype})**: **{res}** (raw: {raw} + {mod_desc})"
+                    log_roll(msg)
+                    st.success(msg)
                 else:
                     r1, raw1 = quick_roll(p_dtype, total_mod)
                     r2, raw2 = quick_roll(p_dtype, total_mod)
                     final = max(r1, r2) if p_adv == "Advantage" else min(r1, r2)
-                    st.success(
-                        f"**{p_adv}**: **{final}** (Rolls: {r1}, {r2} | Mod: {mod_desc})"
-                    )
+                    msg = f"**{p_adv} ({p_dtype})**: **{final}** (Rolls: {r1}, {r2} | Mod: {mod_desc})"
+                    log_roll(msg)
+                    st.success(msg)
 
         col_sk, col_sv = st.columns(2)
         with col_sk:
@@ -773,16 +918,16 @@ def _render_core_stats(edit_mode: bool):
                     from backend.dice import quick_roll
 
                     res, raw = quick_roll(20, v)
-                    st.toast(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
+                    log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
         with col_sv:
             st.markdown("#### Saving Throws")
+            saves = st.session_state.get("saving_throw_values", {})
             for stat in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
                 prof = stat in st.session_state.saving_throws
                 indicator = "● " if prof else "○ "
 
-                base_mod = calculate_modifier(st.session_state.stats[stat])
-                total_sv = base_mod + (
-                    st.session_state.proficiency_bonus if prof else 0
+                total_sv = saves.get(
+                    stat, calculate_modifier(st.session_state.stats[stat])
                 )
 
                 svc1, svc2 = st.columns([4, 1])
@@ -791,7 +936,7 @@ def _render_core_stats(edit_mode: bool):
                     from backend.dice import quick_roll
 
                     res, raw = quick_roll(20, total_sv)
-                    st.toast(
+                    log_roll(
                         f"**{stat}** Saving Throw: **{res}** (d20: {raw} + {total_sv})"
                     )
 
@@ -828,18 +973,26 @@ def _render_combat_inventory(edit_mode: bool):
     st.markdown("#### Weapons")
     if edit_mode:
         st.session_state.weapons = st.data_editor(
-            st.session_state.weapons, num_rows="dynamic", key="edit_weapons"
+            st.session_state.weapons,
+            num_rows="dynamic",
+            key="edit_weapons",
+            use_container_width=True,
         )
+        if st.button("➕ Add New Weapon", use_container_width=True):
+            st.session_state.weapons.append(
+                {"name": "New Weapon", "attack_bonus": "+0", "damage": "1d4"}
+            )
+            st.rerun()
     else:
         for i, w in enumerate(st.session_state.weapons):
             with st.container(border=True):
                 w_col1, w_col2, w_col3 = st.columns([3, 1, 1])
                 w_col1.markdown(f"🗡️ **{w.get('name', 'Unknown')}**")
                 w_col1.caption(
-                    f"Atk: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
+                    f"To Hit: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
                 )
 
-                if w_col2.button("🎯 Atk", key=f"atk_{i}", use_container_width=True):
+                if w_col2.button("🎯 To Hit", key=f"atk_{i}", use_container_width=True):
                     from backend.dice import quick_roll
 
                     atk_bonus_str = str(w.get("attack_bonus", "+0")).replace("+", "")
@@ -848,9 +1001,16 @@ def _render_combat_inventory(edit_mode: bool):
                     except (ValueError, TypeError):
                         atk_bonus = 0
 
-                    res, raw = quick_roll(20, atk_bonus)
-                    st.toast(
-                        f"**{w.get('name')}** Attack: **{res}** (d20: {raw} + {atk_bonus})"
+                    global_atk = getattr(st.session_state, "global_attack_bonus", 0)
+                    total_atk = atk_bonus + global_atk
+                    res, raw = quick_roll(20, total_atk)
+
+                    bonus_text = f"{atk_bonus}"
+                    if global_atk:
+                        bonus_text = f"{total_atk} ({atk_bonus} + {global_atk} Global)"
+
+                    log_roll(
+                        f"**{w.get('name')}** To Hit: **{res}** (d20: {raw} + {bonus_text})"
                     )
                     if raw == 20:
                         st.balloons()
@@ -862,11 +1022,15 @@ def _render_combat_inventory(edit_mode: bool):
                     from backend.dice import roll_dice
 
                     dmg_str = w.get("damage", "1d4")
+                    global_dmg = getattr(st.session_state, "global_damage_bonus", 0)
+                    if global_dmg:
+                        dmg_str = f"{dmg_str} + {global_dmg}"
+
                     res = roll_dice(dmg_str)
                     if "error" in res:
                         st.error(f"Error rolling damage: {res['error']}")
                     else:
-                        st.toast(
+                        log_roll(
                             f"**{w.get('name')}** Damage: **{res['total']}** ({res['result_text']})"
                         )
 
@@ -891,17 +1055,139 @@ def _render_combat_inventory(edit_mode: bool):
                 st.write("No weapon masteries unlocked.")
 
     st.markdown("#### Equipment")
+    import pandas as pd
+
+    # Standardize equipment format (List of Dicts)
+    current_equip = []
+    attuned_count = 0
+    for e in st.session_state.equipment:
+        if isinstance(e, dict):
+            item_dict = {
+                "Item": e.get("name", ""),
+                "Equipped": e.get("equipped", False),
+                "Attuned": e.get("attuned", False),
+                "AC": e.get("ac_bonus", 0),
+                "Mod 1": e.get("mod1", "None"),
+                "Val 1": e.get("val1", 0),
+                "Mod 2": e.get("mod2", "None"),
+                "Val 2": e.get("val2", 0),
+            }
+            current_equip.append(item_dict)
+            if e.get("attuned", False):
+                attuned_count += 1
+        else:
+            # Handle string/object fallbacks
+            name = e if isinstance(e, str) else getattr(e, "name", "Unknown Item")
+            current_equip.append(
+                {
+                    "Item": name,
+                    "Equipped": False,
+                    "Attuned": False,
+                    "AC": 0,
+                    "Mod 1": "None",
+                    "Val 1": 0,
+                    "Mod 2": "None",
+                    "Val 2": 0,
+                }
+            )
+
     if edit_mode:
-        st.session_state.equipment = st.data_editor(
-            [{"item": e} for e in st.session_state.equipment],
-            num_rows="dynamic",
-            key="edit_equip",
+        # --- Inventory Header with Stats ---
+        col_inv1, col_inv2 = st.columns([2, 2])
+        att_color = "red" if attuned_count > 3 else "green"
+        col_inv1.markdown(f"📊 **Attunement:** :{att_color}[{attuned_count} / 3]")
+        col_inv2.markdown(f"🛡️ **Total AC:** {st.session_state.armor_class}")
+
+        st.caption(
+            "💡 **Tip:** Manually set bonuses (e.g., ATK, STR, HP) in the Mod/Val columns."
         )
-        st.session_state.equipment = [
-            i["item"] for i in st.session_state.equipment if "item" in i
+
+        equip_df = pd.DataFrame(current_equip)
+        if equip_df.empty:
+            equip_df = pd.DataFrame(
+                columns=["Item", "Equipped", "AC", "Mod 1", "Val 1", "Mod 2", "Val 2"]
+            )
+
+        attr_options = [
+            "None",
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA",
+            "HP",
+            "SPD",
+            "INIT",
+            "ATK",
+            "DMG",
+            "SAVES",
         ]
+
+        st.data_editor(
+            equip_df,
+            num_rows="dynamic",
+            key="edit_equip_table",
+            use_container_width=True,
+            column_config={
+                "Item": st.column_config.TextColumn("Item", width="large"),
+                "Equipped": st.column_config.CheckboxColumn("Equipped", width="small"),
+                "Attuned": st.column_config.CheckboxColumn("Attuned", width="small"),
+                "AC": st.column_config.NumberColumn("AC", width="small"),
+                "Mod 1": st.column_config.SelectboxColumn(
+                    "Mod 1", options=attr_options, width="medium"
+                ),
+                "Val 1": st.column_config.NumberColumn("Val 1", width="small"),
+                "Mod 2": st.column_config.SelectboxColumn(
+                    "Mod 2", options=attr_options, width="medium"
+                ),
+                "Val 2": st.column_config.NumberColumn("Val 2", width="small"),
+            },
+        )
+        if st.button("➕ Add New Item", use_container_width=True):
+            # To add an item, we must trigger sync to save pending edits first,
+            # then append the new item and rerun.
+            trigger_sync()
+            st.session_state.equipment.append(
+                {
+                    "name": "New Item",
+                    "equipped": False,
+                    "attuned": False,
+                    "ac_bonus": 0,
+                    "mod1": "None",
+                    "val1": 0,
+                    "mod2": "None",
+                    "val2": 0,
+                }
+            )
+            st.rerun()
     else:
-        st.write(", ".join(st.session_state.equipment))
+        if current_equip:
+            display_data = []
+            for e in current_equip:
+                manual_desc = []
+                if e["AC"]:
+                    manual_desc.append(f"+{e['AC']} AC")
+                if e["Mod 1"] != "None":
+                    manual_desc.append(f"+{e['Val 1']} {e['Mod 1']}")
+                if e["Mod 2"] != "None":
+                    manual_desc.append(f"+{e['Val 2']} {e['Mod 2']}")
+
+                kb_effect = get_item_effect(e["Item"])
+                final_effect = kb_effect
+                if manual_desc:
+                    final_effect = f"{kb_effect} | Custom: {', '.join(manual_desc)}"
+
+                display_data.append(
+                    {
+                        "Equipped": "✅" if e["Equipped"] else "❌",
+                        "Item": e["Item"],
+                        "Effect": final_effect,
+                    }
+                )
+            st.table(display_data)
+        else:
+            st.write("Inventory is empty.")
 
 
 def _render_features_spells(edit_mode: bool):
@@ -1191,7 +1477,6 @@ def render_character_creator():
                     logger.info(f"Auto-saved new character: {char['char_name']}")
                 st.session_state.temp_forged_char = None
                 st.session_state.player_view = "sheet"
-                st.session_state.build_suggestion = "Click 'Generate New Build Suggestion' to get recommendations for your newly forged character!"
                 st.rerun()
 
             if c_btn2.button("❌ Discard", width="stretch"):
@@ -1214,90 +1499,238 @@ def render_character_creator():
                 st.rerun()
 
 
-@st.dialog("📖 Level Up Guide")
+@st.dialog("🔥 The Forge: Character Ascension")
 def run_level_up_wizard():
-    """Comprehensive guide for leveling up a character."""
+    """Manual-first guide for leveling up with optional AI support and preview/revert."""
     target_lv = st.session_state.char_level + 1
+
+    # Initialize Temp State for Level Up if not present
+    if "lv_up_temp" not in st.session_state:
+        st.session_state.lv_up_temp = {
+            "hp_inc": 0,
+            "hp_method": "Fixed (Average)",
+            "asi_feat_choice": "Ability Score Improvement",
+            "stats_raised": [],
+            "selected_feat": None,
+            "new_features": [],
+            "ai_consulted": False,
+        }
+
+    temp = st.session_state.lv_up_temp
+
     st.markdown(f"### Elevating to Level {target_lv}")
-    st.write(
-        f"The Phyrexian Forge is analyzing the potential growth for **{st.session_state.char_name}**."
+
+    # STEP 1: Vitals (HP)
+    st.markdown("#### 💓 Step 1: Vital Stats")
+
+    vitals = get_level_up_vitals(
+        st.session_state.char_class,
+        st.session_state.char_level,
+        st.session_state.stats.get("CON", 10),
+        st.session_state.dnd_edition,
     )
 
-    if "level_up_analysis" not in st.session_state:
-        with st.spinner("Consulting the Arcane Rules..."):
-            char_data = get_character_dict(st.session_state)
-            # Using analyze_level_up from ForgeService imported at top level
+    die_size = vitals["die_size"]
+    con_mod = vitals["con_mod"]
+    avg_hp = vitals["average_hp_gain"]
 
-            st.session_state.level_up_analysis = analyze_level_up(char_data)
+    hp_col1, hp_col2 = st.columns([1, 1])
+    temp["hp_method"] = hp_col1.radio(
+        "HP Increase Method:",
+        ["Fixed (Average)", "Roll for it!"],
+        horizontal=True,
+        index=0 if temp["hp_method"] == "Fixed (Average)" else 1,
+    )
 
-    analysis = st.session_state.level_up_analysis
-    if not analysis:
-        st.error(
-            "The Oracle is currently silent. (AI service may be busy or returned invalid data)"
-        )
-        col_err1, col_err2 = st.columns(2)
-        if col_err1.button("🔄 Try Oracle Again"):
-            del st.session_state.level_up_analysis
-            st.rerun()
-        if col_err2.button("🛠️ Manual Level Up (No Guide)"):
-            st.session_state.char_level += 1
-            st.toast(f"Level increased to {st.session_state.char_level}")
-            st.rerun()
-        return
-
-    # Section 1: Mandatory Stat Changes
-    st.markdown("#### ✅ Mandatory Adjustments")
-    hp_inc = analysis.get("hp_increase", 0)
-    new_hp = analysis.get("new_total_hp", st.session_state.hp_max + hp_inc)
-
-    col1, col2 = st.columns(2)
-    col1.metric("HP Increase", f"+{hp_inc}", help=f"New Max HP should be {new_hp}")
-
-    prof_bonus = analysis.get("updated_proficiency_bonus")
-    if prof_bonus:
-        col2.metric("Proficiency Bonus", f"+{prof_bonus}", delta=1)
+    if temp["hp_method"] == "Fixed (Average)":
+        temp["hp_inc"] = avg_hp
+        hp_col2.info(f"Adding average HP: **+{avg_hp}**")
     else:
-        col2.metric(
-            "Proficiency Bonus", f"+{st.session_state.proficiency_bonus}", delta=0
+        if "lv_up_hp_roll" not in st.session_state:
+            if hp_col2.button(f"🎲 Roll 1d{die_size} + {con_mod}"):
+                import random
+
+                roll = random.randint(1, die_size)
+                st.session_state.lv_up_hp_roll = max(1, roll + con_mod)
+                st.rerun()
+        if "lv_up_hp_roll" in st.session_state:
+            temp["hp_inc"] = st.session_state.lv_up_hp_roll
+            hp_col2.success(f"🎲 Rolled: **+{temp['hp_inc']}**")
+            if hp_col2.button("🔄 Re-roll"):
+                del st.session_state.lv_up_hp_roll
+                st.rerun()
+
+    # STEP 2: ASI or Feat (Backend driven)
+    progression = check_progression_features(
+        st.session_state.char_class, target_lv, st.session_state.dnd_edition
+    )
+    is_asi_level = progression["is_asi_level"]
+
+    if is_asi_level:
+        st.markdown("---")
+        st.markdown("#### ⚖️ Step 2: Ability Score Improvement or Feat")
+        temp["asi_feat_choice"] = st.radio(
+            "Choose your benefit:",
+            ["Ability Score Improvement", "Feat"],
+            horizontal=True,
         )
 
-    # Section 2: New Class Features
-    st.markdown("#### ✨ New Features Gained")
-    for feat in analysis.get("automatic_changes", []):
-        with st.expander(f"🔹 {feat.get('name')}", expanded=True):
-            st.write(feat.get("description"))
-            if st.button("Copy to Traits", key=f"copy_{feat.get('name')}"):
-                st.session_state.features_traits.append(feat)
-                st.toast(f"Added {feat.get('name')} to features!")
-
-    # Section 3: Choices & Recommendations
-    choices = analysis.get("choices_required", [])
-    user_choices = {}
-
-    if choices:
-        st.markdown("#### ⚖️ Tactical Decisions")
-        for i, choice in enumerate(choices):
-            st.info(f"**{choice.get('label')}**")
-            st.caption(f"💡 **AI Recommendation:** {choice.get('ai_recommendation')}")
-            user_choices[i] = st.selectbox(
-                f"Select an option for {choice.get('type')}:",
-                options=choice.get("options", []),
-                key=f"choice_sel_{i}",
+        if temp["asi_feat_choice"] == "Ability Score Improvement":
+            col_s1, col_s2 = st.columns(2)
+            s1 = col_s1.selectbox(
+                "Stat 1 (+1)", ["STR", "DEX", "CON", "INT", "WIS", "CHA"], key="asi_s1"
             )
+            s2 = col_s2.selectbox(
+                "Stat 2 (+1)", ["STR", "DEX", "CON", "INT", "WIS", "CHA"], key="asi_s2"
+            )
+            temp["stats_raised"] = [s1, s2]
+        else:
+            from backend.repositories.rules_repository import RulesRepository
 
-    # Section 4: Spellcasting (if applicable)
-    if analysis.get("updated_spell_slots"):
-        st.markdown("#### 🔮 Spellcasting Growth")
-        st.write("Your magical capacity has increased:")
-        st.json(analysis["updated_spell_slots"])
+            rules_repo = RulesRepository()
+            all_feats = rules_repo.get_all_feats(st.session_state.dnd_edition)
+            feat_map = {f["name"]: f for f in all_feats}
+            feat_names = list(feat_map.keys())
+
+            temp["selected_feat"] = st.selectbox("Select Feat:", options=feat_names)
+
+            # Support for Half-Feats (+1 to a stat)
+            st.info("💡 Many feats provide a +1 bonus to an ability score.")
+            feat_stat = st.selectbox(
+                "Feat Stat Bonus (+1) - Optional:",
+                ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"],
+                key="feat_stat_bonus",
+            )
+            temp["feat_stat_bonus"] = feat_stat if feat_stat != "None" else None
+
+            # Show description of selected feat
+            if temp["selected_feat"]:
+                selected_feat_data = feat_map.get(temp["selected_feat"])
+                if selected_feat_data:
+                    with st.expander("Feat Details", expanded=False):
+                        st.write(
+                            selected_feat_data.get(
+                                "description", "No description available."
+                            )
+                        )
+                    temp["selected_feat_desc"] = selected_feat_data.get(
+                        "description", ""
+                    )
+
+    # STEP 3: AI Enrichment (Optional)
+    st.markdown("---")
+    st.markdown("#### ✨ Step 3: Consult the Oracle (Optional)")
+    if not temp["ai_consulted"]:
+        if st.button("🔮 Ask AI for Features & Suggestions"):
+            with st.spinner("Oracle is analyzing your path..."):
+                char_data = get_character_dict(st.session_state)
+
+                # Prepare context for AI based on manual choices
+                user_choices_context = {
+                    "HP Increase": f"+{temp['hp_inc']} ({temp['hp_method']})",
+                }
+                if is_asi_level:
+                    if temp["asi_feat_choice"] == "Ability Score Improvement":
+                        user_choices_context["Benefit Chosen"] = (
+                            f"ASI (+1 to {', '.join(temp['stats_raised'])})"
+                        )
+                    else:
+                        user_choices_context["Benefit Chosen"] = (
+                            f"Feat: {temp['selected_feat']}"
+                        )
+
+                analysis = analyze_level_up(
+                    char_data, user_choices=user_choices_context
+                )
+                if analysis:
+                    temp["new_features"] = analysis.get("automatic_changes", [])
+                    temp["suggestions"] = analysis.get("suggestions", [])
+                    temp["ai_consulted"] = True
+                    st.rerun()
+    else:
+        st.success("Oracle has spoken. New features and suggestions loaded.")
+        for feat in temp["new_features"]:
+            with st.expander(f"🔹 {feat.get('name')}"):
+                st.write(feat.get("description"))
+
+    # STEP 4: PREVIEW
+    st.markdown("---")
+    st.markdown("#### 🛡️ Level Up Preview")
+    prev_col1, prev_col2 = st.columns(2)
+
+    # Calculate preview stats
+    prev_hp = st.session_state.hp_max + temp["hp_inc"]
+    prev_stats = st.session_state.stats.copy()
+    if temp["asi_feat_choice"] == "Ability Score Improvement":
+        for s in temp["stats_raised"]:
+            prev_stats[s] = prev_stats.get(s, 10) + 1
+
+    prev_col1.metric("Max HP", f"{prev_hp}", delta=f"+{temp['hp_inc']}")
+    if is_asi_level:
+        if temp["asi_feat_choice"] == "Ability Score Improvement":
+            stats_display = ", ".join([f"{s}+1" for s in temp["stats_raised"]])
+            prev_col2.metric("Stats Boost", stats_display)
+        elif temp["selected_feat"]:
+            feat_info = temp["selected_feat"]
+            if temp.get("feat_stat_bonus"):
+                feat_info += f" (+1 {temp['feat_stat_bonus']})"
+            prev_col2.metric("New Feat", feat_info)
 
     st.markdown("---")
 
-    # Final Action Buttons
-    if st.button(
-        "🛠️ Acknowledge & Edit Manually", use_container_width=True, type="primary"
+    # FINAL ACTIONS
+    col_fin1, col_fin2 = st.columns(2)
+
+    if col_fin1.button(
+        "🔥 Finalize Ascension", use_container_width=True, type="primary"
     ):
-        del st.session_state.level_up_analysis
-        st.session_state.char_level = target_lv  # At least update the level number
-        st.toast("Level updated. Please adjust your stats in Edit Mode.")
+        # APPLY CHANGES
+        st.session_state.char_level = target_lv
+        st.session_state.hp_max = prev_hp
+
+        # Apply Stats
+        st.session_state.stats = prev_stats
+        if temp["asi_feat_choice"] == "Feat" and temp.get("feat_stat_bonus"):
+            stat = temp["feat_stat_bonus"]
+            st.session_state.stats[stat] = st.session_state.stats.get(stat, 10) + 1
+
+        # Add feat if chosen
+        if temp["asi_feat_choice"] == "Feat" and temp["selected_feat"]:
+            st.session_state.features_traits.append(
+                {
+                    "name": f"Feat: {temp['selected_feat']}",
+                    "description": temp.get(
+                        "selected_feat_desc", "Selected during manual level up."
+                    ),
+                }
+            )
+
+        # Add AI features if consulted
+        if temp["ai_consulted"]:
+            current_feat_names = [
+                f.get("name") for f in st.session_state.features_traits
+            ]
+            for feat in temp["new_features"]:
+                if feat.get("name") not in current_feat_names:
+                    st.session_state.features_traits.append(feat)
+
+            # Update spell slots if AI provided them
+            if "updated_spell_slots" in temp and temp["updated_spell_slots"]:
+                # We store slots in a dedicated field if needed, or trigger sync to recalculate
+                pass
+
+        # Cleanup
+        del st.session_state.lv_up_temp
+        if "lv_up_hp_roll" in st.session_state:
+            del st.session_state.lv_up_hp_roll
+
+        trigger_sync()
+        save_character(get_character_dict(st.session_state))
+        st.success(f"Ascension Complete! Level {target_lv} reached.")
+        st.rerun()
+
+    if col_fin2.button("↩️ Discard & Revert", use_container_width=True):
+        del st.session_state.lv_up_temp
+        if "lv_up_hp_roll" in st.session_state:
+            del st.session_state.lv_up_hp_roll
         st.rerun()

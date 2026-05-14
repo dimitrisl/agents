@@ -6,7 +6,7 @@ import json
 from pypdf import PdfReader, PdfWriter, generic
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from backend.calculations import calculate_modifier
+from backend.services.mechanics_service import get_modifier as calculate_modifier
 from backend.constants import (
     PDF_PORTRAIT_X,
     PDF_PORTRAIT_Y,
@@ -124,7 +124,18 @@ class PDFMappingProvider:
         # 8. Equipment & Features
         blocks = self.mapping.get("blocks", {})
         if "Equipment" in blocks:
-            field_data[blocks["Equipment"]] = "\n".join(char_data.get("equipment", []))
+            # Handle both old string format and new dict format for equipment
+            equip_list = char_data.get("equipment", [])
+            equip_strings = []
+            for e in equip_list:
+                if isinstance(e, str):
+                    equip_strings.append(e)
+                elif isinstance(e, dict):
+                    name = e.get("name", "Unknown Item")
+                    equipped_mark = " [E]" if e.get("equipped") else ""
+                    equip_strings.append(f"{name}{equipped_mark}")
+
+            field_data[blocks["Equipment"]] = "\n".join(equip_strings)
 
         if "Features and Traits" in blocks:
             feats = char_data.get("features_traits", [])
@@ -186,14 +197,19 @@ class PDFMappingProvider:
 def create_image_overlay(image_url: str) -> io.BytesIO:
     """Creates a transparent PDF page with the image at specific coordinates."""
     try:
+        img_data = None
         if os.path.exists(image_url):
             with open(image_url, "rb") as f:
                 img_data = io.BytesIO(f.read())
-        else:
+        elif image_url.startswith(("http://", "https://")):
             resp = requests.get(image_url, timeout=10)
-            if resp.status_code != 200:
-                return None
-            img_data = io.BytesIO(resp.content)
+            if resp.status_code == 200:
+                img_data = io.BytesIO(resp.content)
+
+        if not img_data:
+            logger.warning(f"Could not load portrait from {image_url}")
+            return None
+
         overlay_stream = io.BytesIO()
 
         # Create a canvas for a Letter size page

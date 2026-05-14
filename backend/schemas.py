@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class StatBlock(BaseModel):
@@ -17,6 +17,17 @@ class Weapon(BaseModel):
     damage: str
     range: Optional[str] = None
     properties: Optional[str] = None
+
+
+class EquipmentItem(BaseModel):
+    name: str
+    equipped: bool = False
+    attuned: bool = False
+    ac_bonus: int = 0
+    mod1: str = "None"
+    val1: int = 0
+    mod2: str = "None"
+    val2: int = 0
 
 
 class FeatureTrait(BaseModel):
@@ -67,7 +78,7 @@ class CharacterSchema(BaseModel):
     skill_expertise: List[str] = []
     weapon_masteries: List[str] = []
     weapons: List[Weapon] = []
-    equipment: List[str] = []
+    equipment: List[EquipmentItem] = []
     features_traits: List[FeatureTrait] = []
     spells: SpellList = Field(default_factory=SpellList)
     spell_ability: Optional[str] = None
@@ -75,6 +86,8 @@ class CharacterSchema(BaseModel):
     spell_attack_bonus: Optional[str] = None
     hit_dice: Optional[str] = ""
     passive_perception: int = 10
+    saving_throw_values: Dict[str, int] = {}
+    initiative_modifier: int = 0
     advancements: List[Advancement] = []
     personality_traits: Optional[str] = ""
     ideals: Optional[str] = ""
@@ -85,6 +98,25 @@ class CharacterSchema(BaseModel):
     char_portrait: Optional[str] = None
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
+
+    @field_validator("equipment", mode="before")
+    @classmethod
+    def convert_strings_to_items(cls, v):
+        if isinstance(v, list):
+            return [{"name": item} if isinstance(item, str) else item for item in v]
+        return v
+
+    @field_validator("features_traits", mode="before")
+    @classmethod
+    def convert_strings_to_features(cls, v):
+        if isinstance(v, list):
+            return [
+                {"name": item, "description": "Imported feature"}
+                if isinstance(item, str)
+                else item
+                for item in v
+            ]
+        return v
 
 
 class MonsterEncounter(BaseModel):

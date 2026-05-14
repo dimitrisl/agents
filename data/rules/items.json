@@ -1,0 +1,82 @@
+[
+    {
+        "name": "Plate Armor",
+        "type": "Heavy Armor",
+        "ac_base": 18,
+        "dex_limit": 0,
+        "description": "Heavy interlocking plates of metal."
+    },
+    {
+        "name": "Chain Mail",
+        "type": "Heavy Armor",
+        "ac_base": 16,
+        "dex_limit": 0,
+        "description": "Interlocking metal rings."
+    },
+    {
+        "name": "Scale Mail",
+        "type": "Medium Armor",
+        "ac_base": 14,
+        "dex_limit": 2,
+        "description": "Overlapping pieces of metal like scales."
+    },
+    {
+        "name": "Breastplate",
+        "type": "Medium Armor",
+        "ac_base": 14,
+        "dex_limit": 2,
+        "description": "A fitted metal chest piece."
+    },
+    {
+        "name": "Studded Leather",
+        "type": "Light Armor",
+        "ac_base": 12,
+        "dex_limit": 10,
+        "description": "Leather reinforced with metal studs."
+    },
+    {
+        "name": "Leather Armor",
+        "type": "Light Armor",
+        "ac_base": 11,
+        "dex_limit": 10,
+        "description": "Toughened leather."
+    },
+    {
+        "name": "Shield",
+        "type": "Shield",
+        "ac_bonus": 2,
+        "description": "A sturdy wooden or metal shield."
+    },
+    {
+        "name": "Cloak of Protection",
+        "type": "Wondrous Item",
+        "ac_bonus": 1,
+        "save_bonus": 1,
+        "description": "A shimmering cloak that protects the wearer."
+    },
+    {
+        "name": "Ring of Protection",
+        "type": "Wondrous Item",
+        "ac_bonus": 1,
+        "save_bonus": 1,
+        "description": "A magical ring."
+    },
+    {
+        "name": "Gauntlets of Ogre Power",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 19},
+        "description": "Iron gauntlets that grant the strength of an ogre."
+    },
+    {
+        "name": "Amulet of Health",
+        "type": "Wondrous Item",
+        "stat_set": {"CON": 19},
+        "description": "An amulet that grants unnatural health."
+    },
+    {
+        "name": "Belt of Hill Giant Strength",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 21},
+        "description": "A belt that grants the strength of a hill giant."
+    }
+]

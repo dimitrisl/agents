@@ -116,6 +116,25 @@ with st.sidebar:
                 st.session_state.last_rule_answer = None
                 st.rerun()
 
+    st.markdown("---")
+    # --- Recent Rolls Log ---
+    st.markdown("### 🎲 Recent Rolls")
+    if st.session_state.get("roll_history"):
+        # Show last roll prominently
+        last_roll = st.session_state.roll_history[0]
+        st.success(f"**Latest:** {last_roll}")
+
+        if len(st.session_state.roll_history) > 1:
+            with st.expander("History Log", expanded=False):
+                for roll in st.session_state.roll_history[1:10]:
+                    st.write(f"_{roll}_")
+
+        if st.button("🗑️ Clear Log", key="clear_roll_history", width="stretch"):
+            st.session_state.roll_history = []
+            st.rerun()
+    else:
+        st.caption("No rolls recorded yet.")
+
 # ==========================================
 # Main Content Router
 # ==========================================

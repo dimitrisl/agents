@@ -5,7 +5,6 @@ from backend.services.rules_service import (
 )
 from backend.prompts import (
     CHARACTER_FORGE_PROMPT,
-    BUILD_SUGGESTION_PROMPT,
     PLAYSTYLE_GUIDE_PROMPT,
     LEVEL_UP_ANALYSIS_PROMPT,
 )
@@ -21,8 +20,11 @@ from backend.constants import (
 )
 
 from backend.schemas import CharacterSchema, LevelUpAnalysisSchema
+from backend.services.mechanics_service import sync_character_stats
+from backend.repositories.rules_repository import RulesRepository
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
+_rules_repo = RulesRepository()
 
 
 def forge_character(
@@ -104,6 +106,12 @@ def forge_character(
 
             result["char_id"] = str(uuid.uuid4())[:8]
 
+        # Synchronize derived stats (HP, AC, Proficiency, etc.)
+        class_data = _rules_repo.get_class_progression(
+            result.get("char_class"), edition
+        )
+        result = sync_character_stats(result, class_data)
+
         try:
             return CharacterSchema(**result).model_dump()
         except Exception as e:
@@ -112,29 +120,6 @@ def forge_character(
             )
             return result
     return None
-
-
-def get_build_suggestion(
-    char_level: int,
-    char_class: str,
-    char_name: str,
-    stats: dict,
-    edition: str = EDITION_2014,
-) -> str:
-    """Provides a short creative build or multiclass suggestion."""
-    prompt = BUILD_SUGGESTION_PROMPT.format(
-        char_level=char_level,
-        char_class=char_class,
-        edition=edition,
-        char_name=char_name,
-        str_val=stats.get("STR", 10),
-        dex_val=stats.get("DEX", 10),
-        con_val=stats.get("CON", 10),
-        int_val=stats.get("INT", 10),
-        wis_val=stats.get("WIS", 10),
-        cha_val=stats.get("CHA", 10),
-    )
-    return generate_ai_response(prompt)
 
 
 def generate_playstyle_guide(char_data: dict) -> str:
@@ -153,11 +138,19 @@ def generate_playstyle_guide(char_data: dict) -> str:
     return generate_ai_response(prompt)
 
 
-def analyze_level_up(char_data: dict) -> dict:
-    """Uses AI to determine what changes occur when leveling up."""
+def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
+    """Uses AI to determine changes, incorporating any manual user choices."""
     current_level = char_data.get("char_level", 1)
     target_level = current_level + 1
     edition = char_data.get("dnd_edition", EDITION_2014)
+
+    choice_context = ""
+    if user_choices:
+        choice_context = (
+            "\nUser has already made the following manual choices for this level up:\n"
+        )
+        for k, v in user_choices.items():
+            choice_context += f"- {k}: {v}\n"
 
     prompt = LEVEL_UP_ANALYSIS_PROMPT.format(
         edition=edition,
@@ -168,6 +161,9 @@ def analyze_level_up(char_data: dict) -> dict:
         race=char_data.get("race"),
         stats=char_data.get("stats"),
     )
+    if choice_context:
+        prompt += choice_context
+        prompt += "\nPlease fill in all OTHER automatic class features and spell slots, ignoring the choices already made above unless they trigger additional features."
     static_features_readiness = False
     result = generate_ai_json(prompt)
     if result:
@@ -195,3 +191,78 @@ def analyze_level_up(char_data: dict) -> dict:
             )
             return result
     return None
+
+
+def process_character_update(
+    current_char: dict, stat_updates: dict = None, equipment_deltas: dict = None
+) -> dict:
+    """
+    Processes character updates (stats and equipment) and returns synchronized character data.
+    All calculations and data manipulation happen here, in the backend.
+    """
+    updated_char = current_char.copy()
+
+    # 1. Apply Stat Updates & Level
+    if stat_updates:
+        for k, v in stat_updates.items():
+            if k == "char_level":
+                updated_char["char_level"] = v
+            elif k in updated_char.get("stats", {}):
+                updated_char["stats"][k] = v
+
+    # 2. Apply Equipment Deltas
+    if equipment_deltas:
+        current_list = updated_char.get("equipment", [])
+
+        # Apply edits
+        for idx_str, changes in equipment_deltas.get("edited_rows", {}).items():
+            import logging
+
+            logging.getLogger("DnDAssistant").info(
+                f"APPLYING EDITS FOR ROW {idx_str}: {changes}"
+            )
+            idx = int(idx_str)
+            if idx < len(current_list):
+                mapping = {
+                    "Item": "name",
+                    "Equipped": "equipped",
+                    "Attuned": "attuned",
+                    "AC": "ac_bonus",
+                    "Mod 1": "mod1",
+                    "Val 1": "val1",
+                    "Mod 2": "mod2",
+                    "Val 2": "val2",
+                }
+                for ui_key, val in changes.items():
+                    backend_key = mapping.get(ui_key)
+                    if backend_key:
+                        current_list[idx][backend_key] = val
+
+        # Apply additions
+        for row in equipment_deltas.get("added_rows", []):
+            current_list.append(
+                {
+                    "name": row.get("Item", "New Item"),
+                    "equipped": row.get("Equipped", False),
+                    "attuned": row.get("Attuned", False),
+                    "ac_bonus": row.get("AC", 0),
+                    "mod1": row.get("Mod 1", "None"),
+                    "val1": row.get("Val 1", 0),
+                    "mod2": row.get("Mod 2", "None"),
+                    "val2": row.get("Val 2", 0),
+                }
+            )
+
+        # Apply deletions
+        deleted_indices = sorted(equipment_deltas.get("deleted_rows", []), reverse=True)
+        for idx in deleted_indices:
+            if idx < len(current_list):
+                current_list.pop(idx)
+
+        updated_char["equipment"] = current_list
+
+    # 3. Synchronize derived stats
+    class_data = _rules_repo.get_class_progression(
+        updated_char.get("char_class"), updated_char.get("dnd_edition")
+    )
+    return sync_character_stats(updated_char, class_data)

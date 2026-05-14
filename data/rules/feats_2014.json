@@ -1,19 +1,19 @@
 [
     {
         "name": "Ace Driver",
-        "description": "You are a virtuoso of driving and piloting vehicles, able to push them beyond their normal limits and maneuver them with fluid grace through hazardous situations. You gain the following benefits:",
+        "description": "You have a natural talent for handling vehicles. You gain the following benefits:\n- Increase your Dexterity or Intelligence score by 1, to a maximum of 20.\n- You gain proficiency in one type of vehicle of your choice. If already proficient, double your proficiency bonus.\n- While driving, the vehicle gains a +2 bonus to AC and advantage on Dexterity saving throws.\n- As a bonus action, you can push a vehicle beyond its limits: +10ft speed and it can Dash/Disengage as a bonus action until your next turn (once per short/long rest).",
         "prerequisites": [
             "Prerequisite: Proficiency with a type of vehicle"
         ]
     },
     {
         "name": "Athletic",
-        "description": "Your enhanced physical training grants you the following benefits:",
+        "description": "Your enhanced physical training grants you the following benefits:\n- Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- Standing up from prone uses only 5 feet of movement.\n- Climbing doesn't cost you extra movement.\n- Running jumps require only 5 feet of movement.",
         "prerequisites": []
     },
     {
         "name": "Attentive",
-        "description": "Always aware of your surroundings, you gain the following benefits:",
+        "description": "Always aware of your surroundings, you gain the following benefits:\n- Increase your Intelligence or Wisdom score by 1, to a maximum of 20.\n- Advantage on Perception and Investigation checks to detect hidden creatures or objects.\n- You can accurately recall anything seen or heard within the past month.",
         "prerequisites": []
     },
     {
@@ -108,7 +108,7 @@
     },
     {
         "name": "Floriographer",
-        "description": "You have studied the secret language of Floriography. You gain the following benefits:",
+        "description": "You have studied the secret language of Floriography. You gain the following benefits:\n- Increase your Intelligence or Wisdom score by 1, to a maximum of 20.\n- You can use flowers to leave secret messages (up to 25 words, 10 min to arrange).\n- You can discern if a plant is magical, poisonous, or edible by studying it for 1 minute.\n- You can cast 'speak with plants' once per long rest, but only to communicate with non-creature plants.",
         "prerequisites": [
             "*Proficiency in one of the following skills: Arcana, History, or Nature*"
         ]
@@ -158,7 +158,7 @@
     },
     {
         "name": "Harrier",
-        "description": "You have learned to maximize the strategic impact of your misty step. You appear in a flash and, while your foe is disoriented, attack with deadly precision. You gain the following benefits:",
+        "description": "You have learned to maximize the strategic impact of your misty step. You gain the following benefits:\n- Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- When you use your Shadow Traveler trait or cast 'misty step', you have advantage on the next attack you make before the end of your turn.",
         "prerequisites": [
             "*The Shadow Traveler shadow fey trait or the ability to cast the* misty step *spell*"
         ]

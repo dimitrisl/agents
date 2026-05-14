@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from typing import Optional
+from functools import lru_cache
 from backend.constants import EDITION_2014
 
 logger = logging.getLogger("DnDAssistant.RulesRepo")
@@ -10,12 +11,22 @@ DATA_DIR = "data"
 RULES_DIR = os.path.join(DATA_DIR, "rules", "classes")
 
 
+def _load_json(filepath: str):
+    try:
+        with open(filepath, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to load JSON from {filepath}: {e}")
+        return []
+
+
 class RulesRepository:
     def __init__(self):
         # Ensure directories exist
         os.makedirs(os.path.join(RULES_DIR, "2014"), exist_ok=True)
         os.makedirs(os.path.join(RULES_DIR, "2024"), exist_ok=True)
 
+    @lru_cache(maxsize=32)
     def get_class_progression(
         self, class_name: str, edition: str = EDITION_2014
     ) -> Optional[dict]:
@@ -32,13 +43,7 @@ class RulesRepository:
             )
             return None
 
-        try:
-            with open(filepath, "r") as f:
-                data = json.load(f)
-            return data
-        except Exception as e:
-            logger.error(f"Failed to load class progression for {class_name}: {e}")
-            return None
+        return _load_json(filepath)
 
     def get_features_at_level(
         self, class_name: str, level: int, edition: str = EDITION_2014
@@ -54,23 +59,14 @@ class RulesRepository:
         level_data = progression.get("progression", {}).get(level_str, {})
         return level_data.get("features", [])
 
+    @lru_cache(maxsize=8)
     def get_all_feats(self, edition: str = EDITION_2014) -> list:
         """
         Loads all feats for the specified edition.
         """
-        filename = "feats_2014.json" if edition == EDITION_2014 else "feats_2024.json"
+        filename = f"feats_{'2024' if edition == '2024' else '2014'}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
-
-        if not os.path.exists(filepath):
-            logger.warning(f"No feats data found for {edition} at {filepath}")
-            return []
-
-        try:
-            with open(filepath, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load feats for {edition}: {e}")
-            return []
+        return _load_json(filepath)
 
     def search_feats(self, query: str, edition: str = EDITION_2014) -> list:
         """
@@ -79,3 +75,11 @@ class RulesRepository:
         feats = self.get_all_feats(edition)
         query = query.lower()
         return [f for f in feats if query in f["name"].lower()]
+
+    @lru_cache(maxsize=1)
+    def get_all_items(self) -> list:
+        """
+        Loads all items from the master items KB.
+        """
+        filepath = os.path.join(DATA_DIR, "rules", "items.json")
+        return _load_json(filepath)
