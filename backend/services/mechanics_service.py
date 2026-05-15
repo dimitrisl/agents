@@ -127,6 +127,9 @@ def calculate_ac(
     max_dex = 10
 
     for equip in equipment:
+        # Normalize: accept both strings and dicts
+        if isinstance(equip, str):
+            equip = {"name": equip, "equipped": True}
         # Check if equipped
         if not equip.get("equipped", False):
             continue
@@ -357,7 +360,8 @@ def sync_character_stats(
     # Update HP and Hit Dice
     hit_die_size = get_hit_die_for_class(char_class, edition)
     if class_data and "hit_die" in class_data:
-        hit_die_size = class_data["hit_die"].replace("1", "")
+        raw_die = class_data["hit_die"]
+        hit_die_size = raw_die[1:] if raw_die.startswith("1d") else raw_die
 
     # Generate standard hit dice string (e.g. "5d8")
     char_data["hit_dice"] = f"{level}{hit_die_size}"

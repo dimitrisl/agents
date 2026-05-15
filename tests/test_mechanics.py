@@ -76,7 +76,10 @@ def test_sync_character_stats():
         "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 8},
         "skill_proficiencies": ["Perception"],
         "weapons": [{"name": "Longsword", "damage": "1d8"}],
-        "equipment": [{"name": "Chain Shirt", "equipped": True}, {"name": "Shield", "equipped": True}],  # 13 + DEX (max 2) = 15
+        "equipment": [
+            {"name": "Chain Shirt", "equipped": True},
+            {"name": "Shield", "equipped": True},
+        ],  # 13 + DEX (max 2) + Shield (2) = 17
     }
     class_data = {"hit_die": "d10"}
 
@@ -84,6 +87,6 @@ def test_sync_character_stats():
 
     assert synced["proficiency_bonus"] == 2
     assert synced["hp_max"] == 12
-    assert synced["armor_class"] == 15
+    assert synced["armor_class"] == 17
     assert synced["passive_perception"] == 13  # 10 + 1 (WIS) + 2 (Prof)
     assert synced["weapons"][0]["attack_bonus"] == "+5"

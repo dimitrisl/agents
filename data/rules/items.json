@@ -28,6 +28,20 @@
         "description": "A fitted metal chest piece."
     },
     {
+        "name": "Chain Shirt",
+        "type": "Medium Armor",
+        "ac_base": 13,
+        "dex_limit": 2,
+        "description": "Made of interlocking metal rings, lighter than chain mail."
+    },
+    {
+        "name": "Half Plate",
+        "type": "Medium Armor",
+        "ac_base": 15,
+        "dex_limit": 2,
+        "description": "Shaped metal plates covering most of the body."
+    },
+    {
         "name": "Studded Leather",
         "type": "Light Armor",
         "ac_base": 12,

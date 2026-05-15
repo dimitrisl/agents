@@ -42,6 +42,113 @@
 
 ---
 
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    subgraph UI["🖥️ Streamlit UI Layer"]
+        MAIN["main.py<br/><i>Entry Point & Router</i>"]
+        PD["player_dashboard.py<br/><i>Character Sheet, Dice, Combat</i>"]
+        DM["dm_workspace.py<br/><i>Encounters, NPCs, Campaigns</i>"]
+        SV["settings_view.py<br/><i>Config & Preferences</i>"]
+    end
+
+    subgraph SERVICES["⚙️ Backend Services"]
+        FORGE["forge_service.py<br/><i>AI Character Generation<br/>Level Up Analysis</i>"]
+        MECH["mechanics_service.py<br/><i>HP, AC, Saves, Weapons<br/>stat sync engine</i>"]
+        RULES["rules_service.py<br/><i>AI Rules Oracle<br/>Build Validation</i>"]
+        DMS["dm_service.py<br/><i>Encounters, NPCs<br/>Session Prep</i>"]
+    end
+
+    subgraph SUPPORT["🔧 Support Modules"]
+        DICE["dice.py<br/><i>Dice Parser & Roller</i>"]
+        SCHEMAS["schemas.py<br/><i>Pydantic Models</i>"]
+        STATE["state_manager.py<br/><i>Session State</i>"]
+        PDF["pdf_exporter.py<br/><i>PDF Character Sheets</i>"]
+        IMG["image_utils.py<br/><i>Portrait Generation</i>"]
+        AI["ai_client.py<br/><i>Gemini API Wrapper</i>"]
+    end
+
+    subgraph REPOS["🗄️ Repositories"]
+        CHAR_REPO["CharacterRepository<br/><i>CRUD for Characters</i>"]
+        CAMP_REPO["CampaignRepository<br/><i>CRUD for Campaigns</i>"]
+        RULES_REPO["RulesRepository<br/><i>Classes, Feats, Items</i>"]
+    end
+
+    subgraph DATA["💾 Local JSON Storage"]
+        CHARS[("data/characters/")]
+        CAMPS[("data/campaigns/")]
+        CLASSES[("data/rules/classes/")]
+        FEATS[("data/rules/feats_*.json")]
+        ITEMS[("data/rules/items.json")]
+    end
+
+    subgraph EXTERNAL["☁️ External APIs"]
+        GEMINI["Google Gemini<br/><i>LLM (Flash/Pro)</i>"]
+        POLL["Pollinations.ai<br/><i>Image Generation</i>"]
+    end
+
+    %% UI routing
+    MAIN --> PD & DM & SV
+
+    %% Views → Services
+    PD --> FORGE & MECH & DICE & PDF & IMG
+    DM --> DMS & RULES
+    PD --> RULES
+
+    %% Views → State
+    PD --> STATE
+    DM --> STATE
+
+    %% Services → AI
+    FORGE --> AI
+    RULES --> AI
+    DMS --> AI
+    AI --> GEMINI
+
+    %% Services → Repos
+    FORGE --> RULES_REPO
+    MECH --> RULES_REPO
+    RULES --> RULES_REPO
+
+    %% Services → Schemas
+    FORGE --> SCHEMAS
+    RULES --> SCHEMAS
+    DMS --> SCHEMAS
+    MECH --> SCHEMAS
+
+    %% Services internal
+    FORGE --> MECH
+
+    %% Repos → Data
+    CHAR_REPO --> CHARS
+    CAMP_REPO --> CAMPS
+    RULES_REPO --> CLASSES & FEATS & ITEMS
+
+    %% Storage facade
+    STATE --> CHAR_REPO & CAMP_REPO
+
+    %% Image
+    IMG --> POLL
+
+    %% Styling
+    classDef ui fill:#1a1a2e,stroke:#ff4b4b,color:#fff
+    classDef service fill:#16213e,stroke:#d4af37,color:#fff
+    classDef support fill:#0f3460,stroke:#53a8b6,color:#fff
+    classDef repo fill:#1b1b2f,stroke:#e94560,color:#fff
+    classDef data fill:#2d2d44,stroke:#888,color:#ccc
+    classDef ext fill:#0d0d1a,stroke:#7b68ee,color:#fff
+
+    class MAIN,PD,DM,SV ui
+    class FORGE,MECH,RULES,DMS service
+    class DICE,SCHEMAS,STATE,PDF,IMG,AI support
+    class CHAR_REPO,CAMP_REPO,RULES_REPO repo
+    class CHARS,CAMPS,CLASSES,FEATS,ITEMS data
+    class GEMINI,POLL ext
+```
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
@@ -67,5 +174,6 @@ poetry run streamlit run main.py
 ---
 
 ## 🧪 Development
+- **Tests:** `poetry run pytest tests/ -v`
 - **Pre-commit Hooks:** `poetry run pre-commit install`
 - **Linting & Formatting:** `poetry run pre-commit run --all-files`
