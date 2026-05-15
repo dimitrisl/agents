@@ -6,9 +6,19 @@ from unittest.mock import patch
 
 
 @pytest.fixture
-def char_repo(tmp_path):
-    """Create a CharacterRepository pointing at a temp directory."""
-    with patch("backend.repositories.character_repository.CHAR_DIR", str(tmp_path)):
+def mock_db():
+    import mongomock
+
+    client = mongomock.MongoClient()
+    return client.db
+
+
+@pytest.fixture
+def char_repo(mock_db):
+    """Create a CharacterRepository pointing at a mock database."""
+    with patch(
+        "backend.repositories.character_repository.get_db", return_value=mock_db
+    ):
         from backend.repositories.character_repository import CharacterRepository
 
         repo = CharacterRepository()
@@ -86,9 +96,9 @@ class TestCharacterRepository:
 
 
 @pytest.fixture
-def camp_repo(tmp_path):
-    """Create a CampaignRepository pointing at a temp directory."""
-    with patch("backend.repositories.campaign_repository.CAMP_DIR", str(tmp_path)):
+def camp_repo(mock_db):
+    """Create a CampaignRepository pointing at a mock database."""
+    with patch("backend.repositories.campaign_repository.get_db", return_value=mock_db):
         from backend.repositories.campaign_repository import CampaignRepository
 
         repo = CampaignRepository()

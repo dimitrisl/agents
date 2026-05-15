@@ -1,8 +1,8 @@
 import os
-import json
 import logging
 from typing import List, Optional
 from backend.core.schemas import CharacterSchema
+from backend.core.db import get_db
 
 logger = logging.getLogger("DnDAssistant.CharacterRepo")
 
@@ -12,10 +12,18 @@ CHAR_DIR = os.path.join(DATA_DIR, "characters")
 
 class CharacterRepository:
     def __init__(self):
-        os.makedirs(CHAR_DIR, exist_ok=True)
+        self.db = get_db()
+        if self.db is not None:
+            self.collection = self.db["characters"]
+        else:
+            self.collection = None
 
     def save(self, char_data: dict) -> bool:
-        """Save a character dictionary to a local JSON file."""
+        """Save a character dictionary to MongoDB."""
+        if self.collection is None:
+            logger.error("Database connection missing. Cannot save.")
+            return False
+
         if "char_name" not in char_data:
             logger.error("Cannot save character without a name.")
             return False
@@ -28,53 +36,65 @@ class CharacterRepository:
             logger.warning(f"Character data failed validation during save: {e}")
 
         char_id = char_data.get("char_id", "unknown_id")
-        filename = f"{char_data['char_name'].replace(' ', '_').lower()}_{char_id}.json"
-        filepath = os.path.join(CHAR_DIR, filename)
 
+        # Upsert based on char_id
         try:
-            with open(filepath, "w") as f:
-                json.dump(char_data, f, indent=4)
-            logger.info(f"Successfully saved character to {filepath}")
+            self.collection.update_one(
+                {"char_id": char_id}, {"$set": char_data}, upsert=True
+            )
+            logger.info(
+                f"Successfully saved character {char_data['char_name']} to MongoDB"
+            )
             return True
         except Exception as e:
-            logger.error(f"Failed to save character: {e}", exc_info=True)
+            logger.error(f"Failed to save character to MongoDB: {e}", exc_info=True)
             return False
 
     def load(self, filename: str) -> Optional[dict]:
-        """Load a character dictionary from a local JSON file."""
-        filepath = os.path.join(CHAR_DIR, filename)
-        if not os.path.exists(filepath):
+        """Load a character from MongoDB. Note: 'filename' is now treated as 'char_id_filename' to match legacy logic."""
+        if self.collection is None:
             return None
 
+        # Extract char_id from the legacy filename format (e.g., willow_whisperwind_3029a9f1.json)
+        # Or just use it directly if it's already an ID
+        char_id = filename.replace(".json", "").split("_")[-1]
+
         try:
-            with open(filepath, "r") as f:
-                data = json.load(f)
+            data = self.collection.find_one({"char_id": char_id})
+            if data and "_id" in data:
+                del data["_id"]  # Remove mongo internal ID
             return data
         except Exception as e:
-            logger.error(f"Failed to load character: {e}")
+            logger.error(f"Failed to load character from MongoDB: {e}")
             return None
 
     def list_all(self) -> List[str]:
-        """Return a list of available character filenames."""
-        os.makedirs(CHAR_DIR, exist_ok=True)
-        return [f for f in os.listdir(CHAR_DIR) if f.endswith(".json")]
+        """Return a list of available character 'filenames' (simulating legacy format) from MongoDB."""
+        if self.collection is None:
+            return []
+
+        try:
+            chars = self.collection.find({}, {"char_name": 1, "char_id": 1})
+            result = []
+            for c in chars:
+                name = c.get("char_name", "unknown")
+                cid = c.get("char_id", "unknown")
+                # Format exactly like legacy files for UI compatibility
+                result.append(f"{name.replace(' ', '_').lower()}_{cid}.json")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to list characters: {e}")
+            return []
 
     def delete(self, filename: str) -> bool:
-        """Delete a character JSON file and its portrait."""
-        filepath = os.path.join(CHAR_DIR, filename)
-        if os.path.exists(filepath):
-            try:
-                # Load char to get portrait path
-                char_data = self.load(filename)
-                if char_data and char_data.get("char_portrait"):
-                    portrait_path = char_data.get("char_portrait")
-                    if os.path.exists(portrait_path):
-                        os.remove(portrait_path)
-                        logger.info(f"Deleted portrait {portrait_path}")
+        """Delete a character from MongoDB."""
+        if self.collection is None:
+            return False
 
-                os.remove(filepath)
-                return True
-            except Exception as e:
-                logger.error(f"Failed to delete character file: {e}")
-                return False
-        return False
+        char_id = filename.replace(".json", "").split("_")[-1]
+        try:
+            result = self.collection.delete_one({"char_id": char_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Failed to delete character: {e}")
+            return False
