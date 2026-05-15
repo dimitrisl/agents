@@ -187,7 +187,7 @@ def _render_campaign_notes():
                 st.session_state.campaign_notes, party_info
             )
 
-    if st.session_state.session_prep_result:
+    if st.session_state.get("session_prep_result"):
         st.info(st.session_state.session_prep_result)
 
 
@@ -370,7 +370,7 @@ def _render_ai_generators():
                 st.session_state.riddle_result = generate_riddle(
                     location, edition=st.session_state.dnd_edition
                 )
-        if st.session_state.encounter_result:
+        if st.session_state.get("encounter_result"):
             res = st.session_state.encounter_result
             if isinstance(res, dict):
                 st.markdown(res.get("encounter_text", ""))
@@ -449,7 +449,7 @@ def _render_ai_generators():
                 st.session_state.npc_result = generate_npc(
                     npc_concept, edition=st.session_state.dnd_edition
                 )
-        if st.session_state.npc_result:
+        if st.session_state.get("npc_result"):
             st.info(st.session_state.npc_result)
 
 

@@ -98,7 +98,9 @@ def render_player_dashboard(accent_color: str):
     if not st.session_state.character_active:
         render_selection_screen()
     else:
-        col1, col2, col3 = st.columns([3, 1, 1])
+        import json
+
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
         with col1:
             pass  # Title removed for cleaner UI
         with col2:
@@ -126,6 +128,21 @@ def render_player_dashboard(accent_color: str):
                         st.session_state.character_active = False
                     st.rerun()
         with col3:
+            if st.session_state.player_view == "sheet":
+                from backend.utils.export_utils import convert_to_vtt_format
+
+                char_dict = get_character_dict(st.session_state)
+                vtt_char = convert_to_vtt_format(char_dict)
+                json_str = json.dumps(vtt_char, indent=4)
+
+                st.download_button(
+                    label="💾 Export for VTT",
+                    data=json_str,
+                    file_name=f"{char_dict['char_name'].replace(' ', '_').lower()}_vtt.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+        with col4:
             if st.button("🔄 Exit Hero", width="stretch"):
                 # Clear critical session state before exiting
                 from backend.core.state_manager import init_session_state
@@ -1649,6 +1666,34 @@ def run_level_up_wizard():
             feat_names = list(feat_map.keys())
 
             temp["selected_feat"] = st.selectbox("Select Feat:", options=feat_names)
+
+            # --- Prerequisite Validation ---
+            selected_feat_data = feat_map.get(temp["selected_feat"], {})
+            prereqs = selected_feat_data.get("prerequisites", {})
+            if isinstance(prereqs, dict):
+                prereq_warnings = []
+                min_lvl = prereqs.get("min_level", 0)
+                if min_lvl > 0 and target_lv < min_lvl:
+                    prereq_warnings.append(
+                        f"Requires **Level {min_lvl}+** (you will be Level {target_lv})"
+                    )
+                stat_reqs = prereqs.get("stat_requirements", {})
+                current_stats = st.session_state.stats
+                for stat_key, min_val in stat_reqs.items():
+                    char_val = current_stats.get(stat_key, 10)
+                    if char_val < min_val:
+                        prereq_warnings.append(
+                            f"Requires **{stat_key} {min_val}+** (yours is {char_val})"
+                        )
+                other_reqs = prereqs.get("other", [])
+                if other_reqs:
+                    prereq_warnings.append(
+                        f"Other requirements: {', '.join(other_reqs)}"
+                    )
+                if prereq_warnings:
+                    st.warning(
+                        "⚠️ **Prerequisite Warning:**\n- " + "\n- ".join(prereq_warnings)
+                    )
 
             # --- Sync Feat Mechanics ---
             if st.button("🔍 Sync Feat Mechanics"):

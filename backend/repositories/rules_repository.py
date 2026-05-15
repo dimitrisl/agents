@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 from functools import lru_cache
-from backend.core.constants import EDITION_2014
+from backend.core.constants import EDITION_2014, EDITION_2024
 
 logger = logging.getLogger("DnDAssistant.RulesRepo")
 
@@ -64,7 +64,7 @@ class RulesRepository:
         """
         Loads all feats for the specified edition.
         """
-        filename = f"feats_{'2024' if edition == '2024' else '2014'}.json"
+        filename = f"feats_{'2024' if edition == EDITION_2024 else '2014'}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         return _load_json(filepath)
 

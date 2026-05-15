@@ -40,6 +40,8 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
+        "initiative_bonus": 5,
+        "initiative_proficiency": false,
         "has_stat_choice": false,
         "stat_choice_options": []
     },

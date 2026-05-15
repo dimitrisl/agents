@@ -18,6 +18,8 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
+        "initiative_bonus": 0,
+        "initiative_proficiency": true,
         "has_stat_choice": false
     },
     {

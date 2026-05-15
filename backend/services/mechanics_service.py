@@ -415,15 +415,28 @@ def sync_character_stats(
     # Generate standard hit dice string (e.g. "5d8")
     char_data["hit_dice"] = f"{level}{hit_die_size}"
 
-    # Check for HP bonuses per level (e.g. Tough feat, Hill Dwarf)
+    # Check for HP bonuses per level from structured feat data
     hp_bonus_per_level = 0
     features = char_data.get("features_traits", [])
+
+    # Load the structured feat library for this edition
+    feat_library = repo.get_all_feats(edition)
+    feat_lookup = {f["name"].lower(): f for f in feat_library}
+
     for f in features:
-        desc = f.get("description", "").lower()
-        if "tough" in f.get("name", "").lower() or "toughness" in desc:
-            hp_bonus_per_level += 2
-        if "dwarven toughness" in desc:
-            hp_bonus_per_level += 1
+        feat_name = f.get("name", "").lower()
+        # Strip "Feat: " prefix added during level-up
+        clean_name = feat_name.replace("feat: ", "").strip()
+
+        # Look up in structured data first
+        feat_data = feat_lookup.get(clean_name)
+        if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
+            hp_bonus_per_level += feat_data["hp_bonus_per_level"]
+        else:
+            # Fallback: check description for racial traits (e.g., Dwarven Toughness)
+            desc = f.get("description", "").lower()
+            if "dwarven toughness" in desc:
+                hp_bonus_per_level += 1
 
     # Calculate HP Max
     base_hp = calculate_hp(
@@ -457,11 +470,17 @@ def sync_character_stats(
         stats, prof_bonus, char_data.get("saving_throws", [])
     )
 
-    # Initiative
+    # Initiative (data-driven from structured feat JSON)
     init_bonus = 0
     for f in features:
-        if "alert" in f.get("name", "").lower():
-            init_bonus += 5
+        feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
+        feat_data = feat_lookup.get(feat_name)
+        if feat_data:
+            # Flat initiative bonus (e.g. 2014 Alert = +5)
+            init_bonus += feat_data.get("initiative_bonus", 0)
+            # Proficiency-based initiative (e.g. 2024 Alert)
+            if feat_data.get("initiative_proficiency", False):
+                init_bonus += prof_bonus
 
     char_data["initiative_modifier"] = get_modifier(dex_score) + init_bonus
 

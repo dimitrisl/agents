@@ -143,6 +143,17 @@ def init_session_state(state: Any, force: bool = False):
         "dnd_edition": "2014 Edition",
         "temp_forged_char": None,
         "validation_result": None,
+        # DM Workspace state
+        "party": [],
+        "active_campaign_name": None,
+        "campaign_notes": "",
+        "campaign_party_files": [],
+        "session_prep_result": None,
+        "encounter_result": None,
+        "npc_result": None,
+        "riddle_result": None,
+        "initiative_order": [],
+        "active_turn_index": 0,
     }
     for k, v in extra_fields.items():
         if force or _get_val(state, k) is None:
