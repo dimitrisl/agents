@@ -96,6 +96,7 @@ class CharacterSchema(BaseModel):
     languages: List[str] = []
     tool_proficiencies: List[str] = []
     char_portrait: Optional[str] = None
+    playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
 

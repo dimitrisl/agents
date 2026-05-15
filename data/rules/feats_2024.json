@@ -1,104 +1,790 @@
 [
     {
         "name": "Alert",
-        "prerequisites": "None",
-        "description": "Initiative Proficiency and Initiative Swap.",
-        "category": "Origin Feats"
+        "description": "Always on the lookout for danger, you gain the following benefits:\n- **Initiative Proficiency.** You gain proficiency in Initiative.\n- **Initiative Swap.** Immediately after you roll Initiative, you can swap your Initiative with the Initiative of one willing ally in the same combat.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
         "name": "Magic Initiate",
-        "prerequisites": "None",
-        "description": "Two Cantrips and one Level 1 Spell from a chosen list.",
-        "category": "Origin Feats"
+        "description": "You have learned the basics of magic. You gain the following benefits:\n- **Two Cantrips.** You learn two Cantrips of your choice from the Cleric, Druid, or Wizard spell list.\n- **Level 1 Spell.** You learn one Level 1 spell of your choice from that same list. You always have it prepared and can cast it once without a spell slot per long rest. You can also cast it using spell slots.\n- **Spellcasting Ability.** Choose Intelligence, Wisdom, or Charisma as your spellcasting ability for these spells.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Musician",
+        "description": "You are a master of musical instruments. You gain the following benefits:\n- **Tool Proficiency.** You gain proficiency with three Musical Instruments of your choice.\n- **Inspirational Song.** As you finish a Short or Long Rest, you can play a song to give Inspiration to a number of allies equal to your Proficiency Bonus.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
         "name": "Savage Attacker",
-        "prerequisites": "None",
-        "description": "Roll weapon damage twice and use either roll once per turn.",
-        "category": "Origin Feats"
+        "description": "You have learned to strike with lethal force. Once per turn when you hit a creature with a weapon, you can roll the weapon's damage dice twice and use either roll.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
         "name": "Skilled",
-        "prerequisites": "None",
-        "description": "Proficiency in any combination of three skills or tools.",
-        "category": "Origin Feats"
+        "description": "You gain proficiency in any combination of three Skills or Tool proficiencies of your choice.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Tavern Brawler",
+        "description": "You are adept at fighting with whatever is at hand. You gain the following benefits:\n- **Enhanced Unarmed Strike.** Your unarmed strikes deal 1d4 + Strength modifier damage.\n- **Furniture Smasher.** You are proficient with Improvised Weapons.\n- **Push.** When you hit a creature with an unarmed strike, you can push them 5 feet away.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
         "name": "Ability Score Improvement",
-        "prerequisites": "Level 4+",
-        "description": "Increase one score by 2 or two scores by 1.",
-        "category": "General Feats"
+        "description": "You increase one ability score of your choice by 2, or two ability scores of your choice by 1. You can't increase a score above 20 using this feat.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Actor",
+        "description": "Skilled at mimicry and dramatics, you gain the following benefits:\n- **Ability Score Increase.** Increase your Charisma score by 1, to a maximum of 20.\n- **Mimicry.** You can mimic the speech of another person or the sounds made by other creatures.\n- **Performance.** You have Advantage on Charisma (Performance) checks.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "CHA": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 1
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Charger",
+        "description": "You've learned to use your momentum to strike with power. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Improved Dash.** When you take the Dash action, your movement doesn't provoke Opportunity Attacks.\n- **Charge Attack.** If you move 10ft in a straight line before an attack, you deal +1d8 damage.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
+    },
+    {
+        "name": "Crusher",
+        "description": "You are practiced in the art of using bludgeoning weapons. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Constitution score by 1, to a maximum of 20.\n- **Push.** When you hit a creature with bludgeoning damage, you can move it 5 feet.\n- **Critical Crush.** When you score a Critical Hit with bludgeoning damage, attacks against that creature have Advantage until your next turn.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "CON": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON"
+        ]
+    },
+    {
+        "name": "Dual Wielder",
+        "description": "You master fighting with two weapons. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Enhanced Dual Wielding.** When you take the Attack action and attack with a Light weapon, you can make one extra attack with a different Light weapon as part of the same action.\n- **Quick Draw.** You can draw or stow two weapons when you would normally draw or stow one.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
     },
     {
         "name": "Grappler",
-        "prerequisites": "Level 4+, Strength or Dexterity 13+",
-        "description": "ASI +1, Punch and Grab, Attack Advantage, Fast Wrestler.",
-        "category": "General Feats"
+        "description": "You are a master at close-quarters combat. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Punch and Grab.** When you hit a creature with an Unarmed Strike as part of the Attack action, you can deal damage and also Grapple the target as part of the same attack.\n- **Attack Advantage.** You have Advantage on attack rolls against a creature Grappled by you.\n- **Fast Wrestler.** Your speed isn't halved while you are dragging or carrying a Grappled creature.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
     },
     {
-        "name": "Archery",
-        "prerequisites": "Fighting Style Feature",
-        "description": "+2 to ranged attack rolls.",
-        "category": "Fighting Style Feats"
+        "name": "Great Weapon Master",
+        "description": "You've learned to use the weight of a weapon to your advantage. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength score by 1, to a maximum of 20.\n- **Heavy Weapon Mastery.** When you hit a creature with a Heavy weapon as part of the Attack action, you can add your Proficiency Bonus to the damage roll.\n- **Hew.** When you score a Critical Hit with a Melee weapon or reduce a creature to 0 HP with one, you can make one melee attack as a Bonus Action.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "STR": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 1,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
-        "name": "Defense",
-        "prerequisites": "Fighting Style Feature",
-        "description": "+1 to AC while wearing armor.",
-        "category": "Fighting Style Feats"
+        "name": "Heavily Armored",
+        "description": "You have trained to use Heavy Armor. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Constitution score by 1, to a maximum of 20.\n- **Armor Proficiency.** You gain proficiency with Heavy Armor.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {},
+            "other": [
+                "Level 4+, Medium Armor Proficiency"
+            ]
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON"
+        ]
     },
     {
-        "name": "Great Weapon Fighting",
-        "prerequisites": "Fighting Style Feature",
-        "description": "Reroll 1s and 2s on two-handed/versatile melee damage.",
-        "category": "Fighting Style Feats"
+        "name": "Infiltrator",
+        "description": "You are an expert at stealth and infiltration. You gain the following benefits:\n- **Ability Score Increase.** Increase your Dexterity score by 1, to a maximum of 20.\n- **Infiltrator's Tools.** You gain proficiency with Thieves' Tools.\n- **Stalker.** You have Advantage on Dexterity (Stealth) checks.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 1,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
-        "name": "Two-Weapon Fighting",
-        "prerequisites": "Fighting Style Feature",
-        "description": "Add modifier to extra attack damage.",
-        "category": "Fighting Style Feats"
+        "name": "Inspiring Leader",
+        "description": "You can hearten your companions with your words. You gain the following benefits:\n- **Ability Score Increase.** Increase your Wisdom or Charisma score by 1, to a maximum of 20.\n- **Bolster Allies.** At the end of a Short or Long Rest, you can give Temporary Hit Points to up to six allies equal to your Level + Ability Modifier.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "CHA": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "WIS",
+            "CHA"
+        ]
     },
     {
-        "name": "Boon of Combat Prowess",
-        "prerequisites": "Level 19+",
-        "description": "ASI +1, Turn a miss into a hit once per turn.",
-        "category": "Epic Boon Feats"
+        "name": "Keen Mind",
+        "description": "Your mind is a steel trap. You gain the following benefits:\n- **Ability Score Increase.** Increase your Intelligence score by 1, to a maximum of 20.\n- **Quick Study.** You can take the Search action as a Bonus Action.\n- **Memory.** You accurately recall anything seen or heard within the last month.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "INT": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 1,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
-        "name": "Boon of Dimensional Travel",
-        "prerequisites": "Level 19+",
-        "description": "ASI +1, Teleport 30ft after Attack or Magic action.",
-        "category": "Epic Boon Feats"
+        "name": "Lightly Armored",
+        "description": "You have trained to use Light Armor and Shields. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Armor Proficiency.** You gain proficiency with Light Armor and Shields.",
+        "prerequisites": {
+            "min_level": 1,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
     },
     {
-        "name": "Boon of Fate",
-        "prerequisites": "Level 19+",
-        "description": "ASI +1, Add/subtract 2d4 to a d20 test within 60ft.",
-        "category": "Epic Boon Feats"
+        "name": "Mobile",
+        "description": "You are exceptionally fleet of foot. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Speed Increase.** Your walking speed increases by 10 feet.\n- **Agile.** When you make a melee attack, you don't provoke Opportunity Attacks from that target for the rest of the turn.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
     },
     {
-        "name": "Boon of Irresistible Offense",
-        "prerequisites": "Level 19+",
-        "description": "ASI +1, Ignore resistance to physical damage, extra damage on Nat 20.",
-        "category": "Epic Boon Feats"
+        "name": "Observant",
+        "description": "You are highly aware of your surroundings. You gain the following benefits:\n- **Ability Score Increase.** Increase your Intelligence or Wisdom score by 1, to a maximum of 20.\n- **Quick Search.** You can take the Search action as a Bonus Action.\n- **Lip Reading.** You can understand what people are saying by reading their lips.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "WIS": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS"
+        ]
     },
     {
-        "name": "Boon of Spell Recall",
-        "prerequisites": "Level 19+, Spellcasting",
-        "description": "ASI +1, Chance to not expend slots for levels 1-4.",
-        "category": "Epic Boon Feats"
+        "name": "Polearm Master",
+        "description": "You are a master of reach weapons. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Butt-End Attack.** When you take the Attack action with a Glaive, Halberd, Quarterstaff, or Spear, you can use a Bonus Action to make a melee attack with the other end (1d4 damage).\n- **Reactive Strike.** While you are wielding one of these weapons, creatures provoke an Opportunity Attack when they enter your reach.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
     },
     {
-        "name": "Boon of the Night Spirit",
-        "prerequisites": "Level 19+",
-        "description": "ASI +1, Invisibility and resistance in dim light/darkness.",
-        "category": "Epic Boon Feats"
+        "name": "Resilient",
+        "description": "You have developed the stamina to withstand certain effects. You gain the following benefits:\n- **Ability Score Increase.** Increase one Ability Score of your choice by 1, to a maximum of 20.\n- **Saving Throw Proficiency.** You gain proficiency in Saving Throws using that chosen ability.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA"
+        ]
     },
     {
-        "name": "Boon of Truesight",
-        "prerequisites": "Level 19+",
-        "description": "ASI +1, Gain 60ft Truesight.",
-        "category": "Epic Boon Feats"
+        "name": "Sentinel",
+        "description": "You are a master at punishing those who try to flee. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Guardian.** When you hit a creature with an Opportunity Attack, the creature's speed becomes 0 for the rest of the turn.\n- **Intervene.** When a creature within 5ft makes an attack against a target other than you, you can use your Reaction to make a melee attack against the attacker.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
+    },
+    {
+        "name": "Sharpshooter",
+        "description": "You are a master of ranged combat. You gain the following benefits:\n- **Ability Score Increase.** Increase your Dexterity score by 1, to a maximum of 20.\n- **Long Shots.** Attacking at long range doesn't impose Disadvantage on your ranged attack rolls.\n- **Cover Ignore.** Your ranged attacks ignore Half and Three-Quarters Cover.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 1,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Shield Master",
+        "description": "You use your shield for both offense and defense. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength score by 1, to a maximum of 20.\n- **Shield Bash.** If you take the Attack action, you can use a Bonus Action to shove a creature within 5ft with your shield.\n- **Interpose Shield.** When you make a Dexterity Saving Throw against an effect that only targets you, you can add your Shield's AC bonus to the roll.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "STR": 13
+            },
+            "other": [
+                "Level 4+, Strength 13+, Shield Proficiency"
+            ]
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 1,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Slasher",
+        "description": "You've learned to use slashing weapons to slow your foes. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Hamstring.** When you hit a creature with slashing damage, you can reduce its speed by 10ft.\n- **Critical Bleed.** When you score a Critical Hit with slashing damage, the target has Disadvantage on all attacks until your next turn.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
+    },
+    {
+        "name": "Speedy",
+        "description": "You are exceptionally fast and agile. You gain the following benefits:\n- **Ability Score Increase.** Increase your Strength or Dexterity score by 1, to a maximum of 20.\n- **Speed Increase.** Your walking speed increases by 10 feet.\n- **Dash Maneuver.** When you take the Dash action on your turn, difficult terrain doesn't cost you extra movement for the rest of that turn.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "DEX": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
+    },
+    {
+        "name": "Telekinetic",
+        "description": "You learn to move things with your mind. You gain the following benefits:\n- **Ability Score Increase.** Increase your Intelligence, Wisdom, or Charisma score by 1, to a maximum of 20.\n- **Mage Hand.** You learn the *Mage Hand* cantrip. It is invisible and requires no components.\n- **Telekinetic Shove.** As a Bonus Action, you can try to telekinetically shove one creature within 30ft (DC 8 + Prof + Ability).",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "CHA": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Telepathic",
+        "description": "You awaken your mind's ability to communicate. You gain the following benefits:\n- **Ability Score Increase.** Increase your Intelligence, Wisdom, or Charisma score by 1, to a maximum of 20.\n- **Telepathy.** You can speak telepathically to any creature you can see within 60ft.\n- **Detect Thoughts.** You can cast *Detect Thoughts* once per long rest without a spell slot.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "CHA": 13
+            },
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Tough",
+        "description": "Your hit point maximum increases by an amount equal to twice your level when you gain this feat. Whenever you gain a level thereafter, your hit point maximum increases by an additional 2 hit points.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 2,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "War Caster",
+        "description": "You are a master of casting spells in the heat of battle. You gain the following benefits:\n- **Ability Score Increase.** Increase your Intelligence, Wisdom, or Charisma score by 1, to a maximum of 20.\n- **Combat Concentration.** You have Advantage on Concentration saves.\n- **Somatic Components.** You can perform somatic components even with weapons/shields in hand.\n- **Reactive Spell.** You can cast a spell as an Opportunity Attack.",
+        "prerequisites": {
+            "min_level": 4,
+            "stat_requirements": {
+                "CHA": 13
+            },
+            "other": [
+                "Spellcasting"
+            ]
+        },
+        "category": "General Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
+        ]
     }
 ]

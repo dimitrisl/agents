@@ -46,6 +46,8 @@ CHARACTER_FIELDS = [
     "active_campaign",
     "saving_throw_values",
     "initiative_modifier",
+    "languages",
+    "tool_proficiencies",
 ]
 
 
@@ -94,6 +96,14 @@ def get_default_character() -> Dict[str, Any]:
         "ideals": "Responsibility. I do what I must and obey just authority.",
         "bonds": "I'll never forget the crushing defeat my company suffered.",
         "flaws": "I have little respect for anyone who is not a proven warrior.",
+        "saving_throw_values": {},
+        "skill_expertise": [],
+        "advancements": [],
+        "weapon_masteries": [],
+        "playstyle_guide": "",
+        "initiative_modifier": 0,
+        "languages": ["Common"],
+        "tool_proficiencies": [],
     }
 
 
@@ -180,6 +190,45 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
                     "WIS": 10,
                     "CHA": 10,
                 }
-            elif field in ["equipment", "features_traits", "weapons"]:
+            elif field in ["skills", "spells", "saving_throw_values"]:
+                default = {}
+            elif field in [
+                "equipment",
+                "features_traits",
+                "weapons",
+                "saving_throws",
+                "skill_proficiencies",
+                "skill_expertise",
+                "advancements",
+                "weapon_masteries",
+            ]:
                 default = []
+            elif field in [
+                "char_name",
+                "backstory",
+                "personality_traits",
+                "ideals",
+                "bonds",
+                "flaws",
+                "playstyle_guide",
+                "race",
+                "gender",
+                "background",
+                "alignment",
+                "subclass",
+                "hit_dice",
+                "spell_attack_bonus",
+            ]:
+                default = ""
+            elif field in [
+                "armor_class",
+                "hp_max",
+                "speed",
+                "proficiency_bonus",
+                "passive_perception",
+                "initiative_modifier",
+                "char_level",
+                "spell_save_dc",
+            ]:
+                default = 0
             _set_val(state, field, default)

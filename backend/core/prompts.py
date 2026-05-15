@@ -80,7 +80,7 @@ Output the character strictly as a JSON object with exactly the following schema
     "skill_expertise": [],
     "weapon_masteries": ["Slow", "Topple"],
     "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage": "1d8+3 bludgeoning"}}],
-    "equipment": [{"name": "Chain mail", "equipped": true, "ac_base": 16}, {"name": "Shield", "equipped": true, "ac_bonus": 2}, {"name": "Backpack", "equipped": false}],
+    "equipment": [{{"name": "Chain mail", "equipped": true, "ac_base": 16}}, {{"name": "Shield", "equipped": true, "ac_bonus": 2}}, {{"name": "Backpack", "equipped": false}}],
     "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
     "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"]}},
     "spell_ability": "INT",
@@ -259,4 +259,27 @@ Return JSON:
     "languages": [],
     "tool_proficiencies": []
 }}
+"""
+
+
+# --- Feat Analysis ---
+FEAT_ANALYSIS_PROMPT = """
+Analyze the mechanical effects of the D&D {edition} feat: "{feat_name}".
+
+Extract the following technical details as a JSON object:
+{{
+    "description": "The full, official text of the feat.",
+    "stat_bonus": {{"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0}},
+    "hp_bonus_per_level": 0,
+    "hp_bonus_flat": 0,
+    "ac_bonus": 0,
+    "speed_bonus": 0,
+    "has_stat_choice": true,
+    "stat_choice_options": ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+}}
+
+Note:
+- If the feat gives a +1 to ANY stat of choice, set has_stat_choice to true and list all options.
+- If it gives a +1 to a specific stat (e.g. STR), set stat_bonus STR to 1 and has_stat_choice to false.
+- For the 'Tough' feat, hp_bonus_per_level should be 2.
 """

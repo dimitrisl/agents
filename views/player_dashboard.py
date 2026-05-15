@@ -10,6 +10,7 @@ from backend.services.forge_service import (
 from backend.services.rules_service import (
     validate_character_build,
     parse_character_from_text,
+    analyze_feat,
 )
 import pypdf
 from backend.core.storage import (
@@ -641,6 +642,22 @@ def _render_roleplay(edit_mode: bool):
         col_p2.write(f"**Bonds:** {st.session_state.bonds}")
         col_p2.write(f"**Flaws:** {st.session_state.flaws}")
 
+    st.markdown("---")
+    st.markdown("#### Languages & Tools")
+    if edit_mode:
+        st.session_state.languages = st.text_input(
+            "Languages (comma-separated)", ", ".join(st.session_state.languages)
+        ).split(", ")
+        st.session_state.tool_proficiencies = st.text_input(
+            "Tool Proficiencies (comma-separated)",
+            ", ".join(st.session_state.tool_proficiencies),
+        ).split(", ")
+    else:
+        st.write(f"**Languages:** {', '.join(st.session_state.languages)}")
+        st.write(
+            f"**Tool Proficiencies:** {', '.join(st.session_state.tool_proficiencies)}"
+        )
+
 
 def _render_core_stats(edit_mode: bool):
     """Renders ability scores, core attributes, and skills."""
@@ -733,7 +750,9 @@ def _render_core_stats(edit_mode: bool):
             column_config={
                 "Proficient": st.column_config.CheckboxColumn("P", help="Proficient?"),
                 "Expert": st.column_config.CheckboxColumn("E", help="Expertise?"),
-                "Bonus": st.column_config.NumberColumn("Bonus", disabled=False),
+                "Bonus": st.column_config.NumberColumn(
+                    "Bonus", disabled=True, help="Automatically calculated"
+                ),
             },
             disabled=["Skill"],
             hide_index=True,
@@ -757,15 +776,19 @@ def _render_core_stats(edit_mode: bool):
             st.session_state.skill_proficiencies = new_profs
             st.session_state.skill_expertise = new_exps
 
-        st.write(
-            "Saving Throws (Proficient):", ", ".join(st.session_state.saving_throws)
+        st.session_state.saving_throws = st.multiselect(
+            "Saving Throw Proficiencies",
+            options=["STR", "DEX", "CON", "INT", "WIS", "CHA"],
+            default=st.session_state.saving_throws,
         )
     else:
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Max HP", st.session_state.hp_max)
         c2.metric("Armor Class", st.session_state.armor_class)
-        c3.metric("Speed", f"{st.session_state.speed} ft")
-        c4.metric("Proficiency", f"+{st.session_state.proficiency_bonus}")
+        init_mod = st.session_state.get("initiative_modifier") or 0
+        c3.metric("Initiative", f"{'+' if init_mod >= 0 else ''}{init_mod}")
+        c4.metric("Speed", f"{st.session_state.speed} ft")
+        c5.metric("Proficiency", f"+{st.session_state.proficiency_bonus}")
 
         st.markdown("#### Ability Scores")
         c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -905,7 +928,10 @@ def _render_core_stats(edit_mode: bool):
         col_sk, col_sv = st.columns(2)
         with col_sk:
             st.markdown("#### Skills")
-            for k, v in st.session_state.skills.items():
+            skills = st.session_state.get("skills", {})
+            if skills is None:
+                skills = {}
+            for k, v in skills.items():
                 indicator = ""
                 if k in st.session_state.skill_proficiencies:
                     indicator = "● "
@@ -922,6 +948,8 @@ def _render_core_stats(edit_mode: bool):
         with col_sv:
             st.markdown("#### Saving Throws")
             saves = st.session_state.get("saving_throw_values", {})
+            if saves is None:
+                saves = {}
             for stat in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
                 prof = stat in st.session_state.saving_throws
                 indicator = "● " if prof else "○ "
@@ -984,7 +1012,10 @@ def _render_combat_inventory(edit_mode: bool):
             )
             st.rerun()
     else:
-        for i, w in enumerate(st.session_state.weapons):
+        weapons = st.session_state.get("weapons", [])
+        if weapons is None:
+            weapons = []
+        for i, w in enumerate(weapons):
             with st.container(border=True):
                 w_col1, w_col2, w_col3 = st.columns([3, 1, 1])
                 w_col1.markdown(f"🗡️ **{w.get('name', 'Unknown')}**")
@@ -1060,7 +1091,10 @@ def _render_combat_inventory(edit_mode: bool):
     # Standardize equipment format (List of Dicts)
     current_equip = []
     attuned_count = 0
-    for e in st.session_state.equipment:
+    equipment = st.session_state.get("equipment", [])
+    if equipment is None:
+        equipment = []
+    for e in equipment:
         if isinstance(e, dict):
             item_dict = {
                 "Item": e.get("name", ""),
@@ -1198,7 +1232,10 @@ def _render_features_spells(edit_mode: bool):
             st.session_state.features_traits, num_rows="dynamic", key="edit_features"
         )
     else:
-        for f in st.session_state.features_traits:
+        features = st.session_state.get("features_traits", [])
+        if features is None:
+            features = []
+        for f in features:
             name = f.get("name", "Feature")
             desc = f.get("description", "").replace(
                 "\n", "  \n"
@@ -1209,10 +1246,10 @@ def _render_features_spells(edit_mode: bool):
     st.markdown("#### Spells")
     if edit_mode:
         cs1, cs2, cs3 = st.columns(3)
-        options = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+        options = ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"]
         current_ability = st.session_state.spell_ability
         ability_index = (
-            options.index(current_ability) if current_ability in options else 3
+            options.index(current_ability) if current_ability in options else 0
         )
 
         st.session_state.spell_ability = cs1.selectbox(
@@ -1220,11 +1257,17 @@ def _render_features_spells(edit_mode: bool):
             options,
             index=ability_index,
         )
-        st.session_state.spell_save_dc = cs2.number_input(
-            "Spell Save DC", 0, 30, st.session_state.spell_save_dc
+        cs2.number_input(
+            "Spell Save DC (Derived)",
+            0,
+            30,
+            st.session_state.spell_save_dc,
+            disabled=True,
         )
-        st.session_state.spell_attack_bonus = cs3.text_input(
-            "Spell Attack Bonus", st.session_state.spell_attack_bonus
+        cs3.text_input(
+            "Spell Attack Bonus (Derived)",
+            st.session_state.spell_attack_bonus,
+            disabled=True,
         )
 
         flat_spells = []
@@ -1267,7 +1310,20 @@ def _render_features_spells(edit_mode: bool):
         if not st.session_state.spells:
             st.write("No spells known.")
         else:
-            for lvl, spell_list in st.session_state.spells.items():
+            if (
+                st.session_state.spell_ability
+                and st.session_state.spell_ability != "None"
+            ):
+                sc1, sc2, sc3 = st.columns(3)
+                sc1.metric("Ability", st.session_state.spell_ability)
+                sc2.metric("Save DC", st.session_state.spell_save_dc)
+                sc3.metric("Attack Bonus", st.session_state.spell_attack_bonus)
+                st.markdown("---")
+
+            spells = st.session_state.get("spells", {})
+            if spells is None:
+                spells = {}
+            for lvl, spell_list in spells.items():
                 st.write(
                     f"**{lvl.title().replace('_', ' ')}:** {', '.join(spell_list)}"
                 )
@@ -1594,25 +1650,83 @@ def run_level_up_wizard():
 
             temp["selected_feat"] = st.selectbox("Select Feat:", options=feat_names)
 
-            # Support for Half-Feats (+1 to a stat)
-            st.info("💡 Many feats provide a +1 bonus to an ability score.")
-            feat_stat = st.selectbox(
-                "Feat Stat Bonus (+1) - Optional:",
-                ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"],
-                key="feat_stat_bonus",
+            # --- Sync Feat Mechanics ---
+            if st.button("🔍 Sync Feat Mechanics"):
+                with st.spinner(
+                    f"Consulting the Oracle about {temp['selected_feat']}..."
+                ):
+                    analysis = analyze_feat(
+                        temp["selected_feat"], st.session_state.dnd_edition
+                    )
+                    temp["feat_analysis"] = analysis
+
+                    # Apply automated HP bonuses (e.g. Tough)
+                    hp_per_lvl = analysis.get("hp_bonus_per_level", 0)
+                    if hp_per_lvl > 0:
+                        extra_hp = hp_per_lvl * target_lv
+                        temp["hp_inc"] += extra_hp
+                        st.success(
+                            f"📈 Applied +{extra_hp} HP from {temp['selected_feat']}!"
+                        )
+
+                    # Suggest stat bonus
+                    if analysis.get("has_stat_choice"):
+                        st.info(
+                            f"💡 This feat allows a +1 to: {', '.join(analysis.get('stat_choice_options', []))}"
+                        )
+                    elif any(v > 0 for v in analysis.get("stat_bonus", {}).values()):
+                        bonus_stats = [
+                            k
+                            for k, v in analysis.get("stat_bonus", {}).items()
+                            if v > 0
+                        ]
+                        st.success(
+                            f"💡 This feat gives a +1 to: {', '.join(bonus_stats)}"
+                        )
+
+            # Support for Feats that provide an Ability Score Increase (+1)
+            feat_desc = feat_map.get(temp["selected_feat"], {}).get("description", "")
+            has_stat_increase = (
+                "increase your" in feat_desc.lower()
+                and "score by 1" in feat_desc.lower()
             )
-            temp["feat_stat_bonus"] = feat_stat if feat_stat != "None" else None
+
+            # Determine index for the selectbox
+            default_index = 0  # "None"
+            if "feat_analysis" in temp:
+                analysis = temp["feat_analysis"]
+                bonus_stats = [
+                    k for k, v in analysis.get("stat_bonus", {}).items() if v > 0
+                ]
+                if bonus_stats:
+                    stat_options = ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"]
+                    if bonus_stats[0] in stat_options:
+                        default_index = stat_options.index(bonus_stats[0])
+
+            if has_stat_increase or st.session_state.dnd_edition == EDITION_2024:
+                feat_stat = st.selectbox(
+                    "Feat Stat Bonus (+1):",
+                    ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"],
+                    index=default_index,
+                    key="feat_stat_bonus",
+                    help="Some feats (like Resilient) allow you to increase an ability score by 1. Select the stat here.",
+                )
+                temp["feat_stat_bonus"] = feat_stat if feat_stat != "None" else None
+            else:
+                # For feats like Tough that have NO stat bonus, we hide the selector
+                temp["feat_stat_bonus"] = None
 
             # Show description of selected feat
             if temp["selected_feat"]:
                 selected_feat_data = feat_map.get(temp["selected_feat"])
                 if selected_feat_data:
                     with st.expander("Feat Details", expanded=False):
-                        st.write(
-                            selected_feat_data.get(
-                                "description", "No description available."
-                            )
+                        desc = selected_feat_data.get(
+                            "description", "No description available."
                         )
+                        st.write(desc)
+
+                        # Removed AI completion button to avoid meta-text
                     temp["selected_feat_desc"] = selected_feat_data.get(
                         "description", ""
                     )

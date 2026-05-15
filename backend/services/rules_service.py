@@ -1,16 +1,19 @@
 import logging
 import json
+import re
 from backend.core.ai_client import generate_ai_response, generate_ai_json
 from backend.core.prompts import (
     RULES_ORACLE_PROMPT,
     BUILD_VALIDATION_PROMPT,
     PDF_PARSING_STEP1_PROMPT,
     PDF_PARSING_STEP2_PROMPT,
+    FEAT_ANALYSIS_PROMPT,
 )
 from backend.core.constants import EDITION_2014
 
 from backend.core.schemas import CharacterSchema, BuildValidationSchema
 from backend.repositories.rules_repository import RulesRepository
+from backend.utils.api_client import fetch_feat_from_api
 
 logger = logging.getLogger("DnDAssistant.RulesService")
 
@@ -84,8 +87,83 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
         return final_raw
 
 
+def regex_parse_feat_attributes(description: str) -> dict:
+    """
+    Parses mechanical bonuses from feat text using regex (no AI).
+    Focuses on standard SRD patterns for HP and Stat boosts.
+    """
+    mechanics = {
+        "stat_bonus": {"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0},
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": False,
+        "stat_choice_options": [],
+    }
+
+    # 1. HP bonus (Tough)
+    if re.search(
+        r"hit point maximum increases by an amount equal to twice your level",
+        description,
+        re.I,
+    ):
+        mechanics["hp_bonus_per_level"] = 2
+    elif re.search(
+        r"hit point maximum increases by 1 for every level", description, re.I
+    ):
+        mechanics["hp_bonus_per_level"] = 1
+
+    # 2. Specific Stat bonuses (+1)
+    stat_map = {
+        "strength": "STR",
+        "dexterity": "DEX",
+        "constitution": "CON",
+        "intelligence": "INT",
+        "wisdom": "WIS",
+        "charisma": "CHA",
+    }
+    for full_name, short_name in stat_map.items():
+        if re.search(rf"Increase your {full_name} score by 1", description, re.I):
+            mechanics["stat_bonus"][short_name] = 1
+
+    # 3. Stat choice bonuses (e.g. "Strength or Dexterity")
+    choice_match = re.search(
+        r"Increase your (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) or (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) score by 1",
+        description,
+        re.I,
+    )
+    if choice_match:
+        mechanics["has_stat_choice"] = True
+        mechanics["stat_choice_options"] = [
+            stat_map[choice_match.group(1).lower()],
+            stat_map[choice_match.group(2).lower()],
+        ]
+
+    return mechanics
+
+
 def get_static_class_features(
     class_name: str, level: int, edition: str = EDITION_2014
 ) -> list:
     """Fetches features from the knowledge base if available."""
     return _rules_repo.get_features_at_level(class_name, level, edition)
+
+
+def analyze_feat(feat_name: str, edition: str = EDITION_2014) -> dict:
+    """Uses API first, then regex parsing for mechanical extraction."""
+    # Try API first
+    api_data = fetch_feat_from_api(feat_name)
+
+    if api_data:
+        description = api_data["description"]
+        # Use REGEX (no AI) to extract structured data from official text
+        mechanics = regex_parse_feat_attributes(description)
+        return {"description": description, "source": api_data["source"], **mechanics}
+
+    # Full AI Fallback for Homebrew/Non-SRD (since it's not in the API)
+    # We still use the AI here because if it's not in the official SRD,
+    # we have no text to parse with regex!
+    prompt = FEAT_ANALYSIS_PROMPT.format(
+        feat_name=feat_name,
+        edition=edition,
+    )
+    result = generate_ai_json(prompt)
+    return result or {}

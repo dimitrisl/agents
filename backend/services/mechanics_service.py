@@ -160,13 +160,43 @@ def calculate_ac(
 
 
 def calculate_passive_perception(
-    wis_score: int, proficiency_bonus: int, skills: List[str]
+    wis_score: int,
+    proficiency_bonus: int,
+    skills: List[str],
+    expertise: List[str] = None,
 ) -> int:
-    """Calculates Passive Perception."""
+    """Calculates Passive Perception, accounting for proficiency and expertise."""
     wis_mod = get_modifier(wis_score)
-    is_proficient = "Perception" in skills
-    bonus = proficiency_bonus if is_proficient else 0
+    bonus = 0
+    if "Perception" in (expertise or []):
+        bonus = proficiency_bonus * 2
+    elif "Perception" in skills:
+        bonus = proficiency_bonus
     return 10 + wis_mod + bonus
+
+
+def calculate_skills(
+    stats: Dict[str, int],
+    proficiency_bonus: int,
+    proficiencies: List[str],
+    expertise: List[str] = None,
+) -> Dict[str, int]:
+    """Calculates all skill modifiers based on ability scores and proficiencies."""
+    from backend.core.constants import SKILLS_BY_ABILITY
+
+    skills = {}
+    expertise_list = expertise or []
+
+    for ability, skill_list in SKILLS_BY_ABILITY.items():
+        mod = get_modifier(stats.get(ability, 10))
+        for skill in skill_list:
+            bonus = mod
+            if skill in expertise_list:
+                bonus += proficiency_bonus * 2
+            elif skill in proficiencies:
+                bonus += proficiency_bonus
+            skills[skill] = bonus
+    return skills
 
 
 def calculate_saving_throws(
@@ -179,6 +209,19 @@ def calculate_saving_throws(
         bonus = proficiency_bonus if stat in proficient_saves else 0
         saves[stat] = base_mod + bonus
     return saves
+
+
+def calculate_spell_stats(
+    ability: str, stats: Dict[str, int], proficiency_bonus: int
+) -> Dict[str, Any]:
+    """Calculates Spell Save DC and Spell Attack Bonus."""
+    ability_mod = get_modifier(stats.get(ability, 10))
+    dc = 8 + proficiency_bonus + ability_mod
+    atk = proficiency_bonus + ability_mod
+    return {
+        "spell_save_dc": dc,
+        "spell_attack_bonus": f"+{atk}" if atk >= 0 else str(atk),
+    }
 
 
 def calculate_weapon_stats(
@@ -252,6 +295,12 @@ def sync_character_stats(
             "WIS": getattr(stats_raw, "WIS", 10),
             "CHA": getattr(stats_raw, "CHA", 10),
         }
+    # Initialize saving_throw_values early to avoid crashes when applying item bonuses
+    if (
+        "saving_throw_values" not in char_data
+        or char_data["saving_throw_values"] is None
+    ):
+        char_data["saving_throw_values"] = {}
 
     level = char_data.get("char_level", 1)
     edition = char_data.get("dnd_edition", "2014 Edition")
@@ -389,7 +438,18 @@ def sync_character_stats(
 
     # Passive Perception
     char_data["passive_perception"] = calculate_passive_perception(
-        wis_score, prof_bonus, char_data.get("skill_proficiencies", [])
+        wis_score,
+        prof_bonus,
+        char_data.get("skill_proficiencies", []),
+        char_data.get("skill_expertise", []),
+    )
+
+    # Skills
+    char_data["skills"] = calculate_skills(
+        stats,
+        prof_bonus,
+        char_data.get("skill_proficiencies", []),
+        char_data.get("skill_expertise", []),
     )
 
     # Saving Throws
@@ -416,6 +476,13 @@ def sync_character_stats(
             w_dict = w.model_dump()
             updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
     char_data["weapons"] = updated_weapons
+
+    # Spell Stats
+    spell_ability = char_data.get("spell_ability")
+    if spell_ability and spell_ability != "None":
+        spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
+        char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
+        char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
 
     return char_data
 

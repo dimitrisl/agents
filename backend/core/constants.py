@@ -374,3 +374,12 @@ PDF_PORTRAIT_X = 45
 PDF_PORTRAIT_Y = 450
 PDF_PORTRAIT_WIDTH = 175
 PDF_PORTRAIT_HEIGHT = 180
+
+# Skill-to-Ability Mapping
+SKILLS_BY_ABILITY = {
+    "STR": ["Athletics"],
+    "DEX": ["Acrobatics", "Sleight of Hand", "Stealth"],
+    "INT": ["Arcana", "History", "Investigation", "Nature", "Religion"],
+    "WIS": ["Animal Handling", "Insight", "Medicine", "Perception", "Survival"],
+    "CHA": ["Deception", "Intimidation", "Performance", "Persuasion"],
+}
