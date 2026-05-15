@@ -23,7 +23,9 @@ def get_db():
         return None
 
     try:
-        _client = MongoClient(uri)
+        import certifi
+
+        _client = MongoClient(uri, tlsCAFile=certifi.where())
         # We explicitly name the database 'phyrexiadb'
         _db = _client["phyrexiadb"]
         logger.info("Successfully connected to MongoDB Atlas.")
