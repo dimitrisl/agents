@@ -12,14 +12,14 @@ from backend.services.rules_service import (
     parse_character_from_text,
 )
 import pypdf
-from backend.storage import (
+from backend.core.storage import (
     save_character,
     load_character,
     list_characters,
     delete_character,
     list_campaigns,
 )
-from backend.state_manager import (
+from backend.core.state_manager import (
     get_character_dict,
     update_session_from_dict,
 )
@@ -28,10 +28,10 @@ from backend.services.mechanics_service import (
     get_level_up_vitals,
     check_progression_features,
 )
-from backend.pdf_exporter import export_character_to_pdf
-from backend.ui_utils import render_character_header
-from backend.image_utils import generate_portrait_url
-from backend.constants import (
+from backend.utils.pdf_exporter import export_character_to_pdf
+from backend.utils.ui_utils import render_character_header
+from backend.utils.image_utils import generate_portrait_url
+from backend.core.constants import (
     EDITION_2014,
     EDITION_2024,
     RACES_2014,
@@ -127,7 +127,7 @@ def render_player_dashboard(accent_color: str):
         with col3:
             if st.button("🔄 Exit Hero", width="stretch"):
                 # Clear critical session state before exiting
-                from backend.state_manager import init_session_state
+                from backend.core.state_manager import init_session_state
 
                 st.session_state.character_active = False
                 init_session_state(st.session_state, force=True)  # Reset to defaults
@@ -151,7 +151,7 @@ def render_player_dashboard(accent_color: str):
                 ):
                     if st.session_state.char_name.strip():
                         trigger_sync()
-                        from backend.storage import save_character as save_to_disk
+                        from backend.core.storage import save_character as save_to_disk
 
                         char_data = get_character_dict(st.session_state)
                         save_to_disk(char_data)
@@ -238,7 +238,7 @@ def render_selection_screen():
         st.subheader("✨ Forge a New Hero")
         st.write("Let AI assist you in creating a brand new legendary character.")
         if st.button("Go to Character Forge", width="stretch"):
-            from backend.state_manager import init_session_state
+            from backend.core.state_manager import init_session_state
 
             # Force a reset to default values (New Hero)
             init_session_state(st.session_state, force=True)
@@ -431,7 +431,7 @@ def render_active_character(accent_color: str):
             if col_camp2.button(
                 "🚪 Leave", key="leave_camp_btn", use_container_width=True
             ):
-                from backend.storage import remove_from_campaign
+                from backend.core.storage import remove_from_campaign
 
                 char_id = st.session_state.char_id
                 char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
@@ -448,7 +448,7 @@ def render_active_character(accent_color: str):
             if camps:
                 selected_camp = st.selectbox("Select Campaign to Join", camps)
                 if st.button("Request to Join"):
-                    from backend.storage import join_campaign
+                    from backend.core.storage import join_campaign
 
                     char_id = st.session_state.char_id
                     char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
@@ -785,7 +785,7 @@ def _render_core_stats(edit_mode: bool):
             )
             # Add the roll button below the visual box
             if st.button("🎲 Roll", key=f"p_roll_{label}"):
-                from backend.dice import quick_roll
+                from backend.utils.dice import quick_roll
 
                 res, raw = quick_roll(20, mod)
                 log_roll(f"**{label}** Check: **{res}** (d20: {raw}, Mod: {mod_str})")
@@ -869,7 +869,7 @@ def _render_core_stats(edit_mode: bool):
             if st.button(
                 "Roll!", type="primary", use_container_width=True, key="custom_roll_btn"
             ):
-                from backend.dice import quick_roll
+                from backend.utils.dice import quick_roll
 
                 # Calculate total modifier
                 total_mod = p_extra
@@ -915,7 +915,7 @@ def _render_core_stats(edit_mode: bool):
                 sc1, sc2 = st.columns([4, 1])
                 sc1.write(f"{indicator}**{k}:** {v}")
                 if sc2.button("🎲", key=f"roll_skill_{k}"):
-                    from backend.dice import quick_roll
+                    from backend.utils.dice import quick_roll
 
                     res, raw = quick_roll(20, v)
                     log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
@@ -933,7 +933,7 @@ def _render_core_stats(edit_mode: bool):
                 svc1, svc2 = st.columns([4, 1])
                 svc1.write(f"{indicator}**{stat}:** {total_sv}")
                 if svc2.button("🎲", key=f"roll_sv_{stat}"):
-                    from backend.dice import quick_roll
+                    from backend.utils.dice import quick_roll
 
                     res, raw = quick_roll(20, total_sv)
                     log_roll(
@@ -993,7 +993,7 @@ def _render_combat_inventory(edit_mode: bool):
                 )
 
                 if w_col2.button("🎯 To Hit", key=f"atk_{i}", use_container_width=True):
-                    from backend.dice import quick_roll
+                    from backend.utils.dice import quick_roll
 
                     atk_bonus_str = str(w.get("attack_bonus", "+0")).replace("+", "")
                     try:
@@ -1019,7 +1019,7 @@ def _render_combat_inventory(edit_mode: bool):
                         st.error("NATURAL 1! 💀")
 
                 if w_col3.button("💥 Dmg", key=f"dmg_{i}", use_container_width=True):
-                    from backend.dice import roll_dice
+                    from backend.utils.dice import roll_dice
 
                     dmg_str = w.get("damage", "1d4")
                     global_dmg = getattr(st.session_state, "global_damage_bonus", 0)
@@ -1038,7 +1038,7 @@ def _render_combat_inventory(edit_mode: bool):
     if st.session_state.dnd_edition == "2024 Revision (5.5e)":
         st.markdown("#### ⚔️ Weapon Masteries")
         if edit_mode:
-            from backend.constants import WEAPON_MASTERIES_2024
+            from backend.core.constants import WEAPON_MASTERIES_2024
 
             st.session_state.weapon_masteries = st.multiselect(
                 "Mastered Properties:",

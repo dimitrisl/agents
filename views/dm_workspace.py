@@ -8,16 +8,16 @@ from backend.services.dm_service import (
     generate_random_encounter,
     generate_riddle,
 )
-from backend.storage import (
+from backend.core.storage import (
     save_campaign,
     load_campaign,
     list_campaigns,
     list_characters,
     load_character,
 )
-from backend.image_utils import generate_portrait_url
+from backend.utils.image_utils import generate_portrait_url
 from backend.services.mechanics_service import get_modifier as calculate_modifier
-from backend.constants import (
+from backend.core.constants import (
     EDITION_2014,
     RACES_2014,
     CLASSES_2014,
@@ -243,7 +243,7 @@ def _render_party_tracker():
                         st.session_state.party.append(char_data)
 
                         # Persist to campaign file
-                        from backend.storage import join_campaign
+                        from backend.core.storage import join_campaign
 
                         join_campaign(
                             st.session_state.active_campaign_name, char_to_add
@@ -284,13 +284,13 @@ def _render_party_tracker():
                         result["char_portrait"] = portrait_path
 
                     # Save to disk
-                    from backend.storage import save_character
+                    from backend.core.storage import save_character
 
                     if save_character(result):
                         st.session_state.party.append(result)
 
                         # Persist to campaign file
-                        from backend.storage import join_campaign
+                        from backend.core.storage import join_campaign
 
                         char_filename = f"{result['char_name'].replace(' ', '_').lower()}_{result['char_id']}.json"
                         join_campaign(
@@ -318,7 +318,7 @@ def _render_party_tracker():
                 pp = 10 + calculate_modifier(member["stats"]["WIS"])
                 c4.metric("Perc.", f"{pp}")
                 if c5.button("🗑️", key=f"rem_party_{i}"):
-                    from backend.storage import remove_from_campaign
+                    from backend.core.storage import remove_from_campaign
 
                     char_id = member.get("char_id")
                     char_filename = f"{member['char_name'].replace(' ', '_').lower()}_{char_id}.json"
@@ -396,7 +396,7 @@ def _render_ai_generators():
                                 # Basic initiative roll based on DEX
                                 dex_val = m.get("dex", 10)
                                 dex_mod = (dex_val - 10) // 2
-                                from backend.dice import quick_roll
+                                from backend.utils.dice import quick_roll
 
                                 init_roll, _ = quick_roll(20, dex_mod)
 
@@ -746,7 +746,7 @@ def _render_initiative_tracker():
                     )
                     mod = st.number_input("Mod", value=0, key=f"roll_m_{c['id']}_{i}")
                     if st.button("Roll", key=f"roll_b_{c['id']}_{i}"):
-                        from backend.dice import quick_roll
+                        from backend.utils.dice import quick_roll
 
                         res, raw = quick_roll(d_type, mod)
                         st.toast(f"🎲 {c['name']} rolled: {res}")
@@ -787,7 +787,7 @@ def _render_party_dashboard():
                     if r_cols[j % 3].button(
                         f"{stat}\n{mod_str}", key=f"dash_roll_{stat}_{i}"
                     ):
-                        from backend.dice import quick_roll
+                        from backend.utils.dice import quick_roll
 
                         res, raw = quick_roll(20, mod)
                         st.toast(f"{member['char_name']} rolled {stat}: {res}")

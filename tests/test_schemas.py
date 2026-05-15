@@ -1,4 +1,4 @@
-from backend.schemas import (
+from backend.core.schemas import (
     StatBlock,
     CharacterSchema,
     SpellList,

@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from typing import List, Optional
-from backend.schemas import CharacterSchema
+from backend.core.schemas import CharacterSchema
 
 logger = logging.getLogger("DnDAssistant.CharacterRepo")
 

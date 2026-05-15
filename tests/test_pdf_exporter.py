@@ -1,5 +1,5 @@
 import pytest
-from backend.pdf_exporter import PDFMappingProvider, export_character_to_pdf
+from backend.utils.pdf_exporter import PDFMappingProvider, export_character_to_pdf
 
 
 @pytest.fixture

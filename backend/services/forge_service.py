@@ -1,14 +1,14 @@
 import logging
-from backend.ai_client import generate_ai_response, generate_ai_json
+from backend.core.ai_client import generate_ai_response, generate_ai_json
 from backend.services.rules_service import (
     get_static_class_features,
 )
-from backend.prompts import (
+from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
     PLAYSTYLE_GUIDE_PROMPT,
     LEVEL_UP_ANALYSIS_PROMPT,
 )
-from backend.constants import (
+from backend.core.constants import (
     EDITION_2014,
     RACES_2014,
     CLASSES_2014,
@@ -19,7 +19,7 @@ from backend.constants import (
     GENDERS,
 )
 
-from backend.schemas import CharacterSchema, LevelUpAnalysisSchema
+from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
 from backend.services.mechanics_service import sync_character_stats
 from backend.repositories.rules_repository import RulesRepository
 

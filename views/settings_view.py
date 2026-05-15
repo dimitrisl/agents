@@ -1,5 +1,5 @@
 import streamlit as st
-from backend.config_loader import load_config, save_config
+from backend.core.config_loader import load_config, save_config
 
 
 def render_settings_view():
@@ -103,7 +103,7 @@ def render_settings_view():
         if st.confirm("Are you sure you want to reset all settings to defaults?"):
             # We don't have a direct delete, but we can save the DEFAULT_CONFIG
             # from config_loader if we expose it. For now, let's just clear.
-            from backend.config_loader import DEFAULT_CONFIG
+            from backend.core.config_loader import DEFAULT_CONFIG
 
             save_config(DEFAULT_CONFIG)
             st.rerun()

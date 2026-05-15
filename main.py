@@ -1,12 +1,12 @@
 import streamlit as st
 import logging
 from dotenv import load_dotenv
-from backend.state_manager import init_session_state
-from backend.ui_utils import inject_custom_css
+from backend.core.state_manager import init_session_state
+from backend.utils.ui_utils import inject_custom_css
 from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
 from views.settings_view import render_settings_view
-from backend.constants import EDITION_2014, EDITION_2024
+from backend.core.constants import EDITION_2014, EDITION_2024
 
 # Load environment variables once at the entry point
 load_dotenv()

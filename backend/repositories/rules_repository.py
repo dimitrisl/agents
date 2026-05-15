@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 from functools import lru_cache
-from backend.constants import EDITION_2014
+from backend.core.constants import EDITION_2014
 
 logger = logging.getLogger("DnDAssistant.RulesRepo")
 

@@ -4,7 +4,7 @@ import logging
 import streamlit as st
 from google import genai
 
-from backend.config_loader import load_config
+from backend.core.config_loader import load_config
 
 logger = logging.getLogger("DnDAssistant.AIClient")
 

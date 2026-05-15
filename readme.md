@@ -45,105 +45,82 @@
 ## 🏗️ Architecture
 
 ```mermaid
-graph TB
-    subgraph UI["🖥️ Streamlit UI Layer"]
-        MAIN["main.py<br/><i>Entry Point & Router</i>"]
-        PD["player_dashboard.py<br/><i>Character Sheet, Dice, Combat</i>"]
-        DM["dm_workspace.py<br/><i>Encounters, NPCs, Campaigns</i>"]
-        SV["settings_view.py<br/><i>Config & Preferences</i>"]
+graph LR
+    %% Layer 1: UI
+    subgraph UI ["🖥️ USER INTERFACE"]
+        direction TB
+        MAIN["<b>main.py</b><br/>Router & Entry"]
+        PD["<b>player_dashboard.py</b><br/>Player Hub"]
+        DM["<b>dm_workspace.py</b><br/>DM Tools"]
+        SV["<b>settings_view.py</b><br/>Preferences"]
     end
 
-    subgraph SERVICES["⚙️ Backend Services"]
-        FORGE["forge_service.py<br/><i>AI Character Generation<br/>Level Up Analysis</i>"]
-        MECH["mechanics_service.py<br/><i>HP, AC, Saves, Weapons<br/>stat sync engine</i>"]
-        RULES["rules_service.py<br/><i>AI Rules Oracle<br/>Build Validation</i>"]
-        DMS["dm_service.py<br/><i>Encounters, NPCs<br/>Session Prep</i>"]
+    %% Layer 2: Core Logic
+    subgraph CORE ["🔧 CORE & STATE"]
+        direction TB
+        AI["<b>core.ai_client</b><br/>Gemini Bridge"]
+        STATE["<b>core.state_manager</b><br/>Session State"]
+        STORAGE["<b>core.storage</b><br/>Domain Facade"]
+        SCHEMAS["<b>core.schemas</b><br/>Data Models"]
+        PROMPTS["<b>core.prompts</b><br/>AI Templates"]
     end
 
-    subgraph SUPPORT["🔧 Support Modules"]
-        DICE["dice.py<br/><i>Dice Parser & Roller</i>"]
-        SCHEMAS["schemas.py<br/><i>Pydantic Models</i>"]
-        STATE["state_manager.py<br/><i>Session State</i>"]
-        PDF["pdf_exporter.py<br/><i>PDF Character Sheets</i>"]
-        IMG["image_utils.py<br/><i>Portrait Generation</i>"]
-        AI["ai_client.py<br/><i>Gemini API Wrapper</i>"]
+    %% Layer 3: Services
+    subgraph SERVICES ["⚙️ SERVICES"]
+        direction TB
+        FORGE["<b>services.forge</b><br/>Character AI"]
+        MECH["<b>services.mechanics</b><br/>Stat Engine"]
+        RULES["<b>services.rules</b><br/>Rules Oracle"]
+        DMS["<b>services.dm_service</b><br/>Campaign AI"]
     end
 
-    subgraph REPOS["🗄️ Repositories"]
-        CHAR_REPO["CharacterRepository<br/><i>CRUD for Characters</i>"]
-        CAMP_REPO["CampaignRepository<br/><i>CRUD for Campaigns</i>"]
-        RULES_REPO["RulesRepository<br/><i>Classes, Feats, Items</i>"]
+    %% Layer 4: Infrastructure & Data
+    subgraph INFRA ["🛠️ UTILS & REPOS"]
+        direction TB
+        REPOS["<b>repositories</b><br/>Persistence Logic"]
+        PDF["<b>utils.pdf_exporter</b><br/>PDF Gen"]
+        IMG["<b>utils.image_utils</b><br/>Art Gen"]
+        DICE["<b>utils.dice</b><br/>Dice Engine"]
+        JSON[("<b>Local Files</b><br/>JSON Storage")]
     end
 
-    subgraph DATA["💾 Local JSON Storage"]
-        CHARS[("data/characters/")]
-        CAMPS[("data/campaigns/")]
-        CLASSES[("data/rules/classes/")]
-        FEATS[("data/rules/feats_*.json")]
-        ITEMS[("data/rules/items.json")]
+    %% Layer 5: External
+    subgraph EXTERNAL ["☁️ CLOUD"]
+        GEMINI["<b>Google Gemini</b><br/>LLM API"]
+        POLL["<b>Pollinations.ai</b><br/>Image API"]
     end
 
-    subgraph EXTERNAL["☁️ External APIs"]
-        GEMINI["Google Gemini<br/><i>LLM (Flash/Pro)</i>"]
-        POLL["Pollinations.ai<br/><i>Image Generation</i>"]
-    end
-
-    %% UI routing
+    %% Routing
     MAIN --> PD & DM & SV
 
-    %% Views → Services
-    PD --> FORGE & MECH & DICE & PDF & IMG
+    %% UI to Services & Utils
+    PD --> FORGE & MECH & RULES
+    PD --> PDF & IMG & DICE
     DM --> DMS & RULES
-    PD --> RULES
 
-    %% Views → State
-    PD --> STATE
-    DM --> STATE
+    %% Cross-cutting Core
+    PD & DM --> STATE
+    STATE & SERVICES --> STORAGE
+    STORAGE --> REPOS
+    REPOS --> JSON
 
-    %% Services → AI
-    FORGE --> AI
-    RULES --> AI
-    DMS --> AI
+    %% AI Chain
+    SERVICES --> AI
     AI --> GEMINI
-
-    %% Services → Repos
-    FORGE --> RULES_REPO
-    MECH --> RULES_REPO
-    RULES --> RULES_REPO
-
-    %% Services → Schemas
-    FORGE --> SCHEMAS
-    RULES --> SCHEMAS
-    DMS --> SCHEMAS
-    MECH --> SCHEMAS
-
-    %% Services internal
-    FORGE --> MECH
-
-    %% Repos → Data
-    CHAR_REPO --> CHARS
-    CAMP_REPO --> CAMPS
-    RULES_REPO --> CLASSES & FEATS & ITEMS
-
-    %% Storage facade
-    STATE --> CHAR_REPO & CAMP_REPO
-
-    %% Image
     IMG --> POLL
 
     %% Styling
-    classDef ui fill:#1a1a2e,stroke:#ff4b4b,color:#fff
-    classDef service fill:#16213e,stroke:#d4af37,color:#fff
-    classDef support fill:#0f3460,stroke:#53a8b6,color:#fff
-    classDef repo fill:#1b1b2f,stroke:#e94560,color:#fff
-    classDef data fill:#2d2d44,stroke:#888,color:#ccc
-    classDef ext fill:#0d0d1a,stroke:#7b68ee,color:#fff
+    classDef ui fill:#2d1a1a,stroke:#ff4b4b,stroke-width:2px,color:#fff
+    classDef core fill:#1a2d2d,stroke:#53a8b6,stroke-width:2px,color:#fff
+    classDef service fill:#1a1a2d,stroke:#d4af37,stroke-width:2px,color:#fff
+    classDef infra fill:#1d1d1d,stroke:#888,stroke-width:1px,color:#ccc
+    classDef data fill:#2d1a2d,stroke:#e94560,stroke-width:2px,color:#fff
+    classDef ext fill:#111,stroke:#7b68ee,stroke-width:2px,color:#fff
 
     class MAIN,PD,DM,SV ui
+    class AI,STATE,STORAGE,SCHEMAS,PROMPTS core
     class FORGE,MECH,RULES,DMS service
-    class DICE,SCHEMAS,STATE,PDF,IMG,AI support
-    class CHAR_REPO,CAMP_REPO,RULES_REPO repo
-    class CHARS,CAMPS,CLASSES,FEATS,ITEMS data
+    class REPOS,PDF,IMG,DICE,JSON infra
     class GEMINI,POLL ext
 ```
 

@@ -1,15 +1,15 @@
 import logging
 import json
-from backend.ai_client import generate_ai_response, generate_ai_json
-from backend.prompts import (
+from backend.core.ai_client import generate_ai_response, generate_ai_json
+from backend.core.prompts import (
     RULES_ORACLE_PROMPT,
     BUILD_VALIDATION_PROMPT,
     PDF_PARSING_STEP1_PROMPT,
     PDF_PARSING_STEP2_PROMPT,
 )
-from backend.constants import EDITION_2014
+from backend.core.constants import EDITION_2014
 
-from backend.schemas import CharacterSchema, BuildValidationSchema
+from backend.core.schemas import CharacterSchema, BuildValidationSchema
 from backend.repositories.rules_repository import RulesRepository
 
 logger = logging.getLogger("DnDAssistant.RulesService")

@@ -7,7 +7,7 @@ from pypdf import PdfReader, PdfWriter, generic
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from backend.services.mechanics_service import get_modifier as calculate_modifier
-from backend.constants import (
+from backend.core.constants import (
     PDF_PORTRAIT_X,
     PDF_PORTRAIT_Y,
     PDF_PORTRAIT_WIDTH,

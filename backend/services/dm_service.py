@@ -1,13 +1,13 @@
 import logging
-from backend.ai_client import generate_ai_response, generate_ai_json
-from backend.prompts import (
+from backend.core.ai_client import generate_ai_response, generate_ai_json
+from backend.core.prompts import (
     RANDOM_ENCOUNTER_PROMPT,
     RIDDLE_PROMPT,
     NPC_PROMPT,
     SESSION_PREP_PROMPT,
 )
-from backend.constants import EDITION_2014
-from backend.schemas import EncounterSchema
+from backend.core.constants import EDITION_2014
+from backend.core.schemas import EncounterSchema
 
 logger = logging.getLogger("DnDAssistant.DMService")
 

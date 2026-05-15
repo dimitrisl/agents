@@ -263,7 +263,7 @@ class TestSyncCharacterStats:
 
     def test_sync_with_pydantic_stat_block(self):
         """sync should handle Pydantic StatBlock objects in addition to dicts."""
-        from backend.schemas import StatBlock
+        from backend.core.schemas import StatBlock
 
         char = {
             "char_level": 3,

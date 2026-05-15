@@ -1,4 +1,4 @@
-from backend.dice import roll_dice, quick_roll
+from backend.utils.dice import roll_dice, quick_roll
 
 
 class TestRollDiceEdgeCases:
