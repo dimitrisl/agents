@@ -37,6 +37,10 @@ Prompts are currently embedded within `ai_client.py`.
 - **Suggestion:** Add a tool to explicitly compare changes between the 2014 and 2024 rulesets using the AI.
 - **Benefit:** Helps players and DMs transition to the 5.5e Revision smoothly.
 
+### Player / DM Authentication (OAuth2)
+- **Suggestion:** Implement a Login system (via Discord or Gmail OAuth2) and add an `owner_id` to characters and campaigns in MongoDB.
+- **Benefit:** Allows players to securely manage their own roster of characters and DMs to isolate their campaigns from others.
+
 ---
 
 ## 🧪 3. Quality Assurance & DX

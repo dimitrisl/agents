@@ -36,7 +36,7 @@
 - **Frontend:** [Streamlit](https://streamlit.io/) (Styled with Custom CSS & Segmented Controls)
 - **AI Engine:** [Google GenAI SDK](https://pypi.org/project/google-genai/) (Gemini Flash/Pro models)
 - **Image Generation:** [Pollinations.ai](https://pollinations.ai/)
-- **Data Architecture:** Repository Pattern (`CharacterRepository`, `RulesRepository`) handling static JSON local storage.
+- **Data Architecture:** MongoDB Atlas (Characters & Campaigns), local JSON (Static Rulesets).
 - **PDF Engine:** `pypdf`, `reportlab`
 - **Quality Control:** `pre-commit`, `ruff`
 
@@ -81,7 +81,7 @@ graph LR
         PDF["<b>utils.pdf_exporter</b><br/>PDF Gen"]
         IMG["<b>utils.image_utils</b><br/>Art Gen"]
         DICE["<b>utils.dice</b><br/>Dice Engine"]
-        JSON[("<b>Local Files</b><br/>JSON Storage")]
+        DB[("<b>MongoDB Atlas</b><br/>Cloud Database")]
     end
 
     %% Layer 5: External
@@ -102,7 +102,7 @@ graph LR
     PD & DM --> STATE
     STATE & SERVICES --> STORAGE
     STORAGE --> REPOS
-    REPOS --> JSON
+    REPOS --> DB
 
     %% AI Chain
     SERVICES --> AI
@@ -120,7 +120,7 @@ graph LR
     class MAIN,PD,DM,SV ui
     class AI,STATE,STORAGE,SCHEMAS,PROMPTS core
     class FORGE,MECH,RULES,DMS service
-    class REPOS,PDF,IMG,DICE,JSON infra
+    class REPOS,PDF,IMG,DICE,DB infra
     class GEMINI,POLL ext
 ```
 
@@ -132,6 +132,7 @@ graph LR
 - **Python 3.13+**
 - **Poetry**
 - **Google Gemini API Key** (Available at [Google AI Studio](https://aistudio.google.com/))
+- **MongoDB Atlas URI** (Add as `MONGO_URI` in `.env`)
 
 ### 2. Installation
 ```bash
