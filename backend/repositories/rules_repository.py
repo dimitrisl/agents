@@ -45,6 +45,23 @@ class RulesRepository:
 
         return _load_json(filepath)
 
+    @lru_cache(maxsize=2)
+    def get_available_classes(self, edition: str = EDITION_2014) -> list:
+        """
+        Lists all available classes for the specified edition based on JSON files.
+        """
+        edition_dir = "2014" if edition == EDITION_2014 else "2024"
+        dir_path = os.path.join(RULES_DIR, edition_dir)
+        if not os.path.exists(dir_path):
+            return []
+
+        classes = []
+        for filename in os.listdir(dir_path):
+            if filename.endswith(".json"):
+                class_name = filename.replace(".json", "").replace("_", " ").title()
+                classes.append(class_name)
+        return sorted(classes)
+
     def get_features_at_level(
         self, class_name: str, level: int, edition: str = EDITION_2014
     ) -> list:

@@ -6,6 +6,7 @@ from backend.utils.ui_utils import inject_custom_css
 from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
 from views.settings_view import render_settings_view
+from views.library_view import render_library_view
 from backend.core.constants import EDITION_2014, EDITION_2024
 
 # Load environment variables once at the entry point
@@ -50,6 +51,7 @@ with st.sidebar:
 
     player_label = "🗡️ Player Dashboard"
     dm_label = "🏰 Dungeon Master View"
+    library_label = "📚 Rules Library"
     settings_label = "⚙️ Settings"
 
     is_2024 = st.toggle(
@@ -64,7 +66,7 @@ with st.sidebar:
     st.markdown("**🎮 Application Mode:**")
     view_mode = st.radio(
         "Application Mode",
-        [player_label, dm_label, settings_label],
+        [player_label, dm_label, library_label, settings_label],
         key="app_view_mode",
         label_visibility="collapsed",
     )
@@ -140,6 +142,8 @@ with st.sidebar:
 # ==========================================
 if view_mode == dm_label:
     render_dm_workspace()
+elif view_mode == library_label:
+    render_library_view()
 elif view_mode == settings_label:
     render_settings_view()
 else:
