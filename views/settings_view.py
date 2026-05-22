@@ -84,7 +84,7 @@ def render_settings_view():
 
     # Action Buttons
     c1, c2, _ = st.columns([1, 1, 3])
-    if c1.button("💾 Save Settings", type="primary", use_container_width=True):
+    if c1.button("💾 Save Settings", type="primary", width="stretch"):
         new_config = {
             "ai_settings": {
                 "preferred_model": preferred_model,
@@ -99,7 +99,7 @@ def render_settings_view():
         )
         st.toast("Configuration updated.")
 
-    if c2.button("🔄 Reset to Defaults", use_container_width=True):
+    if c2.button("🔄 Reset to Defaults", width="stretch"):
         if st.confirm("Are you sure you want to reset all settings to defaults?"):
             # We don't have a direct delete, but we can save the DEFAULT_CONFIG
             # from config_loader if we expose it. For now, let's just clear.

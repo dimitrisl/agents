@@ -86,7 +86,7 @@ with st.sidebar:
 
     st.markdown("---")
     # --- AI Rules Oracle in a Popover ---
-    with st.popover("📜 AI Rules Oracle", use_container_width=True):
+    with st.popover("📜 AI Rules Oracle", width="stretch"):
         st.markdown("### Ask the Oracle")
         rule_query = st.text_input(
             "Ask about a rule or feature:",
@@ -94,7 +94,7 @@ with st.sidebar:
             key="rule_query_input",
         )
 
-        if st.button("Query Oracle", key="rule_query_btn", use_container_width=True):
+        if st.button("Query Oracle", key="rule_query_btn", width="stretch"):
             if rule_query:
                 from backend.services.rules_service import query_rules
 

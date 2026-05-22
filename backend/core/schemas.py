@@ -17,6 +17,7 @@ class Weapon(BaseModel):
     damage: str
     range: Optional[str] = None
     properties: Optional[str] = None
+    is_custom: bool = False
 
 
 class EquipmentItem(BaseModel):

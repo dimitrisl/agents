@@ -114,7 +114,7 @@ def render_player_dashboard(accent_color: str):
                         data=pdf_bytes,
                         file_name=f"{char_dict['char_name']}_Sheet.pdf",
                         mime="application/pdf",
-                        use_container_width=True,
+                        width="stretch",
                     )
             else:
                 # Definitive fix: In forge mode, always show "Cancel" to avoid old name persistence
@@ -140,7 +140,7 @@ def render_player_dashboard(accent_color: str):
                     data=json_str,
                     file_name=f"{char_dict['char_name'].replace(' ', '_').lower()}_vtt.json",
                     mime="application/json",
-                    use_container_width=True,
+                    width="stretch",
                 )
         with col4:
             if st.button("🔄 Exit Hero", width="stretch"):
@@ -158,15 +158,13 @@ def render_player_dashboard(accent_color: str):
                 if st.button(
                     "🔄 Sync & Refresh Sheet",
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                     key="side_sync",
                 ):
                     trigger_sync()
                     st.rerun()
 
-                if st.button(
-                    "💾 Save to File", use_container_width=True, key="side_save"
-                ):
+                if st.button("💾 Save to File", width="stretch", key="side_save"):
                     if st.session_state.char_name.strip():
                         trigger_sync()
                         from backend.core.storage import save_character as save_to_disk
@@ -446,9 +444,7 @@ def render_active_character(accent_color: str):
         with st.container(border=True):
             col_camp1, col_camp2 = st.columns([3, 1])
             col_camp1.markdown(f"🏰 **Active Campaign:** {current_camp}")
-            if col_camp2.button(
-                "🚪 Leave", key="leave_camp_btn", use_container_width=True
-            ):
+            if col_camp2.button("🚪 Leave", key="leave_camp_btn", width="stretch"):
                 from backend.core.storage import remove_from_campaign
 
                 char_id = st.session_state.char_id
@@ -589,6 +585,7 @@ def trigger_sync():
 
     # 2. Collect Equipment Deltas
     equipment_deltas = st.session_state.get("edit_equip_table", {})
+    weapon_deltas = st.session_state.get("edit_weapons", {})
 
     # 3. Call Backend Service
     current_char = get_character_dict(st.session_state)
@@ -605,7 +602,9 @@ def trigger_sync():
             )
             return
 
-    updated = process_character_update(current_char, stat_updates, equipment_deltas)
+    updated = process_character_update(
+        current_char, stat_updates, equipment_deltas, weapon_deltas
+    )
 
     # 4. Update UI State
     update_session_from_dict(st.session_state, updated)
@@ -617,6 +616,12 @@ def trigger_sync():
     # 5. CLEAR the editor state
     if "edit_equip_table" in st.session_state:
         st.session_state["edit_equip_table"] = {
+            "edited_rows": {},
+            "added_rows": [],
+            "deleted_rows": [],
+        }
+    if "edit_weapons" in st.session_state:
+        st.session_state["edit_weapons"] = {
             "edited_rows": {},
             "added_rows": [],
             "deleted_rows": [],
@@ -845,7 +850,7 @@ def _render_core_stats(edit_mode: bool):
 
         st.markdown("<br>", unsafe_allow_html=True)
         # Add a global Custom Roll for players too
-        with st.popover("🎲 Custom / Damage Roll", use_container_width=True):
+        with st.popover("🎲 Custom / Damage Roll", width="stretch"):
             st.markdown("### Custom Roll")
 
             # Extract relevant dice for this character
@@ -862,7 +867,7 @@ def _render_core_stats(edit_mode: bool):
             import re
 
             for w in st.session_state.weapons:
-                dmg = w.get("damage", "")
+                dmg = str(w.get("damage") or "")
                 found = re.findall(r"d(\d+)", dmg)
                 for d in found:
                     relevant_dice.add(int(d))
@@ -907,7 +912,7 @@ def _render_core_stats(edit_mode: bool):
             )
 
             if st.button(
-                "Roll!", type="primary", use_container_width=True, key="custom_roll_btn"
+                "Roll!", type="primary", width="stretch", key="custom_roll_btn"
             ):
                 from backend.utils.dice import quick_roll
 
@@ -1022,10 +1027,31 @@ def _render_combat_inventory(edit_mode: bool):
             num_rows="dynamic",
             key="edit_weapons",
             use_container_width=True,
+            column_config={
+                "name": st.column_config.TextColumn("Weapon Name", width="medium"),
+                "attack_bonus": st.column_config.TextColumn(
+                    "To Hit (e.g. +7)", width="small"
+                ),
+                "damage": st.column_config.TextColumn(
+                    "Damage (e.g. 1d8+4)", width="medium"
+                ),
+                "is_custom": st.column_config.CheckboxColumn(
+                    "Custom Stats",
+                    width="small",
+                    help="Check to freeze manual To Hit & Damage edits",
+                ),
+                "range": None,
+                "properties": None,
+            },
         )
-        if st.button("➕ Add New Weapon", use_container_width=True):
+        if st.button("➕ Add New Weapon", width="stretch"):
             st.session_state.weapons.append(
-                {"name": "New Weapon", "attack_bonus": "+0", "damage": "1d4"}
+                {
+                    "name": "New Weapon",
+                    "attack_bonus": "+0",
+                    "damage": "1d4",
+                    "is_custom": False,
+                }
             )
             st.rerun()
     else:
@@ -1040,7 +1066,7 @@ def _render_combat_inventory(edit_mode: bool):
                     f"To Hit: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
                 )
 
-                if w_col2.button("🎯 To Hit", key=f"atk_{i}", use_container_width=True):
+                if w_col2.button("🎯 To Hit", key=f"atk_{i}", width="stretch"):
                     from backend.utils.dice import quick_roll
 
                     atk_bonus_str = str(w.get("attack_bonus", "+0")).replace("+", "")
@@ -1066,7 +1092,7 @@ def _render_combat_inventory(edit_mode: bool):
                     elif raw == 1:
                         st.error("NATURAL 1! 💀")
 
-                if w_col3.button("💥 Dmg", key=f"dmg_{i}", use_container_width=True):
+                if w_col3.button("💥 Dmg", key=f"dmg_{i}", width="stretch"):
                     from backend.utils.dice import roll_dice
 
                     dmg_str = w.get("damage", "1d4")
@@ -1195,7 +1221,7 @@ def _render_combat_inventory(edit_mode: bool):
                 "Val 2": st.column_config.NumberColumn("Val 2", width="small"),
             },
         )
-        if st.button("➕ Add New Item", use_container_width=True):
+        if st.button("➕ Add New Item", width="stretch"):
             # To add an item, we must trigger sync to save pending edits first,
             # then append the new item and rerun.
             trigger_sync()
@@ -1840,9 +1866,7 @@ def run_level_up_wizard():
     # FINAL ACTIONS
     col_fin1, col_fin2 = st.columns(2)
 
-    if col_fin1.button(
-        "🔥 Finalize Ascension", use_container_width=True, type="primary"
-    ):
+    if col_fin1.button("🔥 Finalize Ascension", width="stretch", type="primary"):
         # APPLY CHANGES
         st.session_state.char_level = target_lv
         st.session_state.hp_max = prev_hp
@@ -1888,7 +1912,7 @@ def run_level_up_wizard():
         st.success(f"Ascension Complete! Level {target_lv} reached.")
         st.rerun()
 
-    if col_fin2.button("↩️ Discard & Revert", use_container_width=True):
+    if col_fin2.button("↩️ Discard & Revert", width="stretch"):
         del st.session_state.lv_up_temp
         if "lv_up_hp_roll" in st.session_state:
             del st.session_state.lv_up_hp_roll

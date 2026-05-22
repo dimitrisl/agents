@@ -194,7 +194,10 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
 
 def process_character_update(
-    current_char: dict, stat_updates: dict = None, equipment_deltas: dict = None
+    current_char: dict,
+    stat_updates: dict = None,
+    equipment_deltas: dict = None,
+    weapon_deltas: dict = None,
 ) -> dict:
     """
     Processes character updates (stats and equipment) and returns synchronized character data.
@@ -265,4 +268,4 @@ def process_character_update(
     class_data = _rules_repo.get_class_progression(
         updated_char.get("char_class"), updated_char.get("dnd_edition")
     )
-    return sync_character_stats(updated_char, class_data)
+    return sync_character_stats(updated_char, class_data, weapon_deltas)

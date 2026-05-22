@@ -231,6 +231,9 @@ def calculate_weapon_stats(
     Calculates attack bonus and damage modifier for a weapon.
     Simplified: uses STR for melee, DEX for ranged/finesse.
     """
+    if weapon.get("is_custom", False):
+        return weapon
+
     name = weapon.get("name", "").lower()
     # Basic logic: Ranged/Finesse detection
     is_ranged = any(
@@ -271,7 +274,9 @@ def calculate_weapon_stats(
 
 
 def sync_character_stats(
-    char_data: Dict[str, Any], class_data: Dict[str, Any] = None
+    char_data: Dict[str, Any],
+    class_data: Dict[str, Any] = None,
+    weapon_deltas: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
     Synchronizes derived stats based on base ability scores and level.
@@ -487,13 +492,23 @@ def sync_character_stats(
     # Weapons
     weapons = char_data.get("weapons", [])
     updated_weapons = []
-    for w in weapons:
-        if isinstance(w, dict):
-            updated_weapons.append(calculate_weapon_stats(w, stats, prof_bonus))
-        else:
-            # Pydantic model
-            w_dict = w.model_dump()
-            updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
+    edited_weapon_rows = weapon_deltas.get("edited_rows", {}) if weapon_deltas else {}
+
+    for idx, w in enumerate(weapons):
+        w_dict = w if isinstance(w, dict) else w.model_dump()
+        idx_str = str(idx)
+        if idx_str in edited_weapon_rows:
+            changes = edited_weapon_rows[idx_str]
+            # Apply edits directly to the dictionary
+            for k, v in changes.items():
+                w_dict[k] = v
+            # If user edited attack_bonus or damage, automatically set is_custom to True unless user unchecked it
+            if (
+                "attack_bonus" in changes or "damage" in changes
+            ) and "is_custom" not in changes:
+                w_dict["is_custom"] = True
+
+        updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
     char_data["weapons"] = updated_weapons
 
     # Spell Stats

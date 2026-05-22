@@ -42,9 +42,7 @@ def render_dm_workspace():
         col_title.markdown(
             f"### Active Campaign: **{st.session_state.active_campaign_name}**"
         )
-        if col_close.button(
-            "🚪 Close Campaign", key="close_camp_btn", use_container_width=True
-        ):
+        if col_close.button("🚪 Close Campaign", key="close_camp_btn", width="stretch"):
             st.session_state.active_campaign_name = None
             st.rerun()
 
@@ -87,7 +85,7 @@ def _render_campaign_selection():
                 "Load Campaign",
                 type="primary",
                 key="load_camp_btn",
-                use_container_width=True,
+                width="stretch",
             ):
                 data = load_campaign(selected_camp)
                 if data:
@@ -115,9 +113,7 @@ def _render_campaign_selection():
         new_camp_name = st.text_input(
             "Campaign Name", placeholder="e.g., Curse of Strahd", key="new_camp_input"
         )
-        if st.button(
-            "Create Campaign", key="create_camp_btn", use_container_width=True
-        ):
+        if st.button("Create Campaign", key="create_camp_btn", width="stretch"):
             if new_camp_name:
                 st.session_state.active_campaign_name = new_camp_name
                 st.session_state.campaign_notes = ""
@@ -158,7 +154,7 @@ def _render_campaign_notes():
             "💾 Save Notes",
             type="primary",
             key="save_notes_btn",
-            use_container_width=True,
+            width="stretch",
         ):
             if save_campaign(
                 st.session_state.active_campaign_name, st.session_state.campaign_notes
@@ -169,9 +165,7 @@ def _render_campaign_notes():
 
     st.markdown("---")
     st.subheader("✨ AI Session Prep")
-    if st.button(
-        "Generate Next Session Prep", key="gen_prep_btn", use_container_width=True
-    ):
+    if st.button("Generate Next Session Prep", key="gen_prep_btn", width="stretch"):
         party_info = (
             ", ".join(
                 [
@@ -202,7 +196,7 @@ def _render_party_tracker():
             if st.button(
                 "👥 Sync All Joined Players",
                 key="sync_joined_btn",
-                use_container_width=True,
+                width="stretch",
             ):
                 for f in joined_files:
                     char_data = load_character(f)
@@ -227,9 +221,7 @@ def _render_party_tracker():
                 format_func=format_char_filename,
                 key="dm_ingest_select",
             )
-            if st.button(
-                "Add to Party", key="add_to_party_btn", use_container_width=True
-            ):
+            if st.button("Add to Party", key="add_to_party_btn", width="stretch"):
                 char_data = load_character(char_to_add)
                 if char_data:
                     if "char_id" not in char_data:
@@ -265,7 +257,7 @@ def _render_party_tracker():
         q_name = st.text_input("Name (optional)", placeholder="AI Choice", key="q_name")
         q_concept = st.text_input("Concept", key="q_concept")
 
-        if st.button("Forge & Add", key="forge_add_btn", use_container_width=True):
+        if st.button("Forge & Add", key="forge_add_btn", width="stretch"):
             with st.spinner("Forging & Generating Portrait..."):
                 result = forge_character(
                     q_level,
@@ -351,7 +343,7 @@ def _render_ai_generators():
         avg_level = col2.number_input("Avg Level", 1, 20, 5, key="enc_p_level")
         location = st.text_input("Location", "Dungeon", key="enc_loc")
 
-        if st.button("Generate Encounter", key="gen_enc_btn", use_container_width=True):
+        if st.button("Generate Encounter", key="gen_enc_btn", width="stretch"):
             with st.spinner("Generating Encounter..."):
                 st.session_state.encounter_result = generate_random_encounter(
                     party_size,
@@ -364,7 +356,7 @@ def _render_ai_generators():
         if st.button(
             "✨ Generate Thematic Riddle",
             key="gen_riddle_btn",
-            use_container_width=True,
+            width="stretch",
         ):
             with st.spinner("Crafting a puzzle..."):
                 st.session_state.riddle_result = generate_riddle(
@@ -386,7 +378,7 @@ def _render_ai_generators():
                     if st.button(
                         "⚔️ Add Monsters to Initiative",
                         key="add_enc_to_init",
-                        use_container_width=True,
+                        width="stretch",
                         type="primary",
                     ):
                         for m in res["monsters"]:
@@ -476,9 +468,7 @@ def _render_initiative_tracker():
             )
 
             b1, b2, b3 = st.columns(3)
-            if b1.button(
-                "➕ Add Custom", key="add_custom_init_btn", use_container_width=True
-            ):
+            if b1.button("➕ Add Custom", key="add_custom_init_btn", width="stretch"):
                 if name:
                     for i in range(1, qty + 1):
                         final_name = f"{name} {i}" if qty > 1 else name
@@ -502,7 +492,7 @@ def _render_initiative_tracker():
                     st.rerun()
 
             if b2.button(
-                "👥 Import Party", key="import_party_init_btn", use_container_width=True
+                "👥 Import Party", key="import_party_init_btn", width="stretch"
             ):
                 for member in st.session_state.party:
                     if not any(
@@ -529,7 +519,7 @@ def _render_initiative_tracker():
                 )
                 st.rerun()
 
-            if b3.button("🗑️ Clear All", key="clear_init_btn", use_container_width=True):
+            if b3.button("🗑️ Clear All", key="clear_init_btn", width="stretch"):
                 st.session_state.initiative_order = []
                 st.session_state.combat_active = False
                 st.rerun()
@@ -540,7 +530,7 @@ def _render_initiative_tracker():
             "Character", list_characters(), key="load_char_init_sel"
         )
         char_qty = lc2.number_input("Qty", 1, 20, 1, key="load_char_init_qty")
-        if lc3.button("Load", key="load_char_init_btn", use_container_width=True):
+        if lc3.button("Load", key="load_char_init_btn", width="stretch"):
             data = load_character(char_file)
             if data:
                 for i in range(1, char_qty + 1):
@@ -599,7 +589,7 @@ def _render_initiative_tracker():
                 "⚔️ START COMBAT",
                 key="start_combat_btn",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
             ):
                 st.session_state.combat_active = True
                 st.session_state.active_turn_index = 0
@@ -632,7 +622,7 @@ def _render_initiative_tracker():
                     "⏩ NEXT TURN",
                     key="next_turn_btn",
                     type="primary",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     st.session_state.active_turn_index = (
                         st.session_state.active_turn_index + 1
