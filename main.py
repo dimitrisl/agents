@@ -103,6 +103,13 @@ with st.sidebar:
     else:
         st.caption("No rolls recorded yet.")
 
+# Clear active roll when switching view modes
+if "last_view_mode" not in st.session_state:
+    st.session_state.last_view_mode = view_mode
+elif st.session_state.last_view_mode != view_mode:
+    st.session_state.last_view_mode = view_mode
+    st.session_state.active_roll = None
+
 # ==========================================
 # Main Content Router
 # ==========================================

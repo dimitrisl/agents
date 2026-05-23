@@ -143,6 +143,8 @@ def init_session_state(state: Any, force: bool = False):
         "dnd_edition": "2014 Edition",
         "temp_forged_char": None,
         "validation_result": None,
+        "active_roll": None,
+        "last_saved_char": None,
         # DM Workspace state
         "party": [],
         "active_campaign_name": None,

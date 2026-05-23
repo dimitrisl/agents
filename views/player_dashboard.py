@@ -229,6 +229,7 @@ def render_selection_screen():
                         update_session_from_dict(st.session_state, char_data)
                         st.session_state.character_active = True
                         st.session_state.player_view = "sheet"
+                        st.session_state.last_saved_char = char_data.copy()
                         st.rerun()
 
                 # Delete button with double-click confirmation pattern
@@ -339,7 +340,9 @@ def render_selection_screen():
                                 update_session_from_dict(st.session_state, parsed_data)
                                 st.session_state.character_active = True
                                 st.session_state.player_view = "sheet"
-                                save_character(get_character_dict(st.session_state))
+                                saved_dict = get_character_dict(st.session_state)
+                                save_character(saved_dict)
+                                st.session_state.last_saved_char = saved_dict.copy()
                                 st.toast("Character imported successfully!")
                                 st.rerun()
                             else:
@@ -366,6 +369,62 @@ def render_active_character(accent_color: str):
     )
     st.caption(f"📜 Ruleset: {st.session_state.dnd_edition}")
     render_active_roll_visual()
+
+    # ------------------------------------------
+    # Auto-Save & Auto-Sync System
+    # ------------------------------------------
+    edit_mode_active = st.session_state.get("edit_mode", False)
+    if edit_mode_active:
+        # Check if data editors have pending changes
+        editor_changes = False
+        for editor_key in [
+            "edit_equip_table",
+            "edit_weapons",
+            "edit_advancements",
+            "edit_features",
+            "edit_spells",
+        ]:
+            deltas = st.session_state.get(editor_key, {})
+            if deltas:
+                if (
+                    deltas.get("edited_rows")
+                    or deltas.get("added_rows")
+                    or deltas.get("deleted_rows")
+                ):
+                    editor_changes = True
+                    break
+
+        current_char = get_character_dict(st.session_state)
+
+        # Initialize last_saved_char if not present
+        if st.session_state.get("last_saved_char") is None:
+            st.session_state.last_saved_char = current_char.copy()
+
+        # Check for direct session state changes
+        state_changes = False
+        for k, v in current_char.items():
+            # Exclude dynamic/derived fields from change detection to avoid infinite save loops
+            if k in [
+                "armor_class",
+                "hp_max",
+                "initiative_modifier",
+                "passive_perception",
+                "proficiency_bonus",
+                "hit_dice",
+            ]:
+                continue
+            if v != st.session_state.last_saved_char.get(k):
+                state_changes = True
+                break
+
+        if editor_changes or state_changes:
+            trigger_sync()
+            new_char = get_character_dict(st.session_state)
+            save_character(new_char)
+            st.session_state.last_saved_char = new_char.copy()
+            st.session_state.needs_validation = True
+            st.toast("⚡ Changes saved to vault!")
+            st.rerun()
 
     if st.session_state.get("leveling_up", False):
         with st.expander("⬆️ Level Up Wizard", expanded=True):
@@ -421,7 +480,7 @@ def render_active_character(accent_color: str):
                 st.info("No active campaigns found. Ask your DM to create one first!")
 
     edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([1, 1, 1, 1])
-    edit_mode = edit_col1.toggle("✏️ Edit Mode")
+    edit_mode = edit_col1.toggle("✏️ Edit Mode", key="edit_mode")
     if not edit_mode:
         if "equip_df_editor" in st.session_state:
             del st.session_state["equip_df_editor"]
@@ -437,28 +496,16 @@ def render_active_character(accent_color: str):
             st.session_state.char_portrait = generate_portrait_url(char_data)
             st.rerun()
 
-    if edit_mode:
-        if edit_col4.button("💾 Save", width="stretch"):
-            trigger_sync()
+    if edit_col4.button("⚖️ Validate", width="stretch"):
+        with st.spinner("Checking build against the rules..."):
             char_data = get_character_dict(st.session_state)
-            if save_character(char_data):
-                st.session_state.needs_validation = True
-                st.toast("Changes saved! You can now validate your build.")
-                st.rerun()
+            val_result = validate_character_build(char_data)
+            if val_result:
+                st.session_state.validation_result = val_result
+                st.session_state.needs_validation = False
             else:
-                st.error("Save failed.")
-
-    if st.session_state.needs_validation:
-        if st.button("⚖️ Validate Character Build", type="primary"):
-            with st.spinner("Checking build against the rules..."):
-                char_data = get_character_dict(st.session_state)
-                val_result = validate_character_build(char_data)
-                if val_result:
-                    st.session_state.validation_result = val_result
-                    st.session_state.needs_validation = False
-                else:
-                    st.error("Validation failed to complete.")
-            st.rerun()
+                st.error("Validation failed to complete.")
+        st.rerun()
 
     if st.session_state.validation_result:
         val = st.session_state.validation_result
@@ -568,17 +615,9 @@ def trigger_sync():
 
     # 5. CLEAR the editor state
     if "edit_equip_table" in st.session_state:
-        st.session_state["edit_equip_table"] = {
-            "edited_rows": {},
-            "added_rows": [],
-            "deleted_rows": [],
-        }
+        del st.session_state["edit_equip_table"]
     if "edit_weapons" in st.session_state:
-        st.session_state["edit_weapons"] = {
-            "edited_rows": {},
-            "added_rows": [],
-            "deleted_rows": [],
-        }
+        del st.session_state["edit_weapons"]
 
 
 def _render_roleplay(edit_mode: bool):
@@ -639,22 +678,24 @@ def _render_core_stats(edit_mode: bool):
     if edit_mode:
         c_n, c_c, c_l, c_r = st.columns(4)
         st.session_state.char_name = c_n.text_input(
-            "Name", value=st.session_state.char_name
+            "Name", value=st.session_state.char_name, disabled=True
         )
         st.session_state.char_class = c_c.text_input(
-            "Class", value=st.session_state.char_class
+            "Class", value=st.session_state.char_class, disabled=True
         )
         st.session_state.subclass = c_c.text_input(
-            "Subclass", value=st.session_state.subclass or ""
+            "Subclass", value=st.session_state.subclass or "", disabled=True
         )
         st.session_state.char_level = c_l.number_input(
-            "Level", 1, 20, value=st.session_state.char_level
+            "Level", 1, 20, value=st.session_state.char_level, disabled=True
         )
-        st.session_state.race = c_r.text_input("Race", value=st.session_state.race)
+        st.session_state.race = c_r.text_input(
+            "Race", value=st.session_state.race, disabled=True
+        )
 
         c_b, c_a, c_hp, c_ac = st.columns(4)
         st.session_state.background = c_b.text_input(
-            "Background", value=st.session_state.background
+            "Background", value=st.session_state.background, disabled=True
         )
         st.session_state.alignment = c_a.text_input(
             "Alignment", value=st.session_state.alignment
@@ -1200,6 +1241,10 @@ def _render_combat_inventory(edit_mode: bool):
 
     st.markdown("#### Equipment")
     import pandas as pd
+    from backend.repositories.rules_repository import RulesRepository
+
+    _rules_repo = RulesRepository()
+    all_items = _rules_repo.get_all_items()
 
     # Standardize equipment format (List of Dicts)
     current_equip = []
@@ -1209,11 +1254,23 @@ def _render_combat_inventory(edit_mode: bool):
         equipment = []
     for e in equipment:
         if isinstance(e, dict):
+            item_name = e.get("name", "")
+            item_data = next(
+                (i for i in all_items if i["name"].lower() == item_name.lower()), None
+            )
+
+            display_ac = e.get("ac_bonus", 0)
+            if display_ac == 0 and item_data:
+                if "ac_base" in item_data:
+                    display_ac = item_data["ac_base"]
+                elif "ac_bonus" in item_data:
+                    display_ac = item_data["ac_bonus"]
+
             item_dict = {
-                "Item": e.get("name", ""),
+                "Item": item_name,
                 "Equipped": e.get("equipped", False),
                 "Attuned": e.get("attuned", False),
-                "AC": e.get("ac_bonus", 0),
+                "AC": display_ac,
                 "Mod 1": e.get("mod1", "None"),
                 "Val 1": e.get("val1", 0),
                 "Mod 2": e.get("mod2", "None"),
@@ -1673,8 +1730,10 @@ def render_character_creator():
                     st.session_state.char_portrait = st.session_state.temp_portrait
                     st.session_state.temp_portrait = None
 
-                if save_character(get_character_dict(st.session_state)):
+                saved_dict = get_character_dict(st.session_state)
+                if save_character(saved_dict):
                     logger.info(f"Auto-saved new character: {char['char_name']}")
+                st.session_state.last_saved_char = saved_dict.copy()
                 st.session_state.temp_forged_char = None
                 st.session_state.player_view = "sheet"
                 st.rerun()

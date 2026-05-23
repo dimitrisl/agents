@@ -134,20 +134,54 @@ def calculate_ac(
         if not equip.get("equipped", False):
             continue
 
-        # 1. Manual Bonus (from user input in the table)
-        bonus_ac += int(equip.get("ac_bonus", 0))
-
-        # 2. KB Bonus
         item_name = equip.get("name", "").lower()
         item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
 
+        # Get the value from the "AC" column of the equipment table (saved as ac_bonus)
+        try:
+            val = int(equip.get("ac_bonus", 0))
+        except (ValueError, TypeError):
+            val = 0
+
         if item_data:
-            if "ac_base" in item_data:
-                base_ac = max(base_ac, item_data["ac_base"])
+            # If the item has a type like "Heavy Armor", "Medium Armor", or "Light Armor" (or has ac_base)
+            if item_data.get("type", "").endswith("Armor") or "ac_base" in item_data:
+                # If they set AC to a base armor value (>= 10), use it as the base AC
+                item_base = val if val >= 10 else item_data["ac_base"]
+                base_ac = max(base_ac, item_base)
+
+                # Check for dex limit
                 if "dex_limit" in item_data:
                     max_dex = min(max_dex, item_data["dex_limit"])
-            if "ac_bonus" in item_data:
-                bonus_ac += item_data["ac_bonus"]
+
+                # If they set it to a small bonus/penalty (e.g. +1 or -1), treat it as an extra bonus
+                if val != 0 and val < 10:
+                    bonus_ac += val
+            else:
+                # For non-armor items (e.g. Shield, Cloak of Protection)
+                # If val is non-zero, it overrides the bonus. Otherwise use DB default ac_bonus.
+                item_bonus = val if val != 0 else item_data.get("ac_bonus", 0)
+                bonus_ac += item_bonus
+        else:
+            # Custom item (not in DB)
+            if val >= 10:
+                # Treat as base AC
+                base_ac = max(base_ac, val)
+                if (
+                    "heavy" in item_name
+                    or "plate" in item_name
+                    or "chain mail" in item_name
+                ):
+                    max_dex = min(max_dex, 0)
+                elif (
+                    "medium" in item_name
+                    or "scale" in item_name
+                    or "breastplate" in item_name
+                ):
+                    max_dex = min(max_dex, 2)
+            else:
+                # Treat as AC bonus
+                bonus_ac += val
 
     # Warforged bonus
     if features:
