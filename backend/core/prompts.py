@@ -164,6 +164,7 @@ Ruleset specific notes:
 RANDOM_ENCOUNTER_PROMPT = """
 Generate a flavorful random encounter for a D&D {edition} party of {party_size} level {avg_level} characters.
 The setting is {location}.
+The encounter difficulty level MUST be {difficulty}.
 
 You must return a JSON object with the following structure:
 {{
@@ -175,7 +176,7 @@ You must return a JSON object with the following structure:
             "ac": 15,
             "dex": 12,
             "quantity": 3,
-            "statblock_summary": "..."
+            "statblock_summary": "A highly detailed, complete D&D 5e statblock for this creature. Format it beautifully using Markdown. Include Challenge Rating (CR), Speed, Ability Scores, Senses, Languages, Special Traits, and detailed Actions (with attack bonuses, range, and damage)."
         }}
     ]
 }}

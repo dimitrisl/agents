@@ -1,6 +1,7 @@
 import streamlit as st
 import logging
 import uuid
+import os
 from backend.services.forge_service import forge_character
 from backend.services.dm_service import (
     generate_session_prep,
@@ -340,9 +341,17 @@ def _render_ai_generators():
     st.markdown("---")
 
     if gen_type == "Random Encounter":
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         party_size = col1.number_input("Party Size", 1, 10, 4, key="enc_p_size")
         avg_level = col2.number_input("Avg Level", 1, 20, 5, key="enc_p_level")
+        difficulty_label = col3.selectbox(
+            "Difficulty",
+            ["Low (Χαμηλή)", "Medium (Κανονική)", "High (Υψηλή)"],
+            index=1,
+            key="enc_diff_label",
+        )
+        difficulty = difficulty_label.split(" ")[0]
+
         location = st.text_input("Location", "Dungeon", key="enc_loc")
 
         if st.button("Generate Encounter", key="gen_enc_btn", width="stretch"):
@@ -352,6 +361,7 @@ def _render_ai_generators():
                     avg_level,
                     location,
                     edition=st.session_state.dnd_edition,
+                    difficulty=difficulty,
                 )
                 st.session_state.riddle_result = None  # Clear previous riddle
 
@@ -527,7 +537,9 @@ def _render_initiative_tracker():
                 st.rerun()
 
         st.markdown("**Load Character:**")
-        lc1, lc2, lc3 = st.columns([3, 1, 1], vertical_alignment="bottom")
+        lc1, lc2, lc3, lc4 = st.columns(
+            [2.5, 0.8, 0.8, 0.9], vertical_alignment="bottom"
+        )
         char_file = lc1.selectbox(
             "Character", list_characters(), key="load_char_init_sel"
         )
@@ -561,6 +573,34 @@ def _render_initiative_tracker():
                 )
                 st.rerun()
 
+        if lc4.button("Load All", key="load_all_chars_init_btn", width="stretch"):
+            for c_file in list_characters():
+                data = load_character(c_file)
+                if data:
+                    if not any(
+                        c.get("name") == data["char_name"]
+                        for c in st.session_state.initiative_order
+                    ):
+                        mod = calculate_modifier(data["stats"]["DEX"])
+                        st.session_state.initiative_order.append(
+                            {
+                                "id": str(uuid.uuid4())[:8],
+                                "name": data["char_name"],
+                                "init": 10 + mod,
+                                "hp": data["hp_max"],
+                                "max_hp": data["hp_max"],
+                                "ac": data["armor_class"],
+                                "dex": data["stats"]["DEX"],
+                                "portrait": data.get("char_portrait"),
+                                "conditions": [],
+                                "concentration": False,
+                            }
+                        )
+            st.session_state.initiative_order.sort(
+                key=lambda x: (x["init"], x["dex"]), reverse=True
+            )
+            st.rerun()
+
     if not st.session_state.get("combat_active", False):
         if st.session_state.initiative_order:
             st.markdown("---")
@@ -568,11 +608,11 @@ def _render_initiative_tracker():
             for c in st.session_state.initiative_order:
                 with st.container(border=True):
                     cp1, cp2, cp3 = st.columns([1, 4, 1])
-                    p_url = (
-                        c.get("portrait")
-                        if c.get("portrait")
-                        else "https://img.icons8.com/color/96/monster.png"
-                    )
+                    p_url = c.get("portrait")
+                    if not p_url or (
+                        not p_url.startswith("http") and not os.path.exists(p_url)
+                    ):
+                        p_url = "https://img.icons8.com/color/96/monster.png"
                     cp1.image(p_url, width=40)
                     cp2.markdown(f"**{c['name']}**")
                     new_init = cp2.number_input(
@@ -609,11 +649,11 @@ def _render_initiative_tracker():
         # PREMIUM ACTIVE TURN DISPLAY
         with st.container(border=True):
             act_c1, act_c2 = st.columns([1, 4])
-            p_url_active = (
-                active.get("portrait")
-                if active.get("portrait")
-                else "https://img.icons8.com/color/96/monster.png"
-            )
+            p_url_active = active.get("portrait")
+            if not p_url_active or (
+                not p_url_active.startswith("http") and not os.path.exists(p_url_active)
+            ):
+                p_url_active = "https://img.icons8.com/color/96/monster.png"
             act_c1.image(p_url_active, width=100)
             with act_c2:
                 st.markdown(f"### CURRENT TURN: **{active['name']}**")
@@ -729,8 +769,16 @@ def _render_initiative_tracker():
 
                 if c.get("statblock"):
                     with r2.popover("📜 Statblock"):
-                        st.caption("Quick Reference:")
-                        st.write(c["statblock"])
+                        st.caption("Detailed Statblock:")
+                        st.markdown(c["statblock"])
+                        import re
+
+                        clean_name = re.sub(r"\d+", "", c["name"]).strip()
+                        slug = clean_name.lower().replace(" ", "-").replace("'", "")
+                        url = f"https://www.dndbeyond.com/monsters/{slug}"
+                        st.link_button(
+                            "🌐 View on D&D Beyond", url, use_container_width=True
+                        )
 
                 with r3.popover("🎲 Quick Roll"):
                     d_type = st.selectbox(
@@ -764,8 +812,11 @@ def _render_party_dashboard():
         with cols[i % 3]:
             with st.container(border=True):
                 c1, c2 = st.columns([1, 2])
-                if member.get("char_portrait"):
-                    c1.image(member["char_portrait"], width=80)
+                import os
+
+                portrait = member.get("char_portrait")
+                if portrait and os.path.exists(portrait):
+                    c1.image(portrait, width=80)
                 else:
                     c1.markdown("👤")
 

@@ -13,7 +13,11 @@ logger = logging.getLogger("DnDAssistant.DMService")
 
 
 def generate_random_encounter(
-    party_size: int, avg_level: int, location: str, edition: str = EDITION_2014
+    party_size: int,
+    avg_level: int,
+    location: str,
+    edition: str = EDITION_2014,
+    difficulty: str = "Medium",
 ) -> dict:
     """Generates a flavorful random encounter."""
     prompt = RANDOM_ENCOUNTER_PROMPT.format(
@@ -21,6 +25,7 @@ def generate_random_encounter(
         party_size=party_size,
         avg_level=avg_level,
         location=location,
+        difficulty=difficulty,
     )
     result = generate_ai_json(prompt)
     if result:
