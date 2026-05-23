@@ -1,5 +1,6 @@
 import streamlit as st
 import logging
+
 import uuid
 import os
 from backend.services.forge_service import (
@@ -12,7 +13,6 @@ from backend.services.rules_service import (
     parse_character_from_text,
     analyze_feat,
 )
-import pypdf
 from backend.core.storage import (
     save_character,
     load_character,
@@ -47,7 +47,20 @@ from backend.core.constants import (
     ALIGNMENTS,
 )
 
-logger = logging.getLogger("DnDAssistant.PlayerView")
+logger = logging.getLogger(__name__)
+
+
+def safe_int(val, default=0):
+    try:
+        if val is None:
+            return default
+        import math
+
+        if isinstance(val, float) and math.isnan(val):
+            return default
+        return int(val)
+    except (ValueError, TypeError):
+        return default
 
 
 def log_roll(message: str):
@@ -284,83 +297,11 @@ def render_selection_screen():
                     f"Extracting and parsing {import_edition} character data..."
                 ):
                     try:
-                        import pdfplumber
+                        from backend.utils.pdf_importer import (
+                            extract_text_and_fields_from_pdf,
+                        )
 
-                        pdf_reader = pypdf.PdfReader(uploaded_pdf)
-                        extracted_text = ""
-
-                        # 1. Robust Form Field Extraction (AcroForm + Manual Annotation Scan)
-                        field_data_found = {}
-                        try:
-                            # Try standard pypdf fields first
-                            fields = pdf_reader.get_fields()
-                            if fields:
-                                for name, data in fields.items():
-                                    val = data.get("/V")
-                                    if val:
-                                        field_data_found[name] = val
-
-                            # Manual scan for widget annotations
-                            for page in pdf_reader.pages:
-                                annots = page.get("/Annots")
-                                if annots:
-                                    for annot in annots:
-                                        try:
-                                            obj = annot.get_object()
-                                            if obj.get("/Subtype") == "/Widget":
-                                                name = obj.get("/T")
-                                                val = obj.get("/V")
-                                                if (
-                                                    name
-                                                    and val
-                                                    and name not in field_data_found
-                                                ):
-                                                    field_data_found[name] = val
-                                        except Exception as e:
-                                            logger.warning(
-                                                f"Field extraction error: {e}"
-                                            )
-                                            continue
-                        except Exception as e:
-                            logger.warning(f"Field extraction error: {e}")
-
-                        if field_data_found:
-                            extracted_text += "--- FORM FIELDS ---\n"
-                            for field_name, val in field_data_found.items():
-                                extracted_text += f"{field_name}: {val}\n"
-                            extracted_text += "--- END FORM FIELDS ---\n\n"
-
-                        # 2. Enhanced Text Extraction with pdfplumber
-                        try:
-                            uploaded_pdf.seek(0)
-                            with pdfplumber.open(uploaded_pdf) as pdf:
-                                extracted_text += "--- VISUAL LAYOUT TEXT ---\n"
-                                for page in pdf.pages:
-                                    page_text = page.extract_text(layout=True)
-                                    if page_text:
-                                        extracted_text += page_text + "\n"
-
-                                    tables = page.extract_tables()
-                                    for table in tables:
-                                        for row in table:
-                                            clean_row = [
-                                                str(c).replace("\n", " ")
-                                                if c is not None
-                                                else ""
-                                                for c in row
-                                            ]
-                                            if any(c.strip() for c in clean_row):
-                                                extracted_text += (
-                                                    " | ".join(clean_row) + "\n"
-                                                )
-                                extracted_text += "--- END VISUAL LAYOUT TEXT ---\n"
-                        except Exception as e:
-                            logger.error(f"pdfplumber failed: {e}")
-                            uploaded_pdf.seek(0)
-                            for page in pdf_reader.pages:
-                                text = page.extract_text()
-                                if text:
-                                    extracted_text += text + "\n"
+                        extracted_text = extract_text_and_fields_from_pdf(uploaded_pdf)
 
                         if not extracted_text.strip():
                             st.error(
@@ -481,6 +422,11 @@ def render_active_character(accent_color: str):
 
     edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([1, 1, 1, 1])
     edit_mode = edit_col1.toggle("✏️ Edit Mode")
+    if not edit_mode:
+        if "equip_df_editor" in st.session_state:
+            del st.session_state["equip_df_editor"]
+        if "weapons_df_editor" in st.session_state:
+            del st.session_state["weapons_df_editor"]
 
     if edit_col2.button("🔼 Level Up", width="stretch", type="primary"):
         run_level_up_wizard()
@@ -610,6 +556,12 @@ def trigger_sync():
     # 4. Update UI State
     update_session_from_dict(st.session_state, updated)
 
+    # Invalidate editor dataframes to force recreation
+    if "equip_df_editor" in st.session_state:
+        del st.session_state["equip_df_editor"]
+    if "weapons_df_editor" in st.session_state:
+        del st.session_state["weapons_df_editor"]
+
     # Update widget temp keys from the fresh data
     for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
         st.session_state[f"stat_val_{k}"] = st.session_state.stats[k]
@@ -686,27 +638,47 @@ def _render_core_stats(edit_mode: bool):
     """Renders ability scores, core attributes, and skills."""
     if edit_mode:
         c_n, c_c, c_l, c_r = st.columns(4)
-        c_n.text_input("Name", key="char_name")
-        c_c.text_input("Class", key="char_class")
-        c_c.text_input("Subclass", key="subclass")
-        c_l.number_input("Level", 1, 20, key="char_level")
-        c_r.text_input("Race", key="race")
+        st.session_state.char_name = c_n.text_input(
+            "Name", value=st.session_state.char_name
+        )
+        st.session_state.char_class = c_c.text_input(
+            "Class", value=st.session_state.char_class
+        )
+        st.session_state.subclass = c_c.text_input(
+            "Subclass", value=st.session_state.subclass or ""
+        )
+        st.session_state.char_level = c_l.number_input(
+            "Level", 1, 20, value=st.session_state.char_level
+        )
+        st.session_state.race = c_r.text_input("Race", value=st.session_state.race)
 
         c_b, c_a, c_hp, c_ac = st.columns(4)
-        c_b.text_input("Background", key="background")
-        c_a.text_input("Alignment", key="alignment")
-        c_hp.number_input("Max HP (Derived)", 1, 500, key="hp_max", disabled=True)
+        st.session_state.background = c_b.text_input(
+            "Background", value=st.session_state.background
+        )
+        st.session_state.alignment = c_a.text_input(
+            "Alignment", value=st.session_state.alignment
+        )
+        c_hp.number_input(
+            "Max HP (Derived)", 1, 500, value=st.session_state.hp_max, disabled=True
+        )
         c_ac.number_input(
-            "Armor Class (Derived)", 1, 50, key="armor_class", disabled=True
+            "Armor Class (Derived)",
+            1,
+            50,
+            value=st.session_state.armor_class,
+            disabled=True,
         )
 
         c_hd, c_pass = st.columns(2)
-        c_hd.text_input("Hit Dice (Derived)", key="hit_dice", disabled=True)
+        c_hd.text_input(
+            "Hit Dice (Derived)", value=st.session_state.hit_dice or "", disabled=True
+        )
         c_pass.number_input(
             "Passive Perception (Derived)",
             0,
             30,
-            key="passive_perception",
+            value=st.session_state.passive_perception,
             disabled=True,
         )
 
@@ -1041,7 +1013,7 @@ def _render_core_stats(edit_mode: bool):
     st.markdown("---")
     st.markdown("#### ✨ Heroic Advancements (Feats & ASI)")
     if edit_mode:
-        st.session_state.advancements = st.data_editor(
+        edited_adv_df = st.data_editor(
             st.session_state.advancements,
             num_rows="dynamic",
             key="edit_advancements",
@@ -1056,6 +1028,25 @@ def _render_core_stats(edit_mode: bool):
                 "description": st.column_config.TextColumn("Description"),
             },
         )
+        if edited_adv_df is not None:
+            new_advancements = []
+            import pandas as pd
+
+            rows = (
+                edited_adv_df.iterrows()
+                if isinstance(edited_adv_df, pd.DataFrame)
+                else enumerate(edited_adv_df)
+            )
+            for _, row in rows:
+                new_advancements.append(
+                    {
+                        "level": safe_int(row.get("level"), 1),
+                        "type": row.get("type") or "Feat",
+                        "name": row.get("name") or "New Advancement",
+                        "description": row.get("description") or "",
+                    }
+                )
+            st.session_state.advancements = new_advancements
     else:
         if not st.session_state.advancements:
             st.write("No advancements recorded.")
@@ -1070,8 +1061,13 @@ def _render_combat_inventory(edit_mode: bool):
     """Renders weapons and equipment sections."""
     st.markdown("#### Weapons")
     if edit_mode:
-        st.session_state.weapons = st.data_editor(
-            st.session_state.weapons,
+        import pandas as pd
+
+        if "weapons_df_editor" not in st.session_state:
+            st.session_state.weapons_df_editor = pd.DataFrame(st.session_state.weapons)
+
+        st.data_editor(
+            st.session_state.weapons_df_editor,
             num_rows="dynamic",
             key="edit_weapons",
             use_container_width=True,
@@ -1093,6 +1089,7 @@ def _render_combat_inventory(edit_mode: bool):
             },
         )
         if st.button("➕ Add New Weapon", width="stretch"):
+            trigger_sync()
             st.session_state.weapons.append(
                 {
                     "name": "New Weapon",
@@ -1101,6 +1098,8 @@ def _render_combat_inventory(edit_mode: bool):
                     "is_custom": False,
                 }
             )
+            if "weapons_df_editor" in st.session_state:
+                del st.session_state["weapons_df_editor"]
             st.rerun()
     else:
         weapons = st.session_state.get("weapons", [])
@@ -1272,8 +1271,11 @@ def _render_combat_inventory(edit_mode: bool):
             "SAVES",
         ]
 
+        if "equip_df_editor" not in st.session_state:
+            st.session_state.equip_df_editor = equip_df
+
         st.data_editor(
-            equip_df,
+            st.session_state.equip_df_editor,
             num_rows="dynamic",
             key="edit_equip_table",
             use_container_width=True,
@@ -1308,6 +1310,8 @@ def _render_combat_inventory(edit_mode: bool):
                     "val2": 0,
                 }
             )
+            if "equip_df_editor" in st.session_state:
+                del st.session_state["equip_df_editor"]
             st.rerun()
     else:
         if current_equip:
@@ -1342,9 +1346,27 @@ def _render_features_spells(edit_mode: bool):
     """Renders features and spellcasting sections."""
     st.markdown("#### Features & Traits")
     if edit_mode:
-        st.session_state.features_traits = st.data_editor(
+        edited_features_df = st.data_editor(
             st.session_state.features_traits, num_rows="dynamic", key="edit_features"
         )
+        if edited_features_df is not None:
+            new_features = []
+            import pandas as pd
+
+            rows = (
+                edited_features_df.iterrows()
+                if isinstance(edited_features_df, pd.DataFrame)
+                else enumerate(edited_features_df)
+            )
+            for _, row in rows:
+                new_features.append(
+                    {
+                        "name": row.get("name") or "New Feature",
+                        "description": row.get("description") or "",
+                        "source": row.get("source"),
+                    }
+                )
+            st.session_state.features_traits = new_features
     else:
         features = st.session_state.get("features_traits", [])
         if features is None:
@@ -1412,14 +1434,22 @@ def _render_features_spells(edit_mode: bool):
                 "spell": st.column_config.TextColumn("Spell Name"),
             },
         )
-        new_spells = {}
-        for row in edited_spells:
-            if row.get("level") and row.get("spell"):
-                lvl = row["level"]
-                if lvl not in new_spells:
-                    new_spells[lvl] = []
-                new_spells[lvl].append(row["spell"])
-        st.session_state.spells = new_spells
+        if edited_spells is not None:
+            new_spells = {}
+            import pandas as pd
+
+            rows = (
+                edited_spells.iterrows()
+                if isinstance(edited_spells, pd.DataFrame)
+                else enumerate(edited_spells)
+            )
+            for _, row in rows:
+                if row.get("level") and row.get("spell"):
+                    lvl = row["level"]
+                    if lvl not in new_spells:
+                        new_spells[lvl] = []
+                    new_spells[lvl].append(row["spell"])
+            st.session_state.spells = new_spells
     else:
         if not st.session_state.spells:
             st.write("No spells known.")
