@@ -85,40 +85,6 @@ with st.sidebar:
         st.rerun()
 
     st.markdown("---")
-    # --- AI Rules Oracle in a Popover ---
-    with st.popover("📜 AI Rules Oracle", width="stretch"):
-        st.markdown("### Ask the Oracle")
-        rule_query = st.text_input(
-            "Ask about a rule or feature:",
-            placeholder="e.g. How does Sneak Attack work?",
-            key="rule_query_input",
-        )
-
-        if st.button("Query Oracle", key="rule_query_btn", width="stretch"):
-            if rule_query:
-                from backend.services.rules_service import query_rules
-
-                with st.spinner("Consulting the archives..."):
-                    answer = query_rules(rule_query, st.session_state.dnd_edition)
-                    st.session_state.last_rule_answer = answer
-            else:
-                st.warning("Please enter a question.")
-
-        if st.session_state.get("last_rule_answer"):
-            st.markdown("---")
-            if (
-                "⚠️" in st.session_state.last_rule_answer
-                or "❌" in st.session_state.last_rule_answer
-            ):
-                st.error(st.session_state.last_rule_answer)
-            else:
-                st.info(st.session_state.last_rule_answer)
-
-            if st.button("Clear Answer"):
-                st.session_state.last_rule_answer = None
-                st.rerun()
-
-    st.markdown("---")
     # --- Recent Rolls Log ---
     st.markdown("### 🎲 Recent Rolls")
     if st.session_state.get("roll_history"):

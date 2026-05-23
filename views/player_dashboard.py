@@ -30,7 +30,7 @@ from backend.services.mechanics_service import (
     check_progression_features,
 )
 from backend.utils.pdf_exporter import export_character_to_pdf
-from backend.utils.ui_utils import render_character_header
+from backend.utils.ui_utils import render_character_header, render_active_roll_visual
 from backend.utils.image_utils import generate_portrait_url
 from backend.core.constants import (
     EDITION_2014,
@@ -424,6 +424,7 @@ def render_active_character(accent_color: str):
         subclass=st.session_state.get("subclass"),
     )
     st.caption(f"📜 Ruleset: {st.session_state.dnd_edition}")
+    render_active_roll_visual()
 
     if st.session_state.get("leveling_up", False):
         with st.expander("⬆️ Level Up Wizard", expanded=True):
@@ -834,6 +835,15 @@ def _render_core_stats(edit_mode: bool):
 
                 res, raw = quick_roll(20, mod)
                 log_roll(f"**{label}** Check: **{res}** (d20: {raw}, Mod: {mod_str})")
+                st.session_state.active_roll = {
+                    "label": f"{label} Check",
+                    "sides": 20,
+                    "raw": raw,
+                    "modifier": mod,
+                    "total": res,
+                    "adv_type": "None",
+                }
+                st.rerun()
 
         with c1:
             render_score("STR", st.session_state.stats["STR"])
@@ -938,14 +948,34 @@ def _render_core_stats(edit_mode: bool):
                     res, raw = quick_roll(p_dtype, total_mod)
                     msg = f"**Custom Roll ({p_dtype})**: **{res}** (raw: {raw} + {mod_desc})"
                     log_roll(msg)
-                    st.success(msg)
+                    st.session_state.active_roll = {
+                        "label": f"Custom Roll (d{p_dtype})",
+                        "sides": p_dtype,
+                        "raw": raw,
+                        "modifier": total_mod,
+                        "total": res,
+                        "adv_type": "None",
+                    }
+                    st.rerun()
                 else:
                     r1, raw1 = quick_roll(p_dtype, total_mod)
                     r2, raw2 = quick_roll(p_dtype, total_mod)
                     final = max(r1, r2) if p_adv == "Advantage" else min(r1, r2)
                     msg = f"**{p_adv} ({p_dtype})**: **{final}** (Rolls: {r1}, {r2} | Mod: {mod_desc})"
                     log_roll(msg)
-                    st.success(msg)
+                    st.session_state.active_roll = {
+                        "label": f"Custom Roll with {p_adv}",
+                        "sides": p_dtype,
+                        "raw": [raw1, raw2],
+                        "raw_selected": raw1
+                        if (p_adv == "Advantage" and raw1 >= raw2)
+                        or (p_adv == "Disadvantage" and raw1 <= raw2)
+                        else raw2,
+                        "modifier": total_mod,
+                        "total": final,
+                        "adv_type": p_adv,
+                    }
+                    st.rerun()
 
         col_sk, col_sv = st.columns(2)
         with col_sk:
@@ -967,6 +997,15 @@ def _render_core_stats(edit_mode: bool):
 
                     res, raw = quick_roll(20, v)
                     log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
+                    st.session_state.active_roll = {
+                        "label": f"{k} Check",
+                        "sides": 20,
+                        "raw": raw,
+                        "modifier": v,
+                        "total": res,
+                        "adv_type": "None",
+                    }
+                    st.rerun()
         with col_sv:
             st.markdown("#### Saving Throws")
             saves = st.session_state.get("saving_throw_values", {})
@@ -989,6 +1028,15 @@ def _render_core_stats(edit_mode: bool):
                     log_roll(
                         f"**{stat}** Saving Throw: **{res}** (d20: {raw} + {total_sv})"
                     )
+                    st.session_state.active_roll = {
+                        "label": f"{stat} Saving Throw",
+                        "sides": 20,
+                        "raw": raw,
+                        "modifier": total_sv,
+                        "total": res,
+                        "adv_type": "None",
+                    }
+                    st.rerun()
 
     st.markdown("---")
     st.markdown("#### ✨ Heroic Advancements (Feats & ASI)")
@@ -1086,14 +1134,21 @@ def _render_combat_inventory(edit_mode: bool):
                     log_roll(
                         f"**{w.get('name')}** To Hit: **{res}** (d20: {raw} + {bonus_text})"
                     )
+                    st.session_state.active_roll = {
+                        "label": f"{w.get('name')} Attack Roll",
+                        "sides": 20,
+                        "raw": raw,
+                        "modifier": total_atk,
+                        "total": res,
+                        "adv_type": "None",
+                    }
                     if raw == 20:
                         st.balloons()
-                        st.success("CRITICAL HIT! 🎯")
-                    elif raw == 1:
-                        st.error("NATURAL 1! 💀")
+                    st.rerun()
 
                 if w_col3.button("💥 Dmg", key=f"dmg_{i}", width="stretch"):
                     from backend.utils.dice import roll_dice
+                    import re
 
                     dmg_str = w.get("damage", "1d4")
                     global_dmg = getattr(st.session_state, "global_damage_bonus", 0)
@@ -1107,6 +1162,22 @@ def _render_combat_inventory(edit_mode: bool):
                         log_roll(
                             f"**{w.get('name')}** Damage: **{res['total']}** ({res['result_text']})"
                         )
+                        try:
+                            sides = int(re.search(r"d(\d+)", dmg_str).group(1))
+                        except Exception:
+                            sides = 6
+
+                        rolls = res.get("rolls", [1])
+                        st.session_state.active_roll = {
+                            "label": f"{w.get('name')} Damage",
+                            "sides": sides,
+                            "raw": rolls if len(rolls) > 1 else rolls[0],
+                            "raw_selected": sum(rolls),
+                            "modifier": res.get("modifier", 0),
+                            "total": res.get("total", 1),
+                            "adv_type": "None",
+                        }
+                        st.rerun()
 
     # 5.5e Weapon Masteries
     if st.session_state.dnd_edition == "2024 Revision (5.5e)":

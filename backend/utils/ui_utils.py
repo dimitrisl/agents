@@ -135,6 +135,93 @@ def inject_custom_css(primary_color: str, accent_color: str):
             [data-testid="stSidebar"] .stRadio label:has(input:checked) p {{
                 color: white !important;
             }}
+
+            /* Dice Roll CSS Animations & Styling */
+            @keyframes dice-roll {{
+                0% {{ transform: scale(0.3) rotate(0deg); filter: blur(4px); }}
+                15% {{ transform: scale(1.1) rotate(180deg); }}
+                30% {{ transform: scale(0.9) rotate(360deg); }}
+                45% {{ transform: scale(1.15) rotate(540deg) translate(5px, -5px); }}
+                60% {{ transform: scale(0.95) rotate(720deg) translate(-5px, 5px); }}
+                75% {{ transform: scale(1.05) rotate(900deg) translate(2px, 2px); }}
+                90% {{ transform: scale(0.98) rotate(1000deg); }}
+                100% {{ transform: scale(1) rotate(1080deg); }}
+            }}
+
+            @keyframes text-glow {{
+                0% {{ text-shadow: 0 0 2px rgba(212, 175, 55, 0.3); }}
+                50% {{ text-shadow: 0 0 10px rgba(212, 175, 55, 0.8), 0 0 20px rgba(212, 175, 55, 0.5); }}
+                100% {{ text-shadow: 0 0 2px rgba(212, 175, 55, 0.3); }}
+            }}
+
+            @keyframes fade-in {{
+                from {{ opacity: 0; transform: translateY(10px); }}
+                to {{ opacity: 1; transform: translateY(0); }}
+            }}
+
+            .dice-card {{
+                background: linear-gradient(135deg, rgba(20, 10, 10, 0.95) 0%, rgba(10, 5, 5, 0.98) 100%);
+                border: 2px solid #ff4b4b;
+                border-radius: 16px;
+                padding: 20px;
+                margin: 15px 0;
+                text-align: center;
+                box-shadow: 0 8px 32px rgba(255, 75, 75, 0.3);
+                animation: fade-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                position: relative;
+                overflow: hidden;
+            }}
+
+            .dice-wrapper {{
+                display: inline-block;
+                position: relative;
+                width: 120px;
+                height: 120px;
+                margin: 10px auto;
+            }}
+
+            .dice-svg {{
+                width: 100%;
+                height: 100%;
+                animation: dice-roll 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+                transform-origin: center;
+            }}
+
+            .dice-text {{
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-family: 'Outfit', 'Inter', sans-serif;
+                font-size: 2.2rem;
+                font-weight: 900;
+                color: #d4af37;
+                animation: text-glow 2s infinite alternate, fade-in 0.3s ease-out 0.9s both;
+                pointer-events: none;
+            }}
+
+            .dice-label-text {{
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: #fff;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                margin-bottom: 5px;
+            }}
+
+            .dice-subtext {{
+                font-size: 0.9rem;
+                color: #888;
+                margin-top: 10px;
+            }}
+
+            .dice-total-display {{
+                font-size: 2.5rem;
+                font-weight: 800;
+                color: #ff4b4b;
+                margin: 5px 0;
+                animation: fade-in 0.3s ease-out 1.1s both;
+            }}
         </style>
     """,
         unsafe_allow_html=True,
@@ -188,3 +275,102 @@ def render_character_header(
             st.caption(f"{background} • {alignment}")
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_active_roll_visual():
+    """Renders the visually animated dice roll from session state if available."""
+    if "active_roll" not in st.session_state or st.session_state.active_roll is None:
+        return
+
+    roll = st.session_state.active_roll
+    label = roll.get("label", "Dice Roll")
+    sides = roll.get("sides", 20)
+    raw = roll.get("raw", 1)  # Can be int or list (for advantage/disadvantage)
+    modifier = roll.get("modifier", 0)
+    total = roll.get("total", 1)
+    adv_type = roll.get("adv_type", "None")
+
+    # Generate the SVG based on dice type
+    svg_content = ""
+    if sides == 4:
+        svg_content = """
+        <polygon points="50,10 90,85 10,85" fill="#1a0a0a" stroke="#ff4b4b" stroke-width="4"/>
+        <line x1="50" y1="10" x2="50" y2="85" stroke="#ff4b4b" stroke-width="1.5" stroke-dasharray="2,2"/>
+        """
+    elif sides == 6:
+        svg_content = """
+        <rect x="15" y="15" width="70" height="70" rx="10" ry="10" fill="#1a0a0a" stroke="#ff4b4b" stroke-width="4"/>
+        <line x1="15" y1="15" x2="85" y2="85" stroke="#ff4b4b" stroke-width="1" opacity="0.3"/>
+        """
+    elif sides == 8:
+        svg_content = """
+        <polygon points="50,5 90,50 50,95 10,50" fill="#1a0a0a" stroke="#ff4b4b" stroke-width="4"/>
+        <line x1="10" y1="50" x2="90" y2="50" stroke="#ff4b4b" stroke-width="2"/>
+        <line x1="50" y1="5" x2="50" y2="95" stroke="#ff4b4b" stroke-width="1.5" stroke-dasharray="2,2"/>
+        """
+    elif sides == 10:
+        svg_content = """
+        <polygon points="50,5 85,40 50,95 15,40" fill="#1a0a0a" stroke="#ff4b4b" stroke-width="4"/>
+        <line x1="15" y1="40" x2="85" y2="40" stroke="#ff4b4b" stroke-width="2"/>
+        <line x1="50" y1="5" x2="50" y2="95" stroke="#ff4b4b" stroke-width="1.5" stroke-dasharray="2,2"/>
+        """
+    elif sides == 12:
+        svg_content = """
+        <polygon points="50,5 88,33 73,78 27,78 12,33" fill="#1a0a0a" stroke="#ff4b4b" stroke-width="4"/>
+        <line x1="50" y1="5" x2="50" y2="40" stroke="#ff4b4b" stroke-width="1.5"/>
+        <line x1="88" y1="33" x2="60" y2="50" stroke="#ff4b4b" stroke-width="1.5"/>
+        <line x1="73" y1="78" x2="55" y2="70" stroke="#ff4b4b" stroke-width="1.5"/>
+        <line x1="27" y1="78" x2="45" y2="70" stroke="#ff4b4b" stroke-width="1.5"/>
+        <line x1="12" y1="33" x2="40" y2="50" stroke="#ff4b4b" stroke-width="1.5"/>
+        """
+    else:  # D20 and fallback
+        svg_content = """
+        <polygon points="50,15 85,75 15,75" fill="#1a0a0a" stroke="#ff4b4b" stroke-width="3"/>
+        <polygon points="50,15 15,75 5,35" fill="#120505" stroke="#ff4b4b" stroke-dasharray="2,2" stroke-width="1.5"/>
+        <polygon points="50,15 85,75 95,35" fill="#120505" stroke="#ff4b4b" stroke-dasharray="2,2" stroke-width="1.5"/>
+        <polygon points="15,75 85,75 50,95" fill="#120505" stroke="#ff4b4b" stroke-dasharray="2,2" stroke-width="1.5"/>
+        """
+
+    # Format the calculation breakdown text
+    mod_str = f"+{modifier}" if modifier >= 0 else str(modifier)
+
+    # If list of rolls (advantage/disadvantage, or multi-dice)
+    if isinstance(raw, list):
+        raw_desc = ", ".join(str(r) for r in raw)
+        calc_text = f"Rolls: ({raw_desc}) | Mod: {mod_str}"
+        raw_val = roll.get("raw_selected", sum(raw))
+    else:
+        calc_text = f"Roll: {raw} | Mod: {mod_str}"
+        raw_val = raw
+
+    adv_badge = ""
+    if adv_type == "Advantage":
+        adv_badge = '<span style="background-color: #2e7d32; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-left: 8px;">ADVANTAGE</span>'
+    elif adv_type == "Disadvantage":
+        adv_badge = '<span style="background-color: #c62828; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-left: 8px;">DISADVANTAGE</span>'
+
+    # Build the full card HTML
+    html_card = f"""
+    <div class="dice-card">
+        <div class="dice-label-text">{label} {adv_badge}</div>
+
+        <div class="dice-wrapper">
+            <svg class="dice-svg" viewBox="0 0 100 100">
+                {svg_content}
+            </svg>
+            <div class="dice-text">{raw_val}</div>
+        </div>
+
+        <div class="dice-total-display">{total}</div>
+        <div class="dice-subtext">{calc_text}</div>
+    </div>
+    """
+
+    col_space, col_content, col_close = st.columns([1, 10, 1])
+    with col_content:
+        st.html(html_card)
+    with col_close:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button("❌", key="dismiss_dice_roll", help="Dismiss roll display"):
+            st.session_state.active_roll = None
+            st.rerun()

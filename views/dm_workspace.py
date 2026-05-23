@@ -16,6 +16,7 @@ from backend.core.storage import (
     load_character,
 )
 from backend.utils.image_utils import generate_portrait_url
+from backend.utils.ui_utils import render_active_roll_visual
 from backend.services.mechanics_service import get_modifier as calculate_modifier
 from backend.core.constants import (
     EDITION_2014,
@@ -31,6 +32,7 @@ logger = logging.getLogger("DnDAssistant.DMView")
 def render_dm_workspace():
     """Renders the main Dungeon Master Workspace view."""
     st.title("Dungeon Master Workspace")
+    render_active_roll_visual()
 
     if not st.session_state.get("active_campaign_name"):
         st.info(
@@ -739,7 +741,15 @@ def _render_initiative_tracker():
                         from backend.utils.dice import quick_roll
 
                         res, raw = quick_roll(d_type, mod)
-                        st.toast(f"🎲 {c['name']} rolled: {res}")
+                        st.session_state.active_roll = {
+                            "label": f"{c['name']} - Quick Roll (d{d_type})",
+                            "sides": d_type,
+                            "raw": raw,
+                            "modifier": mod,
+                            "total": res,
+                            "adv_type": "None",
+                        }
+                        st.rerun()
 
 
 def _render_party_dashboard():
@@ -780,4 +790,12 @@ def _render_party_dashboard():
                         from backend.utils.dice import quick_roll
 
                         res, raw = quick_roll(20, mod)
-                        st.toast(f"{member['char_name']} rolled {stat}: {res}")
+                        st.session_state.active_roll = {
+                            "label": f"{member['char_name']} - {stat} Check",
+                            "sides": 20,
+                            "raw": raw,
+                            "modifier": mod,
+                            "total": res,
+                            "adv_type": "None",
+                        }
+                        st.rerun()

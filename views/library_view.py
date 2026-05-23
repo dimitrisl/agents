@@ -10,10 +10,47 @@ def render_library_view():
     edition = st.session_state.get("dnd_edition", EDITION_2014)
     repo = RulesRepository()
 
-    tabs = st.tabs(["Feats", "Classes"])
+    tabs = st.tabs(["📜 AI Rules Oracle", "Feats", "Classes"])
+
+    # AI Rules Oracle Tab
+    with tabs[0]:
+        st.subheader("📜 AI Rules Oracle")
+        st.markdown(
+            "Ask any question about D&D 5e/5.5e rules, features, spells, or mechanics. The Oracle will consult the archives and guide you."
+        )
+
+        rule_query = st.text_input(
+            "Ask about a rule or feature:",
+            placeholder="e.g. How does Sneak Attack work?",
+            key="oracle_rule_query_input",
+        )
+
+        if st.button(
+            "Query Oracle", key="oracle_rule_query_btn", type="primary", width="stretch"
+        ):
+            if rule_query:
+                from backend.services.rules_service import query_rules
+
+                with st.spinner("Consulting the archives..."):
+                    answer = query_rules(rule_query, edition)
+                    st.session_state.last_library_rule_answer = answer
+            else:
+                st.warning("Please enter a question.")
+
+        if st.session_state.get("last_library_rule_answer"):
+            st.markdown("---")
+            answer = st.session_state.last_library_rule_answer
+            if "⚠️" in answer or "❌" in answer:
+                st.error(answer)
+            else:
+                st.info(answer)
+
+            if st.button("Clear Answer", key="clear_oracle_answer", width="stretch"):
+                st.session_state.last_library_rule_answer = None
+                st.rerun()
 
     # Feats Tab
-    with tabs[0]:
+    with tabs[1]:
         st.subheader(f"Feats ({edition})")
         feats = repo.get_all_feats(edition)
 
@@ -30,7 +67,7 @@ def render_library_view():
                     st.markdown(feat.get("description", ""))
 
     # Classes Tab
-    with tabs[1]:
+    with tabs[2]:
         st.subheader(f"Classes ({edition})")
         classes = repo.get_available_classes(edition)
 

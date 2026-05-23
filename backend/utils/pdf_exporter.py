@@ -316,6 +316,7 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
 
         # Add portrait overlay
         portrait_url = char_data.get("char_portrait")
+        portrait_merged = False
         if portrait_url:
             logger.info("Generating portrait overlay for PDF...")
             overlay_stream = create_image_overlay(portrait_url)
@@ -325,13 +326,17 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
                 if len(writer.pages) > 1:
                     writer.pages[1].merge_page(overlay_page)
                     logger.info("Merged portrait overlay onto page 2.")
+                    portrait_merged = True
 
         output_stream = io.BytesIO()
         writer.write(output_stream)
         pdf_bytes = output_stream.getvalue()
         output_stream.close()
 
-        logger.info("PDF generation successful.")
+        if portrait_url and not portrait_merged:
+            logger.info("PDF generation successful (without portrait overlay).")
+        else:
+            logger.info("PDF generation successful.")
         return pdf_bytes
 
     except Exception as e:
