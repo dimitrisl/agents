@@ -155,3 +155,4 @@ poetry run streamlit run main.py
 - **Tests:** `poetry run pytest tests/ -v`
 - **Pre-commit Hooks:** `poetry run pre-commit install`
 - **Linting & Formatting:** `poetry run pre-commit run --all-files`
+- **Code Quality:** Refer to [code_review.md](code_review.md) for architectural recommendations and code review findings.
