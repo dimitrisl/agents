@@ -213,9 +213,9 @@ Act as an expert D&D {edition} parser.
 Extract the CORE identity and statistics from the character sheet text.
 Handle context for non-English labels (e.g. Italian 'Forza' -> STR).
 
-STRICT CLASS & SUBCLASS SEPARATION RULES:
-- "char_class" must be ONLY the base class (e.g. "Ranger", "Fighter", "Paladin", "Cleric", "Wizard"). Do NOT include subclass names or levels in "char_class".
-- "subclass" must be the character's subclass/archetype if present (e.g. "Horizon Walker", "Champion", "Oath of Devotion"). If no subclass is found or if the level is too low to select one, set to null.
+CRITICAL CLASS & SUBCLASS SEPARATION RULES:
+1. "char_class" MUST BE EXACTLY ONE of the base classes (e.g. "Ranger", "Fighter", "Cleric"). Strip out all other words!
+2. "subclass" MUST BE the character's subclass/archetype. If the text says "Ranger Horizon Walker", char_class="Ranger" and subclass="Horizon Walker". Do NOT put subclass info in char_class.
 
 Raw PDF Text:
 {sheet_text}
@@ -233,7 +233,7 @@ Return JSON:
     "hp_max": integer,
     "speed": integer,
     "proficiency_bonus": integer,
-    "stats": {{"STR": 0, "DEX": 0, ...}},
+    "stats": {{"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0}},
     "saving_throws": [],
     "skills": {{"Name": 0}},
     "skill_proficiencies": [],

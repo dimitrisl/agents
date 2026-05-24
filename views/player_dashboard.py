@@ -1152,19 +1152,26 @@ def _render_combat_inventory(edit_mode: bool):
                 "properties": None,
             },
         )
-        if st.button("➕ Add New Weapon", width="stretch"):
-            trigger_sync()
-            st.session_state.weapons.append(
-                {
-                    "name": "New Weapon",
-                    "attack_bonus": "+0",
-                    "damage": "1d4",
-                    "is_custom": False,
-                }
+        w_add_btn, w_add_qty = st.columns([5, 1])
+        with w_add_qty:
+            qty = st.number_input(
+                "Qty", 1, 10, 1, key="add_weapon_qty", label_visibility="collapsed"
             )
-            if "weapons_df_editor" in st.session_state:
-                del st.session_state["weapons_df_editor"]
-            st.rerun()
+        with w_add_btn:
+            if st.button("➕ Add New Weapon(s)", width="stretch"):
+                trigger_sync()
+                for _ in range(qty):
+                    st.session_state.weapons.append(
+                        {
+                            "name": "New Weapon",
+                            "attack_bonus": "+0",
+                            "damage": "1d4",
+                            "is_custom": False,
+                        }
+                    )
+                if "weapons_df_editor" in st.session_state:
+                    del st.session_state["weapons_df_editor"]
+                st.rerun()
     else:
         weapons = st.session_state.get("weapons", [])
         if weapons is None:
@@ -1374,25 +1381,32 @@ def _render_combat_inventory(edit_mode: bool):
                 "Val 2": st.column_config.NumberColumn("Val 2", width="small"),
             },
         )
-        if st.button("➕ Add New Item", width="stretch"):
-            # To add an item, we must trigger sync to save pending edits first,
-            # then append the new item and rerun.
-            trigger_sync()
-            st.session_state.equipment.append(
-                {
-                    "name": "New Item",
-                    "equipped": False,
-                    "attuned": False,
-                    "ac_bonus": 0,
-                    "mod1": "None",
-                    "val1": 0,
-                    "mod2": "None",
-                    "val2": 0,
-                }
+        e_add_btn, e_add_qty = st.columns([5, 1])
+        with e_add_qty:
+            qty = st.number_input(
+                "Qty", 1, 10, 1, key="add_item_qty", label_visibility="collapsed"
             )
-            if "equip_df_editor" in st.session_state:
-                del st.session_state["equip_df_editor"]
-            st.rerun()
+        with e_add_btn:
+            if st.button("➕ Add New Item(s)", width="stretch"):
+                # To add an item, we must trigger sync to save pending edits first,
+                # then append the new item and rerun.
+                trigger_sync()
+                for _ in range(qty):
+                    st.session_state.equipment.append(
+                        {
+                            "name": "New Item",
+                            "equipped": False,
+                            "attuned": False,
+                            "ac_bonus": 0,
+                            "mod1": "None",
+                            "val1": 0,
+                            "mod2": "None",
+                            "val2": 0,
+                        }
+                    )
+                if "equip_df_editor" in st.session_state:
+                    del st.session_state["equip_df_editor"]
+                st.rerun()
     else:
         if current_equip:
             display_data = []

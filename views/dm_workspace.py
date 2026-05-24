@@ -81,7 +81,7 @@ def _render_campaign_selection():
         st.subheader("Load Existing Campaign")
         camp_list = list_campaigns()
         if camp_list:
-            col_sel, col_btn = st.columns([3, 1], vertical_alignment="bottom")
+            col_sel, col_btn = st.columns([4, 1], vertical_alignment="bottom")
             with col_sel:
                 selected_camp = st.selectbox(
                     "Select Campaign", camp_list, key="sel_camp_main"
@@ -91,7 +91,6 @@ def _render_campaign_selection():
                     "Load Campaign",
                     type="primary",
                     key="load_camp_btn",
-                    use_container_width=True,
                 ):
                     data = load_campaign(selected_camp)
                     if data:
@@ -116,7 +115,7 @@ def _render_campaign_selection():
 
     with st.container(border=True):
         st.subheader("Start New Campaign")
-        col_name, col_btn_new = st.columns([3, 1], vertical_alignment="bottom")
+        col_name, col_btn_new = st.columns([4, 1], vertical_alignment="bottom")
         with col_name:
             new_camp_name = st.text_input(
                 "Campaign Name",
@@ -124,9 +123,7 @@ def _render_campaign_selection():
                 key="new_camp_input",
             )
         with col_btn_new:
-            if st.button(
-                "Create Campaign", key="create_camp_btn", use_container_width=True
-            ):
+            if st.button("Create Campaign", key="create_camp_btn"):
                 if new_camp_name:
                     st.session_state.active_campaign_name = new_camp_name
                     st.session_state.campaign_notes = ""
