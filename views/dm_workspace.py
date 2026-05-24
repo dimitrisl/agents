@@ -81,49 +81,59 @@ def _render_campaign_selection():
         st.subheader("Load Existing Campaign")
         camp_list = list_campaigns()
         if camp_list:
-            selected_camp = st.selectbox(
-                "Select Campaign", camp_list, key="sel_camp_main"
-            )
-            if st.button(
-                "Load Campaign",
-                type="primary",
-                key="load_camp_btn",
-                width="stretch",
-            ):
-                data = load_campaign(selected_camp)
-                if data:
-                    st.session_state.campaign_notes = data.get("notes", "")
-                    st.session_state.active_campaign_name = selected_camp
-                    st.session_state.campaign_party_files = data.get("party", [])
+            col_sel, col_btn = st.columns([3, 1], vertical_alignment="bottom")
+            with col_sel:
+                selected_camp = st.selectbox(
+                    "Select Campaign", camp_list, key="sel_camp_main"
+                )
+            with col_btn:
+                if st.button(
+                    "Load Campaign",
+                    type="primary",
+                    key="load_camp_btn",
+                    use_container_width=True,
+                ):
+                    data = load_campaign(selected_camp)
+                    if data:
+                        st.session_state.campaign_notes = data.get("notes", "")
+                        st.session_state.active_campaign_name = selected_camp
+                        st.session_state.campaign_party_files = data.get("party", [])
 
-                    # Automatically populate the party in session state
-                    st.session_state.party = []
-                    for f in st.session_state.campaign_party_files:
-                        char_data = load_character(f)
-                        if char_data:
-                            st.session_state.party.append(char_data)
+                        # Automatically populate the party in session state
+                        st.session_state.party = []
+                        for f in st.session_state.campaign_party_files:
+                            char_data = load_character(f)
+                            if char_data:
+                                st.session_state.party.append(char_data)
 
-                    logger.info(
-                        f"Loaded campaign: {selected_camp} with {len(st.session_state.party)} members."
-                    )
-                    st.toast(f"Loaded campaign: {selected_camp}")
-                    st.rerun()
+                        logger.info(
+                            f"Loaded campaign: {selected_camp} with {len(st.session_state.party)} members."
+                        )
+                        st.toast(f"Loaded campaign: {selected_camp}")
+                        st.rerun()
         else:
             st.write("No saved campaigns found.")
 
     with st.container(border=True):
         st.subheader("Start New Campaign")
-        new_camp_name = st.text_input(
-            "Campaign Name", placeholder="e.g., Curse of Strahd", key="new_camp_input"
-        )
-        if st.button("Create Campaign", key="create_camp_btn", width="stretch"):
-            if new_camp_name:
-                st.session_state.active_campaign_name = new_camp_name
-                st.session_state.campaign_notes = ""
-                save_campaign(new_camp_name, "")
-                st.rerun()
-            else:
-                st.warning("Please enter a campaign name.")
+        col_name, col_btn_new = st.columns([3, 1], vertical_alignment="bottom")
+        with col_name:
+            new_camp_name = st.text_input(
+                "Campaign Name",
+                placeholder="e.g., Curse of Strahd",
+                key="new_camp_input",
+            )
+        with col_btn_new:
+            if st.button(
+                "Create Campaign", key="create_camp_btn", use_container_width=True
+            ):
+                if new_camp_name:
+                    st.session_state.active_campaign_name = new_camp_name
+                    st.session_state.campaign_notes = ""
+                    save_campaign(new_camp_name, "")
+                    st.rerun()
+                else:
+                    st.warning("Please enter a campaign name.")
 
 
 def _render_campaign_notes():

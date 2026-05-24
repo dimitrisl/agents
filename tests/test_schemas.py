@@ -169,3 +169,41 @@ def test_build_validation_schema():
     )
     assert schema.is_valid is False
     assert len(schema.issues) == 1
+
+
+# --- Sanitizer and Validator Extensions ---
+
+
+def test_class_subclass_splitting():
+    """Verify that a combined class + subclass string is correctly separated during validation."""
+    char = CharacterSchema(
+        char_name="Ulad Bhor",
+        char_class="Ranger Horizon Walker",
+        race="Half-Orc",
+        background="Investigator",
+        stats=StatBlock(),
+    )
+    assert char.char_class == "Ranger"
+    assert char.subclass == "Horizon Walker"
+
+
+def test_spell_list_sanitization():
+    """Verify that dictionary representation of spells or empty/invalid structures are sanitized."""
+    data = {
+        "char_name": "Spellcaster",
+        "char_class": "Wizard",
+        "race": "Elf",
+        "background": "Sage",
+        "stats": StatBlock().model_dump(),
+        "spells": {
+            "cantrips": ["Fire Bolt"],
+            "level_1": [{"name": "Absorb Elements", "prepared": True}, "Shield"],
+            "level_2": None,  # Should become []
+            "level_3": 0,  # Should become []
+        },
+    }
+    char = CharacterSchema(**data)
+    assert char.spells.cantrips == ["Fire Bolt"]
+    assert char.spells.level_1 == ["Absorb Elements", "Shield"]
+    assert char.spells.level_2 == []
+    assert char.spells.level_3 == []

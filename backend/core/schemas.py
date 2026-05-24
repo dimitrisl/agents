@@ -1,5 +1,5 @@
-from typing import List, Dict, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import List, Dict, Optional, Any
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class StatBlock(BaseModel):
@@ -55,6 +55,29 @@ class SpellList(BaseModel):
     level_7: List[str] = []
     level_8: List[str] = []
     level_9: List[str] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def clean_spell_lists(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        cleaned = {}
+        levels = [f"level_{i}" for i in range(1, 10)] + ["cantrips"]
+        for lvl in levels:
+            val = data.get(lvl)
+            if val is None or not isinstance(val, list):
+                cleaned[lvl] = []
+            else:
+                clean_lvl = []
+                for item in val:
+                    if isinstance(item, dict):
+                        name = item.get("name") or item.get("spell_name")
+                        if name:
+                            clean_lvl.append(str(name))
+                    elif item is not None:
+                        clean_lvl.append(str(item))
+                cleaned[lvl] = clean_lvl
+        return cleaned
 
 
 class CharacterSchema(BaseModel):
@@ -119,6 +142,44 @@ class CharacterSchema(BaseModel):
                 for item in v
             ]
         return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_class_subclass_and_spells(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        # 1. Base class and Subclass splitting
+        char_class = data.get("char_class")
+        subclass = data.get("subclass")
+        if char_class and isinstance(char_class, str) and " " in char_class:
+            parts = [p.strip() for p in char_class.split()]
+            known_classes = {
+                "barbarian",
+                "bard",
+                "cleric",
+                "druid",
+                "fighter",
+                "monk",
+                "paladin",
+                "ranger",
+                "rogue",
+                "sorcerer",
+                "warlock",
+                "wizard",
+                "artificer",
+            }
+            if parts[0].lower() in known_classes:
+                data["char_class"] = parts[0]
+                if not subclass:
+                    data["subclass"] = " ".join(parts[1:])
+
+        # 2. Spells type correction (e.g. from empty list or null to dict)
+        spells = data.get("spells")
+        if spells is not None and not isinstance(spells, dict):
+            data["spells"] = {}
+
+        return data
 
 
 class MonsterEncounter(BaseModel):

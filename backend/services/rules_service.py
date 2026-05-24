@@ -83,8 +83,62 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
         logger.info("Chained parsing successfully completed and validated.")
         return validated.model_dump()
     except Exception as e:
-        logger.warning(f"Parsed data failed validation: {e}. Returning raw data.")
-        return final_raw
+        logger.warning(
+            f"Parsed data failed validation: {e}. Falling back to clean schema representation."
+        )
+        # Attempt to construct a safe fallback dictionary
+        fallback_data = {
+            "char_name": str(final_raw.get("char_name") or "New Hero"),
+            "char_class": str(final_raw.get("char_class") or "Paladin"),
+            "race": str(final_raw.get("race") or "Human"),
+            "background": str(final_raw.get("background") or "Acolyte"),
+        }
+        # Copy basic scalar/identifying fields safely
+        basic_fields = [
+            "char_id",
+            "gender",
+            "char_level",
+            "subclass",
+            "alignment",
+            "backstory",
+            "armor_class",
+            "hp_max",
+            "speed",
+            "proficiency_bonus",
+            "personality_traits",
+            "ideals",
+            "bonds",
+            "flaws",
+            "languages",
+            "tool_proficiencies",
+            "dnd_edition",
+        ]
+        for key in basic_fields:
+            if key in final_raw:
+                fallback_data[key] = final_raw[key]
+
+        try:
+            validated = CharacterSchema.model_validate(fallback_data, strict=False)
+            return validated.model_dump()
+        except Exception as fallback_err:
+            logger.error(
+                f"Fallback validation failed: {fallback_err}. Returning default character."
+            )
+            from backend.core.state_manager import get_default_character
+
+            default_char = get_default_character()
+            # Overlay simple fields
+            for k in [
+                "char_name",
+                "char_class",
+                "subclass",
+                "char_level",
+                "race",
+                "background",
+            ]:
+                if final_raw.get(k):
+                    default_char[k] = final_raw[k]
+            return default_char
 
 
 def regex_parse_feat_attributes(description: str) -> dict:
