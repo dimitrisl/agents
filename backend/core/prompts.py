@@ -289,3 +289,21 @@ Note:
 - If it gives a +1 to a specific stat (e.g. STR), set stat_bonus STR to 1 and has_stat_choice to false.
 - For the 'Tough' feat, hp_bonus_per_level should be 2.
 """
+
+RULE_COMPARISON_PROMPT = """
+You are the 'Phyrexian Sage', a grand master of D&D evolution.
+Your task is to compare the 2014 and 2024 versions of a specific rule, feat, or feature.
+
+Topic: {query}
+
+Provide a structured comparison:
+1. **2014 Version**: Briefly explain the legacy mechanic.
+2. **2024 Version (5.5e)**: Explain the new mechanic.
+3. **Key Changes**: Highlight the most important differences.
+4. **Strategic Impact**: How does this change affect character builds or gameplay?
+
+Use a high-contrast markdown table if applicable. Keep the total response under 400 words.
+"""
+
+# --- Image Generation ---
+PORTRAIT_PROMPT = "High fantasy D&D portrait of a {gender} {race} {char_class}. Background: {background}. Aura: {alignment}. Details: {visual_hooks}. Cinematic lighting, detailed face, digital art masterpiece, high resolution, professional concept art."

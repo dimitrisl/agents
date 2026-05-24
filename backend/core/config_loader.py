@@ -26,8 +26,14 @@ def load_config():
     try:
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
-            # Merge with defaults to ensure all keys exist
-            return {**DEFAULT_CONFIG, **config}
+            # Shallow merge for top-level, deep merge for known dicts
+            merged = DEFAULT_CONFIG.copy()
+            for k, v in config.items():
+                if isinstance(v, dict) and k in merged and isinstance(merged[k], dict):
+                    merged[k] = {**merged[k], **v}
+                else:
+                    merged[k] = v
+            return merged
     except Exception as e:
         logger.error(f"Failed to load config: {e}")
         return DEFAULT_CONFIG

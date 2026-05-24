@@ -4,6 +4,7 @@ import os
 import requests
 import uuid
 import logging
+from backend.core.prompts import PORTRAIT_PROMPT
 
 logger = logging.getLogger("DnDAssistant.ImageUtils")
 
@@ -41,15 +42,14 @@ def generate_portrait_url(char_data: dict) -> str:
     visual_hooks = backstory[:150] if backstory else ""
 
     # Construct a rich, descriptive prompt
-    prompt = f"High fantasy D&D portrait of a {gender} {race} {char_class}. "
-    if background:
-        prompt += f"Background: {background}. "
-    if alignment:
-        prompt += f"Aura: {alignment}. "
-    if visual_hooks:
-        prompt += f"Details: {visual_hooks}. "
-
-    prompt += "Cinematic lighting, detailed face, digital art masterpiece, high resolution, professional concept art."
+    prompt = PORTRAIT_PROMPT.format(
+        gender=gender,
+        race=race,
+        char_class=char_class,
+        background=background if background else "N/A",
+        alignment=alignment if alignment else "N/A",
+        visual_hooks=visual_hooks if visual_hooks else "N/A",
+    )
 
     # URL encode the full prompt
     encoded_prompt = urllib.parse.quote(prompt)

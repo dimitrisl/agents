@@ -8,6 +8,7 @@ from backend.core.prompts import (
     PDF_PARSING_STEP1_PROMPT,
     PDF_PARSING_STEP2_PROMPT,
     FEAT_ANALYSIS_PROMPT,
+    RULE_COMPARISON_PROMPT,
 )
 from backend.core.constants import EDITION_2014
 
@@ -26,6 +27,12 @@ def query_rules(query: str, edition: str = EDITION_2014) -> str:
         edition=edition,
         query=query,
     )
+    return generate_ai_response(prompt)
+
+
+def compare_rules(query: str) -> str:
+    """Uses AI to compare 2014 and 2024 rules."""
+    prompt = RULE_COMPARISON_PROMPT.format(query=query)
     return generate_ai_response(prompt)
 
 

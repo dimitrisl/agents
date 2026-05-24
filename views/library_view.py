@@ -10,7 +10,7 @@ def render_library_view():
     edition = st.session_state.get("dnd_edition", EDITION_2014)
     repo = RulesRepository()
 
-    tabs = st.tabs(["📜 AI Rules Oracle", "Feats", "Classes"])
+    tabs = st.tabs(["📜 AI Rules Oracle", "⚖️ Rule Comparison", "Feats", "Classes"])
 
     # AI Rules Oracle Tab
     with tabs[0]:
@@ -49,8 +49,40 @@ def render_library_view():
                 st.session_state.last_library_rule_answer = None
                 st.rerun()
 
-    # Feats Tab
+    # Rule Comparison Tab
     with tabs[1]:
+        st.subheader("⚖️ 2014 vs. 2024 Comparison")
+        st.markdown(
+            "Compare the legacy 2014 rules with the new 2024 Revision (5.5e) mechanics."
+        )
+
+        compare_query = st.text_input(
+            "Rule or Feat to compare:",
+            placeholder="e.g. Great Weapon Master, Grappled condition, Surprise...",
+            key="rule_compare_input",
+        )
+
+        if st.button(
+            "Compare Rules", key="rule_compare_btn", type="primary", width="stretch"
+        ):
+            if compare_query:
+                from backend.services.rules_service import compare_rules
+
+                with st.spinner("Analyzing the evolution of rules..."):
+                    comparison = compare_rules(compare_query)
+                    st.session_state.last_rule_comparison = comparison
+            else:
+                st.warning("Please enter a rule to compare.")
+
+        if st.session_state.get("last_rule_comparison"):
+            st.markdown("---")
+            st.info(st.session_state.last_rule_comparison)
+            if st.button("Clear Comparison", key="clear_compare_btn", width="stretch"):
+                st.session_state.last_rule_comparison = None
+                st.rerun()
+
+    # Feats Tab
+    with tabs[2]:
         st.subheader(f"Feats ({edition})")
         feats = repo.get_all_feats(edition)
 

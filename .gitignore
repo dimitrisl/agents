@@ -11,3 +11,6 @@ app_debug.log
 
 # Temporary scratch files
 scratch/
+.coverage
+.pytest_cache/
+htmlcov/
