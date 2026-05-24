@@ -91,6 +91,23 @@ class TestCharacterRepository:
         loaded = char_repo.load(files[0])
         assert loaded["char_level"] == 5
 
+    def test_load_heals_corrupted_character(self, char_repo, sample_char):
+        # Manually insert corrupted data bypassing save() validation
+        corrupted_data = sample_char.copy()
+        corrupted_data["char_class"] = "Ranger Horizon Walker"
+        corrupted_data["spells"] = {
+            "cantrips": ["Fire Bolt"],
+            "level_1": [{"name": "Absorb Elements", "prepared": True}],
+        }
+
+        char_repo.collection.insert_one(corrupted_data)
+
+        loaded = char_repo.load("test_hero_abc123.json")
+        assert loaded is not None
+        assert loaded["char_class"] == "Ranger"
+        assert loaded["subclass"] == "Horizon Walker"
+        assert loaded["spells"]["level_1"] == ["Absorb Elements"]
+
 
 # --- CampaignRepository ---
 

@@ -33,7 +33,25 @@ class CharacterRepository:
             validated = CharacterSchema(**char_data)
             char_data = validated.model_dump()
         except Exception as e:
-            logger.warning(f"Character data failed validation during save: {e}")
+            logger.warning(
+                f"Character data failed validation during save: {e}. Attempting recovery/sanitization."
+            )
+            try:
+                from backend.core.state_manager import (
+                    get_default_character,
+                    CHARACTER_FIELDS,
+                )
+
+                fallback_data = get_default_character()
+                for key in CHARACTER_FIELDS:
+                    if key in char_data and char_data[key] is not None:
+                        fallback_data[key] = char_data[key]
+                validated = CharacterSchema.model_validate(fallback_data, strict=False)
+                char_data = validated.model_dump()
+            except Exception as rec_err:
+                logger.error(
+                    f"Save recovery failed: {rec_err}. Saving raw data as last resort."
+                )
 
         char_id = char_data.get("char_id", "unknown_id")
 
@@ -61,8 +79,37 @@ class CharacterRepository:
 
         try:
             data = self.collection.find_one({"char_id": char_id})
-            if data and "_id" in data:
-                del data["_id"]  # Remove mongo internal ID
+            if data:
+                if "_id" in data:
+                    del data["_id"]  # Remove mongo internal ID
+
+                # Perform auto-healing/validation on load to clean any legacy or corrupted fields
+                try:
+                    validated = CharacterSchema(**data)
+                    return validated.model_dump()
+                except Exception as val_err:
+                    logger.warning(
+                        f"Loaded character failed validation, running fallback cleaning: {val_err}"
+                    )
+                    try:
+                        from backend.core.state_manager import (
+                            get_default_character,
+                            CHARACTER_FIELDS,
+                        )
+
+                        fallback_data = get_default_character()
+                        for key in CHARACTER_FIELDS:
+                            if key in data and data[key] is not None:
+                                fallback_data[key] = data[key]
+                        validated = CharacterSchema.model_validate(
+                            fallback_data, strict=False
+                        )
+                        return validated.model_dump()
+                    except Exception as fallback_err:
+                        logger.error(
+                            f"Fallback validation failed on load: {fallback_err}. Returning raw data."
+                        )
+                        return data
             return data
         except Exception as e:
             logger.error(f"Failed to load character from MongoDB: {e}")
