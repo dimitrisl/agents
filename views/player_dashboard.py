@@ -373,58 +373,62 @@ def render_active_character(accent_color: str):
     # ------------------------------------------
     # Auto-Save & Auto-Sync System
     # ------------------------------------------
-    edit_mode_active = st.session_state.get("edit_mode", False)
-    if edit_mode_active:
-        # Check if data editors have pending changes
-        editor_changes = False
-        for editor_key in [
-            "edit_equip_table",
-            "edit_weapons",
-            "edit_advancements",
-            "edit_features",
-            "edit_spells",
-        ]:
-            deltas = st.session_state.get(editor_key, {})
-            if deltas:
-                if (
-                    deltas.get("edited_rows")
-                    or deltas.get("added_rows")
-                    or deltas.get("deleted_rows")
-                ):
-                    editor_changes = True
-                    break
-
-        current_char = get_character_dict(st.session_state)
-
-        # Initialize last_saved_char if not present
-        if st.session_state.get("last_saved_char") is None:
-            st.session_state.last_saved_char = current_char.copy()
-
-        # Check for direct session state changes
-        state_changes = False
-        for k, v in current_char.items():
-            # Exclude dynamic/derived fields from change detection to avoid infinite save loops
-            if k in [
-                "armor_class",
-                "hp_max",
-                "initiative_modifier",
-                "passive_perception",
-                "proficiency_bonus",
-                "hit_dice",
+    def sync_and_save_on_toggle():
+        """Callback triggered when the Edit Mode toggle is changed."""
+        # If it was toggled OFF, save any changes
+        if not st.session_state.get("edit_mode", False):
+            # 1. Check if data editors have pending changes
+            editor_changes = False
+            for editor_key in [
+                "edit_equip_table",
+                "edit_weapons",
+                "edit_advancements",
+                "edit_features",
+                "edit_spells",
             ]:
-                continue
-            if v != st.session_state.last_saved_char.get(k):
-                state_changes = True
-                break
+                deltas = st.session_state.get(editor_key, {})
+                if deltas:
+                    if (
+                        deltas.get("edited_rows")
+                        or deltas.get("added_rows")
+                        or deltas.get("deleted_rows")
+                    ):
+                        editor_changes = True
+                        break
 
-        if editor_changes or state_changes:
-            trigger_sync()
-            new_char = get_character_dict(st.session_state)
-            save_character(new_char)
-            st.session_state.last_saved_char = new_char.copy()
-            st.session_state.needs_validation = True
-            st.toast("⚡ Changes saved to vault!")
-            st.rerun()
+            current_char = get_character_dict(st.session_state)
+
+            # Check for direct session state changes
+            state_changes = False
+            if st.session_state.get("last_saved_char") is not None:
+                for k, v in current_char.items():
+                    if k in [
+                        "armor_class",
+                        "hp_max",
+                        "initiative_modifier",
+                        "passive_perception",
+                        "proficiency_bonus",
+                        "hit_dice",
+                    ]:
+                        continue
+                    if v != st.session_state.last_saved_char.get(k):
+                        state_changes = True
+                        break
+            else:
+                state_changes = True
+
+            if editor_changes or state_changes:
+                trigger_sync()
+                new_char = get_character_dict(st.session_state)
+                save_character(new_char)
+                st.session_state.last_saved_char = new_char.copy()
+                st.session_state.needs_validation = True
+
+            # Invalidate editor dataframes to force recreation of UI components
+            if "equip_df_editor" in st.session_state:
+                del st.session_state["equip_df_editor"]
+            if "weapons_df_editor" in st.session_state:
+                del st.session_state["weapons_df_editor"]
 
     if st.session_state.get("leveling_up", False):
         with st.expander("⬆️ Level Up Wizard", expanded=True):
@@ -479,24 +483,43 @@ def render_active_character(accent_color: str):
             else:
                 st.info("No active campaigns found. Ask your DM to create one first!")
 
-    edit_col1, edit_col2, edit_col3, edit_col4 = st.columns([1, 1, 1, 1])
-    edit_mode = edit_col1.toggle("✏️ Edit Mode", key="edit_mode")
-    if not edit_mode:
-        if "equip_df_editor" in st.session_state:
-            del st.session_state["equip_df_editor"]
-        if "weapons_df_editor" in st.session_state:
-            del st.session_state["weapons_df_editor"]
+    # Dynamic columns depending on edit mode state
+    edit_mode_active = st.session_state.get("edit_mode", False)
+    if edit_mode_active:
+        edit_col1, edit_col2, edit_col3, edit_col4, edit_col5 = st.columns(
+            [1.2, 1.2, 1, 1, 1]
+        )
+    else:
+        edit_col1, edit_col3, edit_col4, edit_col5 = st.columns([1.2, 1, 1, 1])
+        edit_col2 = None
 
-    if edit_col2.button("🔼 Level Up", width="stretch", type="primary"):
+    edit_mode = edit_col1.toggle(
+        "✏️ Edit Mode", key="edit_mode", on_change=sync_and_save_on_toggle
+    )
+
+    # If Edit Mode is active, show the Save Changes button
+    if edit_mode and edit_col2:
+        if edit_col2.button(
+            "💾 Save Changes", use_container_width=True, type="primary"
+        ):
+            trigger_sync()
+            new_char = get_character_dict(st.session_state)
+            save_character(new_char)
+            st.session_state.last_saved_char = new_char.copy()
+            st.session_state.needs_validation = True
+            st.toast("⚡ Changes saved to vault!")
+            st.rerun()
+
+    if edit_col3.button("🔼 Level Up", use_container_width=True):
         run_level_up_wizard()
 
-    if edit_col3.button("🎨 Portrait", width="stretch"):
+    if edit_col4.button("🎨 Portrait", use_container_width=True):
         with st.spinner("Forging visual identity..."):
             char_data = get_character_dict(st.session_state)
             st.session_state.char_portrait = generate_portrait_url(char_data)
             st.rerun()
 
-    if edit_col4.button("⚖️ Validate", width="stretch"):
+    if edit_col5.button("⚖️ Validate", use_container_width=True):
         with st.spinner("Checking build against the rules..."):
             char_data = get_character_dict(st.session_state)
             val_result = validate_character_build(char_data)
