@@ -674,6 +674,9 @@ def trigger_sync():
     for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
         st.session_state[f"stat_val_{k}"] = st.session_state.stats[k]
 
+    # Save to database immediately to prevent data loss on subsequent UI interactions
+    save_character(get_character_dict(st.session_state))
+
     # 5. CLEAR the editor state
     if "edit_equip_table" in st.session_state:
         del st.session_state["edit_equip_table"]
@@ -1180,10 +1183,16 @@ def _render_combat_inventory(edit_mode: bool):
             num_rows="dynamic",
             key="edit_weapons",
             use_container_width=True,
+            on_change=trigger_sync,
             column_config={
                 "name": st.column_config.TextColumn("Weapon Name", width="large"),
                 "magic_bonus": st.column_config.NumberColumn(
-                    "+X", width="small", help="Magic bonus (e.g. +1, +2)", step=1
+                    "+X",
+                    width="small",
+                    help="Magic bonus (e.g. +1, +2)",
+                    step=1,
+                    min_value=0,
+                    max_value=5,
                 ),
                 "attack_bonus": st.column_config.TextColumn(
                     "To Hit", width="small", help="Attack bonus e.g. +5, -1"

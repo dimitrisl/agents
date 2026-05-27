@@ -323,12 +323,25 @@ def calculate_weapon_stats(
                 dmg_type = type_match.group(1).strip() if type_match else ""
                 weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
 
-                # Extract bonus if present
-                bonus_match = re.search(r"([+-]\s*\d+)", damage_raw)
-                if bonus_match:
-                    weapon["damage_bonus"] = bonus_match.group(1).replace(" ", "")
-                else:
-                    weapon["damage_bonus"] = "+0"
+                # Extract bonus if present, but only if the user didn't just provide a custom one
+                # The default is "+0", so if it's "+0" or empty, we extract.
+                if weapon.get("damage_bonus", "+0") in ["+0", "", 0, "+ 0", "-0"]:
+                    bonus_match = re.search(r"([+-]\s*\d+)", damage_raw)
+                    if bonus_match:
+                        weapon["damage_bonus"] = bonus_match.group(1).replace(" ", "")
+                    else:
+                        weapon["damage_bonus"] = "+0"
+
+        # Enforce user rule: Damage bonus CANNOT be negative, even on custom weapons
+        d_bonus = weapon.get("damage_bonus", "+0")
+        if isinstance(d_bonus, str) and d_bonus.startswith("-"):
+            weapon["damage_bonus"] = "+0"
+            # Rebuild the combined string without the negative modifier
+            d_dice = weapon.get("damage_dice", "")
+            weapon["damage"] = (
+                d_dice if d_dice else weapon.get("damage", "").split("-")[0].strip()
+            )
+
         return weapon
 
     name = weapon.get("name", "").lower()
@@ -367,16 +380,16 @@ def calculate_weapon_stats(
 
         total_dmg_mod = mod + magic_bonus
 
+        # Floor at 0 per user requirement: Damage bonus CANNOT be negative
+        if total_dmg_mod < 0:
+            total_dmg_mod = 0
+
         # Store separated components for the UI
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
-        weapon["damage_bonus"] = (
-            f"+{total_dmg_mod}" if total_dmg_mod >= 0 else str(total_dmg_mod)
-        )
+        weapon["damage_bonus"] = f"+{total_dmg_mod}"
 
         if total_dmg_mod > 0:
             weapon["damage"] = f"{dice_part} + {total_dmg_mod} {dmg_type}".strip()
-        elif total_dmg_mod < 0:
-            weapon["damage"] = f"{dice_part} - {abs(total_dmg_mod)} {dmg_type}".strip()
         else:
             weapon["damage"] = f"{dice_part} {dmg_type}".strip()
 
