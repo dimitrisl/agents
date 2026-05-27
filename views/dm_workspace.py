@@ -237,6 +237,9 @@ def _render_party_tracker():
     """Renders the player character ingestion and tracking tools."""
     st.subheader("Party Management")
 
+    active_edition = st.session_state.get("dnd_edition", "2014 Edition")
+    is_active_2024 = "2024" in active_edition
+
     with st.expander("📥 Ingest Characters from Storage", expanded=False):
         joined_files = st.session_state.get("campaign_party_files", [])
         if joined_files:
@@ -248,49 +251,69 @@ def _render_party_tracker():
             ):
                 for f in joined_files:
                     char_data = load_character(f)
-                    if char_data and not any(
-                        c.get("char_id") == char_data.get("char_id")
-                        for c in st.session_state.party
-                    ):
-                        st.session_state.party.append(char_data)
+                    if char_data:
+                        char_ed = char_data.get("dnd_edition", "2014 Edition")
+                        is_char_2024 = "2024" in char_ed
+                        if is_active_2024 == is_char_2024:
+                            if not any(
+                                c.get("char_id") == char_data.get("char_id")
+                                for c in st.session_state.party
+                            ):
+                                st.session_state.party.append(char_data)
                 st.success("Synced joined players!")
                 st.rerun()
             st.markdown("---")
 
         available_chars = list_characters()
         if available_chars:
-
-            def format_char_filename(fname):
-                return fname.replace(".json", "").replace("_", " ").title()
-
-            char_to_add = st.selectbox(
-                "Select Character to Add",
-                available_chars,
-                format_func=format_char_filename,
-                key="dm_ingest_select",
-            )
-            if st.button("Add to Party", key="add_to_party_btn", width="stretch"):
-                char_data = load_character(char_to_add)
+            filtered_chars = []
+            for char_file in available_chars:
+                char_data = load_character(char_file)
                 if char_data:
-                    if "char_id" not in char_data:
-                        char_data["char_id"] = str(uuid.uuid4())[:8]
-                    if any(
-                        c.get("char_id") == char_data.get("char_id")
-                        for c in st.session_state.party
-                    ):
-                        st.warning(f"{char_data['char_name']} is already in the party.")
-                    else:
-                        st.session_state.party.append(char_data)
+                    char_ed = char_data.get("dnd_edition", "2014 Edition")
+                    is_char_2024 = "2024" in char_ed
+                    if is_active_2024 == is_char_2024:
+                        filtered_chars.append(char_file)
 
-                        # Persist to campaign file
-                        from backend.core.storage import join_campaign
+            if filtered_chars:
 
-                        join_campaign(
-                            st.session_state.active_campaign_name, char_to_add
-                        )
+                def format_char_filename(fname):
+                    return fname.replace(".json", "").replace("_", " ").title()
 
-                        st.success(f"Added {char_data['char_name']} to the party!")
-                        st.rerun()
+                char_to_add = st.selectbox(
+                    "Select Character to Add",
+                    filtered_chars,
+                    format_func=format_char_filename,
+                    key="dm_ingest_select",
+                )
+                if st.button("Add to Party", key="add_to_party_btn", width="stretch"):
+                    char_data = load_character(char_to_add)
+                    if char_data:
+                        if "char_id" not in char_data:
+                            char_data["char_id"] = str(uuid.uuid4())[:8]
+                        if any(
+                            c.get("char_id") == char_data.get("char_id")
+                            for c in st.session_state.party
+                        ):
+                            st.warning(
+                                f"{char_data['char_name']} is already in the party."
+                            )
+                        else:
+                            st.session_state.party.append(char_data)
+
+                            # Persist to campaign file
+                            from backend.core.storage import join_campaign
+
+                            join_campaign(
+                                st.session_state.active_campaign_name, char_to_add
+                            )
+
+                            st.success(f"Added {char_data['char_name']} to the party!")
+                            st.rerun()
+            else:
+                st.info(
+                    f"No characters found matching the {'2024 Revision' if is_active_2024 else '2014 Edition'}."
+                )
 
     with st.expander("✨ AI Quick Forge", expanded=False):
         q_edition = st.session_state.dnd_edition
@@ -585,41 +608,53 @@ def _render_initiative_tracker():
         lc1, lc2, lc3, lc4 = st.columns(
             [2.5, 0.8, 0.8, 0.9], vertical_alignment="bottom"
         )
+        init_filtered_chars = []
+        active_edition = st.session_state.get("dnd_edition", "2014 Edition")
+        is_active_2024 = "2024" in active_edition
+        for c_file in list_characters():
+            char_data = load_character(c_file)
+            if char_data:
+                char_ed = char_data.get("dnd_edition", "2014 Edition")
+                is_char_2024 = "2024" in char_ed
+                if is_active_2024 == is_char_2024:
+                    init_filtered_chars.append(c_file)
+
         char_file = lc1.selectbox(
-            "Character", list_characters(), key="load_char_init_sel"
+            "Character", init_filtered_chars, key="load_char_init_sel"
         )
         char_qty = lc2.number_input("Qty", 1, 20, 1, key="load_char_init_qty")
         if lc3.button("Load", key="load_char_init_btn", width="stretch"):
-            data = load_character(char_file)
-            if data:
-                for i in range(1, char_qty + 1):
-                    final_name = (
-                        f"{data['char_name']} {i}"
-                        if char_qty > 1
-                        else data["char_name"]
+            if char_file:
+                data = load_character(char_file)
+                if data:
+                    for i in range(1, char_qty + 1):
+                        final_name = (
+                            f"{data['char_name']} {i}"
+                            if char_qty > 1
+                            else data["char_name"]
+                        )
+                        mod = calculate_modifier(data["stats"]["DEX"])
+                        st.session_state.initiative_order.append(
+                            {
+                                "id": str(uuid.uuid4())[:8],
+                                "name": final_name,
+                                "init": 10 + mod,
+                                "hp": data["hp_max"],
+                                "max_hp": data["hp_max"],
+                                "ac": data["armor_class"],
+                                "dex": data["stats"]["DEX"],
+                                "portrait": data.get("char_portrait"),
+                                "conditions": [],
+                                "concentration": False,
+                            }
+                        )
+                    st.session_state.initiative_order.sort(
+                        key=lambda x: (x["init"], x["dex"]), reverse=True
                     )
-                    mod = calculate_modifier(data["stats"]["DEX"])
-                    st.session_state.initiative_order.append(
-                        {
-                            "id": str(uuid.uuid4())[:8],
-                            "name": final_name,
-                            "init": 10 + mod,
-                            "hp": data["hp_max"],
-                            "max_hp": data["hp_max"],
-                            "ac": data["armor_class"],
-                            "dex": data["stats"]["DEX"],
-                            "portrait": data.get("char_portrait"),
-                            "conditions": [],
-                            "concentration": False,
-                        }
-                    )
-                st.session_state.initiative_order.sort(
-                    key=lambda x: (x["init"], x["dex"]), reverse=True
-                )
-                st.rerun()
+                    st.rerun()
 
         if lc4.button("Load All", key="load_all_chars_init_btn", width="stretch"):
-            for c_file in list_characters():
+            for c_file in init_filtered_chars:
                 data = load_character(c_file)
                 if data:
                     if not any(
