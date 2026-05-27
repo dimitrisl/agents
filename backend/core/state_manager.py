@@ -191,63 +191,50 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
 
     _set_val(state, "character_active", True)
 
+    from backend.core.schemas import CharacterSchema
+
     for field in CHARACTER_FIELDS:
         if field in data:
             _set_val(state, field, data[field])
         else:
-            # Set defaults for missing fields to prevent bleed
-            default = None
-            if field == "stats":
-                default = {
-                    "STR": 10,
-                    "DEX": 10,
-                    "CON": 10,
-                    "INT": 10,
-                    "WIS": 10,
-                    "CHA": 10,
-                }
-            elif field in ["skills", "spells", "saving_throw_values"]:
-                default = {}
-            elif field in [
-                "equipment",
-                "features_traits",
-                "weapons",
-                "saving_throws",
-                "skill_proficiencies",
-                "skill_expertise",
-                "advancements",
-                "weapon_masteries",
-                "prepared_spells",
-            ]:
-                default = []
-            elif field in [
-                "char_name",
-                "backstory",
-                "personality_traits",
-                "ideals",
-                "bonds",
-                "flaws",
-                "playstyle_guide",
-                "race",
-                "gender",
-                "background",
-                "alignment",
-                "subclass",
-                "hit_dice",
-                "spell_attack_bonus",
-            ]:
-                default = ""
-            elif field in [
-                "armor_class",
-                "hp_max",
-                "speed",
-                "proficiency_bonus",
-                "passive_perception",
-                "initiative_modifier",
-                "char_level",
-                "spell_save_dc",
-            ]:
-                default = 0
+            # Derive the correct default from the Pydantic schema definition
+            # so we never accidentally set speed=0, armor_class=0, etc.
+            schema_field = CharacterSchema.model_fields.get(field)
+            if schema_field is not None and schema_field.default is not None:
+                from pydantic_core import PydanticUndefinedType
+
+                if isinstance(schema_field.default, PydanticUndefinedType):
+                    default = None
+                else:
+                    default = schema_field.default
+            else:
+                # Fields that have no simple scalar default (factories, required)
+                # fall back to sensible empty-collection/None values
+                if field == "stats":
+                    default = {
+                        "STR": 10,
+                        "DEX": 10,
+                        "CON": 10,
+                        "INT": 10,
+                        "WIS": 10,
+                        "CHA": 10,
+                    }
+                elif field in ["skills", "spells", "saving_throw_values"]:
+                    default = {}
+                elif field in [
+                    "equipment",
+                    "features_traits",
+                    "weapons",
+                    "saving_throws",
+                    "skill_proficiencies",
+                    "skill_expertise",
+                    "advancements",
+                    "weapon_masteries",
+                    "prepared_spells",
+                ]:
+                    default = []
+                else:
+                    default = None
             _set_val(state, field, default)
 
     if "dnd_edition" in data:

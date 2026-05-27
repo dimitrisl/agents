@@ -11,7 +11,11 @@ _camp_repo = CampaignRepository()
 
 
 def save_character(char_data: dict) -> bool:
-    return _char_repo.save(char_data)
+    try:
+        return _char_repo.save(char_data)
+    except ValueError as e:
+        logger.error(f"save_character rejected due to validation failure: {e}")
+        return False
 
 
 def load_character(filename: str) -> dict:

@@ -49,9 +49,12 @@ class CharacterRepository:
                 validated = CharacterSchema.model_validate(fallback_data, strict=False)
                 char_data = validated.model_dump()
             except Exception as rec_err:
-                logger.error(
-                    f"Save recovery failed: {rec_err}. Saving raw data as last resort."
-                )
+                # Fail fast — do NOT persist corrupt data to MongoDB.
+                raise ValueError(
+                    f"Cannot save '{char_data.get('char_name', 'unknown')}': "
+                    f"validation failed and recovery was unsuccessful. "
+                    f"Original error: {e} | Recovery error: {rec_err}"
+                ) from rec_err
 
         char_id = char_data.get("char_id", "unknown_id")
 

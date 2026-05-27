@@ -67,8 +67,11 @@ def test_update_session_from_dict():
     assert state["char_name"] == "Updated Name"
     assert state["stats"]["STR"] == 20
     assert state["character_active"] is True
-    # Verify defaults are set for missing fields
-    assert state["hp_max"] == 0
+    # Verify defaults come from Pydantic schema (NOT hardcoded 0)
+    assert state["hp_max"] == 10  # CharacterSchema default is 10
+    assert state["armor_class"] == 10  # CharacterSchema default is 10
+    assert state["speed"] == 30  # CharacterSchema default is 30
+    assert state["proficiency_bonus"] == 2  # CharacterSchema default is 2
     assert state["backstory"] == ""
 
     # Verify dnd_edition_toggle updates correctly

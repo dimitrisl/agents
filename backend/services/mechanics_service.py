@@ -1,3 +1,4 @@
+import copy
 import math
 import logging
 from typing import Dict, Any, List
@@ -370,8 +371,13 @@ def sync_character_stats(
 ) -> Dict[str, Any]:
     """
     Synchronizes derived stats based on base ability scores and level.
+    Works on a deep copy of char_data to avoid mutating the caller's dict.
     """
     from backend.repositories.rules_repository import RulesRepository
+
+    # Isolate all mutations to a local copy so caller's session-state is never
+    # modified in-place (avoids race conditions across Streamlit reruns).
+    char_data = copy.deepcopy(char_data)
 
     repo = RulesRepository()
 

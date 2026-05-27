@@ -1,88 +1,116 @@
 # 🛡️ Code Review Findings & Recommendations
 
-This document outlines key technical and architectural findings identified during a code review of the **Phyrexian Forge** backend codebase, along with concrete recommendations to resolve them.
+This document outlines key technical and architectural findings identified during a code review of the **Phyrexian Forge** backend codebase, along with concrete recommendations and their **current implementation status**.
 
 ---
 
-## 🛠️ 1. Pydantic Validation Bypass in State Manager
-* **Location:** [state_manager.py](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/state_manager.py#L184-L248) (`update_session_from_dict`)
-* **Finding:** When a field is missing from a loaded dictionary, the state manager manually assigns fallback defaults (such as `0` for numeric fields or `""` for string fields):
-  ```python
-  elif field in [
-      "armor_class",
-      "hp_max",
-      "speed",
-      "proficiency_bonus",
-      "passive_perception",
-      "initiative_modifier",
-      "char_level",
-      "spell_save_dc",
-  ]:
-      default = 0
-  ```
-  This overrides the strict schema defaults defined in `CharacterSchema` (where `armor_class` defaults to `10`, `speed` to `30`, `proficiency_bonus` to `2`, etc.). If these fields are missing, characters will load with corrupted `0` stats.
-* **Recommendation:** Leverage Pydantic field definitions to fetch the actual defaults defined in the schema:
+## ✅ DONE — Centralized Prompt Management
+* **Location:** `backend/core/prompts.py`
+* **Status:** **Implemented.** All AI prompts (forge, session prep, NPC generation, rule comparison, etc.) have been extracted into `backend/core/prompts.py` and are imported by the relevant services. The prompts file is 12KB and covers all use cases including `RULE_COMPARISON_PROMPT`, `SESSION_PREP_PROMPT`, `NPC_PROMPT`, etc.
+
+---
+
+## ✅ DONE — PDF Field Abstraction
+* **Location:** `backend/utils/pdf_exporter.py`, `data/pdf_mappings/`
+* **Status:** **Implemented.** The `PDFExporter` class reads its field mappings from external JSON files in `data/pdf_mappings/` (e.g., `mapping_name.json`). Adding support for a new character sheet template requires only a new JSON file, not changes to Python code.
+
+---
+
+## ✅ DONE — Interactive Initiative Tracker
+* **Location:** `views/dm_workspace.py` (`_render_initiative_tracker`)
+* **Status:** **Implemented.** Full-featured initiative tracker exists in the DM Workspace, including HP bars, status conditions, concentration tracking, turn order management, statblock popovers, and per-combatant quick roll.
+
+---
+
+## ✅ DONE — Rule Comparison Tool
+* **Location:** `views/library_view.py`, `backend/services/rules_service.py`, `backend/core/prompts.py`
+* **Status:** **Implemented.** A dedicated "Rule Comparison" tab exists in the Library view. The user can enter any topic and the AI returns a structured 2014 vs 2024 edition comparison using `RULE_COMPARISON_PROMPT`.
+
+---
+
+## ✅ DONE — AI Portrait Generation
+* **Location:** `backend/utils/image_utils.py`, `views/player_dashboard.py`, `views/dm_workspace.py`
+* **Status:** **Implemented.** Portrait generation is integrated at multiple points: during character forge, from the player dashboard (🎨 Portrait button), during PDF import, and in the DM Quick Forge. Portraits can be regenerated and previewed before being committed.
+
+---
+
+## ✅ DONE — Testing Suite & Pydantic Validation
+* **Location:** `tests/`, `backend/core/schemas.py`
+* **Status:** **Implemented.** 132 tests across 14 test files, covering repositories, mechanics, dice, schemas, state manager, PDF export/import, storage facade, and rule comparison. All tests pass via pre-commit hooks.
+
+---
+
+## ✅ DONE — Edition-Specific Characters & Campaigns
+* **Location:** `backend/repositories/character_repository.py`, `backend/repositories/campaign_repository.py`, `views/dm_workspace.py`, `views/player_dashboard.py`
+* **Status:** **Implemented.** Characters store a `dnd_edition` field. Campaigns store a `dnd_edition` field and `list_all()` filters by edition. Character ingestion in the DM workspace (party manager, initiative tracker) only shows characters matching the active campaign edition. Legacy data without an edition field defaults to 2014 Edition.
+
+---
+
+## ✅ DONE — Campaign CRUD (Create, Read, Update, Delete)
+* **Location:** `backend/repositories/campaign_repository.py`, `backend/core/storage.py`, `views/dm_workspace.py`
+* **Status:** **Implemented.** Full campaign lifecycle: create, load, save notes, delete (with two-click confirmation in UI), join/leave party members.
+
+---
+
+## ⚠️ OPEN — LRU Cache Memory Leak on Instance Methods
+* **Location:** [`rules_repository.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/rules_repository.py#L29-L96)
+* **Finding:** `@lru_cache` is applied to 4 instance methods (`get_class_progression`, `get_all_feats`, `get_spell_slots`, `get_all_classes`). Because `@lru_cache` includes `self` in the cache key, each new `RulesRepository()` instance holds a cached reference that prevents it from being garbage collected — causing a gradual memory leak.
+* **Recommendation:** Move the cached methods to `@staticmethod` or `@classmethod` (the class has no mutable state), or replace `@lru_cache` with a module-level dict cache keyed only by the arguments.
+* **Risk:** Low in short-lived Streamlit sessions, but grows over time in long-running deployments.
+
+---
+
+## ⚠️ OPEN — Pydantic Defaults Bypass in State Manager
+* **Location:** [`state_manager.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/state_manager.py#L240-L251) (`update_session_from_dict`)
+* **Finding:** When a field is missing from a loaded character dict, the function falls back to hardcoded defaults, notably `default = 0` for numeric fields like `armor_class`, `speed`, and `proficiency_bonus`. This overrides the correct Pydantic schema defaults (`armor_class=10`, `speed=30`, `proficiency_bonus=2`), causing characters with missing fields to display corrupted `0` stats.
+* **Recommendation:** Replace the hardcoded fallbacks with a lookup against the schema's own field definitions:
   ```python
   from backend.core.schemas import CharacterSchema
-
-  # For any missing field, load its default value directly from the Pydantic schema
   default = CharacterSchema.model_fields[field].default
   ```
+* **Risk:** Medium — any character loaded from MongoDB that is missing one of these fields will display broken stats in the UI.
 
 ---
 
-## 🔄 2. In-Place Mutation of Domain Objects
-* **Location:** [mechanics_service.py](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/mechanics_service.py#L310-L556) (`sync_character_stats`)
-* **Finding:** The `sync_character_stats` function directly modifies the `char_data` dictionary passed by reference:
-  ```python
-  char_data["equipment"] = normalized_eq
-  char_data["features_traits"] = normalized_ft
-  char_data["proficiency_bonus"] = prof_bonus
-  ```
-  In Streamlit applications where session state dictionaries are persistent across render cycles, in-place mutation of domain state by reference can cause race conditions, UI mismatches, and difficult-to-trace bugs.
-* **Recommendation:** Create and return a deep copy or model instance instead of mutating inputs directly:
+## ⚠️ OPEN — In-Place Mutation of Domain Objects
+* **Location:** [`mechanics_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/mechanics_service.py) (`sync_character_stats`)
+* **Finding:** `sync_character_stats` mutates the `char_data` dictionary directly (e.g., `char_data["equipment"] = ...`). In Streamlit, where session state dicts are persistent across reruns, this can cause unintended side-effects and difficult-to-trace UI bugs.
+* **Recommendation:** Work on a deep copy instead:
   ```python
   import copy
-
-  def sync_character_stats(char_data: Dict[str, Any], ...) -> Dict[str, Any]:
-      # Avoid modifying the original dict in-place
-      data = copy.deepcopy(char_data)
-      # ... modify data ...
-      return data
+  data = copy.deepcopy(char_data)
+  # modify data ...
+  return data
   ```
+* **Risk:** Medium — the bug surface depends on how many callers rely on the returned vs. mutated value.
 
 ---
 
-## 💾 3. LRU Cache on Instance Methods
-* **Location:** [rules_repository.py](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/rules_repository.py#L29-L86)
-* **Finding:** Method-level caching using `@lru_cache` is applied directly to instance methods (`get_class_progression`, `get_all_feats`, etc.). Because `@lru_cache` stores the instance (`self`) along with its arguments, creating multiple repository instances (which occurs frequently across various services/tests) will lead to memory leaks as the cached references prevent instances from being garbage collected.
-* **Recommendation:**
-  * If the class doesn't store state, convert these caching methods into `@staticmethod` or `@classmethod`.
-  * Alternatively, write a standalone cache in module scope, or cache at the class level instead of the instance level.
+## ⚠️ OPEN — Over-Lenient Auto-Healing on Save/Load
+* **Location:** [`character_repository.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/character_repository.py#L35-L55) (`save`, `load`)
+* **Finding:** When Pydantic validation fails during save or load, the repository silently falls back to a "recovery" path — merging corrupt data with defaults — and, if that also fails, stores raw unvalidated data in MongoDB. This hides bugs at the root and can pollute the database with corrupted records.
+* **Recommendation:** Raise a structured exception (e.g., `ValueError`) on validation failure and let the calling UI layer handle it gracefully (show an error toast rather than silently saving bad data).
+* **Risk:** Medium — corrupted records can silently accumulate in production MongoDB.
 
 ---
 
-## 🔗 4. Circular Dependency Risks & Local Imports
-* **Locations:** Multiple backend files (e.g., `rules_service.py`, `mechanics_service.py`, `character_repository.py`)
-* **Finding:** Inline/local imports are widely used inside functions (such as `from backend.core.state_manager import get_default_character` or `from backend.repositories.rules_repository import RulesRepository`) to circumvent circular import issues.
-* **Recommendation:** Extract core schemas, models, or global configurations into separate utility packages that have no upstream dependencies, eliminating module coupling and allowing clean imports at the top of files.
-
----
-
-## 🎯 5. Fragile Regex & Substring Heuristics
-* **Locations:**
-  * [mechanics_service.py](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/mechanics_service.py#L261-L308) (`calculate_weapon_stats`)
-  * [rules_service.py](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/rules_service.py#L151-L201) (`regex_parse_feat_attributes`)
+## ⚠️ OPEN — Fragile Regex & Substring Heuristics
+* **Location:** [`mechanics_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/mechanics_service.py) (`calculate_weapon_stats`), [`rules_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/rules_service.py) (`regex_parse_feat_attributes`)
 * **Finding:**
-  * Weapons determine their scaling attribute based on a simple substring search in the weapon name (`"bow"`, `"dagger"`, etc.). A weapon named `"Elven Sword"` (which is finesse) will default to Strength scaling since it does not contain the word `"shortsword"` or `"rapier"`.
-  * Feat mechanical values are parsed from raw text using rigid regex templates (e.g., matching the exact text of the "Tough" feat). Punctuation or minor spacing differences in imported PDF sheets will cause parsing to fail silently.
+  * Weapons determine their scaling stat (STR vs DEX) based on simple substring matching of the weapon name (`"bow"`, `"dagger"`, etc.). An exotic weapon (e.g., `"Elven Blade"`) that doesn't match any keyword will silently default to Strength.
+  * Feat attribute values are parsed from raw text using rigid regex patterns. Minor formatting differences (spacing, punctuation) from imported PDFs cause silent parsing failures.
 * **Recommendation:**
-  * Add a `weapon_type` or `ability_modifier` override directly to the `Weapon` Pydantic model to decouple stats from names.
-  * Normalize raw text (lowercasing, stripping whitespace, removing punctuation) before running regex patterns, or rely on a structured GenAI model with strict schema validators for homebrew/non-SRD parsing.
+  * Add `ability_modifier` or `weapon_type` override fields to the `Weapon` Pydantic model.
+  * Normalize feat text (lowercase, strip punctuation) before running regex.
+* **Risk:** Low for standard SRD content, higher for homebrew or PDF-imported characters.
 
 ---
 
-## 🧼 6. Over-Lenient Auto-Healing on Load/Save
-* **Location:** [character_repository.py](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/character_repository.py#L21-L117)
-* **Finding:** If validation against `CharacterSchema` fails on loading/saving, the repository attempts to clean/heal the data. If recovery fails, it falls back to saving/returning raw database records anyway. While this prevents frontend crashes, it pollutes the MongoDB database with corrupted or partial character records, hiding bug roots.
-* **Recommendation:** Fail fast. Database repositories should throw structured exceptions on schema invalidation, allowing the calling UI/controller to cleanly present error states or prompt the user for fixes instead of storing corrupted data.
+## 🔮 FUTURE — Player / DM Authentication (OAuth2)
+* **Status:** Not started.
+* **Description:** Add Google/Discord login so each player and DM sees only their own characters and campaigns in MongoDB (via an `owner_id` field). This is the main blocker for making the app truly multi-user.
+* **Effort:** High — requires OAuth2 integration, session token management, and query-level access control across all repositories.
+
+---
+
+*Last updated: 2026-05-27*
