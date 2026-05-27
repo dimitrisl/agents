@@ -138,10 +138,18 @@ class TestCampaignRepository:
         assert camp_repo.load("Nonexistent") is None
 
     def test_list_campaigns(self, camp_repo):
-        camp_repo.save("Campaign One", "Notes 1")
-        camp_repo.save("Campaign Two", "Notes 2")
-        campaigns = camp_repo.list_all()
-        assert len(campaigns) == 2
+        camp_repo.save("Campaign One", "Notes 1", dnd_edition="2014 Edition")
+        camp_repo.save("Campaign Two", "Notes 2", dnd_edition="2024 Revision")
+
+        # Test default listing (returns both because edition parameter is None)
+        assert len(camp_repo.list_all()) == 2
+
+        # Test filtering specifically by edition
+        assert len(camp_repo.list_all(edition="2024")) == 1
+        assert camp_repo.list_all(edition="2024")[0] == "Campaign Two"
+
+        assert len(camp_repo.list_all(edition="2014")) == 1
+        assert camp_repo.list_all(edition="2014")[0] == "Campaign One"
 
     def test_save_preserves_party_when_none(self, camp_repo):
         """Saving with party=None should preserve existing party."""

@@ -41,16 +41,18 @@ def delete_character(filename: str) -> bool:
     return _char_repo.delete(filename)
 
 
-def save_campaign(campaign_name: str, notes: str, party: list = None) -> bool:
-    return _camp_repo.save(campaign_name, notes, party)
+def save_campaign(
+    campaign_name: str, notes: str, party: list = None, dnd_edition: str = None
+) -> bool:
+    return _camp_repo.save(campaign_name, notes, party, dnd_edition)
 
 
 def load_campaign(name: str) -> dict:
     return _camp_repo.load(name)
 
 
-def list_campaigns() -> list:
-    return _camp_repo.list_all()
+def list_campaigns(edition: str = None) -> list:
+    return _camp_repo.list_all(edition)
 
 
 def join_campaign(campaign_name: str, char_filename: str) -> bool:
