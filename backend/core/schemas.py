@@ -105,6 +105,7 @@ class CharacterSchema(BaseModel):
     equipment: List[EquipmentItem] = []
     features_traits: List[FeatureTrait] = []
     spells: SpellList = Field(default_factory=SpellList)
+    prepared_spells: List[str] = []
     spell_ability: Optional[str] = None
     spell_save_dc: Optional[int] = None
     spell_attack_bonus: Optional[str] = None

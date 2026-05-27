@@ -29,6 +29,7 @@ CHARACTER_FIELDS = [
     "equipment",
     "features_traits",
     "spells",
+    "prepared_spells",
     "spell_ability",
     "spell_save_dc",
     "spell_attack_bonus",
@@ -87,6 +88,7 @@ def get_default_character() -> Dict[str, Any]:
             }
         ],
         "spells": {"level_1": ["Bless", "Cure Wounds"], "level_2": ["Find Steed"]},
+        "prepared_spells": ["Bless", "Cure Wounds", "Find Steed"],
         "spell_ability": "CHA",
         "spell_save_dc": 14,
         "spell_attack_bonus": "+6",
@@ -141,6 +143,7 @@ def init_session_state(state: Any, force: bool = False):
         "combat_active": False,
         "needs_validation": False,
         "dnd_edition": "2014 Edition",
+        "dnd_edition_toggle": False,
         "temp_forged_char": None,
         "validation_result": None,
         "active_roll": None,
@@ -214,6 +217,7 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
                 "skill_expertise",
                 "advancements",
                 "weapon_masteries",
+                "prepared_spells",
             ]:
                 default = []
             elif field in [
@@ -245,3 +249,6 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
             ]:
                 default = 0
             _set_val(state, field, default)
+
+    if "dnd_edition" in data:
+        _set_val(state, "dnd_edition_toggle", "2024" in str(data["dnd_edition"]))

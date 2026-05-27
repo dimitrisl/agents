@@ -197,3 +197,23 @@ class TestRulesRepository:
         repo = RulesRepository()
         result = repo.get_class_progression("MadeUpClass")
         assert result is None
+
+    def test_get_all_spells(self):
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+        spells = repo.get_all_spells()
+        assert isinstance(spells, list)
+        assert len(spells) > 0
+        for spell in spells:
+            assert "name" in spell
+            assert "level" in spell
+            assert "school" in spell
+            assert "description" in spell
+
+    def test_search_spells(self):
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+        results = repo.search_spells("fire bolt")
+        assert isinstance(results, list)

@@ -82,7 +82,11 @@ def calculate_hp(
 
 
 def get_level_up_vitals(
-    char_class: str, current_level: int, con_score: int, edition: str = "2014 Edition"
+    char_class: str,
+    current_level: int,
+    con_score: int,
+    edition: str = "2014 Edition",
+    features: List[dict] = None,
 ) -> dict:
     """
     Returns standard level-up vitals (hit die, average HP gain).
@@ -98,12 +102,35 @@ def get_level_up_vitals(
         die_size = 8
 
     con_mod = get_modifier(con_score)
-    avg_gain = (die_size // 2) + 1 + con_mod
+
+    # Check for HP bonuses per level from features (like Tough feat or Dwarven Toughness)
+    hp_bonus_per_level = 0
+    if features:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+        feat_library = repo.get_all_feats(edition)
+        feat_lookup = (
+            {f["name"].lower(): f for f in feat_library} if feat_library else {}
+        )
+        for f in features:
+            if isinstance(f, dict):
+                feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
+                feat_data = feat_lookup.get(feat_name)
+                if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
+                    hp_bonus_per_level += feat_data["hp_bonus_per_level"]
+                else:
+                    desc = f.get("description", "").lower()
+                    if "dwarven toughness" in desc:
+                        hp_bonus_per_level += 1
+
+    avg_gain = (die_size // 2) + 1 + con_mod + hp_bonus_per_level
 
     return {
         "hit_die": hit_die_str,
         "die_size": die_size,
         "con_mod": con_mod,
+        "hp_bonus_per_level": hp_bonus_per_level,
         "average_hp_gain": max(1, avg_gain),
     }
 
@@ -294,15 +321,31 @@ def calculate_weapon_stats(
     )
 
     # Update damage string (e.g., "1d8" -> "1d8 + 3")
-    damage_base = weapon.get("damage", "1d4")
-    if " + " in damage_base:
-        damage_base = damage_base.split(" + ")[0]
+    import re
 
-    if mod != 0:
-        op = "+" if mod > 0 else "-"
-        weapon["damage"] = f"{damage_base} {op} {abs(mod)}"
+    damage_base = weapon.get("damage", "1d4")
+    match = re.match(r"^\s*(\d+d\d+)", damage_base, re.I)
+    if match:
+        dice_part = match.group(1)
+        type_match = re.search(r"([a-zA-Z\s]+)$", damage_base)
+        dmg_type = type_match.group(1).strip() if type_match else ""
+        if mod != 0:
+            op = "+" if mod > 0 else "-"
+            new_damage = f"{dice_part} {op} {abs(mod)}"
+        else:
+            new_damage = dice_part
+        if dmg_type:
+            new_damage += f" {dmg_type}"
+        weapon["damage"] = new_damage
     else:
-        weapon["damage"] = damage_base
+        for sep in [" + ", " - "]:
+            if sep in damage_base:
+                damage_base = damage_base.split(sep)[0]
+        if mod != 0:
+            op = "+" if mod > 0 else "-"
+            weapon["damage"] = f"{damage_base} {op} {abs(mod)}"
+        else:
+            weapon["damage"] = damage_base
 
     return weapon
 
@@ -477,10 +520,14 @@ def sync_character_stats(
             if "dwarven toughness" in desc:
                 hp_bonus_per_level += 1
 
-    # Calculate HP Max
-    base_hp = calculate_hp(
-        hit_die_size, level, con_score, existing_hp=char_data.get("hp_max")
-    )
+    # Calculate HP Max without duplicate scaling of per-level bonuses
+    existing_hp = char_data.get("hp_max")
+    if existing_hp is not None and existing_hp > 0:
+        base_existing_hp = existing_hp - (hp_bonus_per_level * level)
+    else:
+        base_existing_hp = None
+
+    base_hp = calculate_hp(hit_die_size, level, con_score, existing_hp=base_existing_hp)
     char_data["hp_max"] = base_hp + (hp_bonus_per_level * level)
 
     # AC Calculation

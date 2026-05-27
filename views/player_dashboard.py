@@ -750,7 +750,14 @@ def _render_core_stats(edit_mode: bool):
         c1, c2, c3, c4, c5, c6 = st.columns(6)
 
         def stat_input(col, label, key):
-            col.number_input(label, 1, 30, key=f"stat_val_{key}")
+            current_val = st.session_state.stats.get(key, 10)
+            col.number_input(
+                label,
+                min_value=1,
+                max_value=30,
+                value=int(current_val),
+                key=f"stat_val_{key}",
+            )
 
         # Ensure temp keys exist
         for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
@@ -1545,7 +1552,18 @@ def _render_features_spells(edit_mode: bool):
                     new_spells[lvl].append(row["spell"])
             st.session_state.spells = new_spells
     else:
-        if not st.session_state.spells:
+        # Check if they have any spells
+        spells = st.session_state.get("spells", {})
+        if hasattr(spells, "model_dump"):
+            spells_dict = spells.model_dump()
+        elif isinstance(spells, dict):
+            spells_dict = spells
+        else:
+            spells_dict = {}
+
+        has_any_spell = any(spells_dict.get(k) for k in spells_dict)
+
+        if not has_any_spell:
             st.write("No spells known.")
         else:
             if (
@@ -1558,12 +1576,291 @@ def _render_features_spells(edit_mode: bool):
                 sc3.metric("Attack Bonus", st.session_state.spell_attack_bonus)
                 st.markdown("---")
 
-            spells = st.session_state.get("spells", {})
-            if spells is None:
-                spells = {}
-            for lvl, spell_list in spells.items():
-                st.write(
-                    f"**{lvl.title().replace('_', ' ')}:** {', '.join(spell_list)}"
+            # Determine if class is a prepared caster
+            char_class = str(st.session_state.get("char_class", "")).lower()
+            is_prepared_caster = any(
+                c in char_class for c in ["wizard", "cleric", "druid", "paladin"]
+            )
+
+            # Initialize prepared spells state if missing
+            if (
+                "prepared_spells" not in st.session_state
+                or st.session_state.prepared_spells is None
+            ):
+                st.session_state.prepared_spells = []
+
+            # Clean list of prepared spells for easy case-insensitive check
+            prepared_clean = [
+                p.strip().lower() for p in st.session_state.prepared_spells if p
+            ]
+
+            if is_prepared_caster:
+                view_mode = st.radio(
+                    "📖 Spellbook View:",
+                    [
+                        "⚔️ Prepared Spells (Combat)",
+                        "📝 Manage Spellbook (Prepare Spells)",
+                    ],
+                    horizontal=True,
+                    key="spellbook_view_toggle",
+                )
+            else:
+                view_mode = "⚔️ Prepared Spells (Combat)"  # non-prepared casters show everything in combat
+
+            # Load rules repository to get spell details
+            from backend.repositories.rules_repository import RulesRepository
+
+            repo = RulesRepository()
+            edition = st.session_state.get("dnd_edition", "2014 Edition")
+            all_spells = repo.get_all_spells(edition)
+            spells_lookup = (
+                {s["name"].lower().strip(): s for s in all_spells} if all_spells else {}
+            )
+
+            level_keys = [
+                "cantrips",
+                "level_1",
+                "level_2",
+                "level_3",
+                "level_4",
+                "level_5",
+                "level_6",
+                "level_7",
+                "level_8",
+                "level_9",
+            ]
+
+            shown_any_level = False
+
+            for lvl_key in level_keys:
+                spell_list = spells_dict.get(lvl_key, [])
+                if not spell_list:
+                    continue
+
+                # Filter spells based on preparation if in combat view
+                is_cantrip = lvl_key == "cantrips"
+                if (
+                    view_mode == "⚔️ Prepared Spells (Combat)"
+                    and not is_cantrip
+                    and is_prepared_caster
+                ):
+                    spell_list = [
+                        s for s in spell_list if s.strip().lower() in prepared_clean
+                    ]
+                    if not spell_list:
+                        continue
+
+                shown_any_level = True
+                lvl_title = lvl_key.title().replace("_", " ")
+                st.markdown(f"##### {lvl_title}")
+
+                for s_name in spell_list:
+                    s_name_clean = s_name.strip()
+                    spell_data = spells_lookup.get(s_name_clean.lower())
+
+                    if spell_data:
+                        school = spell_data.get("school", "Unknown").title()
+                        lvl_num = spell_data.get("level", 0)
+                        lvl_lbl = "Cantrip" if lvl_num == 0 else f"Level {lvl_num}"
+                        desc = spell_data.get("description", "")
+                        casting_time = spell_data.get("castingTime", "1 action")
+                        s_range = spell_data.get("range", "Touch")
+                        duration = spell_data.get("duration", "Instantaneous")
+                        components = spell_data.get("components", [])
+                        material = spell_data.get("material")
+                        ritual = spell_data.get("ritual", False)
+                        concentration = spell_data.get("concentration", False)
+                        classes = spell_data.get("classes", [])
+                    else:
+                        school = "Unknown"
+                        lvl_lbl = (
+                            "Cantrip"
+                            if lvl_key == "cantrips"
+                            else f"Level {lvl_key.split('_')[1]}"
+                        )
+                        desc = "No description found in the rules database."
+                        casting_time = "1 action"
+                        s_range = "Unknown"
+                        duration = "Instantaneous"
+                        components = []
+                        material = None
+                        ritual = False
+                        concentration = False
+                        classes = []
+
+                    # Build tags for expander label
+                    tags = []
+                    if concentration:
+                        tags.append("⏱️ Conc")
+                    if ritual:
+                        tags.append("📜 Rit")
+                    # If managing spellbook, indicate if prepared in expander title
+                    is_prep = s_name_clean.lower() in prepared_clean
+                    if is_prepared_caster and not is_cantrip:
+                        if is_prep:
+                            tags.append("✅ Prepared")
+                        else:
+                            tags.append("❌ Unprepared")
+
+                    tags_str = f" ({', '.join(tags)})" if tags else ""
+                    expander_label = f"✨ {s_name_clean} ({lvl_lbl} {school}){tags_str}"
+
+                    with st.expander(expander_label):
+                        # Preparation Toggle if managing
+                        if (
+                            is_prepared_caster
+                            and not is_cantrip
+                            and view_mode == "📝 Manage Spellbook (Prepare Spells)"
+                        ):
+                            prep_val = st.checkbox(
+                                f"Prepare **{s_name_clean}**",
+                                value=is_prep,
+                                key=f"prep_check_{lvl_key}_{s_name_clean}",
+                            )
+                            if prep_val != is_prep:
+                                if prep_val:
+                                    st.session_state.prepared_spells.append(
+                                        s_name_clean
+                                    )
+                                else:
+                                    st.session_state.prepared_spells = [
+                                        p
+                                        for p in st.session_state.prepared_spells
+                                        if p.strip().lower() != s_name_clean.lower()
+                                    ]
+                                # Auto save character state
+                                save_character(get_character_dict(st.session_state))
+                                st.rerun()
+
+                        # Show description and details
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.markdown(f"**Casting Time:** {casting_time}")
+                            st.markdown(f"**Range:** {s_range}")
+                            st.markdown(f"**Duration:** {duration}")
+                        with c2:
+                            comps_str = (
+                                ", ".join([c.upper() for c in components])
+                                if components
+                                else "None"
+                            )
+                            st.markdown(f"**Components:** {comps_str}")
+                            if material:
+                                st.markdown(f"**Materials:** *{material}*")
+                            if classes:
+                                st.markdown(
+                                    f"**Classes:** {', '.join([c.title() for c in classes])}"
+                                )
+
+                        st.markdown("---")
+                        st.markdown(desc)
+
+                        # Search description for dice formulas to roll
+                        import re
+
+                        dice_formulas = re.findall(r"\b\d+d\d+(?:\+\d+)?\b", desc)
+                        # deduplicate formulas
+                        unique_formulas = []
+                        for f in dice_formulas:
+                            if f not in unique_formulas:
+                                unique_formulas.append(f)
+
+                        # Action Row
+                        st.markdown("**Actions:**")
+                        cols = st.columns(max(3, len(unique_formulas) + 2))
+
+                        # Button 1: Cast Spell
+                        with cols[0]:
+                            if st.button(
+                                "✨ Cast",
+                                key=f"cast_{lvl_key}_{s_name_clean}",
+                                use_container_width=True,
+                            ):
+                                log_roll(f"Casted **{s_name_clean}** ({lvl_lbl})!")
+                                st.rerun()
+
+                        # Button 2: Spell Attack (if description mentions spell attack)
+                        requires_attack = (
+                            "spell attack" in desc.lower()
+                            or "spell attack" in casting_time.lower()
+                        )
+                        with cols[1]:
+                            if requires_attack:
+                                bonus_str = str(
+                                    st.session_state.get("spell_attack_bonus", "+0")
+                                ).replace("+", "")
+                                try:
+                                    bonus = int(bonus_str)
+                                except Exception:
+                                    bonus = 0
+                                if st.button(
+                                    "🎯 Attack",
+                                    key=f"atk_{lvl_key}_{s_name_clean}",
+                                    use_container_width=True,
+                                ):
+                                    from backend.utils.dice import quick_roll
+
+                                    res, raw = quick_roll(20, bonus)
+                                    log_roll(
+                                        f"**{s_name_clean}** Spell Attack: **{res}** (d20: {raw} + {bonus})"
+                                    )
+                                    st.session_state.active_roll = {
+                                        "label": f"{s_name_clean} Attack Roll",
+                                        "sides": 20,
+                                        "raw": raw,
+                                        "modifier": bonus,
+                                        "total": res,
+                                        "adv_type": "None",
+                                    }
+                                    if raw == 20:
+                                        st.balloons()
+                                    st.rerun()
+                            elif (
+                                "saving throw" in desc.lower() or "save" in desc.lower()
+                            ):
+                                save_dc = st.session_state.get("spell_save_dc", 8)
+                                st.caption(f"🛡️ **Save DC:** {save_dc}")
+
+                        # Buttons for rolling dice formulas
+                        for idx, formula in enumerate(unique_formulas):
+                            with cols[2 + idx]:
+                                if st.button(
+                                    f"🎲 {formula}",
+                                    key=f"roll_{lvl_key}_{s_name_clean}_{formula}",
+                                    use_container_width=True,
+                                ):
+                                    from backend.utils.dice import roll_dice
+
+                                    res = roll_dice(formula)
+                                    if "error" in res:
+                                        st.error(f"Error rolling dice: {res['error']}")
+                                    else:
+                                        log_roll(
+                                            f"**{s_name_clean}** ({formula}): **{res['total']}** ({res['result_text']})"
+                                        )
+                                        try:
+                                            sides = int(
+                                                re.search(r"d(\d+)", formula).group(1)
+                                            )
+                                        except Exception:
+                                            sides = 6
+                                        rolls = res.get("rolls", [1])
+                                        st.session_state.active_roll = {
+                                            "label": f"{s_name_clean} — {formula}",
+                                            "sides": sides,
+                                            "raw": rolls
+                                            if len(rolls) > 1
+                                            else rolls[0],
+                                            "raw_selected": sum(rolls),
+                                            "modifier": res.get("modifier", 0),
+                                            "total": res.get("total", 1),
+                                            "adv_type": "None",
+                                        }
+                                        st.rerun()
+
+            if not shown_any_level and view_mode == "⚔️ Prepared Spells (Combat)":
+                st.info(
+                    "No level 1-9 spells are currently prepared for combat. Switch to 'Manage Spellbook' to prepare your spells."
                 )
 
 
@@ -1810,6 +2107,8 @@ def run_level_up_wizard():
             "selected_feat": None,
             "new_features": [],
             "ai_consulted": False,
+            "selected_spells": [],
+            "selected_spells_data": [],
         }
 
     temp = st.session_state.lv_up_temp
@@ -1824,6 +2123,7 @@ def run_level_up_wizard():
         st.session_state.char_level,
         st.session_state.stats.get("CON", 10),
         st.session_state.dnd_edition,
+        st.session_state.get("features_traits", []),
     )
 
     die_size = vitals["die_size"]
@@ -1843,11 +2143,14 @@ def run_level_up_wizard():
         hp_col2.info(f"Adding average HP: **+{avg_hp}**")
     else:
         if "lv_up_hp_roll" not in st.session_state:
-            if hp_col2.button(f"🎲 Roll 1d{die_size} + {con_mod}"):
+            extra_hp = vitals.get("hp_bonus_per_level", 0)
+            total_bonus = con_mod + extra_hp
+            bonus_str = f" + {total_bonus}" if total_bonus != 0 else ""
+            if hp_col2.button(f"🎲 Roll 1d{die_size}{bonus_str}"):
                 import random
 
                 roll = random.randint(1, die_size)
-                st.session_state.lv_up_hp_roll = max(1, roll + con_mod)
+                st.session_state.lv_up_hp_roll = max(1, roll + total_bonus)
                 st.rerun()
         if "lv_up_hp_roll" in st.session_state:
             temp["hp_inc"] = st.session_state.lv_up_hp_roll
@@ -1872,6 +2175,9 @@ def run_level_up_wizard():
         )
 
         if temp["asi_feat_choice"] == "Ability Score Improvement":
+            st.info(
+                "💡 **Tip:** To increase a single ability score by **+2**, select the same stat in both dropdowns."
+            )
             col_s1, col_s2 = st.columns(2)
             s1 = col_s1.selectbox(
                 "Stat 1 (+1)", ["STR", "DEX", "CON", "INT", "WIS", "CHA"], key="asi_s1"
@@ -1880,6 +2186,19 @@ def run_level_up_wizard():
                 "Stat 2 (+1)", ["STR", "DEX", "CON", "INT", "WIS", "CHA"], key="asi_s2"
             )
             temp["stats_raised"] = [s1, s2]
+
+            # Validate that stats do not exceed 20
+            current_stats = st.session_state.stats
+            raised_stats = {}
+            for stat in temp["stats_raised"]:
+                raised_stats[stat] = raised_stats.get(stat, 0) + 1
+
+            for stat, increase in raised_stats.items():
+                current_val = current_stats.get(stat, 10)
+                if current_val + increase > 20:
+                    st.warning(
+                        f"⚠️ **Rule Warning:** Increasing {stat} from {current_val} to {current_val + increase} exceeds the standard D&D limit of **20**."
+                    )
         else:
             from backend.repositories.rules_repository import RulesRepository
 
@@ -1999,9 +2318,140 @@ def run_level_up_wizard():
                         "description", ""
                     )
 
-    # STEP 3: AI Enrichment (Optional)
+    # STEP 3: Learn Spells (Optional)
     st.markdown("---")
-    st.markdown("#### ✨ Step 3: Consult the Oracle (Optional)")
+    st.markdown("#### 🔮 Step 3: Learn Spells (Optional)")
+
+    from backend.repositories.rules_repository import RulesRepository
+
+    rules_repo = RulesRepository()
+    edition = st.session_state.get("dnd_edition", "2014 Edition")
+    all_spells = rules_repo.get_all_spells(edition)
+
+    if all_spells:
+        char_class_lower = str(st.session_state.get("char_class", "")).lower()
+        subclass_lower = str(st.session_state.get("subclass", "")).lower()
+
+        # Calculate maximum spell level slot appropriate for target level
+        is_full = any(
+            c in char_class_lower
+            for c in ["wizard", "cleric", "druid", "sorcerer", "bard", "warlock"]
+        )
+        is_half = any(c in char_class_lower for c in ["paladin", "ranger", "artificer"])
+        is_third = any(
+            s in subclass_lower for s in ["eldritch knight", "arcane trickster"]
+        )
+
+        if is_full:
+            max_lvl = (target_lv + 1) // 2
+        elif is_half:
+            max_lvl = (target_lv + 3) // 4
+        elif is_third:
+            max_lvl = (target_lv + 5) // 6
+        else:
+            max_lvl = 1  # Allow cantrips / 1st level spells for generic feats
+
+        max_lvl = min(9, max(0, max_lvl))
+
+        if "wizard" in char_class_lower:
+            rec = "2 new Wizard spells"
+        elif any(
+            c in char_class_lower for c in ["sorcerer", "bard", "warlock", "ranger"]
+        ):
+            rec = "1 new spell"
+        elif any(c in char_class_lower for c in ["cleric", "druid", "paladin"]):
+            rec = (
+                "access to all class spells of your levels (add any you wish to track)"
+            )
+        elif is_third:
+            rec = "1 new Wizard spell"
+        else:
+            rec = "spells if granted by a Feat (e.g. Magic Initiate)"
+
+        lvl_str = "Cantrips" if max_lvl == 0 else f"up to Level {max_lvl}"
+        st.info(
+            f"📚 **Class Rules Guide:** As a Level {target_lv} {st.session_state.get('char_class', '').title()}, you can learn/add spells of **{lvl_str}**. Standard rules recommendation: **{rec}**."
+        )
+
+        # Checkbox to include Cantrips
+        include_cantrips = st.checkbox(
+            "Show Cantrips (Level 0)",
+            value=False,
+            help="Cantrips are normally only learned at specific levels according to your class progression table.",
+        )
+
+        # Hide any spells that exceed the maximum castable level, and filter out cantrips unless checked
+        min_lvl = 0 if include_cantrips else 1
+        all_spells = [s for s in all_spells if min_lvl <= s.get("level", 0) <= max_lvl]
+
+        class_spells = [
+            s
+            for s in all_spells
+            if char_class_lower in [c.lower() for c in s.get("classes", [])]
+        ]
+
+        # Radio to toggle list
+        spell_filter = st.radio(
+            "Show spells for:",
+            ["My Class Spells Only", "All Spells"],
+            horizontal=True,
+            key="lv_up_spell_filter",
+        )
+
+        available_spells = (
+            class_spells
+            if (spell_filter == "My Class Spells Only" and class_spells)
+            else all_spells
+        )
+        # Sort spells by level, then name
+        available_spells = sorted(
+            available_spells,
+            key=lambda x: (x.get("level", 0), x.get("name", "").lower()),
+        )
+
+        option_labels = []
+        option_map = {}
+        for s in available_spells:
+            lvl = s.get("level", 0)
+            lvl_lbl = "Cantrip" if lvl == 0 else f"Level {lvl}"
+            label = f"[{lvl_lbl}] {s['name']}"
+            option_labels.append(label)
+            option_map[label] = s
+
+        temp["selected_spells"] = st.multiselect(
+            "Select spells to add to your spellbook:",
+            options=option_labels,
+            default=temp.get("selected_spells", []),
+        )
+
+        temp["selected_spells_data"] = [
+            {"name": option_map[lbl]["name"], "level": option_map[lbl].get("level", 0)}
+            for lbl in temp["selected_spells"]
+            if lbl in option_map
+        ]
+
+        # Rule Validation Warning for spell count
+        num_selected = len(temp["selected_spells_data"])
+        limit = 0
+        if "wizard" in char_class_lower:
+            limit = 2
+        elif any(
+            c in char_class_lower for c in ["sorcerer", "bard", "warlock", "ranger"]
+        ):
+            limit = 1
+        elif is_third:
+            limit = 1
+
+        if limit > 0 and num_selected > limit:
+            st.warning(
+                f"⚠️ **Rule Limit Warning:** You have selected {num_selected} spells, but your class progression table only allows learning {limit} new spell{'s' if limit > 1 else ''} at this level. (You can still proceed if your DM permitted additional spells/feats)."
+            )
+    else:
+        st.write("No spells found in the rules database.")
+
+    # STEP 4: AI Enrichment (Optional)
+    st.markdown("---")
+    st.markdown("#### ✨ Step 4: Consult the Oracle (Optional)")
     if not temp["ai_consulted"]:
         if st.button("🔮 Ask AI for Features & Suggestions"):
             with st.spinner("Oracle is analyzing your path..."):
@@ -2035,9 +2485,9 @@ def run_level_up_wizard():
             with st.expander(f"🔹 {feat.get('name')}"):
                 st.write(feat.get("description"))
 
-    # STEP 4: PREVIEW
+    # STEP 5: PREVIEW
     st.markdown("---")
-    st.markdown("#### 🛡️ Level Up Preview")
+    st.markdown("#### 🛡️ Step 5: Level Up Preview")
     prev_col1, prev_col2 = st.columns(2)
 
     # Calculate preview stats
@@ -2057,6 +2507,11 @@ def run_level_up_wizard():
             if temp.get("feat_stat_bonus"):
                 feat_info += f" (+1 {temp['feat_stat_bonus']})"
             prev_col2.metric("New Feat", feat_info)
+
+    if temp.get("selected_spells_data"):
+        st.markdown(
+            f"**🔮 Spells to Learn:** {', '.join([s['name'] for s in temp['selected_spells_data']])}"
+        )
 
     st.markdown("---")
 
@@ -2084,6 +2539,26 @@ def run_level_up_wizard():
                     ),
                 }
             )
+
+        # Add selected spells to known list
+        spells = st.session_state.get("spells", {})
+        if hasattr(spells, "model_dump"):
+            spells_dict = spells.model_dump()
+        elif isinstance(spells, dict):
+            spells_dict = spells
+        else:
+            spells_dict = {}
+
+        for s_info in temp.get("selected_spells_data", []):
+            name = s_info["name"]
+            lvl = s_info["level"]
+            lvl_key = "cantrips" if lvl == 0 else f"level_{lvl}"
+            if lvl_key not in spells_dict:
+                spells_dict[lvl_key] = []
+            if name not in spells_dict[lvl_key]:
+                spells_dict[lvl_key].append(name)
+
+        st.session_state.spells = spells_dict
 
         # Add AI features if consulted
         if temp["ai_consulted"]:

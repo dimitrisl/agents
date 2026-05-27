@@ -56,7 +56,7 @@ with st.sidebar:
 
     is_2024 = st.toggle(
         "Use 2024 Revision (5.5e)",
-        value=("2024" in st.session_state.dnd_edition),
+        key="dnd_edition_toggle",
     )
     st.session_state.dnd_edition = EDITION_2024 if is_2024 else EDITION_2014
     st.info(f"Currently using: **{st.session_state.dnd_edition}**")

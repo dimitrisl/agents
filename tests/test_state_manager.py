@@ -43,6 +43,7 @@ def test_init_session_state_fresh():
     assert state_dict["char_name"] == "New Hero"
     assert state_dict["stats"]["STR"] == 18
     assert state_dict["dnd_edition"] == "2014 Edition"
+    assert state_dict["dnd_edition_toggle"] is False
 
 
 def test_get_character_dict():
@@ -69,6 +70,17 @@ def test_update_session_from_dict():
     # Verify defaults are set for missing fields
     assert state["hp_max"] == 0
     assert state["backstory"] == ""
+
+    # Verify dnd_edition_toggle updates correctly
+    state2 = {}
+    data2 = {"dnd_edition": "2024 Revision (5.5e)"}
+    update_session_from_dict(state2, data2)
+    assert state2["dnd_edition_toggle"] is True
+
+    state3 = {}
+    data3 = {"dnd_edition": "2014 Edition"}
+    update_session_from_dict(state3, data3)
+    assert state3["dnd_edition_toggle"] is False
 
 
 def test_init_session_state_force():

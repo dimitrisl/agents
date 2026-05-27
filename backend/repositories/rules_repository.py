@@ -100,3 +100,39 @@ class RulesRepository:
         """
         filepath = os.path.join(DATA_DIR, "rules", "items.json")
         return _load_json(filepath)
+
+    def get_all_spells(self, edition: str = EDITION_2014) -> list:
+        """
+        Loads all spells for the specified edition, prioritizing MongoDB.
+        """
+        edition_val = "2014" if edition == EDITION_2014 else "2024"
+
+        # Try database first
+        try:
+            from backend.core.db import get_db
+
+            db = get_db()
+            if db is not None:
+                cursor = db["spells"].find({"edition": edition_val})
+                spells = []
+                for s in cursor:
+                    if "_id" in s:
+                        del s["_id"]
+                    spells.append(s)
+                if spells:
+                    return spells
+        except Exception as e:
+            logger.error(f"Failed to load spells from MongoDB: {e}")
+
+        # Fallback to local JSON files
+        filename = f"spells_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+        return _load_json(filepath)
+
+    def search_spells(self, query: str, edition: str = EDITION_2014) -> list:
+        """
+        Searches for spells by name.
+        """
+        spells = self.get_all_spells(edition)
+        query = query.lower()
+        return [s for s in spells if query in s["name"].lower()]
