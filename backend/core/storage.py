@@ -55,6 +55,10 @@ def list_campaigns(edition: str = None) -> list:
     return _camp_repo.list_all(edition)
 
 
+def delete_campaign(campaign_name: str) -> bool:
+    return _camp_repo.delete(campaign_name)
+
+
 def join_campaign(campaign_name: str, char_filename: str) -> bool:
     data = load_campaign(campaign_name)
     if not data:

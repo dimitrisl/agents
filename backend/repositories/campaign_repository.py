@@ -125,3 +125,24 @@ class CampaignRepository:
         except Exception as e:
             logger.error(f"Failed to list campaigns from MongoDB: {e}")
             return []
+
+    def delete(self, campaign_name: str) -> bool:
+        """Delete a campaign from MongoDB."""
+        if self.collection is None:
+            logger.error("Database connection missing. Cannot delete campaign.")
+            return False
+
+        if not campaign_name:
+            return False
+
+        # Clean the name if it was passed as a filename
+        name = campaign_name.replace(".json", "").replace("_", " ").title()
+
+        try:
+            result = self.collection.delete_one(
+                {"campaign_name": {"$regex": f"^{name}$", "$options": "i"}}
+            )
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Failed to delete campaign from MongoDB: {e}")
+            return False

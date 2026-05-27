@@ -49,6 +49,11 @@ def test_campaign_storage(mock_repo):
     list_campaigns()
     mock_repo.list_all.assert_called_once()
 
+    from backend.core.storage import delete_campaign
+
+    delete_campaign("CampToDelete")
+    mock_repo.delete.assert_called_once_with("CampToDelete")
+
 
 @patch("backend.core.storage.load_campaign")
 @patch("backend.core.storage.save_campaign")

@@ -15,6 +15,7 @@ from backend.core.storage import (
     list_campaigns,
     list_characters,
     load_character,
+    delete_campaign,
 )
 from backend.utils.image_utils import generate_portrait_url
 from backend.utils.ui_utils import render_active_roll_visual
@@ -81,16 +82,19 @@ def _render_campaign_selection():
         st.subheader("Load Existing Campaign")
         camp_list = list_campaigns()
         if camp_list:
-            col_sel, col_btn = st.columns([4, 1], vertical_alignment="bottom")
+            col_sel, col_btn_load, col_btn_del = st.columns(
+                [2.5, 0.9, 0.8], vertical_alignment="bottom"
+            )
             with col_sel:
                 selected_camp = st.selectbox(
                     "Select Campaign", camp_list, key="sel_camp_main"
                 )
-            with col_btn:
+            with col_btn_load:
                 if st.button(
                     "Load Campaign",
                     type="primary",
                     key="load_camp_btn",
+                    use_container_width=True,
                 ):
                     data = load_campaign(selected_camp)
                     if data:
@@ -109,6 +113,40 @@ def _render_campaign_selection():
                             f"Loaded campaign: {selected_camp} with {len(st.session_state.party)} members."
                         )
                         st.toast(f"Loaded campaign: {selected_camp}")
+                        st.rerun()
+            with col_btn_del:
+                delete_key = f"confirm_delete_camp_{selected_camp}"
+                if delete_key not in st.session_state:
+                    st.session_state[delete_key] = False
+
+                if not st.session_state[delete_key]:
+                    if st.button(
+                        "🗑️ Delete",
+                        key=f"del_camp_{selected_camp}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[delete_key] = True
+                        st.rerun()
+                else:
+                    if st.button(
+                        "⚠️ OK?",
+                        key=f"conf_camp_{selected_camp}",
+                        type="primary",
+                        use_container_width=True,
+                        help="Confirm Campaign Deletion",
+                    ):
+                        if delete_campaign(selected_camp):
+                            st.toast(f"Deleted campaign: {selected_camp}")
+                            st.session_state[delete_key] = False
+                            st.rerun()
+                        else:
+                            st.error("Failed to delete campaign.")
+                    if st.button(
+                        "Cancel",
+                        key=f"can_camp_{selected_camp}",
+                        use_container_width=True,
+                    ):
+                        st.session_state[delete_key] = False
                         st.rerun()
         else:
             st.write("No saved campaigns found.")

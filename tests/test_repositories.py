@@ -137,6 +137,13 @@ class TestCampaignRepository:
     def test_load_nonexistent(self, camp_repo):
         assert camp_repo.load("Nonexistent") is None
 
+    def test_delete_campaign(self, camp_repo):
+        camp_repo.save("Campaign To Delete", "notes")
+        assert camp_repo.load("Campaign To Delete") is not None
+        assert camp_repo.delete("Campaign To Delete") is True
+        assert camp_repo.load("Campaign To Delete") is None
+        assert camp_repo.delete("Nonexistent") is False
+
     def test_list_campaigns(self, camp_repo):
         camp_repo.save("Campaign One", "Notes 1", dnd_edition="2014 Edition")
         camp_repo.save("Campaign Two", "Notes 2", dnd_edition="2024 Revision")
