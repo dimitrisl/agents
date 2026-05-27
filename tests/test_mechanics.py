@@ -105,3 +105,66 @@ def test_sync_character_stats():
     assert synced["armor_class"] == 17
     assert synced["passive_perception"] == 13  # 10 + 1 (WIS) + 2 (Prof)
     assert synced["weapons"][0]["attack_bonus"] == "+5"
+
+
+def test_sync_character_stats_weapons_add_delete():
+    char_data = {
+        "char_level": 1,
+        "char_class": "Fighter",
+        "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+        "weapons": [
+            {"name": "Dagger", "damage": "1d4", "attack_bonus": "+2"},
+            {"name": "Longsword", "damage": "1d8", "attack_bonus": "+2"},
+        ],
+    }
+    class_data = {"hit_die": "d10"}
+
+    # Deleting Longsword (index 1) and adding Shortbow
+    weapon_deltas = {
+        "deleted_rows": [1],
+        "added_rows": [
+            {
+                "name": "Shortbow",
+                "damage_dice": "1d6 piercing",
+                "attack_bonus": "+2",
+                "range": "80/320",
+                "properties": "Two-Handed",
+            }
+        ],
+    }
+
+    synced = sync_character_stats(char_data, class_data, weapon_deltas=weapon_deltas)
+
+    assert len(synced["weapons"]) == 2
+    assert synced["weapons"][0]["name"] == "Dagger"
+    assert synced["weapons"][1]["name"] == "Shortbow"
+    assert synced["weapons"][1]["range"] == "80/320"
+    assert synced["weapons"][1]["properties"] == "Two-Handed"
+
+
+def test_sync_character_stats_weapon_damage_edit():
+    char_data = {
+        "char_level": 1,
+        "char_class": "Fighter",
+        "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+        "weapons": [
+            {
+                "name": "Dagger",
+                "damage": "1d4 piercing",
+                "attack_bonus": "+2",
+                "is_custom": False,
+            }
+        ],
+    }
+    class_data = {"hit_die": "d10"}
+
+    # Simulate user editing the "damage" column to "2d6 + 5 fire"
+    weapon_deltas = {"edited_rows": {"0": {"damage": "2d6 + 5 fire"}}}
+
+    synced = sync_character_stats(char_data, class_data, weapon_deltas=weapon_deltas)
+
+    weapon = synced["weapons"][0]
+    assert weapon["is_custom"] is True
+    assert weapon["damage"] == "2d6 + 5 fire"
+    assert weapon["damage_dice"] == "2d6 fire"
+    assert weapon["damage_bonus"] == "+5"

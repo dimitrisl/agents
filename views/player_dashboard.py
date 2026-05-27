@@ -236,9 +236,12 @@ def render_selection_screen():
                         key=f"load_{char_file}",
                     ):
                         update_session_from_dict(st.session_state, char_data)
+                        trigger_sync()
                         st.session_state.character_active = True
                         st.session_state.player_view = "sheet"
-                        st.session_state.last_saved_char = char_data.copy()
+                        st.session_state.last_saved_char = get_character_dict(
+                            st.session_state
+                        )
                         st.rerun()
 
                     # Delete button with double-click confirmation pattern
@@ -579,7 +582,12 @@ def render_active_character(accent_color: str):
 
                                 # Also update the widget temp keys for the ability scores
                                 for stat_k, stat_v in v.items():
-                                    st.session_state[f"stat_val_{stat_k}"] = stat_v
+                                    try:
+                                        st.session_state[f"stat_val_{stat_k}"] = stat_v
+                                    except Exception:
+                                        logger.error(
+                                            f"Could not set session state for stat {stat_k}"
+                                        )
                             else:
                                 _set_val(st.session_state, k, v)
 
@@ -672,7 +680,10 @@ def trigger_sync():
 
     # Update widget temp keys from the fresh data
     for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
-        st.session_state[f"stat_val_{k}"] = st.session_state.stats[k]
+        try:
+            st.session_state[f"stat_val_{k}"] = st.session_state.stats[k]
+        except Exception:
+            logger.error(f"Could not set session state for stat {k}")
 
     # Save to database immediately to prevent data loss on subsequent UI interactions
     save_character(get_character_dict(st.session_state))
@@ -960,8 +971,15 @@ def _render_core_stats(edit_mode: bool):
             # 2. Weapon Dice
             import re
 
+            from backend.services.mechanics_service import rebuild_damage_formula
+
             for w in st.session_state.weapons:
-                dmg = str(w.get("damage") or "")
+                dmg = str(
+                    w.get("damage")
+                    or rebuild_damage_formula(
+                        w.get("damage_dice"), w.get("damage_bonus")
+                    )
+                )
                 found = re.findall(r"d(\d+)", dmg)
                 for d in found:
                     relevant_dice.add(int(d))
@@ -1183,7 +1201,6 @@ def _render_combat_inventory(edit_mode: bool):
             num_rows="dynamic",
             key="edit_weapons",
             use_container_width=True,
-            on_change=trigger_sync,
             column_config={
                 "name": st.column_config.TextColumn("Weapon Name", width="large"),
                 "magic_bonus": st.column_config.NumberColumn(
@@ -1192,7 +1209,7 @@ def _render_combat_inventory(edit_mode: bool):
                     help="Magic bonus (e.g. +1, +2)",
                     step=1,
                     min_value=0,
-                    max_value=5,
+                    max_value=100,
                 ),
                 "attack_bonus": st.column_config.TextColumn(
                     "To Hit", width="small", help="Attack bonus e.g. +5, -1"
@@ -1208,9 +1225,11 @@ def _render_combat_inventory(edit_mode: bool):
                     width="small",
                     help="Lock manual To Hit & Damage, skip auto-sync",
                 ),
-                "damage": None,
-                "range": None,
-                "properties": None,
+                "properties": st.column_config.TextColumn(
+                    "Properties",
+                    width="medium",
+                    help="Properties (e.g., Finesse, Light, Versatile)",
+                ),
             },
         )
         w_add_btn, w_add_qty = st.columns([5, 1])
@@ -1219,7 +1238,7 @@ def _render_combat_inventory(edit_mode: bool):
                 "Qty", 1, 10, 1, key="add_weapon_qty", label_visibility="collapsed"
             )
         with w_add_btn:
-            if st.button("➕ Add New Weapon(s)", width="stretch"):
+            if st.button("➕ Add New Weapon(s)", use_container_width=True):
                 trigger_sync()
                 for _ in range(qty):
                     st.session_state.weapons.append(
@@ -1229,13 +1248,41 @@ def _render_combat_inventory(edit_mode: bool):
                             "attack_bonus": "+0",
                             "damage_dice": "1d4",
                             "damage_bonus": "+0",
-                            "damage": "1d4 + 0",
+                            "properties": "",
+                            "range": "",
                             "is_custom": False,
                         }
                     )
                 if "weapons_df_editor" in st.session_state:
                     del st.session_state["weapons_df_editor"]
                 st.rerun()
+
+        # Individual Removal Section
+        if st.session_state.weapons:
+            st.markdown("---")
+            st.caption("🗑️ Weapon Removal")
+            del_w_col, del_btn_col = st.columns([3, 1])
+            w_options = [
+                f"{i + 1}. {w.get('name', 'Unknown')}"
+                for i, w in enumerate(st.session_state.weapons)
+            ]
+            selected_to_del = del_w_col.selectbox(
+                "Select weapon to remove",
+                options=w_options,
+                label_visibility="collapsed",
+                key="weapon_to_delete_select",
+            )
+            if del_btn_col.button(
+                "🗑️ Remove Selected", use_container_width=True, type="secondary"
+            ):
+                idx = int(selected_to_del.split(".")[0]) - 1
+                if 0 <= idx < len(st.session_state.weapons):
+                    st.session_state.weapons.pop(idx)
+                    if "weapons_df_editor" in st.session_state:
+                        del st.session_state["weapons_df_editor"]
+                    trigger_sync()
+                    save_character(get_character_dict(st.session_state))
+                    st.rerun()
     else:
         weapons = st.session_state.get("weapons", [])
         if weapons is None:
@@ -1253,6 +1300,15 @@ def _render_combat_inventory(edit_mode: bool):
                     f"**Damage Dice**  \n`{w.get('damage_dice', w.get('damage', '1d4'))}`"
                 )
                 info_col3.markdown(f"**Dmg Bonus**  \n`{w.get('damage_bonus', '+0')}`")
+
+                # Show properties and range if present
+                extra_info = []
+                if w.get("properties"):
+                    extra_info.append(f"**Properties:** {w.get('properties')}")
+                if w.get("range"):
+                    extra_info.append(f"**Range:** {w.get('range')}")
+                if extra_info:
+                    st.caption(" • ".join(extra_info))
 
                 if w_roll1.button("🎯 To Hit", key=f"atk_{i}", width="stretch"):
                     from backend.utils.dice import quick_roll
@@ -1289,8 +1345,13 @@ def _render_combat_inventory(edit_mode: bool):
                 if w_roll2.button("💥 Dmg", key=f"dmg_{i}", width="stretch"):
                     from backend.utils.dice import roll_dice
                     import re
+                    from backend.services.mechanics_service import (
+                        rebuild_damage_formula,
+                    )
 
-                    dmg_str = w.get("damage", "1d4")
+                    dmg_str = w.get("damage") or rebuild_damage_formula(
+                        w.get("damage_dice"), w.get("damage_bonus")
+                    )
                     global_dmg = getattr(st.session_state, "global_damage_bonus", 0)
                     if global_dmg:
                         dmg_str = f"{dmg_str} + {global_dmg}"
@@ -2123,6 +2184,7 @@ def render_character_creator():
             if c_btn1.button("✅ Accept & Equip Hero", width="stretch", type="primary"):
                 char["char_id"] = str(uuid.uuid4())[:8]
                 update_session_from_dict(st.session_state, char)
+                trigger_sync()
                 if "temp_portrait" in st.session_state:
                     st.session_state.char_portrait = st.session_state.temp_portrait
                     st.session_state.temp_portrait = None

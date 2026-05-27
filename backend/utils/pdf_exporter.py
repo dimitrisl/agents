@@ -114,12 +114,16 @@ class PDFMappingProvider:
         # 7. Weapons
         weapons = char_data.get("weapons", [])
         weapon_mappings = self.mapping.get("weapons", [])
+        from backend.services.mechanics_service import rebuild_damage_formula
+
         for i, w_map in enumerate(weapon_mappings):
             if i < len(weapons):
                 w = weapons[i]
                 field_data[w_map["name"]] = w.get("name", "")
                 field_data[w_map["atk"]] = w.get("attack_bonus", "")
-                field_data[w_map["dmg"]] = w.get("damage", "")
+                field_data[w_map["dmg"]] = w.get("damage") or rebuild_damage_formula(
+                    w.get("damage_dice"), w.get("damage_bonus")
+                )
 
         # 8. Equipment & Features
         blocks = self.mapping.get("blocks", {})

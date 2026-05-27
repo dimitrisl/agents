@@ -42,9 +42,37 @@ def validate_character_build(char_data: dict) -> dict:
     # Ensure char_data matches schema before sending
     validated_char = CharacterSchema(**char_data)
 
+    from backend.core.constants import (
+        RACES_2014,
+        CLASSES_2014,
+        BACKGROUNDS_2014,
+        SUBCLASSES_2014,
+        SPECIES_2024,
+        CLASSES_2024,
+        BACKGROUNDS_2024,
+        SUBCLASSES_2024,
+    )
+
+    if "2024" in edition:
+        allowed_races = SPECIES_2024
+        allowed_classes = CLASSES_2024
+        allowed_backgrounds = BACKGROUNDS_2024
+        allowed_subclasses = SUBCLASSES_2024.get(validated_char.char_class, [])
+    else:
+        allowed_races = RACES_2014
+        allowed_classes = CLASSES_2014
+        allowed_backgrounds = BACKGROUNDS_2014
+        allowed_subclasses = SUBCLASSES_2014.get(validated_char.char_class, [])
+
     prompt = BUILD_VALIDATION_PROMPT.format(
         char_json=validated_char.model_dump_json(indent=2),
         edition=edition,
+        allowed_races=", ".join(allowed_races),
+        allowed_classes=", ".join(allowed_classes),
+        allowed_backgrounds=", ".join(allowed_backgrounds),
+        allowed_subclasses=", ".join(allowed_subclasses)
+        if allowed_subclasses
+        else "None",
     )
     result = generate_ai_json(prompt)
     if result:

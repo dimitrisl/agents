@@ -28,33 +28,17 @@ class CharacterRepository:
             logger.error("Cannot save character without a name.")
             return False
 
-        # Validate against schema before saving
+        # Validate against schema before saving.
+        # We use strict=False to allow for some flexibility in input types (e.g. models vs dicts)
         try:
-            validated = CharacterSchema(**char_data)
+            validated = CharacterSchema.model_validate(char_data, strict=False)
             char_data = validated.model_dump()
         except Exception as e:
-            logger.warning(
-                f"Character data failed validation during save: {e}. Attempting recovery/sanitization."
+            logger.error(
+                f"Character data failed validation during save: {e}. Aborting save to prevent corruption."
             )
-            try:
-                from backend.core.state_manager import (
-                    get_default_character,
-                    CHARACTER_FIELDS,
-                )
-
-                fallback_data = get_default_character()
-                for key in CHARACTER_FIELDS:
-                    if key in char_data and char_data[key] is not None:
-                        fallback_data[key] = char_data[key]
-                validated = CharacterSchema.model_validate(fallback_data, strict=False)
-                char_data = validated.model_dump()
-            except Exception as rec_err:
-                # Fail fast — do NOT persist corrupt data to MongoDB.
-                raise ValueError(
-                    f"Cannot save '{char_data.get('char_name', 'unknown')}': "
-                    f"validation failed and recovery was unsuccessful. "
-                    f"Original error: {e} | Recovery error: {rec_err}"
-                ) from rec_err
+            # We no longer "auto-heal" during save to ensure the caller is aware of data issues.
+            return False
 
         char_id = char_data.get("char_id", "unknown_id")
 
@@ -72,47 +56,30 @@ class CharacterRepository:
             return False
 
     def load(self, filename: str) -> Optional[dict]:
-        """Load a character from MongoDB. Note: 'filename' is now treated as 'char_id_filename' to match legacy logic."""
+        """Load a character from MongoDB."""
         if self.collection is None:
             return None
 
-        # Extract char_id from the legacy filename format (e.g., willow_whisperwind_3029a9f1.json)
-        # Or just use it directly if it's already an ID
+        # Legacy filename extraction
         char_id = filename.replace(".json", "").split("_")[-1]
 
         try:
             data = self.collection.find_one({"char_id": char_id})
             if data:
                 if "_id" in data:
-                    del data["_id"]  # Remove mongo internal ID
+                    del data["_id"]
 
-                # Perform auto-healing/validation on load to clean any legacy or corrupted fields
+                # Validate and return
                 try:
-                    validated = CharacterSchema(**data)
+                    validated = CharacterSchema.model_validate(data, strict=False)
                     return validated.model_dump()
                 except Exception as val_err:
-                    logger.warning(
-                        f"Loaded character failed validation, running fallback cleaning: {val_err}"
+                    logger.error(
+                        f"Loaded character '{char_id}' failed validation: {val_err}"
                     )
-                    try:
-                        from backend.core.state_manager import (
-                            get_default_character,
-                            CHARACTER_FIELDS,
-                        )
-
-                        fallback_data = get_default_character()
-                        for key in CHARACTER_FIELDS:
-                            if key in data and data[key] is not None:
-                                fallback_data[key] = data[key]
-                        validated = CharacterSchema.model_validate(
-                            fallback_data, strict=False
-                        )
-                        return validated.model_dump()
-                    except Exception as fallback_err:
-                        logger.error(
-                            f"Fallback validation failed on load: {fallback_err}. Returning raw data."
-                        )
-                        return data
+                    # In load, we might want to return the raw data if validation fails
+                    # so the user can at least see/fix it, but we log the error prominently.
+                    return data
             return data
         except Exception as e:
             logger.error(f"Failed to load character from MongoDB: {e}")

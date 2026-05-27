@@ -27,9 +27,15 @@ Validate the following aspects based on their edition ({edition}):
 5. Are their spell slots correct for their class and level?
 6. Is the playstyle_guide correct and consistent with their current level and features?
 7. Do they have all required level-up advancements (e.g., level 4 feat/ASI)?
+8. Are the character's core identity fields (race, class, subclass, and background) valid for their edition?
+- Valid Races/Species for this edition: {allowed_races}
+- Valid Classes for this edition: {allowed_classes}
+- Valid Backgrounds for this edition: {allowed_backgrounds}
+- Valid Subclasses for this class: {allowed_subclasses}
 
 If you find discrepancies, you MUST specify the corrected values in the "corrections" dictionary so they can be applied automatically to the character sheet.
 You can correct ANY field in the CharacterSchema by providing it in the "corrections" dictionary:
+- "background", "race", "char_class", "subclass"
 - "proficiency_bonus", "hp_max", "armor_class", "speed", "passive_perception", "spell_save_dc", "spell_attack_bonus", "initiative_modifier"
 - "stats": dictionary of ability scores (STR, DEX, CON, INT, WIS, CHA)
 - "prepared_spells": list of strings (fill/update with appropriate spells for their level if currently empty or wrong)
@@ -91,7 +97,7 @@ Output the character strictly as a JSON object with exactly the following schema
     "skill_proficiencies": ["Athletics", "Intimidation"],
     "skill_expertise": [],
     "weapon_masteries": ["Slow", "Topple"],
-    "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage": "1d8+3 bludgeoning"}}],
+    "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage_dice": "1d8 bludgeoning", "damage_bonus": "+3"}}],
     "equipment": [{{"name": "Chain mail", "equipped": true, "ac_base": 16}}, {{"name": "Shield", "equipped": true, "ac_bonus": 2}}, {{"name": "Backpack", "equipped": false}}],
     "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
     "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"]}},
@@ -270,7 +276,7 @@ Return JSON:
     "ideals": "...",
     "bonds": "...",
     "flaws": "...",
-    "weapons": [{{ "name": "...", "attack_bonus": "...", "damage": "..." }}],
+    "weapons": [{{ "name": "...", "attack_bonus": "...", "damage_dice": "...", "damage_bonus": "..." }}],
     "equipment": [],
     "spells": {{ "cantrips": [], "level_1": [] }},
     "features_traits": [{{ "name": "...", "description": "..." }}],

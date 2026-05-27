@@ -301,6 +301,49 @@ def calculate_spell_stats(
     }
 
 
+def rebuild_damage_formula(damage_dice: str, damage_bonus: str) -> str:
+    import re
+
+    damage_dice = (damage_dice or "1d4").strip()
+    damage_bonus = (damage_bonus or "+0").strip()
+
+    # Match 1d8, 2d6, or just d20
+    dice_match = re.match(r"^\s*(\d*d\d+)", damage_dice, re.I)
+    if not dice_match:
+        # If it doesn't look like dice at all, just return it combined
+        if damage_bonus in ["+0", "0", ""]:
+            return damage_dice
+        connector = " + " if not damage_bonus.startswith(("-", "+")) else " "
+        return f"{damage_dice}{connector}{damage_bonus}".strip()
+
+    dice_part = dice_match.group(1)
+    # The rest of the dice string (e.g., " slashing")
+    type_str = damage_dice[dice_match.end() :].replace("+", "").replace("-", "").strip()
+
+    # Check if damage_bonus is a simple integer (e.g., "+3", "-1", "5")
+    clean_bonus = damage_bonus.replace(" ", "")
+    is_simple_bonus = re.match(r"^[+-]?\d+$", clean_bonus)
+
+    if is_simple_bonus:
+        try:
+            bonus_val = int(clean_bonus)
+        except ValueError:
+            bonus_val = 0
+
+        if bonus_val > 0:
+            return f"{dice_part} + {bonus_val} {type_str}".strip()
+        elif bonus_val < 0:
+            return f"{dice_part} - {abs(bonus_val)} {type_str}".strip()
+        else:
+            return f"{dice_part} {type_str}".strip()
+    else:
+        # Non-numeric bonus (like "d20 + 200") - just append it
+        if damage_bonus in ["+0", "0", ""]:
+            return f"{dice_part} {type_str}".strip()
+        connector = " + " if not damage_bonus.startswith(("-", "+")) else " "
+        return f"{dice_part}{connector}{damage_bonus} {type_str}".strip()
+
+
 def calculate_weapon_stats(
     weapon: Dict[str, Any], stats: Dict[str, int], proficiency_bonus: int
 ) -> Dict[str, Any]:
@@ -312,36 +355,28 @@ def calculate_weapon_stats(
 
     import re
 
-    if weapon.get("is_custom", False):
-        # Fallback to parse damage_dice and damage_bonus for UI if missing
+    is_custom_flag = weapon.get("is_custom", False)
+    if is_custom_flag is True or str(is_custom_flag).lower() == "true":
+        # Strictly preserve manual edits
         if not weapon.get("damage_dice"):
-            damage_raw = weapon.get("damage", "1d4")
-            dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw, re.I)
+            damage_raw = weapon.get("damage") or "1d4"
+            dice_match = re.match(r"^\s*(\d*d\d+)", str(damage_raw), re.I)
             if dice_match:
                 dice_part = dice_match.group(1)
-                type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
+                type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", str(damage_raw))
                 dmg_type = type_match.group(1).strip() if type_match else ""
                 weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
 
-                # Extract bonus if present, but only if the user didn't just provide a custom one
-                # The default is "+0", so if it's "+0" or empty, we extract.
                 if weapon.get("damage_bonus", "+0") in ["+0", "", 0, "+ 0", "-0"]:
-                    bonus_match = re.search(r"([+-]\s*\d+)", damage_raw)
+                    bonus_match = re.search(r"([+-]\s*\d+)", str(damage_raw))
                     if bonus_match:
                         weapon["damage_bonus"] = bonus_match.group(1).replace(" ", "")
                     else:
                         weapon["damage_bonus"] = "+0"
 
-        # Enforce user rule: Damage bonus CANNOT be negative, even on custom weapons
-        d_bonus = weapon.get("damage_bonus", "+0")
-        if isinstance(d_bonus, str) and d_bonus.startswith("-"):
-            weapon["damage_bonus"] = "+0"
-            # Rebuild the combined string without the negative modifier
-            d_dice = weapon.get("damage_dice", "")
-            weapon["damage"] = (
-                d_dice if d_dice else weapon.get("damage", "").split("-")[0].strip()
-            )
-
+        weapon["damage"] = rebuild_damage_formula(
+            weapon.get("damage_dice"), weapon.get("damage_bonus")
+        )
         return weapon
 
     name = weapon.get("name", "").lower()
@@ -371,7 +406,9 @@ def calculate_weapon_stats(
 
     # Damage calculation: D&D 5e rules dictate that ability modifier is added to damage
     # (unless it's an offhand attack, but we default to primary attack rules).
-    damage_raw = weapon.get("damage", "1d4")
+    damage_raw = weapon.get("damage") or rebuild_damage_formula(
+        weapon.get("damage_dice"), weapon.get("damage_bonus")
+    )
     dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw, re.I)
     if dice_match:
         dice_part = dice_match.group(1)
@@ -387,11 +424,9 @@ def calculate_weapon_stats(
         # Store separated components for the UI
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
         weapon["damage_bonus"] = f"+{total_dmg_mod}"
-
-        if total_dmg_mod > 0:
-            weapon["damage"] = f"{dice_part} + {total_dmg_mod} {dmg_type}".strip()
-        else:
-            weapon["damage"] = f"{dice_part} {dmg_type}".strip()
+        weapon["damage"] = rebuild_damage_formula(
+            weapon["damage_dice"], weapon["damage_bonus"]
+        )
 
     return weapon
 
@@ -635,35 +670,66 @@ def sync_character_stats(
     weapons = char_data.get("weapons", [])
     updated_weapons = []
     edited_weapon_rows = weapon_deltas.get("edited_rows", {}) if weapon_deltas else {}
+    from backend.core.schemas import Weapon
 
+    # 1. Process existing weapons (including edits)
     for idx, w in enumerate(weapons):
-        w_dict = w if isinstance(w, dict) else w.model_dump()
+        # Convert to dictionary and normalize
+        w_dict = (
+            w
+            if isinstance(w, dict)
+            else (w.model_dump() if hasattr(w, "model_dump") else {"name": str(w)})
+        )
+
         idx_str = str(idx)
         if idx_str in edited_weapon_rows:
             changes = edited_weapon_rows[idx_str]
-            # Apply edits directly to the dictionary
-            for k, v in changes.items():
-                w_dict[k] = v
-            # If user edited attack_bonus, damage_dice, or damage_bonus, automatically set is_custom
-            # to True unless user unchecked it
-            custom_keys = {"attack_bonus", "damage_dice", "damage_bonus", "damage"}
-            if any(k in changes for k in custom_keys) and "is_custom" not in changes:
+            # Use schema to normalize changes (handles UI labels)
+            normalized_changes = Weapon.normalize_dict(changes)
+            w_dict.update(normalized_changes)
+
+            # Force custom if core fields changed (schema might have already set it, but we double check)
+            combat_keys = {"attack_bonus", "damage_dice", "damage_bonus"}
+            if (
+                any(k in combat_keys for k in normalized_changes)
+                and "is_custom" not in normalized_changes
+            ):
                 w_dict["is_custom"] = True
 
-            # If it's custom and damage parts changed, rebuild the underlying damage string for rolls
-            if "damage_dice" in changes or "damage_bonus" in changes:
-                d_dice = w_dict.get("damage_dice", "")
-                d_bonus = w_dict.get("damage_bonus", "")
-                if d_bonus and d_bonus not in ["+0", "0", "-0"]:
-                    w_dict["damage"] = (
-                        f"{d_dice} {d_bonus}".strip()
-                        .replace(" + ", "+")
-                        .replace(" - ", "-")
-                    )
-                else:
-                    w_dict["damage"] = d_dice
+            # Rebuild damage formula if needed
+            if any(k in ["damage_dice", "damage_bonus"] for k in normalized_changes):
+                w_dict["damage"] = rebuild_damage_formula(
+                    w_dict.get("damage_dice"), w_dict.get("damage_bonus")
+                )
 
         updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
+
+    # 2. Process Deletions (reverse index order)
+    if weapon_deltas and "deleted_rows" in weapon_deltas:
+        deleted_indices = sorted(weapon_deltas["deleted_rows"], reverse=True)
+        for idx in deleted_indices:
+            if idx < len(updated_weapons):
+                updated_weapons.pop(idx)
+
+    # 3. Process Additions
+    if weapon_deltas and "added_rows" in weapon_deltas:
+        for row in weapon_deltas["added_rows"]:
+            # Use schema to normalize new row
+            new_w_data = Weapon.normalize_dict(row)
+            # Ensure defaults for a new weapon
+            new_w = {
+                "name": new_w_data.get("name", "New Weapon"),
+                "magic_bonus": int(new_w_data.get("magic_bonus", 0)),
+                "attack_bonus": new_w_data.get("attack_bonus", "+0"),
+                "damage_dice": new_w_data.get("damage_dice", "1d4"),
+                "damage_bonus": new_w_data.get("damage_bonus", "+0"),
+                "properties": new_w_data.get("properties", ""),
+                "range": new_w_data.get("range", ""),
+                "is_custom": new_w_data.get("is_custom", False),
+            }
+            new_w = calculate_weapon_stats(new_w, stats, prof_bonus)
+            updated_weapons.append(new_w)
+
     char_data["weapons"] = updated_weapons
 
     # Spell Stats

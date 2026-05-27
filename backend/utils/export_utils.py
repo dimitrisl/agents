@@ -78,13 +78,20 @@ def convert_to_vtt_format(char_dict: dict) -> dict:
     }
 
     # Add items, weapons, and features
+    from backend.services.mechanics_service import rebuild_damage_formula
+
     for weapon in char_dict.get("weapons", []):
         vtt_char["items"].append(
             {
                 "name": weapon.get("name", "Unknown Weapon"),
                 "type": "weapon",
                 "system": {
-                    "description": {"value": weapon.get("damage", "")},
+                    "description": {
+                        "value": weapon.get("damage")
+                        or rebuild_damage_formula(
+                            weapon.get("damage_dice"), weapon.get("damage_bonus")
+                        )
+                    },
                     "equipped": True,
                 },
             }

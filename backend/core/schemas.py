@@ -14,13 +14,83 @@ class StatBlock(BaseModel):
 class Weapon(BaseModel):
     name: str
     attack_bonus: str
-    damage: str
     damage_dice: str = ""
     damage_bonus: str = "+0"
     range: Optional[str] = None
     properties: Optional[str] = None
     is_custom: bool = False
     magic_bonus: int = 0
+    damage: Optional[str] = None  # Added for legacy support/internal formula storage
+
+    @classmethod
+    def normalize_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Maps UI labels to backend field names and provides defaults."""
+        field_map = {
+            "Weapon Name": "name",
+            "To Hit": "attack_bonus",
+            "Damage Dice": "damage_dice",
+            "Dmg Bonus": "damage_bonus",
+            "Custom": "is_custom",
+            "Properties": "properties",
+            "Range": "range",
+            "+X": "magic_bonus",
+        }
+        normalized = {}
+        for k, v in data.items():
+            normalized[field_map.get(k, k)] = v
+
+        # Ensure core combat fields trigger is_custom if they don't look standard
+        # (This logic is moved from mechanics_service to here)
+        if not normalized.get("is_custom"):
+            import re
+
+            atk = str(normalized.get("attack_bonus", "+0")).replace(" ", "")
+            dmg_b = str(normalized.get("damage_bonus", "+0")).replace(" ", "")
+
+            # If any core combat field was edited, we often want to lock it
+            core_combat_fields = {
+                "attack_bonus",
+                "damage_dice",
+                "damage_bonus",
+                "damage",
+            }
+            if any(k in core_combat_fields for k in normalized):
+                if (
+                    not re.match(r"^[+-]?\d+$", atk)
+                    or not re.match(r"^[+-]?\d+$", dmg_b)
+                    or "damage" in normalized
+                ):
+                    normalized["is_custom"] = True
+                elif normalized.get("attack_bonus") not in [None, "+0", "0", 0]:
+                    normalized["is_custom"] = True
+
+        return normalized
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_damage_field(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Apply normalization first if it looks like UI data
+            if any(k in data for k in ["Weapon Name", "To Hit", "Dmg Bonus"]):
+                data = cls.normalize_dict(data)
+
+            dmg = data.get("damage")
+            if dmg and not data.get("damage_dice"):
+                import re
+
+                dice_match = re.match(r"^\s*(\d*d\d+)", str(dmg), re.I)
+                if dice_match:
+                    dice_part = dice_match.group(1)
+                    type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", str(dmg))
+                    dmg_type = type_match.group(1).strip() if type_match else ""
+                    data["damage_dice"] = f"{dice_part} {dmg_type}".strip()
+
+                    bonus_match = re.search(r"([+-]\s*\d+)", str(dmg))
+                    if bonus_match:
+                        data["damage_bonus"] = bonus_match.group(1).replace(" ", "")
+                    else:
+                        data["damage_bonus"] = "+0"
+        return data
 
 
 class EquipmentItem(BaseModel):
