@@ -18,7 +18,6 @@ from backend.core.storage import (
     load_character,
     list_characters,
     delete_character,
-    list_campaigns,
 )
 from backend.core.state_manager import (
     get_character_dict,
@@ -455,56 +454,12 @@ def render_active_character(accent_color: str):
                 st.session_state.leveling_up = False
                 st.rerun()
 
-    # --- Campaign Section ---
-    st.markdown("---")
-    current_camp = st.session_state.get("active_campaign")
-
-    if current_camp:
-        with st.container(border=True):
-            col_camp1, col_camp2 = st.columns([3, 1])
-            col_camp1.markdown(f"🏰 **Active Campaign:** {current_camp}")
-            if col_camp2.button("🚪 Leave", key="leave_camp_btn", width="stretch"):
-                from backend.core.storage import remove_from_campaign
-
-                char_id = st.session_state.char_id
-                char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
-
-                if remove_from_campaign(current_camp, char_filename):
-                    st.session_state.active_campaign = None
-                    st.success(f"Left {current_camp}.")
-                    st.rerun()
-                else:
-                    st.error("Failed to leave campaign.")
-    else:
-        with st.expander("🏰 Join a Campaign", expanded=False):
-            camps = list_campaigns()
-            if camps:
-                selected_camp = st.selectbox("Select Campaign to Join", camps)
-                if st.button("Request to Join"):
-                    from backend.core.storage import join_campaign
-
-                    char_id = st.session_state.char_id
-                    char_filename = f"{st.session_state.char_name.replace(' ', '_').lower()}_{char_id}.json"
-
-                    if join_campaign(selected_camp, char_filename):
-                        st.session_state.active_campaign = selected_camp
-                        st.success(
-                            f"Successfully joined {selected_camp}! The DM can now see you."
-                        )
-                        st.rerun()
-                    else:
-                        st.error("Failed to join campaign.")
-            else:
-                st.info("No active campaigns found. Ask your DM to create one first!")
-
     # Dynamic columns depending on edit mode state
     edit_mode_active = st.session_state.get("edit_mode", False)
     if edit_mode_active:
-        edit_col1, edit_col2, edit_col3, edit_col4, edit_col5 = st.columns(
-            [1.2, 1.2, 1, 1, 1]
-        )
+        edit_col1, edit_col2, edit_col3, edit_col5 = st.columns([1.2, 1.2, 1, 1])
     else:
-        edit_col1, edit_col3, edit_col4, edit_col5 = st.columns([1.2, 1, 1, 1])
+        edit_col1, edit_col3, edit_col5 = st.columns([1.2, 1, 1])
         edit_col2 = None
 
     edit_mode = edit_col1.toggle(
@@ -526,12 +481,6 @@ def render_active_character(accent_color: str):
 
     if edit_col3.button("🔼 Level Up", use_container_width=True):
         run_level_up_wizard()
-
-    if edit_col4.button("🎨 Portrait", use_container_width=True):
-        with st.spinner("Forging visual identity..."):
-            char_data = get_character_dict(st.session_state)
-            st.session_state.char_portrait = generate_portrait_url(char_data)
-            st.rerun()
 
     if edit_col5.button("⚖️ Validate", use_container_width=True):
         with st.spinner("Checking build against the rules..."):
@@ -647,16 +596,6 @@ def render_active_character(accent_color: str):
         if st.button("Dismiss Validation"):
             st.session_state.validation_result = None
             st.rerun()
-
-    if st.session_state.char_portrait:
-        import os
-
-        if os.path.exists(st.session_state.char_portrait):
-            with st.expander("🖼️ Portrait Preview", expanded=False):
-                st.image(st.session_state.char_portrait, width="stretch")
-        else:
-            st.warning("🖼️ Portrait file missing. Using default.")
-            st.image("https://cdn-icons-png.flaticon.com/512/149/149071.png", width=100)
 
     char_tab1, char_tab2, char_tab3, char_tab4, char_tab5 = st.tabs(
         [

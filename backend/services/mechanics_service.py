@@ -306,8 +306,10 @@ def calculate_weapon_stats(
 ) -> Dict[str, Any]:
     """
     Calculates attack bonus and damage modifier for a weapon.
-    Simplified: uses STR for melee, DEX for ranged/finesse.
+    Always works on a copy so the original weapon dict is never mutated.
     """
+    weapon = copy.copy(weapon)  # never mutate the caller's data
+
     if weapon.get("is_custom", False):
         return weapon
 
@@ -334,32 +336,17 @@ def calculate_weapon_stats(
         f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
     )
 
-    # Update damage string (e.g., "1d8" -> "1d8 + 3")
+    # Damage shows only the dice expression + damage type — the ability modifier
+    # is already reflected in the To Hit bonus above, so we don't double-apply it.
     import re
 
-    damage_base = weapon.get("damage", "1d4")
-    match = re.match(r"^\s*(\d+d\d+)", damage_base, re.I)
-    if match:
-        dice_part = match.group(1)
-        type_match = re.search(r"([a-zA-Z\s]+)$", damage_base)
+    damage_raw = weapon.get("damage", "1d4")
+    dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw, re.I)
+    if dice_match:
+        dice_part = dice_match.group(1)
+        type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
         dmg_type = type_match.group(1).strip() if type_match else ""
-        if mod != 0:
-            op = "+" if mod > 0 else "-"
-            new_damage = f"{dice_part} {op} {abs(mod)}"
-        else:
-            new_damage = dice_part
-        if dmg_type:
-            new_damage += f" {dmg_type}"
-        weapon["damage"] = new_damage
-    else:
-        for sep in [" + ", " - "]:
-            if sep in damage_base:
-                damage_base = damage_base.split(sep)[0]
-        if mod != 0:
-            op = "+" if mod > 0 else "-"
-            weapon["damage"] = f"{damage_base} {op} {abs(mod)}"
-        else:
-            weapon["damage"] = damage_base
+        weapon["damage"] = f"{dice_part} {dmg_type}".strip()
 
     return weapon
 
