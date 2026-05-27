@@ -25,12 +25,24 @@ Validate the following aspects based on their edition ({edition}):
 3. Is the Proficiency Bonus correct for their level?
 4. Do they have too many or too few features/traits for their level and class?
 5. Are their spell slots correct for their class and level?
+6. Is the playstyle_guide correct and consistent with their current level and features?
+7. Do they have all required level-up advancements (e.g., level 4 feat/ASI)?
+
+If you find discrepancies, you MUST specify the corrected values in the "corrections" dictionary so they can be applied automatically to the character sheet.
+You can correct ANY field in the CharacterSchema by providing it in the "corrections" dictionary:
+- "proficiency_bonus", "hp_max", "armor_class", "speed", "passive_perception", "spell_save_dc", "spell_attack_bonus", "initiative_modifier"
+- "stats": dictionary of ability scores (STR, DEX, CON, INT, WIS, CHA)
+- "prepared_spells": list of strings (fill/update with appropriate spells for their level if currently empty or wrong)
+- "features_traits": list of feature objects (name, description, source). If a feature's description is wrong or outdated, provide the corrected list of features.
+- "advancements": list of advancement objects (level, type, name, description) representing feats or ASIs. If missing, generate and add them.
+- "playstyle_guide": string. If it refers to an outdated level or is incorrect, rewrite it completely to align with the character's current level and features.
 
 Return a JSON object with the following structure exactly:
 {{
     "is_valid": true,
     "issues": [],
-    "suggestions": []
+    "suggestions": [],
+    "corrections": {{}}
 }}
 """
 

@@ -33,18 +33,38 @@ st.set_page_config(
 # Initialize Session State
 init_session_state(st.session_state)
 
+# Sync query params with session state
+if "edition" in st.query_params:
+    query_ed = st.query_params["edition"]
+    if query_ed == "2024" and not st.session_state.get("dnd_edition_toggle", False):
+        st.session_state.dnd_edition_toggle = True
+        st.session_state.dnd_edition = EDITION_2024
+    elif query_ed == "2014" and st.session_state.get("dnd_edition_toggle", False):
+        st.session_state.dnd_edition_toggle = False
+        st.session_state.dnd_edition = EDITION_2014
+else:
+    st.query_params["edition"] = (
+        "2024" if st.session_state.get("dnd_edition_toggle", False) else "2014"
+    )
+
 # ==========================================
 # Sidebar Navigation & Themes
 # ==========================================
 with st.sidebar:
     # App Logo
     st.image("assets/logo.png", width="stretch")
+
+    # Determine theme/logo/title colors based on the toggle state BEFORE rendering the toggle
+    is_2024 = st.session_state.get("dnd_edition_toggle", False)
+    logo_color = "#bf5af2" if is_2024 else "#ff4b4b"
+    edition_label_sub = "5.5e Edition" if is_2024 else "5e Legacy"
+
     st.markdown(
-        "<h2 style='text-align: center; margin-top: -20px; color: #ff4b4b;'>Phyrexian Forge</h2>",
+        f"<h2 style='text-align: center; margin-top: -20px; color: {logo_color};'>Phyrexian Forge</h2>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p style='text-align: center; font-style: italic; margin-top: -15px; color: #888;'>\"All will be one.\"</p>",
+        f"<p style='text-align: center; font-style: italic; margin-top: -15px; color: #888;'>\"All will be one • {edition_label_sub}\"</p>",
         unsafe_allow_html=True,
     )
     st.markdown("---")
@@ -54,11 +74,19 @@ with st.sidebar:
     library_label = "📚 Rules Library"
     settings_label = "⚙️ Settings"
 
-    is_2024 = st.toggle(
+    toggle_val = st.toggle(
         "Use 2024 Revision (5.5e)",
-        key="dnd_edition_toggle",
+        value=is_2024,
+        key="dnd_edition_toggle_widget",
     )
-    st.session_state.dnd_edition = EDITION_2024 if is_2024 else EDITION_2014
+    if toggle_val != is_2024:
+        st.session_state.dnd_edition_toggle = toggle_val
+        st.session_state.dnd_edition = EDITION_2024 if toggle_val else EDITION_2014
+        st.query_params["edition"] = "2024" if toggle_val else "2014"
+        st.rerun()
+
+    st.session_state.dnd_edition_toggle = toggle_val
+    st.session_state.dnd_edition = EDITION_2024 if toggle_val else EDITION_2014
     st.info(f"Currently using: **{st.session_state.dnd_edition}**")
 
     st.markdown("---")
@@ -72,8 +100,12 @@ with st.sidebar:
     )
 
     # Theme configuration
-    primary_color = "#ff4b4b"
-    accent_color = "#d4af37"
+    if toggle_val:
+        primary_color = "#bf5af2"  # Modern Violet
+        accent_color = "#0a84ff"  # Modern Cobalt Blue
+    else:
+        primary_color = "#ff4b4b"  # Classic Red
+        accent_color = "#d4af37"  # Vintage Gold
 
     # Inject custom CSS
     inject_custom_css(primary_color, accent_color)

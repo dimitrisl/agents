@@ -165,10 +165,14 @@ def test_level_up_analysis_schema():
 
 def test_build_validation_schema():
     schema = BuildValidationSchema(
-        is_valid=False, issues=["No weapon proficiency"], suggestions=["Add a weapon"]
+        is_valid=False,
+        issues=["No weapon proficiency"],
+        suggestions=["Add a weapon"],
+        corrections={"proficiency_bonus": 3},
     )
     assert schema.is_valid is False
     assert len(schema.issues) == 1
+    assert schema.corrections == {"proficiency_bonus": 3}
 
 
 # --- Sanitizer and Validator Extensions ---

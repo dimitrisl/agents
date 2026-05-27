@@ -217,3 +217,4 @@ class BuildValidationSchema(BaseModel):
     is_valid: bool
     issues: List[str] = []
     suggestions: List[str] = []
+    corrections: Optional[Dict[str, Any]] = {}

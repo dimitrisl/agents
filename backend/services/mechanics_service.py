@@ -117,6 +117,11 @@ def get_level_up_vitals(
             if isinstance(f, dict):
                 feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
                 feat_data = feat_lookup.get(feat_name)
+                if not feat_data:
+                    for k, v in feat_lookup.items():
+                        if k in feat_name or feat_name in k:
+                            feat_data = v
+                            break
                 if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
                     hp_bonus_per_level += feat_data["hp_bonus_per_level"]
                 else:
@@ -216,6 +221,16 @@ def calculate_ac(
             if "integrated protection" in f.get("name", "").lower():
                 bonus_ac += 1
 
+    # Defense Fighting Style bonus (requires wearing armor, meaning base_ac > 10)
+    if features and base_ac > 10:
+        for f in features:
+            name_lower = f.get("name", "").lower()
+            if "defense" in name_lower and (
+                "fighting style" in name_lower or name_lower.strip() == "defense"
+            ):
+                bonus_ac += 1
+                break
+
     applied_dex = min(dex_mod, max_dex)
     return base_ac + applied_dex + bonus_ac
 
@@ -297,9 +312,7 @@ def calculate_weapon_stats(
 
     name = weapon.get("name", "").lower()
     # Basic logic: Ranged/Finesse detection
-    is_ranged = any(
-        word in name for word in ["bow", "crossbow", "sling", "dart", "javelin"]
-    )
+    is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
     is_finesse = any(
         word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
     )
@@ -512,6 +525,11 @@ def sync_character_stats(
 
         # Look up in structured data first
         feat_data = feat_lookup.get(clean_name)
+        if not feat_data:
+            for k, v in feat_lookup.items():
+                if k in clean_name or clean_name in k:
+                    feat_data = v
+                    break
         if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
             hp_bonus_per_level += feat_data["hp_bonus_per_level"]
         else:
@@ -561,6 +579,11 @@ def sync_character_stats(
     for f in features:
         feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
         feat_data = feat_lookup.get(feat_name)
+        if not feat_data:
+            for k, v in feat_lookup.items():
+                if k in feat_name or feat_name in k:
+                    feat_data = v
+                    break
         if feat_data:
             # Flat initiative bonus (e.g. 2014 Alert = +5)
             init_bonus += feat_data.get("initiative_bonus", 0)

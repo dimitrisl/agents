@@ -23,6 +23,7 @@ from backend.core.storage import (
 from backend.core.state_manager import (
     get_character_dict,
     update_session_from_dict,
+    _set_val,
 )
 from backend.services.mechanics_service import (
     get_modifier as calculate_modifier,
@@ -208,59 +209,72 @@ def render_selection_screen():
         st.write("Load one of your previously saved characters from the vault.")
         saved_chars = list_characters()
         if saved_chars:
-            for char_file in saved_chars:
-                # Extract full name from filename (format: name_with_underscores_uuid.json)
-                name_parts = char_file.replace(".json", "").split("_")
-                display_name = " ".join(name_parts[:-1]).title()
+            active_edition = st.session_state.get("dnd_edition", "2014 Edition")
+            is_active_2024 = "2024" in active_edition
 
-                c_col1, c_col2 = st.columns([4, 1])
+            filtered_chars = []
+            for char_file in saved_chars:
                 char_data = load_character(char_file)
-                edition_tag = ""
                 if char_data:
+                    char_ed = char_data.get("dnd_edition", "2014 Edition")
+                    is_char_2024 = "2024" in char_ed
+                    if is_active_2024 == is_char_2024:
+                        filtered_chars.append((char_file, char_data))
+
+            if filtered_chars:
+                for char_file, char_data in filtered_chars:
+                    # Extract full name from filename (format: name_with_underscores_uuid.json)
+                    name_parts = char_file.replace(".json", "").split("_")
+                    display_name = " ".join(name_parts[:-1]).title()
+
+                    c_col1, c_col2 = st.columns([4, 1])
                     edition = char_data.get("dnd_edition", "2014 Edition")
                     edition_tag = f" ({'2024' if '2024' in edition else '2014'})"
 
-                if c_col1.button(
-                    f"🛡️ {display_name}{edition_tag}",
-                    width="stretch",
-                    key=f"load_{char_file}",
-                ):
-                    if char_data:
+                    if c_col1.button(
+                        f"🛡️ {display_name}{edition_tag}",
+                        width="stretch",
+                        key=f"load_{char_file}",
+                    ):
                         update_session_from_dict(st.session_state, char_data)
                         st.session_state.character_active = True
                         st.session_state.player_view = "sheet"
                         st.session_state.last_saved_char = char_data.copy()
                         st.rerun()
 
-                # Delete button with double-click confirmation pattern
-                delete_key = f"confirm_delete_{char_file}"
-                if delete_key not in st.session_state:
-                    st.session_state[delete_key] = False
-
-                if not st.session_state[delete_key]:
-                    if c_col2.button(
-                        "🗑️",
-                        help=f"Delete {display_name}",
-                        key=f"del_{char_file}",
-                        width="stretch",
-                    ):
-                        st.session_state[delete_key] = True
-                        st.rerun()
-                else:
-                    if c_col2.button(
-                        "⚠️ OK?",
-                        help="Confirm Delete",
-                        key=f"conf_{char_file}",
-                        width="stretch",
-                        type="primary",
-                    ):
-                        if delete_character(char_file):
-                            st.toast(f"Deleted {display_name}")
-                            del st.session_state[delete_key]
-                            st.rerun()
-                    if st.button("Cancel", key=f"can_{char_file}"):
+                    # Delete button with double-click confirmation pattern
+                    delete_key = f"confirm_delete_{char_file}"
+                    if delete_key not in st.session_state:
                         st.session_state[delete_key] = False
-                        st.rerun()
+
+                    if not st.session_state[delete_key]:
+                        if c_col2.button(
+                            "🗑️",
+                            help=f"Delete {display_name}",
+                            key=f"del_{char_file}",
+                            width="stretch",
+                        ):
+                            st.session_state[delete_key] = True
+                            st.rerun()
+                    else:
+                        if c_col2.button(
+                            "⚠️ OK?",
+                            help="Confirm Delete",
+                            key=f"conf_{char_file}",
+                            width="stretch",
+                            type="primary",
+                        ):
+                            if delete_character(char_file):
+                                st.toast(f"Deleted {display_name}")
+                                del st.session_state[delete_key]
+                                st.rerun()
+                        if st.button("Cancel", key=f"can_{char_file}"):
+                            st.session_state[delete_key] = False
+                            st.rerun()
+            else:
+                st.info(
+                    f"No saved heroes found for the {'2024 Revision' if is_active_2024 else '2014 Edition'}."
+                )
         else:
             st.info("No saved heroes found in the vault.")
 
@@ -545,6 +559,91 @@ def render_active_character(accent_color: str):
             with st.expander("💡 Suggestions", expanded=True):
                 for sug in val["suggestions"]:
                     st.write(f"- {sug}")
+
+        corrections = val.get("corrections")
+        if corrections:
+            # Filter out corrections that are already identical to the current values to avoid listing them
+            active_corrections = {}
+            for k, v in corrections.items():
+                if k == "stats" and isinstance(v, dict):
+                    diff_stats = {}
+                    for stat_k, stat_v in v.items():
+                        if st.session_state.stats.get(stat_k) != stat_v:
+                            diff_stats[stat_k] = stat_v
+                    if diff_stats:
+                        active_corrections["stats"] = diff_stats
+                else:
+                    current_val = getattr(st.session_state, k, None)
+                    if current_val is None and k in st.session_state:
+                        current_val = st.session_state[k]
+                    if current_val != v:
+                        active_corrections[k] = v
+
+            if active_corrections:
+                with st.expander("🔧 Suggested Auto-Corrections", expanded=True):
+                    st.markdown(
+                        "The following corrections can be applied automatically to align your character sheet with the rules:"
+                    )
+                    for k, v in active_corrections.items():
+                        if k == "stats" and isinstance(v, dict):
+                            for stat_k, stat_v in v.items():
+                                current_stat = st.session_state.stats.get(stat_k, "?")
+                                st.write(
+                                    f"- **Ability Score ({stat_k})**: `{current_stat}` ➡️ `{stat_v}`"
+                                )
+                        elif k in [
+                            "features_traits",
+                            "advancements",
+                            "prepared_spells",
+                            "weapons",
+                            "equipment",
+                            "spells",
+                        ]:
+                            st.write(
+                                f"- **{k.replace('_', ' ').title()}**: Will be updated with rules-compliant entries."
+                            )
+                        elif k == "playstyle_guide":
+                            st.write(
+                                "- **Playstyle Guide**: Will be regenerated and updated to match current character level."
+                            )
+                        else:
+                            current_val = getattr(st.session_state, k, None)
+                            if current_val is None and k in st.session_state:
+                                current_val = st.session_state[k]
+                            st.write(
+                                f"- **{k.replace('_', ' ').title()}**: `{current_val}` ➡️ `{v}`"
+                            )
+
+                    if st.button(
+                        "🔧 Apply Auto-Corrections",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        for k, v in active_corrections.items():
+                            if k == "stats" and isinstance(v, dict):
+                                current_stats = st.session_state.stats
+                                if isinstance(current_stats, dict):
+                                    current_stats.update(v)
+                                else:
+                                    for stat_k, stat_v in v.items():
+                                        setattr(current_stats, stat_k, stat_v)
+
+                                # Also update the widget temp keys for the ability scores
+                                for stat_k, stat_v in v.items():
+                                    st.session_state[f"stat_val_{stat_k}"] = stat_v
+                            else:
+                                _set_val(st.session_state, k, v)
+
+                        trigger_sync()
+                        updated_char = get_character_dict(st.session_state)
+                        from backend.core.storage import save_character as save_to_disk
+
+                        save_to_disk(updated_char)
+                        st.session_state.last_saved_char = updated_char.copy()
+                        st.session_state.validation_result = None
+                        st.toast("✅ All corrections applied and character saved!")
+                        st.rerun()
+
         if st.button("Dismiss Validation"):
             st.session_state.validation_result = None
             st.rerun()

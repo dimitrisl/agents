@@ -21,6 +21,11 @@ def inject_custom_css(primary_color: str, accent_color: str):
     st.markdown(
         f"""
         <style>
+            :root {{
+                --primary-color: {primary_color};
+                --accent-color: {accent_color};
+            }}
+
             /* Reset to clean modern fonts */
             .stApp {{
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -28,7 +33,7 @@ def inject_custom_css(primary_color: str, accent_color: str):
 
             /* High Contrast Headers */
             h1, h2, h3, h4 {{
-                color: {primary_color} !important;
+                color: var(--primary-color) !important;
                 font-weight: 700 !important;
             }}
 
@@ -63,7 +68,7 @@ def inject_custom_css(primary_color: str, accent_color: str):
             .score-label {{
                 font-size: 0.8rem;
                 font-weight: bold;
-                color: {primary_color};
+                color: var(--primary-color);
                 text-transform: uppercase;
             }}
             .score-mod {{
@@ -73,7 +78,7 @@ def inject_custom_css(primary_color: str, accent_color: str):
             }}
             .score-value {{
                 font-size: 1rem;
-                background-color: {primary_color};
+                background-color: var(--primary-color);
                 color: white !important;
                 border-radius: 12px;
                 width: 40px;
@@ -87,13 +92,13 @@ def inject_custom_css(primary_color: str, accent_color: str):
                 font-weight: 600;
             }}
             .stTabs [aria-selected="true"] {{
-                color: {primary_color} !important;
-                border-bottom: 3px solid {primary_color} !important;
+                color: var(--primary-color) !important;
+                border-bottom: 3px solid var(--primary-color) !important;
             }}
 
             /* Banner - Clean Text only */
             .char-banner {{
-                border-left: 5px solid {primary_color};
+                border-left: 5px solid var(--primary-color);
                 padding-left: 15px;
                 margin-bottom: 25px;
             }}
@@ -128,8 +133,8 @@ def inject_custom_css(primary_color: str, accent_color: str):
             }}
             /* Target the selected state */
             [data-testid="stSidebar"] .stRadio label:has(input:checked) {{
-                background-color: {primary_color} !important;
-                border-color: {primary_color} !important;
+                background-color: var(--primary-color) !important;
+                border-color: var(--primary-color) !important;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
             }}
             [data-testid="stSidebar"] .stRadio label:has(input:checked) p {{
@@ -161,12 +166,12 @@ def inject_custom_css(primary_color: str, accent_color: str):
 
             .dice-card {{
                 background: linear-gradient(135deg, rgba(20, 10, 10, 0.95) 0%, rgba(10, 5, 5, 0.98) 100%);
-                border: 2px solid #ff4b4b;
+                border: 2px solid var(--primary-color);
                 border-radius: 16px;
                 padding: 20px;
                 margin: 15px 0;
                 text-align: center;
-                box-shadow: 0 8px 32px rgba(255, 75, 75, 0.3);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
                 animation: fade-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 position: relative;
                 overflow: hidden;
@@ -187,6 +192,10 @@ def inject_custom_css(primary_color: str, accent_color: str):
                 transform-origin: center;
             }}
 
+            .dice-svg polygon, .dice-svg rect, .dice-svg line {{
+                stroke: var(--primary-color) !important;
+            }}
+
             .dice-text {{
                 position: absolute;
                 top: 50%;
@@ -195,7 +204,7 @@ def inject_custom_css(primary_color: str, accent_color: str):
                 font-family: 'Outfit', 'Inter', sans-serif;
                 font-size: 2.2rem;
                 font-weight: 900;
-                color: #d4af37;
+                color: var(--accent-color);
                 animation: text-glow 2s infinite alternate, fade-in 0.3s ease-out 0.9s both;
                 pointer-events: none;
             }}
@@ -218,12 +227,12 @@ def inject_custom_css(primary_color: str, accent_color: str):
             .dice-total-display {{
                 font-size: 2.5rem;
                 font-weight: 800;
-                color: #ff4b4b;
+                color: var(--primary-color);
                 margin: 5px 0;
                 animation: fade-in 0.3s ease-out 1.1s both;
             }}
         </style>
-    """,
+        """,
         unsafe_allow_html=True,
     )
 
