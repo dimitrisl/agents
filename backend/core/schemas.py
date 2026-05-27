@@ -15,9 +15,12 @@ class Weapon(BaseModel):
     name: str
     attack_bonus: str
     damage: str
+    damage_dice: str = ""
+    damage_bonus: str = "+0"
     range: Optional[str] = None
     properties: Optional[str] = None
     is_custom: bool = False
+    magic_bonus: int = 0
 
 
 class EquipmentItem(BaseModel):

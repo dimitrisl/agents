@@ -56,32 +56,32 @@ def test_calculate_weapon_stats():
     stats = {"STR": 16, "DEX": 12}  # STR +3, DEX +1
     prof = 2
 
-    # Melee (STR) — modifier only in attack_bonus, not in damage
+    # Melee (STR)
     weapon = {"name": "Longsword", "damage": "1d8"}
     updated = calculate_weapon_stats(weapon, stats, prof)
     assert updated["attack_bonus"] == "+5"
-    assert updated["damage"] == "1d8"  # no modifier in damage
+    assert updated["damage"] == "1d8 + 3"  # STR modifier added to damage
 
     # Ranged (DEX)
     weapon = {"name": "Longbow", "damage": "1d8"}
     updated = calculate_weapon_stats(weapon, stats, prof)
     assert updated["attack_bonus"] == "+3"
-    assert updated["damage"] == "1d8"  # no modifier in damage
+    assert updated["damage"] == "1d8 + 1"
 
-    # Negative Modifier — still no modifier in damage
+    # Negative Modifier
     neg_stats = {"STR": 8, "DEX": 8}  # STR -1, DEX -1
     weapon = {"name": "Longsword", "damage": "1d8"}
     updated = calculate_weapon_stats(weapon, neg_stats, prof)
-    assert updated["damage"] == "1d8"
+    assert updated["damage"] == "1d8 - 1"
 
     # Repeated Sync should NOT duplicate anything
     updated_again = calculate_weapon_stats(updated, neg_stats, prof)
-    assert updated_again["damage"] == "1d8"
+    assert updated_again["damage"] == "1d8 - 1"
 
     # Suffix preservation — strip old modifier, keep damage type
     weapon_with_suffix = {"name": "Dagger", "damage": "1d4 piercing"}
     updated_suffix = calculate_weapon_stats(weapon_with_suffix, neg_stats, prof)
-    assert updated_suffix["damage"] == "1d4 piercing"
+    assert updated_suffix["damage"] == "1d4 - 1 piercing"
 
 
 def test_sync_character_stats():

@@ -167,27 +167,27 @@ class TestSavingThrows:
 
 class TestWeaponStats:
     def test_finesse_weapon_uses_higher_mod(self):
-        """Finesse weapons should use the higher of STR or DEX for attack_bonus only."""
+        """Finesse weapons should use the higher of STR or DEX."""
         stats = {"STR": 10, "DEX": 18}  # STR +0, DEX +4
         weapon = {"name": "Rapier", "damage": "1d8"}
         result = calculate_weapon_stats(weapon, stats, 2)
         assert result["attack_bonus"] == "+6"  # DEX +4 + prof 2
-        assert result["damage"] == "1d8"  # no modifier in damage
+        assert result["damage"] == "1d8 + 4"
 
     def test_finesse_weapon_str_higher(self):
-        """Finesse with higher STR should use STR for attack_bonus only."""
+        """Finesse with higher STR should use STR."""
         stats = {"STR": 20, "DEX": 10}  # STR +5, DEX +0
         weapon = {"name": "Dagger", "damage": "1d4"}
         result = calculate_weapon_stats(weapon, stats, 2)
         assert result["attack_bonus"] == "+7"  # STR +5 + prof 2
-        assert result["damage"] == "1d4"  # no modifier in damage
+        assert result["damage"] == "1d4 + 5"
 
     def test_ranged_weapon_uses_dex(self):
         stats = {"STR": 18, "DEX": 14}  # STR +4, DEX +2
         weapon = {"name": "Shortbow", "damage": "1d6"}
         result = calculate_weapon_stats(weapon, stats, 2)
         assert result["attack_bonus"] == "+4"  # DEX +2 + prof 2
-        assert result["damage"] == "1d6"  # no modifier in damage
+        assert result["damage"] == "1d6 + 2"
 
     def test_zero_modifier_no_damage_suffix(self):
         """With 0 modifier, damage string should be just the dice."""
@@ -198,19 +198,18 @@ class TestWeaponStats:
         assert result["damage"] == "1d4"
 
     def test_negative_modifier(self):
-        """Negative modifier only affects attack_bonus, not damage."""
         stats = {"STR": 6, "DEX": 10}  # STR -2
         weapon = {"name": "Greataxe", "damage": "1d12"}
         result = calculate_weapon_stats(weapon, stats, 2)
         assert result["attack_bonus"] == "+0"  # -2 + 2 = 0
-        assert result["damage"] == "1d12"  # no modifier in damage
+        assert result["damage"] == "1d12 - 2"
 
     def test_existing_modifier_stripped(self):
         """Old modifier in stored damage string should be stripped cleanly."""
         stats = {"STR": 16, "DEX": 10}  # STR +3
         weapon = {"name": "Longsword", "damage": "1d8 + 5"}  # stale stored value
         result = calculate_weapon_stats(weapon, stats, 2)
-        assert result["damage"] == "1d8"  # stripped, no modifier appended
+        assert result["damage"] == "1d8 + 3"
 
 
 # --- calculate_proficiency_bonus ---

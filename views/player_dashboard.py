@@ -1181,18 +1181,25 @@ def _render_combat_inventory(edit_mode: bool):
             key="edit_weapons",
             use_container_width=True,
             column_config={
-                "name": st.column_config.TextColumn("Weapon Name", width="medium"),
-                "attack_bonus": st.column_config.TextColumn(
-                    "To Hit (e.g. +7)", width="small"
+                "name": st.column_config.TextColumn("Weapon Name", width="large"),
+                "magic_bonus": st.column_config.NumberColumn(
+                    "+X", width="small", help="Magic bonus (e.g. +1, +2)", step=1
                 ),
-                "damage": st.column_config.TextColumn(
-                    "Damage (e.g. 1d8+4)", width="medium"
+                "attack_bonus": st.column_config.TextColumn(
+                    "To Hit", width="small", help="Attack bonus e.g. +5, -1"
+                ),
+                "damage_dice": st.column_config.TextColumn(
+                    "Damage Dice", width="medium", help="Damage dice e.g. 1d8 slashing"
+                ),
+                "damage_bonus": st.column_config.TextColumn(
+                    "Dmg Bonus", width="small", help="Damage bonus e.g. +3, -1"
                 ),
                 "is_custom": st.column_config.CheckboxColumn(
-                    "Custom Stats",
+                    "Custom",
                     width="small",
-                    help="Check to freeze manual To Hit & Damage edits",
+                    help="Lock manual To Hit & Damage, skip auto-sync",
                 ),
+                "damage": None,
                 "range": None,
                 "properties": None,
             },
@@ -1209,8 +1216,11 @@ def _render_combat_inventory(edit_mode: bool):
                     st.session_state.weapons.append(
                         {
                             "name": "New Weapon",
+                            "magic_bonus": 0,
                             "attack_bonus": "+0",
-                            "damage": "1d4",
+                            "damage_dice": "1d4",
+                            "damage_bonus": "+0",
+                            "damage": "1d4 + 0",
                             "is_custom": False,
                         }
                     )
@@ -1223,13 +1233,19 @@ def _render_combat_inventory(edit_mode: bool):
             weapons = []
         for i, w in enumerate(weapons):
             with st.container(border=True):
-                w_col1, w_col2, w_col3 = st.columns([3, 1, 1])
-                w_col1.markdown(f"🗡️ **{w.get('name', 'Unknown')}**")
-                w_col1.caption(
-                    f"To Hit: {w.get('attack_bonus', '+0')} | Dmg: {w.get('damage', '1d4')}"
-                )
+                # Row 1: weapon name
+                w_name_col, w_roll1, w_roll2 = st.columns([3, 1, 1])
+                w_name_col.markdown(f"🗡️ **{w.get('name', 'Unknown')}**")
 
-                if w_col2.button("🎯 To Hit", key=f"atk_{i}", width="stretch"):
+                # Row 2: To Hit and Damage as separate labeled cells
+                info_col1, info_col2, info_col3 = st.columns([1, 2, 1])
+                info_col1.markdown(f"**To Hit**  \n`{w.get('attack_bonus', '+0')}`")
+                info_col2.markdown(
+                    f"**Damage Dice**  \n`{w.get('damage_dice', w.get('damage', '1d4'))}`"
+                )
+                info_col3.markdown(f"**Dmg Bonus**  \n`{w.get('damage_bonus', '+0')}`")
+
+                if w_roll1.button("🎯 To Hit", key=f"atk_{i}", width="stretch"):
                     from backend.utils.dice import quick_roll
 
                     atk_bonus_str = str(w.get("attack_bonus", "+0")).replace("+", "")
@@ -1261,7 +1277,7 @@ def _render_combat_inventory(edit_mode: bool):
                         st.balloons()
                     st.rerun()
 
-                if w_col3.button("💥 Dmg", key=f"dmg_{i}", width="stretch"):
+                if w_roll2.button("💥 Dmg", key=f"dmg_{i}", width="stretch"):
                     from backend.utils.dice import roll_dice
                     import re
 

@@ -310,7 +310,25 @@ def calculate_weapon_stats(
     """
     weapon = copy.copy(weapon)  # never mutate the caller's data
 
+    import re
+
     if weapon.get("is_custom", False):
+        # Fallback to parse damage_dice and damage_bonus for UI if missing
+        if not weapon.get("damage_dice"):
+            damage_raw = weapon.get("damage", "1d4")
+            dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw, re.I)
+            if dice_match:
+                dice_part = dice_match.group(1)
+                type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
+                dmg_type = type_match.group(1).strip() if type_match else ""
+                weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
+
+                # Extract bonus if present
+                bonus_match = re.search(r"([+-]\s*\d+)", damage_raw)
+                if bonus_match:
+                    weapon["damage_bonus"] = bonus_match.group(1).replace(" ", "")
+                else:
+                    weapon["damage_bonus"] = "+0"
         return weapon
 
     name = weapon.get("name", "").lower()
@@ -331,22 +349,36 @@ def calculate_weapon_stats(
     else:
         mod = str_mod
 
-    attack_bonus = mod + proficiency_bonus
+    magic_bonus = int(weapon.get("magic_bonus", 0))
+
+    attack_bonus = mod + proficiency_bonus + magic_bonus
     weapon["attack_bonus"] = (
         f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
     )
 
-    # Damage shows only the dice expression + damage type — the ability modifier
-    # is already reflected in the To Hit bonus above, so we don't double-apply it.
-    import re
-
+    # Damage calculation: D&D 5e rules dictate that ability modifier is added to damage
+    # (unless it's an offhand attack, but we default to primary attack rules).
     damage_raw = weapon.get("damage", "1d4")
     dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw, re.I)
     if dice_match:
         dice_part = dice_match.group(1)
         type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
         dmg_type = type_match.group(1).strip() if type_match else ""
-        weapon["damage"] = f"{dice_part} {dmg_type}".strip()
+
+        total_dmg_mod = mod + magic_bonus
+
+        # Store separated components for the UI
+        weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
+        weapon["damage_bonus"] = (
+            f"+{total_dmg_mod}" if total_dmg_mod >= 0 else str(total_dmg_mod)
+        )
+
+        if total_dmg_mod > 0:
+            weapon["damage"] = f"{dice_part} + {total_dmg_mod} {dmg_type}".strip()
+        elif total_dmg_mod < 0:
+            weapon["damage"] = f"{dice_part} - {abs(total_dmg_mod)} {dmg_type}".strip()
+        else:
+            weapon["damage"] = f"{dice_part} {dmg_type}".strip()
 
     return weapon
 
@@ -599,11 +631,24 @@ def sync_character_stats(
             # Apply edits directly to the dictionary
             for k, v in changes.items():
                 w_dict[k] = v
-            # If user edited attack_bonus or damage, automatically set is_custom to True unless user unchecked it
-            if (
-                "attack_bonus" in changes or "damage" in changes
-            ) and "is_custom" not in changes:
+            # If user edited attack_bonus, damage_dice, or damage_bonus, automatically set is_custom
+            # to True unless user unchecked it
+            custom_keys = {"attack_bonus", "damage_dice", "damage_bonus", "damage"}
+            if any(k in changes for k in custom_keys) and "is_custom" not in changes:
                 w_dict["is_custom"] = True
+
+            # If it's custom and damage parts changed, rebuild the underlying damage string for rolls
+            if "damage_dice" in changes or "damage_bonus" in changes:
+                d_dice = w_dict.get("damage_dice", "")
+                d_bonus = w_dict.get("damage_bonus", "")
+                if d_bonus and d_bonus not in ["+0", "0", "-0"]:
+                    w_dict["damage"] = (
+                        f"{d_dice} {d_bonus}".strip()
+                        .replace(" + ", "+")
+                        .replace(" - ", "-")
+                    )
+                else:
+                    w_dict["damage"] = d_dice
 
         updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
     char_data["weapons"] = updated_weapons
