@@ -84,13 +84,21 @@ class CharacterRepository:
             logger.error(f"Failed to load character from MongoDB: {e}")
             return None
 
-    def list_all(self) -> List[str]:
-        """Return a list of available character 'filenames' (simulating legacy format) from MongoDB."""
+    def list_all(self, owner_id: str = None) -> List[str]:
+        """Return a list of available character 'filenames' (simulating legacy format) from MongoDB, optionally filtered by owner_id."""
         if self.collection is None:
             return []
 
+        query = {}
+        if owner_id:
+            query["$or"] = [
+                {"owner_id": owner_id},
+                {"owner_id": {"$exists": False}},
+                {"owner_id": None},
+            ]
+
         try:
-            chars = self.collection.find({}, {"char_name": 1, "char_id": 1})
+            chars = self.collection.find(query, {"char_name": 1, "char_id": 1})
             result = []
             for c in chars:
                 name = c.get("char_name", "unknown")

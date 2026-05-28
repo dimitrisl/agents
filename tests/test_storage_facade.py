@@ -41,7 +41,9 @@ def test_delete_character(mock_remove, mock_exists, mock_char_repo):
 @patch("backend.core.storage._camp_repo")
 def test_campaign_storage(mock_repo):
     save_campaign("Camp1", "Notes")
-    mock_repo.save.assert_called_once_with("Camp1", "Notes", None, None)
+    mock_repo.save.assert_called_once_with(
+        "Camp1", "Notes", None, dnd_edition=None, owner_id=None
+    )
 
     load_campaign("Camp1")
     mock_repo.load.assert_called_once_with("Camp1")

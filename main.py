@@ -7,6 +7,7 @@ from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
 from views.settings_view import render_settings_view
 from views.library_view import render_library_view
+from views.login_view import render_login_view
 from backend.core.constants import EDITION_2014, EDITION_2024
 
 # Load environment variables once at the entry point
@@ -48,11 +49,22 @@ else:
     )
 
 # ==========================================
+# Authentication Gate
+# ==========================================
+if not st.session_state.get("user"):
+    render_login_view()
+    st.stop()
+
+# ==========================================
 # Sidebar Navigation & Themes
 # ==========================================
 with st.sidebar:
     # App Logo
     st.image("assets/logo.png", width="stretch")
+
+    if st.button("Logout", use_container_width=True):
+        st.session_state.user = None
+        st.rerun()
 
     # Determine theme/logo/title colors based on the toggle state BEFORE rendering the toggle
     is_2024 = st.session_state.get("dnd_edition_toggle", False)

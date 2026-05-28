@@ -154,3 +154,89 @@ def generate_ai_json(prompt: str) -> dict:
             return None
         logger.error(f"Failed to parse JSON response from Gemini: {e}", exc_info=True)
         return None
+
+
+def parse_user_intent(query: str) -> str:
+    """Uses a fast model to classify the user's intent into a predefined category."""
+    prompt = f"""
+    Analyze the following user query and classify it into exactly one of the following categories:
+    1. GENERAL_RULES
+    2. COMBAT_ADVICE
+    3. ROLEPLAY_ADVICE
+    4. ITEM_PRICING
+    5. UNKNOWN
+
+    Return ONLY the category name.
+
+    User Query: "{query}"
+    """
+
+    try:
+        resp = generate_ai_response(prompt)
+        # Clean up response
+        clean_resp = resp.strip().upper()
+        # Find if it contains any of the known intents
+        for intent in [
+            "GENERAL_RULES",
+            "COMBAT_ADVICE",
+            "ROLEPLAY_ADVICE",
+            "ITEM_PRICING",
+        ]:
+            if intent in clean_resp:
+                return intent
+        return "UNKNOWN"
+    except Exception as e:
+        logger.error(f"Failed to parse user intent: {e}")
+        return "UNKNOWN"
+
+
+def generate_session_prep(
+    module_file_name: str, previous_recap: str, dm_ideas: str
+) -> str:
+    """Generates DM session prep based on the module, recap, and new ideas."""
+    logger.info("Generating session prep using uploaded module context...")
+
+    client = get_ai_client()
+    if not client:
+        return "❌ Error: AI Client not initialized."
+
+    prompt = f"""
+    You are an expert Dungeon Master assistant. I am running an official D&D adventure module.
+    You have access to the entire module PDF attached.
+
+    Here is what happened in the previous session (Reality Recap):
+    {previous_recap if previous_recap else "This is the first session. The campaign is just starting."}
+
+    Here are my ideas for the next session:
+    {dm_ideas}
+
+    Using the module's contents, the recap, and my ideas, please generate comprehensive Session Prep notes for the NEXT session.
+    Include:
+    1. Recap of where the players are.
+    2. Key NPCs they might encounter (with page references from the module).
+    3. Potential encounters (combat/social/exploration) that logically follow the module and the DM's ideas.
+    4. Important lore or secrets to reveal.
+
+    Format the output in clean Markdown.
+    """
+
+    try:
+        contents = []
+        if module_file_name:
+            try:
+                # Fetch the file object using its name
+                file_obj = client.files.get(name=module_file_name)
+                contents.append(file_obj)
+            except Exception as e:
+                logger.error(f"Could not retrieve file {module_file_name}: {e}")
+
+        contents.append(prompt)
+
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=contents,
+        )
+        return response.text
+    except Exception as e:
+        logger.error(f"Failed to generate session prep: {e}")
+        return f"❌ Failed to generate session prep: {str(e)}"

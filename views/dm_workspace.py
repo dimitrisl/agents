@@ -4,11 +4,12 @@ import uuid
 import os
 from backend.services.forge_service import forge_character
 from backend.services.dm_service import (
-    generate_session_prep,
     generate_npc,
     generate_random_encounter,
     generate_riddle,
 )
+from backend.core.ai_client import generate_session_prep
+from backend.services.module_parser_service import ModuleParserService
 from backend.core.storage import (
     save_campaign,
     load_campaign,
@@ -101,6 +102,7 @@ def _render_campaign_selection():
                         st.session_state.campaign_notes = data.get("notes", "")
                         st.session_state.active_campaign_name = selected_camp
                         st.session_state.campaign_party_files = data.get("party", [])
+                        st.session_state.active_campaign_data = data
 
                         # Automatically populate the party in session state
                         st.session_state.party = []
@@ -165,6 +167,14 @@ def _render_campaign_selection():
                 if new_camp_name:
                     st.session_state.active_campaign_name = new_camp_name
                     st.session_state.campaign_notes = ""
+                    st.session_state.active_campaign_data = {
+                        "campaign_name": new_camp_name,
+                        "notes": "",
+                        "party": [],
+                        "sessions": [],
+                        "module_pdf_uri": None,
+                        "extracted_npcs": [],
+                    }
                     save_campaign(new_camp_name, "")
                     st.rerun()
                 else:
@@ -172,65 +182,364 @@ def _render_campaign_selection():
 
 
 def _render_campaign_notes():
-    """Renders the session logs and campaign management tools."""
-    st.subheader("Session Logs & Lore")
+    """Renders the session logs, module manager, and campaign tools."""
+    st.subheader("Campaign Manager")
 
-    with st.expander("➕ Log New Session", expanded=False):
-        new_log = st.text_area(
-            "What happened in this session?", height=150, key="new_session_log"
-        )
-        if st.button("Append to Campaign Notes", type="primary", key="append_log_btn"):
-            from datetime import datetime
-
-            timestamp = datetime.now().strftime("%Y-%m-%d")
-            st.session_state.campaign_notes += (
-                f"\n\n--- Session: {timestamp} ---\n{new_log}"
-            )
-            st.toast("Session log appended!")
-            st.rerun()
-
-    st.session_state.campaign_notes = st.text_area(
-        "Full Master Lore & Notes:",
-        st.session_state.campaign_notes,
-        height=400,
-        key="master_notes_area",
+    tab_overview, tab_history, tab_vault = st.tabs(
+        ["Overview", "Session History", "NPC Vault"]
     )
 
-    with st.container(border=True):
-        st.markdown("#### Save Campaign")
-        if st.button(
-            "💾 Save Notes",
-            type="primary",
-            key="save_notes_btn",
-            width="stretch",
-        ):
-            if save_campaign(
-                st.session_state.active_campaign_name, st.session_state.campaign_notes
-            ):
-                st.toast("Notes saved successfully!")
-            else:
-                st.error("Failed to save notes.")
-
-    st.markdown("---")
-    st.subheader("✨ AI Session Prep")
-    if st.button("Generate Next Session Prep", key="gen_prep_btn", width="stretch"):
-        party_info = (
-            ", ".join(
-                [
-                    f"{c['char_name']} ({c['race']} {c['char_class']} Lv.{c['char_level']})"
-                    for c in st.session_state.party
-                ]
-            )
-            if st.session_state.party
-            else "No party members loaded."
+    with tab_overview:
+        st.session_state.campaign_notes = st.text_area(
+            "Full Master Lore & Notes:",
+            st.session_state.campaign_notes,
+            height=400,
+            key="master_notes_area",
         )
-        with st.spinner("Brainstorming plot hooks..."):
-            st.session_state.session_prep_result = generate_session_prep(
-                st.session_state.campaign_notes, party_info
-            )
+        with st.container(border=True):
+            st.markdown("#### Save Campaign")
+            if st.button(
+                "💾 Save Campaign",
+                type="primary",
+                key="save_notes_btn",
+                width="stretch",
+            ):
+                # Always persist the active_campaign_data when saving
+                camp_data = st.session_state.get("active_campaign_data", {})
+                if save_campaign(
+                    st.session_state.active_campaign_name,
+                    st.session_state.campaign_notes,
+                    sessions=camp_data.get("sessions", []),
+                    module_pdf_uri=camp_data.get("module_pdf_uri"),
+                    extracted_npcs=camp_data.get("extracted_npcs", []),
+                ):
+                    st.toast("Campaign saved successfully!")
+                else:
+                    st.error("Failed to save campaign.")
 
-    if st.session_state.get("session_prep_result"):
-        st.info(st.session_state.session_prep_result)
+    with tab_history:
+        camp_data = st.session_state.get("active_campaign_data", {})
+        sessions = camp_data.get("sessions", [])
+
+        # Display timeline of previous sessions
+        if sessions:
+            st.markdown("#### Past Sessions")
+            for idx, s in enumerate(sessions):
+                with st.expander(
+                    f"Session {s.get('session_number', idx + 1)}", expanded=False
+                ):
+                    st.markdown("**Recap:**")
+                    st.write(s.get("actual_recap", ""))
+                    st.markdown("**Prep Notes:**")
+                    st.write(s.get("prep_notes", ""))
+
+        st.markdown("---")
+        st.markdown("#### Next Session Planner")
+
+        previous_recap = st.text_area(
+            "Reality Recap (What actually happened last time?):", height=100
+        )
+        dm_ideas = st.text_area("Ideas for next session:", height=100)
+
+        if st.button(
+            "🪄 Generate Session Prep", type="primary", use_container_width=True
+        ):
+            with st.spinner("Analyzing module and notes..."):
+                file_name = camp_data.get("module_pdf_uri")
+                prep_result = generate_session_prep(file_name, previous_recap, dm_ideas)
+                st.session_state.session_prep_result = prep_result
+
+                # Save as new session draft
+                new_session = {
+                    "session_number": len(sessions) + 1,
+                    "actual_recap": previous_recap,
+                    "dm_ideas_for_next": dm_ideas,
+                    "prep_notes": prep_result,
+                }
+                sessions.append(new_session)
+                camp_data["sessions"] = sessions
+                st.session_state.active_campaign_data = camp_data
+                save_campaign(
+                    st.session_state.active_campaign_name,
+                    st.session_state.campaign_notes,
+                    sessions=sessions,
+                    module_pdf_uri=file_name,
+                    extracted_npcs=camp_data.get("extracted_npcs", []),
+                )
+
+        if st.session_state.get("session_prep_result"):
+            st.info(st.session_state.session_prep_result)
+
+    with tab_vault:
+        camp_data = st.session_state.get("active_campaign_data", {})
+        vault_npcs = camp_data.get("vault_npcs", [])
+
+        col_import, col_forge = st.columns(2)
+        with col_import:
+            with st.expander("📥 Import from Storage (NPCs Only)", expanded=False):
+                all_chars = list_characters()
+                npc_only_chars = []
+                for c_file in all_chars:
+                    c_data = load_character(c_file)
+                    if c_data and c_data.get("is_npc", False):
+                        npc_only_chars.append(c_file)
+
+                if npc_only_chars:
+
+                    def format_char_filename(fname):
+                        return fname.replace(".json", "").replace("_", " ").title()
+
+                    char_to_add = st.selectbox(
+                        "Select NPC to Add",
+                        npc_only_chars,
+                        format_func=format_char_filename,
+                        key="vault_ingest_select",
+                    )
+                    if st.button(
+                        "Add to Vault", key="add_to_vault_btn", width="stretch"
+                    ):
+                        if char_to_add not in vault_npcs:
+                            vault_npcs.append(char_to_add)
+                            camp_data["vault_npcs"] = vault_npcs
+                            st.session_state.active_campaign_data = camp_data
+
+                            save_campaign(
+                                st.session_state.active_campaign_name,
+                                st.session_state.campaign_notes,
+                                sessions=camp_data.get("sessions", []),
+                                module_pdf_uri=camp_data.get("module_pdf_uri"),
+                                extracted_npcs=camp_data.get("extracted_npcs", []),
+                                vault_npcs=vault_npcs,
+                            )
+                            st.success("Added to Vault!")
+                            st.rerun()
+                        else:
+                            st.warning("Already in vault.")
+
+        with col_forge:
+            with st.expander("✨ AI Quick Forge (NPC)", expanded=False):
+                q_edition = st.session_state.dnd_edition
+                q_race_options = (
+                    RACES_2014 if q_edition == EDITION_2014 else SPECIES_2024
+                )
+                q_class_options = (
+                    CLASSES_2014 if q_edition == EDITION_2014 else CLASSES_2024
+                )
+
+                q_race = st.selectbox(
+                    "Race/Species", ["AI Choice"] + q_race_options, key="vault_q_race"
+                )
+                q_class = st.selectbox(
+                    "Class", ["AI Choice"] + q_class_options, key="vault_q_class"
+                )
+                q_level = st.number_input("Level", 1, 20, 1, key="vault_q_level")
+                q_name = st.text_input(
+                    "Name (optional)", placeholder="AI Choice", key="vault_q_name"
+                )
+                q_concept = st.text_input("Concept", key="vault_q_concept")
+
+                if st.button(
+                    "Forge & Add to Vault", key="vault_forge_add_btn", width="stretch"
+                ):
+                    with st.spinner("Forging & Generating Portrait..."):
+                        result = forge_character(
+                            q_level,
+                            q_race,
+                            q_class,
+                            "AI Choice",
+                            q_concept,
+                            name=q_name if q_name.strip() else "AI Choice",
+                            edition=q_edition,
+                        )
+                        if result:
+                            result["char_id"] = str(uuid.uuid4())[:8]
+                            result["is_npc"] = True
+                            portrait_path = generate_portrait_url(result)
+                            if portrait_path:
+                                result["char_portrait"] = portrait_path
+
+                            from backend.core.storage import save_character
+
+                            if save_character(result):
+                                char_filename = f"{result['char_name'].replace(' ', '_').lower()}_{result['char_id']}.json"
+                                vault_npcs.append(char_filename)
+                                camp_data["vault_npcs"] = vault_npcs
+                                st.session_state.active_campaign_data = camp_data
+
+                                save_campaign(
+                                    st.session_state.active_campaign_name,
+                                    st.session_state.campaign_notes,
+                                    sessions=camp_data.get("sessions", []),
+                                    module_pdf_uri=camp_data.get("module_pdf_uri"),
+                                    extracted_npcs=camp_data.get("extracted_npcs", []),
+                                    vault_npcs=vault_npcs,
+                                )
+                                st.success(
+                                    f"Forged and added {result['char_name']} to Vault!"
+                                )
+                                st.rerun()
+                            else:
+                                st.error("Failed to save forged character.")
+
+        with st.expander("📖 Extract from PDF Module", expanded=False):
+            if camp_data.get("module_pdf_uri"):
+                st.success(f"Module Uploaded: {camp_data.get('module_pdf_uri')}")
+                if st.button("🗑️ Clear Module & Re-upload", use_container_width=True):
+                    camp_data["module_pdf_uri"] = None
+                    camp_data["extracted_npcs"] = []
+                    st.session_state.active_campaign_data = camp_data
+
+                    save_campaign(
+                        st.session_state.active_campaign_name,
+                        st.session_state.campaign_notes,
+                        sessions=camp_data.get("sessions", []),
+                        module_pdf_uri=None,
+                        extracted_npcs=[],
+                        vault_npcs=vault_npcs,
+                    )
+                    st.rerun()
+            else:
+                uploaded_pdf = st.file_uploader(
+                    "Upload Adventure Module (PDF)", type=["pdf"]
+                )
+                if uploaded_pdf and st.button("Extract NPCs & Lore"):
+                    temp_pdf_path = f"scratch/{uploaded_pdf.name}"
+                    os.makedirs("scratch", exist_ok=True)
+                    with open(temp_pdf_path, "wb") as f:
+                        f.write(uploaded_pdf.getbuffer())
+
+                    with st.spinner(
+                        "Uploading to Gemini & Extracting... This may take a minute for large PDFs."
+                    ):
+                        parser = ModuleParserService()
+                        g_file = parser.upload_pdf_to_gemini(temp_pdf_path)
+                        camp_data["module_pdf_uri"] = g_file.name
+
+                        extracted = parser.extract_npcs(g_file)
+                        from backend.core.storage import save_character
+
+                        for npc in extracted:
+                            # 1. Download image
+                            img_path = None
+                            page_num = npc.get("page_number_for_art", 0)
+                            if page_num > 0:
+                                img_path = parser.extract_image_from_page(
+                                    temp_pdf_path, page_num, npc.get("name", "Unknown")
+                                )
+
+                            # 2. Map to Character Schema
+                            new_char_id = str(uuid.uuid4())[:8]
+                            stats_raw = npc.get("stats", {})
+
+                            def safe_int(val, default=10):
+                                try:
+                                    return int(val)
+                                except (ValueError, TypeError):
+                                    return default
+
+                            stats_clean = {
+                                "STR": safe_int(stats_raw.get("STR")),
+                                "DEX": safe_int(stats_raw.get("DEX")),
+                                "CON": safe_int(stats_raw.get("CON")),
+                                "INT": safe_int(stats_raw.get("INT")),
+                                "WIS": safe_int(stats_raw.get("WIS")),
+                                "CHA": safe_int(stats_raw.get("CHA")),
+                            }
+
+                            weapons_raw = npc.get("weapons", [])
+                            weapons_clean = []
+                            for w in weapons_raw:
+                                weapons_clean.append(
+                                    {
+                                        "name": str(w.get("name") or "Unknown Weapon"),
+                                        "attack_bonus": str(
+                                            w.get("attack_bonus") or "+0"
+                                        ),
+                                        "damage_dice": str(
+                                            w.get("damage_dice") or "1d4"
+                                        ),
+                                        "is_custom": True,
+                                    }
+                                )
+
+                            char_dict = {
+                                "char_id": new_char_id,
+                                "is_npc": True,
+                                "char_name": npc.get("name", "Unknown NPC"),
+                                "char_class": "Monster"
+                                if not npc.get("role")
+                                else npc.get("role")[:20],
+                                "race": "Unknown",
+                                "background": "Module NPC",
+                                "dnd_edition": st.session_state.dnd_edition,
+                                "char_level": safe_int(npc.get("char_level"), 1),
+                                "armor_class": safe_int(npc.get("ac")),
+                                "hp_max": safe_int(npc.get("hp_max")),
+                                "speed": safe_int(npc.get("speed"), 30),
+                                "stats": stats_clean,
+                                "features_traits": npc.get("features_traits", []),
+                                "weapons": weapons_clean,
+                                "backstory": npc.get("role", ""),
+                                "char_portrait": img_path,
+                            }
+
+                            if save_character(char_dict):
+                                char_filename = f"{char_dict['char_name'].replace(' ', '_').lower()}_{new_char_id}.json"
+                                if char_filename not in vault_npcs:
+                                    vault_npcs.append(char_filename)
+
+                        camp_data["vault_npcs"] = vault_npcs
+                        st.session_state.active_campaign_data = camp_data
+
+                        save_campaign(
+                            st.session_state.active_campaign_name,
+                            st.session_state.campaign_notes,
+                            sessions=camp_data.get("sessions", []),
+                            module_pdf_uri=g_file.name,
+                            extracted_npcs=[],  # No longer use legacy extracted dicts
+                            vault_npcs=vault_npcs,
+                        )
+                        st.rerun()
+
+        st.markdown("#### The Vault Roster")
+
+        # Display Full Character NPCs
+        if vault_npcs:
+            st.markdown("##### Campaign NPCs & Monsters")
+            for npc_file in vault_npcs:
+                npc_data = load_character(npc_file)
+                if npc_data:
+                    with st.container(border=True):
+                        c1, c2, c3, c4 = st.columns([1, 2, 1, 1])
+                        img_path = npc_data.get("char_portrait")
+                        if img_path and os.path.exists(img_path):
+                            c1.image(img_path, width=50)
+
+                        c2.markdown(f"**{npc_data['char_name']}**")
+                        c2.caption(
+                            f"{npc_data['race']} {npc_data['char_class']} (Lv.{npc_data['char_level']})"
+                        )
+
+                        if c3.button("View Sheet", key=f"view_{npc_file}"):
+                            st.session_state.selected_character = npc_data
+                            st.session_state.app_view_mode = "🗡️ Player Dashboard"
+                            st.rerun()
+
+                        if c4.button("To Initiative", key=f"init_v_{npc_file}"):
+                            new_entry = {
+                                "id": str(uuid.uuid4())[:8],
+                                "name": npc_data["char_name"],
+                                "init": 10,
+                                "hp": int(npc_data.get("max_hp", 10)),
+                                "max_hp": int(npc_data.get("max_hp", 10)),
+                                "ac": int(npc_data.get("ac", 10)),
+                                "is_player": False,
+                                "conditions": [],
+                            }
+                            if "initiative_order" not in st.session_state:
+                                st.session_state.initiative_order = []
+                            st.session_state.initiative_order.append(new_entry)
+                            st.toast(f"Added {npc_data['char_name']} to Initiative!")
 
 
 def _render_party_tracker():
@@ -314,56 +623,6 @@ def _render_party_tracker():
                 st.info(
                     f"No characters found matching the {'2024 Revision' if is_active_2024 else '2014 Edition'}."
                 )
-
-    with st.expander("✨ AI Quick Forge", expanded=False):
-        q_edition = st.session_state.dnd_edition
-        q_race_options = RACES_2014 if q_edition == EDITION_2014 else SPECIES_2024
-        q_class_options = CLASSES_2014 if q_edition == EDITION_2014 else CLASSES_2024
-
-        q_race = st.selectbox(
-            "Race/Species", ["AI Choice"] + q_race_options, key="q_race"
-        )
-        q_class = st.selectbox("Class", ["AI Choice"] + q_class_options, key="q_class")
-        q_level = st.number_input("Level", 1, 20, 1, key="q_level")
-        q_name = st.text_input("Name (optional)", placeholder="AI Choice", key="q_name")
-        q_concept = st.text_input("Concept", key="q_concept")
-
-        if st.button("Forge & Add", key="forge_add_btn", width="stretch"):
-            with st.spinner("Forging & Generating Portrait..."):
-                result = forge_character(
-                    q_level,
-                    q_race,
-                    q_class,
-                    "AI Choice",
-                    q_concept,
-                    name=q_name if q_name.strip() else "AI Choice",
-                    edition=q_edition,
-                )
-                if result:
-                    result["char_id"] = str(uuid.uuid4())[:8]
-                    # Generate and save portrait
-                    portrait_path = generate_portrait_url(result)
-                    if portrait_path:
-                        result["char_portrait"] = portrait_path
-
-                    # Save to disk
-                    from backend.core.storage import save_character
-
-                    if save_character(result):
-                        st.session_state.party.append(result)
-
-                        # Persist to campaign file
-                        from backend.core.storage import join_campaign
-
-                        char_filename = f"{result['char_name'].replace(' ', '_').lower()}_{result['char_id']}.json"
-                        join_campaign(
-                            st.session_state.active_campaign_name, char_filename
-                        )
-
-                        st.success(f"Forged and saved {result['char_name']}!")
-                        st.rerun()
-                    else:
-                        st.error("Failed to save forged character.")
 
     st.markdown("---")
     if not st.session_state.party:

@@ -156,7 +156,9 @@ class SpellList(BaseModel):
 
 class CharacterSchema(BaseModel):
     char_id: Optional[str] = None
+    owner_id: Optional[str] = None
     char_name: str
+    is_npc: bool = False
     gender: Optional[str] = "Unknown"
     char_class: str
     subclass: Optional[str] = None

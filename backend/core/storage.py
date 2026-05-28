@@ -10,8 +10,21 @@ _char_repo = CharacterRepository()
 _camp_repo = CampaignRepository()
 
 
+def _get_owner_id():
+    try:
+        import streamlit as st
+
+        user = st.session_state.get("user")
+        return user.get("id") if user else None
+    except Exception:
+        return None
+
+
 def save_character(char_data: dict) -> bool:
     try:
+        owner_id = _get_owner_id()
+        if owner_id:
+            char_data["owner_id"] = owner_id
         return _char_repo.save(char_data)
     except ValueError as e:
         logger.error(f"save_character rejected due to validation failure: {e}")
@@ -27,7 +40,7 @@ def load_character(filename: str) -> dict:
 
 
 def list_characters() -> list:
-    return _char_repo.list_all()
+    return _char_repo.list_all(owner_id=_get_owner_id())
 
 
 def delete_character(filename: str) -> bool:
@@ -50,9 +63,16 @@ def delete_character(filename: str) -> bool:
 
 
 def save_campaign(
-    campaign_name: str, notes: str, party: list = None, dnd_edition: str = None
+    campaign_name: str, notes: str, party: list = None, edition: str = None, **kwargs
 ) -> bool:
-    return _camp_repo.save(campaign_name, notes, party, dnd_edition)
+    return _camp_repo.save(
+        campaign_name,
+        notes,
+        party,
+        dnd_edition=edition,
+        owner_id=_get_owner_id(),
+        **kwargs,
+    )
 
 
 def load_campaign(name: str) -> dict:
@@ -60,7 +80,7 @@ def load_campaign(name: str) -> dict:
 
 
 def list_campaigns(edition: str = None) -> list:
-    return _camp_repo.list_all(edition)
+    return _camp_repo.list_all(edition=edition, owner_id=_get_owner_id())
 
 
 def delete_campaign(campaign_name: str) -> bool:
