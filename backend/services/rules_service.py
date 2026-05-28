@@ -188,16 +188,19 @@ def regex_parse_feat_attributes(description: str) -> dict:
         "stat_choice_options": [],
     }
 
+    # Normalize text to lower case and collapse whitespace for robust parsing
+    norm_desc = re.sub(r"\s+", " ", description).strip().lower()
+
+    # Remove basic punctuation that might break simple matches
+    norm_desc = re.sub(r"[.,;:]", "", norm_desc)
+
     # 1. HP bonus (Tough)
-    if re.search(
-        r"hit point maximum increases by an amount equal to twice your level",
-        description,
-        re.I,
+    if (
+        "hit point maximum increases by an amount equal to twice your level"
+        in norm_desc
     ):
         mechanics["hp_bonus_per_level"] = 2
-    elif re.search(
-        r"hit point maximum increases by 1 for every level", description, re.I
-    ):
+    elif "hit point maximum increases by 1 for every level" in norm_desc:
         mechanics["hp_bonus_per_level"] = 1
 
     # 2. Specific Stat bonuses (+1)
@@ -210,20 +213,19 @@ def regex_parse_feat_attributes(description: str) -> dict:
         "charisma": "CHA",
     }
     for full_name, short_name in stat_map.items():
-        if re.search(rf"Increase your {full_name} score by 1", description, re.I):
+        if re.search(rf"increase your {full_name} score by 1", norm_desc):
             mechanics["stat_bonus"][short_name] = 1
 
     # 3. Stat choice bonuses (e.g. "Strength or Dexterity")
     choice_match = re.search(
-        r"Increase your (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) or (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) score by 1",
-        description,
-        re.I,
+        r"increase your (strength|dexterity|constitution|intelligence|wisdom|charisma) or (strength|dexterity|constitution|intelligence|wisdom|charisma) score by 1",
+        norm_desc,
     )
     if choice_match:
         mechanics["has_stat_choice"] = True
         mechanics["stat_choice_options"] = [
-            stat_map[choice_match.group(1).lower()],
-            stat_map[choice_match.group(2).lower()],
+            stat_map[choice_match.group(1)],
+            stat_map[choice_match.group(2)],
         ]
 
     return mechanics

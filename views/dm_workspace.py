@@ -757,12 +757,30 @@ def _render_initiative_tracker():
             border = "2px solid #ff4b4b" if is_turn else "1px solid #444"
             bg = "rgba(255, 75, 75, 0.1)" if is_turn else "transparent"
 
+            # Sync player stats
+            for p in st.session_state.party:
+                if p["char_name"] == c["name"]:
+                    if p.get("hp_current") is not None:
+                        c["hp"] = p["hp_current"]
+
+                    if p.get("conditions") is not None:
+                        c["conditions"] = p["conditions"]
+
+                    c["concentration"] = p.get("concentrating_on") is not None
+                    if p.get("concentrating_on"):
+                        c["concentrating_on"] = p.get("concentrating_on")
+
             # Default portrait logic
             p_url = (
                 c.get("portrait")
                 if c.get("portrait")
                 else "https://img.icons8.com/color/96/monster.png"
             )
+
+            conc_html = ""
+            if c.get("concentration"):
+                conc_text = c.get("concentrating_on") or "Concentrating"
+                conc_html = f' <span style="color: #00ffff; margin-left: 10px; font-weight: bold;" title="{conc_text}">🧠</span>'
 
             with st.container():
                 st.html(f"""
@@ -773,7 +791,7 @@ def _render_initiative_tracker():
             <div style="font-size: 1.3em; font-weight: bold; margin-right: 15px; color: #ff4b4b;">{c["init"]}</div>
             <div style="flex-grow: 1;">
                 <span style="font-size: 1.1em; font-weight: bold; color: white;">{c["name"]}</span>
-                {' <span style="color: #ff4b4b; margin-left: 10px; font-weight: bold;">[CONC]</span>' if c.get("concentration") else ""}
+                {conc_html}
             </div>
         </div>
         <div style="color: #bbb; font-size: 0.9em;">AC: {c["ac"]} | DEX: {c["dex"]}</div>

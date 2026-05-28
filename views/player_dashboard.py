@@ -900,6 +900,96 @@ def _render_core_stats(edit_mode: bool):
             default=st.session_state.saving_throws,
         )
     else:
+        # --- COMBAT & STATUS ---
+        st.markdown("### ⚔️ Combat & Status")
+        col_hp, col_cond, col_rest = st.columns([1.5, 2, 1])
+
+        with col_hp:
+            hp_curr = st.session_state.get("hp_current")
+            if hp_curr is None:
+                hp_curr = st.session_state.hp_max
+                st.session_state.hp_current = hp_curr
+
+            st.markdown(f"**HP:** `{hp_curr}` / `{st.session_state.hp_max}`")
+            hp_bar_pct = max(0.0, min(1.0, hp_curr / max(1, st.session_state.hp_max)))
+            st.progress(hp_bar_pct)
+
+            hc1, hc2 = st.columns([1, 1])
+            with hc1:
+                dmg = st.number_input(
+                    "Damage", min_value=0, value=0, step=1, key="dmg_val"
+                )
+                if (
+                    st.button("🩸 Apply Dmg", key="apply_dmg", use_container_width=True)
+                    and dmg > 0
+                ):
+                    st.session_state.hp_current = max(0, hp_curr - dmg)
+                    save_character(get_character_dict(st.session_state))
+                    st.rerun()
+            with hc2:
+                heal = st.number_input(
+                    "Heal", min_value=0, value=0, step=1, key="heal_val"
+                )
+                if (
+                    st.button(
+                        "💚 Apply Heal", key="apply_heal", use_container_width=True
+                    )
+                    and heal > 0
+                ):
+                    st.session_state.hp_current = min(
+                        st.session_state.hp_max, hp_curr + heal
+                    )
+                    save_character(get_character_dict(st.session_state))
+                    st.rerun()
+
+        with col_cond:
+            curr_cond = st.session_state.get("conditions", [])
+            new_cond = st.multiselect(
+                "Active Conditions",
+                options=[
+                    "Blinded",
+                    "Charmed",
+                    "Deafened",
+                    "Frightened",
+                    "Grappled",
+                    "Incapacitated",
+                    "Invisible",
+                    "Paralyzed",
+                    "Petrified",
+                    "Poisoned",
+                    "Prone",
+                    "Restrained",
+                    "Stunned",
+                    "Unconscious",
+                    "Exhaustion",
+                ],
+                default=curr_cond,
+                key="player_conditions",
+            )
+            if new_cond != curr_cond:
+                st.session_state.conditions = new_cond
+                save_character(get_character_dict(st.session_state))
+                st.rerun()
+
+        with col_rest:
+            st.markdown("**Camp & Rest**")
+            if st.button("🔥 Long Rest", type="primary", use_container_width=True):
+                st.session_state.hp_current = st.session_state.hp_max
+                st.session_state.hit_dice_used = max(
+                    0,
+                    st.session_state.get("hit_dice_used", 0)
+                    - max(1, st.session_state.char_level // 2),
+                )
+                slots = st.session_state.get("spell_slots", {})
+                for lvl, data in slots.items():
+                    data["used"] = 0
+                st.session_state.spell_slots = slots
+                save_character(get_character_dict(st.session_state))
+                st.toast("Long Rest completed! HP and Spell Slots restored.")
+                st.rerun()
+
+        st.markdown("---")
+
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Max HP", st.session_state.hp_max)
         c2.metric("Armor Class", st.session_state.armor_class)
@@ -1754,6 +1844,115 @@ def _render_features_spells(edit_mode: bool):
                 "level_9",
             ]
 
+            # --- SPELL SLOTS UI ---
+            spell_slots = st.session_state.get("spell_slots", {})
+            if spell_slots and view_mode == "⚔️ Prepared Spells (Combat)":
+                st.markdown("##### ⚡ Spell Slots")
+
+                # Concentration Indicator
+                if st.session_state.get("concentrating_on"):
+                    conc_col1, conc_col2 = st.columns([3, 1])
+                    with conc_col1:
+                        st.info(
+                            f"🧠 **Concentrating on:** {st.session_state.concentrating_on}"
+                        )
+                    with conc_col2:
+                        if st.button(
+                            "Drop",
+                            key="drop_conc_spells",
+                            help="Drop Concentration",
+                            use_container_width=True,
+                        ):
+                            st.session_state.concentrating_on = None
+                            save_character(get_character_dict(st.session_state))
+                            st.rerun()
+
+                slot_levels = sorted(
+                    [k for k in spell_slots.keys() if k.startswith("level_")],
+                    key=lambda x: int(x.split("_")[1]),
+                )
+                valid_slots = [
+                    sl for sl in slot_levels if spell_slots[sl].get("max", 0) > 0
+                ]
+
+                if valid_slots:
+                    # chunk into rows of 4
+                    for i in range(0, len(valid_slots), 4):
+                        chunk = valid_slots[i : i + 4]
+                        cols = st.columns(4)
+                        for col_idx, sl_key in enumerate(chunk):
+                            sl_num = sl_key.split("_")[1]
+                            max_s = spell_slots[sl_key].get("max", 0)
+                            used_s = spell_slots[sl_key].get("used", 0)
+                            with cols[col_idx]:
+                                st.caption(
+                                    f"**Level {sl_num}** ({max_s - used_s}/{max_s})"
+                                )
+                                # Render inline checkboxes
+                                slot_cols = st.columns(max_s)
+                                for j in range(max_s):
+                                    is_used = j < used_s
+                                    with slot_cols[j]:
+                                        new_used = st.checkbox(
+                                            "X",
+                                            value=is_used,
+                                            key=f"slot_{sl_key}_{j}",
+                                            label_visibility="collapsed",
+                                        )
+                                        if new_used != is_used:
+                                            # We need to compute the total used slots based on which ones are checked
+                                            # Since Streamlit runs top-to-bottom, we just adjust the counter +1 or -1
+                                            if new_used:
+                                                spell_slots[sl_key]["used"] = min(
+                                                    max_s, used_s + 1
+                                                )
+                                            else:
+                                                spell_slots[sl_key]["used"] = max(
+                                                    0, used_s - 1
+                                                )
+                                            st.session_state.spell_slots = spell_slots
+                                            save_character(
+                                                get_character_dict(st.session_state)
+                                            )
+                                            st.rerun()
+                    st.markdown("---")
+
+            if view_mode == "📝 Manage Spellbook (Prepare Spells)":
+                with st.expander("➕ Add New Spell", expanded=False):
+                    add_col1, add_col2 = st.columns([3, 1])
+                    all_spell_names = sorted(list(spells_lookup.keys()))
+                    with add_col1:
+                        new_spell_name = st.selectbox(
+                            "Search & Select Spell",
+                            [""] + [s.title() for s in all_spell_names],
+                            help="Type to search for a spell from the rules.",
+                        )
+                    with add_col2:
+                        st.write("")  # padding
+                        st.write("")  # padding
+                        if st.button("Add to Spellbook", use_container_width=True):
+                            if new_spell_name:
+                                lookup_key = new_spell_name.lower().strip()
+                                spell_data = spells_lookup.get(lookup_key)
+                                if spell_data:
+                                    lvl_num = spell_data.get("level", 0)
+                                    target_lvl_key = (
+                                        "cantrips"
+                                        if lvl_num == 0
+                                        else f"level_{lvl_num}"
+                                    )
+                                else:
+                                    target_lvl_key = "level_1"  # Fallback
+
+                                if target_lvl_key not in spells_dict:
+                                    spells_dict[target_lvl_key] = []
+                                if new_spell_name not in spells_dict[target_lvl_key]:
+                                    spells_dict[target_lvl_key].append(new_spell_name)
+                                    st.session_state.spells = spells_dict
+                                    save_character(get_character_dict(st.session_state))
+                                    st.rerun()
+                st.markdown("---")
+
             shown_any_level = False
 
             for lvl_key in level_keys:
@@ -1900,8 +2099,31 @@ def _render_features_spells(edit_mode: bool):
                                 key=f"cast_{lvl_key}_{s_name_clean}",
                                 use_container_width=True,
                             ):
-                                log_roll(f"Casted **{s_name_clean}** ({lvl_lbl})!")
-                                st.rerun()
+                                spell_slots_state = st.session_state.get(
+                                    "spell_slots", {}
+                                )
+                                slot_key = lvl_key
+
+                                can_cast = True
+                                if not is_cantrip and slot_key in spell_slots_state:
+                                    max_s = spell_slots_state[slot_key].get("max", 0)
+                                    used_s = spell_slots_state[slot_key].get("used", 0)
+                                    if used_s < max_s:
+                                        spell_slots_state[slot_key]["used"] += 1
+                                        st.session_state.spell_slots = spell_slots_state
+                                    else:
+                                        can_cast = False
+                                        st.toast(
+                                            f"No {lvl_lbl} slots remaining!", icon="⚠️"
+                                        )
+
+                                if can_cast:
+                                    if concentration:
+                                        st.session_state.concentrating_on = s_name_clean
+
+                                    save_character(get_character_dict(st.session_state))
+                                    log_roll(f"Casted **{s_name_clean}** ({lvl_lbl})!")
+                                    st.rerun()
 
                         # Button 2: Spell Attack (if description mentions spell attack)
                         requires_attack = (

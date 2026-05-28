@@ -379,23 +379,32 @@ def calculate_weapon_stats(
         )
         return weapon
 
-    name = weapon.get("name", "").lower()
-    # Basic logic: Ranged/Finesse detection
-    is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
-    is_finesse = any(
-        word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
-    )
-
     str_mod = get_modifier(stats.get("STR", 10))
     dex_mod = get_modifier(stats.get("DEX", 10))
 
-    # Choose modifier
-    if is_ranged:
-        mod = dex_mod
-    elif is_finesse:
-        mod = max(str_mod, dex_mod)
+    # Check for explicit ability modifier override
+    ability_override = weapon.get("ability_modifier")
+    if ability_override:
+        ability_override = ability_override.upper()
+        if ability_override in stats:
+            mod = get_modifier(stats[ability_override])
+        else:
+            mod = str_mod  # fallback
     else:
-        mod = str_mod
+        name = weapon.get("name", "").lower()
+        # Basic logic: Ranged/Finesse detection
+        is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
+        is_finesse = any(
+            word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
+        )
+
+        # Choose modifier
+        if is_ranged:
+            mod = dex_mod
+        elif is_finesse:
+            mod = max(str_mod, dex_mod)
+        else:
+            mod = str_mod
 
     magic_bonus = int(weapon.get("magic_bonus", 0))
 
@@ -429,6 +438,83 @@ def calculate_weapon_stats(
         )
 
     return weapon
+
+
+def calculate_max_spell_slots(char_class: str, level: int) -> dict:
+    char_class = char_class.lower()
+    full_casters = {"bard", "cleric", "druid", "sorcerer", "wizard"}
+    half_casters = {"paladin", "ranger"}
+
+    # Standard full caster slot progression by level (1 to 20)
+    full_caster_slots = {
+        1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        2: [3, 0, 0, 0, 0, 0, 0, 0, 0],
+        3: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+        4: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+        5: [4, 3, 2, 0, 0, 0, 0, 0, 0],
+        6: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+        7: [4, 3, 3, 1, 0, 0, 0, 0, 0],
+        8: [4, 3, 3, 2, 0, 0, 0, 0, 0],
+        9: [4, 3, 3, 3, 1, 0, 0, 0, 0],
+        10: [4, 3, 3, 3, 2, 0, 0, 0, 0],
+        11: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+        12: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+        13: [4, 3, 3, 3, 2, 1, 1, 0, 0],
+        14: [4, 3, 3, 3, 2, 1, 1, 0, 0],
+        15: [4, 3, 3, 3, 2, 1, 1, 1, 0],
+        16: [4, 3, 3, 3, 2, 1, 1, 1, 0],
+        17: [4, 3, 3, 3, 2, 1, 1, 1, 1],
+        18: [4, 3, 3, 3, 3, 1, 1, 1, 1],
+        19: [4, 3, 3, 3, 3, 2, 1, 1, 1],
+        20: [4, 3, 3, 3, 3, 2, 2, 1, 1],
+    }
+
+    warlock_slots = {
+        1: (1, 1),
+        2: (2, 1),
+        3: (2, 2),
+        4: (2, 2),
+        5: (2, 3),
+        6: (2, 3),
+        7: (2, 4),
+        8: (2, 4),
+        9: (2, 5),
+        10: (2, 5),
+        11: (3, 5),
+        12: (3, 5),
+        13: (3, 5),
+        14: (3, 5),
+        15: (3, 5),
+        16: (3, 5),
+        17: (4, 5),
+        18: (4, 5),
+        19: (4, 5),
+        20: (4, 5),
+    }
+
+    slots = {}
+    if char_class in full_casters:
+        caster_level = level
+    elif char_class in half_casters:
+        # Pure half-casters actually round up for their own table (Level 5 Paladin has 4/2 slots, equivalent to Caster Level 3)
+        caster_level = (level + 1) // 2 if level >= 2 else 0
+    elif char_class == "artificer":
+        caster_level = (level + 1) // 2
+    elif char_class == "warlock":
+        if level in warlock_slots:
+            count, slot_lvl = warlock_slots[level]
+            slots[f"level_{slot_lvl}"] = count
+        return slots
+    else:
+        caster_level = 0
+
+    if caster_level > 0 and caster_level <= 20:
+        prog = full_caster_slots[caster_level]
+        for idx, count in enumerate(prog):
+            if count > 0:
+                slots[f"level_{idx + 1}"] = count
+
+    return slots
 
 
 def sync_character_stats(
@@ -738,6 +824,22 @@ def sync_character_stats(
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
         char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
         char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
+
+    # Spell Slots
+    max_slots = calculate_max_spell_slots(char_class, level)
+    if "spell_slots" not in char_data or not char_data["spell_slots"]:
+        char_data["spell_slots"] = {}
+
+    for slot_lvl, max_val in max_slots.items():
+        if slot_lvl not in char_data["spell_slots"]:
+            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": 0}
+        else:
+            char_data["spell_slots"][slot_lvl]["max"] = max_val
+
+    # Remove slot levels that the character no longer has (e.g. level drain or class change)
+    keys_to_remove = [k for k in char_data["spell_slots"] if k not in max_slots]
+    for k in keys_to_remove:
+        del char_data["spell_slots"][k]
 
     return char_data
 

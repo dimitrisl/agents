@@ -37,8 +37,7 @@ class CharacterRepository:
             logger.error(
                 f"Character data failed validation during save: {e}. Aborting save to prevent corruption."
             )
-            # We no longer "auto-heal" during save to ensure the caller is aware of data issues.
-            return False
+            raise ValueError(f"Character validation failed: {e}")
 
         char_id = char_data.get("char_id", "unknown_id")
 
@@ -77,9 +76,9 @@ class CharacterRepository:
                     logger.error(
                         f"Loaded character '{char_id}' failed validation: {val_err}"
                     )
-                    # In load, we might want to return the raw data if validation fails
-                    # so the user can at least see/fix it, but we log the error prominently.
-                    return data
+                    raise ValueError(
+                        f"Loaded character schema validation failed: {val_err}"
+                    )
             return data
         except Exception as e:
             logger.error(f"Failed to load character from MongoDB: {e}")

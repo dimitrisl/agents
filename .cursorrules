@@ -1,0 +1,18 @@
+# AI Developer Guidelines for Phyrexian Forge (D&D AI Assistant)
+
+## 1. Test-Driven Feature Development
+**CRITICAL REQUIREMENT:** Whenever you add a new feature or modify existing logic in this project, you MUST write or update the corresponding `pytest` unit tests in the `tests/` directory.
+- You must ensure that all tests pass (`pytest tests/`) before considering a task complete.
+- Do not ask for permission to write tests; consider it a mandatory part of every feature.
+- Follow the existing testing patterns (using `pytest` and `mock` where appropriate).
+
+## 2. Project Architecture
+- **State Management:** All Streamlit session state manipulations should use `backend.core.state_manager`.
+- **Mechanics:** Business logic for D&D rules goes into `backend.services.mechanics_service`.
+- **UI:** User interface code belongs in `views/`. Keep business logic out of the UI files.
+- **Data Access:** Reading from or writing to JSON files must be done via the repositories in `backend/repositories/`.
+
+## 3. Communication
+- Respond concisely and confirm when your tests pass.
+- Format code cleanly.
+- If you encounter a failure, fix the code and rerun tests.

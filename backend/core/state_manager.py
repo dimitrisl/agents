@@ -30,6 +30,8 @@ CHARACTER_FIELDS = [
     "features_traits",
     "spells",
     "prepared_spells",
+    "spell_slots",
+    "concentrating_on",
     "spell_ability",
     "spell_save_dc",
     "spell_attack_bonus",
@@ -49,6 +51,9 @@ CHARACTER_FIELDS = [
     "initiative_modifier",
     "languages",
     "tool_proficiencies",
+    "hp_current",
+    "hit_dice_used",
+    "conditions",
 ]
 
 
@@ -68,6 +73,9 @@ def get_default_character() -> Dict[str, Any]:
         "backstory": "A valiant paladin who swore an oath of devotion to protect the innocent.",
         "armor_class": 18,
         "hp_max": 44,
+        "hp_current": 44,
+        "hit_dice_used": 0,
+        "conditions": [],
         "speed": 30,
         "proficiency_bonus": 3,
         "stats": {"STR": 18, "DEX": 12, "CON": 15, "INT": 10, "WIS": 14, "CHA": 16},
@@ -89,6 +97,11 @@ def get_default_character() -> Dict[str, Any]:
         ],
         "spells": {"level_1": ["Bless", "Cure Wounds"], "level_2": ["Find Steed"]},
         "prepared_spells": ["Bless", "Cure Wounds", "Find Steed"],
+        "spell_slots": {
+            "level_1": {"max": 4, "used": 0},
+            "level_2": {"max": 2, "used": 0},
+        },
+        "concentrating_on": None,
         "spell_ability": "CHA",
         "spell_save_dc": 14,
         "spell_attack_bonus": "+6",
@@ -219,7 +232,12 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
                         "WIS": 10,
                         "CHA": 10,
                     }
-                elif field in ["skills", "spells", "saving_throw_values"]:
+                elif field in [
+                    "skills",
+                    "spells",
+                    "saving_throw_values",
+                    "spell_slots",
+                ]:
                     default = {}
                 elif field in [
                     "equipment",
@@ -239,3 +257,11 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
 
     if "dnd_edition" in data:
         _set_val(state, "dnd_edition_toggle", "2024" in str(data["dnd_edition"]))
+
+    # Fallbacks for new fields
+    if _get_val(state, "hp_current") is None:
+        _set_val(state, "hp_current", _get_val(state, "hp_max") or 10)
+    if _get_val(state, "conditions") is None:
+        _set_val(state, "conditions", [])
+    if _get_val(state, "hit_dice_used") is None:
+        _set_val(state, "hit_dice_used", 0)

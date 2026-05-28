@@ -20,6 +20,7 @@ class Weapon(BaseModel):
     properties: Optional[str] = None
     is_custom: bool = False
     magic_bonus: int = 0
+    ability_modifier: Optional[str] = None  # Explicit scaling stat (e.g., 'STR', 'DEX')
     damage: Optional[str] = None  # Added for legacy support/internal formula storage
 
     @classmethod
@@ -166,6 +167,8 @@ class CharacterSchema(BaseModel):
     backstory: Optional[str] = ""
     armor_class: int = 10
     hp_max: int = 10
+    hp_current: Optional[int] = None
+    hit_dice_used: int = 0
     speed: int = 30
     proficiency_bonus: int = 2
     stats: StatBlock
@@ -179,6 +182,9 @@ class CharacterSchema(BaseModel):
     features_traits: List[FeatureTrait] = []
     spells: SpellList = Field(default_factory=SpellList)
     prepared_spells: List[str] = []
+    spell_slots: Dict[str, Dict[str, int]] = Field(default_factory=dict)
+    concentrating_on: Optional[str] = None
+    conditions: List[str] = Field(default_factory=list)
     spell_ability: Optional[str] = None
     spell_save_dc: Optional[int] = None
     spell_attack_bonus: Optional[str] = None

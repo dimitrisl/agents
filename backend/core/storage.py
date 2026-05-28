@@ -19,7 +19,11 @@ def save_character(char_data: dict) -> bool:
 
 
 def load_character(filename: str) -> dict:
-    return _char_repo.load(filename)
+    try:
+        return _char_repo.load(filename)
+    except ValueError as e:
+        logger.error(f"load_character failed due to validation failure: {e}")
+        return None
 
 
 def list_characters() -> list:
