@@ -6,36 +6,35 @@ Following a comprehensive review of the **Phyrexian Forge** codebase, here are p
 
 ## 🛠️ 1. Architectural Improvements
 
-### PDF Field Abstraction
-The mapping of character data to PDF form fields in `backend/pdf_exporter.py` is currently hardcoded.
-- **Suggestion:** Extract this mapping into a configuration file (e.g., `data/pdf_mappings.json`).
-- **Benefit:** Simplifies support for multiple character sheet templates (e.g., 2014 vs. 2024 editions) without modifying Python logic.
+### ✅ DONE — PDF Field Abstraction
+The mapping of character data to PDF form fields in `backend/pdf_exporter.py` was hardcoded.
+- **Status:** Implemented. Mappings now live in `data/pdf_mappings/` as JSON files. Adding a new sheet template requires no Python changes.
 
 ### Caching Strategy
 Frequent Streamlit reruns can lead to unnecessary API calls and latency.
 - **Suggestion:** Implement `@st.cache_data` in `backend/ai_client.py` for methods like `query_rules` or `get_flash_model`.
 - **Benefit:** Reduces API costs and improves UI responsiveness.
 
-### Centralized Prompt Management
-Prompts are currently embedded within `ai_client.py`.
-- **Suggestion:** Move prompts into a dedicated `backend/prompts.py` file or external templates.
-- **Benefit:** Facilitates "prompt engineering" and versioning without cluttering core logic.
+### ✅ DONE — Centralized Prompt Management
+Prompts were previously embedded within `ai_client.py`.
+- **Status:** Implemented. All AI prompts are consolidated in `backend/core/prompts.py`.
 
 ---
 
 ## 🏹 2. Enhanced Feature Set
 
-### Integrated Portrait Generation
-- **Suggestion:** Integrate an image generation API (DALL-E 3 or Imagen) to generate "Phyrexian-styled" portraits directly from the character concept.
-- **Benefit:** Provides a more "premium" and visually complete character creation experience.
+### ✅ DONE — Integrated Portrait Generation & Management
+- **Status:** Implemented.
+  - AI-generated portraits via Pollinations.ai at character forge time and on-demand from the player dashboard.
+  - **New:** Players can change their portrait from the dashboard in Edit Mode (URL or file upload → syncs to MongoDB).
+  - **New:** DMs can change any combatant's portrait mid-combat via the 🖼️ Portrait popover in the Initiative Tracker (URL or file upload → syncs back to party characters and NPC records).
+  - Local file paths are base64-encoded for correct rendering inside HTML combat cards.
 
-### Interactive Initiative Tracker
-- **Suggestion:** Expand the DM workspace with a real-time initiative tracker that manages HP, conditions (e.g., "Prone"), and turn order.
-- **Benefit:** Increases the utility of the "Dungeon Master View" for active session management.
+### ✅ DONE — Interactive Initiative Tracker
+- **Status:** Implemented. Full initiative tracker in the DM Workspace covering HP bars, status conditions, concentration tracking, turn order management, statblock popovers, quick roll popover, and portrait editing.
 
-### Rule Comparison Tool
-- **Suggestion:** Add a tool to explicitly compare changes between the 2014 and 2024 rulesets using the AI.
-- **Benefit:** Helps players and DMs transition to the 5.5e Revision smoothly.
+### ✅ DONE — Rule Comparison Tool
+- **Status:** Implemented. The Rules Library "Rule Comparison" tab uses `RULE_COMPARISON_PROMPT` to return a structured 2014 vs 2024 comparison for any topic.
 
 ### Player / DM Authentication (OAuth2)
 - **Suggestion:** Implement a Login system (via Discord or Gmail OAuth2) and add an `owner_id` to characters and campaigns in MongoDB.
@@ -45,13 +44,11 @@ Prompts are currently embedded within `ai_client.py`.
 
 ## 🧪 3. Quality Assurance & DX
 
-### Automated Testing Suite
-- **Suggestion:** Add a `tests/` directory using `pytest`.
-- **Benefit:** Ensures core mechanics (calculations, AI parsing) remain stable as the project grows.
+### ✅ DONE — Automated Testing Suite
+- **Status:** Implemented. 141 tests across 16 test files (`tests/`) covering mechanics, dice, schemas, state manager, PDF export/import, repositories, storage facade, rule comparison, dm_service, and image_utils. All run automatically via pre-commit hooks.
 
-### Robust Schema Validation (Pydantic)
-- **Suggestion:** Use **Pydantic** models to define character and encounter schemas.
-- **Benefit:** Provides strict validation for AI-generated JSON and better IDE support.
+### ✅ DONE — Robust Schema Validation (Pydantic)
+- **Status:** Implemented. `backend/core/schemas.py` defines strict Pydantic models for characters, weapons, equipment, and spells. All AI-generated and user-edited data is validated before storage.
 
 ---
 
@@ -64,3 +61,7 @@ Prompts are currently embedded within `ai_client.py`.
 ### Character Export Preview
 - **Suggestion:** Display a data summary or "preview card" in Streamlit before the user downloads the PDF.
 - **Benefit:** Allows users to verify AI Forge results before committing to a download.
+
+### Table-Ready UX Polish
+- **Suggestion:** Continue refining the initiative tracker and combat flow for live in-person play — faster HP edits, keyboard shortcuts, cleaner combatant card layout.
+- **Benefit:** Reduces DM friction at the table and is the last remaining blocker for the v1.0 "Friends & Family" release.

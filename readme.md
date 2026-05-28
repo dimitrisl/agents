@@ -9,7 +9,7 @@
 
 ### 🗡️ For the Player
 - **AI Character Forge:** Generate fully equipped, thematic heroes from a simple text concept.
-- **🖼️ Dynamic Portrait Generation:** Automatically generated, high-quality character portraits based on your hero's race, class, alignment, and backstory (powered by Pollinations.ai).
+- **🖼️ Dynamic Portrait Generation:** Automatically generated, high-quality character portraits based on your hero's race, class, alignment, and backstory (powered by Pollinations.ai). Portraits can be updated at any time in Edit Mode via URL or file upload, synced to the cloud.
 - **🎲 Interactive Dice Roller:** Integrated dice mechanics with support for automated attack and damage rolls using your character's real-time modifiers.
 - **📖 AI Playstyle Guide:** On-demand generation of a comprehensive strategic guide (Combat & Roleplay) tailored to your specific build and level.
 - **Dual Edition Support (5.5e Ready):** Seamlessly toggle between **D&D 2014** and **2024 Revision (5.5e)** rulesets.
@@ -19,7 +19,7 @@
 ### 🏰 For the Dungeon Master
 - **DM Quick Forge:** Rapidly generate NPCs and monsters to populate your world.
 - **Campaign Workspace:** Track session logs, plot hooks, and active campaign developments with AI assistance.
-- **Party Tracking & Initiative:** Monitor the entire party's stats from a centralized dashboard and track combat turns with a built-in initiative system.
+- **Party Tracking & Initiative:** Monitor the entire party's stats from a centralized dashboard and track combat turns with a built-in initiative system. Each combatant card supports live HP editing, status conditions, concentration tracking, a quick-roll popover, and a **🖼️ portrait editor** that syncs changes to MongoDB.
 - **Static Rules Engine:** Level-up features and class/feat lookups are powered by a rigorous, local JSON knowledge base (for both 2014 & 2024 rulesets) to guarantee perfectly accurate progression without AI hallucinations.
 
 ---
@@ -152,7 +152,7 @@ poetry run streamlit run main.py
 ---
 
 ## 🧪 Development
-- **Tests:** `poetry run pytest tests/ -v`
+- **Tests:** `poetry run pytest tests/ -v` — 141 tests across 16 test files
 - **Pre-commit Hooks:** `poetry run pre-commit install`
 - **Linting & Formatting:** `poetry run pre-commit run --all-files`
 - **Code Quality:** Refer to [code_review.md](code_review.md) for architectural recommendations and code review findings.

@@ -18,7 +18,7 @@ This document outlines key technical and architectural findings identified durin
 
 ## ✅ DONE — Interactive Initiative Tracker
 * **Location:** `views/dm_workspace.py` (`_render_initiative_tracker`)
-* **Status:** **Implemented.** Full-featured initiative tracker exists in the DM Workspace, including HP bars, status conditions, concentration tracking, turn order management, statblock popovers, and per-combatant quick roll.
+* **Status:** **Implemented.** Full-featured initiative tracker exists in the DM Workspace, including HP bars, status conditions, concentration tracking, turn order management, statblock popovers, per-combatant quick roll, and a **per-combatant portrait editor** (🖼️ Portrait popover supporting URL and file upload, syncing back to MongoDB on apply).
 
 ---
 
@@ -28,15 +28,18 @@ This document outlines key technical and architectural findings identified durin
 
 ---
 
-## ✅ DONE — AI Portrait Generation
+## ✅ DONE — AI Portrait Generation & Custom Portrait Management
 * **Location:** `backend/utils/image_utils.py`, `views/player_dashboard.py`, `views/dm_workspace.py`
 * **Status:** **Implemented.** Portrait generation is integrated at multiple points: during character forge, from the player dashboard (🎨 Portrait button), during PDF import, and in the DM Quick Forge. Portraits can be regenerated and previewed before being committed.
+  * **New (2026-05-29):** Players can change their character portrait directly from the dashboard in Edit Mode via the "🖼️ Change Character Portrait" expander (URL or file upload).
+  * **New (2026-05-29):** DMs can change any combatant's portrait mid-combat via the "🖼️ Portrait" popover in the Initiative Tracker. Changes sync back to party characters and campaign NPC records in MongoDB.
+  * Local file paths are converted to base64 for rendering inside HTML cards.
 
 ---
 
 ## ✅ DONE — Testing Suite & Pydantic Validation
 * **Location:** `tests/`, `backend/core/schemas.py`
-* **Status:** **Implemented.** 132 tests across 14 test files, covering repositories, mechanics, dice, schemas, state manager, PDF export/import, storage facade, and rule comparison. All tests pass via pre-commit hooks.
+* **Status:** **Implemented.** 141 tests across 16 test files, covering repositories, mechanics, dice, schemas, state manager, PDF export/import, storage facade, rule comparison, dm_service, and image_utils. All tests pass via pre-commit hooks.
 
 ---
 
@@ -113,4 +116,4 @@ This document outlines key technical and architectural findings identified durin
 
 ---
 
-*Last updated: 2026-05-27*
+*Last updated: 2026-05-29*
