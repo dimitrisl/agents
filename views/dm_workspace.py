@@ -17,9 +17,10 @@ from backend.core.storage import (
     list_characters,
     load_character,
     delete_campaign,
+    save_character,
 )
 from backend.utils.image_utils import generate_portrait_url
-from backend.utils.ui_utils import render_active_roll_visual
+from backend.utils.ui_utils import render_active_roll_visual, get_image_base64
 from backend.services.mechanics_service import get_modifier as calculate_modifier
 from backend.core.constants import (
     EDITION_2014,
@@ -501,6 +502,187 @@ def _render_campaign_notes():
                         )
                         st.rerun()
 
+        with st.expander("➕ Manually Create NPC", expanded=False):
+            with st.form("manual_npc_form", clear_on_submit=True):
+                col_name, col_role, col_race = st.columns(3)
+                m_name = col_name.text_input(
+                    "Name*", placeholder="e.g. Goblin Boss", key="m_npc_name"
+                )
+                m_role = col_role.text_input(
+                    "Role / Class", placeholder="e.g. Monster, Boss", key="m_npc_role"
+                )
+                m_race = col_race.text_input(
+                    "Race / Species", placeholder="e.g. Goblin, Beast", key="m_npc_race"
+                )
+
+                col_ac, col_hp, col_speed, col_cr = st.columns(4)
+                m_ac = col_ac.number_input(
+                    "Armor Class", min_value=0, value=10, key="m_npc_ac"
+                )
+                m_hp = col_hp.number_input(
+                    "Hit Points (Max)", min_value=1, value=10, key="m_npc_hp"
+                )
+                m_speed = col_speed.number_input(
+                    "Speed (ft)", min_value=0, value=30, step=5, key="m_npc_speed"
+                )
+                m_cr = col_cr.number_input(
+                    "Challenge Rating / Level",
+                    min_value=1,
+                    max_value=20,
+                    value=1,
+                    key="m_npc_cr",
+                )
+
+                st.markdown("**Ability Scores**")
+                s_cols = st.columns(6)
+                m_str = s_cols[0].number_input(
+                    "STR", min_value=1, max_value=30, value=10, key="m_npc_str"
+                )
+                m_dex = s_cols[1].number_input(
+                    "DEX", min_value=1, max_value=30, value=10, key="m_npc_dex"
+                )
+                m_con = s_cols[2].number_input(
+                    "CON", min_value=1, max_value=30, value=10, key="m_npc_con"
+                )
+                m_int = s_cols[3].number_input(
+                    "INT", min_value=1, max_value=30, value=10, key="m_npc_int"
+                )
+                m_wis = s_cols[4].number_input(
+                    "WIS", min_value=1, max_value=30, value=10, key="m_npc_wis"
+                )
+                m_cha = s_cols[5].number_input(
+                    "CHA", min_value=1, max_value=30, value=10, key="m_npc_cha"
+                )
+
+                st.markdown("**Attacks / Weapons**")
+                st.caption(
+                    "Specify attacks/weapons in format: `Name | +X to hit | YdZ+W damage` (one per line). Example: `Scimitar | +4 | 1d6+2 slashing` or `Bite | +5 | 1d8+3 piercing`."
+                )
+                m_weapons_text = st.text_area(
+                    "Attacks/Weapons (one per line)",
+                    placeholder="Weapon Name | To Hit | Damage",
+                    key="m_npc_weapons_text",
+                )
+
+                st.markdown("**Special Traits / Features**")
+                st.caption(
+                    "Specify traits in format: `Trait Name: Trait Description` (one per line). Example: `Pack Tactics: Advantage if an ally is nearby.`"
+                )
+                m_features_text = st.text_area(
+                    "Traits/Features (one per line)",
+                    placeholder="Trait Name: Description",
+                    key="m_npc_features_text",
+                )
+
+                st.markdown("**Lore / Backstory**")
+                m_backstory = st.text_area(
+                    "Backstory / Description",
+                    placeholder="Enter NPC biography or DM notes...",
+                    key="m_npc_backstory",
+                )
+
+                submit_btn = st.form_submit_button(
+                    "Create and Add NPC", use_container_width=True
+                )
+
+                if submit_btn:
+                    if not m_name:
+                        st.error("NPC name is required.")
+                    else:
+                        # Parse weapons
+                        weapons_parsed = []
+                        if m_weapons_text.strip():
+                            for line in m_weapons_text.strip().split("\n"):
+                                if "|" in line:
+                                    parts = [p.strip() for p in line.split("|")]
+                                    if len(parts) >= 3:
+                                        weapons_parsed.append(
+                                            {
+                                                "name": parts[0],
+                                                "attack_bonus": parts[1],
+                                                "damage_dice": parts[2],
+                                                "damage_bonus": "+0",
+                                            }
+                                        )
+                                    elif len(parts) == 2:
+                                        weapons_parsed.append(
+                                            {
+                                                "name": parts[0],
+                                                "attack_bonus": parts[1],
+                                                "damage_dice": "1d4",
+                                                "damage_bonus": "+0",
+                                            }
+                                        )
+
+                        # Parse features
+                        features_parsed = []
+                        if m_features_text.strip():
+                            for line in m_features_text.strip().split("\n"):
+                                if ":" in line:
+                                    name_part, desc_part = line.split(":", 1)
+                                    features_parsed.append(
+                                        {
+                                            "name": name_part.strip(),
+                                            "description": desc_part.strip(),
+                                        }
+                                    )
+                                else:
+                                    features_parsed.append(
+                                        {"name": "Feature", "description": line.strip()}
+                                    )
+
+                        stats_dict = {
+                            "STR": m_str,
+                            "DEX": m_dex,
+                            "CON": m_con,
+                            "INT": m_int,
+                            "WIS": m_wis,
+                            "CHA": m_cha,
+                        }
+
+                        from backend.services.dm_service import create_manual_npc
+                        from backend.core.storage import save_character
+
+                        try:
+                            char_dict = create_manual_npc(
+                                name=m_name,
+                                role=m_role,
+                                race=m_race,
+                                ac=m_ac,
+                                hp_max=m_hp,
+                                speed=m_speed,
+                                char_level=m_cr,
+                                stats=stats_dict,
+                                weapons=weapons_parsed,
+                                features_traits=features_parsed,
+                                backstory=m_backstory,
+                                dnd_edition=st.session_state.dnd_edition,
+                            )
+
+                            if save_character(char_dict):
+                                char_filename = f"{char_dict['char_name'].replace(' ', '_').lower()}_{char_dict['char_id']}.json"
+                                if char_filename not in vault_npcs:
+                                    vault_npcs.append(char_filename)
+                                    camp_data["vault_npcs"] = vault_npcs
+                                    st.session_state.active_campaign_data = camp_data
+
+                                    save_campaign(
+                                        st.session_state.active_campaign_name,
+                                        st.session_state.campaign_notes,
+                                        sessions=camp_data.get("sessions", []),
+                                        module_pdf_uri=camp_data.get("module_pdf_uri"),
+                                        extracted_npcs=[],
+                                        vault_npcs=vault_npcs,
+                                    )
+                                    st.success(
+                                        f"Successfully created and added {m_name} to Vault!"
+                                    )
+                                    st.rerun()
+                            else:
+                                st.error("Failed to save manually created NPC.")
+                        except Exception as e:
+                            st.error(f"Error creating NPC: {e}")
+
         st.markdown("#### The Vault Roster")
 
         # Display Full Character NPCs
@@ -530,9 +712,14 @@ def _render_campaign_notes():
                                 "id": str(uuid.uuid4())[:8],
                                 "name": npc_data["char_name"],
                                 "init": 10,
-                                "hp": int(npc_data.get("max_hp", 10)),
-                                "max_hp": int(npc_data.get("max_hp", 10)),
-                                "ac": int(npc_data.get("ac", 10)),
+                                "hp": int(
+                                    npc_data.get("hp_max")
+                                    or npc_data.get("hp_current")
+                                    or 10
+                                ),
+                                "max_hp": int(npc_data.get("hp_max") or 10),
+                                "ac": int(npc_data.get("armor_class") or 10),
+                                "portrait": npc_data.get("char_portrait"),
                                 "is_player": False,
                                 "conditions": [],
                             }
@@ -1044,6 +1231,11 @@ def _render_initiative_tracker():
                 or (not p_url.startswith("http") and not os.path.exists(p_url))
             ):
                 p_url = "https://img.icons8.com/color/96/monster.png"
+            elif not p_url.startswith("http") and not p_url.startswith("data:"):
+                p_url = (
+                    get_image_base64(p_url)
+                    or "https://img.icons8.com/color/96/monster.png"
+                )
 
             conc_html = ""
             if c.get("concentration"):
@@ -1126,7 +1318,7 @@ def _render_initiative_tracker():
                         st.session_state.combat_active = False
                     st.rerun()
 
-                r1, r2, r3 = st.columns([1, 2, 2])
+                r1, r2, r3, r4 = st.columns([1, 1.3, 1.3, 1.4])
                 c["concentration"] = r1.toggle(
                     "Conc.",
                     value=c.get("concentration", False),
@@ -1134,7 +1326,7 @@ def _render_initiative_tracker():
                 )
 
                 if c.get("statblock"):
-                    with r2.popover("📜 Statblock"):
+                    with r2.popover("📜 Stat"):
                         st.caption("Detailed Statblock:")
                         st.markdown(c["statblock"])
                         import re
@@ -1142,11 +1334,11 @@ def _render_initiative_tracker():
                         clean_name = re.sub(r"\d+", "", c["name"]).strip()
                         slug = clean_name.lower().replace(" ", "-").replace("'", "")
                         url = f"https://www.dndbeyond.com/monsters/{slug}"
-                        st.link_button(
-                            "🌐 View on D&D Beyond", url, use_container_width=True
-                        )
+                        st.link_button("🌐 View Beyond", url, use_container_width=True)
+                else:
+                    r2.write("")
 
-                with r3.popover("🎲 Quick Roll"):
+                with r3.popover("🎲 Roll"):
                     d_type = st.selectbox(
                         "Die", [20, 12, 10, 8, 6, 4], key=f"roll_d_{c['id']}_{i}"
                     )
@@ -1164,6 +1356,67 @@ def _render_initiative_tracker():
                             "adv_type": "None",
                         }
                         st.rerun()
+
+                with r4.popover("🖼️ Portrait"):
+                    st.caption("Change Portrait:")
+                    preview_portrait = p_url
+                    if (
+                        preview_portrait
+                        and not preview_portrait.startswith("http")
+                        and not preview_portrait.startswith("data:")
+                    ):
+                        preview_portrait = get_image_base64(preview_portrait)
+
+                    if preview_portrait:
+                        st.image(preview_portrait, width=80)
+
+                    p_upload = st.file_uploader(
+                        "Upload Image File",
+                        type=["png", "jpg", "jpeg", "webp"],
+                        key=f"port_up_{c['id']}_{i}",
+                    )
+                    p_text = st.text_input(
+                        "Or Image URL",
+                        value=c.get("portrait") or "",
+                        key=f"port_txt_{c['id']}_{i}",
+                    )
+
+                    if st.button(
+                        "Apply Portrait",
+                        key=f"port_apply_{c['id']}_{i}",
+                        use_container_width=True,
+                    ):
+                        target_portrait = None
+                        if p_upload:
+                            from backend.utils.image_utils import save_custom_portrait
+
+                            file_ext = p_upload.name.split(".")[-1]
+                            fname = f"{c['id']}_custom.{file_ext}"
+                            target_portrait = save_custom_portrait(
+                                p_upload.getbuffer(), fname
+                            )
+                        elif p_text:
+                            target_portrait = p_text
+
+                        if target_portrait:
+                            c["portrait"] = target_portrait
+                            # Also sync to character records
+                            # 1. Active Party
+                            for p in st.session_state.party:
+                                if p["char_name"] == c["name"]:
+                                    p["char_portrait"] = target_portrait
+                                    save_character(p)
+                            # 2. Campaign NPCs
+                            if st.session_state.get("active_campaign_data"):
+                                camp_data = st.session_state.active_campaign_data
+                                vault_npcs = camp_data.get("vault_npcs", [])
+                                for npc_file in vault_npcs:
+                                    npc_data = load_character(npc_file)
+                                    if npc_data and npc_data["char_name"] == c["name"]:
+                                        npc_data["char_portrait"] = target_portrait
+                                        save_character(npc_data)
+                            st.success("Portrait updated!")
+                            st.rerun()
 
 
 def _render_party_dashboard():

@@ -26,8 +26,8 @@ This phase focuses on making the Streamlit app robust enough for live, in-person
 - [x] **Performance & Speed:** Optimize UI to prevent lag or freezing during combat (e.g. Damage/Heal callbacks).
 - [x] **Discord Auth:** Allow easy login for players without managing passwords.
 - [ ] **Module & NPC Parsing:** Fix and refine the extraction of adventure modules and NPCs so they load reliably into the system.
-- [ ] **Image Management:** Ensure player and NPC portraits populate correctly, and add the ability to manually upload or set custom images (especially for the Initiative Tracker).
-- [ ] **Manual NPC Creation:** Allow the DM to manually add characters to the NPC Vault (beyond just what the parser extracts).
+- [x] **Image Management:** Ensure player and NPC portraits populate correctly, and add the ability to manually upload or set custom images (especially for the Initiative Tracker).
+- [x] **Manual NPC Creation:** Allow the DM to manually add characters to the NPC Vault (beyond just what the parser extracts).
 - [ ] **Table-Ready UX:** Polish the interface so it flows naturally during a live, in-person session.
 
 ---

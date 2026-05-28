@@ -76,3 +76,12 @@ def generate_portrait_url(char_data: dict) -> str:
     except Exception as e:
         logger.error(f"Failed to generate and download portrait: {e}")
         return None
+
+
+def save_custom_portrait(image_bytes: bytes, filename: str) -> str:
+    """Saves custom uploaded portrait bytes to data/portraits/ and returns the local file path."""
+    _ensure_dir()
+    filepath = os.path.join(PORTRAIT_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
+    return filepath

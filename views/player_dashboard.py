@@ -31,7 +31,7 @@ from backend.services.mechanics_service import (
 )
 from backend.utils.pdf_exporter import export_character_to_pdf
 from backend.utils.ui_utils import render_character_header, render_active_roll_visual
-from backend.utils.image_utils import generate_portrait_url
+from backend.utils.image_utils import generate_portrait_url, save_custom_portrait
 from backend.core.constants import (
     EDITION_2014,
     EDITION_2024,
@@ -495,6 +495,52 @@ def render_active_character(accent_color: str):
             else:
                 st.error("Validation failed to complete.")
         st.rerun()
+
+    if edit_mode_active:
+        with st.expander("🖼️ Change Character Portrait", expanded=False):
+            st.write(
+                "Upload a custom image or enter an image URL to update your character's portrait."
+            )
+            col_url, col_upload = st.columns([2, 3])
+
+            # 1. URL input
+            input_url = col_url.text_input(
+                "Portrait Image URL",
+                value=st.session_state.char_portrait or "",
+                key="portrait_url_input",
+            )
+
+            # 2. Upload file
+            uploaded_file = col_upload.file_uploader(
+                "Upload Image File",
+                type=["png", "jpg", "jpeg", "webp"],
+                key="portrait_file_uploader",
+            )
+
+            if st.button("Apply Portrait Update", use_container_width=True):
+                updated = False
+                if uploaded_file:
+                    import uuid
+
+                    file_ext = uploaded_file.name.split(".")[-1]
+                    char_id = st.session_state.char_id or str(uuid.uuid4())[:8]
+                    filename = f"{char_id}_custom.{file_ext}"
+                    local_path = save_custom_portrait(
+                        uploaded_file.getbuffer(), filename
+                    )
+                    st.session_state.char_portrait = local_path
+                    updated = True
+                elif input_url != st.session_state.char_portrait:
+                    st.session_state.char_portrait = input_url
+                    updated = True
+
+                if updated:
+                    trigger_sync()
+                    new_char = get_character_dict(st.session_state)
+                    save_character(new_char)
+                    st.session_state.last_saved_char = new_char.copy()
+                    st.success("Portrait updated successfully!")
+                    st.rerun()
 
     if st.session_state.validation_result:
         val = st.session_state.validation_result
