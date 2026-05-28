@@ -14,6 +14,8 @@ from backend.core.storage import (
 
 @patch("backend.core.storage._char_repo")
 def test_character_storage(mock_repo):
+    mock_repo.load.return_value = {"name": "Test"}
+    mock_repo.list_all.return_value = ["test.json"]
     save_character({"name": "Test"})
     mock_repo.save.assert_called_once()
 
@@ -40,6 +42,8 @@ def test_delete_character(mock_remove, mock_exists, mock_char_repo):
 
 @patch("backend.core.storage._camp_repo")
 def test_campaign_storage(mock_repo):
+    mock_repo.load.return_value = {"campaign_name": "Camp1"}
+    mock_repo.list_all.return_value = ["Camp1"]
     save_campaign("Camp1", "Notes")
     mock_repo.save.assert_called_once_with(
         "Camp1", "Notes", None, dnd_edition=None, owner_id=None

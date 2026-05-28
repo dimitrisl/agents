@@ -915,32 +915,43 @@ def _render_core_stats(edit_mode: bool):
             st.progress(hp_bar_pct)
 
             hc1, hc2 = st.columns([1, 1])
+
+            def _apply_dmg_callback():
+                dmg = st.session_state.get("dmg_val", 0)
+                if dmg > 0:
+                    curr = st.session_state.get(
+                        "hp_current", st.session_state.get("hp_max", 10)
+                    )
+                    st.session_state.hp_current = max(0, curr - dmg)
+                    st.session_state.dmg_val = 0
+                    save_character(get_character_dict(st.session_state))
+
+            def _apply_heal_callback():
+                heal = st.session_state.get("heal_val", 0)
+                if heal > 0:
+                    curr = st.session_state.get(
+                        "hp_current", st.session_state.get("hp_max", 10)
+                    )
+                    m_hp = st.session_state.get("hp_max", 10)
+                    st.session_state.hp_current = min(m_hp, curr + heal)
+                    st.session_state.heal_val = 0
+                    save_character(get_character_dict(st.session_state))
+
             with hc1:
-                dmg = st.number_input(
-                    "Damage", min_value=0, value=0, step=1, key="dmg_val"
+                st.number_input("Damage", min_value=0, step=1, key="dmg_val")
+                st.button(
+                    "🩸 Apply Dmg",
+                    on_click=_apply_dmg_callback,
+                    use_container_width=True,
                 )
-                if (
-                    st.button("🩸 Apply Dmg", key="apply_dmg", use_container_width=True)
-                    and dmg > 0
-                ):
-                    st.session_state.hp_current = max(0, hp_curr - dmg)
-                    save_character(get_character_dict(st.session_state))
-                    st.rerun()
+
             with hc2:
-                heal = st.number_input(
-                    "Heal", min_value=0, value=0, step=1, key="heal_val"
+                st.number_input("Heal", min_value=0, step=1, key="heal_val")
+                st.button(
+                    "💚 Apply Heal",
+                    on_click=_apply_heal_callback,
+                    use_container_width=True,
                 )
-                if (
-                    st.button(
-                        "💚 Apply Heal", key="apply_heal", use_container_width=True
-                    )
-                    and heal > 0
-                ):
-                    st.session_state.hp_current = min(
-                        st.session_state.hp_max, hp_curr + heal
-                    )
-                    save_character(get_character_dict(st.session_state))
-                    st.rerun()
 
         with col_cond:
             curr_cond = st.session_state.get("conditions", [])

@@ -988,9 +988,15 @@ def _render_initiative_tracker():
         # PREMIUM ACTIVE TURN DISPLAY
         with st.container(border=True):
             act_c1, act_c2 = st.columns([1, 4])
-            p_url_active = active.get("portrait")
-            if not p_url_active or (
-                not p_url_active.startswith("http") and not os.path.exists(p_url_active)
+            p_url_active = str(active.get("portrait", ""))
+            if (
+                not p_url_active
+                or p_url_active == "0"
+                or p_url_active == "None"
+                or (
+                    not p_url_active.startswith("http")
+                    and not os.path.exists(p_url_active)
+                )
             ):
                 p_url_active = "https://img.icons8.com/color/96/monster.png"
             act_c1.image(p_url_active, width=100)
@@ -1030,11 +1036,14 @@ def _render_initiative_tracker():
                         c["concentrating_on"] = p.get("concentrating_on")
 
             # Default portrait logic
-            p_url = (
-                c.get("portrait")
-                if c.get("portrait")
-                else "https://img.icons8.com/color/96/monster.png"
-            )
+            p_url = str(c.get("portrait", ""))
+            if (
+                not p_url
+                or p_url == "0"
+                or p_url == "None"
+                or (not p_url.startswith("http") and not os.path.exists(p_url))
+            ):
+                p_url = "https://img.icons8.com/color/96/monster.png"
 
             conc_html = ""
             if c.get("concentration"):
@@ -1063,7 +1072,7 @@ def _render_initiative_tracker():
                     "Init",
                     value=c["init"],
                     key=f"init_act_{c['id']}_{i}",
-                    label_visibility="collapsed",
+                    label_visibility="visible",
                 )
                 if new_init != c["init"]:
                     c["init"] = new_init
@@ -1085,7 +1094,7 @@ def _render_initiative_tracker():
                     "HP",
                     value=c["hp"],
                     key=f"hp_act_{c['id']}_{i}",
-                    label_visibility="collapsed",
+                    label_visibility="visible",
                 )
                 if new_hp != c["hp"]:
                     c["hp"] = new_hp
@@ -1108,7 +1117,7 @@ def _render_initiative_tracker():
                     ],
                     default=c.get("conditions", []),
                     key=f"cond_act_{c['id']}_{i}",
-                    label_visibility="collapsed",
+                    label_visibility="visible",
                 )
 
                 if cols[3].button("❌", key=f"rem_act_{c['id']}_{i}"):

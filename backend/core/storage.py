@@ -1,5 +1,6 @@
 import logging
 import os
+import streamlit as st
 from backend.repositories.character_repository import CharacterRepository
 from backend.repositories.campaign_repository import CampaignRepository
 
@@ -20,12 +21,40 @@ def _get_owner_id():
         return None
 
 
+@st.cache_data(ttl=3600)
+def _cached_list_characters(owner_id: str):
+    return _char_repo.list_all(owner_id=owner_id)
+
+
+@st.cache_data(ttl=3600)
+def _cached_load_campaign(name: str):
+    return _camp_repo.load(name)
+
+
+@st.cache_data(ttl=3600)
+def _cached_list_campaigns(edition: str, owner_id: str):
+    return _camp_repo.list_all(edition=edition, owner_id=owner_id)
+
+
 def save_character(char_data: dict) -> bool:
     try:
         owner_id = _get_owner_id()
         if owner_id:
             char_data["owner_id"] = owner_id
-        return _char_repo.save(char_data)
+        res = _char_repo.save(char_data)
+        if res:
+            try:
+                import streamlit as st
+
+                if "char_cache" in st.session_state:
+                    char_id = char_data.get("char_id")
+                    for k in list(st.session_state.char_cache.keys()):
+                        if char_id and char_id in k:
+                            st.session_state.char_cache[k] = dict(char_data)
+            except Exception:
+                pass
+            _cached_list_characters.clear()
+        return res
     except ValueError as e:
         logger.error(f"save_character rejected due to validation failure: {e}")
         return False
@@ -33,14 +62,27 @@ def save_character(char_data: dict) -> bool:
 
 def load_character(filename: str) -> dict:
     try:
-        return _char_repo.load(filename)
+        try:
+            import streamlit as st
+
+            if "char_cache" not in st.session_state:
+                st.session_state.char_cache = {}
+            if filename not in st.session_state.char_cache:
+                st.session_state.char_cache[filename] = _char_repo.load(filename)
+            return (
+                dict(st.session_state.char_cache[filename])
+                if st.session_state.char_cache[filename]
+                else None
+            )
+        except Exception:
+            return _char_repo.load(filename)
     except ValueError as e:
         logger.error(f"load_character failed due to validation failure: {e}")
         return None
 
 
 def list_characters() -> list:
-    return _char_repo.list_all(owner_id=_get_owner_id())
+    return _cached_list_characters(_get_owner_id())
 
 
 def delete_character(filename: str) -> bool:
@@ -59,13 +101,27 @@ def delete_character(filename: str) -> bool:
     if char_data and char_data.get("active_campaign"):
         remove_from_campaign(char_data["active_campaign"], filename)
 
-    return _char_repo.delete(filename)
+    # 3. Finally delete the character
+    res = _char_repo.delete(filename)
+    if res:
+        try:
+            import streamlit as st
+
+            if (
+                "char_cache" in st.session_state
+                and filename in st.session_state.char_cache
+            ):
+                del st.session_state.char_cache[filename]
+        except Exception:
+            pass
+        _cached_list_characters.clear()
+    return res
 
 
 def save_campaign(
     campaign_name: str, notes: str, party: list = None, edition: str = None, **kwargs
 ) -> bool:
-    return _camp_repo.save(
+    res = _camp_repo.save(
         campaign_name,
         notes,
         party,
@@ -73,18 +129,26 @@ def save_campaign(
         owner_id=_get_owner_id(),
         **kwargs,
     )
+    if res:
+        _cached_load_campaign.clear()
+        _cached_list_campaigns.clear()
+    return res
 
 
 def load_campaign(name: str) -> dict:
-    return _camp_repo.load(name)
+    return _cached_load_campaign(name)
 
 
 def list_campaigns(edition: str = None) -> list:
-    return _camp_repo.list_all(edition=edition, owner_id=_get_owner_id())
+    return _cached_list_campaigns(edition, _get_owner_id())
 
 
 def delete_campaign(campaign_name: str) -> bool:
-    return _camp_repo.delete(campaign_name)
+    res = _camp_repo.delete(campaign_name)
+    if res:
+        _cached_load_campaign.clear()
+        _cached_list_campaigns.clear()
+    return res
 
 
 def join_campaign(campaign_name: str, char_filename: str) -> bool:

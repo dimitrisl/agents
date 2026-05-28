@@ -1,5 +1,7 @@
 import streamlit as st
 import os
+import urllib.parse
+import httpx
 from typing import Optional
 
 
@@ -9,15 +11,26 @@ def get_google_auth_url() -> str:
 
 
 def get_discord_auth_url() -> str:
-    """Mock URL for Discord OAuth"""
-    return "?code=mock_discord_oauth_code"
+    """Construct URL for Discord OAuth"""
+    client_id = os.environ.get("DISCORD_CLIENT_ID")
+    if not client_id:
+        return "?code=mock_discord_oauth_code"
+
+    redirect_uri = os.environ.get("DISCORD_REDIRECT_URI", "http://localhost:8501/")
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "identify email",
+    }
+    return f"https://discord.com/api/oauth2/authorize?{urllib.parse.urlencode(params)}"
 
 
 def process_oauth_callback() -> Optional[dict]:
     """Check if we have an OAuth code in the URL and process it"""
     if "code" in st.query_params:
-        # In a real app, we would exchange this code for a token via httpx
         code = st.query_params["code"]
+
         if code == "mock_google_oauth_code":
             user_data = {
                 "id": "google_mock_user_123",
@@ -34,15 +47,62 @@ def process_oauth_callback() -> Optional[dict]:
             }
             st.query_params.clear()
             return user_data
-        elif True:  # Accept any code for now
-            # Mock user data
-            user_data = {
-                "id": "oauth_mock_user_789",
-                "email": "player@example.com",
-                "name": "D&D Player",
-            }
-            st.query_params.clear()
-            return user_data
+
+        # Real OAuth execution
+        client_id = os.environ.get("DISCORD_CLIENT_ID")
+        client_secret = os.environ.get("DISCORD_CLIENT_SECRET")
+        redirect_uri = os.environ.get("DISCORD_REDIRECT_URI", "http://localhost:8501/")
+
+        if client_id and client_secret:
+            try:
+                # 1. Exchange code for token
+                data = {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                }
+                headers = {"Content-Type": "application/x-www-form-urlencoded"}
+                resp = httpx.post(
+                    "https://discord.com/api/oauth2/token",
+                    data=data,
+                    headers=headers,
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                token_data = resp.json()
+
+                # 2. Get User Info
+                access_token = token_data.get("access_token")
+                user_resp = httpx.get(
+                    "https://discord.com/api/users/@me",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=10,
+                )
+                user_resp.raise_for_status()
+                discord_user = user_resp.json()
+
+                user_data = {
+                    "id": str(discord_user.get("id")),
+                    "email": discord_user.get("email"),
+                    "name": discord_user.get("username"),
+                }
+                st.query_params.clear()
+                return user_data
+            except Exception as e:
+                st.error(f"Discord OAuth failed: {e}")
+                st.query_params.clear()
+                return None
+
+        # Fallback accept unknown code (for Google mock if needed)
+        user_data = {
+            "id": "oauth_mock_user_789",
+            "email": "player@example.com",
+            "name": "D&D Player",
+        }
+        st.query_params.clear()
+        return user_data
     return None
 
 
