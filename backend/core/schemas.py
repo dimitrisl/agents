@@ -231,6 +231,15 @@ class CharacterSchema(BaseModel):
         if not isinstance(data, dict):
             return data
 
+        # 0. Legacy NPC Fallbacks
+        if data.get("is_npc"):
+            if not data.get("char_class"):
+                data["char_class"] = "Monster"
+            if not data.get("race"):
+                data["race"] = "Unknown"
+            if not data.get("background"):
+                data["background"] = "None"
+
         # 1. Base class and Subclass splitting
         char_class = data.get("char_class")
         subclass = data.get("subclass")

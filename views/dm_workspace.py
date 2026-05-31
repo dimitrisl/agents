@@ -78,6 +78,55 @@ def render_dm_workspace():
             _render_initiative_tracker()
 
 
+@st.dialog("NPC Stat Block", width="large")
+def show_npc_stat_block(npc_data):
+    st.markdown(f"## {npc_data.get('char_name', 'Unknown')}")
+    st.caption(
+        f"{npc_data.get('race', 'Unknown')} {npc_data.get('char_class', 'Monster')}"
+    )
+    st.markdown("---")
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown(f"**Armor Class:** {npc_data.get('armor_class', 10)}")
+        st.markdown(f"**Hit Points:** {npc_data.get('hp_max', 10)}")
+        st.markdown(f"**Speed:** {npc_data.get('speed', 30)} ft.")
+        st.markdown("---")
+
+        stats = npc_data.get("stats", {})
+        st_col = st.columns(6)
+        st_col[0].metric("STR", stats.get("STR", 10))
+        st_col[1].metric("DEX", stats.get("DEX", 10))
+        st_col[2].metric("CON", stats.get("CON", 10))
+        st_col[3].metric("INT", stats.get("INT", 10))
+        st_col[4].metric("WIS", stats.get("WIS", 10))
+        st_col[5].metric("CHA", stats.get("CHA", 10))
+
+        st.markdown("---")
+        st.markdown("### Traits")
+        for trait in npc_data.get("features_traits", []):
+            if isinstance(trait, dict):
+                st.markdown(
+                    f"**{trait.get('name', 'Feature')}.** {trait.get('description', '')}"
+                )
+            else:
+                st.markdown(f"**Feature.** {trait}")
+
+        st.markdown("### Actions")
+        for weapon in npc_data.get("weapons", []):
+            if isinstance(weapon, dict):
+                st.markdown(
+                    f"**{weapon.get('name', 'Attack')}.** *Attack:* {weapon.get('attack_bonus', '+0')} to hit. *Hit:* {weapon.get('damage_dice', '')} damage."
+                )
+            else:
+                st.markdown(f"**Attack.** {weapon}")
+
+    with col2:
+        img_path = npc_data.get("char_portrait")
+        if img_path and os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
+
+
 def _render_campaign_selection():
     """Renders the screen to load or create a campaign."""
     with st.container(border=True):
@@ -581,6 +630,13 @@ def _render_campaign_notes():
                     key="m_npc_backstory",
                 )
 
+                st.markdown("**Portrait**")
+                m_portrait = st.file_uploader(
+                    "Upload NPC Portrait (PNG/JPG)",
+                    type=["png", "jpg", "jpeg"],
+                    key="m_npc_portrait",
+                )
+
                 submit_btn = st.form_submit_button(
                     "Create and Add NPC", use_container_width=True
                 )
@@ -643,6 +699,19 @@ def _render_campaign_notes():
                         from backend.services.dm_service import create_manual_npc
                         from backend.core.storage import save_character
 
+                        img_path = None
+                        if m_portrait:
+                            os.makedirs("data/module_pics", exist_ok=True)
+                            safe_name = (
+                                "".join(c for c in m_name if c.isalnum() or c in " _-")
+                                .strip()
+                                .replace(" ", "_")
+                                .lower()
+                            )
+                            img_path = f"data/module_pics/{safe_name}_{str(uuid.uuid4())[:4]}.png"
+                            with open(img_path, "wb") as f:
+                                f.write(m_portrait.getbuffer())
+
                         try:
                             char_dict = create_manual_npc(
                                 name=m_name,
@@ -657,6 +726,7 @@ def _render_campaign_notes():
                                 features_traits=features_parsed,
                                 backstory=m_backstory,
                                 dnd_edition=st.session_state.dnd_edition,
+                                char_portrait=img_path,
                             )
 
                             if save_character(char_dict):
@@ -703,9 +773,7 @@ def _render_campaign_notes():
                         )
 
                         if c3.button("View Sheet", key=f"view_{npc_file}"):
-                            st.session_state.selected_character = npc_data
-                            st.session_state.app_view_mode = "🗡️ Player Dashboard"
-                            st.rerun()
+                            show_npc_stat_block(npc_data)
 
                         if c4.button("To Initiative", key=f"init_v_{npc_file}"):
                             new_entry = {

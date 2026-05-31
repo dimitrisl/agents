@@ -79,6 +79,7 @@ def create_manual_npc(
     features_traits: list = None,
     backstory: str = "",
     dnd_edition: str = "2014 Edition",
+    char_portrait: str = None,
 ) -> dict:
     """Builds and validates a manual NPC character dictionary."""
     import uuid
@@ -142,6 +143,7 @@ def create_manual_npc(
         "equipment": [],
         "languages": ["Common"],
         "tool_proficiencies": [],
+        "char_portrait": char_portrait,
     }
 
     # Validate against CharacterSchema
