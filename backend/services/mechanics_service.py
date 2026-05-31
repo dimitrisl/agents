@@ -168,21 +168,25 @@ def calculate_ac(
     for equip in equipment:
         if isinstance(equip, str):
             equip = {"name": equip, "equipped": True}
-        if not equip.get("equipped", False):
+        if not equip or not equip.get("equipped", False):
             continue
 
-        item_name = equip.get("name", "").lower()
+        item_name = (equip.get("name") or "").lower()
         if "shield" in item_name:
             has_shield = True
 
-        item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
+        item_data = next(
+            (i for i in all_items if i.get("name", "").lower() == item_name), None
+        )
         try:
-            val = int(equip.get("ac_bonus", 0))
+            val = int(equip.get("ac_bonus", 0) or 0)
         except (ValueError, TypeError):
             val = 0
 
         if item_data:
-            if item_data.get("type", "").endswith("Armor") or "ac_base" in item_data:
+            if (item_data.get("type") or "").endswith(
+                "Armor"
+            ) or "ac_base" in item_data:
                 has_armor = True
         else:
             if val >= 10:
@@ -196,10 +200,12 @@ def calculate_ac(
 
     if features:
         for f in features:
-            f_name = f.get("name", "").lower()
+            if not f or not isinstance(f, dict):
+                continue
+            f_name = (f.get("name") or "").lower()
             if "unarmored defense" in f_name:
-                source = f.get("source", "").lower()
-                desc = f.get("description", "").lower()
+                source = (f.get("source") or "").lower()
+                desc = (f.get("description") or "").lower()
                 if "monk" in source or "wisdom" in desc:
                     has_monk_unarmored = True
                 elif "barbarian" in source or "constitution" in desc:
@@ -225,20 +231,24 @@ def calculate_ac(
     for equip in equipment:
         if isinstance(equip, str):
             equip = {"name": equip, "equipped": True}
-        if not equip.get("equipped", False):
+        if not equip or not equip.get("equipped", False):
             continue
 
-        item_name = equip.get("name", "").lower()
-        item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
+        item_name = (equip.get("name") or "").lower()
+        item_data = next(
+            (i for i in all_items if i.get("name", "").lower() == item_name), None
+        )
 
         try:
-            val = int(equip.get("ac_bonus", 0))
+            val = int(equip.get("ac_bonus", 0) or 0)
         except (ValueError, TypeError):
             val = 0
 
         if item_data:
-            if item_data.get("type", "").endswith("Armor") or "ac_base" in item_data:
-                item_base = val if val >= 10 else item_data["ac_base"]
+            if (item_data.get("type") or "").endswith(
+                "Armor"
+            ) or "ac_base" in item_data:
+                item_base = val if val >= 10 else item_data.get("ac_base", 10)
                 base_ac = max(base_ac, item_base)
 
                 if "dex_limit" in item_data:
@@ -270,13 +280,17 @@ def calculate_ac(
     # Warforged bonus
     if features:
         for f in features:
-            if "integrated protection" in f.get("name", "").lower():
+            if not f or not isinstance(f, dict):
+                continue
+            if "integrated protection" in (f.get("name") or "").lower():
                 bonus_ac += 1
 
     # Defense Fighting Style bonus (requires wearing armor, meaning base_ac > 10)
     if features and base_ac > 10:
         for f in features:
-            name_lower = f.get("name", "").lower()
+            if not f or not isinstance(f, dict):
+                continue
+            name_lower = (f.get("name") or "").lower()
             if "defense" in name_lower and (
                 "fighting style" in name_lower or name_lower.strip() == "defense"
             ):

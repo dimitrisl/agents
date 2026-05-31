@@ -15,7 +15,7 @@ def _ensure_dir():
     os.makedirs(PORTRAIT_DIR, exist_ok=True)
 
 
-def generate_portrait_url(char_data: dict) -> str:
+def generate_portrait_url(char_data: dict, force: bool = False) -> str:
     """
     Generates a character portrait using image.pollinations.ai,
     downloads it, saves it to a local folder, and returns the local path.
@@ -25,7 +25,8 @@ def generate_portrait_url(char_data: dict) -> str:
     # If the character already has a local portrait that exists, just return it.
     existing_portrait = char_data.get("char_portrait")
     if (
-        existing_portrait
+        not force
+        and existing_portrait
         and existing_portrait.startswith("data/portraits/")
         and os.path.exists(existing_portrait)
     ):
@@ -56,7 +57,11 @@ def generate_portrait_url(char_data: dict) -> str:
 
     # Use a stable seed based on char_id to keep the URL consistent
     char_id = char_data.get("char_id") or str(uuid.uuid4())[:8]
-    seed = int(hashlib.md5(char_id.encode()).hexdigest(), 16) % 999999
+    if force:
+        seed_src = f"{char_id}_{uuid.uuid4()}"
+    else:
+        seed_src = char_id
+    seed = int(hashlib.md5(seed_src.encode()).hexdigest(), 16) % 999999
 
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed={seed}&nologo=true"
 

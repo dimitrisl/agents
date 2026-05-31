@@ -108,6 +108,65 @@ def get_item_effect(name: str) -> str:
 
 def render_player_dashboard(accent_color: str):
     """Renders the main Player Dashboard view."""
+    # Sidebar navigation for the Player Dashboard
+    has_active_hero = bool(
+        st.session_state.get("char_name")
+        and st.session_state.get("char_name") != "New Hero"
+    )
+
+    with st.sidebar:
+        st.markdown("### ⚙️ Hero Controls")
+
+        panel_options = ["📂 Character Vault"]
+        if has_active_hero:
+            panel_options.insert(0, "🛡️ Active Character Sheet")
+
+        default_index = (
+            0
+            if (st.session_state.get("character_active", False) and has_active_hero)
+            else (len(panel_options) - 1)
+        )
+
+        selected_panel = st.radio(
+            "Navigation",
+            panel_options,
+            index=default_index,
+            label_visibility="collapsed",
+        )
+
+        if (
+            selected_panel == "📂 Character Vault"
+            and st.session_state.get("character_active", False)
+            and st.session_state.get("player_view") != "forge"
+        ):
+            st.session_state.character_active = False
+            st.rerun()
+        elif selected_panel == "🛡️ Active Character Sheet" and not st.session_state.get(
+            "character_active", False
+        ):
+            st.session_state.character_active = True
+            st.rerun()
+
+        if (
+            st.session_state.character_active
+            and st.session_state.player_view == "sheet"
+        ):
+            if st.button(
+                "🔄 Sync & Refresh Sheet",
+                type="primary",
+                width="stretch",
+                key="side_sync",
+            ):
+                trigger_sync()
+                st.rerun()
+            if st.button("💾 Save to File", width="stretch", key="side_save"):
+                if st.session_state.char_name.strip():
+                    trigger_sync()
+                    st.success("Character Saved!")
+                else:
+                    st.warning("⚠️ Please name your character before saving.")
+        st.markdown("---")
+
     if not st.session_state.character_active:
         render_selection_screen()
     else:
@@ -165,30 +224,6 @@ def render_player_dashboard(accent_color: str):
                 st.rerun()
 
         if st.session_state.player_view == "sheet":
-            # --- Sidebar Global Actions ---
-            with st.sidebar:
-                st.markdown("### ⚙️ Hero Controls")
-                if st.button(
-                    "🔄 Sync & Refresh Sheet",
-                    type="primary",
-                    width="stretch",
-                    key="side_sync",
-                ):
-                    trigger_sync()
-                    st.rerun()
-
-                if st.button("💾 Save to File", width="stretch", key="side_save"):
-                    if st.session_state.char_name.strip():
-                        trigger_sync()
-                        from backend.core.storage import save_character as save_to_disk
-
-                        char_data = get_character_dict(st.session_state)
-                        save_to_disk(char_data)
-                        st.success("Character Saved!")
-                    else:
-                        st.warning("⚠️ Please name your character before saving.")
-                st.markdown("---")
-
             # --- Main Content ---
             render_active_character(accent_color)
         else:
@@ -201,86 +236,7 @@ def render_selection_screen():
     st.markdown("### Choose your path to begin your journey.")
     st.markdown("---")
 
-    col_load, col_forge = st.columns(2)
-
-    with col_load:
-        st.subheader("🛡️ Equip a Hero")
-        st.write("Load one of your previously saved characters from the vault.")
-        saved_chars = list_characters()
-        if saved_chars:
-            active_edition = st.session_state.get("dnd_edition", "2014 Edition")
-            is_active_2024 = "2024" in active_edition
-
-            filtered_chars = []
-            for char_file in saved_chars:
-                char_data = load_character(char_file)
-                if char_data:
-                    if char_data.get("is_npc", False):
-                        continue
-                    char_ed = char_data.get("dnd_edition", "2014 Edition")
-                    is_char_2024 = "2024" in char_ed
-                    if is_active_2024 == is_char_2024:
-                        filtered_chars.append((char_file, char_data))
-
-            if filtered_chars:
-                for char_file, char_data in filtered_chars:
-                    # Extract full name from filename (format: name_with_underscores_uuid.json)
-                    name_parts = char_file.replace(".json", "").split("_")
-                    display_name = " ".join(name_parts[:-1]).title()
-
-                    c_col1, c_col2 = st.columns([4, 1])
-                    edition = char_data.get("dnd_edition", "2014 Edition")
-                    edition_tag = f" ({'2024' if '2024' in edition else '2014'})"
-
-                    if c_col1.button(
-                        f"🛡️ {display_name}{edition_tag}",
-                        width="stretch",
-                        key=f"load_{char_file}",
-                    ):
-                        update_session_from_dict(st.session_state, char_data)
-                        trigger_sync()
-                        st.session_state.character_active = True
-                        st.session_state.player_view = "sheet"
-                        st.session_state.last_saved_char = get_character_dict(
-                            st.session_state
-                        )
-                        st.rerun()
-
-                    # Delete button with double-click confirmation pattern
-                    delete_key = f"confirm_delete_{char_file}"
-                    if delete_key not in st.session_state:
-                        st.session_state[delete_key] = False
-
-                    if not st.session_state[delete_key]:
-                        if c_col2.button(
-                            "🗑️",
-                            help=f"Delete {display_name}",
-                            key=f"del_{char_file}",
-                            width="stretch",
-                        ):
-                            st.session_state[delete_key] = True
-                            st.rerun()
-                    else:
-                        if c_col2.button(
-                            "⚠️ OK?",
-                            help="Confirm Delete",
-                            key=f"conf_{char_file}",
-                            width="stretch",
-                            type="primary",
-                        ):
-                            if delete_character(char_file):
-                                st.toast(f"Deleted {display_name}")
-                                del st.session_state[delete_key]
-                                st.rerun()
-                        if st.button("Cancel", key=f"can_{char_file}"):
-                            st.session_state[delete_key] = False
-                            st.rerun()
-            else:
-                st.info(
-                    f"No saved heroes found for the {'2024 Revision' if is_active_2024 else '2014 Edition'}."
-                )
-        else:
-            st.info("No saved heroes found in the vault.")
+    col_forge, col_load = st.columns(2)
 
     with col_forge:
         st.subheader("✨ Forge a New Hero")
@@ -356,6 +312,17 @@ def render_selection_screen():
                                 )
 
                                 update_session_from_dict(st.session_state, parsed_data)
+
+                                # Sync edition state on import
+                                is_char_2024 = "2024" in import_edition
+                                st.session_state.dnd_edition_toggle = is_char_2024
+                                st.session_state.dnd_edition = (
+                                    EDITION_2024 if is_char_2024 else EDITION_2014
+                                )
+                                st.query_params["edition"] = (
+                                    "2024" if is_char_2024 else "2014"
+                                )
+
                                 st.session_state.character_active = True
                                 st.session_state.player_view = "sheet"
                                 saved_dict = get_character_dict(st.session_state)
@@ -369,6 +336,92 @@ def render_selection_screen():
                                 )
                     except Exception as e:
                         st.error(f"Error reading PDF: {e}")
+
+    with col_load:
+        st.subheader("🛡️ Equip a Hero")
+        st.write("Load one of your previously saved characters from the vault.")
+        saved_chars = list_characters()
+        if saved_chars:
+            active_edition = st.session_state.get("dnd_edition", "2014 Edition")
+            is_active_2024 = "2024" in active_edition
+
+            filtered_chars = []
+            for char_file in saved_chars:
+                char_data = load_character(char_file)
+                if char_data:
+                    if char_data.get("is_npc", False):
+                        continue
+                    char_ed = char_data.get("dnd_edition", "2014 Edition")
+                    is_char_2024 = "2024" in char_ed
+                    if is_active_2024 == is_char_2024:
+                        filtered_chars.append((char_file, char_data))
+
+            if filtered_chars:
+                for char_file, char_data in filtered_chars:
+                    # Extract full name from filename (format: name_with_underscores_uuid.json)
+                    name_parts = char_file.replace(".json", "").split("_")
+                    display_name = " ".join(name_parts[:-1]).title()
+
+                    c_col1, c_col2 = st.columns([4, 1])
+                    edition = char_data.get("dnd_edition", "2014 Edition")
+                    edition_tag = f" ({'2024' if '2024' in edition else '2014'})"
+
+                    if c_col1.button(
+                        f"🛡️ {display_name}{edition_tag}",
+                        width="stretch",
+                        key=f"load_{char_file}",
+                    ):
+                        update_session_from_dict(st.session_state, char_data)
+
+                        # Sync active ruleset settings based on loaded character
+                        is_char_2024 = "2024" in edition
+                        st.session_state.dnd_edition_toggle = is_char_2024
+                        st.session_state.dnd_edition = (
+                            EDITION_2024 if is_char_2024 else EDITION_2014
+                        )
+                        st.query_params["edition"] = "2024" if is_char_2024 else "2014"
+
+                        trigger_sync()
+                        st.session_state.character_active = True
+                        st.session_state.player_view = "sheet"
+                        st.session_state.last_saved_char = get_character_dict(
+                            st.session_state
+                        )
+                        st.rerun()
+
+                    # Delete button with double-click confirmation pattern
+                    delete_key = f"confirm_delete_{char_file}"
+                    if delete_key not in st.session_state:
+                        st.session_state[delete_key] = False
+
+                    if not st.session_state[delete_key]:
+                        if c_col2.button(
+                            "🗑️",
+                            help=f"Delete {display_name}",
+                            key=f"del_{char_file}",
+                            width="stretch",
+                        ):
+                            st.session_state[delete_key] = True
+                            st.rerun()
+                    else:
+                        if c_col2.button(
+                            "⚠️ OK?",
+                            help="Confirm Delete",
+                            key=f"conf_{char_file}",
+                            width="stretch",
+                            type="primary",
+                        ):
+                            if delete_character(char_file):
+                                st.toast(f"Deleted {display_name}")
+                                del st.session_state[delete_key]
+                                st.rerun()
+                        if st.button("Cancel", key=f"can_{char_file}"):
+                            st.session_state[delete_key] = False
+                            st.rerun()
+            else:
+                st.info("No saved heroes found in the vault.")
+        else:
+            st.info("No saved heroes found in the vault.")
 
 
 def render_active_character(accent_color: str):
@@ -429,7 +482,19 @@ def render_active_character(accent_color: str):
                         "hit_dice",
                     ]:
                         continue
-                    if v != st.session_state.last_saved_char.get(k):
+
+                    saved_val = st.session_state.last_saved_char.get(k)
+
+                    # Custom comparison helper to ignore list order for simple lists
+                    def is_equal(val1, val2):
+                        if isinstance(val1, list) and isinstance(val2, list):
+                            if all(
+                                isinstance(x, (str, int, float)) for x in val1
+                            ) and all(isinstance(x, (str, int, float)) for x in val2):
+                                return sorted(val1) == sorted(val2)
+                        return val1 == val2
+
+                    if not is_equal(v, saved_val):
                         state_changes = True
                         break
             else:
@@ -437,9 +502,9 @@ def render_active_character(accent_color: str):
 
             if editor_changes or state_changes:
                 trigger_sync()
-                new_char = get_character_dict(st.session_state)
-                save_character(new_char)
-                st.session_state.last_saved_char = new_char.copy()
+                # trigger_sync() already saved the changes to the database.
+                # Just capture the latest synchronized dict for last_saved_char cache.
+                st.session_state.last_saved_char = get_character_dict(st.session_state)
                 st.session_state.needs_validation = True
 
             # Invalidate editor dataframes to force recreation of UI components
@@ -477,9 +542,7 @@ def render_active_character(accent_color: str):
             "💾 Save Changes", use_container_width=True, type="primary"
         ):
             trigger_sync()
-            new_char = get_character_dict(st.session_state)
-            save_character(new_char)
-            st.session_state.last_saved_char = new_char.copy()
+            st.session_state.last_saved_char = get_character_dict(st.session_state)
             st.session_state.needs_validation = True
             st.toast("⚡ Changes saved to vault!")
             st.rerun()
@@ -543,6 +606,22 @@ def render_active_character(accent_color: str):
                     st.session_state.last_saved_char = new_char.copy()
                     st.success("Portrait updated successfully!")
                     st.rerun()
+
+            st.markdown("---")
+            if st.button("🔮 Generate Portrait with AI", use_container_width=True):
+                with st.spinner("Generating character portrait with AI..."):
+                    char_dict = get_character_dict(st.session_state)
+                    new_portrait_path = generate_portrait_url(char_dict, force=True)
+                    if new_portrait_path:
+                        st.session_state.char_portrait = new_portrait_path
+                        trigger_sync()
+                        new_char = get_character_dict(st.session_state)
+                        save_character(new_char)
+                        st.session_state.last_saved_char = new_char.copy()
+                        st.success("Portrait generated successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to generate portrait with AI.")
 
     if st.session_state.validation_result:
         val = st.session_state.validation_result
@@ -1032,7 +1111,83 @@ def _render_core_stats(edit_mode: bool):
 
         with col_rest:
             st.markdown("**Camp & Rest**")
-            if st.button("🔥 Long Rest", type="primary", use_container_width=True):
+
+            # Short Rest Popover
+            with st.popover("⛺ Short Rest", use_container_width=True):
+                st.markdown("### Short Rest")
+                st.write("Spend Hit Dice to regain HP.")
+
+                total_hd = st.session_state.char_level
+                used_hd = st.session_state.get("hit_dice_used", 0)
+                available_hd = max(0, total_hd - used_hd)
+
+                st.write(f"Available Hit Dice: **{available_hd} / {total_hd}**")
+
+                if available_hd > 0:
+                    hd_to_spend = st.number_input(
+                        "Number of Hit Dice to spend",
+                        min_value=1,
+                        max_value=available_hd,
+                        value=1,
+                        step=1,
+                        key="short_rest_hd_count",
+                    )
+
+                    if st.button(
+                        "Roll & Heal", type="primary", use_container_width=True
+                    ):
+                        import random
+                        from backend.services.mechanics_service import get_modifier
+
+                        con_score = st.session_state.stats.get("CON", 10)
+                        con_mod = get_modifier(con_score)
+
+                        # Get hit die size (e.g. "d8" or "d10")
+                        hit_die_str = st.session_state.get("hit_dice", "d8")
+                        try:
+                            # Extract number after 'd'
+                            die_size = int(hit_die_str.lower().split("d")[-1])
+                        except Exception:
+                            die_size = 8
+
+                        rolls = [
+                            random.randint(1, die_size) for _ in range(hd_to_spend)
+                        ]
+                        roll_sum = sum(rolls)
+                        con_bonus = con_mod * hd_to_spend
+                        total_healed = max(0, roll_sum + con_bonus)
+
+                        old_hp = st.session_state.hp_current
+                        new_hp = min(st.session_state.hp_max, old_hp + total_healed)
+                        st.session_state.hp_current = new_hp
+                        st.session_state.hit_dice_used = used_hd + hd_to_spend
+
+                        # Add roll to roll history log
+                        roll_msg = f"Short Rest: Spent {hd_to_spend}d{die_size} + {con_bonus} CON. Rolled {rolls}. Healed {total_healed} HP."
+                        if "roll_history" not in st.session_state:
+                            st.session_state.roll_history = []
+                        st.session_state.roll_history.insert(0, roll_msg)
+
+                        save_character(get_character_dict(st.session_state))
+                        st.success(
+                            f"Healed for {total_healed} HP! ({old_hp} ➡️ {new_hp})"
+                        )
+                        st.rerun()
+                else:
+                    st.warning("No Hit Dice remaining.")
+
+            # Trance / Long Rest selection
+            is_elf = "elf" in str(st.session_state.get("race", "")).lower()
+            if is_elf:
+                rest_label = "🧘 Elven Trance"
+                rest_toast = "Trance completed! 4 hours of meditation restored HP, Hit Dice, and Spell Slots."
+            else:
+                rest_label = "🔥 Long Rest"
+                rest_toast = (
+                    "Long Rest completed! HP, Hit Dice, and Spell Slots restored."
+                )
+
+            if st.button(rest_label, type="primary", use_container_width=True):
                 st.session_state.hp_current = st.session_state.hp_max
                 st.session_state.hit_dice_used = max(
                     0,
@@ -1044,7 +1199,7 @@ def _render_core_stats(edit_mode: bool):
                     data["used"] = 0
                 st.session_state.spell_slots = slots
                 save_character(get_character_dict(st.session_state))
-                st.toast("Long Rest completed! HP and Spell Slots restored.")
+                st.toast(rest_toast)
                 st.rerun()
 
         st.markdown("---")
@@ -1408,32 +1563,6 @@ def _render_combat_inventory(edit_mode: bool):
                     del st.session_state["weapons_df_editor"]
                 st.rerun()
 
-        # Individual Removal Section
-        if st.session_state.weapons:
-            st.markdown("---")
-            st.caption("🗑️ Weapon Removal")
-            del_w_col, del_btn_col = st.columns([3, 1])
-            w_options = [
-                f"{i + 1}. {w.get('name', 'Unknown')}"
-                for i, w in enumerate(st.session_state.weapons)
-            ]
-            selected_to_del = del_w_col.selectbox(
-                "Select weapon to remove",
-                options=w_options,
-                label_visibility="collapsed",
-                key="weapon_to_delete_select",
-            )
-            if del_btn_col.button(
-                "🗑️ Remove Selected", use_container_width=True, type="secondary"
-            ):
-                idx = int(selected_to_del.split(".")[0]) - 1
-                if 0 <= idx < len(st.session_state.weapons):
-                    st.session_state.weapons.pop(idx)
-                    if "weapons_df_editor" in st.session_state:
-                        del st.session_state["weapons_df_editor"]
-                    trigger_sync()
-                    save_character(get_character_dict(st.session_state))
-                    st.rerun()
     else:
         weapons = st.session_state.get("weapons", [])
         if weapons is None:
@@ -2348,7 +2477,13 @@ def render_character_creator():
                 "Target Level", min_value=1, max_value=20, value=1
             )
         with col_g:
-            forge_gender = st.selectbox("Gender", ["AI Choice"] + GENDERS)
+            forge_gender_selected = st.selectbox("Gender", ["AI Choice"] + GENDERS)
+            if forge_gender_selected == "Other":
+                forge_gender = st.text_input(
+                    "Specify Gender", placeholder="e.g. Agender, Fluid"
+                )
+            else:
+                forge_gender = forge_gender_selected
 
         # Subclass Logic
         subclass_options = ["AI Choice"]
@@ -2394,7 +2529,11 @@ def render_character_creator():
         with col_align:
             forge_alignment = st.selectbox("Alignment", ["AI Choice"] + ALIGNMENTS)
         with col_rolled:
-            use_rolled = st.toggle("🎲 Use Rolled Stats", value=False)
+            use_rolled = st.toggle(
+                "🎲 Use Rolled Stats",
+                value=False,
+                help="Roll 4d6 and drop the lowest die for each of the six ability scores (Classic D&D Method). If disabled, standard array (15, 14, 13, 12, 10, 8) will be used.",
+            )
 
     if st.session_state.temp_forged_char is None:
         if st.button("Generate Character", type="primary", width="stretch"):
@@ -2452,7 +2591,7 @@ def render_character_creator():
 
             if st.button("🔄 Regenerate Portrait", width="stretch"):
                 with st.spinner("Forging visual identity..."):
-                    portrait_url = generate_portrait_url(char)
+                    portrait_url = generate_portrait_url(char, force=True)
                     st.session_state.temp_portrait = portrait_url
                     st.rerun()
 
@@ -2473,11 +2612,11 @@ def render_character_creator():
                     st.session_state.temp_portrait = None
 
                 saved_dict = get_character_dict(st.session_state)
-                if save_character(saved_dict):
-                    logger.info(f"Auto-saved new character: {char['char_name']}")
+                logger.info(f"Auto-saved new character: {char['char_name']}")
                 st.session_state.last_saved_char = saved_dict.copy()
                 st.session_state.temp_forged_char = None
                 st.session_state.player_view = "sheet"
+                st.session_state.edit_mode = True
                 st.rerun()
 
             if c_btn2.button("❌ Discard", width="stretch"):
@@ -2988,7 +3127,6 @@ def run_level_up_wizard():
             del st.session_state.lv_up_hp_roll
 
         trigger_sync()
-        save_character(get_character_dict(st.session_state))
         st.success(f"Ascension Complete! Level {target_lv} reached.")
         st.rerun()
 

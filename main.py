@@ -66,7 +66,7 @@ with st.sidebar:
         st.session_state.user = None
         st.rerun()
 
-    # Determine theme/logo/title colors based on the toggle state BEFORE rendering the toggle
+    # Determine theme/logo/title colors based on the toggle state
     is_2024 = st.session_state.get("dnd_edition_toggle", False)
     logo_color = "#bf5af2" if is_2024 else "#ff4b4b"
     edition_label_sub = "5.5e Edition" if is_2024 else "5e Legacy"
@@ -112,7 +112,7 @@ with st.sidebar:
     )
 
     # Theme configuration
-    if toggle_val:
+    if is_2024:
         primary_color = "#bf5af2"  # Modern Violet
         accent_color = "#0a84ff"  # Modern Cobalt Blue
     else:

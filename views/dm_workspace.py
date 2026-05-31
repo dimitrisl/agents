@@ -846,36 +846,48 @@ def _render_party_tracker():
                 def format_char_filename(fname):
                     return fname.replace(".json", "").replace("_", " ").title()
 
-                char_to_add = st.selectbox(
-                    "Select Character to Add",
+                chars_to_add = st.multiselect(
+                    "Select Character(s) to Add",
                     filtered_chars,
                     format_func=format_char_filename,
                     key="dm_ingest_select",
                 )
-                if st.button("Add to Party", key="add_to_party_btn", width="stretch"):
-                    char_data = load_character(char_to_add)
-                    if char_data:
-                        if "char_id" not in char_data:
-                            char_data["char_id"] = str(uuid.uuid4())[:8]
-                        if any(
-                            c.get("char_id") == char_data.get("char_id")
-                            for c in st.session_state.party
-                        ):
+                if st.button(
+                    "Add Selected to Party", key="add_to_party_btn", width="stretch"
+                ):
+                    if not chars_to_add:
+                        st.warning("Please select at least one character.")
+                    else:
+                        from backend.core.storage import join_campaign
+
+                        added_names = []
+                        already_in_party = []
+
+                        for char_file in chars_to_add:
+                            char_data = load_character(char_file)
+                            if char_data:
+                                if "char_id" not in char_data:
+                                    char_data["char_id"] = str(uuid.uuid4())[:8]
+
+                                if any(
+                                    c.get("char_id") == char_data.get("char_id")
+                                    for c in st.session_state.party
+                                ):
+                                    already_in_party.append(char_data["char_name"])
+                                else:
+                                    st.session_state.party.append(char_data)
+                                    join_campaign(
+                                        st.session_state.active_campaign_name, char_file
+                                    )
+                                    added_names.append(char_data["char_name"])
+
+                        if added_names:
+                            st.success(f"Successfully added: {', '.join(added_names)}")
+                        if already_in_party:
                             st.warning(
-                                f"{char_data['char_name']} is already in the party."
+                                f"Already in party: {', '.join(already_in_party)}"
                             )
-                        else:
-                            st.session_state.party.append(char_data)
-
-                            # Persist to campaign file
-                            from backend.core.storage import join_campaign
-
-                            join_campaign(
-                                st.session_state.active_campaign_name, char_to_add
-                            )
-
-                            st.success(f"Added {char_data['char_name']} to the party!")
-                            st.rerun()
+                        st.rerun()
             else:
                 st.info(
                     f"No characters found matching the {'2024 Revision' if is_active_2024 else '2014 Edition'}."
