@@ -215,6 +215,8 @@ def render_selection_screen():
             for char_file in saved_chars:
                 char_data = load_character(char_file)
                 if char_data:
+                    if char_data.get("is_npc", False):
+                        continue
                     char_ed = char_data.get("dnd_edition", "2014 Edition")
                     is_char_2024 = "2024" in char_ed
                     if is_active_2024 == is_char_2024:
@@ -1351,7 +1353,7 @@ def _render_combat_inventory(edit_mode: bool):
             column_config={
                 "name": st.column_config.TextColumn("Weapon Name", width="large"),
                 "magic_bonus": st.column_config.NumberColumn(
-                    "+X",
+                    "Magic Bonus (+X)",
                     width="small",
                     help="Magic bonus (e.g. +1, +2)",
                     step=1,
@@ -1377,6 +1379,8 @@ def _render_combat_inventory(edit_mode: bool):
                     width="medium",
                     help="Properties (e.g., Finesse, Light, Versatile)",
                 ),
+                "damage": None,
+                "ability_modifier": None,
             },
         )
         w_add_btn, w_add_qty = st.columns([5, 1])

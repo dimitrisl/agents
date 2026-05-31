@@ -834,6 +834,8 @@ def _render_party_tracker():
             for char_file in available_chars:
                 char_data = load_character(char_file)
                 if char_data:
+                    if char_data.get("is_npc", False):
+                        continue
                     char_ed = char_data.get("dnd_edition", "2014 Edition")
                     is_char_2024 = "2024" in char_ed
                     if is_active_2024 == is_char_2024:

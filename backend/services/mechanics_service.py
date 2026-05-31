@@ -145,6 +145,8 @@ def calculate_ac(
     dex_score: int,
     equipment: List[Dict[str, Any]],
     features: List[Dict[str, Any]] = None,
+    wis_score: int = None,
+    con_score: int = None,
 ) -> int:
     """
     Calculates AC based on DEX and equipped items from KB.
@@ -159,46 +161,96 @@ def calculate_ac(
     bonus_ac = 0
     max_dex = 10
 
+    has_armor = False
+    has_shield = False
+
+    # First pass: determine if armor/shield is equipped
     for equip in equipment:
-        # Normalize: accept both strings and dicts
         if isinstance(equip, str):
             equip = {"name": equip, "equipped": True}
-        # Check if equipped
         if not equip.get("equipped", False):
             continue
 
         item_name = equip.get("name", "").lower()
-        item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
+        if "shield" in item_name:
+            has_shield = True
 
-        # Get the value from the "AC" column of the equipment table (saved as ac_bonus)
+        item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
         try:
             val = int(equip.get("ac_bonus", 0))
         except (ValueError, TypeError):
             val = 0
 
         if item_data:
-            # If the item has a type like "Heavy Armor", "Medium Armor", or "Light Armor" (or has ac_base)
             if item_data.get("type", "").endswith("Armor") or "ac_base" in item_data:
-                # If they set AC to a base armor value (>= 10), use it as the base AC
+                has_armor = True
+        else:
+            if val >= 10:
+                has_armor = True
+
+    # Check for unarmored features
+    has_monk_unarmored = False
+    has_barbarian_unarmored = False
+    has_draconic_resilience = False
+    has_mage_armor = False
+
+    if features:
+        for f in features:
+            f_name = f.get("name", "").lower()
+            if "unarmored defense" in f_name:
+                source = f.get("source", "").lower()
+                desc = f.get("description", "").lower()
+                if "monk" in source or "wisdom" in desc:
+                    has_monk_unarmored = True
+                elif "barbarian" in source or "constitution" in desc:
+                    has_barbarian_unarmored = True
+            elif "draconic resilience" in f_name:
+                has_draconic_resilience = True
+            elif "mage armor" in f_name:
+                has_mage_armor = True
+
+    if not has_armor:
+        unarmored_bases = [10]
+        if has_monk_unarmored and not has_shield and wis_score is not None:
+            unarmored_bases.append(10 + get_modifier(wis_score))
+        if has_barbarian_unarmored and con_score is not None:
+            unarmored_bases.append(10 + get_modifier(con_score))
+        if has_draconic_resilience:
+            unarmored_bases.append(13)
+        if has_mage_armor:
+            unarmored_bases.append(13)
+        base_ac = max(base_ac, max(unarmored_bases))
+
+    # Second pass: calculate AC adjustments
+    for equip in equipment:
+        if isinstance(equip, str):
+            equip = {"name": equip, "equipped": True}
+        if not equip.get("equipped", False):
+            continue
+
+        item_name = equip.get("name", "").lower()
+        item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
+
+        try:
+            val = int(equip.get("ac_bonus", 0))
+        except (ValueError, TypeError):
+            val = 0
+
+        if item_data:
+            if item_data.get("type", "").endswith("Armor") or "ac_base" in item_data:
                 item_base = val if val >= 10 else item_data["ac_base"]
                 base_ac = max(base_ac, item_base)
 
-                # Check for dex limit
                 if "dex_limit" in item_data:
                     max_dex = min(max_dex, item_data["dex_limit"])
 
-                # If they set it to a small bonus/penalty (e.g. +1 or -1), treat it as an extra bonus
                 if val != 0 and val < 10:
                     bonus_ac += val
             else:
-                # For non-armor items (e.g. Shield, Cloak of Protection)
-                # If val is non-zero, it overrides the bonus. Otherwise use DB default ac_bonus.
                 item_bonus = val if val != 0 else item_data.get("ac_bonus", 0)
                 bonus_ac += item_bonus
         else:
-            # Custom item (not in DB)
             if val >= 10:
-                # Treat as base AC
                 base_ac = max(base_ac, val)
                 if (
                     "heavy" in item_name
@@ -213,7 +265,6 @@ def calculate_ac(
                 ):
                     max_dex = min(max_dex, 2)
             else:
-                # Treat as AC bonus
                 bonus_ac += val
 
     # Warforged bonus
@@ -709,7 +760,11 @@ def sync_character_stats(
 
     # AC Calculation
     char_data["armor_class"] = calculate_ac(
-        dex_score, char_data.get("equipment", []), char_data.get("features_traits", [])
+        dex_score,
+        char_data.get("equipment", []),
+        char_data.get("features_traits", []),
+        wis_score=wis_score,
+        con_score=con_score,
     )
 
     # Passive Perception

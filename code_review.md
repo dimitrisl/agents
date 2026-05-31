@@ -55,57 +55,36 @@ This document outlines key technical and architectural findings identified durin
 
 ---
 
-## ⚠️ OPEN — LRU Cache Memory Leak on Instance Methods
+## ✅ DONE — LRU Cache Memory Leak on Instance Methods
 * **Location:** [`rules_repository.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/rules_repository.py#L29-L96)
-* **Finding:** `@lru_cache` is applied to 4 instance methods (`get_class_progression`, `get_all_feats`, `get_spell_slots`, `get_all_classes`). Because `@lru_cache` includes `self` in the cache key, each new `RulesRepository()` instance holds a cached reference that prevents it from being garbage collected — causing a gradual memory leak.
-* **Recommendation:** Move the cached methods to `@staticmethod` or `@classmethod` (the class has no mutable state), or replace `@lru_cache` with a module-level dict cache keyed only by the arguments.
-* **Risk:** Low in short-lived Streamlit sessions, but grows over time in long-running deployments.
+* **Status:** **Implemented.** Methods now utilize module-level dictionaries for caching (`_class_progression_cache`, `_available_classes_cache`, `_feats_cache`, etc.). This eliminates the memory leak caused by `self` in instance-level `@lru_cache` decorators, allowing repository instances to be garbage collected normally.
 
 ---
 
-## ⚠️ OPEN — Pydantic Defaults Bypass in State Manager
-* **Location:** [`state_manager.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/state_manager.py#L240-L251) (`update_session_from_dict`)
-* **Finding:** When a field is missing from a loaded character dict, the function falls back to hardcoded defaults, notably `default = 0` for numeric fields like `armor_class`, `speed`, and `proficiency_bonus`. This overrides the correct Pydantic schema defaults (`armor_class=10`, `speed=30`, `proficiency_bonus=2`), causing characters with missing fields to display corrupted `0` stats.
-* **Recommendation:** Replace the hardcoded fallbacks with a lookup against the schema's own field definitions:
-  ```python
-  from backend.core.schemas import CharacterSchema
-  default = CharacterSchema.model_fields[field].default
-  ```
-* **Risk:** Medium — any character loaded from MongoDB that is missing one of these fields will display broken stats in the UI.
+## ✅ DONE — Pydantic Defaults Bypass in State Manager
+* **Location:** [`state_manager.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/state_manager.py#L240-L251`) (`update_session_from_dict`)
+* **Status:** **Implemented.** The fallback logic now inspects `CharacterSchema.model_fields` to extract correct defaults defined in the Pydantic schema instead of hardcoding `0` for fields like `armor_class`, `speed`, and `proficiency_bonus`.
 
 ---
 
-## ⚠️ OPEN — In-Place Mutation of Domain Objects
+## ✅ DONE — In-Place Mutation of Domain Objects
 * **Location:** [`mechanics_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/mechanics_service.py) (`sync_character_stats`)
-* **Finding:** `sync_character_stats` mutates the `char_data` dictionary directly (e.g., `char_data["equipment"] = ...`). In Streamlit, where session state dicts are persistent across reruns, this can cause unintended side-effects and difficult-to-trace UI bugs.
-* **Recommendation:** Work on a deep copy instead:
-  ```python
-  import copy
-  data = copy.deepcopy(char_data)
-  # modify data ...
-  return data
-  ```
-* **Risk:** Medium — the bug surface depends on how many callers rely on the returned vs. mutated value.
+* **Status:** **Implemented.** `sync_character_stats` now begins by making a `copy.deepcopy(char_data)`. All updates are applied to this local copy to prevent unintended side-effects and race conditions in persistent Streamlit session states.
 
 ---
 
-## ⚠️ OPEN — Over-Lenient Auto-Healing on Save/Load
+## ✅ DONE — Over-Lenient Auto-Healing on Save/Load
 * **Location:** [`character_repository.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/character_repository.py#L35-L55) (`save`, `load`)
-* **Finding:** When Pydantic validation fails during save or load, the repository silently falls back to a "recovery" path — merging corrupt data with defaults — and, if that also fails, stores raw unvalidated data in MongoDB. This hides bugs at the root and can pollute the database with corrupted records.
-* **Recommendation:** Raise a structured exception (e.g., `ValueError`) on validation failure and let the calling UI layer handle it gracefully (show an error toast rather than silently saving bad data).
-* **Risk:** Medium — corrupted records can silently accumulate in production MongoDB.
+* **Status:** **Implemented.** Strict schema validation is enforced during saves and loads. If validation fails, a structured `ValueError` is raised, preventing database pollution with corrupted records.
 
 ---
 
-## ⚠️ OPEN — Fragile Regex & Substring Heuristics
+## ✅ DONE — Fragile Regex & Substring Heuristics
 * **Location:** [`mechanics_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/mechanics_service.py) (`calculate_weapon_stats`), [`rules_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/rules_service.py) (`regex_parse_feat_attributes`)
-* **Finding:**
-  * Weapons determine their scaling stat (STR vs DEX) based on simple substring matching of the weapon name (`"bow"`, `"dagger"`, etc.). An exotic weapon (e.g., `"Elven Blade"`) that doesn't match any keyword will silently default to Strength.
-  * Feat attribute values are parsed from raw text using rigid regex patterns. Minor formatting differences (spacing, punctuation) from imported PDFs cause silent parsing failures.
-* **Recommendation:**
-  * Add `ability_modifier` or `weapon_type` override fields to the `Weapon` Pydantic model.
-  * Normalize feat text (lowercase, strip punctuation) before running regex.
-* **Risk:** Low for standard SRD content, higher for homebrew or PDF-imported characters.
+* **Status:** **Implemented.**
+  * `Weapon` and `Equipment` schemas support an `is_custom` flag to bypass auto-calculations. Weapon stats support explicit `ability_modifier` overrides.
+  * Feat parsing normalizes whitespace and punctuation prior to running regex matches.
+  * `calculate_ac` now supports Monk & Barbarian Unarmored Defense (utilizing WIS and CON stats), Draconic Resilience, and Mage Armor base AC values.
 
 ---
 

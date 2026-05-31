@@ -105,6 +105,57 @@ class TestCalculateAc:
         equipment = [{"name": "Unknown Armor", "equipped": True, "ac_bonus": 3}]
         assert calculate_ac(10, equipment, []) == 13  # 10 + 0 + 3
 
+    def test_monk_unarmored_defense(self):
+        """Monk Unarmored Defense adds WIS modifier to AC when unarmored and shieldless."""
+        features = [
+            {
+                "name": "Unarmored Defense",
+                "source": "Monk",
+                "description": "10 + DEX + WIS",
+            }
+        ]
+        # base 10 + dex_mod 2 (DEX 14) + wis_mod 3 (WIS 16) = 15
+        assert calculate_ac(14, [], features, wis_score=16) == 15
+
+    def test_monk_unarmored_defense_with_armor(self):
+        """Monk Unarmored Defense does not apply when armor is worn."""
+        features = [{"name": "Unarmored Defense", "source": "Monk"}]
+        equipment = [{"name": "Leather Armor", "equipped": True}]  # base 11
+        # base 11 + dex_mod 2 (DEX 14) = 13 (ignores WIS mod 3)
+        assert calculate_ac(14, equipment, features, wis_score=16) == 13
+
+    def test_monk_unarmored_defense_with_shield(self):
+        """Monk Unarmored Defense does not apply when shield is equipped."""
+        features = [{"name": "Unarmored Defense", "source": "Monk"}]
+        equipment = [{"name": "Shield", "equipped": True, "ac_bonus": 2}]
+        # base 10 + dex_mod 2 (DEX 14) + shield 2 = 14 (ignores WIS mod 3)
+        assert calculate_ac(14, equipment, features, wis_score=16) == 14
+
+    def test_barbarian_unarmored_defense(self):
+        """Barbarian Unarmored Defense adds CON modifier to AC when unarmored (shields allowed)."""
+        features = [
+            {
+                "name": "Unarmored Defense",
+                "source": "Barbarian",
+                "description": "10 + DEX + CON",
+            }
+        ]
+        equipment = [{"name": "Shield", "equipped": True, "ac_bonus": 2}]
+        # base 10 + dex_mod 2 (DEX 14) + con_mod 3 (CON 16) + shield 2 = 17
+        assert calculate_ac(14, equipment, features, con_score=16) == 17
+
+    def test_draconic_resilience(self):
+        """Draconic Resilience sets base AC to 13."""
+        features = [{"name": "Draconic Resilience"}]
+        # base 13 + dex_mod 2 (DEX 14) = 15
+        assert calculate_ac(14, [], features) == 15
+
+    def test_mage_armor(self):
+        """Mage Armor sets base AC to 13."""
+        features = [{"name": "Mage Armor"}]
+        # base 13 + dex_mod 2 (DEX 14) = 15
+        assert calculate_ac(14, [], features) == 15
+
 
 # --- calculate_passive_perception ---
 
