@@ -7,6 +7,7 @@ from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
     PLAYSTYLE_GUIDE_PROMPT,
     LEVEL_UP_ANALYSIS_PROMPT,
+    MANUAL_CHARACTER_ENRICH_PROMPT,
 )
 from backend.core.constants import (
     EDITION_2014,
@@ -120,6 +121,75 @@ def forge_character(
             )
             return result
     return None
+
+
+def forge_character_manual(
+    target_level: int,
+    race: str,
+    char_class: str,
+    background: str,
+    subclass: str,
+    alignment: str,
+    gender: str,
+    name: str,
+    base_stats: dict,
+    skill_proficiencies: list,
+    saving_throws: list,
+    spell_ability: str,
+    concept: str,
+    edition: str = EDITION_2014,
+) -> dict:
+    """Enriches and builds a manual character based on user selections and AI helper."""
+    prompt = MANUAL_CHARACTER_ENRICH_PROMPT.format(
+        edition=edition,
+        name=name,
+        gender=gender,
+        race=race,
+        class_name=char_class,
+        subclass=subclass if subclass else "None",
+        target_level=target_level,
+        background=background,
+        alignment=alignment,
+        base_stats=base_stats,
+        skill_proficiencies=skill_proficiencies,
+        saving_throws=saving_throws,
+        spell_ability=spell_ability,
+        concept=concept,
+    )
+    result = generate_ai_json(prompt)
+    if not result:
+        result = {}
+
+    # Merge manual choices
+    result["char_name"] = name
+    result["gender"] = gender
+    result["char_class"] = char_class
+    result["subclass"] = subclass
+    result["char_level"] = target_level
+    result["race"] = race
+    result["background"] = background
+    result["alignment"] = alignment
+    result["stats"] = base_stats
+    result["saving_throws"] = saving_throws
+    result["skill_proficiencies"] = skill_proficiencies
+    result["spell_ability"] = spell_ability
+    result["dnd_edition"] = edition
+
+    import uuid
+
+    result["char_id"] = str(uuid.uuid4())[:8]
+
+    # Synchronize derived stats (HP, AC, Proficiency, etc.)
+    class_data = _rules_repo.get_class_progression(char_class, edition)
+    result = sync_character_stats(result, class_data)
+
+    try:
+        return CharacterSchema(**result).model_dump()
+    except Exception as e:
+        logger.warning(
+            f"Manual character failed validation: {e}. Returning raw result."
+        )
+        return result
 
 
 def generate_playstyle_guide(char_data: dict) -> str:

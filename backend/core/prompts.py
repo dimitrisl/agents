@@ -325,3 +325,53 @@ Use a high-contrast markdown table if applicable. Keep the total response under 
 
 # --- Image Generation ---
 PORTRAIT_PROMPT = "High fantasy D&D portrait of a {gender} {race} {char_class}. Background: {background}. Aura: {alignment}. Details: {visual_hooks}. Cinematic lighting, detailed face, digital art masterpiece, high resolution, professional concept art."
+
+MANUAL_CHARACTER_ENRICH_PROMPT = """
+You are an expert D&D {edition} Rules Engine.
+A player is manually creating a character with the following choices:
+- Name: {name}
+- Gender: {gender}
+- Race/Species: {race}
+- Class: {class_name} (Subclass: {subclass})
+- Level: {target_level}
+- Background: {background}
+- Alignment: {alignment}
+- Base Stats (before any adjustments): {base_stats}
+- Skill Proficiencies: {skill_proficiencies}
+- Saving Throw Proficiencies: {saving_throws}
+- Spellcasting Ability: {spell_ability}
+- Concept: {concept}
+
+Your task is to enrich this character with:
+1. Racial features/traits based on their race/species.
+2. Background features/traits based on their background.
+3. Appropriate class features for a level {target_level} {class_name} (and subclass {subclass}). Include key level progression features like Action Surge, Spellcasting, Cunning Action, etc.
+4. Thematic starting weapons and equipment.
+5. Standard languages (e.g. Common, plus racial languages).
+6. A thematic backstory, personality traits, ideals, bonds, and flaws based on their concept, background, and class.
+7. Appropriate spells if they are a spellcaster (cantrips and level 1 spells).
+
+Output strictly a JSON object matching this schema:
+{{
+    "backstory": "...",
+    "features_traits": [
+        {{"name": "Feature Name", "description": "Source: Race/Class/Background...", "source": "..."}}
+    ],
+    "weapons": [
+        {{"name": "Longsword", "attack_bonus": "+5", "damage_dice": "1d8", "damage_bonus": "+3"}}
+    ],
+    "equipment": [
+        {{"name": "Scale mail", "equipped": true}},
+        {{"name": "Shield", "equipped": true}}
+    ],
+    "spells": {{
+        "cantrips": ["Spell Name"],
+        "level_1": ["Spell Name"]
+    }},
+    "languages": ["Common", "..."],
+    "personality_traits": "...",
+    "ideals": "...",
+    "bonds": "...",
+    "flaws": "..."
+}}
+"""
