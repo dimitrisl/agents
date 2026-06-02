@@ -56,10 +56,15 @@ This document serves as the primary instructional context for the **Phyrexian Fo
   - **Services:** Orchestrate business logic and AI calls.
   - **Repositories:** Abstract data access.
   - **Core:** Contains shared schemas (Pydantic models) and state management.
-- **State Management:** Use `backend/core/state_manager.py` to initialize and manage `st.session_state`. Never modify session state directly for character data; use `get_character_dict` and `update_session_from_dict`.
+- **State Management:** Use `backend/core/state_manager.py` to initialize and manage `st.session_state`. Never modify session state directly for character data; use `get_character_dict` and `update_session_from_dict`. The landing page flow is managed via `login_page_mode` (choice, tutorial, login) and `tutorial_step`.
 - **Data Validation:** All domain objects (Characters, Weapons, etc.) MUST be validated via Pydantic schemas in `backend/core/schemas.py`.
 
-### 2. The Rules Engine (Bio-mechanical Forge)
+### 2. The Onboarding Flow (Wizard's Journey)
+- **Branching Landing:** Users start at a choice screen ("New Here" vs "Seasoned Adventurer").
+- **Sequential Tutorial:** A 3-step animated "Wizard's Journey" guides new users through the Forge's value proposition using themed cards.
+- **State Keys:** `login_page_mode` and `tutorial_step` control the UI branching and progression.
+
+### 3. The Rules Engine (Bio-mechanical Forge)
 - **Static vs. AI:** Level-up features and core class data are powered by **static JSON files** in `data/rules/` to prevent AI hallucinations. AI is used for thematic generation, backstory, and complex analysis.
 - **Stat Synchronization:** The `backend/services/mechanics_service.py` is the source of truth for all derived calculations (AC, HP, Save DC, etc.).
 - **Manual Overrides:** The `Weapon` and `Equipment` models support an `is_custom` flag. If `True`, the mechanics service respects manual user edits over automated calculations.

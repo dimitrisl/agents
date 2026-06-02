@@ -44,6 +44,7 @@ This phase focuses on making the Streamlit app robust enough for live, in-person
 - [x] **Streamline Weapon Deletion:** Remove the redundant "Weapon Removal" widget since weapons can already be deleted directly from the table.
 - [x] **Short Rest & Trance:** Add active controls/logic for taking a Short Rest and Elven Trance.
 - [x] **Navigation Improvements:** Allow players to switch tabs or navigate to other options on the left panel directly from Edit Mode without having to click "Exit Hero" first.
+- [x] **Wizard-Themed Onboarding:** Implemented a branching landing page and a sequential, animated "Wizard's Journey" tutorial to improve user onboarding.
 
 ### 🏰 Dungeon Master Workspace
 - [ ] **Bulk Party Management:** Allow the DM to multiselect and add multiple characters to the party at once inside the Party Manager tab.
