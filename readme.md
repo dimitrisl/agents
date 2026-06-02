@@ -8,6 +8,7 @@
 ## ✨ Features
 
 ### 🗡️ For the Player
+- **🧙‍♂️ Wizard-Themed Onboarding:** A beautiful, branching landing page with a sequential, animated "Wizard's Journey" tutorial to guide new adventurers.
 - **AI Character Forge:** Generate fully equipped, thematic heroes from a simple text concept.
 - **🖼️ Dynamic Portrait Generation:** Automatically generated, high-quality character portraits based on your hero's race, class, alignment, and backstory (powered by Pollinations.ai). Portraits can be updated at any time in Edit Mode via URL or file upload, synced to the cloud.
 - **🎲 Interactive Dice Roller:** Integrated dice mechanics with support for automated attack and damage rolls using your character's real-time modifiers.

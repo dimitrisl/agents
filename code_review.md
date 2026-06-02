@@ -88,11 +88,21 @@ This document outlines key technical and architectural findings identified durin
 
 ---
 
-## 🔮 FUTURE — Player / DM Authentication (OAuth2)
-* **Status:** Not started.
-* **Description:** Add Google/Discord login so each player and DM sees only their own characters and campaigns in MongoDB (via an `owner_id` field). This is the main blocker for making the app truly multi-user.
-* **Effort:** High — requires OAuth2 integration, session token management, and query-level access control across all repositories.
+## ✅ DONE — Wizard-Themed Onboarding Flow
+* **Location:** `views/login_view.py`, `backend/core/state_manager.py`
+* **Status:** **Implemented.** Added a branching landing page and a 3-step sequential "Wizard's Journey" tutorial. Managed via `login_page_mode` and `tutorial_step` in session state. Features animated CSS transitions and thematic wizard cards.
 
 ---
 
-*Last updated: 2026-05-29*
+## 🚧 WORK IN PROGRESS — Player / DM Authentication (OAuth2)
+* **Status:** **Partially Implemented.**
+* **Progress:**
+  - Added `UserSchema` to `backend/core/schemas.py` for persistent user profiles.
+  - Implemented local user registration and verification in `views/login_view.py`.
+  - Added Mock Google/Discord login for development and testing.
+  - Basic Discord OAuth flow structure implemented (waiting for production credentials).
+* **Next Steps:** Integrate persistent `owner_id` filtering in MongoDB repositories and final production OAuth credential setup.
+
+---
+
+*Last updated: 2026-06-02*

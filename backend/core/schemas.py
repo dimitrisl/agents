@@ -308,3 +308,12 @@ class BuildValidationSchema(BaseModel):
     issues: List[str] = []
     suggestions: List[str] = []
     corrections: Optional[Dict[str, Any]] = {}
+
+
+class UserSchema(BaseModel):
+    username: str
+    password_hash: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    has_completed_tutorial: bool = False
+    created_at: Optional[str] = None

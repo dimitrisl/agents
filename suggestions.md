@@ -66,6 +66,11 @@ Prompts were previously embedded within `ai_client.py`.
 - **Benefit:** Allows users to verify AI Forge results before committing to a download.
 
 
+### ✅ DONE — Wizard-Themed Onboarding Flow
+- **Status:** Implemented. Added a branching landing page and a sequential, animated "Wizard's Journey" tutorial.
+- **Benefit:** Provides a premium, story-driven onboarding experience that fits the "arcane" aesthetic of the project.
+
+
 ### ✅ DONE — Table-Ready UX Polish
 - **Status:** Implemented. Integrated a quick **+/- HP Adjuster** field directly into the active combat cards of the Initiative Tracker. The DM can type damage (e.g., `-12`) or healing (e.g., `8`) and press Enter to instantly modify HP. The tracker updates in-place, synchronizes with the MongoDB records of character party members, and resets the input to `0` automatically.
 - **Benefit:** Drastically reduces DM math overhead and friction at the table, completing the final blocker for the v1.0 "Friends & Family" release.
