@@ -186,11 +186,29 @@ def get_user_by_id(user_id: str) -> Optional[dict]:
 
 def render_choice_view():
     st.markdown(
-        "<h1 style='text-align: center; margin-top: 50px;'>🎲 Phyrexian Forge</h1>",
+        """
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="40" stroke="#ff4b4b" stroke-width="6" fill="none" />
+                <line x1="50" y1="5" x2="50" y2="95" stroke="#ff4b4b" stroke-width="6" />
+                <filter id="glow">
+                    <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </svg>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<h3 style='text-align: center; color: #888;'>Welcome, Traveler</h3>",
+        "<h1 style='text-align: center; margin-top: 0px; letter-spacing: 5px;'>PHYREXIAN FORGE</h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<h3 style='text-align: center; color: #888; font-style: italic;'>All Will Be One</h3>",
         unsafe_allow_html=True,
     )
 
@@ -389,7 +407,18 @@ def render_login_view():
         return
 
     st.markdown(
-        "<h1 style='text-align: center; margin-top: 50px;'>🎲 Phyrexian Forge</h1>",
+        """
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="40" stroke="#ff4b4b" stroke-width="6" fill="none" />
+                <line x1="50" y1="5" x2="50" y2="95" stroke="#ff4b4b" stroke-width="6" />
+            </svg>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<h1 style='text-align: center; margin-top: 0px; letter-spacing: 3px;'>PHYREXIAN FORGE</h1>",
         unsafe_allow_html=True,
     )
     st.markdown(

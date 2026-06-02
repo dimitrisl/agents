@@ -175,7 +175,7 @@ with st.sidebar:
 
     st.markdown("---")
     # --- Recent Rolls Log ---
-    st.markdown("### 🎲 Recent Rolls")
+    st.markdown("### Φ Recent Rolls")
     if st.session_state.get("roll_history"):
         # Show last roll prominently
         last_roll = st.session_state.roll_history[0]
