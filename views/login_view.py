@@ -184,7 +184,210 @@ def get_user_by_id(user_id: str) -> Optional[dict]:
     return None
 
 
+def render_choice_view():
+    st.markdown(
+        "<h1 style='text-align: center; margin-top: 50px;'>🎲 Phyrexian Forge</h1>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<h3 style='text-align: center; color: #888;'>Welcome, Traveler</h3>",
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.write("")
+        st.write("")
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if st.button("✨ I'm New Here!", use_container_width=True):
+                st.session_state.login_page_mode = "tutorial"
+                st.rerun()
+            st.caption(
+                "<center>Start your first adventure!</center>", unsafe_allow_html=True
+            )
+
+        with c2:
+            if st.button("⚔️ Seasoned Adventurer", use_container_width=True):
+                st.session_state.login_page_mode = "login"
+                st.rerun()
+            st.caption("<center>Return to the Forge.</center>", unsafe_allow_html=True)
+
+
+def render_tutorial_view():
+    st.markdown(
+        """
+        <style>
+        .wizard-container {
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .wizard-card {
+            background-color: #1a1a2e;
+            border: 2px solid #4d4dff;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(77, 77, 255, 0.3);
+            text-align: center;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .magic-icon-large {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        .magic-title-large {
+            font-size: 28px;
+            font-weight: bold;
+            color: #a2a2ff;
+            margin-bottom: 20px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .magic-text-large {
+            color: #e0e0ff;
+            line-height: 1.8;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        .progress-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .progress-dot {
+            height: 12px;
+            width: 12px;
+            background-color: #333;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .progress-dot.active {
+            background-color: #4d4dff;
+            box-shadow: 0 0 10px #4d4dff;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    step = st.session_state.get("tutorial_step", 0)
+    total_steps = 3
+
+    st.markdown(
+        f"<h1 style='text-align: center; margin-top: 30px;'>🔮 Wizard's Journey: Step {step + 1} of {total_steps}</h1>",
+        unsafe_allow_html=True,
+    )
+
+    # Progress Dots
+    dots_html = '<div class="progress-container">'
+    for i in range(total_steps):
+        active_class = "active" if i == step else ""
+        dots_html += f'<span class="progress-dot {active_class}"></span>'
+    dots_html += "</div>"
+    st.markdown(dots_html, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.markdown('<div class="wizard-container">', unsafe_allow_html=True)
+
+        if step == 0:
+            st.markdown(
+                """
+                <div class="wizard-card">
+                    <div class="magic-icon-large">🔮</div>
+                    <div class="magic-title-large">Why the Forge?</div>
+                    <div class="magic-text-large">
+                        Tired of messy scrolls and math-induced headaches?
+                        The Forge is your <b>arcane companion</b> that automates the complex mechanics of D&D!
+                        We bridge the gap between imagination and rules, letting you focus on the story while we handle the heavy lifting.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        elif step == 1:
+            st.markdown(
+                """
+                <div class="wizard-card" style="border-color: #bf5af2; box-shadow: 0 0 30px rgba(191, 90, 242, 0.3);">
+                    <div class="magic-icon-large">✨</div>
+                    <div class="magic-title-large" style="color: #d49aff;">Manifest Your Hero</div>
+                    <div class="magic-text-large">
+                        Once inside, jump into the <b>Player Dashboard</b> to forge your legend.
+                        Use our friendly AI to help you write backstories and optimize your stats automatically!
+                        Don't forget to generate a beautiful portrait using our arcane image tools!
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        elif step == 2:
+            st.markdown(
+                """
+                <div class="wizard-card" style="border-color: #0a84ff; box-shadow: 0 0 30px rgba(10, 132, 255, 0.3);">
+                    <div class="magic-icon-large">🧙‍♂️</div>
+                    <div class="magic-title-large" style="color: #70b5ff;">Command the Realm</div>
+                    <div class="magic-text-large">
+                        DMs can organize epic campaigns in the <b>DM Workspace</b> with ease.
+                        Check any rule in an instant with our 2014 and 2024 digital library!
+                        Everything is designed to make your adventures smoother, faster, and more fun.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.write("")
+
+        # Navigation
+        nav_prev, nav_next = st.columns(2)
+
+        with nav_prev:
+            if step > 0:
+                if st.button("⬅️ Previous Spell", use_container_width=True):
+                    st.session_state.tutorial_step -= 1
+                    st.rerun()
+            else:
+                if st.button("⬅️ Back to Choice", use_container_width=True):
+                    st.session_state.login_page_mode = "choice"
+                    st.rerun()
+
+        with nav_next:
+            if step < total_steps - 1:
+                if st.button(
+                    "Next Incantation ➡️", type="primary", use_container_width=True
+                ):
+                    st.session_state.tutorial_step += 1
+                    st.rerun()
+            else:
+                if st.button(
+                    "🚀 Enter the Forge", type="primary", use_container_width=True
+                ):
+                    st.session_state.login_page_mode = "login"
+                    st.session_state.tutorial_step = 0  # Reset for next time
+                    st.rerun()
+
+
 def render_login_view():
+    mode = st.session_state.get("login_page_mode", "choice")
+
+    if mode == "choice":
+        render_choice_view()
+        return
+    elif mode == "tutorial":
+        render_tutorial_view()
+        return
+
     st.markdown(
         "<h1 style='text-align: center; margin-top: 50px;'>🎲 Phyrexian Forge</h1>",
         unsafe_allow_html=True,
@@ -293,3 +496,8 @@ def render_login_view():
             )
         else:
             st.caption("ℹ️ Discord login not configured (missing CLIENT_ID).")
+
+        st.markdown("---")
+        if st.button("⬅️ Back to Choice", use_container_width=True):
+            st.session_state.login_page_mode = "choice"
+            st.rerun()

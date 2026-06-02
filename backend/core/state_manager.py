@@ -177,6 +177,8 @@ def init_session_state(state: Any, force: bool = False):
         "riddle_result": None,
         "initiative_order": [],
         "active_turn_index": 0,
+        "login_page_mode": "choice",
+        "tutorial_step": 0,
     }
     for k, v in extra_fields.items():
         if force or _get_val(state, k) is None:
