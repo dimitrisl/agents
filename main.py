@@ -7,7 +7,9 @@ from views.player_dashboard import render_player_dashboard
 from views.dm_workspace import render_dm_workspace
 from views.settings_view import render_settings_view
 from views.library_view import render_library_view
-from views.login_view import render_login_view
+from views.admin_view import render_admin_view
+from views.login_view import render_login_view, get_user_by_id
+from backend.core.storage import clear_character_cache
 from backend.core.constants import EDITION_2014, EDITION_2024
 
 # Load environment variables once at the entry point
@@ -51,9 +53,23 @@ else:
 # ==========================================
 # Authentication Gate
 # ==========================================
+# Auto-restore session from URL on refresh
+if not st.session_state.get("user"):
+    stored_uid = st.query_params.get("uid")
+    if stored_uid:
+        restored = get_user_by_id(stored_uid)
+        if restored:
+            st.session_state.user = restored
+            # Clear stale character cache so the correct user's chars appear
+            clear_character_cache()
+
 if not st.session_state.get("user"):
     render_login_view()
     st.stop()
+
+# Persist user_id into URL so refresh keeps the session
+if st.session_state.get("user"):
+    st.query_params["uid"] = st.session_state.user["id"]
 
 # ==========================================
 # Sidebar Navigation & Themes
@@ -62,8 +78,25 @@ with st.sidebar:
     # App Logo
     st.image("assets/logo.png", width="stretch")
 
-    if st.button("Logout", use_container_width=True):
+    # ── User Greeting ──────────────────────────────────────────────────────
+    current_user = st.session_state.get("user", {})
+    user_name = current_user.get("name") or current_user.get("email") or "Adventurer"
+    st.markdown(
+        f"<div style='text-align:center; font-size:13px; color:#aaa; margin-top:-6px;'>"
+        f"👤 Logged in as <strong style='color:#ff4b4b;'>{user_name}</strong></div>",
+        unsafe_allow_html=True,
+    )
+
+    col_greet, col_logout = st.columns([2, 1])
+    col_greet.markdown(
+        f"<div style='font-size:13px; color:#888; padding-top:6px;'>"
+        f"⚔️ Welcome back, <em>{user_name}</em>!</div>",
+        unsafe_allow_html=True,
+    )
+    if col_logout.button("Logout", use_container_width=True, key="sidebar_logout"):
         st.session_state.user = None
+        st.query_params.pop("uid", None)
+        st.query_params.pop("cid", None)
         st.rerun()
 
     # Determine theme/logo/title colors based on the toggle state
@@ -85,6 +118,7 @@ with st.sidebar:
     dm_label = "🏰 Dungeon Master View"
     library_label = "📚 Rules Library"
     settings_label = "⚙️ Settings"
+    admin_label = "🛡️ Admin Workspace"
 
     toggle_val = st.toggle(
         "Use 2024 Revision (5.5e)",
@@ -104,9 +138,20 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown("**🎮 Application Mode:**")
+
+    # --- Admin Access Control ---
+    # Only the user 'mitsos' can access the Admin Workspace.
+    # It remains hidden from standard navigation unless '?admin=true' is in the URL.
+    is_authorized_admin = st.session_state.user.get("id") == "local_user_mitsos"
+    is_admin_mode_active = st.query_params.get("admin") == "true"
+
+    view_options = [player_label, dm_label, library_label, settings_label]
+    if is_authorized_admin and is_admin_mode_active:
+        view_options.append(admin_label)
+
     view_mode = st.radio(
         "Application Mode",
-        [player_label, dm_label, library_label, settings_label],
+        view_options,
         key="app_view_mode",
         label_visibility="collapsed",
     )
@@ -163,5 +208,7 @@ elif view_mode == library_label:
     render_library_view()
 elif view_mode == settings_label:
     render_settings_view()
+elif view_mode == admin_label:
+    render_admin_view()
 else:
     render_player_dashboard(accent_color)

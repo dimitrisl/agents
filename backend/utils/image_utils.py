@@ -70,7 +70,10 @@ def generate_portrait_url(char_data: dict, force: bool = False) -> str:
         response.raise_for_status()
 
         # Save locally
-        filename = f"{char_id}.png"
+        import time
+
+        timestamp = int(time.time())
+        filename = f"{char_id}_{timestamp}.png" if force else f"{char_id}.png"
         filepath = os.path.join(PORTRAIT_DIR, filename)
 
         with open(filepath, "wb") as f:

@@ -31,7 +31,11 @@ from backend.services.mechanics_service import (
     check_progression_features,
 )
 from backend.utils.pdf_exporter import export_character_to_pdf
-from backend.utils.ui_utils import render_character_header, render_active_roll_visual
+from backend.utils.ui_utils import (
+    render_character_header,
+    render_active_roll_visual,
+    render_themed_markdown,
+)
 from backend.utils.image_utils import generate_portrait_url, save_custom_portrait
 from backend.core.constants import (
     EDITION_2014,
@@ -107,8 +111,181 @@ def get_item_effect(name: str) -> str:
     return ", ".join(effects) if effects else "-"
 
 
+@st.dialog("📥 Character Sheet PDF Export")
+def show_pdf_export_preview(char_dict: dict):
+    """Displays a preview of the character data before exporting to PDF."""
+    st.markdown("### 🧬 Phyrexian bio-mechanical template ready for export.")
+    st.write("Review the compiled metrics before committing to the PDF.")
+
+    col1, col2 = st.columns([3, 2])
+    with col1:
+        st.markdown(f"**Name:** `{char_dict.get('char_name', 'Unnamed')}`")
+        st.markdown(
+            f"**Class:** `{char_dict.get('char_class', 'Unknown')} {char_dict.get('char_level', 1)}`"
+        )
+        if char_dict.get("subclass"):
+            st.markdown(f"**Subclass:** `{char_dict['subclass']}`")
+        st.markdown(f"**Species/Race:** `{char_dict.get('race', 'Unknown')}`")
+        st.markdown(f"**Background:** `{char_dict.get('background', 'Unknown')}`")
+        st.markdown(f"**Alignment:** `{char_dict.get('alignment', 'Neutral')}`")
+        st.markdown(f"**Ruleset:** `{char_dict.get('dnd_edition', '2014 Edition')}`")
+    with col2:
+        portrait_url = char_dict.get("char_portrait")
+        if portrait_url:
+            display_portrait = portrait_url
+            if not portrait_url.startswith("http") and not portrait_url.startswith(
+                "data:"
+            ):
+                from backend.utils.ui_utils import get_image_base64
+
+                b64 = get_image_base64(portrait_url)
+                if b64:
+                    display_portrait = b64
+            st.image(display_portrait, use_container_width=True)
+        else:
+            st.info("No portrait loaded.")
+
+    st.markdown("#### 📊 Core Vitals & Abilities")
+    # Vitals columns
+    v_col1, v_col2, v_col3 = st.columns(3)
+    v_col1.metric("HP Max", char_dict.get("hp_max", 10))
+    v_col2.metric("Armor Class", char_dict.get("armor_class", 10))
+    v_col3.metric("Speed", f"{char_dict.get('speed', 30)} ft")
+
+    # Abilities layout
+    stats = char_dict.get("stats", {})
+    cols = st.columns(6)
+    for idx, stat_name in enumerate(["STR", "DEX", "CON", "INT", "WIS", "CHA"]):
+        val = stats.get(stat_name, 10)
+        mod = calculate_modifier(val)
+        mod_str = f"+{mod}" if mod >= 0 else str(mod)
+        with cols[idx]:
+            st.markdown(
+                f"""
+                <div style='text-align: center; border: 1px solid #444; border-radius: 8px; padding: 8px; background-color: rgba(255,255,255,0.05);'>
+                    <div style='font-size: 0.8rem; font-weight: bold; color: var(--primary-color); text-transform: uppercase;'>{stat_name}</div>
+                    <div style='font-size: 1.5rem; font-weight: 800; margin: 4px 0;'>{val}</div>
+                    <div style='font-size: 0.9rem; color: #888;'>({mod_str})</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+    # Saving Throws & Skills
+    saves_list = char_dict.get("saving_throws", [])
+    skills_list = char_dict.get("skill_proficiencies", [])
+
+    col_s, col_sk = st.columns(2)
+    with col_s:
+        st.markdown("**Saving Throws:**")
+        if saves_list:
+            st.write(", ".join(saves_list))
+        else:
+            st.caption("No saving throw proficiencies.")
+    with col_sk:
+        st.markdown("**Skill Proficiencies:**")
+        if skills_list:
+            st.write(", ".join(skills_list))
+        else:
+            st.caption("No skill proficiencies.")
+
+    st.markdown("---")
+    # Quick Inventory & Weapon summary
+    w_col, e_col = st.columns(2)
+    with w_col:
+        weapons = char_dict.get("weapons", [])
+        st.markdown(f"**⚔️ Weapons ({len(weapons)}):**")
+        if weapons:
+            for w in weapons[:3]:
+                st.write(
+                    f"- {w.get('name')} ({w.get('damage_dice')} {w.get('attack_bonus')})"
+                )
+            if len(weapons) > 3:
+                st.write(f"*...and {len(weapons) - 3} more*")
+        else:
+            st.caption("No weapons equipped.")
+
+    with e_col:
+        features = char_dict.get("features_traits", [])
+        st.markdown(f"**🛡️ Features & Traits ({len(features)}):**")
+        if features:
+            for f in features[:3]:
+                st.write(f"- {f.get('name')}")
+            if len(features) > 3:
+                st.write(f"*...and {len(features) - 3} more*")
+        else:
+            st.caption("No features listed.")
+
+    # Spells summary
+    spells = char_dict.get("spells", {})
+    total_spells = (
+        sum(len(s_list) for s_list in spells.values())
+        if isinstance(spells, dict)
+        else 0
+    )
+    if total_spells > 0:
+        st.markdown(f"**🧙 Spellcasting:** `{total_spells}` spells known / prepared.")
+
+    st.markdown("---")
+    st.info(
+        "⚠️ **Note:** Make sure all adjustments are complete. Once downloaded, form fields can still be edited manually within any PDF viewer."
+    )
+
+    # PDF Bytes preparation and Download button
+    template_path = "5E_CharacterSheet_Fillable.pdf"
+    with st.spinner("Compiling PDF sheet..."):
+        pdf_bytes = export_character_to_pdf(char_dict, template_path)
+
+    if pdf_bytes:
+        st.download_button(
+            label="📥 Confirm & Download PDF",
+            data=pdf_bytes,
+            file_name=f"{char_dict['char_name']}_Sheet.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+            key="confirm_download_pdf_btn",
+        )
+    else:
+        st.error("Failed to generate character sheet PDF.")
+
+
 def render_player_dashboard(accent_color: str):
     """Renders the main Player Dashboard view."""
+    # Auto-restore character from URL ?cid= on refresh
+    if not st.session_state.get("character_active"):
+        cid_param = st.query_params.get("cid")
+        if cid_param:
+            from backend.repositories.character_repository import (
+                CharacterRepository as _CRep,
+            )
+
+            _cr = _CRep()
+            owner_id = st.session_state.get("user", {}).get("id")
+            char_files = _cr.list_all(owner_id=owner_id)
+            for cf in char_files:
+                if cid_param in cf:
+                    cdata = _cr.load(cf)
+                    if cdata:
+                        try:
+                            update_session_from_dict(st.session_state, cdata)
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to load character state for {cid_param}: {e}"
+                            )
+                            st.error(f"Failed to load hero state: {cid_param}")
+                            st.stop()
+                        st.session_state.character_active = True
+                        st.session_state.player_view = "sheet"
+                        is_char_2024 = "2024" in cdata.get("dnd_edition", "")
+                        st.session_state.dnd_edition_toggle = is_char_2024
+                        st.session_state.dnd_edition = (
+                            EDITION_2024 if is_char_2024 else EDITION_2014
+                        )
+                        st.query_params["edition"] = "2024" if is_char_2024 else "2014"
+                        break
+
     # Sidebar navigation for the Player Dashboard
     has_active_hero = bool(
         st.session_state.get("char_name")
@@ -141,6 +318,8 @@ def render_player_dashboard(accent_color: str):
             and st.session_state.get("player_view") != "forge"
         ):
             st.session_state.character_active = False
+            st.query_params.pop("cid", None)
+            st.query_params.pop("edition", None)
             st.rerun()
         elif selected_panel == "🛡️ Active Character Sheet" and not st.session_state.get(
             "character_active", False
@@ -166,7 +345,53 @@ def render_player_dashboard(accent_color: str):
                     st.success("Character Saved!")
                 else:
                     st.warning("⚠️ Please name your character before saving.")
+
+            if st.button("🚪 Exit Hero", width="stretch", key="side_exit_hero"):
+                from backend.core.state_manager import init_session_state
+
+                st.session_state.character_active = False
+                st.query_params.pop("cid", None)
+                st.query_params.pop("edition", None)
+                init_session_state(st.session_state, force=True)
+                st.rerun()
+
+            if st.button(
+                "📥 Reload from Vault",
+                width="stretch",
+                key="side_reload_vault",
+                help="Discard local changes and reload from DB",
+            ):
+                from backend.core.storage import load_character
+
+                char_id = st.session_state.get("char_id")
+                char_name = st.session_state.get("char_name")
+                filename = f"{char_name.replace(' ', '_').lower()}_{char_id}.json"
+
+                # Clear cache to force fresh load
+                if "char_cache" in st.session_state:
+                    if filename in st.session_state.char_cache:
+                        del st.session_state.char_cache[filename]
+
+                char_data = load_character(filename)
+                if char_data:
+                    try:
+                        update_session_from_dict(st.session_state, char_data)
+                    except Exception as e:
+                        logger.error(f"Reload failed for {filename}: {e}")
+                        st.error("Reload failed.")
+                        st.stop()
+                    st.toast("✅ Character reloaded from vault!")
+                    st.rerun()
+                else:
+                    st.error("Failed to reload character.")
+
         st.markdown("---")
+
+        # ── Active Campaign status ─────────────────────────────────────────────
+        active_camp = st.session_state.get("active_campaign")
+        if active_camp:
+            st.markdown("##### 🗺️ Campaign")
+            st.success(f"📍 **{active_camp}**")
 
     if not st.session_state.character_active:
         render_selection_screen()
@@ -179,16 +404,12 @@ def render_player_dashboard(accent_color: str):
         with col2:
             if st.session_state.player_view == "sheet":
                 char_dict = get_character_dict(st.session_state)
-                template_path = "5E_CharacterSheet_Fillable.pdf"
-                pdf_bytes = export_character_to_pdf(char_dict, template_path)
-                if pdf_bytes:
-                    st.download_button(
-                        label="📥 Download PDF",
-                        data=pdf_bytes,
-                        file_name=f"{char_dict['char_name']}_Sheet.pdf",
-                        mime="application/pdf",
-                        width="stretch",
-                    )
+                if st.button(
+                    "📥 Download PDF",
+                    key="btn_open_pdf_dialog",
+                    use_container_width=True,
+                ):
+                    show_pdf_export_preview(char_dict)
             else:
                 # Definitive fix: In forge mode, always show "Cancel" to avoid old name persistence
                 if st.button("🔙 Cancel", width="stretch"):
@@ -216,11 +437,13 @@ def render_player_dashboard(accent_color: str):
                     width="stretch",
                 )
         with col4:
-            if st.button("🔄 Exit Hero", width="stretch"):
-                # Clear critical session state before exiting
+            if st.button("🔄 Exit Hero", width="stretch", key="top_exit_hero_btn"):
+                # Clear critical session state and query params before exiting
                 from backend.core.state_manager import init_session_state
 
                 st.session_state.character_active = False
+                st.query_params.pop("cid", None)
+                st.query_params.pop("edition", None)
                 init_session_state(st.session_state, force=True)  # Reset to defaults
                 st.rerun()
 
@@ -338,6 +561,131 @@ def render_selection_screen():
                     except Exception as e:
                         st.error(f"Error reading PDF: {e}")
 
+        # --- JSON / VTT Import Section ---
+        st.markdown("---")
+        st.subheader("⚙️ Import from JSON / VTT")
+        st.write(
+            "Upload a character file (.json) from this app or a Foundry VTT export."
+        )
+
+        uploaded_json = st.file_uploader(
+            "Upload JSON/VTT",
+            type=["json"],
+            label_visibility="collapsed",
+            key="json_vtt_uploader",
+        )
+
+        if uploaded_json is not None:
+            if st.button("📥 Import Data", type="primary", width="stretch"):
+                try:
+                    import json
+                    from backend.core.schemas import CharacterSchema
+                    from backend.utils.import_utils import import_vtt_character
+
+                    raw_data = json.load(uploaded_json)
+
+                    # --- Automatic Detection ---
+                    if "system" in raw_data and "items" in raw_data:
+                        # This looks like a Foundry VTT export
+                        st.info(
+                            "Foundry VTT format detected. Mapping to internal schema..."
+                        )
+                        data = import_vtt_character(raw_data)
+                    else:
+                        # Treat as internal format with robust mapping
+                        data = {}
+                        if "character_info" in raw_data:
+                            data.update(raw_data.pop("character_info"))
+                        data.update(raw_data)
+
+                    if not data:
+                        st.error("Failed to process character data.")
+                        st.stop()
+
+                    # --- Robust Mapping / Normalization ---
+                    mappings = {
+                        "name": "char_name",
+                        "class": "char_class",
+                        "level": "char_level",
+                        "portrait": "char_portrait",
+                        "edition": "dnd_edition",
+                    }
+                    for old_key, new_key in mappings.items():
+                        if old_key in data and new_key not in data:
+                            data[new_key] = data[old_key]
+
+                    # Weapons normalization
+                    if "weapons" in data and isinstance(data["weapons"], list):
+                        for w in data["weapons"]:
+                            if "attack_bonus" in w:
+                                w["attack_bonus"] = str(w["attack_bonus"])
+                            if "properties" in w and isinstance(w["properties"], list):
+                                w["properties"] = ", ".join(w["properties"])
+
+                    # Stats normalization
+                    for stat_alt in [
+                        "ability_scores",
+                        "attributes",
+                        "abilities",
+                        "scores",
+                    ]:
+                        if stat_alt in data and "stats" not in data:
+                            data["stats"] = data.pop(stat_alt)
+
+                    core_stats = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+                    if "stats" not in data:
+                        top_level_stats = {
+                            s: data.get(s)
+                            for s in core_stats
+                            if data.get(s) is not None
+                        }
+                        if len(top_level_stats) >= 3:
+                            data["stats"] = top_level_stats
+                            for s in core_stats:
+                                if s not in data["stats"]:
+                                    data["stats"][s] = 10
+
+                    # Ensure defaults
+                    if "stats" not in data:
+                        data["stats"] = {
+                            "STR": 10,
+                            "DEX": 10,
+                            "CON": 10,
+                            "INT": 10,
+                            "WIS": 10,
+                            "CHA": 10,
+                        }
+                    if not data.get("char_id"):
+                        data["char_id"] = str(uuid.uuid4())[:8]
+
+                    # Final validation
+                    validated = CharacterSchema.model_validate(data, strict=False)
+                    final_data = validated.model_dump()
+
+                    # Save and activate
+                    if save_character(final_data):
+                        update_session_from_dict(st.session_state, final_data)
+
+                        # Sync edition state
+                        is_char_2024 = "2024" in final_data.get("dnd_edition", "")
+                        st.session_state.dnd_edition_toggle = is_char_2024
+                        st.session_state.dnd_edition = (
+                            EDITION_2024 if is_char_2024 else EDITION_2014
+                        )
+                        st.query_params["edition"] = "2024" if is_char_2024 else "2014"
+
+                        st.session_state.character_active = True
+                        st.session_state.player_view = "sheet"
+                        st.success(
+                            f"Successfully imported {final_data.get('char_name')}!"
+                        )
+                        st.rerun()
+                    else:
+                        st.error("Failed to save imported character.")
+                except Exception as e:
+                    st.error(f"Import Error: {e}")
+                    logger.error(f"JSON/VTT Import failed: {e}", exc_info=True)
+
     with col_load:
         st.subheader("🛡️ Equip a Hero")
         st.write("Load one of your previously saved characters from the vault.")
@@ -388,6 +736,10 @@ def render_selection_screen():
                         st.session_state.last_saved_char = get_character_dict(
                             st.session_state
                         )
+                        # Persist char_id in URL so refresh auto-reloads
+                        char_id_val = char_data.get("char_id", "")
+                        if char_id_val:
+                            st.query_params["cid"] = char_id_val
                         st.rerun()
 
                     # Delete button with double-click confirmation pattern
@@ -441,6 +793,157 @@ def render_active_character(accent_color: str):
     )
     st.caption(f"📜 Ruleset: {st.session_state.dnd_edition}")
     render_active_roll_visual()
+
+    # ------------------------------------------
+    # Private DM Roll Request system (Auto-Refresh Fragment)
+    # ------------------------------------------
+    @st.fragment(run_every=5)
+    def render_dm_roll_notifications():
+        char_id = st.session_state.get("char_id", "")
+        char_name = st.session_state.get("char_name", "")
+        char_filename = f"{char_name.replace(' ', '_').lower()}_{char_id}.json"
+
+        from backend.core.db import get_db
+
+        db = get_db()
+        if db is not None:
+            # Find all campaigns where this character is a party member
+            campaigns_cursor = db["campaigns"].find({"party": char_filename})
+            for camp_data in campaigns_cursor:
+                roll_requests = camp_data.get("roll_requests", [])
+                active_campaign = camp_data.get("campaign_name")
+
+                pending_requests = [
+                    req
+                    for req in roll_requests
+                    if (
+                        req.get("status") == "pending"
+                        or req.get("status") == "completed"
+                    )
+                    and (
+                        (char_id and char_id in req.get("char_filename", ""))
+                        or (char_name and char_name == req.get("char_name"))
+                    )
+                ]
+
+                # Show only the latest request if multiple exist
+                if pending_requests:
+                    req = pending_requests[-1]
+                    status = req.get("status")
+
+                    # Auto-dismiss logic for completed rolls
+                    if status == "completed":
+                        import time
+
+                        dismiss_key = f"dismiss_time_{req['id']}"
+                        if dismiss_key not in st.session_state:
+                            st.session_state[dismiss_key] = (
+                                time.time() + 10
+                            )  # Hide in 10s
+
+                        if time.time() > st.session_state[dismiss_key]:
+                            # Hide by effectively ignoring it in the next loop
+                            return
+
+                    with st.container(border=True):
+                        st.markdown(
+                            f"""
+                            <div style='background-color: rgba(255, 75, 75, 0.15); border-left: 5px solid #ff4b4b; padding: 15px; border-radius: 5px; margin-bottom: 10px;'>
+                                <h4 style='color: #ff4b4b; margin: 0;'>🎲 Private Roll Request: {active_campaign}</h4>
+                                <p style='margin: 5px 0;'>The DM is requesting a <strong>{req["roll_type"]}</strong>.</p>
+                                {f"<p style='font-style: italic; color: #aaa; margin: 5px 0;'>Reason: \"{req['reason']}\"</p>" if req.get("reason") else ""}
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                        if status == "pending":
+                            # Calculate modifier
+                            stat_key = req.get("stat")
+                            roll_type_lower = req["roll_type"].lower()
+
+                            modifier = 0
+                            if "saving throw" in roll_type_lower:
+                                saves = st.session_state.get("saving_throw_values", {})
+                                modifier = saves.get(
+                                    stat_key,
+                                    calculate_modifier(
+                                        st.session_state.stats.get(stat_key, 10)
+                                    ),
+                                )
+                            elif "check" in roll_type_lower and stat_key in [
+                                "STR",
+                                "DEX",
+                                "CON",
+                                "INT",
+                                "WIS",
+                                "CHA",
+                            ]:
+                                modifier = calculate_modifier(
+                                    st.session_state.stats.get(stat_key, 10)
+                                )
+                            elif "check" in roll_type_lower:
+                                skills = st.session_state.get("skills", {})
+                                modifier = skills.get(stat_key, 0)
+                            else:
+                                modifier = 0
+
+                            btn_label = "Roll 1d20"
+                            if modifier >= 0:
+                                btn_label += f" + {modifier}"
+                            else:
+                                btn_label += f" - {abs(modifier)}"
+
+                            col_roll1, col_roll2, col_dismiss = st.columns([1.5, 3, 1])
+                            from backend.core.storage import submit_roll_result
+
+                            if col_roll1.button(
+                                f"🎲 {btn_label}",
+                                key=f"btn_dm_roll_{req['id']}",
+                                type="primary",
+                                use_container_width=True,
+                            ):
+                                from backend.utils.dice import quick_roll
+
+                                res, raw = quick_roll(20, modifier)
+                                result_text = f"{res} (d20: {raw} + {modifier})"
+
+                                log_roll(
+                                    f"**{req['roll_type']}** (DM Request): **{res}** (d20: {raw} + {modifier})"
+                                )
+                                st.session_state.active_roll = {
+                                    "label": f"{req['roll_type']} (DM Request)",
+                                    "sides": 20,
+                                    "raw": raw,
+                                    "modifier": modifier,
+                                    "total": res,
+                                    "adv_type": "None",
+                                }
+
+                                if submit_roll_result(
+                                    active_campaign, req["id"], result_text
+                                ):
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to submit roll result.")
+
+                            if col_dismiss.button(
+                                "🗑️ Dismiss",
+                                key=f"btn_dismiss_roll_{req['id']}",
+                                use_container_width=True,
+                            ):
+                                if submit_roll_result(
+                                    active_campaign, req["id"], "Dismissed by player"
+                                ):
+                                    st.rerun()
+                        else:
+                            # Roll completed, show success message briefly
+                            st.success(f"🎲 Rolled: **{req.get('result')}**")
+                            st.caption(
+                                "This notification will disappear automatically."
+                            )
+
+    render_dm_roll_notifications()
 
     # ------------------------------------------
     # Auto-Save & Auto-Sync System
@@ -1173,6 +1676,16 @@ def _render_core_stats(edit_mode: bool):
                         st.success(
                             f"Healed for {total_healed} HP! ({old_hp} ➡️ {new_hp})"
                         )
+
+                        # Class-specific resource restoration
+                        char_class = st.session_state.get("char_class", "").lower()
+                        if "warlock" in char_class:
+                            slots = st.session_state.get("spell_slots", {})
+                            for lvl, data in slots.items():
+                                data["used"] = 0
+                            st.session_state.spell_slots = slots
+                            st.info("🔮 Pact Magic spell slots restored!")
+
                         st.rerun()
                 else:
                     st.warning("No Hit Dice remaining.")
@@ -2425,7 +2938,7 @@ def _render_playstyle_guide(edit_mode: bool):
                 height=500,
             )
         else:
-            st.markdown(st.session_state.playstyle_guide)
+            render_themed_markdown(st.session_state.playstyle_guide)
             if st.button("🔄 Regenerate Guide", width="stretch"):
                 st.session_state.playstyle_guide = ""
                 st.rerun()
@@ -2562,6 +3075,14 @@ def render_character_creator():
                         value=False,
                         help="Roll 4d6 and drop the lowest die for each of the six ability scores (Classic D&D Method). If disabled, standard array (15, 14, 13, 12, 10, 8) will be used.",
                         key="use_rolled_ai",
+                    )
+
+                if use_rolled:
+                    st.info(
+                        "**Classic Rolling Method (4d6 drop lowest):**  \n"
+                        "The AI will simulate rolling four 6-sided dice for each ability score and discarding the lowest value. "
+                        "This typically results in a more organic (and often more powerful) stat array than the Standard Array, "
+                        "but carries the risk of lower-than-average scores."
                     )
 
             if st.button(

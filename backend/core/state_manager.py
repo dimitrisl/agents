@@ -123,16 +123,20 @@ def get_default_character() -> Dict[str, Any]:
 
 
 def _set_val(obj: Any, key: str, val: Any):
-    """Universal setter for dict or object."""
-    if isinstance(obj, dict):
+    """Universal setter for dict or session_state."""
+    import streamlit as st
+
+    if isinstance(obj, dict) or obj == st.session_state:
         obj[key] = val
     else:
         setattr(obj, key, val)
 
 
 def _get_val(obj: Any, key: str, default: Any = None) -> Any:
-    """Universal getter for dict or object."""
-    if isinstance(obj, dict):
+    """Universal getter for dict or session_state."""
+    import streamlit as st
+
+    if isinstance(obj, dict) or obj == st.session_state:
         return obj.get(key, default)
     return getattr(obj, key, default)
 
@@ -158,6 +162,7 @@ def init_session_state(state: Any, force: bool = False):
         "dnd_edition": "2014 Edition",
         "dnd_edition_toggle": False,
         "temp_forged_char": None,
+        "edit_mode": False,
         "validation_result": None,
         "active_roll": None,
         "last_saved_char": None,
@@ -198,31 +203,35 @@ def get_character_dict(state: Any) -> Dict[str, Any]:
 
 
 def update_session_from_dict(state: Any, data: Dict[str, Any]):
-    """Updates state from a dictionary."""
+    """Updates state from a dictionary with robust schema defaults."""
     if not data:
         return
 
     _set_val(state, "character_active", True)
 
     from backend.core.schemas import CharacterSchema
+    from pydantic_core import PydanticUndefined
 
     for field in CHARACTER_FIELDS:
         if field in data:
             _set_val(state, field, data[field])
         else:
             # Derive the correct default from the Pydantic schema definition
-            # so we never accidentally set speed=0, armor_class=0, etc.
             schema_field = CharacterSchema.model_fields.get(field)
-            if schema_field is not None and schema_field.default is not None:
-                from pydantic_core import PydanticUndefinedType
-
-                if isinstance(schema_field.default, PydanticUndefinedType):
-                    default = None
-                else:
+            default = None
+            if schema_field is not None:
+                # 1. Check for simple default
+                if schema_field.default is not PydanticUndefined:
                     default = schema_field.default
-            else:
-                # Fields that have no simple scalar default (factories, required)
-                # fall back to sensible empty-collection/None values
+                # 2. Check for default_factory
+                elif schema_field.default_factory is not None:
+                    try:
+                        default = schema_field.default_factory()
+                    except Exception:
+                        default = None
+
+            # 3. Hardcoded fallbacks for critical structures if still None
+            if default is None:
                 if field == "stats":
                     default = {
                         "STR": 10,
@@ -251,16 +260,16 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
                     "prepared_spells",
                 ]:
                     default = []
-                else:
-                    default = None
+
             _set_val(state, field, default)
 
     if "dnd_edition" in data:
         _set_val(state, "dnd_edition_toggle", "2024" in str(data["dnd_edition"]))
 
-    # Fallbacks for new fields
+    # Final vitals sync
+    hp_max = _get_val(state, "hp_max") or 10
     if _get_val(state, "hp_current") is None:
-        _set_val(state, "hp_current", _get_val(state, "hp_max") or 10)
+        _set_val(state, "hp_current", hp_max)
     if _get_val(state, "conditions") is None:
         _set_val(state, "conditions", [])
     if _get_val(state, "hit_dice_used") is None:

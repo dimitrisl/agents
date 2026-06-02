@@ -141,6 +141,16 @@ def inject_custom_css(primary_color: str, accent_color: str):
                 color: white !important;
             }}
 
+            /* Force Data Editor checkboxes to be visible (not just on hover) */
+            [data-testid="stDataEditor"] [data-testid="stCheckbox"] {{
+                opacity: 1 !important;
+            }}
+
+            /* Target specific internal elements if needed for different Streamlit versions */
+            div[data-testid="stDataEditor"] .dvn-checkbox-container {{
+                opacity: 1 !important;
+            }}
+
             /* Dice Roll CSS Animations & Styling */
             @keyframes dice-roll {{
                 0% {{ transform: scale(0.3) rotate(0deg); filter: blur(4px); }}
@@ -231,10 +241,97 @@ def inject_custom_css(primary_color: str, accent_color: str):
                 margin: 5px 0;
                 animation: fade-in 0.3s ease-out 1.1s both;
             }}
+
+            /* Themed Markdown Block - Bio-mechanical style */
+            .themed-markdown-block {{
+                display: none;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] {{
+                background: linear-gradient(135deg, rgba(20, 10, 10, 0.45) 0%, rgba(10, 5, 5, 0.7) 100%) !important;
+                border: 1px solid rgba(255, 75, 75, 0.15) !important;
+                border-left: 5px solid var(--primary-color) !important;
+                border-radius: 12px !important;
+                padding: 20px 24px !important;
+                margin: 15px 0 !important;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+                transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"]:hover {{
+                border-color: rgba(255, 75, 75, 0.3) !important;
+                box-shadow: 0 12px 40px rgba(255, 75, 75, 0.15) !important;
+                transform: translateY(-2px);
+            }}
+
+            /* Themed markdown children overrides for high contrast and premium feel */
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] h1,
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] h2,
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] h3,
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] h4 {{
+                color: var(--primary-color) !important;
+                font-family: 'Outfit', 'Inter', sans-serif !important;
+                font-weight: 700 !important;
+                margin-top: 1.5rem !important;
+                margin-bottom: 0.8rem !important;
+                text-shadow: 0 0 10px rgba(255, 75, 75, 0.15) !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] p {{
+                line-height: 1.7 !important;
+                color: #e0e0e0 !important;
+                font-size: 1rem !important;
+                margin-bottom: 1rem !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] ul,
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] ol {{
+                padding-left: 1.5rem !important;
+                margin-bottom: 1.2rem !important;
+                color: #d8d8d8 !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] li {{
+                margin-bottom: 0.5rem !important;
+                line-height: 1.6 !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] code {{
+                background-color: rgba(255, 75, 75, 0.1) !important;
+                color: var(--accent-color) !important;
+                padding: 3px 6px !important;
+                border-radius: 4px !important;
+                font-size: 0.9em !important;
+                font-family: monospace !important;
+                border: 1px solid rgba(255, 75, 75, 0.15) !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] pre {{
+                background-color: rgba(10, 5, 5, 0.6) !important;
+                border: 1px solid rgba(255, 75, 75, 0.1) !important;
+                border-radius: 8px !important;
+                padding: 15px !important;
+                overflow-x: auto !important;
+            }}
+
+            div.element-container:has(div.themed-markdown-block) + div.element-container [data-testid="stMarkdownContainer"] blockquote {{
+                border-left: 3px solid var(--primary-color) !important;
+                background-color: rgba(255, 75, 75, 0.05) !important;
+                padding: 10px 15px !important;
+                margin: 1.5rem 0 !important;
+                border-radius: 0 8px 8px 0 !important;
+                font-style: italic !important;
+            }}
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_themed_markdown(text: str):
+    """Renders markdown inside a styled, bio-mechanical container using CSS selectors."""
+    st.markdown('<div class="themed-markdown-block"></div>', unsafe_allow_html=True)
+    st.markdown(text)
 
 
 def render_character_header(

@@ -10,10 +10,11 @@ Following a comprehensive review of the **Phyrexian Forge** codebase, here are p
 The mapping of character data to PDF form fields in `backend/pdf_exporter.py` was hardcoded.
 - **Status:** Implemented. Mappings now live in `data/pdf_mappings/` as JSON files. Adding a new sheet template requires no Python changes.
 
-### Caching Strategy
+### ✅ DONE — Caching Strategy
 Frequent Streamlit reruns can lead to unnecessary API calls and latency.
-- **Suggestion:** Implement `@st.cache_data` in `backend/ai_client.py` for methods like `query_rules` or `get_flash_model`.
+- **Status:** Implemented. Decorated rules-related service calls (`query_rules` and `compare_rules` in `backend/services/rules_service.py`) with `@st.cache_data` to ensure repeat questions and comparisons are answered instantly from memory without hitting the Gemini API.
 - **Benefit:** Reduces API costs and improves UI responsiveness.
+
 
 ### ✅ DONE — Centralized Prompt Management
 Prompts were previously embedded within `ai_client.py`.
@@ -36,9 +37,10 @@ Prompts were previously embedded within `ai_client.py`.
 ### ✅ DONE — Rule Comparison Tool
 - **Status:** Implemented. The Rules Library "Rule Comparison" tab uses `RULE_COMPARISON_PROMPT` to return a structured 2014 vs 2024 comparison for any topic.
 
-### Player / DM Authentication (OAuth2)
-- **Suggestion:** Implement a Login system (via Discord or Gmail OAuth2) and add an `owner_id` to characters and campaigns in MongoDB.
+### ✅ DONE — Player / DM Authentication (OAuth2)
+- **Status:** Implemented. Built a Discord and Google OAuth2-based authentication gate. Secured characters and campaigns in MongoDB by stamping them with `owner_id`. Implemented strict backend validation checks on load, delete, and list queries in `backend/core/storage.py` and repository classes to prevent cross-user data exposure while preserving public legacy files.
 - **Benefit:** Allows players to securely manage their own roster of characters and DMs to isolate their campaigns from others.
+
 
 ---
 
@@ -54,14 +56,16 @@ Prompts were previously embedded within `ai_client.py`.
 
 ## 🎨 4. UI/UX Polishing
 
-### Themed Markdown Rendering
-- **Suggestion:** Use custom CSS to style the AI-generated markdown (Oracle answers, Playstyle guides) to match the dark, bio-mechanical aesthetic.
+### ✅ DONE — Themed Markdown Rendering
+- **Status:** Implemented. Custom CSS rules are injected globally in the app's stylesheets, targeting markdown blocks wrapped in `<div class="themed-markdown-block"></div>`. All AI-generated markdown (Oracle responses, Rule Comparisons, Playstyle Guides, Session Prep, NPC descriptions, Riddles, and Encounters) are rendered within this premium, glassmorphic dark container featuring hover micro-animations and highlighted headers/code blocks.
 - **Benefit:** Creates a more immersive "Phyrexian" user experience.
 
-### Character Export Preview
-- **Suggestion:** Display a data summary or "preview card" in Streamlit before the user downloads the PDF.
+
+### ✅ DONE — Character Export Preview
+- **Status:** Implemented. Before exporting the PDF character sheet, users see a modal preview card summarizing their identity, vitals, stats, saving throws, skill proficiencies, weapons, and features.
 - **Benefit:** Allows users to verify AI Forge results before committing to a download.
 
-### Table-Ready UX Polish
-- **Suggestion:** Continue refining the initiative tracker and combat flow for live in-person play — faster HP edits, keyboard shortcuts, cleaner combatant card layout.
-- **Benefit:** Reduces DM friction at the table and is the last remaining blocker for the v1.0 "Friends & Family" release.
+
+### ✅ DONE — Table-Ready UX Polish
+- **Status:** Implemented. Integrated a quick **+/- HP Adjuster** field directly into the active combat cards of the Initiative Tracker. The DM can type damage (e.g., `-12`) or healing (e.g., `8`) and press Enter to instantly modify HP. The tracker updates in-place, synchronizes with the MongoDB records of character party members, and resets the input to `0` automatically.
+- **Benefit:** Drastically reduces DM math overhead and friction at the table, completing the final blocker for the v1.0 "Friends & Family" release.

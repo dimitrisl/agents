@@ -1,6 +1,7 @@
 import streamlit as st
 from backend.repositories.rules_repository import RulesRepository
 from backend.core.constants import EDITION_2014
+from backend.utils.ui_utils import render_themed_markdown
 
 
 def render_library_view():
@@ -51,7 +52,7 @@ def render_library_view():
             if "⚠️" in answer or "❌" in answer:
                 st.error(answer)
             else:
-                st.info(answer)
+                render_themed_markdown(answer)
 
             if st.button("Clear Answer", key="clear_oracle_answer", width="stretch"):
                 st.session_state.last_library_rule_answer = None
@@ -84,7 +85,7 @@ def render_library_view():
 
         if st.session_state.get("last_rule_comparison"):
             st.markdown("---")
-            st.info(st.session_state.last_rule_comparison)
+            render_themed_markdown(st.session_state.last_rule_comparison)
             if st.button("Clear Comparison", key="clear_compare_btn", width="stretch"):
                 st.session_state.last_rule_comparison = None
                 st.rerun()

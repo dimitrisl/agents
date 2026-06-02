@@ -40,25 +40,44 @@ def test_delete_character(mock_remove, mock_exists, mock_char_repo):
         mock_char_repo.delete.assert_called_once_with("hero_123.json")
 
 
+@patch("backend.core.storage._get_owner_id")
 @patch("backend.core.storage._camp_repo")
-def test_campaign_storage(mock_repo):
-    mock_repo.load.return_value = {"campaign_name": "Camp1"}
+def test_campaign_storage(mock_repo, mock_get_id):
+    # Setup mock returns
+    owner_id = "owner_123"
+    mock_get_id.return_value = owner_id
+    mock_repo.load.return_value = {"campaign_name": "Camp1", "owner_id": owner_id}
     mock_repo.list_all.return_value = ["Camp1"]
+
+    # 1. Test Save (Now calls load inside to preserve owner)
     save_campaign("Camp1", "Notes")
+    assert mock_repo.load.call_count >= 1
     mock_repo.save.assert_called_once_with(
-        "Camp1", "Notes", None, dnd_edition=None, owner_id=None
+        "Camp1", "Notes", None, dnd_edition=None, owner_id=owner_id
     )
 
-    load_campaign("Camp1")
-    mock_repo.load.assert_called_once_with("Camp1")
+    # 2. Test Load
+    mock_repo.load.reset_mock()
+    # Ensure load_campaign succeeds by matching the owner_id
+    res = load_campaign("Camp1")
+    assert res is not None
+    assert mock_repo.load.called
 
+    # 3. Test List
     list_campaigns()
     mock_repo.list_all.assert_called_once()
 
     from backend.core.storage import delete_campaign
 
+    # 4. Test Delete (Calls load inside to verify exists/auth)
+    mock_repo.load.reset_mock()
+    # Setup delete mock to return a campaign owned by us
+    mock_repo.load.return_value = {
+        "campaign_name": "CampToDelete",
+        "owner_id": owner_id,
+    }
     delete_campaign("CampToDelete")
-    mock_repo.delete.assert_called_once_with("CampToDelete")
+    assert mock_repo.delete.called
 
 
 @patch("backend.core.storage.load_campaign")

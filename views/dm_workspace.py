@@ -18,9 +18,15 @@ from backend.core.storage import (
     load_character,
     delete_campaign,
     save_character,
+    add_roll_request,
+    clear_roll_requests,
 )
 from backend.utils.image_utils import generate_portrait_url
-from backend.utils.ui_utils import render_active_roll_visual, get_image_base64
+from backend.utils.ui_utils import (
+    render_active_roll_visual,
+    get_image_base64,
+    render_themed_markdown,
+)
 from backend.services.mechanics_service import get_modifier as calculate_modifier
 from backend.core.constants import (
     EDITION_2014,
@@ -70,12 +76,14 @@ def render_dm_workspace():
 
         with dm_tab3:
             _render_party_dashboard()
+            _render_roll_requests_section("dashboard")
 
         with dm_tab4:
             _render_ai_generators()
 
         with dm_tab5:
             _render_initiative_tracker()
+            _render_roll_requests_section("tracker")
 
 
 @st.dialog("NPC Stat Block", width="large")
@@ -131,6 +139,15 @@ def _render_campaign_selection():
     """Renders the screen to load or create a campaign."""
     with st.container(border=True):
         st.subheader("Load Existing Campaign")
+
+        c_col1, c_col2 = st.columns([4, 1])
+        with c_col2:
+            if st.button(
+                "🔄 Refresh", key="refresh_camp_list_btn", use_container_width=True
+            ):
+                st.cache_data.clear()
+                st.rerun()
+
         camp_list = list_campaigns()
         if camp_list:
             col_sel, col_btn_load, col_btn_del = st.columns(
@@ -318,7 +335,7 @@ def _render_campaign_notes():
                 )
 
         if st.session_state.get("session_prep_result"):
-            st.info(st.session_state.session_prep_result)
+            render_themed_markdown(st.session_state.session_prep_result)
 
     with tab_vault:
         camp_data = st.session_state.get("active_campaign_data", {})
@@ -804,6 +821,88 @@ def _render_party_tracker():
     active_edition = st.session_state.get("dnd_edition", "2014 Edition")
     is_active_2024 = "2024" in active_edition
 
+    # ── Invite Players by Username ────────────────────────────────────────────
+    with st.expander("👤 Invite a Player", expanded=True):
+        from backend.repositories.user_repository import UserRepository as _UserRepo
+        from backend.repositories.character_repository import (
+            CharacterRepository as _CharRepo,
+        )
+
+        active_campaign = st.session_state.get("active_campaign_name")
+        if not active_campaign:
+            st.warning("No active campaign.")
+        else:
+            _ur = _UserRepo()
+            all_users = _ur.list_all()
+            dm_user = st.session_state.get("user", {})
+            dm_id = dm_user.get("id", "")
+
+            # Exclude the DM from the player list
+            player_users = [
+                u for u in all_users if f"local_user_{u['username']}" != dm_id
+            ]
+
+            if not player_users:
+                st.info("No other registered players found.")
+            else:
+                user_options = {
+                    u["name"]: f"local_user_{u['username']}" for u in player_users
+                }
+                selected_display = st.selectbox(
+                    "Select Player",
+                    list(user_options.keys()),
+                    key="dm_invite_select_user",
+                )
+                selected_owner_id = user_options[selected_display]
+
+                # Load that player's characters
+                _cr = _CharRepo()
+                player_chars = _cr.list_all(owner_id=selected_owner_id)
+
+                if not player_chars:
+                    st.caption(f"{selected_display} has no characters yet.")
+                else:
+                    char_options = {}
+                    for fname in player_chars:
+                        cdata = _cr.load(fname)
+                        if cdata:
+                            label = f"{cdata['char_name']} (Lv.{cdata.get('char_level', 1)} {cdata.get('char_class', '')})"
+                            char_options[label] = (fname, cdata)
+
+                    if char_options:
+                        selected_char_label = st.selectbox(
+                            "Select Character to Add",
+                            list(char_options.keys()),
+                            key="dm_invite_select_char",
+                        )
+                        sel_fname, sel_cdata = char_options[selected_char_label]
+
+                        # Check if already in party
+                        already_in = any(
+                            c.get("char_id") == sel_cdata.get("char_id")
+                            for c in st.session_state.party
+                        )
+
+                        if already_in:
+                            st.success(
+                                f"✅ {sel_cdata['char_name']} is already in the party."
+                            )
+                        else:
+                            if st.button(
+                                f"➕ Add {sel_cdata['char_name']} to Party",
+                                type="primary",
+                                use_container_width=True,
+                                key="dm_invite_add_btn",
+                            ):
+                                st.session_state.party.append(sel_cdata)
+                                from backend.core.storage import join_campaign
+
+                                join_campaign(active_campaign, sel_fname)
+                                st.success(
+                                    f"✅ {sel_cdata['char_name']} added to party!"
+                                )
+                                st.rerun()
+
     with st.expander("📥 Ingest Characters from Storage", expanded=False):
         joined_files = st.session_state.get("campaign_party_files", [])
         if joined_files:
@@ -973,7 +1072,7 @@ def _render_ai_generators():
         if st.session_state.get("encounter_result"):
             res = st.session_state.encounter_result
             if isinstance(res, dict):
-                st.markdown(res.get("encounter_text", ""))
+                render_themed_markdown(res.get("encounter_text", ""))
                 if res.get("monsters"):
                     st.markdown("---")
                     st.markdown("#### 🧟 Monsters in this Encounter:")
@@ -1027,7 +1126,7 @@ def _render_ai_generators():
                     )
             else:
                 # Legacy or failed JSON fallback
-                st.info(res)
+                render_themed_markdown(res)
                 st.warning(
                     "⚠️ This encounter is in 'Legacy Format' or failed to generate monster data. Click 'Generate Encounter' again to enable the Initiative Tracker integration."
                 )
@@ -1036,7 +1135,7 @@ def _render_ai_generators():
             st.markdown("---")
             with st.container(border=True):
                 st.markdown("### 🧩 The Oracle's Riddle")
-                st.markdown(st.session_state.riddle_result)
+                render_themed_markdown(st.session_state.riddle_result)
                 if st.button("🗑️ Clear Riddle", key="clear_riddle_btn"):
                     st.session_state.riddle_result = None
                     st.rerun()
@@ -1050,7 +1149,7 @@ def _render_ai_generators():
                     npc_concept, edition=st.session_state.dnd_edition
                 )
         if st.session_state.get("npc_result"):
-            st.info(st.session_state.npc_result)
+            render_themed_markdown(st.session_state.npc_result)
 
 
 def _render_initiative_tracker():
@@ -1341,7 +1440,7 @@ def _render_initiative_tracker():
 </div>
 """)
 
-                cols = st.columns([1, 1.5, 2, 2, 0.5])
+                cols = st.columns([1, 1.2, 1.2, 2.5, 0.5])
                 new_init = cols[0].number_input(
                     "Init",
                     value=c["init"],
@@ -1374,7 +1473,24 @@ def _render_initiative_tracker():
                     c["hp"] = new_hp
 
                 cols[1].progress(max(0.0, min(1.0, c["hp"] / max(1, c["max_hp"]))))
-                c["conditions"] = cols[2].multiselect(
+
+                hp_adj = cols[2].number_input(
+                    "+/- HP",
+                    value=0,
+                    key=f"hp_adj_{c['id']}_{i}",
+                    label_visibility="visible",
+                    help="Type negative for damage (e.g. -5) or positive to heal (e.g. 5) and press Enter.",
+                )
+                if hp_adj != 0:
+                    c["hp"] = max(0, c["hp"] + hp_adj)
+                    # Sync to player if player
+                    for p in st.session_state.party:
+                        if p["char_name"] == c["name"]:
+                            p["hp_current"] = c["hp"]
+                    st.session_state[f"hp_adj_{c['id']}_{i}"] = 0
+                    st.rerun()
+
+                c["conditions"] = cols[3].multiselect(
                     "Status",
                     [
                         "Blinded",
@@ -1394,7 +1510,7 @@ def _render_initiative_tracker():
                     label_visibility="visible",
                 )
 
-                if cols[3].button("❌", key=f"rem_act_{c['id']}_{i}"):
+                if cols[4].button("❌", key=f"rem_act_{c['id']}_{i}"):
                     st.session_state.initiative_order.pop(i)
                     if not st.session_state.initiative_order:
                         st.session_state.combat_active = False
@@ -1499,6 +1615,217 @@ def _render_initiative_tracker():
                                         save_character(npc_data)
                             st.success("Portrait updated!")
                             st.rerun()
+
+
+def _render_roll_requests_section(tab_key: str):
+    """Renders the private roll request widget for DMs to request and monitor rolls."""
+    active_campaign = st.session_state.get("active_campaign_name")
+    if not active_campaign:
+        return
+
+    camp_data = load_campaign(active_campaign)
+    if not camp_data:
+        return
+
+    roll_requests = camp_data.get("roll_requests", [])
+
+    # ---------------------------------------------------------
+    # Auto-detection of new results (Session State tracked)
+    # ---------------------------------------------------------
+    if "last_seen_roll_ids" not in st.session_state:
+        st.session_state.last_seen_roll_ids = set()
+
+    current_completed_ids = {
+        r["id"] for r in roll_requests if r.get("status") == "completed"
+    }
+    new_results = current_completed_ids - st.session_state.last_seen_roll_ids
+
+    if new_results:
+        for rid in new_results:
+            req = next((r for r in roll_requests if r["id"] == rid), None)
+            if req:
+                st.toast(
+                    f"🎲 **{req.get('char_name')}** rolled **{req.get('result')}**!"
+                )
+        st.session_state.last_seen_roll_ids.update(new_results)
+
+    col_header, col_refresh = st.columns([4, 1])
+    col_header.markdown("### 🎲 Private Roll Requests")
+    if col_refresh.button(
+        "🔄 Refresh", key=f"btn_refresh_rolls_{tab_key}", use_container_width=True
+    ):
+        st.rerun()
+
+    col_req_form, col_req_log = st.columns([1, 1])
+
+    with col_req_form:
+        st.markdown("#### Send New Request")
+        # 1. Select character from party
+        party_members = st.session_state.party
+        char_names = [m.get("char_name", "Hero") for m in party_members]
+
+        if not char_names:
+            st.warning("No players in party to request rolls from.")
+        else:
+            target_char_name = st.selectbox(
+                "Select Character", char_names, key=f"dm_req_char_{tab_key}"
+            )
+
+            # Find the filename for this character
+            target_member = next(
+                (m for m in party_members if m.get("char_name") == target_char_name),
+                None,
+            )
+            target_filename = ""
+            if target_member:
+                name = target_member.get("char_name", "unknown")
+                cid = target_member.get("char_id", "unknown")
+                target_filename = f"{name.replace(' ', '_').lower()}_{cid}.json"
+
+            category = st.radio(
+                "Roll Category",
+                ["Ability Check", "Saving Throw", "Skill Check"],
+                horizontal=True,
+                key=f"dm_req_cat_{tab_key}",
+            )
+
+            if category == "Ability Check":
+                stat_options = [
+                    ("Strength (STR)", "STR"),
+                    ("Dexterity (DEX)", "DEX"),
+                    ("Constitution (CON)", "CON"),
+                    ("Intelligence (INT)", "INT"),
+                    ("Wisdom (WIS)", "WIS"),
+                    ("Charisma (CHA)", "CHA"),
+                ]
+                selected_stat_label, selected_stat_key = st.selectbox(
+                    "Select Ability",
+                    stat_options,
+                    format_func=lambda x: x[0],
+                    key=f"dm_req_stat_ability_{tab_key}",
+                )
+                roll_type = f"{selected_stat_key} Check"
+                stat = selected_stat_key
+            elif category == "Saving Throw":
+                stat_options = [
+                    ("Strength (STR)", "STR"),
+                    ("Dexterity (DEX)", "DEX"),
+                    ("Constitution (CON)", "CON"),
+                    ("Intelligence (INT)", "INT"),
+                    ("Wisdom (WIS)", "WIS"),
+                    ("Charisma (CHA)", "CHA"),
+                ]
+                selected_stat_label, selected_stat_key = st.selectbox(
+                    "Select Saving Throw",
+                    stat_options,
+                    format_func=lambda x: x[0],
+                    key=f"dm_req_stat_save_{tab_key}",
+                )
+                roll_type = f"{selected_stat_key} Saving Throw"
+                stat = selected_stat_key
+            else:
+                skill_options = [
+                    "Acrobatics",
+                    "Animal Handling",
+                    "Arcana",
+                    "Athletics",
+                    "Deception",
+                    "History",
+                    "Insight",
+                    "Intimidation",
+                    "Investigation",
+                    "Medicine",
+                    "Nature",
+                    "Perception",
+                    "Performance",
+                    "Persuasion",
+                    "Religion",
+                    "Sleight of Hand",
+                    "Stealth",
+                    "Survival",
+                ]
+                selected_skill = st.selectbox(
+                    "Select Skill", skill_options, key=f"dm_req_stat_skill_{tab_key}"
+                )
+                roll_type = f"{selected_skill} Check"
+                stat = selected_skill
+
+            reason = st.text_input(
+                "Reason / Context (optional)",
+                placeholder="e.g. To avoid falling rocks",
+                key=f"dm_req_reason_{tab_key}",
+            )
+
+            if st.button(
+                "📨 Request Private Roll",
+                type="primary",
+                use_container_width=True,
+                key=f"btn_send_dm_req_{tab_key}",
+            ):
+                if target_filename:
+                    success = add_roll_request(
+                        active_campaign,
+                        target_filename,
+                        target_char_name,
+                        roll_type,
+                        stat,
+                        reason,
+                    )
+                    if success:
+                        st.toast(f"Sent roll request to {target_char_name}!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to send roll request.")
+
+    with col_req_log:
+        st.markdown("#### Request Log")
+
+        @st.fragment(run_every=5)
+        def render_dm_req_log_fragment():
+            # Re-load campaign inside fragment to get fresh results
+            fresh_camp = load_campaign(active_campaign)
+            if not fresh_camp:
+                st.info("No active roll requests.")
+                return
+
+            fresh_requests = fresh_camp.get("roll_requests", [])
+
+            if not fresh_requests:
+                st.info("No active roll requests.")
+            else:
+                for req in reversed(fresh_requests):
+                    status = req.get("status", "pending")
+                    char_display = req.get("char_name", "Hero")
+                    roll_type_display = req.get("roll_type", "Roll")
+                    reason_display = req.get("reason", "")
+
+                    with st.container(border=True):
+                        c_info, c_action = st.columns([3, 2])
+                        c_info.markdown(
+                            f"**{char_display}** Needs: **{roll_type_display}**"
+                        )
+                        if reason_display:
+                            c_info.caption(f'Reason: "{reason_display}"')
+
+                        if status == "pending":
+                            c_action.markdown("⏳ **Pending**")
+                        elif status == "cancelled":
+                            c_action.markdown("🚫 **Cancelled**")
+                        else:
+                            result_display = req.get("result", "??")
+                            c_action.success(f"🎲 **{result_display}**")
+
+        render_dm_req_log_fragment()
+
+        st.write("")
+        if st.button(
+            "🧹 Clear Request Log",
+            use_container_width=True,
+            key=f"btn_clear_roll_log_{tab_key}",
+        ):
+            clear_roll_requests(active_campaign)
+            st.success("Roll requests cleared!")
+            st.rerun()
 
 
 def _render_party_dashboard():

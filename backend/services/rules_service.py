@@ -1,6 +1,7 @@
 import logging
 import json
 import re
+import streamlit as st
 from backend.core.ai_client import generate_ai_response, generate_ai_json
 from backend.core.prompts import (
     RULES_ORACLE_PROMPT,
@@ -21,6 +22,7 @@ logger = logging.getLogger("DnDAssistant.RulesService")
 _rules_repo = RulesRepository()
 
 
+@st.cache_data(show_spinner=False)
 def query_rules(query: str, edition: str = EDITION_2014) -> str:
     """Uses AI to answer questions about D&D rules."""
     prompt = RULES_ORACLE_PROMPT.format(
@@ -30,6 +32,7 @@ def query_rules(query: str, edition: str = EDITION_2014) -> str:
     return generate_ai_response(prompt)
 
 
+@st.cache_data(show_spinner=False)
 def compare_rules(query: str) -> str:
     """Uses AI to compare 2014 and 2024 rules."""
     prompt = RULE_COMPARISON_PROMPT.format(query=query)

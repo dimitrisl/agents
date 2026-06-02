@@ -91,11 +91,7 @@ class CharacterRepository:
 
         query = {}
         if owner_id:
-            query["$or"] = [
-                {"owner_id": owner_id},
-                {"owner_id": {"$exists": False}},
-                {"owner_id": None},
-            ]
+            query["owner_id"] = owner_id
 
         try:
             chars = self.collection.find(query, {"char_name": 1, "char_id": 1})
@@ -122,3 +118,11 @@ class CharacterRepository:
         except Exception as e:
             logger.error(f"Failed to delete character: {e}")
             return False
+
+    def count_all(self, owner_id: str = None) -> int:
+        if self.collection is None:
+            return 0
+        query = {}
+        if owner_id:
+            query["owner_id"] = owner_id
+        return self.collection.count_documents(query)

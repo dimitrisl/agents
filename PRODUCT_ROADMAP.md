@@ -35,17 +35,15 @@ This phase focuses on making the Streamlit app robust enough for live, in-person
 ## 📋 Planned Enhancements (User Feedback)
 
 ### 🗡️ Character Creator & Player Dashboard
-- [ ] **Prioritize Creator:** Display "Forge a New Hero" option first/prominently on app launch.
-- [ ] **Inline Edition Selection:** Move the D&D edition selection inside the forge interface (as a multiple-choice) rather than the sidebar.
-- [ ] **Gender Customization:** Add an "Other" option with a custom text field for gender in character creation.
-- [ ] **Explain Rolled Stats:** Add a detailed explanation/instructions of how the "Use Rolled Stats" option works.
-- [ ] **Fix Portrait Regeneration:** Debug and resolve the issue where "Regenerate Portrait" fails to load.
-- [ ] **Accept to Edit Mode:** Automatically route the player to "Edit Mode" immediately after accepting their newly generated character, instead of the static sheet view.
-- [ ] **Generate Portrait in Edit Mode:** Enable generating new portraits via AI directly while in Edit Mode (currently only supports manual image uploads/URLs).
-- [ ] **Persistent Table Row Checkboxes:** Adjust CSS/styling so the row-selection checkboxes in `st.data_editor` are always visible rather than only on hover.
-- [ ] **Streamline Weapon Deletion:** Remove the redundant "Weapon Removal" widget since weapons can already be deleted directly from the table.
-- [ ] **Short Rest & Trance:** Add active controls/logic for taking a Short Rest and Elven Trance.
-- [ ] **Navigation Improvements:** Allow players to switch tabs or navigate to other options on the left panel directly from Edit Mode without having to click "Exit Hero" first.
+- [x] **Gender Customization:** Add an "Other" option with a custom text field for gender in character creation.
+- [x] **Explain Rolled Stats:** Add a detailed explanation/instructions of how the "Use Rolled Stats" option works.
+- [x] **Fix Portrait Regeneration:** Debug and resolve the issue where "Regenerate Portrait" fails to load.
+- [x] **Accept to Edit Mode:** Automatically route the player to "Edit Mode" immediately after accepting their newly generated character, instead of the static sheet view.
+- [x] **Generate Portrait in Edit Mode:** Enable generating new portraits via AI directly while in Edit Mode (currently only supports manual image uploads/URLs).
+- [x] **Persistent Table Row Checkboxes:** Adjust CSS/styling so the row-selection checkboxes in `st.data_editor` are always visible rather than only on hover.
+- [x] **Streamline Weapon Deletion:** Remove the redundant "Weapon Removal" widget since weapons can already be deleted directly from the table.
+- [x] **Short Rest & Trance:** Add active controls/logic for taking a Short Rest and Elven Trance.
+- [x] **Navigation Improvements:** Allow players to switch tabs or navigate to other options on the left panel directly from Edit Mode without having to click "Exit Hero" first.
 
 ### 🏰 Dungeon Master Workspace
 - [ ] **Bulk Party Management:** Allow the DM to multiselect and add multiple characters to the party at once inside the Party Manager tab.

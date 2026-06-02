@@ -28,6 +28,8 @@ class CampaignRepository:
         module_pdf_uri: str = None,
         extracted_npcs: List[dict] = None,
         vault_npcs: List[str] = None,
+        roll_requests: List[dict] = None,
+        invite_code: str = None,
     ) -> bool:
         """Save campaign notes and party list to MongoDB with edition tracking."""
         if self.collection is None:
@@ -46,6 +48,8 @@ class CampaignRepository:
             or extracted_npcs is None
             or module_pdf_uri is None
             or vault_npcs is None
+            or roll_requests is None
+            or invite_code is None
         )
         if needs_existing:
             existing = self.load(campaign_name)
@@ -77,6 +81,12 @@ class CampaignRepository:
         if vault_npcs is None:
             vault_npcs = existing.get("vault_npcs", []) if existing else []
 
+        if roll_requests is None:
+            roll_requests = existing.get("roll_requests", []) if existing else []
+
+        if invite_code is None:
+            invite_code = existing.get("invite_code") if existing else None
+
         data = {
             "campaign_name": campaign_name,
             "notes": notes,
@@ -86,6 +96,8 @@ class CampaignRepository:
             "module_pdf_uri": module_pdf_uri,
             "extracted_npcs": extracted_npcs,
             "vault_npcs": vault_npcs,
+            "roll_requests": roll_requests,
+            "invite_code": invite_code,
         }
         if owner_id:
             data["owner_id"] = owner_id
@@ -181,3 +193,26 @@ class CampaignRepository:
         except Exception as e:
             logger.error(f"Failed to delete campaign from MongoDB: {e}")
             return False
+
+    def find_by_invite_code(self, invite_code: str) -> Optional[dict]:
+        """Find a campaign by its invite code."""
+        if self.collection is None:
+            return None
+        try:
+            result = self.collection.find_one(
+                {"invite_code": invite_code.strip().upper()}
+            )
+            if result:
+                result.pop("_id", None)
+            return result
+        except Exception as e:
+            logger.error(f"Failed to find campaign by invite code: {e}")
+            return None
+
+    def count_all(self, owner_id: str = None) -> int:
+        if self.collection is None:
+            return 0
+        query = {}
+        if owner_id:
+            query["owner_id"] = owner_id
+        return self.collection.count_documents(query)
