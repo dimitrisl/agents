@@ -252,8 +252,8 @@ def _render_campaign_notes():
     """Renders the session logs, module manager, and campaign tools."""
     st.subheader("Campaign Manager")
 
-    tab_overview, tab_history, tab_vault = st.tabs(
-        ["Overview", "Session History", "NPC Vault"]
+    tab_overview, tab_history, tab_vault, tab_module_lore = st.tabs(
+        ["Overview", "Session History", "NPC Vault", "Module Lore"]
     )
 
     with tab_overview:
@@ -279,6 +279,7 @@ def _render_campaign_notes():
                     sessions=camp_data.get("sessions", []),
                     module_pdf_uri=camp_data.get("module_pdf_uri"),
                     extracted_npcs=camp_data.get("extracted_npcs", []),
+                    module_lore=camp_data.get("module_lore"),
                 ):
                     st.toast("Campaign saved successfully!")
                 else:
@@ -447,126 +448,6 @@ def _render_campaign_notes():
                                 st.rerun()
                             else:
                                 st.error("Failed to save forged character.")
-
-        with st.expander("📖 Extract from PDF Module", expanded=False):
-            if camp_data.get("module_pdf_uri"):
-                st.success(f"Module Uploaded: {camp_data.get('module_pdf_uri')}")
-                if st.button("🗑️ Clear Module & Re-upload", use_container_width=True):
-                    camp_data["module_pdf_uri"] = None
-                    camp_data["extracted_npcs"] = []
-                    st.session_state.active_campaign_data = camp_data
-
-                    save_campaign(
-                        st.session_state.active_campaign_name,
-                        st.session_state.campaign_notes,
-                        sessions=camp_data.get("sessions", []),
-                        module_pdf_uri=None,
-                        extracted_npcs=[],
-                        vault_npcs=vault_npcs,
-                    )
-                    st.rerun()
-            else:
-                uploaded_pdf = st.file_uploader(
-                    "Upload Adventure Module (PDF)", type=["pdf"]
-                )
-                if uploaded_pdf and st.button("Extract NPCs & Lore"):
-                    temp_pdf_path = f"scratch/{uploaded_pdf.name}"
-                    os.makedirs("scratch", exist_ok=True)
-                    with open(temp_pdf_path, "wb") as f:
-                        f.write(uploaded_pdf.getbuffer())
-
-                    with st.spinner(
-                        "Uploading to Gemini & Extracting... This may take a minute for large PDFs."
-                    ):
-                        parser = ModuleParserService()
-                        g_file = parser.upload_pdf_to_gemini(temp_pdf_path)
-                        camp_data["module_pdf_uri"] = g_file.name
-
-                        extracted = parser.extract_npcs(g_file)
-                        from backend.core.storage import save_character
-
-                        for npc in extracted:
-                            # 1. Download image
-                            img_path = None
-                            page_num = npc.get("page_number_for_art", 0)
-                            if page_num > 0:
-                                img_path = parser.extract_image_from_page(
-                                    temp_pdf_path, page_num, npc.get("name", "Unknown")
-                                )
-
-                            # 2. Map to Character Schema
-                            new_char_id = str(uuid.uuid4())[:8]
-                            stats_raw = npc.get("stats", {})
-
-                            def safe_int(val, default=10):
-                                try:
-                                    return int(val)
-                                except (ValueError, TypeError):
-                                    return default
-
-                            stats_clean = {
-                                "STR": safe_int(stats_raw.get("STR")),
-                                "DEX": safe_int(stats_raw.get("DEX")),
-                                "CON": safe_int(stats_raw.get("CON")),
-                                "INT": safe_int(stats_raw.get("INT")),
-                                "WIS": safe_int(stats_raw.get("WIS")),
-                                "CHA": safe_int(stats_raw.get("CHA")),
-                            }
-
-                            weapons_raw = npc.get("weapons", [])
-                            weapons_clean = []
-                            for w in weapons_raw:
-                                weapons_clean.append(
-                                    {
-                                        "name": str(w.get("name") or "Unknown Weapon"),
-                                        "attack_bonus": str(
-                                            w.get("attack_bonus") or "+0"
-                                        ),
-                                        "damage_dice": str(
-                                            w.get("damage_dice") or "1d4"
-                                        ),
-                                        "is_custom": True,
-                                    }
-                                )
-
-                            char_dict = {
-                                "char_id": new_char_id,
-                                "is_npc": True,
-                                "char_name": npc.get("name", "Unknown NPC"),
-                                "char_class": "Monster"
-                                if not npc.get("role")
-                                else npc.get("role")[:20],
-                                "race": "Unknown",
-                                "background": "Module NPC",
-                                "dnd_edition": st.session_state.dnd_edition,
-                                "char_level": safe_int(npc.get("char_level"), 1),
-                                "armor_class": safe_int(npc.get("ac")),
-                                "hp_max": safe_int(npc.get("hp_max")),
-                                "speed": safe_int(npc.get("speed"), 30),
-                                "stats": stats_clean,
-                                "features_traits": npc.get("features_traits", []),
-                                "weapons": weapons_clean,
-                                "backstory": npc.get("role", ""),
-                                "char_portrait": img_path,
-                            }
-
-                            if save_character(char_dict):
-                                char_filename = f"{char_dict['char_name'].replace(' ', '_').lower()}_{new_char_id}.json"
-                                if char_filename not in vault_npcs:
-                                    vault_npcs.append(char_filename)
-
-                        camp_data["vault_npcs"] = vault_npcs
-                        st.session_state.active_campaign_data = camp_data
-
-                        save_campaign(
-                            st.session_state.active_campaign_name,
-                            st.session_state.campaign_notes,
-                            sessions=camp_data.get("sessions", []),
-                            module_pdf_uri=g_file.name,
-                            extracted_npcs=[],  # No longer use legacy extracted dicts
-                            vault_npcs=vault_npcs,
-                        )
-                        st.rerun()
 
         with st.expander("➕ Manually Create NPC", expanded=False):
             with st.form("manual_npc_form", clear_on_submit=True):
@@ -812,6 +693,150 @@ def _render_campaign_notes():
                                 st.session_state.initiative_order = []
                             st.session_state.initiative_order.append(new_entry)
                             st.toast(f"Added {npc_data['char_name']} to Initiative!")
+
+    with tab_module_lore:
+        st.markdown("### Extracted Module Lore")
+        camp_data = st.session_state.get("active_campaign_data", {})
+        lore_content = camp_data.get("module_lore", "")
+
+        if lore_content:
+            st.markdown(lore_content)
+        else:
+            st.info(
+                "No lore has been extracted yet. Upload an adventure module below to extract its NPCs and Lore."
+            )
+
+        with st.expander("📖 Extract from PDF Module", expanded=False):
+            if camp_data.get("module_pdf_uri"):
+                st.success(
+                    "✅ An Adventure Module is currently loaded in the AI's memory."
+                )
+                if st.button("🗑️ Clear Module & Re-upload", use_container_width=True):
+                    camp_data["module_pdf_uri"] = None
+                    camp_data["extracted_npcs"] = []
+                    st.session_state.active_campaign_data = camp_data
+
+                    save_campaign(
+                        st.session_state.active_campaign_name,
+                        st.session_state.campaign_notes,
+                        sessions=camp_data.get("sessions", []),
+                        module_pdf_uri=None,
+                        extracted_npcs=[],
+                        vault_npcs=vault_npcs,
+                    )
+                    st.rerun()
+            else:
+                uploaded_pdf = st.file_uploader(
+                    "Upload Adventure Module (PDF)", type=["pdf"]
+                )
+                if uploaded_pdf and st.button("Extract NPCs & Lore"):
+                    temp_pdf_path = f"scratch/{uploaded_pdf.name}"
+                    os.makedirs("scratch", exist_ok=True)
+                    with open(temp_pdf_path, "wb") as f:
+                        f.write(uploaded_pdf.getbuffer())
+
+                    with st.spinner(
+                        "Uploading to Gemini & Extracting... This may take a minute for large PDFs."
+                    ):
+                        parser = ModuleParserService()
+                        g_file = parser.upload_pdf_to_gemini(temp_pdf_path)
+                        camp_data["module_pdf_uri"] = g_file.name
+
+                        extracted = parser.extract_npcs(g_file)
+                        from backend.core.storage import save_character
+
+                        for npc in extracted:
+                            # 1. Download image
+                            img_path = None
+                            page_num = npc.get("page_number_for_art", 0)
+                            if page_num > 0:
+                                img_path = parser.extract_image_from_page(
+                                    temp_pdf_path, page_num, npc.get("name", "Unknown")
+                                )
+
+                            # 2. Map to Character Schema
+                            new_char_id = str(uuid.uuid4())[:8]
+                            stats_raw = npc.get("stats", {})
+
+                            def safe_int(val, default=10):
+                                try:
+                                    return int(val)
+                                except (ValueError, TypeError):
+                                    return default
+
+                            stats_clean = {
+                                "STR": safe_int(stats_raw.get("STR")),
+                                "DEX": safe_int(stats_raw.get("DEX")),
+                                "CON": safe_int(stats_raw.get("CON")),
+                                "INT": safe_int(stats_raw.get("INT")),
+                                "WIS": safe_int(stats_raw.get("WIS")),
+                                "CHA": safe_int(stats_raw.get("CHA")),
+                            }
+
+                            weapons_raw = npc.get("weapons", [])
+                            weapons_clean = []
+                            for w in weapons_raw:
+                                weapons_clean.append(
+                                    {
+                                        "name": str(w.get("name") or "Unknown Weapon"),
+                                        "attack_bonus": str(
+                                            w.get("attack_bonus") or "+0"
+                                        ),
+                                        "damage_dice": str(
+                                            w.get("damage_dice") or "1d4"
+                                        ),
+                                        "is_custom": True,
+                                    }
+                                )
+
+                            char_dict = {
+                                "char_id": new_char_id,
+                                "is_npc": True,
+                                "char_name": npc.get("name", "Unknown NPC"),
+                                "char_class": "Monster"
+                                if not npc.get("role")
+                                else npc.get("role")[:20],
+                                "race": "Unknown",
+                                "background": "Module NPC",
+                                "dnd_edition": st.session_state.dnd_edition,
+                                "char_level": safe_int(npc.get("char_level"), 1),
+                                "armor_class": safe_int(npc.get("ac")),
+                                "hp_max": safe_int(npc.get("hp_max")),
+                                "speed": safe_int(npc.get("speed"), 30),
+                                "stats": stats_clean,
+                                "features_traits": npc.get("features_traits", []),
+                                "weapons": weapons_clean,
+                                "backstory": npc.get("role", ""),
+                                "char_portrait": img_path,
+                            }
+
+                            if save_character(char_dict):
+                                char_filename = f"{char_dict['char_name'].replace(' ', '_').lower()}_{new_char_id}.json"
+                                if char_filename not in vault_npcs:
+                                    vault_npcs.append(char_filename)
+
+                        # Create a textual summary for the DM's notes
+                        npc_summary = "\n\n### Extracted Module NPCs\n"
+                        for npc in extracted:
+                            npc_summary += f"- **{npc.get('name', 'Unknown')}**: {npc.get('role', 'Monster')} (AC {npc.get('ac', 10)}, HP {npc.get('hp_max', 10)})\n"
+
+                        module_lore = camp_data.get("module_lore", "")
+                        module_lore += npc_summary
+                        camp_data["module_lore"] = module_lore
+
+                        camp_data["vault_npcs"] = vault_npcs
+                        st.session_state.active_campaign_data = camp_data
+
+                        save_campaign(
+                            st.session_state.active_campaign_name,
+                            st.session_state.campaign_notes,
+                            sessions=camp_data.get("sessions", []),
+                            module_pdf_uri=g_file.name,
+                            extracted_npcs=[],  # No longer use legacy extracted dicts
+                            vault_npcs=vault_npcs,
+                            module_lore=module_lore,
+                        )
+                        st.rerun()
 
 
 def _render_party_tracker():

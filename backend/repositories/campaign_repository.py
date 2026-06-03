@@ -30,6 +30,7 @@ class CampaignRepository:
         vault_npcs: List[str] = None,
         roll_requests: List[dict] = None,
         invite_code: str = None,
+        module_lore: str = None,
     ) -> bool:
         """Save campaign notes and party list to MongoDB with edition tracking."""
         if self.collection is None:
@@ -87,6 +88,9 @@ class CampaignRepository:
         if invite_code is None:
             invite_code = existing.get("invite_code") if existing else None
 
+        if module_lore is None:
+            module_lore = existing.get("module_lore") if existing else None
+
         data = {
             "campaign_name": campaign_name,
             "notes": notes,
@@ -98,6 +102,7 @@ class CampaignRepository:
             "vault_npcs": vault_npcs,
             "roll_requests": roll_requests,
             "invite_code": invite_code,
+            "module_lore": module_lore,
         }
         if owner_id:
             data["owner_id"] = owner_id

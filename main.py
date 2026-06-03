@@ -27,8 +27,8 @@ logger = logging.getLogger("DnDAssistant")
 # Page Configuration
 # ==========================================
 st.set_page_config(
-    page_title="D&D AI Assistant",
-    page_icon="🎲",
+    page_title="Phyrexian Forge",
+    page_icon="assets/anvil.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )

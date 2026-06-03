@@ -37,8 +37,8 @@ def get_flash_model(client):
     fallback = ai_settings.get("fallback_model", "models/gemini-1.5-flash")
 
     try:
-        # gemini-flash-latest is the most stable auto-updating identifier in 2026
-        stable_default = "gemini-flash-latest"
+        # Force the Pro model since flash is currently returning 503
+        stable_default = "gemini-1.5-pro"
 
         models = list(client.models.list())
         model_names = [m.name.lower() for m in models]
