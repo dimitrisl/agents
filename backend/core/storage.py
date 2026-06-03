@@ -263,6 +263,7 @@ def add_roll_request(
     roll_type: str,
     stat: str,
     reason: str = "",
+    is_secret: bool = False,
 ) -> bool:
     camp = load_campaign(campaign_name)
     if not camp:
@@ -281,6 +282,7 @@ def add_roll_request(
         "reason": reason,
         "status": "pending",
         "result": None,
+        "is_secret": is_secret,
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -343,6 +345,70 @@ def clear_roll_requests(campaign_name: str) -> bool:
         camp.get("party", []),
         edition=camp.get("dnd_edition"),
         roll_requests=[],
+    )
+
+
+def send_whisper(campaign_name: str, sender: str, recipient: str, message: str) -> bool:
+    camp = load_campaign(campaign_name)
+    if not camp:
+        return False
+
+    import uuid
+    import datetime
+    from collections import defaultdict
+
+    whisper_id = str(uuid.uuid4())
+    w = {
+        "id": whisper_id,
+        "sender": sender,
+        "recipient": recipient,
+        "message": message,
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    whispers = camp.get("whispers", [])
+    whispers.append(w)
+
+    # Group whispers by channel to only keep the last 3 per channel in database
+    channels = defaultdict(list)
+    for whisper in whispers:
+        r = whisper.get("recipient")
+        s = whisper.get("sender")
+        if r == "All" or s == "All":
+            channel_key = "All"
+        else:
+            channel_key = r if s == "DM" else s
+        channels[channel_key].append(whisper)
+
+    pruned_whispers = []
+    for ch_whispers in channels.values():
+        pruned_whispers.extend(ch_whispers[-3:])
+
+    # Preserve the original sequence order of whispers
+    whisper_index = {wp["id"]: idx for idx, wp in enumerate(whispers)}
+    pruned_whispers.sort(key=lambda x: whisper_index[x["id"]])
+
+    _cached_load_campaign.clear()
+    return save_campaign(
+        campaign_name,
+        camp.get("notes", ""),
+        camp.get("party", []),
+        edition=camp.get("dnd_edition"),
+        whispers=pruned_whispers,
+    )
+
+
+def clear_whispers(campaign_name: str) -> bool:
+    camp = _camp_repo.load(campaign_name)
+    if not camp:
+        return False
+    _cached_load_campaign.clear()
+    return save_campaign(
+        campaign_name,
+        camp.get("notes", ""),
+        camp.get("party", []),
+        edition=camp.get("dnd_edition"),
+        whispers=[],
     )
 
 

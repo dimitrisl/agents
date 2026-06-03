@@ -317,3 +317,11 @@ class UserSchema(BaseModel):
     name: Optional[str] = None
     has_completed_tutorial: bool = False
     created_at: Optional[str] = None
+
+
+class WhisperSchema(BaseModel):
+    id: str
+    sender: str
+    recipient: str
+    message: str
+    timestamp: str

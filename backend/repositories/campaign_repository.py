@@ -31,6 +31,9 @@ class CampaignRepository:
         roll_requests: List[dict] = None,
         invite_code: str = None,
         module_lore: str = None,
+        whispers: List[dict] = None,
+        google_doc_id: str = None,
+        google_credentials_json: str = None,
     ) -> bool:
         """Save campaign notes and party list to MongoDB with edition tracking."""
         if self.collection is None:
@@ -51,6 +54,9 @@ class CampaignRepository:
             or vault_npcs is None
             or roll_requests is None
             or invite_code is None
+            or whispers is None
+            or google_doc_id is None
+            or google_credentials_json is None
         )
         if needs_existing:
             existing = self.load(campaign_name)
@@ -91,6 +97,17 @@ class CampaignRepository:
         if module_lore is None:
             module_lore = existing.get("module_lore") if existing else None
 
+        if whispers is None:
+            whispers = existing.get("whispers", []) if existing else []
+
+        if google_doc_id is None:
+            google_doc_id = existing.get("google_doc_id") if existing else None
+
+        if google_credentials_json is None:
+            google_credentials_json = (
+                existing.get("google_credentials_json") if existing else None
+            )
+
         data = {
             "campaign_name": campaign_name,
             "notes": notes,
@@ -103,6 +120,9 @@ class CampaignRepository:
             "roll_requests": roll_requests,
             "invite_code": invite_code,
             "module_lore": module_lore,
+            "whispers": whispers,
+            "google_doc_id": google_doc_id,
+            "google_credentials_json": google_credentials_json,
         }
         if owner_id:
             data["owner_id"] = owner_id

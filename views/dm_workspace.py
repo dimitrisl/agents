@@ -58,13 +58,14 @@ def render_dm_workspace():
             st.session_state.active_campaign_name = None
             st.rerun()
 
-        dm_tab1, dm_tab2, dm_tab3, dm_tab4, dm_tab5 = st.tabs(
+        dm_tab1, dm_tab2, dm_tab3, dm_tab4, dm_tab5, dm_tab6 = st.tabs(
             [
                 "📝 Campaign Notes",
                 "👥 Party Manager",
                 "📊 Party Dashboard",
                 "🎲 AI Generators",
                 "⚔️ Initiative Tracker",
+                "💬 Whisper Chat",
             ]
         )
 
@@ -84,6 +85,9 @@ def render_dm_workspace():
         with dm_tab5:
             _render_initiative_tracker()
             _render_roll_requests_section("tracker")
+
+        with dm_tab6:
+            _render_whisper_chat_section()
 
 
 @st.dialog("NPC Stat Block", width="large")
@@ -296,10 +300,72 @@ def _render_campaign_notes():
                 with st.expander(
                     f"Session {s.get('session_number', idx + 1)}", expanded=False
                 ):
-                    st.markdown("**Recap:**")
-                    st.write(s.get("actual_recap", ""))
-                    st.markdown("**Prep Notes:**")
-                    st.write(s.get("prep_notes", ""))
+                    # Editable Recap
+                    edited_recap = st.text_area(
+                        "Recap (Visible to Players)",
+                        value=s.get("actual_recap", ""),
+                        key=f"edit_recap_{idx}",
+                        height=150,
+                    )
+                    # Editable Prep Notes
+                    edited_prep = st.text_area(
+                        "Prep Notes & DM Ideas (Secret to DM)",
+                        value=s.get("prep_notes", ""),
+                        key=f"edit_prep_{idx}",
+                        height=150,
+                    )
+
+                    c_save, c_sync, _ = st.columns([1.5, 1.5, 3])
+
+                    if c_save.button("💾 Save Changes", key=f"btn_save_session_{idx}"):
+                        sessions[idx]["actual_recap"] = edited_recap
+                        sessions[idx]["prep_notes"] = edited_prep
+                        camp_data["sessions"] = sessions
+                        st.session_state.active_campaign_data = camp_data
+                        save_campaign(
+                            st.session_state.active_campaign_name,
+                            st.session_state.campaign_notes,
+                            sessions=sessions,
+                            module_pdf_uri=camp_data.get("module_pdf_uri"),
+                            extracted_npcs=camp_data.get("extracted_npcs", []),
+                        )
+                        st.toast(f"Session {idx + 1} updated successfully!")
+                        st.rerun()
+
+                    if c_sync.button(
+                        "📤 Sync to Google Doc", key=f"btn_sync_session_{idx}"
+                    ):
+                        gdoc_id = camp_data.get("google_doc_id")
+                        gcreds_str = camp_data.get("google_credentials_json")
+
+                        if not gdoc_id or not gcreds_str:
+                            st.error(
+                                "Google Docs configuration is missing. Configure it at the bottom of the page first."
+                            )
+                        else:
+                            try:
+                                import json
+
+                                creds_info = json.loads(gcreds_str)
+                                from backend.utils.google_docs import (
+                                    append_to_google_doc,
+                                )
+
+                                sync_text = f"\n\n=== Session {idx + 1} Chronicle ===\n{edited_recap}\n"
+
+                                with st.spinner("Syncing to Google Doc..."):
+                                    if append_to_google_doc(
+                                        creds_info, gdoc_id, sync_text
+                                    ):
+                                        st.success(
+                                            "Session recap successfully appended to Google Doc!"
+                                        )
+                                    else:
+                                        st.error(
+                                            "Google Docs API call failed. Verify credentials and permissions."
+                                        )
+                            except Exception as e:
+                                st.error(f"Failed to read credentials or connect: {e}")
 
         st.markdown("---")
         st.markdown("#### Next Session Planner")
@@ -337,6 +403,45 @@ def _render_campaign_notes():
 
         if st.session_state.get("session_prep_result"):
             render_themed_markdown(st.session_state.session_prep_result)
+
+        st.markdown("---")
+        with st.expander("🔑 Google Docs Integration Settings", expanded=False):
+            st.markdown("""
+            ### Setup Instructions
+            1. Create a Google Cloud Project and enable the **Google Docs API**.
+            2. Create a **Service Account** under credentials, download the **JSON credentials key**.
+            3. Share your target Google Document with the Service Account email (e.g., `xxx@xxx.iam.gserviceaccount.com`) as an **Editor**.
+            4. Copy-paste the **Document ID** (from the Doc URL) and the **JSON key file contents** below.
+            """)
+
+            gdoc_id = st.text_input(
+                "Google Document ID",
+                value=camp_data.get("google_doc_id", ""),
+                help="The ID of the shared Google Doc (from the URL)",
+                key="gdocs_doc_id_input",
+            )
+            gcreds = st.text_area(
+                "Service Account JSON Key File Content",
+                value=camp_data.get("google_credentials_json", ""),
+                help="Paste the entire contents of the downloaded credentials JSON file",
+                key="gdocs_creds_input",
+            )
+
+            if st.button("💾 Save Google Docs Config", key="btn_save_gdocs_config"):
+                camp_data["google_doc_id"] = gdoc_id
+                camp_data["google_credentials_json"] = gcreds
+                st.session_state.active_campaign_data = camp_data
+                save_campaign(
+                    st.session_state.active_campaign_name,
+                    st.session_state.campaign_notes,
+                    sessions=sessions,
+                    module_pdf_uri=camp_data.get("module_pdf_uri"),
+                    extracted_npcs=camp_data.get("extracted_npcs", []),
+                    google_doc_id=gdoc_id,
+                    google_credentials_json=gcreds,
+                )
+                st.toast("Google Docs configuration saved!")
+                st.rerun()
 
     with tab_vault:
         camp_data = st.session_state.get("active_campaign_data", {})
@@ -895,38 +1000,47 @@ def _render_party_tracker():
                             char_options[label] = (fname, cdata)
 
                     if char_options:
-                        selected_char_label = st.selectbox(
-                            "Select Character to Add",
+                        selected_char_labels = st.multiselect(
+                            "Select Character(s) to Add",
                             list(char_options.keys()),
                             key="dm_invite_select_char",
                         )
-                        sel_fname, sel_cdata = char_options[selected_char_label]
 
-                        # Check if already in party
-                        already_in = any(
-                            c.get("char_id") == sel_cdata.get("char_id")
-                            for c in st.session_state.party
-                        )
-
-                        if already_in:
-                            st.success(
-                                f"✅ {sel_cdata['char_name']} is already in the party."
-                            )
-                        else:
-                            if st.button(
-                                f"➕ Add {sel_cdata['char_name']} to Party",
-                                type="primary",
-                                use_container_width=True,
-                                key="dm_invite_add_btn",
-                            ):
-                                st.session_state.party.append(sel_cdata)
-                                from backend.core.storage import join_campaign
-
-                                join_campaign(active_campaign, sel_fname)
-                                st.success(
-                                    f"✅ {sel_cdata['char_name']} added to party!"
+                        if selected_char_labels:
+                            to_add = []
+                            already_in_names = []
+                            for label in selected_char_labels:
+                                fname, cdata = char_options[label]
+                                already_in = any(
+                                    c.get("char_id") == cdata.get("char_id")
+                                    for c in st.session_state.party
                                 )
-                                st.rerun()
+                                if already_in:
+                                    already_in_names.append(cdata["char_name"])
+                                else:
+                                    to_add.append((fname, cdata))
+
+                            if already_in_names:
+                                st.info(
+                                    f"Already in party: {', '.join(already_in_names)}"
+                                )
+
+                            if to_add:
+                                if st.button(
+                                    f"➕ Add {len(to_add)} Character(s) to Party",
+                                    type="primary",
+                                    use_container_width=True,
+                                    key="dm_invite_add_btn",
+                                ):
+                                    from backend.core.storage import join_campaign
+
+                                    for fname, cdata in to_add:
+                                        st.session_state.party.append(cdata)
+                                        join_campaign(active_campaign, fname)
+                                    st.success(
+                                        f"✅ Added {len(to_add)} character(s) to party!"
+                                    )
+                                    st.rerun()
 
     with st.expander("📥 Ingest Characters from Storage", expanded=False):
         joined_files = st.session_state.get("campaign_party_files", [])
@@ -1021,6 +1135,47 @@ def _render_party_tracker():
     if not st.session_state.party:
         st.info("The party is currently empty.")
     else:
+        with st.expander("🗑️ Bulk Remove from Party", expanded=False):
+            member_options = {}
+            for member in st.session_state.party:
+                m_id = member.get("char_id")
+                m_fname = f"{member['char_name'].replace(' ', '_').lower()}_{m_id}.json"
+                label = f"{member['char_name']} (Lv.{member['char_level']} {member['char_class']})"
+                member_options[label] = (member, m_fname)
+
+            selected_to_remove = st.multiselect(
+                "Select Character(s) to Remove",
+                list(member_options.keys()),
+                key="dm_bulk_remove_select",
+            )
+            if selected_to_remove:
+                if st.button(
+                    f"🗑️ Remove {len(selected_to_remove)} Character(s)",
+                    type="primary",
+                    use_container_width=True,
+                    key="dm_bulk_remove_btn",
+                ):
+                    from backend.core.storage import remove_from_campaign
+
+                    for label in selected_to_remove:
+                        member_to_rem, m_fname = member_options[label]
+                        st.session_state.party = [
+                            c
+                            for c in st.session_state.party
+                            if c.get("char_id") != member_to_rem.get("char_id")
+                        ]
+                        remove_from_campaign(
+                            st.session_state.active_campaign_name, m_fname
+                        )
+
+                    data = load_campaign(st.session_state.active_campaign_name)
+                    if data:
+                        st.session_state.campaign_party_files = data.get("party", [])
+                    st.success(
+                        f"Removed {len(selected_to_remove)} character(s) from campaign!"
+                    )
+                    st.rerun()
+
         for i, member in enumerate(st.session_state.party):
             with st.container(border=True):
                 c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 0.5])
@@ -1781,6 +1936,12 @@ def _render_roll_requests_section(tab_key: str):
                 key=f"dm_req_reason_{tab_key}",
             )
 
+            is_secret = st.checkbox(
+                "🔒 Make Roll Secret (Hide result from player)",
+                value=False,
+                key=f"dm_req_secret_{tab_key}",
+            )
+
             if st.button(
                 "📨 Request Private Roll",
                 type="primary",
@@ -1795,6 +1956,7 @@ def _render_roll_requests_section(tab_key: str):
                         roll_type,
                         stat,
                         reason,
+                        is_secret=is_secret,
                     )
                     if success:
                         st.toast(f"Sent roll request to {target_char_name}!")
@@ -1823,11 +1985,13 @@ def _render_roll_requests_section(tab_key: str):
                     char_display = req.get("char_name", "Hero")
                     roll_type_display = req.get("roll_type", "Roll")
                     reason_display = req.get("reason", "")
+                    is_sec = req.get("is_secret", False)
+                    sec_tag = " 🔒 [SECRET]" if is_sec else ""
 
                     with st.container(border=True):
                         c_info, c_action = st.columns([3, 2])
                         c_info.markdown(
-                            f"**{char_display}** Needs: **{roll_type_display}**"
+                            f"**{char_display}** Needs: **{roll_type_display}**{sec_tag}"
                         )
                         if reason_display:
                             c_info.caption(f'Reason: "{reason_display}"')
@@ -1875,6 +2039,7 @@ def _render_party_dashboard():
 
                 c2.markdown(f"#### {member.get('char_name', 'Hero')}")
                 c2.caption(f"{member['race']} {member['char_class']}")
+                c2.caption(f"👤 Owner: `{member.get('owner_id', 'Unknown')}`")
 
                 st.markdown("---")
                 s1, s2, s3 = st.columns(3)
@@ -1903,3 +2068,124 @@ def _render_party_dashboard():
                             "adv_type": "None",
                         }
                         st.rerun()
+
+
+def _render_whisper_chat_section():
+    """Renders the DM whisper chat room to communicate secretly with players."""
+    active_campaign = st.session_state.get("active_campaign_name")
+    if not active_campaign:
+        st.warning("Please select an active campaign first.")
+        return
+
+    camp_data = load_campaign(active_campaign)
+    if not camp_data:
+        st.error("Failed to load campaign data.")
+        return
+
+    party_members = st.session_state.party
+    char_names = [m.get("char_name", "Hero") for m in party_members]
+
+    if not char_names:
+        st.warning("No players in party to chat with.")
+        return
+
+    # Select recipient
+    recipients = ["All (Broadcast)"] + char_names
+    selected_recipient = st.selectbox(
+        "Chat with:", recipients, key="dm_whisper_recipient_select"
+    )
+
+    @st.fragment(run_every=5)
+    def render_dm_whisper_chat_fragment(recipient):
+        # Reload camp data for live updates
+        fresh_camp = load_campaign(active_campaign)
+        if not fresh_camp:
+            st.info("No active chat history.")
+            return
+
+        whispers = fresh_camp.get("whispers", [])
+
+        # Filter whispers relevant to DM and the selected recipient
+        if recipient == "All (Broadcast)":
+            # Show all broadcasts
+            chat_whispers = [w for w in whispers if w.get("recipient") == "All"]
+        else:
+            # Show whispers to/from this specific recipient
+            chat_whispers = [
+                w
+                for w in whispers
+                if (w.get("sender") == recipient and w.get("recipient") == "DM")
+                or (w.get("sender") == "DM" and w.get("recipient") == recipient)
+            ]
+
+        # Limit to the last 3 messages to prevent overflow
+        chat_whispers = chat_whispers[-3:]
+
+        # Render chat timeline
+        chat_html = ""
+        for w in chat_whispers:
+            sender = w.get("sender", "Unknown")
+            msg = w.get("message", "")
+            time_str = w.get("timestamp", "")
+
+            if sender == "DM":
+                bg_style = "rgba(255, 75, 75, 0.08)"
+                border_style = "border-left: 3px solid #ff4b4b"
+                color_style = "#ff4b4b"
+            else:
+                bg_style = "rgba(255, 255, 255, 0.05)"
+                border_style = "border-left: 3px solid #555"
+                color_style = "#ccc"
+
+            chat_html += f"""
+            <div style='background-color: {bg_style}; {border_style}; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px;'>
+                <div style='display: flex; justify-content: space-between; font-size: 0.8rem; color: #888;'>
+                    <span style='font-weight: bold; color: {color_style};'>{sender}</span>
+                    <span>{time_str}</span>
+                </div>
+                <div style='margin-top: 4px; color: #e0e0e0;'>{msg}</div>
+            </div>
+            """
+
+        with st.container(border=True):
+            st.markdown(f"#### Conversation with {recipient}")
+            if chat_html:
+                st.html(
+                    f"<div style='max-height: 350px; overflow-y: auto; margin-bottom: 15px;'>{chat_html}</div>"
+                )
+            else:
+                st.info("No messages in this channel yet.")
+
+            # Input area inside the fragment using a form to clear on submit automatically
+            with st.form(key=f"dm_whisper_form_{recipient}", clear_on_submit=True):
+                col_input, col_send = st.columns([5, 1], vertical_alignment="bottom")
+                dm_msg = col_input.text_input(
+                    "Write message...",
+                    label_visibility="collapsed",
+                    placeholder=f"Send private message to {recipient}...",
+                )
+                submitted = col_send.form_submit_button(
+                    "Send", use_container_width=True
+                )
+                if submitted:
+                    if dm_msg.strip():
+                        from backend.core.storage import send_whisper
+
+                        target = "All" if recipient == "All (Broadcast)" else recipient
+                        if send_whisper(active_campaign, "DM", target, dm_msg.strip()):
+                            st.toast("Message sent!")
+                            st.rerun()
+                        else:
+                            st.error("Failed to send message.")
+
+    render_dm_whisper_chat_fragment(selected_recipient)
+
+    st.markdown("---")
+    if st.button(
+        "🧹 Clear Chat History", key="btn_clear_whispers_dm", use_container_width=True
+    ):
+        from backend.core.storage import clear_whispers
+
+        if clear_whispers(active_campaign):
+            st.success("Chat history cleared!")
+            st.rerun()

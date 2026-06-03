@@ -114,3 +114,65 @@ def test_remove_from_campaign(
     mock_save_camp.assert_called_once_with("Camp1", "Some notes", [])
     mock_save_char.assert_called_once()
     assert mock_save_char.call_args[0][0]["active_campaign"] is None
+
+
+@patch("backend.core.storage.load_campaign")
+@patch("backend.core.storage.save_campaign")
+def test_whispers_and_secret_rolls(mock_save_camp, mock_load_camp):
+    from backend.core.storage import add_roll_request, send_whisper
+
+    mock_load_camp.return_value = {
+        "notes": "Some notes",
+        "party": ["hero.json"],
+        "roll_requests": [],
+        "whispers": [],
+    }
+    mock_save_camp.return_value = True
+
+    # Test add_roll_request with secret
+    assert (
+        add_roll_request(
+            "Camp1", "hero.json", "Hero", "Stealth Check", "Stealth", is_secret=True
+        )
+        is True
+    )
+    assert mock_save_camp.called
+    saved_reqs = mock_save_camp.call_args[1].get("roll_requests")
+    assert saved_reqs is not None
+    assert len(saved_reqs) == 1
+    assert saved_reqs[0]["is_secret"] is True
+
+    # Test send_whisper
+    mock_save_camp.reset_mock()
+    assert send_whisper("Camp1", "DM", "Hero", "Hello!") is True
+    assert mock_save_camp.called
+    saved_whispers = mock_save_camp.call_args[1].get("whispers")
+    assert saved_whispers is not None
+    assert len(saved_whispers) == 1
+    assert saved_whispers[0]["message"] == "Hello!"
+
+    # Test send_whisper pruning (more than 3 whispers in same channel, and whispers across different channels)
+    mock_save_camp.reset_mock()
+    mock_load_camp.return_value = {
+        "notes": "Some notes",
+        "party": ["hero.json"],
+        "roll_requests": [],
+        "whispers": [
+            {"id": "w1", "sender": "DM", "recipient": "Hero", "message": "1"},
+            {"id": "w2", "sender": "DM", "recipient": "Hero", "message": "2"},
+            {"id": "w3", "sender": "DM", "recipient": "Hero", "message": "3"},
+            {"id": "w4", "sender": "DM", "recipient": "Fighter", "message": "F1"},
+        ],
+    }
+    assert send_whisper("Camp1", "DM", "Hero", "4") is True
+    assert mock_save_camp.called
+    saved_whispers = mock_save_camp.call_args[1].get("whispers")
+    assert saved_whispers is not None
+    # We should have the last 3 for Hero (w2, w3, 4) plus F1 (since Fighter is a different channel)
+    assert len(saved_whispers) == 4
+    messages = [w["message"] for w in saved_whispers]
+    assert "1" not in messages
+    assert "2" in messages
+    assert "3" in messages
+    assert "4" in messages
+    assert "F1" in messages

@@ -47,7 +47,7 @@ This phase focuses on making the Streamlit app robust enough for live, in-person
 - [x] **Wizard-Themed Onboarding:** Implemented a branching landing page and a sequential, animated "Wizard's Journey" tutorial to improve user onboarding.
 
 ### 🏰 Dungeon Master Workspace
-- [ ] **Bulk Party Management:** Allow the DM to multiselect and add multiple characters to the party at once inside the Party Manager tab.
+- [x] **Bulk Party Management:** Allow the DM to multiselect and add multiple characters to the party at once inside the Party Manager tab.
 
 ---
 

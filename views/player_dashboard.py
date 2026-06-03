@@ -796,8 +796,7 @@ def render_active_character(accent_color: str):
 
     # ------------------------------------------
     # Private DM Roll Request system (Auto-Refresh Fragment)
-    # ------------------------------------------
-    @st.fragment(run_every=5)
+    # ------------------------------------------    @st.fragment(run_every=5)
     def render_dm_roll_notifications():
         char_id = st.session_state.get("char_id", "")
         char_name = st.session_state.get("char_name", "")
@@ -809,105 +808,130 @@ def render_active_character(accent_color: str):
         if db is not None:
             # Find all campaigns where this character is a party member
             campaigns_cursor = db["campaigns"].find({"party": char_filename})
+            all_requests = []
             for camp_data in campaigns_cursor:
                 roll_requests = camp_data.get("roll_requests", [])
-                active_campaign = camp_data.get("campaign_name")
-
-                pending_requests = [
-                    req
-                    for req in roll_requests
+                camp_name = camp_data.get("campaign_name")
+                for req in roll_requests:
                     if (
                         req.get("status") == "pending"
                         or req.get("status") == "completed"
-                    )
-                    and (
+                    ) and (
                         (char_id and char_id in req.get("char_filename", ""))
                         or (char_name and char_name == req.get("char_name"))
+                    ):
+                        req_copy = dict(req)
+                        req_copy["campaign_name"] = camp_name
+                        all_requests.append(req_copy)
+
+            # Show only the absolute latest request across all campaigns
+            if all_requests:
+                all_requests.sort(key=lambda x: x.get("created_at", ""))
+                req = all_requests[-1]
+                active_campaign = req.get("campaign_name")
+                status = req.get("status")
+
+                # Auto-dismiss logic for completed rolls
+                if status == "completed":
+                    import time
+
+                    dismiss_key = f"dismiss_time_{req['id']}"
+                    if dismiss_key not in st.session_state:
+                        st.session_state[dismiss_key] = time.time() + 10  # Hide in 10s
+
+                    if time.time() > st.session_state[dismiss_key]:
+                        # Hide by effectively ignoring it in the next loop
+                        return
+
+                is_secret = req.get("is_secret", False)
+                roll_title = (
+                    f"🎲 Private Roll Request (SECRET): {active_campaign}"
+                    if is_secret
+                    else f"🎲 Private Roll Request: {active_campaign}"
+                )
+                secret_warning = (
+                    "<p style='font-weight: bold; color: #ff9900; margin: 5px 0;'>🔒 Note: This is a SECRET roll. The final result will only be visible to the DM.</p>"
+                    if is_secret
+                    else ""
+                )
+
+                with st.container(border=True):
+                    st.markdown(
+                        f"""
+                        <div style='background-color: rgba(255, 75, 75, 0.15); border-left: 5px solid #ff4b4b; padding: 15px; border-radius: 5px; margin-bottom: 10px;'>
+                            <h4 style='color: #ff4b4b; margin: 0;'>{roll_title}</h4>
+                            <p style='margin: 5px 0;'>The DM is requesting a <strong>{req["roll_type"]}</strong>.</p>
+                            {secret_warning}
+                            {f"<p style='font-style: italic; color: #aaa; margin: 5px 0;'>Reason: \"{req['reason']}\"</p>" if req.get("reason") else ""}
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
-                ]
 
-                # Show only the latest request if multiple exist
-                if pending_requests:
-                    req = pending_requests[-1]
-                    status = req.get("status")
+                    if status == "pending":
+                        # Calculate modifier
+                        stat_key = req.get("stat")
+                        roll_type_lower = req["roll_type"].lower()
 
-                    # Auto-dismiss logic for completed rolls
-                    if status == "completed":
-                        import time
-
-                        dismiss_key = f"dismiss_time_{req['id']}"
-                        if dismiss_key not in st.session_state:
-                            st.session_state[dismiss_key] = (
-                                time.time() + 10
-                            )  # Hide in 10s
-
-                        if time.time() > st.session_state[dismiss_key]:
-                            # Hide by effectively ignoring it in the next loop
-                            return
-
-                    with st.container(border=True):
-                        st.markdown(
-                            f"""
-                            <div style='background-color: rgba(255, 75, 75, 0.15); border-left: 5px solid #ff4b4b; padding: 15px; border-radius: 5px; margin-bottom: 10px;'>
-                                <h4 style='color: #ff4b4b; margin: 0;'>🎲 Private Roll Request: {active_campaign}</h4>
-                                <p style='margin: 5px 0;'>The DM is requesting a <strong>{req["roll_type"]}</strong>.</p>
-                                {f"<p style='font-style: italic; color: #aaa; margin: 5px 0;'>Reason: \"{req['reason']}\"</p>" if req.get("reason") else ""}
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
-                        if status == "pending":
-                            # Calculate modifier
-                            stat_key = req.get("stat")
-                            roll_type_lower = req["roll_type"].lower()
-
-                            modifier = 0
-                            if "saving throw" in roll_type_lower:
-                                saves = st.session_state.get("saving_throw_values", {})
-                                modifier = saves.get(
-                                    stat_key,
-                                    calculate_modifier(
-                                        st.session_state.stats.get(stat_key, 10)
-                                    ),
-                                )
-                            elif "check" in roll_type_lower and stat_key in [
-                                "STR",
-                                "DEX",
-                                "CON",
-                                "INT",
-                                "WIS",
-                                "CHA",
-                            ]:
-                                modifier = calculate_modifier(
+                        modifier = 0
+                        if "saving throw" in roll_type_lower:
+                            saves = st.session_state.get("saving_throw_values", {})
+                            modifier = saves.get(
+                                stat_key,
+                                calculate_modifier(
                                     st.session_state.stats.get(stat_key, 10)
+                                ),
+                            )
+                        elif "check" in roll_type_lower and stat_key in [
+                            "STR",
+                            "DEX",
+                            "CON",
+                            "INT",
+                            "WIS",
+                            "CHA",
+                        ]:
+                            modifier = calculate_modifier(
+                                st.session_state.stats.get(stat_key, 10)
+                            )
+                        elif "check" in roll_type_lower:
+                            skills = st.session_state.get("skills", {})
+                            modifier = skills.get(stat_key, 0)
+                        else:
+                            modifier = 0
+
+                        btn_label = "Roll Secretly" if is_secret else "Roll 1d20"
+                        if modifier >= 0:
+                            btn_label += f" + {modifier}"
+                        else:
+                            btn_label += f" - {abs(modifier)}"
+
+                        col_roll1, col_roll2, col_dismiss = st.columns([1.5, 3, 1])
+                        from backend.core.storage import submit_roll_result
+
+                        if col_roll1.button(
+                            f"🎲 {btn_label}",
+                            key=f"btn_dm_roll_{req['id']}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            from backend.utils.dice import quick_roll
+
+                            res, raw = quick_roll(20, modifier)
+                            result_text = f"{res} (d20: {raw} + {modifier})"
+
+                            if is_secret:
+                                log_roll(
+                                    f"**{req['roll_type']}** (Secret DM Request): **Roll Sent Secretly**"
                                 )
-                            elif "check" in roll_type_lower:
-                                skills = st.session_state.get("skills", {})
-                                modifier = skills.get(stat_key, 0)
+                                st.session_state.active_roll = {
+                                    "label": f"{req['roll_type']} (Secret Roll)",
+                                    "sides": 20,
+                                    "raw": "?",
+                                    "modifier": modifier,
+                                    "total": "?",
+                                    "adv_type": "None",
+                                }
                             else:
-                                modifier = 0
-
-                            btn_label = "Roll 1d20"
-                            if modifier >= 0:
-                                btn_label += f" + {modifier}"
-                            else:
-                                btn_label += f" - {abs(modifier)}"
-
-                            col_roll1, col_roll2, col_dismiss = st.columns([1.5, 3, 1])
-                            from backend.core.storage import submit_roll_result
-
-                            if col_roll1.button(
-                                f"🎲 {btn_label}",
-                                key=f"btn_dm_roll_{req['id']}",
-                                type="primary",
-                                use_container_width=True,
-                            ):
-                                from backend.utils.dice import quick_roll
-
-                                res, raw = quick_roll(20, modifier)
-                                result_text = f"{res} (d20: {raw} + {modifier})"
-
                                 log_roll(
                                     f"**{req['roll_type']}** (DM Request): **{res}** (d20: {raw} + {modifier})"
                                 )
@@ -920,30 +944,124 @@ def render_active_character(accent_color: str):
                                     "adv_type": "None",
                                 }
 
-                                if submit_roll_result(
-                                    active_campaign, req["id"], result_text
-                                ):
-                                    st.rerun()
-                                else:
-                                    st.error("Failed to submit roll result.")
-
-                            if col_dismiss.button(
-                                "🗑️ Dismiss",
-                                key=f"btn_dismiss_roll_{req['id']}",
-                                use_container_width=True,
+                            if submit_roll_result(
+                                active_campaign, req["id"], result_text
                             ):
-                                if submit_roll_result(
-                                    active_campaign, req["id"], "Dismissed by player"
-                                ):
-                                    st.rerun()
+                                st.rerun()
+                            else:
+                                st.error("Failed to submit roll result.")
+
+                        if col_dismiss.button(
+                            "🗑️ Dismiss",
+                            key=f"btn_dismiss_roll_{req['id']}",
+                            use_container_width=True,
+                        ):
+                            if submit_roll_result(
+                                active_campaign, req["id"], "Dismissed by player"
+                            ):
+                                st.rerun()
+                    else:
+                        # Roll completed, show success message briefly
+                        if is_secret:
+                            st.success("🎲 Secret roll submitted to DM (Result hidden)")
                         else:
-                            # Roll completed, show success message briefly
                             st.success(f"🎲 Rolled: **{req.get('result')}**")
-                            st.caption(
-                                "This notification will disappear automatically."
-                            )
+                        st.caption("This notification will disappear automatically.")
 
     render_dm_roll_notifications()
+
+    @st.fragment(run_every=5)
+    def render_dm_whispers_channel():
+        char_id = st.session_state.get("char_id", "")
+        char_name = st.session_state.get("char_name", "")
+        char_filename = f"{char_name.replace(' ', '_').lower()}_{char_id}.json"
+
+        from backend.core.db import get_db
+
+        db = get_db()
+        if db is not None:
+            # Find campaign this character is active in
+            campaign = db["campaigns"].find_one({"party": char_filename})
+            if campaign:
+                campaign_name = campaign.get("campaign_name")
+                whispers = campaign.get("whispers", [])
+
+                # Filter whispers that involve this character
+                my_whispers = [
+                    w
+                    for w in whispers
+                    if w.get("sender") == char_name
+                    or w.get("recipient") == char_name
+                    or w.get("recipient") == "All"
+                ]
+
+                # Limit to the last 3 messages to prevent overflow
+                my_whispers = my_whispers[-3:]
+
+                # Render in a collapsible expander
+                with st.expander("💬 DM Whisper Channel", expanded=False):
+                    st.caption(f"Campaign: {campaign_name}")
+
+                    # Message Log Area
+                    chat_html = ""
+                    for w in my_whispers:
+                        sender = w.get("sender", "Unknown")
+                        msg = w.get("message", "")
+                        time_str = w.get("timestamp", "")
+
+                        # Style differently for DM vs me
+                        if sender == "DM":
+                            bg_style = "rgba(255, 75, 75, 0.08)"
+                            border_style = "border-left: 3px solid #ff4b4b"
+                            color_style = "#ff4b4b"
+                        else:
+                            bg_style = "rgba(255, 255, 255, 0.05)"
+                            border_style = "border-left: 3px solid #555"
+                            color_style = "#ccc"
+
+                        chat_html += f"""
+                        <div style='background-color: {bg_style}; {border_style}; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px;'>
+                            <div style='display: flex; justify-content: space-between; font-size: 0.8rem; color: #888;'>
+                                <span style='font-weight: bold; color: {color_style};'>{sender}</span>
+                                <span>{time_str}</span>
+                            </div>
+                            <div style='margin-top: 4px; color: #e0e0e0;'>{msg}</div>
+                        </div>
+                        """
+
+                    if chat_html:
+                        st.html(
+                            f"<div style='max-height: 200px; overflow-y: auto; margin-bottom: 10px;'>{chat_html}</div>"
+                        )
+                    else:
+                        st.info("No private whispers yet.")
+
+                    # Message input using form to clear automatically on submit
+                    with st.form(key="player_whisper_form", clear_on_submit=True):
+                        col_input, col_send = st.columns(
+                            [4, 1], vertical_alignment="bottom"
+                        )
+                        w_msg = col_input.text_input(
+                            "Whisper to DM",
+                            label_visibility="collapsed",
+                            placeholder="Type a message to DM...",
+                        )
+                        submitted = col_send.form_submit_button(
+                            "Send", use_container_width=True
+                        )
+                        if submitted:
+                            if w_msg.strip():
+                                from backend.core.storage import send_whisper
+
+                                if send_whisper(
+                                    campaign_name, char_name, "DM", w_msg.strip()
+                                ):
+                                    st.toast("Whisper sent to DM!")
+                                    st.rerun()
+                            else:
+                                st.error("Failed to send whisper.")
+
+    render_dm_whispers_channel()
 
     # ------------------------------------------
     # Auto-Save & Auto-Sync System
@@ -1236,13 +1354,14 @@ def render_active_character(accent_color: str):
             st.session_state.validation_result = None
             st.rerun()
 
-    char_tab1, char_tab2, char_tab3, char_tab4, char_tab5 = st.tabs(
+    char_tab1, char_tab2, char_tab3, char_tab4, char_tab5, char_tab6 = st.tabs(
         [
             "📊 Core Stats & Skills",
             "⚔️ Combat & Inventory",
             "🧙 Features & Spells",
             "📖 Playstyle Guide",
             "🎭 Roleplay",
+            "📜 Campaign Chronicle",
         ]
     )
 
@@ -1260,6 +1379,9 @@ def render_active_character(accent_color: str):
 
     with char_tab5:
         _render_roleplay(edit_mode)
+
+    with char_tab6:
+        _render_campaign_chronicle()
 
 
 def trigger_sync():
@@ -1376,6 +1498,76 @@ def _render_roleplay(edit_mode: bool):
         st.write(f"**Languages:** {', '.join(st.session_state.languages)}")
         st.write(
             f"**Tool Proficiencies:** {', '.join(st.session_state.tool_proficiencies)}"
+        )
+
+
+def _render_campaign_chronicle():
+    """Renders campaign session logs/chronicles in a beautiful parchment layout."""
+    char_id = st.session_state.get("char_id", "")
+    char_name = st.session_state.get("char_name", "")
+    char_filename = f"{char_name.replace(' ', '_').lower()}_{char_id}.json"
+
+    from backend.core.db import get_db
+
+    db = get_db()
+    if db is None:
+        st.error("Database connection missing.")
+        return
+
+    # Find campaign this character is active in
+    campaign = db["campaigns"].find_one({"party": char_filename})
+    if not campaign:
+        st.info("Your character is not assigned to any campaign chronicle.")
+        return
+
+    sessions = campaign.get("sessions", [])
+    if not sessions:
+        st.info("No chronicles have been recorded for this campaign yet.")
+        return
+
+    st.markdown(
+        "<h2 style='text-align: center; font-family: \"Georgia\", serif;'>📜 The Campaign Chronicle</h2>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<p style='text-align: center; font-style: italic; color: #888; margin-bottom: 30px;'>A historic archive of your party's deeds and trials.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Let's style the chronicle logs to look like premium parchment pages
+    for s in sorted(sessions, key=lambda x: x.get("session_number", 0)):
+        session_num = s.get("session_number", 1)
+        recap = s.get("actual_recap", "")
+
+        if not recap.strip():
+            continue
+
+        st.markdown(
+            f"""
+            <div style='
+                background: linear-gradient(180deg, #1c1512 0%, #120c0a 100%);
+                border: 1px solid #3d2a20;
+                border-left: 5px solid #a87f60;
+                border-radius: 8px;
+                padding: 24px;
+                margin-bottom: 24px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            '>
+                <h3 style='color: #a87f60; font-family: "Georgia", serif; margin-top: 0; margin-bottom: 12px; border-bottom: 1px solid rgba(168, 127, 96, 0.2); padding-bottom: 8px;'>
+                    Chapter {session_num}: The Story So Far
+                </h3>
+                <div style='
+                    color: #dcd6cd;
+                    font-family: "Georgia", serif;
+                    font-size: 1.05rem;
+                    line-height: 1.8;
+                    white-space: pre-line;
+                '>
+                    {recap}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
 
