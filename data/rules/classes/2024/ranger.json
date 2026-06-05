@@ -2,6 +2,15 @@
     "class_name": "Ranger",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d10",
+    "starting_proficiencies": {
+        "saving_throws": ["Strength", "Dexterity"],
+        "armor": ["Light Armor", "Medium Armor", "Shields"],
+        "weapons": ["Simple Weapons", "Martial Weapons"],
+        "skills": {
+            "count": 3,
+            "options": ["Animal Handling", "Athletics", "Insight", "Investigation", "Nature", "Perception", "Stealth", "Survival"]
+        }
+    },
     "primary_ability": [
         "Dexterity",
         "Wisdom"

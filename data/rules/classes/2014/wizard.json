@@ -2,6 +2,15 @@
     "class_name": "Wizard",
     "edition": "2014 Edition",
     "hit_die": "d6",
+    "starting_proficiencies": {
+        "saving_throws": ["Intelligence", "Wisdom"],
+        "armor": ["None"],
+        "weapons": ["Daggers", "Darts", "Slings", "Quarterstaffs", "Light crossbows"],
+        "skills": {
+            "count": 2,
+            "options": ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"]
+        }
+    },
     "primary_ability": [
         "INT",
         "WIS"

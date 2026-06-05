@@ -6,6 +6,15 @@
         "WIS",
         "CHA"
     ],
+    "starting_proficiencies": {
+        "saving_throws": ["Wisdom", "Charisma"],
+        "armor": ["Light", "Medium", "Shields"],
+        "weapons": ["Simple"],
+        "skills": {
+            "count": 2,
+            "options": ["History", "Insight", "Medicine", "Persuasion", "Religion"]
+        }
+    },
     "progression": {
         "1": {
             "proficiency_bonus": 2,

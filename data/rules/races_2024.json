@@ -1,0 +1,237 @@
+[
+    {
+        "name": "Aasimar",
+        "description": "Aasimar are mortals who carry a spark of the Upper Planes within their souls.",
+        "traits": [
+            {
+                "name": "Celestial Resistance",
+                "description": "You have Resistance to Necrotic damage and Radiant damage."
+            },
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 60 feet."
+            },
+            {
+                "name": "Healing Hands",
+                "description": "As a Magic action, you can touch a creature and roll a number of d4s equal to your Proficiency Bonus. The creature regains a number of Hit Points equal to the total rolled. Once you use this trait, you can't use it again until you finish a Long Rest."
+            },
+            {
+                "name": "Light Bearer",
+                "description": "You know the Light cantrip. Charisma is your spellcasting ability for it."
+            },
+            {
+                "name": "Celestial Revelation",
+                "description": "When you reach level 3, you choose one of the following options: Heavenly Wings (flight), Radiant Soul (extra radiant damage), or Necrotic Shroud (frighten enemies). You can transform as a Bonus Action for 1 minute."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Dragonborn",
+        "description": "Dragonborn are the scions of dragons, possessing the power of breath weapons.",
+        "traits": [
+            {
+                "name": "Draconic Ancestry",
+                "description": "You have a Draconic Ancestry that determines your damage resistance and the damage type of your Breath Weapon."
+            },
+            {
+                "name": "Breath Weapon",
+                "description": "When you take the Attack action, you can replace one of your attacks with an exhalation of draconic energy in a 15-foot cone or a 30-foot line. Damage is 1d10 (increasing at higher levels)."
+            },
+            {
+                "name": "Damage Resistance",
+                "description": "You have Resistance to the damage type associated with your Draconic Ancestry."
+            },
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 60 feet."
+            },
+            {
+                "name": "Draconic Flight",
+                "description": "Starting at level 5, you can manifest spectral wings as a Bonus Action for 10 minutes, giving you a Fly Speed equal to your Speed."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Dwarf",
+        "mechanical_effects": {
+            "hp_bonus_per_level": 1
+        },
+        "description": "Dwarves are bold and hardy warriors, known for their skill in battle and craftsmanship.",
+        "traits": [
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 60 feet."
+            },
+            {
+                "name": "Dwarven Resilience",
+                "description": "You have Advantage on saving throws you make to avoid or end the Poisoned condition. You also have Resistance to Poison damage."
+            },
+            {
+                "name": "Dwarven Toughness",
+                "description": "Your HP maximum increases by 1, and it increases by 1 again whenever you gain a level."
+            },
+            {
+                "name": "Stonecunning",
+                "description": "As a Bonus Action, you can gain Tremorsense with a range of 60 feet for 10 minutes while on a stone surface. You can use this a number of times equal to your Proficiency Bonus."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Elf",
+        "description": "Elves are a magical people of long lifespans, associated with the natural world or arcane magic.",
+        "traits": [
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 60 feet."
+            },
+            {
+                "name": "Fey Ancestry",
+                "description": "You have Advantage on saving throws you make to avoid or end the Charmed condition. Magic can't put you to sleep."
+            },
+            {
+                "name": "Keen Senses",
+                "description": "You have proficiency in the Perception skill."
+            },
+            {
+                "name": "Trance",
+                "description": "You don't need to sleep. You can finish a Long Rest in 4 hours if you spend those hours in a trancelike meditation."
+            },
+            {
+                "name": "Elven Lineage",
+                "description": "Choose High Elf, Wood Elf, or Drow. Each gives specific cantrips and spells as you level up."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Gnome",
+        "description": "Gnomes are small, energetic, and possess a natural affinity for magic and invention.",
+        "traits": [
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 60 feet."
+            },
+            {
+                "name": "Gnomish Cunning",
+                "description": "You have Advantage on Intelligence, Wisdom, and Charisma saving throws against spells."
+            },
+            {
+                "name": "Gnomish Lineage",
+                "description": "Choose Forest Gnome (Minor Illusion) or Rock Gnome (Prestidigitation/Tinkering)."
+            }
+        ],
+        "size": "Small",
+        "speed": 30
+    },
+    {
+        "name": "Goliath",
+        "description": "Goliaths are massive beings with the blood of giants in their veins.",
+        "traits": [
+            {
+                "name": "Giant Ancestry",
+                "description": "Choose one: Cloud Giant (Teleport), Fire Giant (Extra damage), Frost Giant (Cold damage/Slow), Hill Giant (Knock prone), Stone Giant (Reaction damage reduction), or Storm Giant (Lightning damage reaction)."
+            },
+            {
+                "name": "Large Form",
+                "description": "Starting at level 5, you can use a Bonus Action to become Large for 10 minutes. You have Advantage on Strength checks and your Speed increases by 10 feet."
+            },
+            {
+                "name": "Powerful Build",
+                "description": "You count as one size larger when determining your carrying capacity and the weight you can push, drag, or lift."
+            }
+        ],
+        "size": "Medium",
+        "speed": 35
+    },
+    {
+        "name": "Halfling",
+        "description": "Halflings are small, nimble, and surprisingly brave folks.",
+        "traits": [
+            {
+                "name": "Brave",
+                "description": "You have Advantage on saving throws you make to avoid or end the Frightened condition."
+            },
+            {
+                "name": "Halfling Nimbleness",
+                "description": "You can move through the space of any creature that is of a size larger than yours."
+            },
+            {
+                "name": "Luck",
+                "description": "When you roll a 1 on the d20 for a d20 Test, you can reroll the die and must use the new roll."
+            },
+            {
+                "name": "Naturally Stealthy",
+                "description": "You have proficiency in the Stealth skill."
+            }
+        ],
+        "size": "Small",
+        "speed": 30
+    },
+    {
+        "name": "Human",
+        "description": "Humans are the most adaptable and ambitious people among the common races.",
+        "traits": [
+            {
+                "name": "Resourceful",
+                "description": "You gain Inspiration whenever you finish a Long Rest."
+            },
+            {
+                "name": "Skill Versatility",
+                "description": "You gain proficiency in one skill of your choice."
+            },
+            {
+                "name": "Versatile",
+                "description": "You gain the Skilled feat or another Origin feat of your choice."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Orc",
+        "description": "Orcs are strong, resilient, and possess a fierce drive to succeed.",
+        "traits": [
+            {
+                "name": "Adrenaline Rush",
+                "description": "You can take the Dash action as a Bonus Action. When you do so, you gain Temporary Hit Points equal to your Proficiency Bonus. You can use this a number of times equal to your Proficiency Bonus."
+            },
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 120 feet."
+            },
+            {
+                "name": "Relentless Endurance",
+                "description": "When you are reduced to 0 Hit Points but not killed outright, you can drop to 1 Hit Point instead. You can't use this trait again until you finish a Long Rest."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Tiefling",
+        "description": "Tieflings bear a hellish heritage that shapes their appearance and magic.",
+        "traits": [
+            {
+                "name": "Darkvision",
+                "description": "You have Darkvision with a range of 60 feet."
+            },
+            {
+                "name": "Otherworldly Resilience",
+                "description": "You have Resistance to Fire damage (or another type based on lineage)."
+            },
+            {
+                "name": "Fiendish Legacy",
+                "description": "Choose Abyssal, Chthonic, or Infernal. Each grants specific cantrips and spells as you level up."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    }
+]

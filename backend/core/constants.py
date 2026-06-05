@@ -23,6 +23,7 @@ ALIGNMENTS = [
 # ==========================================
 RACES_2014 = [
     "Human",
+    "Variant Human",
     "Elf",
     "Dwarf",
     "Halfling",

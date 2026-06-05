@@ -1,0 +1,62 @@
+[
+    {
+        "name": "Human",
+        "stat_bonuses": {"STR": 1, "DEX": 1, "CON": 1, "INT": 1, "WIS": 1, "CHA": 1},
+        "description": "Humans are the most adaptable and ambitious people among the common races.",
+        "traits": [
+            {
+                "name": "Ability Score Increase",
+                "description": "Your ability scores each increase by 1."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Elf",
+        "stat_bonuses": {"DEX": 2},
+        "description": "Elves are a magical people of long lifespans, associated with the natural world or arcane magic.",
+        "traits": [
+            {
+                "name": "Ability Score Increase",
+                "description": "Your Dexterity score increases by 2."
+            },
+            {
+                "name": "Keen Senses",
+                "description": "You have proficiency in the Perception skill."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
+    },
+    {
+        "name": "Dwarf",
+        "stat_bonuses": {"CON": 2},
+        "description": "Dwarves are bold and hardy warriors, known for their skill in battle and craftsmanship.",
+        "traits": [
+            {
+                "name": "Ability Score Increase",
+                "description": "Your Constitution score increases by 2."
+            },
+            {
+                "name": "Dwarven Resilience",
+                "description": "You have resistance against poison damage."
+            }
+        ],
+        "size": "Medium",
+        "speed": 25
+    },
+    {
+        "name": "Halfling",
+        "stat_bonuses": {"DEX": 2},
+        "description": "Halflings are small, nimble, and surprisingly brave folks.",
+        "traits": [
+            {
+                "name": "Ability Score Increase",
+                "description": "Your Dexterity score increases by 2."
+            }
+        ],
+        "size": "Small",
+        "speed": 25
+    }
+]

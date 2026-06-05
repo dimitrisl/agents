@@ -2,6 +2,15 @@
     "class_name": "Paladin",
     "edition": "2014 Edition",
     "hit_die": "d10",
+    "starting_proficiencies": {
+        "saving_throws": ["Wisdom", "Charisma"],
+        "armor": ["All armor", "Shields"],
+        "weapons": ["Simple weapons", "Martial weapons"],
+        "skills": {
+            "count": 2,
+            "options": ["Athletics", "Insight", "Intimidation", "Medicine", "Persuasion", "Religion"]
+        }
+    },
     "primary_ability": [
         "WIS",
         "CHA"

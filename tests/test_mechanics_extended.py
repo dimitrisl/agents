@@ -397,3 +397,190 @@ class TestSyncCharacterStats:
         }
         synced = sync_character_stats(char, {"hit_die": "d10"})
         assert synced["hit_dice"] == "5d10"
+
+
+class TestCalculateMaxSpellSlots:
+    def test_full_caster_spell_slots(self):
+        """Exhaustive check of full caster slot progression."""
+        from backend.services.mechanics_service import calculate_max_spell_slots
+
+        # Level 1 Wizard
+        assert calculate_max_spell_slots("Wizard", 1) == {"level_1": 2}
+        # Level 2 Druid
+        assert calculate_max_spell_slots("Druid", 2) == {"level_1": 3}
+        # Level 3 Cleric
+        assert calculate_max_spell_slots("Cleric", 3) == {"level_1": 4, "level_2": 2}
+        # Level 5 Sorcerer
+        assert calculate_max_spell_slots("Sorcerer", 5) == {
+            "level_1": 4,
+            "level_2": 3,
+            "level_3": 2,
+        }
+        # Level 11 Bard
+        assert calculate_max_spell_slots("Bard", 11) == {
+            "level_1": 4,
+            "level_2": 3,
+            "level_3": 3,
+            "level_4": 3,
+            "level_5": 2,
+            "level_6": 1,
+        }
+        # Level 17 Wizard
+        assert calculate_max_spell_slots("Wizard", 17) == {
+            "level_1": 4,
+            "level_2": 3,
+            "level_3": 3,
+            "level_4": 3,
+            "level_5": 2,
+            "level_6": 1,
+            "level_7": 1,
+            "level_8": 1,
+            "level_9": 1,
+        }
+        # Level 20 Cleric
+        assert calculate_max_spell_slots("Cleric", 20) == {
+            "level_1": 4,
+            "level_2": 3,
+            "level_3": 3,
+            "level_4": 3,
+            "level_5": 3,
+            "level_6": 2,
+            "level_7": 2,
+            "level_8": 1,
+            "level_9": 1,
+        }
+
+    def test_warlock_spell_slots(self):
+        """Exhaustive check of Warlock Pact Magic slots."""
+        from backend.services.mechanics_service import calculate_max_spell_slots
+
+        assert calculate_max_spell_slots("Warlock", 1) == {"level_1": 1}
+        assert calculate_max_spell_slots("Warlock", 2) == {"level_1": 2}
+        assert calculate_max_spell_slots("Warlock", 3) == {"level_2": 2}
+        assert calculate_max_spell_slots("Warlock", 5) == {"level_3": 2}
+        assert calculate_max_spell_slots("Warlock", 11) == {"level_5": 3}
+        assert calculate_max_spell_slots("Warlock", 17) == {"level_5": 4}
+        assert calculate_max_spell_slots("Warlock", 20) == {"level_5": 4}
+
+    def test_half_caster_spell_slots(self):
+        """Exhaustive check of half-caster (Paladin, Ranger) slot progression."""
+        from backend.services.mechanics_service import calculate_max_spell_slots
+
+        # Paladin Level 1 has no slots
+        assert calculate_max_spell_slots("Paladin", 1) == {}
+        # Paladin Level 2
+        assert calculate_max_spell_slots("Paladin", 2) == {"level_1": 2}
+        # Ranger Level 3
+        assert calculate_max_spell_slots("Ranger", 3) == {"level_1": 3}
+        # Paladin Level 5
+        assert calculate_max_spell_slots("Paladin", 5) == {"level_1": 4, "level_2": 2}
+        # Ranger Level 20
+        assert calculate_max_spell_slots("Ranger", 20) == {
+            "level_1": 4,
+            "level_2": 3,
+            "level_3": 3,
+            "level_4": 3,
+            "level_5": 2,
+        }
+
+    def test_artificer_spell_slots(self):
+        """Exhaustive check of Artificer spell slots (rounds up)."""
+        from backend.services.mechanics_service import calculate_max_spell_slots
+
+        # Artificer Level 1
+        assert calculate_max_spell_slots("Artificer", 1) == {"level_1": 2}
+        # Artificer Level 2
+        assert calculate_max_spell_slots("Artificer", 2) == {"level_1": 2}
+        # Artificer Level 3
+        assert calculate_max_spell_slots("Artificer", 3) == {"level_1": 3}
+        # Artificer Level 5
+        assert calculate_max_spell_slots("Artificer", 5) == {"level_1": 4, "level_2": 2}
+        # Artificer Level 20
+        assert calculate_max_spell_slots("Artificer", 20) == {
+            "level_1": 4,
+            "level_2": 3,
+            "level_3": 3,
+            "level_4": 3,
+            "level_5": 2,
+        }
+
+    def test_non_caster_spell_slots(self):
+        """Non-casters should return empty spell slots."""
+        from backend.services.mechanics_service import calculate_max_spell_slots
+
+        assert calculate_max_spell_slots("Fighter", 1) == {}
+        assert calculate_max_spell_slots("Barbarian", 10) == {}
+        assert calculate_max_spell_slots("Rogue", 20) == {}
+
+
+class TestSavingThrowsNormalization:
+    def test_saving_throws_fallback_class_mapping(self):
+        """Test fallback when saving_throws key is missing entirely."""
+        # Wizard should default to INT and WIS
+        char_wizard = {
+            "char_level": 1,
+            "char_class": "Wizard",
+            "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+        }
+        synced_wizard = sync_character_stats(char_wizard)
+        assert set(synced_wizard["saving_throws"]) == {"INT", "WIS"}
+
+        # Fighter should default to STR and CON
+        char_fighter = {
+            "char_level": 1,
+            "char_class": "Fighter",
+            "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+        }
+        synced_fighter = sync_character_stats(char_fighter)
+        assert set(synced_fighter["saving_throws"]) == {"STR", "CON"}
+
+        # Artificer should default to CON and INT
+        char_artificer = {
+            "char_level": 1,
+            "char_class": "Artificer",
+            "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+        }
+        synced_artificer = sync_character_stats(char_artificer)
+        assert set(synced_artificer["saving_throws"]) == {"CON", "INT"}
+
+    def test_saving_throws_normalization_from_input(self):
+        """Test normalization when saving_throws contains full names or mixed casing."""
+        # Full names
+        char1 = {
+            "char_level": 1,
+            "char_class": "Wizard",
+            "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+            "saving_throws": ["Intelligence", "Wisdom"],
+        }
+        synced1 = sync_character_stats(char1)
+        assert set(synced1["saving_throws"]) == {"INT", "WIS"}
+
+        # Lowercase and mixed types
+        char2 = {
+            "char_level": 1,
+            "char_class": "Fighter",
+            "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+            "saving_throws": ["str", "constitution", "invalid_stat"],
+        }
+        synced2 = sync_character_stats(char2)
+        assert set(synced2["saving_throws"]) == {"STR", "CON"}
+        # "invalid_stat" must be removed or ignored
+        assert "invalid_stat" not in synced2["saving_throws"]
+
+    def test_saving_throws_math_with_normalization(self):
+        """Test that normalized saving throws correctly apply proficiency bonus in modifiers."""
+        # Level 5 Wizard (+3 proficiency) with 14 INT (+2) and 10 WIS (+0)
+        # saving_throws given in full names
+        char = {
+            "char_level": 5,
+            "char_class": "Wizard",
+            "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 14, "WIS": 10, "CHA": 10},
+            "saving_throws": ["intelligence", "Wisdom"],
+        }
+        synced = sync_character_stats(char)
+        # INT save = +2 (mod) + 3 (prof) = 5
+        assert synced["saving_throw_values"]["INT"] == 5
+        # WIS save = +0 (mod) + 3 (prof) = 3
+        assert synced["saving_throw_values"]["WIS"] == 3
+        # DEX save = +0 (mod) + 0 (prof) = 0
+        assert synced["saving_throw_values"]["DEX"] == 0

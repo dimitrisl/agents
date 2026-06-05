@@ -721,9 +721,73 @@ def sync_character_stats(
     char_data["proficiency_bonus"] = prof_bonus
 
     # 3. Dynamic Proficiencies from JSON if missing
-    if not char_data.get("saving_throws") and class_data:
-        # Many JSONs use primary_ability for saves (simplified logic)
-        char_data["saving_throws"] = class_data.get("primary_ability", [])
+    if not char_data.get("saving_throws"):
+        # Map class to its official saving throw proficiencies
+        class_saves = {
+            "barbarian": ["STR", "CON"],
+            "bard": ["DEX", "CHA"],
+            "cleric": ["WIS", "CHA"],
+            "druid": ["INT", "WIS"],
+            "fighter": ["STR", "CON"],
+            "monk": ["STR", "DEX"],
+            "paladin": ["WIS", "CHA"],
+            "ranger": ["STR", "DEX"],
+            "rogue": ["DEX", "INT"],
+            "sorcerer": ["CON", "CHA"],
+            "warlock": ["WIS", "CHA"],
+            "wizard": ["INT", "WIS"],
+            "artificer": ["CON", "INT"],
+        }
+        char_class_lower = char_class.lower() if char_class else ""
+        if char_class_lower in class_saves:
+            char_data["saving_throws"] = class_saves[char_class_lower]
+        elif class_data:
+            # Fallback to whatever is in primary_ability, mapped/cleaned
+            raw_saves = class_data.get("primary_ability", [])
+            clean_saves = []
+            abbr_map = {
+                "strength": "STR",
+                "dexterity": "DEX",
+                "constitution": "CON",
+                "intelligence": "INT",
+                "wisdom": "WIS",
+                "charisma": "CHA",
+                "str": "STR",
+                "dex": "DEX",
+                "con": "CON",
+                "int": "INT",
+                "wis": "WIS",
+                "cha": "CHA",
+            }
+            for s in raw_saves:
+                s_clean = str(s).strip().lower()
+                if s_clean in abbr_map:
+                    clean_saves.append(abbr_map[s_clean])
+            char_data["saving_throws"] = clean_saves
+    else:
+        # Sanitize existing saving throws to ensure they are standard 3-letter codes
+        abbr_map = {
+            "strength": "STR",
+            "dexterity": "DEX",
+            "constitution": "CON",
+            "intelligence": "INT",
+            "wisdom": "WIS",
+            "charisma": "CHA",
+            "str": "STR",
+            "dex": "DEX",
+            "con": "CON",
+            "int": "INT",
+            "wis": "WIS",
+            "cha": "CHA",
+        }
+        clean_saves = []
+        for s in char_data.get("saving_throws", []):
+            s_clean = str(s).strip().lower()
+            if s_clean in abbr_map:
+                clean_saves.append(abbr_map[s_clean])
+            elif s in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+                clean_saves.append(s)
+        char_data["saving_throws"] = clean_saves
 
     # Update HP and Hit Dice
     hit_die_size = get_hit_die_for_class(char_class, edition)

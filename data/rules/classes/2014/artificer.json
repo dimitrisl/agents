@@ -5,6 +5,15 @@
     "primary_ability": [
         "Intelligence"
     ],
+    "starting_proficiencies": {
+        "saving_throws": ["Constitution", "Intelligence"],
+        "armor": ["Light", "Medium", "Shields"],
+        "weapons": ["Simple"],
+        "skills": {
+            "count": 2,
+            "options": ["Arcana", "History", "Investigation", "Medicine", "Nature", "Perception", "Sleight of Hand"]
+        }
+    },
     "progression": {
         "1": {
             "proficiency_bonus": 2,

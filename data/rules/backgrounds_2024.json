@@ -1,0 +1,182 @@
+[
+    {
+        "name": "Acolyte",
+        "description": "You have spent your life in service to a temple, learning sacred rites and providing for the spiritual needs of others.",
+        "ability_scores": {
+            "options": [["INT", "WIS", "CHA"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Magic Initiate (Cleric)",
+        "skills": ["Insight", "Religion"],
+        "tools": ["Calligrapher's Supplies"],
+        "equipment": "Calligrapher's Supplies, Holy Symbol, Book (Prayers), 5 Sticks of Incense, Vestments, 8 GP"
+    },
+    {
+        "name": "Artisan",
+        "description": "You began your life as an apprentice to a master artisan, learning a trade and the business of a guild.",
+        "ability_scores": {
+            "options": [["STR", "DEX", "INT"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Crafter",
+        "skills": ["Investigation", "Persuasion"],
+        "tools": ["One type of Artisan's Tools"],
+        "equipment": "Abacus, Merchant's Scale, Pouch, 25 GP, Artisan's Tools"
+    },
+    {
+        "name": "Charlatan",
+        "description": "You have always had a way with people, and you use that talent to deceive and manipulate.",
+        "ability_scores": {
+            "options": [["DEX", "CON", "CHA"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Skilled",
+        "skills": ["Deception", "Sleight of Hand"],
+        "tools": ["Forgery Kit"],
+        "equipment": "Costume, Forgery Kit, Pouch, 15 GP"
+    },
+    {
+        "name": "Criminal",
+        "description": "You have a history of breaking the law and surviving in the underworld.",
+        "ability_scores": {
+            "options": [["DEX", "CON", "INT"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Alert",
+        "skills": ["Sleight of Hand", "Stealth"],
+        "tools": ["Thieves' Tools"],
+        "equipment": "Crowbar, Dagger (2), Pouch, Thieves' Tools, 16 GP"
+    },
+    {
+        "name": "Entertainer",
+        "description": "You thrive in front of an audience, whether you're telling stories, making music, or performing acrobatics.",
+        "ability_scores": {
+            "options": [["DEX", "CHA", "STR"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Musician",
+        "skills": ["Acrobatics", "Performance"],
+        "tools": ["One Musical Instrument"],
+        "equipment": "Costume, Musical Instrument, Pouch, 11 GP"
+    },
+    {
+        "name": "Farmer",
+        "description": "You grew up on a farm, learning to work the land and care for animals.",
+        "ability_scores": {
+            "options": [["STR", "CON", "WIS"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Tough",
+        "skills": ["Animal Handling", "Nature"],
+        "tools": ["Carpenter's Tools"],
+        "equipment": "Carpenter's Tools, Healer's Kit, Sickle, Pouch, 23 GP"
+    },
+    {
+        "name": "Guard",
+        "description": "You served as a member of a city watch, a noble's personal guard, or a mercenary company.",
+        "ability_scores": {
+            "options": [["STR", "DEX", "WIS"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Alert",
+        "skills": ["Athletics", "Perception"],
+        "tools": ["Gaming Set"],
+        "equipment": "Gaming Set, Hooded Lantern, Manacles, Quiver, Spear, Pouch, 12 GP"
+    },
+    {
+        "name": "Guide",
+        "description": "You lived your life in the wilderness, guiding others through treacherous terrain.",
+        "ability_scores": {
+            "options": [["DEX", "CON", "WIS"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Magic Initiate (Druid)",
+        "skills": ["Stealth", "Survival"],
+        "tools": ["Cartographer's Tools"],
+        "equipment": "Cartographer's Tools, Bedroll, Fishing Tackle, Quiver, Shortbow, Pouch, 2 GP"
+    },
+    {
+        "name": "Hermit",
+        "description": "You lived in seclusion, perhaps in a remote monastery or a cave, seeking enlightenment or hiding from the world.",
+        "ability_scores": {
+            "options": [["CON", "WIS", "CHA"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Healer",
+        "skills": ["Medicine", "Religion"],
+        "tools": ["Herbalism Kit"],
+        "equipment": "Herbalism Kit, Bedroll, Book (Philosophy), Oil (3 flasks), Quarterstaff, Pouch, 15 GP"
+    },
+    {
+        "name": "Noble",
+        "description": "You were born into a family of high status and privilege.",
+        "ability_scores": {
+            "options": [["STR", "INT", "CHA"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Skilled",
+        "skills": ["History", "Persuasion"],
+        "tools": ["Gaming Set"],
+        "equipment": "Gaming Set, Fine Clothes, Signet Ring, Pouch, 24 GP"
+    },
+    {
+        "name": "Sage",
+        "description": "You spent your life in study, learning the secrets of the multiverse.",
+        "ability_scores": {
+            "options": [["CON", "INT", "WIS"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Magic Initiate (Wizard)",
+        "skills": ["Arcana", "History"],
+        "tools": ["Calligrapher's Supplies"],
+        "equipment": "Calligrapher's Supplies, Book (History), Parchment (8 sheets), Pouch, 8 GP"
+    },
+    {
+        "name": "Sailor",
+        "description": "You worked on a ship, sailing the seas and braving the elements.",
+        "ability_scores": {
+            "options": [["STR", "DEX", "WIS"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Tavern Brawler",
+        "skills": ["Acrobatics", "Perception"],
+        "tools": ["Navigator's Tools"],
+        "equipment": "Navigator's Tools, Dagger, Silk Rope (50 ft), Pouch, 10 GP"
+    },
+    {
+        "name": "Scribe",
+        "description": "You worked as a clerk or record-keeper, documenting the affairs of a city or noble house.",
+        "ability_scores": {
+            "options": [["DEX", "INT", "WIS"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Skilled",
+        "skills": ["Investigation", "Perception"],
+        "tools": ["Calligrapher's Supplies"],
+        "equipment": "Calligrapher's Supplies, Book (Blank), Ink, Pen, Pouch, 23 GP"
+    },
+    {
+        "name": "Soldier",
+        "description": "You were trained in the art of war and served in a military unit.",
+        "ability_scores": {
+            "options": [["STR", "DEX", "CON"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Savage Attacker",
+        "skills": ["Athletics", "Intimidation"],
+        "tools": ["Gaming Set"],
+        "equipment": "Gaming Set, Quiver, Shortbow, Spear, Pouch, 14 GP"
+    },
+    {
+        "name": "Wayfarer",
+        "description": "You have spent your life traveling from place to place, surviving on your wits and the kindness of strangers.",
+        "ability_scores": {
+            "options": [["DEX", "WIS", "CHA"]],
+            "description": "Increase three of these scores by 1, or one by 2 and another by 1."
+        },
+        "feat": "Lucky",
+        "skills": ["Insight", "Stealth"],
+        "tools": ["Thieves' Tools"],
+        "equipment": "Thieves' Tools, Bedroll, Dagger (2), Pouch, 16 GP"
+    }
+]

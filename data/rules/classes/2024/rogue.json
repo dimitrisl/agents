@@ -2,6 +2,15 @@
     "class_name": "Rogue",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d8",
+    "starting_proficiencies": {
+        "saving_throws": ["Dexterity", "Intelligence"],
+        "armor": ["Light Armor"],
+        "weapons": ["Simple Weapons", "Martial Weapons that have the Finesse property"],
+        "skills": {
+            "count": 4,
+            "options": ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"]
+        }
+    },
     "primary_ability": [
         "Dexterity"
     ],

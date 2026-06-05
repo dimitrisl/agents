@@ -5,6 +5,15 @@
     "primary_ability": [
         "Strength"
     ],
+    "starting_proficiencies": {
+        "saving_throws": ["Strength", "Constitution"],
+        "armor": ["Light", "Medium", "Shields"],
+        "weapons": ["Simple", "Martial"],
+        "skills": {
+            "count": 2,
+            "options": ["Animal Handling", "Athletics", "Intimidation", "Nature", "Perception", "Survival"]
+        }
+    },
     "progression": {
         "1": {
             "proficiency_bonus": 2,

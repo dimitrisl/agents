@@ -1,0 +1,18 @@
+[
+    {"name": "Common", "type": "Standard", "description": "The language of the most common races."},
+    {"name": "Dwarvish", "type": "Standard", "description": "Spoken by Dwarves."},
+    {"name": "Elvish", "type": "Standard", "description": "Spoken by Elves."},
+    {"name": "Giant", "type": "Standard", "description": "Spoken by Ogres and Giants."},
+    {"name": "Gnomish", "type": "Standard", "description": "Spoken by Gnomes."},
+    {"name": "Goblin", "type": "Standard", "description": "Spoken by Goblins and Bugbears."},
+    {"name": "Halfling", "type": "Standard", "description": "Spoken by Halflings."},
+    {"name": "Orc", "type": "Standard", "description": "Spoken by Orcs."},
+    {"name": "Abyssal", "type": "Exotic", "description": "Spoken by Demons."},
+    {"name": "Celestial", "type": "Exotic", "description": "Spoken by Celestials."},
+    {"name": "Draconic", "type": "Exotic", "description": "Spoken by Dragons and Dragonborn."},
+    {"name": "Deep Speech", "type": "Exotic", "description": "Spoken by Mind Flayers and Beholders."},
+    {"name": "Infernal", "type": "Exotic", "description": "Spoken by Devils."},
+    {"name": "Primordial", "type": "Exotic", "description": "Spoken by Elementals (includes Aquan, Auran, Ignan, Terran)."},
+    {"name": "Sylvan", "type": "Exotic", "description": "Spoken by Fey creatures."},
+    {"name": "Undercommon", "type": "Exotic", "description": "Spoken by denizens of the Underdark."}
+]

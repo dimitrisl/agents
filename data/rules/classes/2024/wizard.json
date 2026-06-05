@@ -2,6 +2,15 @@
     "class_name": "Wizard",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d6",
+    "starting_proficiencies": {
+        "saving_throws": ["Intelligence", "Wisdom"],
+        "armor": ["None"],
+        "weapons": ["Simple Weapons"],
+        "skills": {
+            "count": 2,
+            "options": ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"]
+        }
+    },
     "primary_ability": [
         "Intelligence"
     ],

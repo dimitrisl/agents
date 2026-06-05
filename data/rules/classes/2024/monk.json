@@ -2,6 +2,15 @@
     "class_name": "Monk",
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d8",
+    "starting_proficiencies": {
+        "saving_throws": ["Strength", "Dexterity"],
+        "armor": ["None"],
+        "weapons": ["Simple Weapons", "Martial Weapons that have the Light property"],
+        "skills": {
+            "count": 2,
+            "options": ["Acrobatics", "Athletics", "History", "Insight", "Religion", "Stealth"]
+        }
+    },
     "primary_ability": [
         "Dexterity",
         "Wisdom"

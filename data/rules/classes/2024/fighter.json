@@ -6,6 +6,15 @@
         "Strength",
         "Dexterity"
     ],
+    "starting_proficiencies": {
+        "saving_throws": ["Strength", "Constitution"],
+        "armor": ["Light", "Medium", "Heavy", "Shields"],
+        "weapons": ["Simple", "Martial"],
+        "skills": {
+            "count": 2,
+            "options": ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"]
+        }
+    },
     "progression": {
         "1": {
             "proficiency_bonus": 2,

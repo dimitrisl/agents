@@ -2,6 +2,15 @@
     "class_name": "Ranger",
     "edition": "2014 Edition",
     "hit_die": "d10",
+    "starting_proficiencies": {
+        "saving_throws": ["Strength", "Dexterity"],
+        "armor": ["Light armor", "Medium armor", "Shields"],
+        "weapons": ["Simple weapons", "Martial weapons"],
+        "skills": {
+            "count": 3,
+            "options": ["Animal Handling", "Athletics", "Insight", "Investigation", "Nature", "Perception", "Stealth", "Survival"]
+        }
+    },
     "primary_ability": [
         "STR",
         "DEX"

@@ -1,0 +1,20 @@
+[
+    {"name": "Acrobatics", "ability": "DEX", "description": "Measuring your agility, including balance and stunting."},
+    {"name": "Animal Handling", "ability": "WIS", "description": "Calming, training, or controlling animals."},
+    {"name": "Arcana", "ability": "INT", "description": "Recalling lore about spells, magic items, and planes of existence."},
+    {"name": "Athletics", "ability": "STR", "description": "Physical activities like climbing, jumping, or swimming."},
+    {"name": "Deception", "ability": "CHA", "description": "Hiding the truth, either verbally or through actions."},
+    {"name": "History", "ability": "INT", "description": "Recalling lore about historical events, people, and kingdoms."},
+    {"name": "Insight", "ability": "WIS", "description": "Determining the true intentions of a creature."},
+    {"name": "Intimidation", "ability": "CHA", "description": "Influencing someone through overt threats or hostility."},
+    {"name": "Investigation", "ability": "INT", "description": "Looking for clues and making deductions."},
+    {"name": "Medicine", "ability": "WIS", "description": "Stabilizing a dying creature or diagnosing an illness."},
+    {"name": "Nature", "ability": "INT", "description": "Recalling lore about terrain, plants, and animals."},
+    {"name": "Perception", "ability": "WIS", "description": "Noticing things with your senses."},
+    {"name": "Performance", "ability": "CHA", "description": "Delighting an audience with music, dance, or acting."},
+    {"name": "Persuasion", "ability": "CHA", "description": "Influencing someone with tact and social grace."},
+    {"name": "Religion", "ability": "INT", "description": "Recalling lore about deities, rites, and holy symbols."},
+    {"name": "Sleight of Hand", "ability": "DEX", "description": "Manual trickery, such as pocket picking or concealing objects."},
+    {"name": "Stealth", "ability": "DEX", "description": "Escaping notice by moving silently and hiding."},
+    {"name": "Survival", "ability": "WIS", "description": "Following tracks, hunting, and navigating the wilderness."}
+]

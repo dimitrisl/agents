@@ -2,6 +2,15 @@
     "class_name": "Sorcerer",
     "edition": "2014 Edition",
     "hit_die": "d6",
+    "starting_proficiencies": {
+        "saving_throws": ["Constitution", "Charisma"],
+        "armor": ["None"],
+        "weapons": ["Daggers", "Darts", "Slings", "Quarterstaffs", "Light crossbows"],
+        "skills": {
+            "count": 2,
+            "options": ["Arcana", "Deception", "Insight", "Intimidation", "Persuasion", "Religion"]
+        }
+    },
     "primary_ability": [
         "CON",
         "CHA"

@@ -1,0 +1,281 @@
+[
+    {
+        "name": "Club",
+        "category": "Simple Melee",
+        "damage": "1d4 Bludgeoning",
+        "properties": ["Light"],
+        "mastery": "Slow",
+        "weight": "2 lb.",
+        "cost": "1 SP"
+    },
+    {
+        "name": "Dagger",
+        "category": "Simple Melee",
+        "damage": "1d4 Piercing",
+        "properties": ["Finesse", "Light", "Thrown (20/60)"],
+        "mastery": "Nick",
+        "weight": "1 lb.",
+        "cost": "2 GP"
+    },
+    {
+        "name": "Greatclub",
+        "category": "Simple Melee",
+        "damage": "1d8 Bludgeoning",
+        "properties": ["Two-Handed"],
+        "mastery": "Push",
+        "weight": "10 lb.",
+        "cost": "2 SP"
+    },
+    {
+        "name": "Handaxe",
+        "category": "Simple Melee",
+        "damage": "1d6 Slashing",
+        "properties": ["Light", "Thrown (20/60)"],
+        "mastery": "Vex",
+        "weight": "2 lb.",
+        "cost": "5 GP"
+    },
+    {
+        "name": "Javelin",
+        "category": "Simple Melee",
+        "damage": "1d6 Piercing",
+        "properties": ["Thrown (30/120)"],
+        "mastery": "Slow",
+        "weight": "2 lb.",
+        "cost": "5 SP"
+    },
+    {
+        "name": "Light Hammer",
+        "category": "Simple Melee",
+        "damage": "1d4 Bludgeoning",
+        "properties": ["Light", "Thrown (20/60)"],
+        "mastery": "Nick",
+        "weight": "2 lb.",
+        "cost": "2 GP"
+    },
+    {
+        "name": "Mace",
+        "category": "Simple Melee",
+        "damage": "1d6 Bludgeoning",
+        "properties": [],
+        "mastery": "Sap",
+        "weight": "4 lb.",
+        "cost": "5 GP"
+    },
+    {
+        "name": "Quarterstaff",
+        "category": "Simple Melee",
+        "damage": "1d6 Bludgeoning",
+        "properties": ["Versatile (1d8)"],
+        "mastery": "Topple",
+        "weight": "4 lb.",
+        "cost": "2 SP"
+    },
+    {
+        "name": "Sickle",
+        "category": "Simple Melee",
+        "damage": "1d4 Slashing",
+        "properties": ["Light"],
+        "mastery": "Nick",
+        "weight": "2 lb.",
+        "cost": "1 GP"
+    },
+    {
+        "name": "Spear",
+        "category": "Simple Melee",
+        "damage": "1d6 Piercing",
+        "properties": ["Thrown (20/60)", "Versatile (1d8)"],
+        "mastery": "Sap",
+        "weight": "3 lb.",
+        "cost": "1 GP"
+    },
+    {
+        "name": "Battleaxe",
+        "category": "Martial Melee",
+        "damage": "1d8 Slashing",
+        "properties": ["Versatile (1d10)"],
+        "mastery": "Topple",
+        "weight": "4 lb.",
+        "cost": "10 GP"
+    },
+    {
+        "name": "Flail",
+        "category": "Martial Melee",
+        "damage": "1d8 Bludgeoning",
+        "properties": [],
+        "mastery": "Sap",
+        "weight": "2 lb.",
+        "cost": "10 GP"
+    },
+    {
+        "name": "Glaive",
+        "category": "Martial Melee",
+        "damage": "1d10 Slashing",
+        "properties": ["Heavy", "Reach", "Two-Handed"],
+        "mastery": "Graze",
+        "weight": "6 lb.",
+        "cost": "20 GP"
+    },
+    {
+        "name": "Greataxe",
+        "category": "Martial Melee",
+        "damage": "1d12 Slashing",
+        "properties": ["Heavy", "Two-Handed"],
+        "mastery": "Cleave",
+        "weight": "7 lb.",
+        "cost": "30 GP"
+    },
+    {
+        "name": "Greatsword",
+        "category": "Martial Melee",
+        "damage": "2d6 Slashing",
+        "properties": ["Heavy", "Two-Handed"],
+        "mastery": "Graze",
+        "weight": "6 lb.",
+        "cost": "50 GP"
+    },
+    {
+        "name": "Halberd",
+        "category": "Martial Melee",
+        "damage": "1d10 Slashing",
+        "properties": ["Heavy", "Reach", "Two-Handed"],
+        "mastery": "Cleave",
+        "weight": "6 lb.",
+        "cost": "20 GP"
+    },
+    {
+        "name": "Longsword",
+        "category": "Martial Melee",
+        "damage": "1d8 Slashing",
+        "properties": ["Versatile (1d10)"],
+        "mastery": "Sap",
+        "weight": "3 lb.",
+        "cost": "15 GP"
+    },
+    {
+        "name": "Maul",
+        "category": "Martial Melee",
+        "damage": "2d6 Bludgeoning",
+        "properties": ["Heavy", "Two-Handed"],
+        "mastery": "Topple",
+        "weight": "10 lb.",
+        "cost": "10 GP"
+    },
+    {
+        "name": "Morningstar",
+        "category": "Martial Melee",
+        "damage": "1d8 Piercing",
+        "properties": [],
+        "mastery": "Sap",
+        "weight": "4 lb.",
+        "cost": "15 GP"
+    },
+    {
+        "name": "Pike",
+        "category": "Martial Melee",
+        "damage": "1d10 Piercing",
+        "properties": ["Heavy", "Reach", "Two-Handed"],
+        "mastery": "Push",
+        "weight": "18 lb.",
+        "cost": "5 GP"
+    },
+    {
+        "name": "Rapier",
+        "category": "Martial Melee",
+        "damage": "1d8 Piercing",
+        "properties": ["Finesse"],
+        "mastery": "Vex",
+        "weight": "2 lb.",
+        "cost": "25 GP"
+    },
+    {
+        "name": "Scimitar",
+        "category": "Martial Melee",
+        "damage": "1d6 Slashing",
+        "properties": ["Finesse", "Light"],
+        "mastery": "Nick",
+        "weight": "3 lb.",
+        "cost": "25 GP"
+    },
+    {
+        "name": "Shortsword",
+        "category": "Martial Melee",
+        "damage": "1d6 Piercing",
+        "properties": ["Finesse", "Light"],
+        "mastery": "Vex",
+        "weight": "2 lb.",
+        "cost": "10 GP"
+    },
+    {
+        "name": "Trident",
+        "category": "Martial Melee",
+        "damage": "1d8 Piercing",
+        "properties": ["Thrown (20/60)", "Versatile (1d10)"],
+        "mastery": "Topple",
+        "weight": "4 lb.",
+        "cost": "5 GP"
+    },
+    {
+        "name": "Warhammer",
+        "category": "Martial Melee",
+        "damage": "1d8 Bludgeoning",
+        "properties": ["Versatile (1d10)"],
+        "mastery": "Push",
+        "weight": "2 lb.",
+        "cost": "15 GP"
+    },
+    {
+        "name": "Whip",
+        "category": "Martial Melee",
+        "damage": "1d4 Slashing",
+        "properties": ["Finesse", "Reach"],
+        "mastery": "Slow",
+        "weight": "3 lb.",
+        "cost": "2 GP"
+    },
+    {
+        "name": "Light Crossbow",
+        "category": "Simple Ranged",
+        "damage": "1d8 Piercing",
+        "properties": ["Ammunition (80/320)", "Loading", "Two-Handed"],
+        "mastery": "Slow",
+        "weight": "5 lb.",
+        "cost": "25 GP"
+    },
+    {
+        "name": "Shortbow",
+        "category": "Simple Ranged",
+        "damage": "1d6 Piercing",
+        "properties": ["Ammunition (80/320)", "Two-Handed"],
+        "mastery": "Vex",
+        "weight": "2 lb.",
+        "cost": "25 GP"
+    },
+    {
+        "name": "Longbow",
+        "category": "Martial Ranged",
+        "damage": "1d8 Piercing",
+        "properties": ["Ammunition (150/600)", "Heavy", "Two-Handed"],
+        "mastery": "Slow",
+        "weight": "2 lb.",
+        "cost": "50 GP"
+    },
+    {
+        "name": "Musket",
+        "category": "Martial Ranged",
+        "damage": "1d12 Piercing",
+        "properties": ["Ammunition (40/120)", "Loading", "Two-Handed"],
+        "mastery": "Slow",
+        "weight": "4 lb.",
+        "cost": "500 GP"
+    },
+    {
+        "name": "Pistol",
+        "category": "Martial Ranged",
+        "damage": "1d10 Piercing",
+        "properties": ["Ammunition (30/90)", "Loading"],
+        "mastery": "Vex",
+        "weight": "3 lb.",
+        "cost": "250 GP"
+    }
+]

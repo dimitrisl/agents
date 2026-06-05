@@ -2,6 +2,15 @@
     "class_name": "Monk",
     "edition": "2014 Edition",
     "hit_die": "d8",
+    "starting_proficiencies": {
+        "saving_throws": ["Strength", "Dexterity"],
+        "armor": ["None"],
+        "weapons": ["Simple weapons", "Shortswords"],
+        "skills": {
+            "count": 2,
+            "options": ["Acrobatics", "Athletics", "History", "Insight", "Religion", "Stealth"]
+        }
+    },
     "primary_ability": [
         "STR",
         "DEX"
