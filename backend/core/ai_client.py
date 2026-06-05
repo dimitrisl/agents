@@ -33,12 +33,12 @@ def get_flash_model(client):
     """Selects the best available Flash model based on config preferences."""
     config = load_config()
     ai_settings = config.get("ai_settings", {})
-    preferred = ai_settings.get("preferred_model", "models/gemini-1.5-flash")
-    fallback = ai_settings.get("fallback_model", "models/gemini-1.5-flash")
+    preferred = ai_settings.get("preferred_model", "models/gemini-2.5-flash")
+    fallback = ai_settings.get("fallback_model", "models/gemini-2.5-flash")
 
     try:
-        # Force the Pro model since flash is currently returning 503
-        stable_default = "gemini-1.5-pro"
+        # Stable default to use if preferred is not available
+        stable_default = "gemini-2.5-flash"
 
         models = list(client.models.list())
         model_names = [m.name.lower() for m in models]

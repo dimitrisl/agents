@@ -3666,7 +3666,7 @@ def render_character_creator():
                     "Saving Throw Proficiencies",
                     ["STR", "DEX", "CON", "INT", "WIS", "CHA"],
                     default=default_saves,
-                    key="manual_saves",
+                    key=f"manual_saves_{manual_class}",
                 )
 
                 # Skill Proficiencies
@@ -3719,7 +3719,7 @@ def render_character_creator():
                     index=["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"].index(
                         default_spell_ability
                     ),
-                    key="manual_spell_ability",
+                    key=f"manual_spell_ability_{manual_class}",
                 )
 
             submit_disabled = not is_stat_valid or not manual_name.strip()
