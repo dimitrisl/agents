@@ -17,6 +17,7 @@ _class_progression_cache: dict = {}
 _available_classes_cache: dict = {}
 _feats_cache: dict = {}
 _items_cache: list | None = None
+_spells_cache: dict = {}
 
 
 def _load_json(filepath: str):
@@ -133,7 +134,11 @@ class RulesRepository:
         """
         Loads all spells for the specified edition, prioritizing MongoDB.
         """
+        if edition in _spells_cache:
+            return _spells_cache[edition]
+
         edition_val = "2014" if edition == EDITION_2014 else "2024"
+        spells = []
 
         # Try database first
         try:
@@ -142,20 +147,21 @@ class RulesRepository:
             db = get_db()
             if db is not None:
                 cursor = db["spells"].find({"edition": edition_val})
-                spells = []
                 for s in cursor:
                     if "_id" in s:
                         del s["_id"]
                     spells.append(s)
-                if spells:
-                    return spells
         except Exception as e:
             logger.error(f"Failed to load spells from MongoDB: {e}")
 
-        # Fallback to local JSON files
-        filename = f"spells_{edition_val}.json"
-        filepath = os.path.join(DATA_DIR, "rules", filename)
-        return _load_json(filepath)
+        # Fallback to local JSON files if DB returns nothing
+        if not spells:
+            filename = f"spells_{edition_val}.json"
+            filepath = os.path.join(DATA_DIR, "rules", filename)
+            spells = _load_json(filepath)
+
+        _spells_cache[edition] = spells
+        return spells
 
     def search_spells(self, query: str, edition: str = EDITION_2014) -> list:
         """

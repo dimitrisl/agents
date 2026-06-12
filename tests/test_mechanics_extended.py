@@ -584,3 +584,61 @@ class TestSavingThrowsNormalization:
         assert synced["saving_throw_values"]["WIS"] == 3
         # DEX save = +0 (mod) + 0 (prof) = 0
         assert synced["saving_throw_values"]["DEX"] == 0
+
+
+class TestSneakAttackScaling:
+    def test_sneak_attack_scales_with_rogue_level(self):
+        """Test that Sneak Attack description updates correctly as a Rogue levels up."""
+        # Level 1 Rogue
+        char1 = {
+            "char_level": 1,
+            "char_class": "Rogue",
+            "stats": {"STR": 10, "DEX": 16, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+            "features_traits": [
+                {
+                    "name": "Sneak Attack",
+                    "description": "Once per turn, you can deal an extra 1d6 damage to one creature...",
+                }
+            ],
+        }
+        synced1 = sync_character_stats(char1)
+        feat1 = next(
+            ft for ft in synced1["features_traits"] if ft["name"] == "Sneak Attack"
+        )
+        assert "extra 1d6 damage" in feat1["description"]
+
+        # Level 3 Rogue (should be 2d6)
+        char3 = {
+            "char_level": 3,
+            "char_class": "Rogue",
+            "stats": {"STR": 10, "DEX": 16, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+            "features_traits": [
+                {
+                    "name": "Sneak Attack",
+                    "description": "Once per turn, you can deal an extra 1d6 damage to one creature...",
+                }
+            ],
+        }
+        synced3 = sync_character_stats(char3)
+        feat3 = next(
+            ft for ft in synced3["features_traits"] if ft["name"] == "Sneak Attack"
+        )
+        assert "extra 2d6 damage" in feat3["description"]
+
+        # Level 5 Rogue (should be 3d6)
+        char5 = {
+            "char_level": 5,
+            "char_class": "Rogue",
+            "stats": {"STR": 10, "DEX": 16, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+            "features_traits": [
+                {
+                    "name": "Sneak Attack",
+                    "description": "Once per turn, you can deal an extra 2d6 damage to one creature...",
+                }
+            ],
+        }
+        synced5 = sync_character_stats(char5)
+        feat5 = next(
+            ft for ft in synced5["features_traits"] if ft["name"] == "Sneak Attack"
+        )
+        assert "extra 3d6 damage" in feat5["description"]

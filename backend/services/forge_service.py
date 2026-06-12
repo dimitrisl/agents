@@ -234,7 +234,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     if choice_context:
         prompt += choice_context
         prompt += "\nPlease fill in all OTHER automatic class features and spell slots, ignoring the choices already made above unless they trigger additional features."
-    static_features_readiness = False
+    static_features_readiness = True
     result = generate_ai_json(prompt)
     if result:
         if static_features_readiness:

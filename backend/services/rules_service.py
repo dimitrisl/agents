@@ -11,7 +11,7 @@ from backend.core.prompts import (
     FEAT_ANALYSIS_PROMPT,
     RULE_COMPARISON_PROMPT,
 )
-from backend.core.constants import EDITION_2014
+from backend.core.constants import EDITION_2014, EDITION_2024
 
 from backend.core.schemas import CharacterSchema, BuildValidationSchema
 from backend.repositories.rules_repository import RulesRepository
@@ -242,8 +242,30 @@ def get_static_class_features(
 
 
 def analyze_feat(feat_name: str, edition: str = EDITION_2014) -> dict:
-    """Uses API first, then regex parsing for mechanical extraction."""
-    # Try API first
+    """Uses local static DB first, then API, then regex parsing for mechanical extraction."""
+    # 1. Try local static DB first
+    try:
+        local_feats = _rules_repo.get_all_feats(edition)
+        local_match = next(
+            (f for f in local_feats if f.get("name", "").lower() == feat_name.lower()),
+            None,
+        )
+        if local_match:
+            return {
+                "description": local_match.get("description", ""),
+                "source": f"Local Database ({'2024' if edition == EDITION_2024 else '2014'})",
+                "stat_bonus": local_match.get(
+                    "stat_bonus",
+                    {"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0},
+                ),
+                "hp_bonus_per_level": local_match.get("hp_bonus_per_level", 0),
+                "has_stat_choice": local_match.get("has_stat_choice", False),
+                "stat_choice_options": local_match.get("stat_choice_options", []),
+            }
+    except Exception as e:
+        logger.warning(f"Failed to lookup feat {feat_name} locally: {e}")
+
+    # 2. Try API second
     api_data = fetch_feat_from_api(feat_name)
 
     if api_data:

@@ -4070,6 +4070,66 @@ def run_level_up_wizard():
                         "description", ""
                     )
 
+    # STEP 2b: Choose Subclass (Required if level up crosses the subclass choice level)
+    edition = st.session_state.get("dnd_edition", "2014 Edition")
+    char_class = st.session_state.get("char_class", "Fighter")
+    subclass_level = 3
+    if edition == EDITION_2014:
+        sub_lvls = {
+            "Cleric": 1,
+            "Sorcerer": 1,
+            "Warlock": 1,
+            "Wizard": 2,
+            "Druid": 2,
+        }
+        subclass_level = sub_lvls.get(char_class, 3)
+
+    current_subclass = st.session_state.get("subclass")
+    needs_subclass = False
+    if not current_subclass or current_subclass == "None":
+        if target_lv >= subclass_level:
+            needs_subclass = True
+
+    if needs_subclass:
+        st.markdown("---")
+        st.markdown("#### 🎭 Step 2b: Choose Subclass")
+        from backend.core.constants import SUBCLASSES_2014, SUBCLASSES_2024
+
+        subclass_map = SUBCLASSES_2024 if edition == EDITION_2024 else SUBCLASSES_2014
+        subclass_options = subclass_map.get(char_class, [])
+        if subclass_options:
+            temp["chosen_subclass"] = st.selectbox(
+                f"Choose your {char_class} Subclass:",
+                subclass_options,
+                key="lv_up_chosen_subclass",
+                index=subclass_options.index(temp.get("chosen_subclass"))
+                if temp.get("chosen_subclass") in subclass_options
+                else 0,
+            )
+        else:
+            st.warning(f"No subclasses defined in the static library for {char_class}.")
+            temp["chosen_subclass"] = None
+    else:
+        temp["chosen_subclass"] = None
+
+    # STEP 2c: Class Features Unlocked (Static rules database)
+    st.markdown("---")
+    st.markdown("#### 🛡️ Step 2c: Class Features Unlocked")
+    from backend.services.rules_service import get_static_class_features
+
+    static_features = get_static_class_features(char_class, target_lv, edition)
+    if static_features:
+        st.write("You automatically unlock the following feature(s) at this level:")
+        for feat in static_features:
+            st.markdown(f"**{feat.get('name')}**")
+            st.write(feat.get("description"))
+            # Ensure static features are added to new_features
+            existing_names = [f.get("name") for f in temp.get("new_features", [])]
+            if feat.get("name") not in existing_names:
+                temp.setdefault("new_features", []).append(feat)
+    else:
+        st.write("No new base class features unlocked at this level.")
+
     # STEP 3: Learn Spells (Optional)
     st.markdown("---")
     st.markdown("#### 🔮 Step 3: Learn Spells (Optional)")
@@ -4312,19 +4372,15 @@ def run_level_up_wizard():
 
         st.session_state.spells = spells_dict
 
-        # Add AI features if consulted
-        if temp["ai_consulted"]:
-            current_feat_names = [
-                f.get("name") for f in st.session_state.features_traits
-            ]
-            for feat in temp["new_features"]:
-                if feat.get("name") not in current_feat_names:
-                    st.session_state.features_traits.append(feat)
+        # Apply subclass if selected
+        if temp.get("chosen_subclass"):
+            st.session_state.subclass = temp["chosen_subclass"]
 
-            # Update spell slots if AI provided them
-            if "updated_spell_slots" in temp and temp["updated_spell_slots"]:
-                # We store slots in a dedicated field if needed, or trigger sync to recalculate
-                pass
+        # Add unlocked features (both static class features and AI enrichment)
+        current_feat_names = [f.get("name") for f in st.session_state.features_traits]
+        for feat in temp.get("new_features", []):
+            if feat.get("name") not in current_feat_names:
+                st.session_state.features_traits.append(feat)
 
         # Cleanup
         del st.session_state.lv_up_temp

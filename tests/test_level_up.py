@@ -274,7 +274,10 @@ def test_analyze_level_up_logic(mock_ai_json, char_at_level_1):
     """AI level-up analysis should return structured results."""
     mock_ai_json.return_value = {
         "automatic_changes": [
-            {"name": "Action Surge", "description": "You can take an extra action."}
+            {
+                "name": "Action Surge (1 use)",
+                "description": "You can take an extra action.",
+            }
         ],
         "hp_increase": 8,
         "new_total_hp": 20,
@@ -286,4 +289,4 @@ def test_analyze_level_up_logic(mock_ai_json, char_at_level_1):
     assert result["hp_increase"] == 8
     assert result["new_total_hp"] == 20
     assert len(result["automatic_changes"]) == 1
-    assert result["automatic_changes"][0]["name"] == "Action Surge"
+    assert result["automatic_changes"][0]["name"] == "Action Surge (1 use)"

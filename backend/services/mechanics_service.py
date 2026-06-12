@@ -974,6 +974,24 @@ def sync_character_stats(
     for k in keys_to_remove:
         del char_data["spell_slots"][k]
 
+    # Feature Scaling (e.g. Rogue's Sneak Attack)
+    if char_class.lower() == "rogue":
+        sneak_attack_dice = (level + 1) // 2
+        sneak_attack_str = f"{sneak_attack_dice}d6"
+        for ft in char_data.get("features_traits", []):
+            if ft.get("name") == "Sneak Attack":
+                desc = ft.get("description", "")
+                if "extra 1d6 damage" in desc:
+                    ft["description"] = desc.replace(
+                        "extra 1d6 damage", f"extra {sneak_attack_str} damage"
+                    )
+                elif "extra" in desc and "damage" in desc:
+                    import re
+
+                    ft["description"] = re.sub(
+                        r"extra \d+d6 damage", f"extra {sneak_attack_str} damage", desc
+                    )
+
     return char_data
 
 
