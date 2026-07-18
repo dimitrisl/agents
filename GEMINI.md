@@ -80,6 +80,9 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 ### 5. Styling
 - **Phyrexian Aesthetic:** Adhere to the high-contrast dark theme. Use `backend/utils/ui_utils.py` and `inject_custom_css` for UI modifications.
 
+### 6. Communication & Agent Behavior
+- **Independent Verification:** ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification. Double-check the codebase or test suite to confirm statements.
+
 ---
 
 ## 📖 Key Files to Reference
