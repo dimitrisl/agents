@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import streamlit as st
@@ -6,9 +7,17 @@ from backend.repositories.campaign_repository import CampaignRepository
 
 logger = logging.getLogger("DnDAssistant.Storage")
 
-# Initialize repositories
-_char_repo = CharacterRepository()
-_camp_repo = CampaignRepository()
+
+# Lazy-initialized repository singletons — avoids premature DB connections
+# at import time and allows retry if the initial connection fails.
+@functools.lru_cache(maxsize=1)
+def _get_char_repo():
+    return CharacterRepository()
+
+
+@functools.lru_cache(maxsize=1)
+def _get_camp_repo():
+    return CampaignRepository()
 
 
 def _get_owner_id():
@@ -23,17 +32,17 @@ def _get_owner_id():
 
 @st.cache_data(ttl=60)
 def _cached_list_characters(owner_id: str):
-    return _char_repo.list_all(owner_id=owner_id)
+    return _get_char_repo().list_all(owner_id=owner_id)
 
 
 @st.cache_data(ttl=3600)
 def _cached_load_campaign(name: str):
-    return _camp_repo.load(name)
+    return _get_camp_repo().load(name)
 
 
 @st.cache_data(ttl=3600)
 def _cached_list_campaigns(edition: str, owner_id: str):
-    return _camp_repo.list_all(edition=edition, owner_id=owner_id)
+    return _get_camp_repo().list_all(edition=edition, owner_id=owner_id)
 
 
 def clear_character_cache():
@@ -48,7 +57,7 @@ def save_character(char_data: dict) -> bool:
         # This prevents overwriting another player's character when saving
         if owner_id and not char_data.get("owner_id"):
             char_data["owner_id"] = owner_id
-        res = _char_repo.save(char_data)
+        res = _get_char_repo().save(char_data)
         if res:
             try:
                 import streamlit as st
@@ -75,14 +84,14 @@ def load_character(filename: str) -> dict:
             if "char_cache" not in st.session_state:
                 st.session_state.char_cache = {}
             if filename not in st.session_state.char_cache:
-                st.session_state.char_cache[filename] = _char_repo.load(filename)
+                st.session_state.char_cache[filename] = _get_char_repo().load(filename)
             data = (
                 dict(st.session_state.char_cache[filename])
                 if st.session_state.char_cache[filename]
                 else None
             )
         except Exception:
-            data = _char_repo.load(filename)
+            data = _get_char_repo().load(filename)
 
         if data:
             owner_id = _get_owner_id()
@@ -136,7 +145,7 @@ def delete_character(filename: str) -> bool:
         remove_from_campaign(char_data["active_campaign"], filename)
 
     # 3. Finally delete the character
-    res = _char_repo.delete(filename)
+    res = _get_char_repo().delete(filename)
     if res:
         try:
             import streamlit as st
@@ -158,13 +167,13 @@ def save_campaign(
     # Preserve existing owner_id if it exists to prevent players from "stealing" ownership
     owner_id = kwargs.pop("owner_id", None)
     if not owner_id:
-        existing = _camp_repo.load(campaign_name)
+        existing = _get_camp_repo().load(campaign_name)
         if existing and existing.get("owner_id"):
             owner_id = existing.get("owner_id")
         else:
             owner_id = _get_owner_id()
 
-    res = _camp_repo.save(
+    res = _get_camp_repo().save(
         campaign_name,
         notes,
         party,
@@ -213,7 +222,7 @@ def delete_campaign(campaign_name: str) -> bool:
             f"Unauthorized or non-existent delete attempt for campaign {campaign_name}"
         )
         return False
-    res = _camp_repo.delete(campaign_name)
+    res = _get_camp_repo().delete(campaign_name)
     if res:
         _cached_load_campaign.clear()
         _cached_list_campaigns.clear()
@@ -309,7 +318,7 @@ def add_roll_request(
 
 
 def submit_roll_result(campaign_name: str, request_id: str, result_text: str) -> bool:
-    camp = _camp_repo.load(campaign_name)
+    camp = _get_camp_repo().load(campaign_name)
     if not camp:
         return False
 
@@ -335,7 +344,7 @@ def submit_roll_result(campaign_name: str, request_id: str, result_text: str) ->
 
 
 def clear_roll_requests(campaign_name: str) -> bool:
-    camp = _camp_repo.load(campaign_name)
+    camp = _get_camp_repo().load(campaign_name)
     if not camp:
         return False
     _cached_load_campaign.clear()
@@ -399,7 +408,7 @@ def send_whisper(campaign_name: str, sender: str, recipient: str, message: str) 
 
 
 def clear_whispers(campaign_name: str) -> bool:
-    camp = _camp_repo.load(campaign_name)
+    camp = _get_camp_repo().load(campaign_name)
     if not camp:
         return False
     _cached_load_campaign.clear()
@@ -445,7 +454,7 @@ def join_campaign_by_code(invite_code: str, char_filename: str) -> dict:
     Player joins a campaign using an invite code.
     Returns a dict: {"success": bool, "campaign_name": str | None, "error": str | None}
     """
-    camp = _camp_repo.find_by_invite_code(invite_code)
+    camp = _get_camp_repo().find_by_invite_code(invite_code)
     if not camp:
         return {
             "success": False,

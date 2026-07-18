@@ -2,58 +2,15 @@ import logging
 import uuid
 from typing import Any, Dict
 
+from backend.core.schemas import CharacterSchema
+
 logger = logging.getLogger("DnDAssistant.StateManager")
 
-# Field definitions for consistent access
+# Automatically derived from the Pydantic schema. Excludes metadata fields
+# (owner_id, is_npc) that are not part of the character sheet UI state.
+_SCHEMA_METADATA = {"owner_id", "is_npc"}
 CHARACTER_FIELDS = [
-    "char_id",
-    "char_name",
-    "char_class",
-    "subclass",
-    "char_level",
-    "race",
-    "gender",
-    "background",
-    "alignment",
-    "backstory",
-    "armor_class",
-    "hp_max",
-    "speed",
-    "proficiency_bonus",
-    "stats",
-    "saving_throws",
-    "skills",
-    "skill_proficiencies",
-    "skill_expertise",
-    "weapons",
-    "equipment",
-    "features_traits",
-    "spells",
-    "prepared_spells",
-    "spell_slots",
-    "concentrating_on",
-    "spell_ability",
-    "spell_save_dc",
-    "spell_attack_bonus",
-    "hit_dice",
-    "passive_perception",
-    "personality_traits",
-    "ideals",
-    "bonds",
-    "flaws",
-    "char_portrait",
-    "dnd_edition",
-    "advancements",
-    "weapon_masteries",
-    "playstyle_guide",
-    "active_campaign",
-    "saving_throw_values",
-    "initiative_modifier",
-    "languages",
-    "tool_proficiencies",
-    "hp_current",
-    "hit_dice_used",
-    "conditions",
+    f for f in CharacterSchema.model_fields.keys() if f not in _SCHEMA_METADATA
 ]
 
 
@@ -211,7 +168,6 @@ def update_session_from_dict(state: Any, data: Dict[str, Any]):
 
     _set_val(state, "character_active", True)
 
-    from backend.core.schemas import CharacterSchema
     from pydantic_core import PydanticUndefined
 
     for field in CHARACTER_FIELDS:

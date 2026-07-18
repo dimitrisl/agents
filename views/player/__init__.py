@@ -1,0 +1,1 @@
+from views.player.dashboard import render_player_dashboard as render_player_dashboard

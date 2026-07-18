@@ -12,8 +12,9 @@ from backend.core.storage import (
 )
 
 
-@patch("backend.core.storage._char_repo")
-def test_character_storage(mock_repo):
+@patch("backend.core.storage._get_char_repo")
+def test_character_storage(mock_get_repo):
+    mock_repo = mock_get_repo.return_value
     mock_repo.load.return_value = {"name": "Test"}
     mock_repo.list_all.return_value = ["test.json"]
     save_character({"name": "Test"})
@@ -26,10 +27,11 @@ def test_character_storage(mock_repo):
     mock_repo.list_all.assert_called_once()
 
 
-@patch("backend.core.storage._char_repo")
+@patch("backend.core.storage._get_char_repo")
 @patch("backend.core.storage.os.path.exists")
 @patch("backend.core.storage.os.remove")
-def test_delete_character(mock_remove, mock_exists, mock_char_repo):
+def test_delete_character(mock_remove, mock_exists, mock_get_repo):
+    mock_char_repo = mock_get_repo.return_value
     mock_exists.return_value = True
     mock_char_repo.load.return_value = {"active_campaign": "Camp1"}
 
@@ -41,8 +43,9 @@ def test_delete_character(mock_remove, mock_exists, mock_char_repo):
 
 
 @patch("backend.core.storage._get_owner_id")
-@patch("backend.core.storage._camp_repo")
-def test_campaign_storage(mock_repo, mock_get_id):
+@patch("backend.core.storage._get_camp_repo")
+def test_campaign_storage(mock_get_repo, mock_get_id):
+    mock_repo = mock_get_repo.return_value
     # Setup mock returns
     owner_id = "owner_123"
     mock_get_id.return_value = owner_id

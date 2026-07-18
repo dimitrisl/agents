@@ -1,3 +1,4 @@
+import functools
 import logging
 from backend.core.ai_client import generate_ai_response, generate_ai_json
 from backend.services.rules_service import (
@@ -25,7 +26,11 @@ from backend.services.mechanics_service import sync_character_stats
 from backend.repositories.rules_repository import RulesRepository
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
-_rules_repo = RulesRepository()
+
+
+@functools.lru_cache(maxsize=1)
+def _get_rules_repo():
+    return RulesRepository()
 
 
 def forge_character(
@@ -108,7 +113,7 @@ def forge_character(
             result["char_id"] = str(uuid.uuid4())[:8]
 
         # Synchronize derived stats (HP, AC, Proficiency, etc.)
-        class_data = _rules_repo.get_class_progression(
+        class_data = _get_rules_repo().get_class_progression(
             result.get("char_class"), edition
         )
         result = sync_character_stats(result, class_data)
@@ -180,7 +185,7 @@ def forge_character_manual(
     result["char_id"] = str(uuid.uuid4())[:8]
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
-    class_data = _rules_repo.get_class_progression(char_class, edition)
+    class_data = _get_rules_repo().get_class_progression(char_class, edition)
     result = sync_character_stats(result, class_data)
 
     try:
@@ -335,7 +340,7 @@ def process_character_update(
         updated_char["equipment"] = current_list
 
     # 3. Synchronize derived stats
-    class_data = _rules_repo.get_class_progression(
+    class_data = _get_rules_repo().get_class_progression(
         updated_char.get("char_class"), updated_char.get("dnd_edition")
     )
     return sync_character_stats(updated_char, class_data, weapon_deltas)

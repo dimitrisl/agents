@@ -1,3 +1,4 @@
+import functools
 import logging
 import json
 import re
@@ -19,7 +20,10 @@ from backend.utils.api_client import fetch_feat_from_api
 
 logger = logging.getLogger("DnDAssistant.RulesService")
 
-_rules_repo = RulesRepository()
+
+@functools.lru_cache(maxsize=1)
+def _get_rules_repo():
+    return RulesRepository()
 
 
 @st.cache_data(show_spinner=False)
@@ -238,14 +242,14 @@ def get_static_class_features(
     class_name: str, level: int, edition: str = EDITION_2014
 ) -> list:
     """Fetches features from the knowledge base if available."""
-    return _rules_repo.get_features_at_level(class_name, level, edition)
+    return _get_rules_repo().get_features_at_level(class_name, level, edition)
 
 
 def analyze_feat(feat_name: str, edition: str = EDITION_2014) -> dict:
     """Uses local static DB first, then API, then regex parsing for mechanical extraction."""
     # 1. Try local static DB first
     try:
-        local_feats = _rules_repo.get_all_feats(edition)
+        local_feats = _get_rules_repo().get_all_feats(edition)
         local_match = next(
             (f for f in local_feats if f.get("name", "").lower() == feat_name.lower()),
             None,

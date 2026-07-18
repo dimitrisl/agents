@@ -3,8 +3,8 @@ import logging
 from dotenv import load_dotenv
 from backend.core.state_manager import init_session_state
 from backend.utils.ui_utils import inject_custom_css
-from views.player_dashboard import render_player_dashboard
-from views.dm_workspace import render_dm_workspace
+from views.player import render_player_dashboard
+from views.dm import render_dm_workspace
 from views.settings_view import render_settings_view
 from views.library_view import render_library_view
 from views.admin_view import render_admin_view
