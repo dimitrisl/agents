@@ -33,3 +33,14 @@ def test_quick_roll():
     assert 6 <= total <= 25
     assert 1 <= raw <= 20
     assert total == raw + 5
+
+
+def test_guaranteed_roll(mocker):
+    mocker_randint = mocker.patch("backend.utils.dice.random.randint")
+    mocker_randint.return_value = 20
+
+    result = roll_dice("1d20+5")
+
+    assert result["total"] == 25
+    assert result["modifier"] == 5
+    assert result["rolls"] == [20]
