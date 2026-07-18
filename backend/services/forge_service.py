@@ -1,4 +1,5 @@
 import functools
+import uuid
 import logging
 from backend.core.ai_client import generate_ai_response, generate_ai_json
 from backend.services.rules_service import (
@@ -108,8 +109,6 @@ def forge_character(
         result["dnd_edition"] = edition
         # Ensure char_id is present
         if not result.get("char_id"):
-            import uuid
-
             result["char_id"] = str(uuid.uuid4())[:8]
 
         # Synchronize derived stats (HP, AC, Proficiency, etc.)
@@ -180,8 +179,6 @@ def forge_character_manual(
     result["spell_ability"] = spell_ability
     result["dnd_edition"] = edition
 
-    import uuid
-
     result["char_id"] = str(uuid.uuid4())[:8]
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
@@ -221,11 +218,12 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     choice_context = ""
     if user_choices:
-        choice_context = (
-            "\nUser has already made the following manual choices for this level up:\n"
-        )
+        choice_context = [
+            "\nUser has already made the following manual choices for this level up:\n",
+        ]
         for k, v in user_choices.items():
-            choice_context += f"- {k}: {v}\n"
+            choice_context.append(f"- {k}: {v}\n")
+        choice_context = "\n".join(choice_context)
 
     prompt = LEVEL_UP_ANALYSIS_PROMPT.format(
         edition=edition,
@@ -294,11 +292,7 @@ def process_character_update(
 
         # Apply edits
         for idx_str, changes in equipment_deltas.get("edited_rows", {}).items():
-            import logging
-
-            logging.getLogger("DnDAssistant").info(
-                f"APPLYING EDITS FOR ROW {idx_str}: {changes}"
-            )
+            logger.info(f"APPLYING EDITS FOR ROW {idx_str}: {changes}")
             idx = int(idx_str)
             if idx < len(current_list):
                 mapping = {

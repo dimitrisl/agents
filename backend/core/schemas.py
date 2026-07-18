@@ -11,6 +11,14 @@ class StatBlock(BaseModel):
     WIS: int = 10
     CHA: int = 10
 
+    @field_validator("STR", "DEX", "CON", "INT", "WIS", "CHA")
+    @classmethod
+    def validate_stats(cls, v):
+        if v in range(1, 31):
+            return v
+        else:
+            raise ValueError("invalid stat.")
+
 
 class Weapon(BaseModel):
     name: str
