@@ -1,10 +1,6 @@
 import os
 import logging
 from pymongo import MongoClient
-from dotenv import load_dotenv
-
-# Ensure environment variables are loaded
-load_dotenv()
 
 logger = logging.getLogger("DnDAssistant.Database")
 

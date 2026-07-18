@@ -8,8 +8,9 @@ CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
     "ai_settings": {
-        "preferred_model": "gemini-1.5-pro",
+        "preferred_model": "gemini-2.5-flash",
         "fallback_model": "gemini-1.5-flash",
+        "pro_model": "gemini-2.5-pro",
         "temperature": 0.7,
     },
     "app_settings": {"debug_mode": False, "portrait_dir": "data/portraits"},

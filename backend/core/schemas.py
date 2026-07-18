@@ -1,3 +1,4 @@
+import re
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -43,8 +44,6 @@ class Weapon(BaseModel):
         # Ensure core combat fields trigger is_custom if they don't look standard
         # (This logic is moved from mechanics_service to here)
         if not normalized.get("is_custom"):
-            import re
-
             atk = str(normalized.get("attack_bonus", "+0")).replace(" ", "")
             dmg_b = str(normalized.get("damage_bonus", "+0")).replace(" ", "")
 
@@ -77,8 +76,6 @@ class Weapon(BaseModel):
 
             dmg = data.get("damage")
             if dmg and not data.get("damage_dice"):
-                import re
-
                 dice_match = re.match(r"^\s*(\d*d\d+)", str(dmg), re.I)
                 if dice_match:
                     dice_part = dice_match.group(1)

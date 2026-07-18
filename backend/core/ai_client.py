@@ -13,6 +13,14 @@ logger = logging.getLogger("DnDAssistant.AIClient")
 # ==========================================
 
 
+@st.cache_resource(show_spinner=False)
+def _init_ai_client(api_key: str):
+    logger.info("Attempting to initialize Gemini AI Client.")
+    client = genai.Client(api_key=api_key)
+    logger.info("Gemini AI Client successfully initialized.")
+    return client
+
+
 def get_ai_client():
     """Initializes the Gemini AI Client. Not cached if it fails to find the API key."""
     api_key = os.getenv("GEMINI_API_KEY")
@@ -20,13 +28,17 @@ def get_ai_client():
         logger.error("GEMINI_API_KEY is missing from environment variables.")
         return None
 
-    # We use a local cache-like behavior only on success to avoid re-initializing every time
-    if not hasattr(st, "_genai_client"):
-        logger.info("Attempting to initialize Gemini AI Client.")
-        st._genai_client = genai.Client(api_key=api_key)
-        logger.info("Gemini AI Client successfully initialized.")
+    return _init_ai_client(api_key)
 
-    return st._genai_client
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_available_models(api_key: str):
+    try:
+        client = genai.Client(api_key=api_key)
+        return [m.name.lower() for m in client.models.list()]
+    except Exception as e:
+        logger.warning(f"Failed to fetch model list: {e}")
+        return []
 
 
 def get_flash_model(client):
@@ -37,11 +49,9 @@ def get_flash_model(client):
     fallback = ai_settings.get("fallback_model", "models/gemini-2.5-flash")
 
     try:
-        # Stable default to use if preferred is not available
         stable_default = "gemini-2.5-flash"
-
-        models = list(client.models.list())
-        model_names = [m.name.lower() for m in models]
+        api_key = os.getenv("GEMINI_API_KEY", "")
+        model_names = _fetch_available_models(api_key)
 
         # 1. Try the preferred model from config
         for name in model_names:
@@ -108,6 +118,7 @@ def generate_ai_json(prompt: str) -> dict:
         logger.error("Cannot generate JSON: AI Client is None.")
         return None
 
+    response = None
     try:
         # Load temperature from config
         config = load_config()
@@ -140,8 +151,9 @@ def generate_ai_json(prompt: str) -> dict:
         logger.info("Successfully parsed JSON data from Gemini.")
         return parsed_data
     except json.JSONDecodeError:
+        response_text = response.text if response else "NO RESPONSE"
         logger.error(
-            f"Failed to parse JSON from Gemini response. Raw response: {response.text}",
+            f"Failed to parse JSON from Gemini response. Raw response: {response_text}",
             exc_info=True,
         )
         return None
@@ -232,8 +244,12 @@ def generate_session_prep(
 
         contents.append(prompt)
 
+        config = load_config()
+        ai_settings = config.get("ai_settings", {})
+        pro_model = ai_settings.get("pro_model", "gemini-2.5-pro")
+
         response = client.models.generate_content(
-            model="gemini-2.5-pro",
+            model=pro_model,
             contents=contents,
         )
         return response.text
