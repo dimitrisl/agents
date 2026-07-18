@@ -16,3 +16,4 @@
 - Respond concisely and confirm when your tests pass.
 - Format code cleanly.
 - If you encounter a failure, fix the code and rerun tests.
+- ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification.
