@@ -1,9 +1,6 @@
 import streamlit as st
 import logging
 
-from backend.core.storage import (
-    save_character,
-)
 from backend.core.state_manager import (
     get_character_dict,
     update_session_from_dict,
@@ -267,8 +264,8 @@ def trigger_sync():
         except Exception:
             logger.error(f"Could not set session state for stat {k}")
 
-    # Save to database immediately to prevent data loss on subsequent UI interactions
-    save_character(get_character_dict(st.session_state))
+    # Working copy updated in st.session_state; explicit save or toggle commits to database.
+    st.session_state.is_dirty = True
 
     # 5. CLEAR the editor state
     if "edit_equip_table" in st.session_state:

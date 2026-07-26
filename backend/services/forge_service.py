@@ -46,6 +46,9 @@ def forge_character(
     alignment: str = "AI Choice",
     edition: str = EDITION_2014,
     subclass: str = None,
+    custom_preferences: str = None,
+    auto_spells: bool = True,
+    auto_feats: bool = True,
 ) -> dict:
     """Generates a full D&D character using AI."""
     if edition == EDITION_2014:
@@ -87,6 +90,22 @@ def forge_character(
     else:
         stats_instruction = "You must assign them a balanced, high-quality array of 6 ability scores (equivalent to rolling 4d6 drop lowest)."
 
+    pref_instructions = []
+    if custom_preferences and custom_preferences.strip():
+        pref_instructions.append(
+            f"USER CUSTOM BUILD PREFERENCES (FEATS, SPELLS, ASIs):\n{custom_preferences}"
+        )
+    if not auto_spells:
+        pref_instructions.append(
+            "DO NOT auto-select spells for this character. Leave 'spells' as an empty dictionary {} and 'prepared_spells' as an empty list []."
+        )
+    if not auto_feats:
+        pref_instructions.append(
+            "DO NOT auto-select Feats or ASIs for this character. Leave 'advancements' as an empty list [] and do NOT add Feat traits."
+        )
+
+    custom_pref_inst = "\n".join(pref_instructions) if pref_instructions else ""
+
     prompt = CHARACTER_FORGE_PROMPT.format(
         target_level=target_level,
         edition=edition,
@@ -102,6 +121,7 @@ def forge_character(
         current_classes=current_classes,
         current_backgrounds=current_backgrounds,
         stats_instruction=stats_instruction,
+        custom_preferences_instruction=custom_pref_inst,
     )
 
     result = generate_ai_json(prompt)
@@ -111,19 +131,42 @@ def forge_character(
         if not result.get("char_id"):
             result["char_id"] = str(uuid.uuid4())[:8]
 
+        if not auto_spells:
+            result["spells"] = {}
+            result["prepared_spells"] = []
+        if not auto_feats:
+            result["advancements"] = []
+            if "features_traits" in result and isinstance(
+                result["features_traits"], list
+            ):
+                result["features_traits"] = [
+                    f
+                    for f in result["features_traits"]
+                    if not (
+                        isinstance(f, dict)
+                        and f.get("name", "").lower().startswith("feat:")
+                    )
+                ]
+
         # Synchronize derived stats (HP, AC, Proficiency, etc.)
         class_data = _get_rules_repo().get_class_progression(
             result.get("char_class"), edition
         )
         result = sync_character_stats(result, class_data)
 
+        # Mandatory Schema & Build Validation
         try:
-            return CharacterSchema(**result).model_dump()
+            validated = CharacterSchema.model_validate(result, strict=False)
+            return validated.model_dump()
         except Exception as e:
             logger.warning(
-                f"Forged character failed validation: {e}. Returning raw result."
+                f"Forged character failed initial validation: {e}. Coercing schema defaults."
             )
-            return result
+            from backend.core.state_manager import get_default_character
+
+            fallback = get_default_character()
+            fallback.update({k: v for k, v in result.items() if v is not None})
+            return CharacterSchema.model_validate(fallback, strict=False).model_dump()
     return None
 
 
@@ -142,8 +185,27 @@ def forge_character_manual(
     spell_ability: str,
     concept: str,
     edition: str = EDITION_2014,
+    custom_preferences: str = None,
+    auto_spells: bool = True,
+    auto_feats: bool = True,
 ) -> dict:
     """Enriches and builds a manual character based on user selections and AI helper."""
+    pref_instructions = []
+    if custom_preferences and custom_preferences.strip():
+        pref_instructions.append(
+            f"USER CUSTOM BUILD PREFERENCES (FEATS, SPELLS, ASIs):\n{custom_preferences}"
+        )
+    if not auto_spells:
+        pref_instructions.append(
+            "DO NOT auto-select spells for this character. Leave 'spells' as an empty dictionary {} and 'prepared_spells' as an empty list []."
+        )
+    if not auto_feats:
+        pref_instructions.append(
+            "DO NOT auto-select Feats or ASIs for this character. Leave 'advancements' as an empty list [] and do NOT add Feat traits."
+        )
+
+    custom_pref_inst = "\n".join(pref_instructions) if pref_instructions else ""
+
     prompt = MANUAL_CHARACTER_ENRICH_PROMPT.format(
         edition=edition,
         name=name,
@@ -159,6 +221,7 @@ def forge_character_manual(
         saving_throws=saving_throws,
         spell_ability=spell_ability,
         concept=concept,
+        custom_preferences_instruction=custom_pref_inst,
     )
     result = generate_ai_json(prompt)
     if not result:
@@ -181,17 +244,38 @@ def forge_character_manual(
 
     result["char_id"] = str(uuid.uuid4())[:8]
 
+    if not auto_spells:
+        result["spells"] = {}
+        result["prepared_spells"] = []
+    if not auto_feats:
+        result["advancements"] = []
+        if "features_traits" in result and isinstance(result["features_traits"], list):
+            result["features_traits"] = [
+                f
+                for f in result["features_traits"]
+                if not (
+                    isinstance(f, dict)
+                    and f.get("name", "").lower().startswith("feat:")
+                )
+            ]
+
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
     result = sync_character_stats(result, class_data)
 
+    # Mandatory Schema & Build Validation
     try:
-        return CharacterSchema(**result).model_dump()
+        validated = CharacterSchema.model_validate(result, strict=False)
+        return validated.model_dump()
     except Exception as e:
         logger.warning(
-            f"Manual character failed validation: {e}. Returning raw result."
+            f"Manual character failed initial validation: {e}. Coercing schema defaults."
         )
-        return result
+        from backend.core.state_manager import get_default_character
+
+        fallback = get_default_character()
+        fallback.update({k: v for k, v in result.items() if v is not None})
+        return CharacterSchema.model_validate(fallback, strict=False).model_dump()
 
 
 def generate_playstyle_guide(char_data: dict) -> str:

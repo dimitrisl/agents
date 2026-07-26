@@ -3,6 +3,10 @@ import logging
 
 import uuid
 import os
+from backend.core.schemas import CharacterSchema
+from backend.services.rules_service import (
+    validate_character_build,
+)
 from backend.services.forge_service import (
     forge_character,
     forge_character_manual,
@@ -31,12 +35,14 @@ from backend.core.constants import (
 )
 
 from views.player._helpers import trigger_sync
+from views.ui_utils import inject_global_theme, extract_flat_names
 
 logger = logging.getLogger(__name__)
 
 
 def render_character_creator():
     """Renders the AI Character Forge and Manual Character Builder interfaces with dynamic edition-based options."""
+    inject_global_theme()
     st.markdown("### Forge a New Hero")
 
     if st.session_state.temp_forged_char is None:
@@ -670,45 +676,209 @@ def render_character_creator():
         char = st.session_state.temp_forged_char
         st.markdown("### 🔍 Hero Preview")
         with st.container(border=True):
-            col_p1, col_p2 = st.columns([2, 1])
-            with col_p1:
-                st.markdown(f"**Name:** {char['char_name']}")
-                class_info = f"{char['char_class']}"
-                if char.get("subclass"):
-                    class_info += f" ({char['subclass']})"
-                st.markdown(f"**Class:** {class_info} (Level {char['char_level']})")
+            col_info, col_portrait = st.columns([7, 3])
+
+            class_colors = {
+                "Barbarian": "#e74c3c",
+                "Bard": "#9b59b6",
+                "Cleric": "#f1c40f",
+                "Druid": "#2ecc71",
+                "Fighter": "#e67e22",
+                "Monk": "#1abc9c",
+                "Paladin": "#f39c12",
+                "Ranger": "#27ae60",
+                "Rogue": "#95a5a6",
+                "Sorcerer": "#ff6b6b",
+                "Warlock": "#8e44ad",
+                "Wizard": "#3498db",
+                "Artificer": "#d35400",
+            }
+
+            primary_stats_map = {
+                "Barbarian": ["STR", "CON"],
+                "Bard": ["CHA"],
+                "Cleric": ["WIS"],
+                "Druid": ["WIS"],
+                "Fighter": ["STR", "DEX"],
+                "Monk": ["DEX", "WIS"],
+                "Paladin": ["STR", "CHA"],
+                "Ranger": ["DEX", "WIS"],
+                "Rogue": ["DEX"],
+                "Sorcerer": ["CHA"],
+                "Warlock": ["CHA"],
+                "Wizard": ["INT"],
+                "Artificer": ["INT"],
+            }
+
+            char_class = char.get("char_class", "Fighter")
+            accent_color = class_colors.get(char_class, "#f1c40f")
+            primary_stats = primary_stats_map.get(char_class, [])
+
+            with col_info:
+                # Inline Editable Name
+                edited_name = st.text_input(
+                    "✏️ Edit Hero Name",
+                    value=char.get("char_name", "Hero"),
+                    key="cc_preview_name_input",
+                )
+                if edited_name != char.get("char_name"):
+                    char["char_name"] = edited_name
+
+                subclass = char.get("subclass", "")
+                class_sub = f"{char_class}" + (f" ({subclass})" if subclass else "")
+                level = char.get("char_level", 1)
+                race = char.get("race", "")
+                bg = char.get("background", "")
+                edition = char.get("dnd_edition", "2014 Edition")
+
+                # Header Badges
                 st.markdown(
-                    f"**Race/Species:** {char['race']} | **Background:** {char['background']}"
+                    f'<div style="margin-bottom: 12px;">'
+                    f'<h2 style="margin: 0 0 8px 0; color: {accent_color}; font-family: inherit; font-size: 1.6rem; font-weight: 700;">✨ {char["char_name"]}</h2>'
+                    f'<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">'
+                    f'<span style="background: {accent_color}22; color: {accent_color}; border: 1px solid {accent_color}55; padding: 4px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: bold;">Level {level} {class_sub}</span>'
+                    f'<span style="background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 16px; font-size: 0.82rem;">{race}</span>'
+                    f'<span style="background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 16px; font-size: 0.82rem;">{bg}</span>'
+                    f'<span style="background: rgba(52,152,219,0.18); color: #3498db; border: 1px solid rgba(52,152,219,0.4); padding: 4px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: bold;">{edition}</span>'
+                    f"</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
-                st.markdown(f"**Edition:** {char.get('dnd_edition', '2014 Edition')}")
+
+                # Derived Combat Metrics Bar
+                stats = char.get("stats", {})
+                dex_val = stats.get("DEX", 10)
+                wis_val = stats.get("WIS", 10)
+                con_val = stats.get("CON", 10)
+
+                dex_mod = calculate_modifier(dex_val)
+                wis_mod = calculate_modifier(wis_val)
+                con_mod = calculate_modifier(con_val)
+
+                hp = char.get("hp_max") or (10 + (con_mod * level))
+                ac = char.get("armor_class") or (10 + dex_mod)
+                init_str = f"+{dex_mod}" if dex_mod >= 0 else str(dex_mod)
+                passive_perc = 10 + wis_mod
+
+                st.markdown(
+                    f'<div style="display: flex; gap: 8px; margin: 12px 0 16px 0; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.08); text-align: center;">'
+                    f'<div style="flex: 1;"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">❤️ MAX HP</div><div style="font-size: 1.15rem; font-weight: 800; color: #e74c3c;">{hp}</div></div>'
+                    f'<div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1);"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">🛡️ ARMOR CLASS</div><div style="font-size: 1.15rem; font-weight: 800; color: #f39c12;">{ac}</div></div>'
+                    f'<div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1);"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">⚡ INITIATIVE</div><div style="font-size: 1.15rem; font-weight: 800; color: #3498db;">{init_str}</div></div>'
+                    f'<div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1);"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">👁️ PASSIVE PERC</div><div style="font-size: 1.15rem; font-weight: 800; color: #2ecc71;">{passive_perc}</div></div>'
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+                # Stat badges with Primary Highlights
+                badges_html = [
+                    '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 16px 0;">'
+                ]
+                for s_name in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+                    s_val = stats.get(s_name, 10)
+                    mod = calculate_modifier(s_val)
+                    mod_str = f"+{mod}" if mod >= 0 else str(mod)
+                    is_primary = s_name in primary_stats
+
+                    border_style = (
+                        f"2px solid {accent_color}"
+                        if is_primary
+                        else "1px solid rgba(255,255,255,0.12)"
+                    )
+                    bg_style = (
+                        f"{accent_color}18" if is_primary else "rgba(255,255,255,0.04)"
+                    )
+                    star = "⭐ " if is_primary else ""
+
+                    badges_html.append(
+                        f'<div style="background: {bg_style}; border: {border_style}; border-radius: 10px; padding: 8px 4px; text-align: center; flex: 1; min-width: 55px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">'
+                        f'<div style="font-size: 0.7rem; color: {accent_color if is_primary else "#888"}; font-weight: bold; letter-spacing: 0.5px;">{star}{s_name}</div>'
+                        f'<div style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 2px 0;">{s_val}</div>'
+                        f'<div style="font-size: 0.78rem; color: {accent_color if is_primary else "#f1c40f"}; font-weight: bold;">({mod_str})</div>'
+                        f"</div>"
+                    )
+                badges_html.append("</div>")
+                st.markdown("".join(badges_html), unsafe_allow_html=True)
+
+                # Equipment / Spells Snapshot
+                eq_raw = char.get("equipment")
+                spells_raw = char.get("spells")
+
+                spell_names = extract_flat_names(spells_raw, 3)
+                eq_names = extract_flat_names(eq_raw, 4)
+
+                if spell_names or eq_names:
+                    snap_items = []
+                    if spell_names:
+                        snap_items.append(f"✨ <b>Spells:</b> {', '.join(spell_names)}")
+                    if eq_names:
+                        snap_items.append(f"🎒 <b>Gear:</b> {', '.join(eq_names)}")
+                    st.markdown(
+                        f'<div style="font-size: 0.84rem; color: #bbb; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 6px; margin-bottom: 12px;">'
+                        f"{' &nbsp;|&nbsp; '.join(snap_items)}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # Advancements
                 if char.get("advancements"):
-                    st.markdown("**Advancements:**")
-                    for adv in char["advancements"]:
-                        st.write(
-                            f"- Lv.{adv.get('level')} {adv.get('type')}: {adv.get('name')}"
-                        )
-                st.markdown(f"**Backstory Snippet:** {char['backstory'][:200]}...")
-            with col_p2:
-                st.markdown("**Stats:**")
-                stats_str = " | ".join([f"{k}:{v}" for k, v in char["stats"].items()])
-                st.write(stats_str)
+                    adv_items = "".join(
+                        [
+                            f"<li style='margin-bottom: 3px;'><b>Lv.{a.get('level')} {a.get('type')}:</b> {a.get('name')}</li>"
+                            for a in char["advancements"]
+                        ]
+                    )
+                    st.markdown(
+                        f'<div style="margin-bottom: 12px;">'
+                        f'<div style="font-size: 0.8rem; font-weight: bold; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Advancements</div>'
+                        f'<ul style="margin: 0 0 0 18px; padding: 0; font-size: 0.86rem; color: #ddd;">{adv_items}</ul>'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
 
-            if st.button("🔄 Regenerate Portrait", width="stretch"):
-                with st.spinner("Forging visual identity..."):
-                    portrait_url = generate_portrait_url(char, force=True)
-                    st.session_state.temp_portrait = portrait_url
-                    st.rerun()
+                # Backstory snippet
+                backstory_text = char.get("backstory", "")
+                if backstory_text:
+                    snippet = backstory_text[:280] + (
+                        "..." if len(backstory_text) > 280 else ""
+                    )
+                    st.markdown(
+                        f'<div style="background: rgba(0,0,0,0.3); border-left: 3px solid {accent_color}; padding: 10px 14px; border-radius: 4px; font-size: 0.88rem; color: #ccc; font-style: italic; line-height: 1.4;">'
+                        f'"{snippet}"'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
 
-            if "temp_portrait" in st.session_state and st.session_state.temp_portrait:
-                st.image(
-                    st.session_state.temp_portrait,
-                    caption="Character Portrait Preview",
+            with col_portrait:
+                if (
+                    "temp_portrait" in st.session_state
+                    and st.session_state.temp_portrait
+                ):
+                    st.image(
+                        st.session_state.temp_portrait,
+                        caption="Character Portrait",
+                        width="stretch",
+                    )
+                if st.button(
+                    "🔄 Regenerate Portrait",
                     width="stretch",
-                )
+                    key="regen_portrait_btn",
+                ):
+                    with st.spinner("Forging visual identity..."):
+                        portrait_url = generate_portrait_url(char, force=True)
+                        st.session_state.temp_portrait = portrait_url
+                        st.rerun()
 
+            st.markdown("<div style='margin-top: 16px;'></div>", unsafe_allow_html=True)
             c_btn1, c_btn2 = st.columns(2)
             if c_btn1.button("✅ Accept & Equip Hero", width="stretch", type="primary"):
                 char["char_id"] = str(uuid.uuid4())[:8]
+                try:
+                    char = CharacterSchema.model_validate(
+                        char, strict=False
+                    ).model_dump()
+                except Exception as val_err:
+                    logger.warning(f"Accept character validation note: {val_err}")
                 update_session_from_dict(st.session_state, char)
                 trigger_sync()
                 if "temp_portrait" in st.session_state:
@@ -717,6 +887,15 @@ def render_character_creator():
 
                 saved_dict = get_character_dict(st.session_state)
                 logger.info(f"Auto-saved new character: {char['char_name']}")
+
+                # Perform mandatory rules validation upon creation
+                try:
+                    val_res = validate_character_build(saved_dict)
+                    st.session_state.validation_result = val_res
+                    st.session_state.needs_validation = False
+                except Exception as val_e:
+                    logger.warning(f"Auto-validation on creation error: {val_e}")
+
                 st.session_state.last_saved_char = saved_dict.copy()
                 st.session_state.temp_forged_char = None
                 st.session_state.player_view = "sheet"
@@ -724,7 +903,6 @@ def render_character_creator():
                 st.rerun()
 
             if c_btn2.button("❌ Discard", width="stretch"):
-                # Clean up the portrait if discarded
                 if (
                     "temp_portrait" in st.session_state
                     and st.session_state.temp_portrait

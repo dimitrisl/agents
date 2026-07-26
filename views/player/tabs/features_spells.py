@@ -58,7 +58,6 @@ def _render_features_spells(edit_mode: bool):
         ability_index = (
             options.index(current_ability) if current_ability in options else 0
         )
-
         st.session_state.spell_ability = cs1.selectbox(
             "Spellcasting Ability",
             options,
@@ -77,50 +76,108 @@ def _render_features_spells(edit_mode: bool):
             disabled=True,
         )
 
-        flat_spells = []
-        for lvl, spell_list in st.session_state.spells.items():
-            for spell in spell_list:
-                flat_spells.append({"level": lvl, "spell": spell})
+        from backend.repositories.rules_repository import RulesRepository as _SpRR
 
-        edited_spells = st.data_editor(
-            flat_spells,
-            num_rows="dynamic",
-            key="edit_spells",
-            column_config={
-                "level": st.column_config.SelectboxColumn(
-                    "Level",
-                    options=[
-                        "cantrips",
-                        "level_1",
-                        "level_2",
-                        "level_3",
-                        "level_4",
-                        "level_5",
-                        "level_6",
-                        "level_7",
-                        "level_8",
-                        "level_9",
-                    ],
-                ),
-                "spell": st.column_config.TextColumn("Spell Name"),
-            },
+        _sp_repo = _SpRR()
+        _sp_edition = st.session_state.get("dnd_edition", "2014 Edition")
+        _sp_all = _sp_repo.get_all_spells(_sp_edition)
+        _char_cls = str(st.session_state.get("char_class", "")).lower().strip()
+
+        # Build per-level spell index, class-filtered with fallback to all
+        _sp_by_lvl: dict = {}
+        for _s in _sp_all:
+            _lk = "cantrips" if _s.get("level", 0) == 0 else f"level_{_s['level']}"
+            _cls_list = [c.lower() for c in _s.get("classes", [])]
+            if not _char_cls or not _cls_list or any(_char_cls in c for c in _cls_list):
+                _sp_by_lvl.setdefault(_lk, [])
+                _sp_by_lvl[_lk].append(_s["name"])
+        # fallback: if a level has no class-filtered results, use all spells for that level
+        _sp_all_by_lvl: dict = {}
+        for _s in _sp_all:
+            _lk = "cantrips" if _s.get("level", 0) == 0 else f"level_{_s['level']}"
+            _sp_all_by_lvl.setdefault(_lk, [])
+            _sp_all_by_lvl[_lk].append(_s["name"])
+        for _lk in _sp_all_by_lvl:
+            if _lk not in _sp_by_lvl or not _sp_by_lvl[_lk]:
+                _sp_by_lvl[_lk] = sorted(_sp_all_by_lvl[_lk])
+            else:
+                _sp_by_lvl[_lk] = sorted(_sp_by_lvl[_lk])
+
+        _lvl_order = [
+            "cantrips",
+            "level_1",
+            "level_2",
+            "level_3",
+            "level_4",
+            "level_5",
+            "level_6",
+            "level_7",
+            "level_8",
+            "level_9",
+        ]
+
+        _cur_sp = st.session_state.get("spells", {})
+        if hasattr(_cur_sp, "model_dump"):
+            _cur_sp = _cur_sp.model_dump()
+        if not isinstance(_cur_sp, dict):
+            _cur_sp = {}
+
+        if _char_cls:
+            st.caption(f"📚 Spell dropdown filtered to **{_char_cls.title()}** spells")
+
+        # Inject CSS to make rows tight
+        st.markdown(
+            """
+        <style>
+        div[data-testid="stHorizontalBlock"] { gap: 0.25rem; margin-bottom: -0.6rem; }
+        div[data-testid="stSelectbox"] > label { display: none; }
+        div[data-testid="stSelectbox"] > div { min-height: 32px; }
+        </style>
+        """,
+            unsafe_allow_html=True,
         )
-        if edited_spells is not None:
-            new_spells = {}
-            import pandas as pd
 
-            rows = (
-                edited_spells.iterrows()
-                if isinstance(edited_spells, pd.DataFrame)
-                else enumerate(edited_spells)
-            )
-            for _, row in rows:
-                if row.get("level") and row.get("spell"):
-                    lvl = row["level"]
-                    if lvl not in new_spells:
-                        new_spells[lvl] = []
-                    new_spells[lvl].append(row["spell"])
-            st.session_state.spells = new_spells
+        # Table header
+        _h1, _h2 = st.columns([1, 3])
+        _h1.markdown("<small><b>Level</b></small>", unsafe_allow_html=True)
+        _h2.markdown("<small><b>Spell Name</b></small>", unsafe_allow_html=True)
+        st.divider()
+
+        _changed = False
+        for _lk in _lvl_order:
+            _slist = list(_cur_sp.get(_lk, []))
+            for _si, _sn in enumerate(_slist):
+                _sn_clean = _sn.strip()
+                _level_opts = _sp_by_lvl.get(_lk, [])
+                # Exclude all other already-known spells at this level
+                _others_known = {
+                    x.strip().lower()
+                    for x in _slist
+                    if x.strip().lower() != _sn_clean.lower()
+                }
+                _ordered = [_sn_clean] + [
+                    x
+                    for x in _level_opts
+                    if x.lower() != _sn_clean.lower() and x.lower() not in _others_known
+                ]
+                _c1, _c2 = st.columns([1, 3])
+                _c1.markdown(
+                    f"<small style='color:gray'>{_lk}</small>", unsafe_allow_html=True
+                )
+                _new = _c2.selectbox(
+                    "s",
+                    _ordered,
+                    key=f"sp_{_lk}_{_si}_{_sn_clean[:8]}",
+                    label_visibility="collapsed",
+                    help="Type to search and replace",
+                )
+                if _new != _sn_clean:
+                    _cur_sp[_lk][_si] = _new
+                    _changed = True
+
+        if _changed:
+            st.session_state.spells = _cur_sp
+            save_character(get_character_dict(st.session_state))
     else:
         # Check if they have any spells
         spells = st.session_state.get("spells", {})
@@ -333,7 +390,7 @@ def _render_features_spells(edit_mode: bool):
                 lvl_title = lvl_key.title().replace("_", " ")
                 st.markdown(f"##### {lvl_title}")
 
-                for s_name in spell_list:
+                for _s_idx, s_name in enumerate(spell_list):
                     s_name_clean = s_name.strip()
                     spell_data = spells_lookup.get(s_name_clean.lower())
 
@@ -394,7 +451,7 @@ def _render_features_spells(edit_mode: bool):
                             prep_val = st.checkbox(
                                 f"Prepare **{s_name_clean}**",
                                 value=is_prep,
-                                key=f"prep_check_{lvl_key}_{s_name_clean}",
+                                key=f"prep_check_{lvl_key}_{_s_idx}_{s_name_clean[:10]}",
                             )
                             if prep_val != is_prep:
                                 if prep_val:
@@ -452,8 +509,8 @@ def _render_features_spells(edit_mode: bool):
                         with cols[0]:
                             if st.button(
                                 "✨ Cast",
-                                key=f"cast_{lvl_key}_{s_name_clean}",
-                                use_container_width=True,
+                                key=f"cast_{lvl_key}_{_s_idx}_{s_name_clean[:10]}",
+                                width="stretch",
                             ):
                                 spell_slots_state = st.session_state.get(
                                     "spell_slots", {}

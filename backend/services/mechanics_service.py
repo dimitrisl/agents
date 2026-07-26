@@ -1,4 +1,5 @@
 import copy
+import functools
 import math
 import logging
 from typing import Dict, Any, List
@@ -6,6 +7,7 @@ from typing import Dict, Any, List
 logger = logging.getLogger("DnDAssistant.MechanicsService")
 
 
+@functools.lru_cache(maxsize=128)
 def get_modifier(score: int) -> int:
     """Calculates the D&D ability modifier from a score."""
     return math.floor((score - 10) / 2)

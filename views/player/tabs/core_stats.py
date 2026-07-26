@@ -1,23 +1,19 @@
 import streamlit as st
 import logging
 
-from backend.core.storage import (
-    save_character,
-)
-from backend.core.state_manager import (
-    get_character_dict,
-)
 from backend.services.mechanics_service import (
     get_modifier as calculate_modifier,
 )
 
 from views.player._helpers import log_roll, safe_int
+from views.ui_utils import inject_global_theme
 
 logger = logging.getLogger(__name__)
 
 
 def _render_core_stats(edit_mode: bool):
     """Renders ability scores, core attributes, and skills."""
+    inject_global_theme()
     if edit_mode:
         c_n, c_c, c_l, c_r = st.columns(4)
         st.session_state.char_name = c_n.text_input(
@@ -192,7 +188,7 @@ def _render_core_stats(edit_mode: bool):
                     )
                     st.session_state.hp_current = max(0, curr - dmg)
                     st.session_state.dmg_val = 0
-                    save_character(get_character_dict(st.session_state))
+                    st.session_state.is_dirty = True
 
             def _apply_heal_callback():
                 heal = st.session_state.get("heal_val", 0)
@@ -203,7 +199,7 @@ def _render_core_stats(edit_mode: bool):
                     m_hp = st.session_state.get("hp_max", 10)
                     st.session_state.hp_current = min(m_hp, curr + heal)
                     st.session_state.heal_val = 0
-                    save_character(get_character_dict(st.session_state))
+                    st.session_state.is_dirty = True
 
             with hc1:
                 st.number_input("Damage", min_value=0, step=1, key="dmg_val")
@@ -247,11 +243,25 @@ def _render_core_stats(edit_mode: bool):
             )
             if new_cond != curr_cond:
                 st.session_state.conditions = new_cond
-                save_character(get_character_dict(st.session_state))
+                st.session_state.is_dirty = True
                 st.rerun()
 
         with col_rest:
             st.markdown("**Camp & Rest**")
+
+            # Determine Hit Die string (e.g., 1d8 for Level 1 Cleric)
+            char_class = st.session_state.get("char_class", "Fighter")
+            edition = st.session_state.get("dnd_edition", "2014 Edition")
+            level = st.session_state.get("char_level", 1)
+            hd_state = str(st.session_state.get("hit_dice", "")).lower()
+            if "d" in hd_state:
+                die_size = hd_state.split("d")[-1]
+            else:
+                from backend.services.mechanics_service import get_hit_die_for_class
+
+                hd = get_hit_die_for_class(char_class, edition)
+                die_size = hd.replace("d", "")
+            hit_die_label = f"{level}d{die_size}"
 
             # Short Rest Popover
             with st.popover("⛺ Short Rest", use_container_width=True):
@@ -262,11 +272,14 @@ def _render_core_stats(edit_mode: bool):
                 used_hd = st.session_state.get("hit_dice_used", 0)
                 available_hd = max(0, total_hd - used_hd)
 
-                st.write(f"Available Hit Dice: **{available_hd} / {total_hd}**")
+                st.markdown(f"🎲 **Hit Die Type:** `{level}d{die_size}`")
+                st.markdown(
+                    f"**Available Hit Dice:** **{available_hd} / {total_hd}** (`{die_size}` per die)"
+                )
 
                 if available_hd > 0:
                     hd_to_spend = st.number_input(
-                        "Number of Hit Dice to spend",
+                        f"Number of d{die_size} Hit Dice to spend",
                         min_value=1,
                         max_value=available_hd,
                         value=1,
@@ -283,16 +296,8 @@ def _render_core_stats(edit_mode: bool):
                         con_score = st.session_state.stats.get("CON", 10)
                         con_mod = get_modifier(con_score)
 
-                        # Get hit die size (e.g. "d8" or "d10")
-                        hit_die_str = st.session_state.get("hit_dice", "d8")
-                        try:
-                            # Extract number after 'd'
-                            die_size = int(hit_die_str.lower().split("d")[-1])
-                        except Exception:
-                            die_size = 8
-
                         rolls = [
-                            random.randint(1, die_size) for _ in range(hd_to_spend)
+                            random.randint(1, int(die_size)) for _ in range(hd_to_spend)
                         ]
                         roll_sum = sum(rolls)
                         con_bonus = con_mod * hd_to_spend
@@ -309,7 +314,17 @@ def _render_core_stats(edit_mode: bool):
                             st.session_state.roll_history = []
                         st.session_state.roll_history.insert(0, roll_msg)
 
-                        save_character(get_character_dict(st.session_state))
+                        # Set active roll visual card
+                        st.session_state.active_roll = {
+                            "label": f"Short Rest Heal ({hd_to_spend}d{die_size})",
+                            "sides": int(die_size),
+                            "raw": rolls if len(rolls) > 1 else rolls[0],
+                            "modifier": con_bonus,
+                            "total": total_healed,
+                            "adv_type": "None",
+                        }
+
+                        st.session_state.is_dirty = True
                         st.success(
                             f"Healed for {total_healed} HP! ({old_hp} ➡️ {new_hp})"
                         )
@@ -349,19 +364,20 @@ def _render_core_stats(edit_mode: bool):
                 for lvl, data in slots.items():
                     data["used"] = 0
                 st.session_state.spell_slots = slots
-                save_character(get_character_dict(st.session_state))
+                st.session_state.is_dirty = True
                 st.toast(rest_toast)
                 st.rerun()
 
         st.markdown("---")
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Max HP", st.session_state.hp_max)
         c2.metric("Armor Class", st.session_state.armor_class)
         init_mod = st.session_state.get("initiative_modifier") or 0
         c3.metric("Initiative", f"{'+' if init_mod >= 0 else ''}{init_mod}")
         c4.metric("Speed", f"{st.session_state.speed} ft")
         c5.metric("Proficiency", f"+{st.session_state.proficiency_bonus}")
+        c6.metric("Hit Dice", hit_die_label)
 
         st.markdown("#### Ability Scores")
         c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -534,51 +550,22 @@ def _render_core_stats(edit_mode: bool):
                     }
                     st.rerun()
 
-        col_sk, col_sv = st.columns(2)
-        with col_sk:
-            st.markdown("#### Skills")
-            skills = st.session_state.get("skills", {})
-            if skills is None:
-                skills = {}
-            for k, v in skills.items():
-                indicator = ""
-                if k in st.session_state.skill_proficiencies:
-                    indicator = "● "
-                if k in getattr(st.session_state, "skill_expertise", []):
-                    indicator = "★ "
+        # --- SAVING THROWS & SKILLS GRID ---
+        st.markdown("#### 🛡️ Saving Throws")
+        saves = st.session_state.get("saving_throw_values", {}) or {}
+        sv_cols = st.columns(6)
+        for idx, stat in enumerate(["STR", "DEX", "CON", "INT", "WIS", "CHA"]):
+            prof = stat in st.session_state.saving_throws
+            indicator = "● " if prof else "○ "
+            total_sv = saves.get(stat, calculate_modifier(st.session_state.stats[stat]))
+            sv_str = f"+{total_sv}" if total_sv >= 0 else str(total_sv)
 
-                sc1, sc2 = st.columns([4, 1])
-                sc1.write(f"{indicator}**{k}:** {v}")
-                if sc2.button("🎲", key=f"roll_skill_{k}"):
-                    from backend.utils.dice import quick_roll
-
-                    res, raw = quick_roll(20, v)
-                    log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
-                    st.session_state.active_roll = {
-                        "label": f"{k} Check",
-                        "sides": 20,
-                        "raw": raw,
-                        "modifier": v,
-                        "total": res,
-                        "adv_type": "None",
-                    }
-                    st.rerun()
-        with col_sv:
-            st.markdown("#### Saving Throws")
-            saves = st.session_state.get("saving_throw_values", {})
-            if saves is None:
-                saves = {}
-            for stat in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
-                prof = stat in st.session_state.saving_throws
-                indicator = "● " if prof else "○ "
-
-                total_sv = saves.get(
-                    stat, calculate_modifier(st.session_state.stats[stat])
-                )
-
-                svc1, svc2 = st.columns([4, 1])
-                svc1.write(f"{indicator}**{stat}:** {total_sv}")
-                if svc2.button("🎲", key=f"roll_sv_{stat}"):
+            with sv_cols[idx]:
+                if st.button(
+                    f"🎲 {indicator}{stat}: {sv_str}",
+                    key=f"roll_sv_{stat}",
+                    use_container_width=True,
+                ):
                     from backend.utils.dice import quick_roll
 
                     res, raw = quick_roll(20, total_sv)
@@ -594,6 +581,53 @@ def _render_core_stats(edit_mode: bool):
                         "adv_type": "None",
                     }
                     st.rerun()
+
+        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+        st.markdown("#### 📜 Skill Checks")
+        skills_dict = st.session_state.get("skills", {}) or {}
+        skill_items = list(skills_dict.items())
+
+        if skill_items:
+            n = len(skill_items)
+            col_size = (n + 2) // 3
+            c1_items = skill_items[0:col_size]
+            c2_items = skill_items[col_size : col_size * 2]
+            c3_items = skill_items[col_size * 2 :]
+
+            sk_col1, sk_col2, sk_col3 = st.columns(3)
+
+            def _render_skill_buttons(skill_list, col):
+                with col:
+                    for k, v in skill_list:
+                        indicator = "○ "
+                        if k in st.session_state.skill_proficiencies:
+                            indicator = "● "
+                        if k in getattr(st.session_state, "skill_expertise", []):
+                            indicator = "★ "
+
+                        v_str = f"+{v}" if v >= 0 else str(v)
+                        btn_label = f"🎲 {indicator}{k} ({v_str})"
+
+                        if st.button(
+                            btn_label, key=f"roll_skill_{k}", use_container_width=True
+                        ):
+                            from backend.utils.dice import quick_roll
+
+                            res, raw = quick_roll(20, v)
+                            log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
+                            st.session_state.active_roll = {
+                                "label": f"{k} Check",
+                                "sides": 20,
+                                "raw": raw,
+                                "modifier": v,
+                                "total": res,
+                                "adv_type": "None",
+                            }
+                            st.rerun()
+
+            _render_skill_buttons(c1_items, sk_col1)
+            _render_skill_buttons(c2_items, sk_col2)
+            _render_skill_buttons(c3_items, sk_col3)
 
     st.markdown("---")
     st.markdown("#### ✨ Heroic Advancements (Feats & ASI)")

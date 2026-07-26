@@ -1,18 +1,13 @@
 import os
 import logging
+import streamlit as st
 from pymongo import MongoClient
 
 logger = logging.getLogger("DnDAssistant.Database")
 
-_client = None
-_db = None
 
-
-def get_db():
-    global _client, _db
-    if _db is not None:
-        return _db
-
+@st.cache_resource(show_spinner=False)
+def _init_db():
     uri = os.environ.get("MONGO_URI")
     if not uri:
         logger.error("MONGO_URI is missing from .env file!")
@@ -21,11 +16,14 @@ def get_db():
     try:
         import certifi
 
-        _client = MongoClient(uri, tlsCAFile=certifi.where())
-        # We explicitly name the database 'phyrexiadb'
-        _db = _client["phyrexiadb"]
-        logger.info("Successfully connected to MongoDB Atlas.")
-        return _db
+        client = MongoClient(uri, tlsCAFile=certifi.where())
+        db = client["phyrexiadb"]
+        logger.info("Successfully connected to MongoDB Atlas connection pool.")
+        return db
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
         return None
+
+
+def get_db():
+    return _init_db()

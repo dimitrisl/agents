@@ -18,6 +18,7 @@ _available_classes_cache: dict = {}
 _feats_cache: dict = {}
 _items_cache: list | None = None
 _spells_cache: dict = {}
+_features_level_cache: dict = {}
 
 
 def _load_json(filepath: str):
@@ -89,13 +90,22 @@ class RulesRepository:
         """
         Helper to get specifically the features for a certain level.
         """
+        if not class_name:
+            return []
+        cache_key = (class_name.lower(), level, edition)
+        if cache_key in _features_level_cache:
+            return _features_level_cache[cache_key]
+
         progression = self.get_class_progression(class_name, edition)
         if not progression:
+            _features_level_cache[cache_key] = []
             return []
 
         level_str = str(level)
         level_data = progression.get("progression", {}).get(level_str, {})
-        return level_data.get("features", [])
+        result = level_data.get("features", [])
+        _features_level_cache[cache_key] = result
+        return result
 
     def get_all_feats(self, edition: str = EDITION_2014) -> list:
         """

@@ -3,6 +3,7 @@ import logging
 
 import uuid
 import os
+from backend.core.schemas import CharacterSchema
 from backend.services.forge_service import (
     forge_character,
     forge_character_manual,
@@ -51,6 +52,7 @@ from backend.core.constants import (
     GENDERS,
     ALIGNMENTS,
 )
+from views.ui_utils import inject_global_theme, extract_flat_names
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +255,7 @@ def show_pdf_export_preview(char_dict: dict):
 
 def render_player_dashboard(accent_color: str):
     """Renders the main Player Dashboard view."""
+    inject_global_theme()
     # Auto-restore character from URL ?cid= on refresh
     if not st.session_state.get("character_active"):
         cid_param = st.query_params.get("cid")
@@ -2089,51 +2092,22 @@ def _render_core_stats(edit_mode: bool):
                     }
                     st.rerun()
 
-        col_sk, col_sv = st.columns(2)
-        with col_sk:
-            st.markdown("#### Skills")
-            skills = st.session_state.get("skills", {})
-            if skills is None:
-                skills = {}
-            for k, v in skills.items():
-                indicator = ""
-                if k in st.session_state.skill_proficiencies:
-                    indicator = "● "
-                if k in getattr(st.session_state, "skill_expertise", []):
-                    indicator = "★ "
+        # --- SAVING THROWS & SKILLS GRID ---
+        st.markdown("#### 🛡️ Saving Throws")
+        saves = st.session_state.get("saving_throw_values", {}) or {}
+        sv_cols = st.columns(6)
+        for idx, stat in enumerate(["STR", "DEX", "CON", "INT", "WIS", "CHA"]):
+            prof = stat in st.session_state.saving_throws
+            indicator = "● " if prof else "○ "
+            total_sv = saves.get(stat, calculate_modifier(st.session_state.stats[stat]))
+            sv_str = f"+{total_sv}" if total_sv >= 0 else str(total_sv)
 
-                sc1, sc2 = st.columns([4, 1])
-                sc1.write(f"{indicator}**{k}:** {v}")
-                if sc2.button("🎲", key=f"roll_skill_{k}"):
-                    from backend.utils.dice import quick_roll
-
-                    res, raw = quick_roll(20, v)
-                    log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
-                    st.session_state.active_roll = {
-                        "label": f"{k} Check",
-                        "sides": 20,
-                        "raw": raw,
-                        "modifier": v,
-                        "total": res,
-                        "adv_type": "None",
-                    }
-                    st.rerun()
-        with col_sv:
-            st.markdown("#### Saving Throws")
-            saves = st.session_state.get("saving_throw_values", {})
-            if saves is None:
-                saves = {}
-            for stat in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
-                prof = stat in st.session_state.saving_throws
-                indicator = "● " if prof else "○ "
-
-                total_sv = saves.get(
-                    stat, calculate_modifier(st.session_state.stats[stat])
-                )
-
-                svc1, svc2 = st.columns([4, 1])
-                svc1.write(f"{indicator}**{stat}:** {total_sv}")
-                if svc2.button("🎲", key=f"roll_sv_{stat}"):
+            with sv_cols[idx]:
+                if st.button(
+                    f"🎲 {indicator}{stat}: {sv_str}",
+                    key=f"roll_sv_dash_{stat}",
+                    use_container_width=True,
+                ):
                     from backend.utils.dice import quick_roll
 
                     res, raw = quick_roll(20, total_sv)
@@ -2149,6 +2123,55 @@ def _render_core_stats(edit_mode: bool):
                         "adv_type": "None",
                     }
                     st.rerun()
+
+        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+        st.markdown("#### 📜 Skill Checks")
+        skills_dict = st.session_state.get("skills", {}) or {}
+        skill_items = list(skills_dict.items())
+
+        if skill_items:
+            n = len(skill_items)
+            col_size = (n + 2) // 3
+            c1_items = skill_items[0:col_size]
+            c2_items = skill_items[col_size : col_size * 2]
+            c3_items = skill_items[col_size * 2 :]
+
+            sk_col1, sk_col2, sk_col3 = st.columns(3)
+
+            def _render_skill_buttons(skill_list, col):
+                with col:
+                    for k, v in skill_list:
+                        indicator = "○ "
+                        if k in st.session_state.skill_proficiencies:
+                            indicator = "● "
+                        if k in getattr(st.session_state, "skill_expertise", []):
+                            indicator = "★ "
+
+                        v_str = f"+{v}" if v >= 0 else str(v)
+                        btn_label = f"🎲 {indicator}{k} ({v_str})"
+
+                        if st.button(
+                            btn_label,
+                            key=f"roll_skill_dash_{k}",
+                            use_container_width=True,
+                        ):
+                            from backend.utils.dice import quick_roll
+
+                            res, raw = quick_roll(20, v)
+                            log_roll(f"**{k}** Check: **{res}** (d20: {raw} + {v})")
+                            st.session_state.active_roll = {
+                                "label": f"{k} Check",
+                                "sides": 20,
+                                "raw": raw,
+                                "modifier": v,
+                                "total": res,
+                                "adv_type": "None",
+                            }
+                            st.rerun()
+
+            _render_skill_buttons(c1_items, sk_col1)
+            _render_skill_buttons(c2_items, sk_col2)
+            _render_skill_buttons(c3_items, sk_col3)
 
     st.markdown("---")
     st.markdown("#### ✨ Heroic Advancements (Feats & ASI)")
@@ -2579,15 +2602,82 @@ def _render_features_spells(edit_mode: bool):
                 )
             st.session_state.features_traits = new_features
     else:
+        with st.expander("➕ Pick Feat or Add Feature", expanded=False):
+            feat_col1, feat_col2 = st.columns([3, 1])
+            from backend.repositories.rules_repository import RulesRepository
+
+            repo = RulesRepository()
+            edition = st.session_state.get("dnd_edition", "2014 Edition")
+            all_feats = repo.get_all_feats(edition)
+            feat_names = [f["name"] for f in all_feats] if all_feats else []
+
+            with feat_col1:
+                sel_feat_name = st.selectbox(
+                    "Select Feat from 5e Database",
+                    [""] + sorted(feat_names),
+                    key="select_feat_db",
+                    help="Choose an official feat to add to your character.",
+                )
+                custom_feat_name = st.text_input(
+                    "Or Custom Feature/Feat Name", key="custom_feat_name_input"
+                )
+                custom_feat_desc = st.text_area(
+                    "Description", key="custom_feat_desc_input", height=70
+                )
+            with feat_col2:
+                st.write("")
+                st.write("")
+                if st.button(
+                    "Add Feature", key="add_feat_btn", use_container_width=True
+                ):
+                    f_name = (
+                        custom_feat_name.strip()
+                        if custom_feat_name.strip()
+                        else sel_feat_name
+                    )
+                    if f_name:
+                        f_desc = custom_feat_desc.strip()
+                        if not f_desc and sel_feat_name and all_feats:
+                            matching = [
+                                f for f in all_feats if f["name"] == sel_feat_name
+                            ]
+                            if matching:
+                                f_desc = matching[0].get("description", "")
+
+                        feat_title = (
+                            f"Feat: {f_name}"
+                            if (sel_feat_name and not f_name.startswith("Feat:"))
+                            else f_name
+                        )
+                        feat_obj = {"name": feat_title, "description": f_desc}
+                        if not isinstance(st.session_state.features_traits, list):
+                            st.session_state.features_traits = []
+                        st.session_state.features_traits.append(feat_obj)
+                        save_character(get_character_dict(st.session_state))
+                        st.toast(f"Added '{f_name}'!")
+                        st.rerun()
+
+        st.markdown("---")
         features = st.session_state.get("features_traits", [])
         if features is None:
             features = []
-        for f in features:
+        for idx, f in enumerate(features):
             name = f.get("name", "Feature")
             desc = f.get("description", "").replace(
                 "\n", "  \n"
             )  # Ensure markdown line breaks
-            st.markdown(f"**{name}**  \n{desc}")
+
+            f_col1, f_col2 = st.columns([5, 1])
+            with f_col1:
+                st.markdown(f"**{name}**  \n{desc}")
+            with f_col2:
+                if st.button(
+                    "🗑️", key=f"del_feat_{idx}_{name[:10]}", help=f"Remove {name}"
+                ):
+                    st.session_state.features_traits.pop(idx)
+                    save_character(get_character_dict(st.session_state))
+                    st.toast(f"Removed '{name}'")
+                    st.rerun()
             st.divider()
 
     st.markdown("#### Spells")
@@ -2617,50 +2707,124 @@ def _render_features_spells(edit_mode: bool):
             disabled=True,
         )
 
-        flat_spells = []
-        for lvl, spell_list in st.session_state.spells.items():
-            for spell in spell_list:
-                flat_spells.append({"level": lvl, "spell": spell})
+        # --- Spell Picker UI ---
+        from backend.repositories.rules_repository import RulesRepository as _RR
 
-        edited_spells = st.data_editor(
-            flat_spells,
-            num_rows="dynamic",
-            key="edit_spells",
-            column_config={
-                "level": st.column_config.SelectboxColumn(
-                    "Level",
-                    options=[
-                        "cantrips",
-                        "level_1",
-                        "level_2",
-                        "level_3",
-                        "level_4",
-                        "level_5",
-                        "level_6",
-                        "level_7",
-                        "level_8",
-                        "level_9",
-                    ],
-                ),
-                "spell": st.column_config.TextColumn("Spell Name"),
-            },
-        )
-        if edited_spells is not None:
-            new_spells = {}
-            import pandas as pd
+        _repo = _RR()
+        _ed = st.session_state.get("dnd_edition", "2014 Edition")
+        _all_spells = _repo.get_all_spells(_ed)
+        _spells_by_level = {}
+        for s in _all_spells:
+            _lk = "cantrips" if s.get("level", 0) == 0 else f"level_{s['level']}"
+            _spells_by_level.setdefault(_lk, [])
+            _spells_by_level[_lk].append(s["name"])
+        for k in _spells_by_level:
+            _spells_by_level[k] = sorted(_spells_by_level[k])
 
-            rows = (
-                edited_spells.iterrows()
-                if isinstance(edited_spells, pd.DataFrame)
-                else enumerate(edited_spells)
+        sp_add_col1, sp_add_col2, sp_add_col3 = st.columns([2, 3, 1])
+        _level_labels = {
+            "cantrips": "Cantrips",
+            "level_1": "Level 1",
+            "level_2": "Level 2",
+            "level_3": "Level 3",
+            "level_4": "Level 4",
+            "level_5": "Level 5",
+            "level_6": "Level 6",
+            "level_7": "Level 7",
+            "level_8": "Level 8",
+            "level_9": "Level 9",
+        }
+        with sp_add_col1:
+            _chosen_lvl_label = st.selectbox(
+                "Spell Level",
+                list(_level_labels.values()),
+                key="edit_spell_lvl_picker",
             )
-            for _, row in rows:
-                if row.get("level") and row.get("spell"):
-                    lvl = row["level"]
-                    if lvl not in new_spells:
-                        new_spells[lvl] = []
-                    new_spells[lvl].append(row["spell"])
-            st.session_state.spells = new_spells
+            _chosen_lvl = [
+                k for k, v in _level_labels.items() if v == _chosen_lvl_label
+            ][0]
+
+        with sp_add_col2:
+            _available = _spells_by_level.get(_chosen_lvl, [])
+            _cur_spells_dict = st.session_state.get("spells", {})
+            if hasattr(_cur_spells_dict, "model_dump"):
+                _cur_spells_dict = _cur_spells_dict.model_dump()
+            _already_known = [
+                s.strip().lower() for s in _cur_spells_dict.get(_chosen_lvl, [])
+            ]
+            _picker_opts = [""] + [
+                s for s in _available if s.lower() not in _already_known
+            ]
+            _custom_spell = st.text_input(
+                "Or type custom spell name",
+                key="edit_custom_spell_name",
+                placeholder="Any spell not in the list…",
+            )
+            _selected_spell = st.selectbox(
+                f"Pick from {_chosen_lvl_label} spell list",
+                _picker_opts,
+                key="edit_spell_name_picker",
+                help="Type to filter",
+            )
+
+        with sp_add_col3:
+            st.write("")
+            st.write("")
+            st.write("")
+            if st.button(
+                "➕ Add Spell", key="edit_add_spell_btn", use_container_width=True
+            ):
+                _target_spell = (
+                    _custom_spell.strip() if _custom_spell.strip() else _selected_spell
+                )
+                if _target_spell:
+                    if not isinstance(_cur_spells_dict, dict):
+                        _cur_spells_dict = {}
+                    if _chosen_lvl not in _cur_spells_dict:
+                        _cur_spells_dict[_chosen_lvl] = []
+                    if _target_spell not in _cur_spells_dict[_chosen_lvl]:
+                        _cur_spells_dict[_chosen_lvl].append(_target_spell)
+                        st.session_state.spells = _cur_spells_dict
+                        save_character(get_character_dict(st.session_state))
+                        st.toast(f"Added {_target_spell}!")
+                        st.rerun()
+
+        # Show current spells grouped by level with remove buttons
+        st.markdown("**Current Spells:**")
+        _cur = st.session_state.get("spells", {})
+        if hasattr(_cur, "model_dump"):
+            _cur = _cur.model_dump()
+        _any_spells = False
+        for _lk, _lbl in _level_labels.items():
+            _slist = _cur.get(_lk, [])
+            if not _slist:
+                continue
+            _any_spells = True
+            st.markdown(f"*{_lbl}*")
+            for _si, _sn in enumerate(list(_slist)):
+                _sc1, _sc2 = st.columns([6, 1])
+                _sc1.markdown(f"• {_sn.strip()}")
+                if _sc2.button(
+                    "🗑️",
+                    key=f"rm_sp_{_lk}_{_si}_{_sn[:8]}",
+                    help=f"Remove {_sn}",
+                    use_container_width=True,
+                ):
+                    _cur[_lk] = [
+                        x for x in _cur[_lk] if x.strip().lower() != _sn.strip().lower()
+                    ]
+                    st.session_state.spells = _cur
+                    st.session_state.prepared_spells = [
+                        p
+                        for p in st.session_state.get("prepared_spells", [])
+                        if p.strip().lower() != _sn.strip().lower()
+                    ]
+                    save_character(get_character_dict(st.session_state))
+                    st.toast(f"Removed {_sn}")
+                    st.rerun()
+
+        if not _any_spells:
+            st.info("No spells added yet. Use the picker above to add spells.")
     else:
         # Check if they have any spells
         spells = st.session_state.get("spells", {})
@@ -2814,39 +2978,67 @@ def _render_features_spells(edit_mode: bool):
                     st.markdown("---")
 
             if view_mode == "📝 Manage Spellbook (Prepare Spells)":
-                with st.expander("➕ Add New Spell", expanded=False):
-                    add_col1, add_col2 = st.columns([3, 1])
-                    all_spell_names = sorted(list(spells_lookup.keys()))
-                    with add_col1:
-                        new_spell_name = st.selectbox(
-                            "Search & Select Spell",
-                            [""] + [s.title() for s in all_spell_names],
-                            help="Type to search for a spell from the rules.",
-                        )
-                    with add_col2:
-                        st.write("")  # padding
-                        st.write("")  # padding
-                        if st.button("Add to Spellbook", use_container_width=True):
-                            if new_spell_name:
-                                lookup_key = new_spell_name.lower().strip()
-                                spell_data = spells_lookup.get(lookup_key)
-                                if spell_data:
-                                    lvl_num = spell_data.get("level", 0)
-                                    target_lvl_key = (
-                                        "cantrips"
-                                        if lvl_num == 0
-                                        else f"level_{lvl_num}"
-                                    )
-                                else:
-                                    target_lvl_key = "level_1"  # Fallback
+                mgr_col1, mgr_col2 = st.columns([3, 1])
+                with mgr_col1:
+                    with st.expander("➕ Add New Spell", expanded=False):
+                        add_col1, add_col2 = st.columns([3, 1])
+                        all_spell_names = sorted(list(spells_lookup.keys()))
+                        with add_col1:
+                            new_spell_name = st.selectbox(
+                                "Search & Select Spell",
+                                [""] + [s.title() for s in all_spell_names],
+                                help="Type to search for a spell from the rules.",
+                            )
+                            custom_spell_name = st.text_input(
+                                "Or enter custom spell name:",
+                                help="If spell is not in database, type name here.",
+                                key="custom_spell_input",
+                            )
+                        with add_col2:
+                            st.write("")  # padding
+                            st.write("")  # padding
+                            if st.button("Add to Spellbook", use_container_width=True):
+                                target_name = (
+                                    custom_spell_name.strip()
+                                    if custom_spell_name.strip()
+                                    else new_spell_name
+                                )
+                                if target_name:
+                                    lookup_key = target_name.lower().strip()
+                                    spell_data = spells_lookup.get(lookup_key)
+                                    if spell_data:
+                                        lvl_num = spell_data.get("level", 0)
+                                        target_lvl_key = (
+                                            "cantrips"
+                                            if lvl_num == 0
+                                            else f"level_{lvl_num}"
+                                        )
+                                    else:
+                                        target_lvl_key = "level_1"  # Fallback
 
-                                if target_lvl_key not in spells_dict:
-                                    spells_dict[target_lvl_key] = []
-                                if new_spell_name not in spells_dict[target_lvl_key]:
-                                    spells_dict[target_lvl_key].append(new_spell_name)
-                                    st.session_state.spells = spells_dict
-                                    save_character(get_character_dict(st.session_state))
-                                    st.rerun()
+                                    if target_lvl_key not in spells_dict:
+                                        spells_dict[target_lvl_key] = []
+                                    if target_name not in spells_dict[target_lvl_key]:
+                                        spells_dict[target_lvl_key].append(target_name)
+                                        st.session_state.spells = spells_dict
+                                        save_character(
+                                            get_character_dict(st.session_state)
+                                        )
+                                        st.toast(f"Added {target_name} to spellbook!")
+                                        st.rerun()
+                with mgr_col2:
+                    st.write("")
+                    if st.button(
+                        "🧹 Clear All Spells",
+                        use_container_width=True,
+                        key="clear_all_spells_btn",
+                        help="Remove all spells from spellbook to start fresh",
+                    ):
+                        st.session_state.spells = {}
+                        st.session_state.prepared_spells = []
+                        save_character(get_character_dict(st.session_state))
+                        st.toast("Spellbook cleared!")
+                        st.rerun()
                 st.markdown("---")
 
             shown_any_level = False
@@ -2925,31 +3117,54 @@ def _render_features_spells(edit_mode: bool):
                     expander_label = f"✨ {s_name_clean} ({lvl_lbl} {school}){tags_str}"
 
                     with st.expander(expander_label):
-                        # Preparation Toggle if managing
-                        if (
-                            is_prepared_caster
-                            and not is_cantrip
-                            and view_mode == "📝 Manage Spellbook (Prepare Spells)"
-                        ):
-                            prep_val = st.checkbox(
-                                f"Prepare **{s_name_clean}**",
-                                value=is_prep,
-                                key=f"prep_check_{lvl_key}_{s_name_clean}",
-                            )
-                            if prep_val != is_prep:
-                                if prep_val:
-                                    st.session_state.prepared_spells.append(
-                                        s_name_clean
+                        # Preparation Toggle & Remove if managing
+                        if view_mode == "📝 Manage Spellbook (Prepare Spells)":
+                            p_col1, p_col2 = st.columns([3, 1])
+                            with p_col1:
+                                if is_prepared_caster and not is_cantrip:
+                                    prep_val = st.checkbox(
+                                        f"Prepare **{s_name_clean}**",
+                                        value=is_prep,
+                                        key=f"prep_check_{lvl_key}_{s_name_clean}",
                                     )
-                                else:
+                                    if prep_val != is_prep:
+                                        if prep_val:
+                                            st.session_state.prepared_spells.append(
+                                                s_name_clean
+                                            )
+                                        else:
+                                            st.session_state.prepared_spells = [
+                                                p
+                                                for p in st.session_state.prepared_spells
+                                                if p.strip().lower()
+                                                != s_name_clean.lower()
+                                            ]
+                                        save_character(
+                                            get_character_dict(st.session_state)
+                                        )
+                                        st.rerun()
+                            with p_col2:
+                                if st.button(
+                                    "🗑️ Remove",
+                                    key=f"del_spell_{lvl_key}_{s_name_clean}",
+                                    help=f"Remove {s_name_clean} from spellbook",
+                                    use_container_width=True,
+                                ):
+                                    if lvl_key in spells_dict:
+                                        spells_dict[lvl_key] = [
+                                            s
+                                            for s in spells_dict[lvl_key]
+                                            if s.strip().lower() != s_name_clean.lower()
+                                        ]
                                     st.session_state.prepared_spells = [
                                         p
                                         for p in st.session_state.prepared_spells
                                         if p.strip().lower() != s_name_clean.lower()
                                     ]
-                                # Auto save character state
-                                save_character(get_character_dict(st.session_state))
-                                st.rerun()
+                                    st.session_state.spells = spells_dict
+                                    save_character(get_character_dict(st.session_state))
+                                    st.toast(f"Removed {s_name_clean} from spellbook")
+                                    st.rerun()
 
                         # Show description and details
                         c1, c2 = st.columns(2)
@@ -3277,6 +3492,36 @@ def render_character_creator():
                         "but carries the risk of lower-than-average scores."
                     )
 
+                with st.expander(
+                    "🎯 Custom Build Choices & Selection Options (Optional)",
+                    expanded=forge_level >= 4,
+                ):
+                    st.caption(
+                        "Specify preferred Feats, Spells, or ASIs, or choose whether AI auto-selects spells and feats."
+                    )
+                    col_sp1, col_sp2 = st.columns(2)
+                    with col_sp1:
+                        forge_auto_spells = st.checkbox(
+                            "✨ Auto-select Spells",
+                            value=True,
+                            help="Uncheck to leave spellbook empty so player can pick all spells manually.",
+                            key="forge_auto_spells_ai",
+                        )
+                    with col_sp2:
+                        forge_auto_feats = st.checkbox(
+                            "🛡️ Auto-assign Feats & ASIs",
+                            value=True,
+                            help="Uncheck to leave Feats/ASIs unassigned so player can choose manually.",
+                            key="forge_auto_feats_ai",
+                        )
+
+                    forge_custom_pref = st.text_area(
+                        "Preferred Feats, Spells, or ASIs:",
+                        placeholder="E.g., Feats: War Caster, Sharpshooter. Spells: Fireball, Counterspell, Haste.",
+                        height=90,
+                        key="forge_custom_pref_ai",
+                    )
+
             if st.button(
                 "Generate Character",
                 type="primary",
@@ -3299,6 +3544,9 @@ def render_character_creator():
                         alignment=forge_alignment,
                         edition=forge_edition,
                         subclass=forge_subclass,
+                        custom_preferences=forge_custom_pref,
+                        auto_spells=forge_auto_spells,
+                        auto_feats=forge_auto_feats,
                     )
                     if result and "char_name" in result:
                         result["char_portrait"] = generate_portrait_url(result)
@@ -3722,6 +3970,37 @@ def render_character_creator():
                     key=f"manual_spell_ability_{manual_class}",
                 )
 
+                st.markdown("---")
+                with st.expander(
+                    "🎯 Custom Build Choices & Selection Options (Optional)",
+                    expanded=manual_level >= 4,
+                ):
+                    st.caption(
+                        "Specify preferred Feats, Spells, or ASIs, or choose whether AI auto-selects spells and feats."
+                    )
+                    col_msp1, col_msp2 = st.columns(2)
+                    with col_msp1:
+                        manual_auto_spells = st.checkbox(
+                            "✨ Auto-select Spells",
+                            value=True,
+                            help="Uncheck to leave spellbook empty so player can pick all spells manually.",
+                            key="manual_auto_spells",
+                        )
+                    with col_msp2:
+                        manual_auto_feats = st.checkbox(
+                            "🛡️ Auto-assign Feats & ASIs",
+                            value=True,
+                            help="Uncheck to leave Feats/ASIs unassigned so player can choose manually.",
+                            key="manual_auto_feats",
+                        )
+
+                    manual_custom_pref = st.text_area(
+                        "Preferred Feats, Spells, or ASIs:",
+                        placeholder="E.g., Feats: Great Weapon Master; Spells: Shield, Absorb Elements",
+                        height=90,
+                        key="manual_custom_pref",
+                    )
+
             submit_disabled = not is_stat_valid or not manual_name.strip()
             if st.button(
                 "Create Character",
@@ -3756,6 +4035,9 @@ def render_character_creator():
                         else None,
                         concept=manual_concept,
                         edition=forge_edition,
+                        custom_preferences=manual_custom_pref,
+                        auto_spells=manual_auto_spells,
+                        auto_feats=manual_auto_feats,
                     )
                     if result and "char_name" in result:
                         result["char_portrait"] = generate_portrait_url(result)
@@ -3771,45 +4053,209 @@ def render_character_creator():
         char = st.session_state.temp_forged_char
         st.markdown("### 🔍 Hero Preview")
         with st.container(border=True):
-            col_p1, col_p2 = st.columns([2, 1])
-            with col_p1:
-                st.markdown(f"**Name:** {char['char_name']}")
-                class_info = f"{char['char_class']}"
-                if char.get("subclass"):
-                    class_info += f" ({char['subclass']})"
-                st.markdown(f"**Class:** {class_info} (Level {char['char_level']})")
+            col_info, col_portrait = st.columns([7, 3])
+
+            class_colors = {
+                "Barbarian": "#e74c3c",
+                "Bard": "#9b59b6",
+                "Cleric": "#f1c40f",
+                "Druid": "#2ecc71",
+                "Fighter": "#e67e22",
+                "Monk": "#1abc9c",
+                "Paladin": "#f39c12",
+                "Ranger": "#27ae60",
+                "Rogue": "#95a5a6",
+                "Sorcerer": "#ff6b6b",
+                "Warlock": "#8e44ad",
+                "Wizard": "#3498db",
+                "Artificer": "#d35400",
+            }
+
+            primary_stats_map = {
+                "Barbarian": ["STR", "CON"],
+                "Bard": ["CHA"],
+                "Cleric": ["WIS"],
+                "Druid": ["WIS"],
+                "Fighter": ["STR", "DEX"],
+                "Monk": ["DEX", "WIS"],
+                "Paladin": ["STR", "CHA"],
+                "Ranger": ["DEX", "WIS"],
+                "Rogue": ["DEX"],
+                "Sorcerer": ["CHA"],
+                "Warlock": ["CHA"],
+                "Wizard": ["INT"],
+                "Artificer": ["INT"],
+            }
+
+            char_class = char.get("char_class", "Fighter")
+            accent_color = class_colors.get(char_class, "#f1c40f")
+            primary_stats = primary_stats_map.get(char_class, [])
+
+            with col_info:
+                # Inline Editable Name
+                edited_name = st.text_input(
+                    "✏️ Edit Hero Name",
+                    value=char.get("char_name", "Hero"),
+                    key="dash_preview_name_input",
+                )
+                if edited_name != char.get("char_name"):
+                    char["char_name"] = edited_name
+
+                subclass = char.get("subclass", "")
+                class_sub = f"{char_class}" + (f" ({subclass})" if subclass else "")
+                level = char.get("char_level", 1)
+                race = char.get("race", "")
+                bg = char.get("background", "")
+                edition = char.get("dnd_edition", "2014 Edition")
+
+                # Header Badges
                 st.markdown(
-                    f"**Race/Species:** {char['race']} | **Background:** {char['background']}"
+                    f'<div style="margin-bottom: 12px;">'
+                    f'<h2 style="margin: 0 0 8px 0; color: {accent_color}; font-family: inherit; font-size: 1.6rem; font-weight: 700;">✨ {char["char_name"]}</h2>'
+                    f'<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">'
+                    f'<span style="background: {accent_color}22; color: {accent_color}; border: 1px solid {accent_color}55; padding: 4px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: bold;">Level {level} {class_sub}</span>'
+                    f'<span style="background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 16px; font-size: 0.82rem;">{race}</span>'
+                    f'<span style="background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 16px; font-size: 0.82rem;">{bg}</span>'
+                    f'<span style="background: rgba(52,152,219,0.18); color: #3498db; border: 1px solid rgba(52,152,219,0.4); padding: 4px 12px; border-radius: 16px; font-size: 0.82rem; font-weight: bold;">{edition}</span>'
+                    f"</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
-                st.markdown(f"**Edition:** {char.get('dnd_edition', '2014 Edition')}")
+
+                # Derived Combat Metrics Bar
+                stats = char.get("stats", {})
+                dex_val = stats.get("DEX", 10)
+                wis_val = stats.get("WIS", 10)
+                con_val = stats.get("CON", 10)
+
+                dex_mod = calculate_modifier(dex_val)
+                wis_mod = calculate_modifier(wis_val)
+                con_mod = calculate_modifier(con_val)
+
+                hp = char.get("hp_max") or (10 + (con_mod * level))
+                ac = char.get("armor_class") or (10 + dex_mod)
+                init_str = f"+{dex_mod}" if dex_mod >= 0 else str(dex_mod)
+                passive_perc = 10 + wis_mod
+
+                st.markdown(
+                    f'<div style="display: flex; gap: 8px; margin: 12px 0 16px 0; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.08); text-align: center;">'
+                    f'<div style="flex: 1;"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">❤️ MAX HP</div><div style="font-size: 1.15rem; font-weight: 800; color: #e74c3c;">{hp}</div></div>'
+                    f'<div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1);"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">🛡️ ARMOR CLASS</div><div style="font-size: 1.15rem; font-weight: 800; color: #f39c12;">{ac}</div></div>'
+                    f'<div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1);"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">⚡ INITIATIVE</div><div style="font-size: 1.15rem; font-weight: 800; color: #3498db;">{init_str}</div></div>'
+                    f'<div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.1);"><div style="color: #aaa; font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px;">👁️ PASSIVE PERC</div><div style="font-size: 1.15rem; font-weight: 800; color: #2ecc71;">{passive_perc}</div></div>'
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+                # Stat badges with Primary Highlights
+                badges_html = [
+                    '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 16px 0;">'
+                ]
+                for s_name in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+                    s_val = stats.get(s_name, 10)
+                    mod = calculate_modifier(s_val)
+                    mod_str = f"+{mod}" if mod >= 0 else str(mod)
+                    is_primary = s_name in primary_stats
+
+                    border_style = (
+                        f"2px solid {accent_color}"
+                        if is_primary
+                        else "1px solid rgba(255,255,255,0.12)"
+                    )
+                    bg_style = (
+                        f"{accent_color}18" if is_primary else "rgba(255,255,255,0.04)"
+                    )
+                    star = "⭐ " if is_primary else ""
+
+                    badges_html.append(
+                        f'<div style="background: {bg_style}; border: {border_style}; border-radius: 10px; padding: 8px 4px; text-align: center; flex: 1; min-width: 55px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">'
+                        f'<div style="font-size: 0.7rem; color: {accent_color if is_primary else "#888"}; font-weight: bold; letter-spacing: 0.5px;">{star}{s_name}</div>'
+                        f'<div style="font-size: 1.25rem; font-weight: 800; color: #fff; margin: 2px 0;">{s_val}</div>'
+                        f'<div style="font-size: 0.78rem; color: {accent_color if is_primary else "#f1c40f"}; font-weight: bold;">({mod_str})</div>'
+                        f"</div>"
+                    )
+                badges_html.append("</div>")
+                st.markdown("".join(badges_html), unsafe_allow_html=True)
+
+                # Equipment / Spells Snapshot
+                eq_raw = char.get("equipment")
+                spells_raw = char.get("spells")
+
+                spell_names = extract_flat_names(spells_raw, 3)
+                eq_names = extract_flat_names(eq_raw, 4)
+
+                if spell_names or eq_names:
+                    snap_items = []
+                    if spell_names:
+                        snap_items.append(f"✨ <b>Spells:</b> {', '.join(spell_names)}")
+                    if eq_names:
+                        snap_items.append(f"🎒 <b>Gear:</b> {', '.join(eq_names)}")
+                    st.markdown(
+                        f'<div style="font-size: 0.84rem; color: #bbb; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 6px; margin-bottom: 12px;">'
+                        f"{' &nbsp;|&nbsp; '.join(snap_items)}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # Advancements
                 if char.get("advancements"):
-                    st.markdown("**Advancements:**")
-                    for adv in char["advancements"]:
-                        st.write(
-                            f"- Lv.{adv.get('level')} {adv.get('type')}: {adv.get('name')}"
-                        )
-                st.markdown(f"**Backstory Snippet:** {char['backstory'][:200]}...")
-            with col_p2:
-                st.markdown("**Stats:**")
-                stats_str = " | ".join([f"{k}:{v}" for k, v in char["stats"].items()])
-                st.write(stats_str)
+                    adv_items = "".join(
+                        [
+                            f"<li style='margin-bottom: 3px;'><b>Lv.{a.get('level')} {a.get('type')}:</b> {a.get('name')}</li>"
+                            for a in char["advancements"]
+                        ]
+                    )
+                    st.markdown(
+                        f'<div style="margin-bottom: 12px;">'
+                        f'<div style="font-size: 0.8rem; font-weight: bold; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Advancements</div>'
+                        f'<ul style="margin: 0 0 0 18px; padding: 0; font-size: 0.86rem; color: #ddd;">{adv_items}</ul>'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
 
-            if st.button("🔄 Regenerate Portrait", width="stretch"):
-                with st.spinner("Forging visual identity..."):
-                    portrait_url = generate_portrait_url(char, force=True)
-                    st.session_state.temp_portrait = portrait_url
-                    st.rerun()
+                # Backstory snippet
+                backstory_text = char.get("backstory", "")
+                if backstory_text:
+                    snippet = backstory_text[:280] + (
+                        "..." if len(backstory_text) > 280 else ""
+                    )
+                    st.markdown(
+                        f'<div style="background: rgba(0,0,0,0.3); border-left: 3px solid {accent_color}; padding: 10px 14px; border-radius: 4px; font-size: 0.88rem; color: #ccc; font-style: italic; line-height: 1.4;">'
+                        f'"{snippet}"'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
 
-            if "temp_portrait" in st.session_state and st.session_state.temp_portrait:
-                st.image(
-                    st.session_state.temp_portrait,
-                    caption="Character Portrait Preview",
+            with col_portrait:
+                if (
+                    "temp_portrait" in st.session_state
+                    and st.session_state.temp_portrait
+                ):
+                    st.image(
+                        st.session_state.temp_portrait,
+                        caption="Character Portrait",
+                        width="stretch",
+                    )
+                if st.button(
+                    "🔄 Regenerate Portrait",
                     width="stretch",
-                )
+                    key="regen_portrait_btn_dash",
+                ):
+                    with st.spinner("Forging visual identity..."):
+                        portrait_url = generate_portrait_url(char, force=True)
+                        st.session_state.temp_portrait = portrait_url
+                        st.rerun()
 
+            st.markdown("<div style='margin-top: 16px;'></div>", unsafe_allow_html=True)
             c_btn1, c_btn2 = st.columns(2)
             if c_btn1.button("✅ Accept & Equip Hero", width="stretch", type="primary"):
                 char["char_id"] = str(uuid.uuid4())[:8]
+                try:
+                    char = CharacterSchema.model_validate(
+                        char, strict=False
+                    ).model_dump()
+                except Exception as val_err:
+                    logger.warning(f"Accept character validation note: {val_err}")
                 update_session_from_dict(st.session_state, char)
                 trigger_sync()
                 if "temp_portrait" in st.session_state:

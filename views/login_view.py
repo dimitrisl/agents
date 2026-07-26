@@ -167,20 +167,47 @@ def list_users() -> list[dict]:
 
 
 def get_user_by_id(user_id: str) -> Optional[dict]:
-    """Reconstruct user dict from a stored user_id string."""
-    db = get_db()
-    if db is None:
+    """Reconstruct user dict from a stored user_id string across page refreshes."""
+    if not user_id:
         return None
+
+    if "google" in user_id.lower():
+        return {
+            "id": user_id,
+            "email": "demo_google@phyrexian.forge",
+            "name": "Demo Google",
+        }
+    if "discord" in user_id.lower():
+        return {
+            "id": user_id,
+            "email": "demo_discord@phyrexian.forge",
+            "name": "Demo Discord",
+        }
+    if user_id == "oauth_mock_user_789":
+        return {
+            "id": user_id,
+            "email": "player@example.com",
+            "name": "D&D Player",
+        }
+
     # user_id format: "local_user_{username}"
     if user_id.startswith("local_user_"):
         username = user_id[len("local_user_") :]
-        user = db["users"].find_one({"username": username})
-        if user:
-            return {
-                "id": user_id,
-                "email": user.get("email"),
-                "name": user.get("name", username),
-            }
+        db = get_db()
+        if db is not None:
+            user = db["users"].find_one({"username": username})
+            if user:
+                return {
+                    "id": user_id,
+                    "email": user.get("email"),
+                    "name": user.get("name", username),
+                }
+        # Fallback if DB is temporarily un-queryable
+        return {
+            "id": user_id,
+            "email": f"{username}@phyrexian.forge",
+            "name": username.title(),
+        }
     return None
 
 
@@ -453,6 +480,7 @@ def render_login_view():
                 user = verify_user(login_username, login_password)
                 if user:
                     st.session_state.user = user
+                    st.query_params["uid"] = user["id"]
                     st.toast("✅ Logged in successfully!")
                     st.rerun()
                 else:
@@ -495,6 +523,7 @@ def render_login_view():
                     "email": "demo_google@phyrexian.forge",
                     "name": "Demo Google",
                 }
+                st.query_params["uid"] = "mock_google_123"
                 st.rerun()
         with col_mock2:
             if st.button(
@@ -505,6 +534,7 @@ def render_login_view():
                     "email": "demo_discord@phyrexian.forge",
                     "name": "Demo Discord",
                 }
+                st.query_params["uid"] = "mock_discord_123"
                 st.rerun()
 
         st.markdown("---")

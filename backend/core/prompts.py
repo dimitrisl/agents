@@ -63,6 +63,7 @@ Background: {background}
 Flavor/Concept: {concept}
 Subclass: {subclass}
 Alignment: {alignment}
+{custom_preferences_instruction}
 
 STRICT RULES:
 1. Race/Species MUST be one of: {current_races}
@@ -72,7 +73,9 @@ STRICT RULES:
 {stats_instruction}
 
 Calculate their HP, AC, Proficiency Bonus, and choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
+For spellcasters of level {target_level}, generate appropriate spells across ALL unlocked spell levels (cantrips, level_1, level_2, ..., up to level 9 as appropriate for their level and class).
 If the level is 4 or higher (or 1 if 2024 edition), explicitly list their Feats and Ability Score Improvements (ASI) in the 'advancements' field.
+If specific user preferences for Feats, Spells, ASIs, or Build choices are provided above, PRIORITIZE including those requested Feats in 'advancements' and 'features_traits', and those requested Spells in the 'spells' object.
 
 Output the character strictly as a JSON object with exactly the following schema:
 {{
@@ -100,7 +103,7 @@ Output the character strictly as a JSON object with exactly the following schema
     "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage_dice": "1d8 bludgeoning", "damage_bonus": "+3"}}],
     "equipment": [{{"name": "Chain mail", "equipped": true, "ac_base": 16}}, {{"name": "Shield", "equipped": true, "ac_bonus": 2}}, {{"name": "Backpack", "equipped": false}}],
     "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
-    "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"]}},
+    "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"], "level_2": ["Misty Step"]}},
     "spell_ability": "INT",
     "spell_save_dc": 15,
     "spell_attack_bonus": "+7",
@@ -341,6 +344,7 @@ A player is manually creating a character with the following choices:
 - Saving Throw Proficiencies: {saving_throws}
 - Spellcasting Ability: {spell_ability}
 - Concept: {concept}
+{custom_preferences_instruction}
 
 Your task is to enrich this character with:
 1. Racial features/traits based on their race/species.
@@ -349,13 +353,19 @@ Your task is to enrich this character with:
 4. Thematic starting weapons and equipment.
 5. Standard languages (e.g. Common, plus racial languages).
 6. A thematic backstory, personality traits, ideals, bonds, and flaws based on their concept, background, and class.
-7. Appropriate spells if they are a spellcaster (cantrips and level 1 spells).
+7. Appropriate spells if they are a spellcaster across ALL unlocked spell levels for level {target_level} (cantrips, level_1, level_2, etc.).
+8. Feats and advancements for level {target_level} if level is 4 or higher.
+
+If specific user preferences for Feats, Spells, ASIs, or Build choices are provided above, PRIORITIZE including those requested Feats (in advancements and features_traits) and requested Spells (in spells dictionary).
 
 Output strictly a JSON object matching this schema:
 {{
     "backstory": "...",
     "features_traits": [
         {{"name": "Feature Name", "description": "Source: Race/Class/Background...", "source": "..."}}
+    ],
+    "advancements": [
+        {{"level": 4, "type": "Feat", "name": "War Caster", "description": "Advantage on CON saves for concentration"}}
     ],
     "weapons": [
         {{"name": "Longsword", "attack_bonus": "+5", "damage_dice": "1d8", "damage_bonus": "+3"}}
