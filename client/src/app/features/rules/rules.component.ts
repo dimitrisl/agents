@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { RollToastService } from '../../core/services/roll-toast.service';
 
 @Component({
   selector: 'app-rules',
@@ -46,11 +47,25 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 
         <!-- TAB 3: CHARACTER BUILD RULES INSPECTOR -->
         <div *ngIf="activeTab === 'validate'" class="tab-body">
-          <p>Inspect the currently selected hero for D&D 5e/5.5e rule compliance (ability bounds, spell slot allocations, proficiencies).</p>
-          <button class="phyrexian-btn" (click)="validateActiveHero()">Run Build Audit</button>
+          <p class="subtitle">Inspect the currently selected hero for D&D 5e/5.5e rule compliance (ability score bounds, spell slot allocations, proficiencies).</p>
+          <button class="phyrexian-btn" (click)="validateActiveHero()">🛡️ Run Build Audit</button>
 
-          <div *ngIf="validationResult" class="result-box">
-            <p style="white-space: pre-wrap;">{{ validationResult | json }}</p>
+          <div *ngIf="validationResult" class="result-box audit-card" [class.valid-audit]="validationResult.valid">
+            <div class="audit-status-banner">
+              <span *ngIf="validationResult.valid" class="status-pass">✅ BUILD PASSED ALL 5E/5.5E RULES AUDITS</span>
+              <span *ngIf="!validationResult.valid" class="status-fail">⚠️ BUILD AUDIT DISCREPANCIES DETECTED</span>
+            </div>
+
+            <div *ngIf="validationResult.errors?.length > 0" class="audit-issues-list">
+              <h4>Detected Audit Discrepancies:</h4>
+              <ul>
+                <li *ngFor="let err of validationResult.errors" class="issue-item">⚠️ {{ err }}</li>
+              </ul>
+            </div>
+
+            <div *ngIf="validationResult.valid" class="audit-pass-info">
+              <p>Character statistics, ability bounds (3 to 20), proficiency bonuses, and armor class comply with core 5e specifications.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -63,6 +78,14 @@ import { CharacterStateService } from '../../core/services/character-state.servi
     .search-row input { flex: 1; }
     .result-box { margin-top: 1.5rem; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); padding: 1.25rem; border-radius: 8px; font-size: 0.9rem; line-height: 1.6; }
     .tab-body { margin-top: 1rem; }
+    .audit-card { border-left: 4px solid var(--theme-accent); }
+    .audit-card.valid-audit { border-left-color: var(--accent-emerald, #2ecc71); }
+    .audit-status-banner { font-size: 1rem; font-weight: 800; margin-bottom: 0.75rem; }
+    .status-pass { color: #2ecc71; }
+    .status-fail { color: #ff4b4b; }
+    .audit-issues-list h4 { font-size: 0.88rem; color: var(--text-gold); margin-bottom: 0.4rem; }
+    .issue-item { color: #ff4b4b; margin-left: 1.2rem; margin-top: 0.2rem; }
+    .audit-pass-info { font-size: 0.88rem; color: var(--text-muted); }
   `]
 })
 export class RulesComponent {
@@ -77,7 +100,8 @@ export class RulesComponent {
 
   constructor(
     private http: HttpClient,
-    public charState: CharacterStateService
+    public charState: CharacterStateService,
+    private rollToast: RollToastService
   ) {}
 
   searchOracle() {
@@ -87,6 +111,7 @@ export class RulesComponent {
       edition: this.charState.dndEdition()
     }).subscribe((res) => {
       this.oracleAnswer = res.answer_markdown;
+      this.rollToast.showMessage('🔮 ORACLE SEARCH COMPLETE', `Retrieved rules for "${this.oracleQuery}".`);
     });
   }
 
@@ -96,6 +121,7 @@ export class RulesComponent {
       query: this.compareQuery
     }).subscribe((res) => {
       this.compareAnswer = res.comparison_markdown;
+      this.rollToast.showMessage('⚖️ EDITION COMPARISON', `Compared 2014 vs 2024 rules for "${this.compareQuery}".`);
     });
   }
 
@@ -106,6 +132,8 @@ export class RulesComponent {
       character: char
     }).subscribe((res) => {
       this.validationResult = res.validation_result;
+      const statusText = res.validation_result?.valid ? 'PASSED' : 'DISCREPANCIES DETECTED';
+      this.rollToast.showMessage('🛡️ BUILD AUDIT COMPLETE', `Audit status for ${char.char_name}: ${statusText}`);
     });
   }
 }
