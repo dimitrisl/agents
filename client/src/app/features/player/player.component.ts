@@ -39,7 +39,7 @@ export interface SkillDefinition {
             {{ editMode ? '💾 Done Editing' : '✏️ Edit Sheet' }}
           </button>
           <button class="phyrexian-btn-secondary" (click)="showJoinModal = true">🔑 Join Campaign</button>
-          <button class="phyrexian-btn-secondary rest-btn" (click)="triggerShortRest()">🌟 Short Rest</button>
+          <button class="phyrexian-btn-secondary rest-btn" (click)="openShortRestModal()">⛺ Short Rest</button>
           <button class="phyrexian-btn-secondary rest-btn long-rest" (click)="triggerLongRest()">🌙 Long Rest</button>
           <button class="phyrexian-btn-secondary" (click)="onLevelUp()">⚡ Level Up</button>
           <button class="phyrexian-btn-secondary" (click)="onGenerateStrategy()">📖 AI Strategy Guide</button>
@@ -97,6 +97,12 @@ export interface SkillDefinition {
                   <span class="stat-value">❤️ {{ char.hp_current ?? char.hp_max }} / {{ char.hp_max }}</span>
                   <button class="hp-btn" (click)="adjustHp(1)">+</button>
                 </div>
+              </div>
+
+              <div class="stat-box">
+                <span class="stat-label">Hit Dice</span>
+                <span class="stat-value">🎲 {{ getAvailableHitDice() }} / {{ char.char_level }}</span>
+                <span class="stat-mod">(d{{ getClassHitDieSize() }})</span>
               </div>
 
               <div class="stat-box">
@@ -298,6 +304,43 @@ export interface SkillDefinition {
         </div>
       </ng-container>
 
+      <!-- SHORT REST MODAL -->
+      <div *ngIf="showShortRestModal" class="modal-backdrop">
+        <div class="phyrexian-card modal-card">
+          <h2>⛺ Short Rest & Hit Dice Healing</h2>
+          <p class="subtitle">Spend Hit Dice during a 1-hour rest to recover lost Hit Points.</p>
+
+          <div class="rest-details">
+            <div class="rest-stat-row">
+              <span>🎲 Hit Die Size:</span>
+              <strong>d{{ getClassHitDieSize() }}</strong>
+            </div>
+            <div class="rest-stat-row">
+              <span>⚡ CON Modifier bonus per die:</span>
+              <strong>+{{ getConModifier() }}</strong>
+            </div>
+            <div class="rest-stat-row">
+              <span>❤️ Available Hit Dice:</span>
+              <strong>{{ getAvailableHitDice() }} / {{ charState.activeCharacter()?.char_level }}</strong>
+            </div>
+          </div>
+
+          <div *ngIf="getAvailableHitDice() > 0" class="form-group" style="margin-top: 1rem;">
+            <label>Number of Hit Dice to Spend:</label>
+            <input type="number" class="phyrexian-input" [(ngModel)]="shortRestDiceToSpend" min="1" [max]="getAvailableHitDice()" />
+          </div>
+
+          <div *ngIf="getAvailableHitDice() === 0" class="warning-box">
+            ⚠️ You have no available Hit Dice remaining! Take a Long Rest to recover Hit Dice.
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showShortRestModal = false">Cancel</button>
+            <button *ngIf="getAvailableHitDice() > 0" class="phyrexian-btn" (click)="executeShortRest()">⛺ Spend Hit Dice & Heal</button>
+          </div>
+        </div>
+      </div>
+
       <!-- JOIN CAMPAIGN MODAL -->
       <div *ngIf="showJoinModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
@@ -390,6 +433,9 @@ export interface SkillDefinition {
     .slot-lvl { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
     .slot-controls { display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 0.2rem; }
     .slot-val { font-size: 0.8rem; font-weight: 700; color: var(--accent-violet); }
+    .rest-details { background: rgba(0,0,0,0.3); border: 1px solid var(--border-card); border-radius: 8px; padding: 0.75rem; }
+    .rest-stat-row { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+    .warning-box { background: rgba(255, 75, 75, 0.15); border: 1px solid #ff4b4b; color: #ff4b4b; padding: 0.75rem; border-radius: 6px; margin-top: 1rem; font-size: 0.88rem; }
     .section-title-row { display: flex; justify-content: space-between; align-items: center; }
     .weapons-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
     .weapons-table th, .weapons-table td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border-card); }
@@ -417,6 +463,8 @@ export class PlayerComponent implements OnInit {
   editMode = false;
   showPortraitModal = false;
   showJoinModal = false;
+  showShortRestModal = false;
+  shortRestDiceToSpend = 1;
   joinInviteCode = '';
   rollMode: 'normal' | 'advantage' | 'disadvantage' = 'normal';
 
@@ -459,23 +507,98 @@ export class PlayerComponent implements OnInit {
     this.router.navigate(['/forge']);
   }
 
-  triggerShortRest() {
+  getClassHitDieSize(): number {
+    const char = this.charState.activeCharacter();
+    const c = (char?.char_class || '').toLowerCase();
+    if (c.includes('barbarian')) return 12;
+    if (c.includes('fighter') || c.includes('paladin') || c.includes('ranger')) return 10;
+    if (c.includes('sorcerer') || c.includes('wizard')) return 6;
+    return 8; // Bard, Cleric, Druid, Monk, Rogue, Warlock
+  }
+
+  getConModifier(): number {
+    const char = this.charState.activeCharacter();
+    const conVal = char?.stats?.['CON'] || 10;
+    return Math.floor((conVal - 10) / 2);
+  }
+
+  getAvailableHitDice(): number {
+    const char = this.charState.activeCharacter();
+    if (!char) return 0;
+    const total = char.char_level || 1;
+    const used = char.hit_dice_used || 0;
+    return Math.max(0, total - used);
+  }
+
+  openShortRestModal() {
+    this.shortRestDiceToSpend = 1;
+    this.showShortRestModal = true;
+  }
+
+  executeShortRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.rollToast.showMessage('🌟 SHORT REST COMPLETED', `Warlock spell slots and rest abilities recovered for ${char.char_name}.`);
+    const available = this.getAvailableHitDice();
+    if (available <= 0) return;
+
+    const count = Math.min(available, Math.max(1, this.shortRestDiceToSpend));
+    const dieSize = this.getClassHitDieSize();
+    const conMod = this.getConModifier();
+
+    let rollSum = 0;
+    const rolls: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const r = Math.floor(Math.random() * dieSize) + 1;
+      rolls.push(r);
+      rollSum += r;
+    }
+    const conBonus = conMod * count;
+    const totalHealed = Math.max(0, rollSum + conBonus);
+
+    const oldHp = char.hp_current ?? char.hp_max;
+    const newHp = Math.min(char.hp_max, oldHp + totalHealed);
+
+    char.hp_current = newHp;
+    char.hit_dice_used = (char.hit_dice_used || 0) + count;
+
+    // Warlock spell slots recovery
+    if (char.char_class.toLowerCase().includes('warlock') && char.spell_slots) {
+      Object.keys(char.spell_slots).forEach((key) => {
+        if (char.spell_slots) char.spell_slots[key].used = 0;
+      });
+    }
+
+    this.saveCurrentChar();
+    this.showShortRestModal = false;
+
+    this.rollToast.showRoll({
+      title: `⛺ SHORT REST HEAL (${count}d${dieSize})`,
+      expression: `${count}d${dieSize} (${rolls.join(', ')}) ${conBonus >= 0 ? '+' + conBonus : conBonus}`,
+      raw: rolls[0],
+      modifier: conBonus,
+      total: totalHealed,
+      message: `Healed for +${totalHealed} HP! (${oldHp} ➡️ ${newHp})`
+    });
   }
 
   triggerLongRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
     char.hp_current = char.hp_max;
+
+    // Recover half of hit dice
+    const totalHd = char.char_level || 1;
+    const currentUsed = char.hit_dice_used || 0;
+    const recoverCount = Math.floor(totalHd / 2) || 1;
+    char.hit_dice_used = Math.max(0, currentUsed - recoverCount);
+
     if (char.spell_slots) {
       Object.keys(char.spell_slots).forEach((key) => {
         if (char.spell_slots) char.spell_slots[key].used = 0;
       });
     }
     this.saveCurrentChar();
-    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP and spell slots restored for ${char.char_name}.`);
+    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${recoverCount} Hit Dice restored for ${char.char_name}.`);
   }
 
   getSpellSlotMax(lvl: number): number {
