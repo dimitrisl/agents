@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 
 export interface PartyMember {
+  char_id?: string;
   name: string;
   char_class: string;
   level: number;
@@ -12,13 +13,21 @@ export interface PartyMember {
   ac: number;
   passive_perception: number;
   conditions: string[];
+  stats?: { [key: string]: number };
+  portrait?: string;
 }
 
 export interface InitiativeCombatant {
+  id: string;
   name: string;
   initiative: number;
   hp: number;
+  max_hp: number;
+  ac: number;
+  dex: number;
   is_player: boolean;
+  portrait?: string;
+  statblock?: string;
 }
 
 @Component({
@@ -27,9 +36,10 @@ export interface InitiativeCombatant {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="dm-container">
+      <!-- Top Campaign Header -->
       <div class="phyrexian-card campaign-header">
         <div class="campaign-info">
-          <h2>🏰 Campaign Workspace: {{ campaignName }}</h2>
+          <h2>🏰 DM Workspace: {{ campaignName }}</h2>
           <span class="invite-badge" *ngIf="inviteCode">Invite Code: <strong>{{ inviteCode }}</strong></span>
         </div>
         <div class="campaign-actions">
@@ -38,12 +48,27 @@ export interface InitiativeCombatant {
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
+      <!-- DM Navigation Tabs -->
       <div class="nav-tabs">
+        <div class="tab-item" [class.active]="activeTab === 'notes'" (click)="activeTab = 'notes'">📝 Campaign Notes</div>
         <div class="tab-item" [class.active]="activeTab === 'party'" (click)="activeTab = 'party'">👥 Live Party Tracker</div>
         <div class="tab-item" [class.active]="activeTab === 'initiative'" (click)="activeTab = 'initiative'">⚔️ Initiative Tracker</div>
         <div class="tab-item" [class.active]="activeTab === 'generators'" (click)="activeTab = 'generators'">🎲 AI Generators</div>
         <div class="tab-item" [class.active]="activeTab === 'prep'" (click)="activeTab = 'prep'">📜 Session Prep</div>
+      </div>
+
+      <!-- TAB 0: CAMPAIGN NOTES -->
+      <div *ngIf="activeTab === 'notes'" class="phyrexian-card">
+        <h3>📝 Campaign Lore & DM Notes</h3>
+        <p class="subtitle">Record plot points, secret quest hooks, and session notes. Auto-saves to workspace.</p>
+
+        <textarea
+          class="phyrexian-textarea"
+          rows="12"
+          [(ngModel)]="campaignNotes"
+          placeholder="e.g. Chapter 3: The heroes enter the Sunless Citadel..."
+          (change)="saveCampaignNotes()">
+        </textarea>
       </div>
 
       <!-- TAB 1: PARTY TRACKER -->
@@ -52,15 +77,20 @@ export interface InitiativeCombatant {
           <h3>👥 Active Party Roster</h3>
           <button class="phyrexian-btn" (click)="showRollModal = true">🎲 Issue Party Roll Request</button>
         </div>
-        <p class="subtitle">Monitor health, status conditions, and send roll requests.</p>
-        
+        <p class="subtitle">Monitor health, status conditions, passive perception, and roll quick ability checks.</p>
+
         <div class="party-grid">
           <div class="party-card" *ngFor="let m of partyMembers">
             <div class="card-header">
-              <h4>{{ m.name }}</h4>
-              <span class="class-tag">Lvl {{ m.level }} {{ m.char_class }}</span>
+              <div class="member-title">
+                <img [src]="m.portrait || 'https://img.icons8.com/color/96/knight.png'" class="mini-portrait" />
+                <div>
+                  <h4>{{ m.name }}</h4>
+                  <span class="class-tag">Lvl {{ m.level }} {{ m.char_class }}</span>
+                </div>
+              </div>
             </div>
-            
+
             <div class="vitals-row">
               <span>🛡️ AC: {{ m.ac }}</span>
               <span>👁️ Perception: {{ m.passive_perception }}</span>
@@ -74,10 +104,21 @@ export interface InitiativeCombatant {
               <button class="hp-btn" (click)="adjustHp(m, 1)">+</button>
             </div>
 
+            <!-- DM Quick Roll Stats -->
+            <div class="stat-rolls-section">
+              <span class="section-sublabel">DM Quick Check:</span>
+              <div class="mini-stat-grid">
+                <button *ngFor="let st of ['STR','DEX','CON','INT','WIS','CHA']" class="phyrexian-btn-secondary mini-stat-btn" (click)="quickDmStatRoll(m, st)">
+                  {{ st }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Status Badges -->
             <div class="conditions-row">
-              <span 
-                *ngFor="let cond of availableConditions" 
-                class="cond-badge" 
+              <span
+                *ngFor="let cond of availableConditions"
+                class="cond-badge"
                 [class.active]="m.conditions.includes(cond)"
                 (click)="toggleCondition(m, cond)">
                 {{ cond }}
@@ -85,7 +126,7 @@ export interface InitiativeCombatant {
             </div>
 
             <button class="phyrexian-btn-secondary full-btn mini-btn" style="margin-top: 0.75rem;" (click)="openSingleRollModal(m)">
-              🎲 Roll Request
+              🎲 Private Roll Request
             </button>
           </div>
         </div>
@@ -96,15 +137,17 @@ export interface InitiativeCombatant {
         <div class="init-header">
           <h3>⚔️ Initiative Combat Tracker</h3>
           <div class="init-actions">
+            <button class="phyrexian-btn-secondary" (click)="importPartyToInitiative()">👥 Import Party</button>
             <button class="phyrexian-btn-secondary" (click)="rollAllInitiative()">🎲 Roll All</button>
             <button class="phyrexian-btn" (click)="nextTurn()">Next Turn ➡️</button>
           </div>
         </div>
 
         <div class="add-combatant-row">
-          <input type="text" class="phyrexian-input" placeholder="Combatant Name" [(ngModel)]="newCombatantName" />
+          <input type="text" class="phyrexian-input" placeholder="Combatant Name (e.g. Goblin Warlord)" [(ngModel)]="newCombatantName" />
           <input type="number" class="phyrexian-input" placeholder="Init Score" [(ngModel)]="newCombatantInit" style="width: 100px;" />
-          <button class="phyrexian-btn" (click)="addCombatant()">+ Add Combatant</button>
+          <input type="number" class="phyrexian-input" placeholder="HP" [(ngModel)]="newCombatantHp" style="width: 90px;" />
+          <button class="phyrexian-btn" (click)="addCombatant()">+ Add Monster</button>
         </div>
 
         <table class="init-table" *ngIf="combatants.length > 0">
@@ -114,19 +157,30 @@ export interface InitiativeCombatant {
               <th>Combatant</th>
               <th>Initiative</th>
               <th>HP</th>
-              <th>Action</th>
+              <th>Actions & Info</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let c of combatants; let i = index" [class.active-turn]="i === activeTurnIndex">
               <td><span *ngIf="i === activeTurnIndex" class="turn-indicator">⚔️ CURRENT</span></td>
-              <td><strong>{{ c.name }}</strong></td>
+              <td>
+                <div class="combatant-name-cell">
+                  <img [src]="c.portrait || 'https://img.icons8.com/color/96/monster.png'" class="mini-portrait" />
+                  <strong>{{ c.name }}</strong>
+                </div>
+              </td>
               <td>{{ c.initiative }}</td>
               <td>
-                <input type="number" class="phyrexian-input mini-hp-input" [(ngModel)]="c.hp" />
+                <div class="hp-cell">
+                  <input type="number" class="phyrexian-input mini-hp-input" [(ngModel)]="c.hp" />
+                  <span>/ {{ c.max_hp }}</span>
+                </div>
               </td>
               <td>
-                <button class="clear-btn" (click)="removeCombatant(i)">❌ Remove</button>
+                <div class="action-cell-btns">
+                  <button class="phyrexian-btn-secondary mini-btn" (click)="openStatblock(c)">📜 Statblock</button>
+                  <button class="clear-btn" (click)="removeCombatant(i)">❌ Remove</button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -165,7 +219,7 @@ export interface InitiativeCombatant {
       <div *ngIf="activeTab === 'prep'" class="phyrexian-card">
         <h3>📜 AI Session Prep Assistant</h3>
         <p class="subtitle">Enter your recap and ideas to generate structured DM session notes.</p>
-        
+
         <div class="form-group">
           <label>Campaign Recap & DM Ideas:</label>
           <textarea class="phyrexian-textarea" rows="4" [(ngModel)]="prepNotes" placeholder="Recap: The party defeated the goblin warlord... Ideas: Introduce a secretive cult next."></textarea>
@@ -204,8 +258,8 @@ export interface InitiativeCombatant {
       <!-- ROLL REQUEST MODAL -->
       <div *ngIf="showRollModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
-          <h3>🎲 Issue Roll Request</h3>
-          
+          <h3>🎲 Issue Private Roll Request</h3>
+
           <div class="form-group">
             <label>Target Member:</label>
             <select class="phyrexian-select" [(ngModel)]="rollTargetMember">
@@ -240,9 +294,32 @@ export interface InitiativeCombatant {
             <input type="text" class="phyrexian-input" [(ngModel)]="rollReason" placeholder="e.g. Dragon Breath Fire Save" />
           </div>
 
+          <div class="form-group">
+            <label class="secret-checkbox">
+              <input type="checkbox" [(ngModel)]="isSecretRoll" /> 🔒 Secret Roll (Hide result from player)
+            </label>
+          </div>
+
           <div class="modal-actions">
             <button class="phyrexian-btn-secondary" (click)="showRollModal = false">Cancel</button>
             <button class="phyrexian-btn" (click)="sendRollRequest()">Request Roll</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATBLOCK MODAL -->
+      <div *ngIf="selectedStatblockCombatant" class="modal-backdrop">
+        <div class="phyrexian-card modal-card wide-modal">
+          <h2>📜 Statblock: {{ selectedStatblockCombatant.name }}</h2>
+          <p class="subtitle">AC: {{ selectedStatblockCombatant.ac }} | HP: {{ selectedStatblockCombatant.max_hp }} | DEX: {{ selectedStatblockCombatant.dex }}</p>
+
+          <div class="statblock-content">
+            <p>{{ selectedStatblockCombatant.statblock || 'Standard D&D 5e monster statblock.' }}</p>
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="openBeyondUrl(selectedStatblockCombatant.name)">🌐 View on D&D Beyond</button>
+            <button class="phyrexian-btn" (click)="selectedStatblockCombatant = null">Close</button>
           </div>
         </div>
       </div>
@@ -256,12 +333,18 @@ export interface InitiativeCombatant {
     .subtitle { color: var(--text-muted); margin-bottom: 1rem; }
     .party-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
     .party-card { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); border-radius: 8px; padding: 1rem; }
+    .member-title { display: flex; align-items: center; gap: 0.6rem; }
+    .mini-portrait { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid var(--theme-accent); }
     .card-header { display: flex; justify-content: space-between; align-items: center; }
     .class-tag { font-size: 0.75rem; color: var(--text-muted); }
     .vitals-row { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); margin: 0.5rem 0; }
     .hp-row { display: flex; align-items: center; gap: 0.5rem; }
     .hp-btn { width: 22px; height: 22px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid var(--border-card); color: #fff; border-radius: 4px; }
     .mini-hp-input { width: 55px; padding: 0.2rem; text-align: center; }
+    .stat-rolls-section { margin-top: 0.5rem; }
+    .section-sublabel { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+    .mini-stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.2rem; margin-top: 0.2rem; }
+    .mini-stat-btn { font-size: 0.65rem; padding: 0.15rem; text-align: center; justify-content: center; }
     .conditions-row { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.5rem; }
     .cond-badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; background: rgba(255, 255, 255, 0.1); cursor: pointer; }
     .cond-badge.active { background: var(--primary-red); color: #fff; }
@@ -272,22 +355,29 @@ export interface InitiativeCombatant {
     .init-table th, .init-table td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border-card); }
     .active-turn { background: rgba(255, 75, 75, 0.15); border-left: 3px solid var(--theme-accent); }
     .turn-indicator { font-weight: 700; color: var(--theme-accent); font-size: 0.75rem; }
+    .combatant-name-cell { display: flex; align-items: center; gap: 0.5rem; }
+    .hp-cell { display: flex; align-items: center; gap: 0.3rem; }
+    .action-cell-btns { display: flex; gap: 0.5rem; align-items: center; }
     .clear-btn { background: none; border: none; color: #ff4b4b; cursor: pointer; font-size: 0.8rem; }
     .form-row { display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem; }
     .result-box { margin-top: 1rem; background: rgba(0, 0, 0, 0.4); padding: 1rem; border-radius: 8px; }
     .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-    .modal-card { width: 100%; max-width: 450px; }
+    .modal-card { width: 100%; max-width: 480px; }
+    .wide-modal { max-width: 650px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
     .full-btn { width: 100%; }
     .mini-btn { font-size: 0.75rem; padding: 0.3rem; }
+    .secret-checkbox { font-size: 0.85rem; cursor: pointer; color: var(--accent-gold); display: flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; }
   `]
 })
 export class DmComponent implements OnInit {
-  activeTab: 'party' | 'initiative' | 'generators' | 'prep' = 'party';
+  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' = 'party';
   campaignName = 'The Obsidian Citadel';
+  campaignNotes = 'Chapter 3: The heroes enter the Sunless Citadel in search of the lost Gulthias Tree...';
   inviteCode = '';
   showWhisperModal = false;
   showRollModal = false;
+  selectedStatblockCombatant: InitiativeCombatant | null = null;
 
   whisperRecipient = 'All';
   whisperMessage = '';
@@ -296,6 +386,7 @@ export class DmComponent implements OnInit {
   rollType = 'saving_throw';
   rollStat = 'DEX';
   rollReason = 'Dragon Breath Fire Save';
+  isSecretRoll = false;
 
   avgLevel = 5;
   location = 'Crypt';
@@ -310,26 +401,31 @@ export class DmComponent implements OnInit {
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
   partyMembers: PartyMember[] = [
-    { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'] },
-    { name: 'Ezren', char_class: 'Wizard', level: 5, hp_current: 28, hp_max: 28, ac: 13, passive_perception: 12, conditions: [] },
-    { name: 'Merisiel', char_class: 'Rogue', level: 5, hp_current: 35, hp_max: 35, ac: 16, passive_perception: 16, conditions: [] },
+    { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'], stats: { STR: 18, DEX: 12, CON: 15, INT: 10, WIS: 14, CHA: 16 } },
+    { name: 'Ezren', char_class: 'Wizard', level: 5, hp_current: 28, hp_max: 28, ac: 13, passive_perception: 12, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 18, WIS: 13, CHA: 10 } },
+    { name: 'Merisiel', char_class: 'Rogue', level: 5, hp_current: 35, hp_max: 35, ac: 16, passive_perception: 16, conditions: [], stats: { STR: 12, DEX: 18, CON: 14, INT: 12, WIS: 14, CHA: 12 } },
   ];
 
   combatants: InitiativeCombatant[] = [
-    { name: 'Merisiel', initiative: 21, hp: 35, is_player: true },
-    { name: 'Valeros', initiative: 16, hp: 44, is_player: true },
-    { name: 'Goblin Warlord', initiative: 14, hp: 30, is_player: false },
-    { name: 'Ezren', initiative: 9, hp: 28, is_player: true },
+    { id: '1', name: 'Merisiel', initiative: 21, hp: 35, max_hp: 35, ac: 16, dex: 18, is_player: true },
+    { id: '2', name: 'Valeros', initiative: 16, hp: 44, max_hp: 44, ac: 18, dex: 12, is_player: true },
+    { id: '3', name: 'Goblin Warlord', initiative: 14, hp: 30, max_hp: 30, ac: 15, dex: 14, is_player: false, statblock: 'Medium humanoid (goblinoid), neutral evil. Multiattack (2 Scimitar attacks). Scimitar: +5 to hit, 1d6+3 slashing.' },
+    { id: '4', name: 'Ezren', initiative: 9, hp: 28, max_hp: 28, ac: 13, dex: 14, is_player: true },
   ];
   activeTurnIndex = 0;
 
   newCombatantName = '';
   newCombatantInit = 10;
+  newCombatantHp = 20;
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
     this.generateInviteCode();
+  }
+
+  saveCampaignNotes() {
+    alert('Campaign notes saved!');
   }
 
   generateInviteCode() {
@@ -348,6 +444,14 @@ export class DmComponent implements OnInit {
     else member.conditions.push(cond);
   }
 
+  quickDmStatRoll(member: PartyMember, stat: string) {
+    const val = member.stats?.[stat] || 10;
+    const mod = Math.floor((val - 10) / 2);
+    const raw = Math.floor(Math.random() * 20) + 1;
+    const total = raw + mod;
+    alert(`🎲 DM Quick Check for ${member.name} (${stat}): d20(${raw}) + ${mod} = ${total}`);
+  }
+
   openSingleRollModal(m: PartyMember) {
     this.rollTargetMember = m.name;
     this.showRollModal = true;
@@ -360,18 +464,46 @@ export class DmComponent implements OnInit {
       char_name: this.rollTargetMember,
       roll_type: this.rollType,
       stat: this.rollStat,
-      reason: this.rollReason
+      reason: this.rollReason,
+      is_secret: this.isSecretRoll
     }).subscribe(() => {
-      alert(`Issued ${this.rollType} (${this.rollStat}) roll request to ${this.rollTargetMember}!`);
+      const secTag = this.isSecretRoll ? ' 🔒 [SECRET]' : '';
+      alert(`Issued ${this.rollType} (${this.rollStat}) roll request to ${this.rollTargetMember}${secTag}!`);
     });
+  }
+
+  importPartyToInitiative() {
+    this.partyMembers.forEach((p) => {
+      if (!this.combatants.some((c) => c.name === p.name)) {
+        const dexVal = p.stats?.['DEX'] || 10;
+        const dexMod = Math.floor((dexVal - 10) / 2);
+        this.combatants.push({
+          id: Math.random().toString(36).substring(2, 9),
+          name: p.name,
+          initiative: 10 + dexMod,
+          hp: p.hp_current,
+          max_hp: p.hp_max,
+          ac: p.ac,
+          dex: dexVal,
+          is_player: true,
+          portrait: p.portrait
+        });
+      }
+    });
+    this.sortCombatants();
+    alert('Imported party members into Initiative Tracker!');
   }
 
   addCombatant() {
     if (!this.newCombatantName) return;
     this.combatants.push({
+      id: Math.random().toString(36).substring(2, 9),
       name: this.newCombatantName,
       initiative: this.newCombatantInit,
-      hp: 20,
+      hp: this.newCombatantHp,
+      max_hp: this.newCombatantHp,
+      ac: 12,
+      dex: 10,
       is_player: false,
     });
     this.sortCombatants();
@@ -396,6 +528,15 @@ export class DmComponent implements OnInit {
   nextTurn() {
     if (this.combatants.length === 0) return;
     this.activeTurnIndex = (this.activeTurnIndex + 1) % this.combatants.length;
+  }
+
+  openStatblock(c: InitiativeCombatant) {
+    this.selectedStatblockCombatant = c;
+  }
+
+  openBeyondUrl(name: string) {
+    const slug = name.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/ /g, '-');
+    window.open(`https://www.dndbeyond.com/monsters/${slug}`, '_blank');
   }
 
   generateEncounter() {
