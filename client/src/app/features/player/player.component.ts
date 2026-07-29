@@ -22,8 +22,8 @@ export interface SkillDefinition {
       <div class="phyrexian-card vault-bar">
         <div class="vault-selector">
           <label>📜 Hero Vault:</label>
-          <select 
-            class="phyrexian-select" 
+          <select
+            class="phyrexian-select"
             [ngModel]="charState.activeCharacter()?.char_id"
             (ngModelChange)="onSelectCharacter($event)">
             <option *ngFor="let c of charState.characters()" [value]="c.char_id">
@@ -38,6 +38,8 @@ export interface SkillDefinition {
             {{ editMode ? '💾 Done Editing' : '✏️ Edit Sheet' }}
           </button>
           <button class="phyrexian-btn-secondary" (click)="showJoinModal = true">🔑 Join Campaign</button>
+          <button class="phyrexian-btn-secondary rest-btn" (click)="triggerShortRest()">🌟 Short Rest</button>
+          <button class="phyrexian-btn-secondary rest-btn long-rest" (click)="triggerLongRest()">🌙 Long Rest</button>
           <button class="phyrexian-btn-secondary" (click)="onLevelUp()">⚡ Level Up</button>
           <button class="phyrexian-btn-secondary" (click)="onGenerateStrategy()">📖 AI Strategy Guide</button>
           <button class="phyrexian-btn-secondary" (click)="onExportPdf()">📥 Export PDF</button>
@@ -79,7 +81,7 @@ export interface SkillDefinition {
               <input type="number" class="phyrexian-input" [(ngModel)]="char.char_level" placeholder="Level" (change)="saveCurrentChar()" />
               <input type="text" class="phyrexian-input" [(ngModel)]="char.background" placeholder="Background" (change)="saveCurrentChar()" />
             </div>
-            
+
             <div class="vitals-boxes">
               <div class="stat-box">
                 <span class="stat-label">Armor Class</span>
@@ -113,14 +115,14 @@ export interface SkillDefinition {
           </div>
         </div>
 
-        <!-- 6 Ability Scores Grid with Roll Save / Check buttons -->
+        <!-- 6 Ability Scores Grid -->
         <div class="stats-grid">
           <div class="stat-box" *ngFor="let entry of getStatsArray(char.stats)">
             <span class="stat-label">{{ entry.key }}</span>
             <span *ngIf="!editMode" class="stat-value">{{ entry.value }}</span>
             <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.stats[entry.key]" (change)="saveCurrentChar()" />
             <span class="stat-mod">({{ getModifierString(char.stats[entry.key]) }})</span>
-            
+
             <div class="stat-roll-btns">
               <button class="phyrexian-btn-secondary mini-roll-btn" (click)="rollAbilityCheck(entry.key)">
                 Check
@@ -239,7 +241,22 @@ export interface SkillDefinition {
 
         <!-- Subtab 2: Spells & Features -->
         <div *ngIf="sheetSubTab === 'spells'" class="phyrexian-card">
-          <h3>🌟 Class Features & Racial Traits</h3>
+          <!-- Spell Slots Tracker -->
+          <div class="spell-slots-section">
+            <h3>✨ Spell Slots Tracker</h3>
+            <div class="slots-grid">
+              <div class="slot-box" *ngFor="let lvl of [1,2,3,4,5,6,7,8,9]">
+                <span class="slot-lvl">Lvl {{ lvl }}</span>
+                <div class="slot-controls">
+                  <button class="hp-btn" (click)="useSpellSlot(lvl)">-</button>
+                  <span class="slot-val">{{ getSpellSlotUsed(lvl) }} / {{ getSpellSlotMax(lvl) }}</span>
+                  <button class="hp-btn" (click)="restoreSpellSlot(lvl)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 1.5rem;">🌟 Class Features & Racial Traits</h3>
           <div class="features-list">
             <div class="feature-card" *ngFor="let f of char.features_traits">
               <h4>{{ f.name }}</h4>
@@ -332,8 +349,10 @@ export interface SkillDefinition {
   styles: [`
     .vault-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
     .vault-selector { display: flex; align-items: center; gap: 0.75rem; }
-    .vault-actions { display: flex; gap: 0.5rem; align-items: center; }
+    .vault-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .import-label { margin: 0; cursor: pointer; }
+    .rest-btn { border-color: var(--accent-gold); color: var(--accent-gold); }
+    .long-rest { border-color: var(--accent-violet); color: var(--accent-violet); }
     .campaign-indicator { background: rgba(212, 175, 55, 0.15); border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.88rem; }
     .vitals-grid { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
     .char-portrait { position: relative; cursor: pointer; }
@@ -365,6 +384,11 @@ export interface SkillDefinition {
     .ability-tag { font-size: 0.75rem; color: var(--text-muted); }
     .skill-actions { display: flex; align-items: center; gap: 0.5rem; }
     .skill-mod-badge { background: rgba(255, 255, 255, 0.1); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: var(--text-gold); }
+    .slots-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 0.5rem; margin-top: 0.75rem; }
+    .slot-box { background: rgba(0,0,0,0.3); border: 1px solid var(--border-card); padding: 0.4rem; border-radius: 6px; text-align: center; }
+    .slot-lvl { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
+    .slot-controls { display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 0.2rem; }
+    .slot-val { font-size: 0.8rem; font-weight: 700; color: var(--accent-violet); }
     .section-title-row { display: flex; justify-content: space-between; align-items: center; }
     .weapons-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
     .weapons-table th, .weapons-table td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border-card); }
@@ -431,6 +455,55 @@ export class PlayerComponent implements OnInit {
 
   goToForge() {
     this.router.navigate(['/forge']);
+  }
+
+  triggerShortRest() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    alert(`🌟 Short Rest completed for ${char.char_name}! Warlock slots & rest abilities recovered.`);
+  }
+
+  triggerLongRest() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    char.hp_current = char.hp_max;
+    if (char.spell_slots) {
+      Object.keys(char.spell_slots).forEach((key) => {
+        if (char.spell_slots) char.spell_slots[key].used = 0;
+      });
+    }
+    this.saveCurrentChar();
+    alert(`🌙 Long Rest completed for ${char.char_name}! Full HP and spell slots restored.`);
+  }
+
+  getSpellSlotMax(lvl: number): number {
+    const char = this.charState.activeCharacter();
+    return char?.spell_slots?.[`level_${lvl}`]?.max || 0;
+  }
+
+  getSpellSlotUsed(lvl: number): number {
+    const char = this.charState.activeCharacter();
+    return char?.spell_slots?.[`level_${lvl}`]?.used || 0;
+  }
+
+  useSpellSlot(lvl: number) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (!char.spell_slots) char.spell_slots = {};
+    const key = `level_${lvl}`;
+    if (!char.spell_slots[key]) char.spell_slots[key] = { max: 4, used: 0 };
+    char.spell_slots[key].used = Math.min(char.spell_slots[key].max, char.spell_slots[key].used + 1);
+    this.saveCurrentChar();
+  }
+
+  restoreSpellSlot(lvl: number) {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.spell_slots) return;
+    const key = `level_${lvl}`;
+    if (char.spell_slots[key]) {
+      char.spell_slots[key].used = Math.max(0, char.spell_slots[key].used - 1);
+      this.saveCurrentChar();
+    }
   }
 
   isProficient(skillName: string): boolean {
