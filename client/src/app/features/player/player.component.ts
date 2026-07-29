@@ -7,6 +7,11 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-roller.component';
 
+export interface SkillDefinition {
+  name: string;
+  ability: 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
+}
+
 @Component({
   selector: 'app-player',
   standalone: true,
@@ -108,21 +113,68 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
           </div>
         </div>
 
-        <!-- 6 Ability Scores Grid -->
+        <!-- 6 Ability Scores Grid with Roll Save / Check buttons -->
         <div class="stats-grid">
           <div class="stat-box" *ngFor="let entry of getStatsArray(char.stats)">
             <span class="stat-label">{{ entry.key }}</span>
             <span *ngIf="!editMode" class="stat-value">{{ entry.value }}</span>
             <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.stats[entry.key]" (change)="saveCurrentChar()" />
             <span class="stat-mod">({{ getModifierString(char.stats[entry.key]) }})</span>
+            
+            <div class="stat-roll-btns">
+              <button class="phyrexian-btn-secondary mini-roll-btn" (click)="rollAbilityCheck(entry.key)">
+                Check
+              </button>
+              <button class="phyrexian-btn-secondary mini-roll-btn save-btn" (click)="rollSavingThrow(entry.key)">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Roll Mode Advantage Selector -->
+        <div class="phyrexian-card roll-mode-bar">
+          <label>🎲 Roll Advantage Mode:</label>
+          <div class="roll-mode-options">
+            <label class="radio-label">
+              <input type="radio" name="rollMode" value="normal" [(ngModel)]="rollMode" /> Normal
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="rollMode" value="advantage" [(ngModel)]="rollMode" /> Advantage ⚡
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="rollMode" value="disadvantage" [(ngModel)]="rollMode" /> Disadvantage ⚠️
+            </label>
           </div>
         </div>
 
         <!-- Sheet Tabs Navigation -->
         <div class="nav-tabs">
+          <div class="tab-item" [class.active]="sheetSubTab === 'skills'" (click)="sheetSubTab = 'skills'">📜 Skills & Checks</div>
           <div class="tab-item" [class.active]="sheetSubTab === 'combat'" (click)="sheetSubTab = 'combat'">⚔️ Combat & Inventory</div>
           <div class="tab-item" [class.active]="sheetSubTab === 'spells'" (click)="sheetSubTab = 'spells'">✨ Spells & Features</div>
           <div class="tab-item" [class.active]="sheetSubTab === 'roleplay'" (click)="sheetSubTab = 'roleplay'">📖 Lore & Roleplay</div>
+        </div>
+
+        <!-- Subtab 0: SKILLS & CHECKS GRID -->
+        <div *ngIf="sheetSubTab === 'skills'" class="phyrexian-card">
+          <h3>📜 Skill Proficiencies & Rollers</h3>
+          <p class="subtitle">Click "Roll" next to any skill (Athletics, Acrobatics, Stealth, etc.) to perform a check.</p>
+
+          <div class="skills-grid">
+            <div class="skill-card" *ngFor="let s of allSkills">
+              <div class="skill-info">
+                <span class="prof-star" [class.active]="isProficient(s.name)">{{ isProficient(s.name) ? '⭐' : '⚪' }}</span>
+                <strong>{{ s.name }}</strong>
+                <span class="ability-tag">({{ s.ability }})</span>
+              </div>
+
+              <div class="skill-actions">
+                <span class="skill-mod-badge">{{ getSkillModString(s) }}</span>
+                <button class="phyrexian-btn mini-btn" (click)="rollSkillCheck(s)">🎲 Roll</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Subtab 1: Combat & Inventory -->
@@ -298,7 +350,21 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
     .hp-controls { display: flex; align-items: center; gap: 0.5rem; }
     .hp-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border-card); color: #fff; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; }
     .hp-btn:hover { background: var(--theme-accent); }
-    .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; margin-bottom: 1rem; }
+    .stat-roll-btns { display: flex; gap: 0.25rem; margin-top: 0.4rem; justify-content: center; }
+    .mini-roll-btn { font-size: 0.68rem; padding: 0.15rem 0.35rem; }
+    .save-btn { border-color: var(--accent-gold); color: var(--accent-gold); }
+    .roll-mode-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.6rem 1.25rem; }
+    .roll-mode-options { display: flex; gap: 1.5rem; }
+    .radio-label { font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; }
+    .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 1rem; }
+    .skill-card { background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-card); border-radius: 8px; padding: 0.6rem 0.8rem; display: flex; justify-content: space-between; align-items: center; }
+    .skill-info { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; }
+    .prof-star { opacity: 0.3; }
+    .prof-star.active { opacity: 1; }
+    .ability-tag { font-size: 0.75rem; color: var(--text-muted); }
+    .skill-actions { display: flex; align-items: center; gap: 0.5rem; }
+    .skill-mod-badge { background: rgba(255, 255, 255, 0.1); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: var(--text-gold); }
     .section-title-row { display: flex; justify-content: space-between; align-items: center; }
     .weapons-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
     .weapons-table th, .weapons-table td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border-card); }
@@ -322,14 +388,36 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
 })
 export class PlayerComponent implements OnInit {
   activeTab: 'sheet' = 'sheet';
-  sheetSubTab: 'combat' | 'spells' | 'roleplay' = 'combat';
+  sheetSubTab: 'skills' | 'combat' | 'spells' | 'roleplay' = 'skills';
   editMode = false;
   showPortraitModal = false;
   showJoinModal = false;
   joinInviteCode = '';
+  rollMode: 'normal' | 'advantage' | 'disadvantage' = 'normal';
 
   portraitPrompt = '';
   strategyGuideText: string | null = null;
+
+  allSkills: SkillDefinition[] = [
+    { name: 'Athletics', ability: 'STR' },
+    { name: 'Acrobatics', ability: 'DEX' },
+    { name: 'Sleight of Hand', ability: 'DEX' },
+    { name: 'Stealth', ability: 'DEX' },
+    { name: 'Arcana', ability: 'INT' },
+    { name: 'History', ability: 'INT' },
+    { name: 'Investigation', ability: 'INT' },
+    { name: 'Nature', ability: 'INT' },
+    { name: 'Religion', ability: 'INT' },
+    { name: 'Animal Handling', ability: 'WIS' },
+    { name: 'Insight', ability: 'WIS' },
+    { name: 'Medicine', ability: 'WIS' },
+    { name: 'Perception', ability: 'WIS' },
+    { name: 'Survival', ability: 'WIS' },
+    { name: 'Deception', ability: 'CHA' },
+    { name: 'Intimidation', ability: 'CHA' },
+    { name: 'Performance', ability: 'CHA' },
+    { name: 'Persuasion', ability: 'CHA' },
+  ];
 
   constructor(
     public charState: CharacterStateService,
@@ -343,6 +431,72 @@ export class PlayerComponent implements OnInit {
 
   goToForge() {
     this.router.navigate(['/forge']);
+  }
+
+  isProficient(skillName: string): boolean {
+    const char = this.charState.activeCharacter();
+    return char?.skill_proficiencies?.includes(skillName) || false;
+  }
+
+  getSkillModifier(skill: SkillDefinition): number {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.stats) return 0;
+    const statVal = char.stats[skill.ability] || 10;
+    const statMod = Math.floor((statVal - 10) / 2);
+    const profBonus = char.proficiency_bonus || 2;
+    const isProf = this.isProficient(skill.name);
+    return statMod + (isProf ? profBonus : 0);
+  }
+
+  getSkillModString(skill: SkillDefinition): string {
+    const mod = this.getSkillModifier(skill);
+    return mod >= 0 ? `+${mod}` : `${mod}`;
+  }
+
+  rollD20(): number {
+    if (this.rollMode === 'advantage') {
+      const r1 = Math.floor(Math.random() * 20) + 1;
+      const r2 = Math.floor(Math.random() * 20) + 1;
+      return Math.max(r1, r2);
+    } else if (this.rollMode === 'disadvantage') {
+      const r1 = Math.floor(Math.random() * 20) + 1;
+      const r2 = Math.floor(Math.random() * 20) + 1;
+      return Math.min(r1, r2);
+    }
+    return Math.floor(Math.random() * 20) + 1;
+  }
+
+  rollSkillCheck(skill: SkillDefinition) {
+    const raw = this.rollD20();
+    const mod = this.getSkillModifier(skill);
+    const total = raw + mod;
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
+    alert(`🎲 ${skill.name} Check${modeLabel}: d20(${raw}) + ${mod} = ${total}`);
+  }
+
+  rollAbilityCheck(stat: string) {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.stats) return;
+    const val = char.stats[stat] || 10;
+    const mod = Math.floor((val - 10) / 2);
+    const raw = this.rollD20();
+    const total = raw + mod;
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
+    alert(`🎲 ${stat} Ability Check${modeLabel}: d20(${raw}) + ${mod} = ${total}`);
+  }
+
+  rollSavingThrow(stat: string) {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.stats) return;
+    const val = char.stats[stat] || 10;
+    const mod = Math.floor((val - 10) / 2);
+    const isSaveProf = char.saving_throws?.includes(stat);
+    const profBonus = char.proficiency_bonus || 2;
+    const totalMod = mod + (isSaveProf ? profBonus : 0);
+    const raw = this.rollD20();
+    const total = raw + totalMod;
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
+    alert(`🛡️ ${stat} Saving Throw${modeLabel}: d20(${raw}) + ${totalMod} = ${total}`);
   }
 
   joinCampaign() {
@@ -480,7 +634,9 @@ export class PlayerComponent implements OnInit {
   }
 
   rollWeaponAttack(w: Weapon) {
-    alert(`Rolled Attack for ${w.name}: 1d20 ${w.attack_bonus}`);
+    const raw = this.rollD20();
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
+    alert(`⚔️ ${w.name} Attack Roll${modeLabel}: d20(${raw}) ${w.attack_bonus}`);
   }
 
   getStatsArray(stats: any) {
