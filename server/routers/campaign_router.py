@@ -48,7 +48,7 @@ class WhisperRequest(BaseModel):
 async def list_campaigns(current_user: dict = Depends(get_current_user)):
     db = get_database()
     cursor = db["campaigns"].find(
-        {"$or": [{"owner_id": current_user["id"]}, {"party": {"$exists": True}}]}
+        {"$or": [{"owner_id": current_user["id"]}, {"party": current_user["id"]}]}
     )
     campaigns = []
     async for doc in cursor:
@@ -163,7 +163,7 @@ async def add_roll_request(
         "status": "pending",
         "result": None,
         "is_secret": req_in.is_secret,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
     requests = camp.get("roll_requests", [])

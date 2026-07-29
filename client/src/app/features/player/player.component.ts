@@ -7,6 +7,7 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-roller.component';
+import { environment } from '../../../environments/environment';
 
 export interface SkillDefinition {
   name: string;
@@ -783,7 +784,7 @@ export class PlayerComponent implements OnInit {
     const char = this.charState.activeCharacter();
     if (!char || !this.joinInviteCode) return;
 
-    this.http.post<any>('http://localhost:8000/api/v1/campaigns/join', {
+    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/join`, {
       invite_code: this.joinInviteCode.toUpperCase(),
       char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`
     }).subscribe({
@@ -861,7 +862,7 @@ export class PlayerComponent implements OnInit {
   generateAiPortrait() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
-    this.http.post<any>('http://localhost:8000/api/v1/forge/portrait', {
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: char.char_id,
       prompt: this.portraitPrompt
     }).subscribe((res) => {
@@ -876,7 +877,7 @@ export class PlayerComponent implements OnInit {
   onLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.http.post<any>('http://localhost:8000/api/v1/forge/level-up-analysis', {
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
       character: char
     }).subscribe((analysis) => {
       this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `HP Increase: +${analysis.hp_increase} | New Total HP: ${analysis.new_total_hp}`);
@@ -886,7 +887,7 @@ export class PlayerComponent implements OnInit {
   onGenerateStrategy() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.http.post<any>('http://localhost:8000/api/v1/forge/playstyle-guide', char).subscribe((res) => {
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe((res) => {
       this.strategyGuideText = res.guide_markdown;
     });
   }
@@ -894,7 +895,7 @@ export class PlayerComponent implements OnInit {
   onExportPdf() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
-    window.open(`http://localhost:8000/api/v1/characters/${char.char_id}/export-pdf`, '_blank');
+    window.open(`${environment.apiBaseUrl}/characters/${char.char_id}/export-pdf`, `_blank');
   }
 
   onImportPdf(event: any) {
@@ -904,7 +905,7 @@ export class PlayerComponent implements OnInit {
     const formData = new FormData();
     formData.append('file', file);
 
-    this.http.post<CharacterSchema>('http://localhost:8000/api/v1/characters/import-pdf', formData).subscribe({
+    this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/characters/import-pdf`, formData).subscribe({
       next: (imported) => {
         this.charState.saveCharacter(imported).subscribe();
         this.rollToast.showMessage('📥 PDF IMPORTED', `Successfully imported ${imported.char_name}!`);

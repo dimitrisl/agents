@@ -3,12 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { User, AuthResponse } from '../models/user.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly API_URL = 'http://localhost:8000/api/v1/auth';
+  private readonly API_URL = `${environment.apiBaseUrl}/auth`;
 
   // Angular Signals for active user state
   readonly currentUser = signal<User | null>(null);

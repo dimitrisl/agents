@@ -2,12 +2,13 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { CharacterSchema } from '../models/character.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CharacterStateService {
-  private readonly API_URL = 'http://localhost:8000/api/v1/characters';
+  private readonly API_URL = `${environment.apiBaseUrl}/characters`;
 
   // Signals
   readonly characters = signal<CharacterSchema[]>([]);

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { environment } from '../../../environments/environment';
 
 export interface PartyMember {
   char_id?: string;
@@ -536,7 +537,7 @@ export class DmComponent implements OnInit {
   }
 
   loadCampaigns() {
-    this.http.get<any[]>('http://localhost:8000/api/v1/campaigns/').subscribe({
+    this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
       next: (camps) => {
         this.userCampaigns = camps || [];
         if (this.userCampaigns.length > 0 && !this.userCampaigns.some((c) => c.campaign_name === this.campaignName)) {
@@ -615,7 +616,7 @@ export class DmComponent implements OnInit {
       dnd_edition: '2014 Edition'
     };
 
-    this.http.post<any>('http://localhost:8000/api/v1/campaigns/', newCamp).subscribe({
+    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/`, newCamp).subscribe({
       next: (res) => {
         this.userCampaigns.push(res);
         this.campaignName = res.campaign_name;
@@ -643,7 +644,7 @@ export class DmComponent implements OnInit {
   }
 
   generateInviteCode() {
-    this.http.post<any>(`http://localhost:8000/api/v1/campaigns/${this.campaignName}/invite-code`, {}).subscribe((res) => {
+    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/invite-code`, {}).subscribe((res) => {
       this.inviteCode = res.invite_code;
     });
   }
@@ -681,7 +682,7 @@ export class DmComponent implements OnInit {
 
   sendRollRequest() {
     this.showRollModal = false;
-    this.http.post(`http://localhost:8000/api/v1/campaigns/${this.campaignName}/roll-request`, {
+    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/roll-request`, {
       char_filename: this.rollTargetMember.toLowerCase() + '.json',
       char_name: this.rollTargetMember,
       roll_type: this.rollType,
@@ -771,7 +772,7 @@ export class DmComponent implements OnInit {
   }
 
   generateEncounter() {
-    this.http.post('http://localhost:8000/api/v1/dm/encounter', {
+    this.http.post(`${environment.apiBaseUrl}/dm/encounter`, {
       party_size: 4,
       avg_level: this.avgLevel,
       location: this.location,
@@ -783,7 +784,7 @@ export class DmComponent implements OnInit {
   }
 
   generateNpc() {
-    this.http.post<any>('http://localhost:8000/api/v1/dm/npc', {
+    this.http.post<any>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
       edition: '2014 Edition'
     }).subscribe((res) => {
@@ -792,9 +793,9 @@ export class DmComponent implements OnInit {
   }
 
   generatePrep() {
-    this.http.post<any>('http://localhost:8000/api/v1/dm/session-prep', {
+    this.http.post<any>(`${environment.apiBaseUrl}/dm/session-prep`, {
       campaign_notes: this.prepNotes,
-      party_info: 'Valeros, Ezren, Merisiel'
+      party_info: this.partyMembers.map(m => m.name).join(', ')
     }).subscribe((res) => {
       this.prepResult = res.prep_markdown;
     });

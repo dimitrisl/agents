@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-rules',
@@ -106,7 +107,7 @@ export class RulesComponent {
 
   searchOracle() {
     if (!this.oracleQuery) return;
-    this.http.post<any>('http://localhost:8000/api/v1/rules/query', {
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/query`, {
       query: this.oracleQuery,
       edition: this.charState.dndEdition()
     }).subscribe((res) => {
@@ -117,7 +118,7 @@ export class RulesComponent {
 
   compareEditions() {
     if (!this.compareQuery) return;
-    this.http.post<any>('http://localhost:8000/api/v1/rules/compare', {
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/compare`, {
       query: this.compareQuery
     }).subscribe((res) => {
       this.compareAnswer = res.comparison_markdown;
@@ -128,7 +129,7 @@ export class RulesComponent {
   validateActiveHero() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.http.post<any>('http://localhost:8000/api/v1/rules/validate', {
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/validate`, {
       character: char
     }).subscribe((res) => {
       this.validationResult = res.validation_result;

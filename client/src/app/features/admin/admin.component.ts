@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-admin',
@@ -62,7 +63,7 @@ export class AdminComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    this.http.get<any[]>('http://localhost:8000/api/v1/characters/').subscribe((chars) => {
+    this.http.get<any[]>(`${environment.apiBaseUrl}/characters/`).subscribe((chars) => {
       this.totalCharacters = chars ? chars.length : 0;
     });
   }

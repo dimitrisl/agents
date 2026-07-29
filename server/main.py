@@ -49,7 +49,6 @@ app.add_middleware(
         "http://localhost:4200",  # Angular CLI default dev server
         "http://127.0.0.1:4200",
         "http://localhost:8000",
-        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],

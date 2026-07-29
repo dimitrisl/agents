@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { CharacterSchema } from '../../core/models/character.model';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-forge',
@@ -545,7 +546,7 @@ export class ForgeComponent implements OnInit {
 
   generateAiCharacter() {
     this.loading = true;
-    this.http.post<CharacterSchema>('http://localhost:8000/api/v1/forge/generate', {
+    this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/generate`, {
       concept: this.aiConcept,
       target_level: this.aiLevel,
       char_class: this.aiClass,
@@ -574,7 +575,7 @@ export class ForgeComponent implements OnInit {
     const finalStats: Record<string, number> = {};
     this.statKeys.forEach((k) => (finalStats[k] = this.getFinalStat(k)));
 
-    this.http.post<CharacterSchema>('http://localhost:8000/api/v1/forge/enrich-manual', {
+    this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/enrich-manual`, {
       name: this.manualName,
       char_class: this.manualClass,
       race: this.manualRace,
@@ -600,7 +601,7 @@ export class ForgeComponent implements OnInit {
 
   regeneratePortrait() {
     if (!this.tempForgedChar) return;
-    this.http.post<any>('http://localhost:8000/api/v1/forge/portrait', {
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: this.tempForgedChar.char_id || 'temp',
       prompt: `${this.tempForgedChar.race} ${this.tempForgedChar.char_class}`
     }).subscribe((res) => {
