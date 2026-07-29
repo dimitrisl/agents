@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { RollToastService } from '../../core/services/roll-toast.service';
 
 @Component({
   selector: 'app-settings',
@@ -50,7 +51,10 @@ export class SettingsComponent {
   aiTemperature = 0.7;
   preferredModel = 'gemini-2.5-flash';
 
-  constructor(public charState: CharacterStateService) {}
+  constructor(
+    public charState: CharacterStateService,
+    private rollToast: RollToastService
+  ) {}
 
   onEditionChange(newEdition: string) {
     if (newEdition !== this.charState.dndEdition()) {
@@ -59,6 +63,6 @@ export class SettingsComponent {
   }
 
   saveSettings() {
-    alert('Settings saved successfully!');
+    this.rollToast.showMessage('⚙️ PREFERENCES SAVED', 'Forge settings updated successfully.');
   }
 }

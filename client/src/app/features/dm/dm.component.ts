@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { RollToastService } from '../../core/services/roll-toast.service';
 
 export interface PartyMember {
   char_id?: string;
@@ -418,14 +419,17 @@ export class DmComponent implements OnInit {
   newCombatantInit = 10;
   newCombatantHp = 20;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private rollToast: RollToastService,
+    private http: HttpClient
+  ) {}
 
   ngOnInit() {
     this.generateInviteCode();
   }
 
   saveCampaignNotes() {
-    alert('Campaign notes saved!');
+    this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved.');
   }
 
   generateInviteCode() {
@@ -449,7 +453,15 @@ export class DmComponent implements OnInit {
     const mod = Math.floor((val - 10) / 2);
     const raw = Math.floor(Math.random() * 20) + 1;
     const total = raw + mod;
-    alert(`🎲 DM Quick Check for ${member.name} (${stat}): d20(${raw}) + ${mod} = ${total}`);
+    const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
+
+    this.rollToast.showRoll({
+      title: `🎲 DM CHECK: ${member.name.toUpperCase()} (${stat})`,
+      expression: expr,
+      raw,
+      modifier: mod,
+      total
+    });
   }
 
   openSingleRollModal(m: PartyMember) {
@@ -468,7 +480,7 @@ export class DmComponent implements OnInit {
       is_secret: this.isSecretRoll
     }).subscribe(() => {
       const secTag = this.isSecretRoll ? ' 🔒 [SECRET]' : '';
-      alert(`Issued ${this.rollType} (${this.rollStat}) roll request to ${this.rollTargetMember}${secTag}!`);
+      this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}${secTag}.`);
     });
   }
 
@@ -491,7 +503,7 @@ export class DmComponent implements OnInit {
       }
     });
     this.sortCombatants();
-    alert('Imported party members into Initiative Tracker!');
+    this.rollToast.showMessage('👥 PARTY IMPORTED', 'Imported active party members into Initiative Tracker.');
   }
 
   addCombatant() {
@@ -516,9 +528,12 @@ export class DmComponent implements OnInit {
 
   rollAllInitiative() {
     this.combatants.forEach((c) => {
-      c.initiative = Math.floor(Math.random() * 20) + 1;
+      const raw = Math.floor(Math.random() * 20) + 1;
+      const dexMod = Math.floor((c.dex - 10) / 2);
+      c.initiative = raw + dexMod;
     });
     this.sortCombatants();
+    this.rollToast.showMessage('🎲 INITIATIVE ROLLED', 'Rolled initiative for all active combatants!');
   }
 
   sortCombatants() {
@@ -571,7 +586,7 @@ export class DmComponent implements OnInit {
 
   sendWhisper() {
     this.showWhisperModal = false;
-    alert(`Secret Whisper sent to ${this.whisperRecipient}: "${this.whisperMessage}"`);
+    this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
     this.whisperMessage = '';
   }
 }

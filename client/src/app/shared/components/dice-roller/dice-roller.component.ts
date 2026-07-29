@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RollToastService } from '../../../core/services/roll-toast.service';
 
 @Component({
   selector: 'app-dice-roller',
@@ -135,10 +136,12 @@ export class DiceRollerComponent {
   lastRoll: any = null;
   rollHistory: any[] = [];
 
+  constructor(private rollToast: RollToastService) {}
+
   roll(sides: number) {
     const raw = Math.floor(Math.random() * sides) + 1;
     const total = raw + this.modifier;
-    const expression = `1d${sides}${this.modifier >= 0 ? '+' + this.modifier : this.modifier}`;
+    const expression = `1d${sides} (${raw}) ${this.modifier >= 0 ? '+' + this.modifier : this.modifier}`;
 
     const rollData = {
       sides,
@@ -150,5 +153,13 @@ export class DiceRollerComponent {
 
     this.lastRoll = rollData;
     this.rollHistory.unshift(rollData);
+
+    this.rollToast.showRoll({
+      title: `🎲 QUICK ROLL: D${sides}`,
+      expression,
+      raw,
+      modifier: this.modifier,
+      total
+    });
   }
 }

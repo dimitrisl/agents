@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-roller.component';
 
@@ -445,6 +446,7 @@ export class PlayerComponent implements OnInit {
 
   constructor(
     public charState: CharacterStateService,
+    private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router
   ) {}
@@ -460,7 +462,7 @@ export class PlayerComponent implements OnInit {
   triggerShortRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    alert(`🌟 Short Rest completed for ${char.char_name}! Warlock slots & rest abilities recovered.`);
+    this.rollToast.showMessage('🌟 SHORT REST COMPLETED', `Warlock spell slots and rest abilities recovered for ${char.char_name}.`);
   }
 
   triggerLongRest() {
@@ -473,7 +475,7 @@ export class PlayerComponent implements OnInit {
       });
     }
     this.saveCurrentChar();
-    alert(`🌙 Long Rest completed for ${char.char_name}! Full HP and spell slots restored.`);
+    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP and spell slots restored for ${char.char_name}.`);
   }
 
   getSpellSlotMax(lvl: number): number {
@@ -543,8 +545,17 @@ export class PlayerComponent implements OnInit {
     const raw = this.rollD20();
     const mod = this.getSkillModifier(skill);
     const total = raw + mod;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
-    alert(`🎲 ${skill.name} Check${modeLabel}: d20(${raw}) + ${mod} = ${total}`);
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
+    const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
+
+    this.rollToast.showRoll({
+      title: `🎲 ${skill.name.toUpperCase()} CHECK${modeLabel}`,
+      expression: expr,
+      raw,
+      modifier: mod,
+      total,
+      mode: this.rollMode
+    });
   }
 
   rollAbilityCheck(stat: string) {
@@ -554,8 +565,17 @@ export class PlayerComponent implements OnInit {
     const mod = Math.floor((val - 10) / 2);
     const raw = this.rollD20();
     const total = raw + mod;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
-    alert(`🎲 ${stat} Ability Check${modeLabel}: d20(${raw}) + ${mod} = ${total}`);
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
+    const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
+
+    this.rollToast.showRoll({
+      title: `🎲 ${stat} CHECK${modeLabel}`,
+      expression: expr,
+      raw,
+      modifier: mod,
+      total,
+      mode: this.rollMode
+    });
   }
 
   rollSavingThrow(stat: string) {
@@ -568,8 +588,17 @@ export class PlayerComponent implements OnInit {
     const totalMod = mod + (isSaveProf ? profBonus : 0);
     const raw = this.rollD20();
     const total = raw + totalMod;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
-    alert(`🛡️ ${stat} Saving Throw${modeLabel}: d20(${raw}) + ${totalMod} = ${total}`);
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
+    const expr = `1d20 (${raw}) ${totalMod >= 0 ? '+' + totalMod : totalMod}`;
+
+    this.rollToast.showRoll({
+      title: `🛡️ ${stat} SAVING THROW${modeLabel}`,
+      expression: expr,
+      raw,
+      modifier: totalMod,
+      total,
+      mode: this.rollMode
+    });
   }
 
   joinCampaign() {
@@ -584,9 +613,9 @@ export class PlayerComponent implements OnInit {
         this.showJoinModal = false;
         char.active_campaign = res.campaign_name;
         this.saveCurrentChar();
-        alert(`Joined campaign "${res.campaign_name}" successfully!`);
+        this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
-      error: (err) => alert(err.error?.detail || 'Failed to join campaign.')
+      error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')
     });
   }
 
@@ -672,7 +701,7 @@ export class PlayerComponent implements OnInit {
     this.http.post<any>('http://localhost:8000/api/v1/forge/level-up-analysis', {
       character: char
     }).subscribe((analysis) => {
-      alert(`Level Up Analysis for ${char.char_name}:\nHP Increase: +${analysis.hp_increase}\nNew Total HP: ${analysis.new_total_hp}`);
+      this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `HP Increase: +${analysis.hp_increase} | New Total HP: ${analysis.new_total_hp}`);
     });
   }
 
@@ -700,16 +729,27 @@ export class PlayerComponent implements OnInit {
     this.http.post<CharacterSchema>('http://localhost:8000/api/v1/characters/import-pdf', formData).subscribe({
       next: (imported) => {
         this.charState.saveCharacter(imported).subscribe();
-        alert(`Successfully imported ${imported.char_name}!`);
+        this.rollToast.showMessage('📥 PDF IMPORTED', `Successfully imported ${imported.char_name}!`);
       },
-      error: () => alert('Failed to import PDF character sheet.')
+      error: () => this.rollToast.showMessage('⚠️ IMPORT FAILED', 'Failed to import PDF character sheet.')
     });
   }
 
   rollWeaponAttack(w: Weapon) {
     const raw = this.rollD20();
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode})` : '';
-    alert(`⚔️ ${w.name} Attack Roll${modeLabel}: d20(${raw}) ${w.attack_bonus}`);
+    const modNum = parseInt(w.attack_bonus) || 0;
+    const total = raw + modNum;
+    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
+    const expr = `1d20 (${raw}) ${w.attack_bonus}`;
+
+    this.rollToast.showRoll({
+      title: `⚔️ ${w.name.toUpperCase()} ATTACK${modeLabel}`,
+      expression: expr,
+      raw,
+      modifier: modNum,
+      total,
+      mode: this.rollMode
+    });
   }
 
   getStatsArray(stats: any) {
