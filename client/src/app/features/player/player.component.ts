@@ -39,15 +39,6 @@ export interface SkillDefinition {
             {{ editMode ? '💾 Done Editing' : '✏️ Edit Sheet' }}
           </button>
           <button class="phyrexian-btn-secondary" (click)="showJoinModal = true">🔑 Join Campaign</button>
-          <button class="phyrexian-btn-secondary rest-btn" (click)="openShortRestModal()">⛺ Short Rest</button>
-          <button class="phyrexian-btn-secondary rest-btn long-rest" (click)="triggerLongRest()">🌙 Long Rest</button>
-          <button class="phyrexian-btn-secondary" (click)="onLevelUp()">⚡ Level Up</button>
-          <button class="phyrexian-btn-secondary" (click)="onGenerateStrategy()">📖 AI Strategy Guide</button>
-          <button class="phyrexian-btn-secondary" (click)="onExportPdf()">📥 Export PDF</button>
-          <label class="phyrexian-btn-secondary import-label">
-            📤 Import PDF
-            <input type="file" (change)="onImportPdf($event)" accept=".pdf" style="display:none;" />
-          </label>
         </div>
       </div>
 
@@ -165,22 +156,41 @@ export interface SkillDefinition {
           <div class="tab-item" [class.active]="sheetSubTab === 'roleplay'" (click)="sheetSubTab = 'roleplay'">📖 Lore & Roleplay</div>
         </div>
 
-        <!-- Subtab 0: SKILLS & CHECKS GRID -->
+        <!-- Subtab 0: SKILLS & CHECKS GRID (Collapsible Accordions by Attribute) -->
         <div *ngIf="sheetSubTab === 'skills'" class="phyrexian-card">
-          <h3>📜 Skill Proficiencies & Rollers</h3>
-          <p class="subtitle">Click "Roll" next to any skill (Athletics, Acrobatics, Stealth, etc.) to perform a check.</p>
+          <div class="skills-header-row">
+            <div>
+              <h3>📜 Skill Proficiencies & Check Rollers</h3>
+              <p class="subtitle" style="margin-bottom: 0;">Organized by primary attribute. Expand groups or filter by proficiency.</p>
+            </div>
+            <label class="filter-toggle">
+              <input type="checkbox" [(ngModel)]="showProficientOnly" /> Show Proficient Only (⭐)
+            </label>
+          </div>
 
-          <div class="skills-grid">
-            <div class="skill-card" *ngFor="let s of allSkills">
-              <div class="skill-info">
-                <span class="prof-star" [class.active]="isProficient(s.name)">{{ isProficient(s.name) ? '⭐' : '⚪' }}</span>
-                <strong>{{ s.name }}</strong>
-                <span class="ability-tag">({{ s.ability }})</span>
+          <div class="skill-accordions">
+            <div *ngFor="let attr of ['STR', 'DEX', 'INT', 'WIS', 'CHA']" class="accordion-group">
+              <div class="accordion-header" (click)="toggleGroup(attr)">
+                <span><strong>{{ getAttributeFullName(attr) }}</strong> ({{ attr }})</span>
+                <span class="accordion-arrow">{{ openGroups[attr] ? '▼' : '►' }}</span>
               </div>
 
-              <div class="skill-actions">
-                <span class="skill-mod-badge">{{ getSkillModString(s) }}</span>
-                <button class="phyrexian-btn mini-btn" (click)="rollSkillCheck(s)">🎲 Roll</button>
+              <div *ngIf="openGroups[attr]" class="accordion-body">
+                <div class="skills-grid">
+                  <ng-container *ngFor="let s of getSkillsByAttribute(attr)">
+                    <div *ngIf="!showProficientOnly || isProficient(s.name)" class="skill-card">
+                      <div class="skill-info">
+                        <span class="prof-star" [class.active]="isProficient(s.name)">{{ isProficient(s.name) ? '⭐' : '⚪' }}</span>
+                        <strong>{{ s.name }}</strong>
+                      </div>
+
+                      <div class="skill-actions">
+                        <span class="skill-mod-badge">{{ getSkillModString(s) }}</span>
+                        <button class="phyrexian-btn mini-btn" (click)="rollSkillCheck(s)">🎲 Roll</button>
+                      </div>
+                    </div>
+                  </ng-container>
+                </div>
               </div>
             </div>
           </div>
@@ -304,6 +314,15 @@ export interface SkillDefinition {
         </div>
       </ng-container>
 
+      <!-- FLOATING ACTION DOCK -->
+      <div class="floating-action-dock">
+        <button class="dock-btn rest-btn" (click)="openShortRestModal()" title="Short Rest">⛺ Short Rest</button>
+        <button class="dock-btn rest-btn long-rest" (click)="triggerLongRest()" title="Long Rest">🌙 Long Rest</button>
+        <button class="dock-btn" (click)="onLevelUp()" title="Level Up Analysis">⚡ Level Up</button>
+        <button class="dock-btn" (click)="onGenerateStrategy()" title="AI Playstyle Guide">📖 AI Guide</button>
+        <button class="dock-btn" (click)="onExportPdf()" title="Export PDF">📥 PDF</button>
+      </div>
+
       <!-- SHORT REST MODAL -->
       <div *ngIf="showShortRestModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
@@ -420,14 +439,24 @@ export interface SkillDefinition {
     .roll-mode-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.6rem 1.25rem; }
     .roll-mode-options { display: flex; gap: 1.5rem; }
     .radio-label { font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; }
-    .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 1rem; }
+    .skills-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .filter-toggle { font-size: 0.85rem; color: var(--accent-gold); cursor: pointer; display: flex; align-items: center; gap: 0.4rem; }
+    .skill-accordions { display: flex; flex-direction: column; gap: 0.75rem; }
+    .accordion-group { border: 1px solid var(--border-card); border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.25); }
+    .accordion-header { padding: 0.65rem 1rem; background: rgba(255,255,255,0.04); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s; }
+    .accordion-header:hover { background: rgba(255,255,255,0.08); }
+    .accordion-arrow { font-size: 0.75rem; color: var(--text-muted); }
+    .accordion-body { padding: 0.75rem; }
+    .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
     .skill-card { background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-card); border-radius: 8px; padding: 0.6rem 0.8rem; display: flex; justify-content: space-between; align-items: center; }
     .skill-info { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; }
     .prof-star { opacity: 0.3; }
     .prof-star.active { opacity: 1; }
-    .ability-tag { font-size: 0.75rem; color: var(--text-muted); }
     .skill-actions { display: flex; align-items: center; gap: 0.5rem; }
     .skill-mod-badge { background: rgba(255, 255, 255, 0.1); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: var(--text-gold); }
+    .floating-action-dock { position: fixed; bottom: 2rem; left: 2rem; z-index: 999; display: flex; gap: 0.5rem; background: rgba(14, 14, 22, 0.9); backdrop-filter: blur(12px); border: 1px solid var(--border-card); padding: 0.5rem 0.8rem; border-radius: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+    .dock-btn { background: rgba(255,255,255,0.08); border: 1px solid var(--border-card); color: #fff; padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .dock-btn:hover { background: var(--theme-accent); transform: translateY(-2px); }
     .slots-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 0.5rem; margin-top: 0.75rem; }
     .slot-box { background: rgba(0,0,0,0.3); border: 1px solid var(--border-card); padding: 0.4rem; border-radius: 6px; text-align: center; }
     .slot-lvl { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
@@ -464,12 +493,21 @@ export class PlayerComponent implements OnInit {
   showPortraitModal = false;
   showJoinModal = false;
   showShortRestModal = false;
+  showProficientOnly = false;
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
   rollMode: 'normal' | 'advantage' | 'disadvantage' = 'normal';
 
   portraitPrompt = '';
   strategyGuideText: string | null = null;
+
+  openGroups: { [key: string]: boolean } = {
+    STR: true,
+    DEX: true,
+    INT: false,
+    WIS: false,
+    CHA: false
+  };
 
   allSkills: SkillDefinition[] = [
     { name: 'Athletics', ability: 'STR' },
@@ -501,6 +539,25 @@ export class PlayerComponent implements OnInit {
 
   ngOnInit() {
     this.charState.loadCharacters().subscribe();
+  }
+
+  toggleGroup(attr: string) {
+    this.openGroups[attr] = !this.openGroups[attr];
+  }
+
+  getSkillsByAttribute(attr: string): SkillDefinition[] {
+    return this.allSkills.filter((s) => s.ability === attr);
+  }
+
+  getAttributeFullName(attr: string): string {
+    const names: { [key: string]: string } = {
+      STR: 'Strength',
+      DEX: 'Dexterity',
+      INT: 'Intelligence',
+      WIS: 'Wisdom',
+      CHA: 'Charisma'
+    };
+    return names[attr] || attr;
   }
 
   goToForge() {
@@ -561,7 +618,6 @@ export class PlayerComponent implements OnInit {
     char.hp_current = newHp;
     char.hit_dice_used = (char.hit_dice_used || 0) + count;
 
-    // Warlock spell slots recovery
     if (char.char_class.toLowerCase().includes('warlock') && char.spell_slots) {
       Object.keys(char.spell_slots).forEach((key) => {
         if (char.spell_slots) char.spell_slots[key].used = 0;
@@ -586,7 +642,6 @@ export class PlayerComponent implements OnInit {
     if (!char) return;
     char.hp_current = char.hp_max;
 
-    // Recover half of hit dice
     const totalHd = char.char_level || 1;
     const currentUsed = char.hit_dice_used || 0;
     const recoverCount = Math.floor(totalHd / 2) || 1;
