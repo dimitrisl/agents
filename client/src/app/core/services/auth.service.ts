@@ -18,6 +18,9 @@ export class AuthService {
   constructor(private http: HttpClient) {
     if (this.token()) {
       this.fetchCurrentUser().subscribe();
+    } else {
+      // Auto-authenticate as guest in dev mode so the app works out of the box
+      this.demoLogin('mitsos').subscribe();
     }
   }
 
@@ -27,6 +30,16 @@ export class AuthService {
     formData.append('password', credentials.password);
 
     return this.http.post<AuthResponse>(`${this.API_URL}/login`, formData).pipe(
+      tap((res) => {
+        localStorage.setItem('token', res.access_token);
+        this.token.set(res.access_token);
+        this.currentUser.set(res.user);
+      })
+    );
+  }
+
+  demoLogin(demoType: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.API_URL}/demo`, { demo_type: demoType }).pipe(
       tap((res) => {
         localStorage.setItem('token', res.access_token);
         this.token.set(res.access_token);
