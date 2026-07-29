@@ -1,0 +1,192 @@
+/* ==========================================
+   Phyrexian Forge Bio-Mechanical Theme (CSS Tokens)
+   ========================================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cinzel:wght@500;700&display=swap');
+
+:root {
+  /* Color Tokens */
+  --bg-deep: #0a0a0f;
+  --bg-card: rgba(18, 18, 26, 0.85);
+  --bg-card-hover: rgba(26, 26, 38, 0.95);
+  --border-card: rgba(255, 255, 255, 0.1);
+  --border-card-hover: rgba(255, 75, 75, 0.4);
+
+  --text-primary: #f0f0f5;
+  --text-muted: #8a8a9e;
+  --text-gold: #d4af37;
+
+  /* Edition Theme Accents */
+  --primary-red: #ff4b4b;
+  --accent-violet: #bf5af2;
+  --accent-gold: #d4af37;
+  --accent-cobalt: #0a84ff;
+
+  /* Active edition theme (default 2014 red) */
+  --theme-accent: var(--primary-red);
+
+  /* Shadows & Glassmorphism */
+  --glass-backdrop: blur(12px);
+  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  --glow-shadow: 0 0 15px rgba(255, 75, 75, 0.25);
+
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-title: 'Cinzel', serif;
+}
+
+[data-edition="2024"] {
+  --theme-accent: var(--accent-violet);
+  --border-card-hover: rgba(191, 90, 242, 0.4);
+  --glow-shadow: 0 0 15px rgba(191, 90, 242, 0.25);
+}
+
+/* Reset & Global Body Styling */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(255, 75, 75, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(191, 90, 242, 0.05) 0%, transparent 40%);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, .brand-font {
+  font-family: var(--font-title);
+  letter-spacing: 0.5px;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-accent);
+}
+
+/* Glassmorphic Card Container */
+.phyrexian-card {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--card-shadow);
+  transition: all 0.25s ease-in-out;
+}
+
+.phyrexian-card:hover {
+  border-color: var(--border-card-hover);
+  box-shadow: var(--glow-shadow);
+}
+
+/* Glass Buttons */
+.phyrexian-btn {
+  background: linear-gradient(135deg, rgba(255, 75, 75, 0.2), rgba(255, 75, 75, 0.05));
+  border: 1px solid var(--theme-accent);
+  color: var(--text-primary);
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.phyrexian-btn:hover {
+  background: var(--theme-accent);
+  color: #fff;
+  box-shadow: var(--glow-shadow);
+  transform: translateY(-1px);
+}
+
+.phyrexian-btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
+}
+.phyrexian-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Form Controls */
+.phyrexian-input, .phyrexian-select, .phyrexian-textarea {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.6rem 0.8rem;
+  font-family: var(--font-body);
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.phyrexian-input:focus, .phyrexian-select:focus, .phyrexian-textarea:focus {
+  outline: none;
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 8px var(--border-card-hover);
+}
+
+/* Stat Box Layout */
+.stat-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--theme-accent);
+  margin: 0.2rem 0;
+}
+.stat-mod {
+  font-size: 0.85rem;
+  color: var(--text-gold);
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-card);
+  margin-bottom: 1.5rem;
+}
+.tab-item {
+  padding: 0.6rem 1.2rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab-item:hover, .tab-item.active {
+  color: var(--theme-accent);
+  border-bottom-color: var(--theme-accent);
+}
