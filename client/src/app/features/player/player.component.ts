@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-roller.component';
@@ -27,7 +28,7 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
         </div>
 
         <div class="vault-actions">
-          <button class="phyrexian-btn" (click)="showCreatorModal = true">✨ New Hero</button>
+          <button class="phyrexian-btn" (click)="goToForge()">✨ New Hero</button>
           <button class="phyrexian-btn-secondary" (click)="editMode = !editMode">
             {{ editMode ? '💾 Done Editing' : '✏️ Edit Sheet' }}
           </button>
@@ -221,85 +222,6 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
         </div>
       </ng-container>
 
-      <!-- AI CHARACTER CREATOR MODAL -->
-      <div *ngIf="showCreatorModal" class="modal-backdrop">
-        <div class="phyrexian-card modal-card">
-          <h2>✨ AI Character Forge</h2>
-
-          <div class="nav-tabs">
-            <div class="tab-item" [class.active]="creatorMode === 'ai'" (click)="creatorMode = 'ai'">🤖 AI Forge</div>
-            <div class="tab-item" [class.active]="creatorMode === 'manual'" (click)="creatorMode = 'manual'">🛠️ Manual Forge</div>
-          </div>
-
-          <ng-container *ngIf="creatorMode === 'ai'">
-            <div class="form-group">
-              <label>Hero Concept / Backstory Idea:</label>
-              <textarea class="phyrexian-textarea" rows="3" [(ngModel)]="creatorConcept" placeholder="e.g. A righteous paladin of light who wields a flaming sword."></textarea>
-            </div>
-
-            <div class="form-row">
-              <div>
-                <label>Target Level:</label>
-                <input type="number" class="phyrexian-input" [(ngModel)]="creatorLevel" min="1" max="20" />
-              </div>
-              <div>
-                <label>Class:</label>
-                <input type="text" class="phyrexian-input" [(ngModel)]="creatorClass" placeholder="Paladin, Wizard, etc." />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div>
-                <label>Race / Species:</label>
-                <input type="text" class="phyrexian-input" [(ngModel)]="creatorRace" placeholder="Human, Elf, Dragonborn..." />
-              </div>
-              <div>
-                <label>Background:</label>
-                <input type="text" class="phyrexian-input" [(ngModel)]="creatorBackground" placeholder="Soldier, Acolyte..." />
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Custom Build Preferences (Feats, Spells, ASIs):</label>
-              <input type="text" class="phyrexian-input" [(ngModel)]="creatorPreferences" placeholder="e.g. Tough feat, Great Weapon Master..." />
-            </div>
-
-            <div class="checkbox-row">
-              <label><input type="checkbox" [(ngModel)]="creatorAutoSpells" /> Auto-select Spells</label>
-              <label><input type="checkbox" [(ngModel)]="creatorAutoFeats" /> Auto-select Feats & ASIs</label>
-            </div>
-          </ng-container>
-
-          <ng-container *ngIf="creatorMode === 'manual'">
-            <div class="form-row">
-              <div>
-                <label>Character Name:</label>
-                <input type="text" class="phyrexian-input" [(ngModel)]="manualName" />
-              </div>
-              <div>
-                <label>Class:</label>
-                <input type="text" class="phyrexian-input" [(ngModel)]="manualClass" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div>
-                <label>Race:</label>
-                <input type="text" class="phyrexian-input" [(ngModel)]="manualRace" />
-              </div>
-              <div>
-                <label>Level:</label>
-                <input type="number" class="phyrexian-input" [(ngModel)]="manualLevel" min="1" max="20" />
-              </div>
-            </div>
-          </ng-container>
-
-          <div class="modal-actions">
-            <button class="phyrexian-btn-secondary" (click)="showCreatorModal = false">Cancel</button>
-            <button class="phyrexian-btn" (click)="forgeNewCharacter()">🔥 Forge Character</button>
-          </div>
-        </div>
-      </div>
-
       <!-- PORTRAIT GENERATION MODAL -->
       <div *ngIf="showPortraitModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
@@ -371,9 +293,6 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
     .modal-card { width: 100%; max-width: 520px; }
     .wide-modal { max-width: 700px; max-height: 80vh; overflow-y: auto; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
-    .form-row { display: flex; gap: 1rem; margin-top: 1rem; }
-    .form-row div { flex: 1; }
-    .checkbox-row { display: flex; gap: 1.5rem; margin-top: 1rem; font-size: 0.85rem; }
     .guide-content { background: rgba(0,0,0,0.4); padding: 1rem; border-radius: 8px; margin-top: 1rem; max-height: 50vh; overflow-y: auto; }
   `]
 })
@@ -381,35 +300,23 @@ export class PlayerComponent implements OnInit {
   activeTab: 'sheet' = 'sheet';
   sheetSubTab: 'combat' | 'spells' | 'roleplay' = 'combat';
   editMode = false;
-
-  showCreatorModal = false;
   showPortraitModal = false;
-
-  creatorMode: 'ai' | 'manual' = 'ai';
-  creatorConcept = 'Valiant paladin knight dedicated to light.';
-  creatorLevel = 1;
-  creatorClass = 'Paladin';
-  creatorRace = 'Human';
-  creatorBackground = 'Soldier';
-  creatorPreferences = '';
-  creatorAutoSpells = true;
-  creatorAutoFeats = true;
-
-  manualName = 'New Hero';
-  manualClass = 'Paladin';
-  manualRace = 'Human';
-  manualLevel = 1;
 
   portraitPrompt = '';
   strategyGuideText: string | null = null;
 
   constructor(
     public charState: CharacterStateService,
-    private http: HttpClient
+    private http: HttpClient,
+    private router: Router
   ) {}
 
   ngOnInit() {
     this.charState.loadCharacters().subscribe();
+  }
+
+  goToForge() {
+    this.router.navigate(['/forge']);
   }
 
   onSelectCharacter(charId: string) {
@@ -471,40 +378,6 @@ export class PlayerComponent implements OnInit {
   toggleEquipped(item: EquipmentItem) {
     item.equipped = !item.equipped;
     this.saveCurrentChar();
-  }
-
-  forgeNewCharacter() {
-    if (this.creatorMode === 'ai') {
-      this.http.post<CharacterSchema>('http://localhost:8000/api/v1/forge/generate', {
-        concept: this.creatorConcept,
-        target_level: this.creatorLevel,
-        char_class: this.creatorClass,
-        race: this.creatorRace,
-        background: this.creatorBackground,
-        custom_preferences: this.creatorPreferences,
-        auto_spells: this.creatorAutoSpells,
-        auto_feats: this.creatorAutoFeats,
-        edition: this.charState.dndEdition()
-      }).subscribe((newChar) => {
-        this.showCreatorModal = false;
-        this.charState.activeCharacter.set(newChar);
-        this.charState.loadCharacters().subscribe();
-      });
-    } else {
-      this.http.post<CharacterSchema>('http://localhost:8000/api/v1/forge/enrich-manual', {
-        name: this.manualName,
-        char_class: this.manualClass,
-        race: this.manualRace,
-        target_level: this.manualLevel,
-        background: 'Soldier',
-        base_stats: { STR: 15, DEX: 14, CON: 13, INT: 12, WIS: 10, CHA: 8 },
-        edition: this.charState.dndEdition()
-      }).subscribe((newChar) => {
-        this.showCreatorModal = false;
-        this.charState.activeCharacter.set(newChar);
-        this.charState.loadCharacters().subscribe();
-      });
-    }
   }
 
   generateAiPortrait() {

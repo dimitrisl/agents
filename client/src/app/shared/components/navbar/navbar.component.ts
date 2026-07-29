@@ -25,6 +25,7 @@ import { CharacterStateService } from '../../../core/services/character-state.se
 
       <nav class="nav-links">
         <a routerLink="/player" routerLinkActive="active" class="nav-btn">🗡️ Player Dashboard</a>
+        <a routerLink="/forge" routerLinkActive="active" class="nav-btn">✨ Character Forge</a>
         <a routerLink="/dm" routerLinkActive="active" class="nav-btn">🏰 DM Workspace</a>
         <a routerLink="/rules" routerLinkActive="active" class="nav-btn">📚 Rules Library</a>
         <a routerLink="/settings" routerLinkActive="active" class="nav-btn">⚙️ Settings</a>
@@ -52,14 +53,7 @@ import { CharacterStateService } from '../../../core/services/character-state.se
     </header>
   `,
   styles: [`
-    .navbar-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      border-radius: 0 0 12px 12px;
-      padding: 0.8rem 1.5rem;
-    }
+    .navbar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-radius: 0 0 12px 12px; padding: 0.8rem 1.5rem; }
     .brand-section { display: flex; align-items: center; gap: 0.75rem; }
     .brand-title { font-size: 1.4rem; color: var(--theme-accent); margin: 0; line-height: 1.1; }
     .edition-sub { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
