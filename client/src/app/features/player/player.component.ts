@@ -32,6 +32,7 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
           <button class="phyrexian-btn-secondary" (click)="editMode = !editMode">
             {{ editMode ? '💾 Done Editing' : '✏️ Edit Sheet' }}
           </button>
+          <button class="phyrexian-btn-secondary" (click)="showJoinModal = true">🔑 Join Campaign</button>
           <button class="phyrexian-btn-secondary" (click)="onLevelUp()">⚡ Level Up</button>
           <button class="phyrexian-btn-secondary" (click)="onGenerateStrategy()">📖 AI Strategy Guide</button>
           <button class="phyrexian-btn-secondary" (click)="onExportPdf()">📥 Export PDF</button>
@@ -44,6 +45,11 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
 
       <!-- Main Character Sheet Content -->
       <ng-container *ngIf="charState.activeCharacter() as char">
+        <!-- Active Campaign Indicator -->
+        <div *ngIf="char.active_campaign" class="campaign-indicator">
+          🏰 Member of Campaign: <strong>{{ char.active_campaign }}</strong>
+        </div>
+
         <!-- Vitals Header Banner -->
         <div class="phyrexian-card vitals-grid">
           <div class="char-portrait" (click)="showPortraitModal = true">
@@ -222,6 +228,23 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
         </div>
       </ng-container>
 
+      <!-- JOIN CAMPAIGN MODAL -->
+      <div *ngIf="showJoinModal" class="modal-backdrop">
+        <div class="phyrexian-card modal-card">
+          <h2>🔑 Join Campaign</h2>
+          <p class="subtitle">Enter the 6-character Invite Code provided by your DM:</p>
+
+          <div class="form-group">
+            <input type="text" class="phyrexian-input uppercase-input" [(ngModel)]="joinInviteCode" placeholder="e.g. A3F9B2" style="font-size: 1.2rem; text-align: center; letter-spacing: 3px;" />
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showJoinModal = false">Cancel</button>
+            <button class="phyrexian-btn" (click)="joinCampaign()">Join Realm</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PORTRAIT GENERATION MODAL -->
       <div *ngIf="showPortraitModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
@@ -259,6 +282,7 @@ import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-ro
     .vault-selector { display: flex; align-items: center; gap: 0.75rem; }
     .vault-actions { display: flex; gap: 0.5rem; align-items: center; }
     .import-label { margin: 0; cursor: pointer; }
+    .campaign-indicator { background: rgba(212, 175, 55, 0.15); border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.88rem; }
     .vitals-grid { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
     .char-portrait { position: relative; cursor: pointer; }
     .portrait-img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid var(--theme-accent); }
@@ -301,6 +325,8 @@ export class PlayerComponent implements OnInit {
   sheetSubTab: 'combat' | 'spells' | 'roleplay' = 'combat';
   editMode = false;
   showPortraitModal = false;
+  showJoinModal = false;
+  joinInviteCode = '';
 
   portraitPrompt = '';
   strategyGuideText: string | null = null;
@@ -317,6 +343,24 @@ export class PlayerComponent implements OnInit {
 
   goToForge() {
     this.router.navigate(['/forge']);
+  }
+
+  joinCampaign() {
+    const char = this.charState.activeCharacter();
+    if (!char || !this.joinInviteCode) return;
+
+    this.http.post<any>('http://localhost:8000/api/v1/campaigns/join', {
+      invite_code: this.joinInviteCode.toUpperCase(),
+      char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`
+    }).subscribe({
+      next: (res) => {
+        this.showJoinModal = false;
+        char.active_campaign = res.campaign_name;
+        this.saveCurrentChar();
+        alert(`Joined campaign "${res.campaign_name}" successfully!`);
+      },
+      error: (err) => alert(err.error?.detail || 'Failed to join campaign.')
+    });
   }
 
   onSelectCharacter(charId: string) {

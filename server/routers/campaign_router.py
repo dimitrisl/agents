@@ -112,13 +112,22 @@ async def generate_invite_code(
     name: str, current_user: dict = Depends(get_current_user)
 ):
     db = get_database()
-    camp = await db["campaigns"].find_one(
-        {"campaign_name": name, "owner_id": current_user["id"]}
-    )
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+
     if not camp:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found"
-        )
+        raw = f"{name}-{time.time()}"
+        code = hashlib.md5(raw.encode()).hexdigest()[:6].upper()
+        camp_dict = {
+            "campaign_name": name,
+            "owner_id": current_user["id"],
+            "invite_code": code,
+            "party": [],
+            "notes": "",
+            "roll_requests": [],
+            "whispers": [],
+        }
+        await db["campaigns"].insert_one(camp_dict)
+        return {"invite_code": code}
 
     if camp.get("invite_code"):
         return {"invite_code": camp["invite_code"]}
@@ -140,9 +149,15 @@ async def add_roll_request(
     db = get_database()
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found"
-        )
+        camp = {
+            "campaign_name": name,
+            "owner_id": current_user["id"],
+            "party": [],
+            "notes": "",
+            "roll_requests": [],
+            "whispers": [],
+        }
+        await db["campaigns"].insert_one(camp)
 
     req_id = str(uuid.uuid4())
     new_req = {
