@@ -39,6 +39,14 @@ def test_auth_registration_and_login(mocker):
     assert user_data["username"] == "test_adventurer"
     assert "id" in user_data
 
+    # Test Demo Login
+    demo_response = client.post(
+        "/api/v1/auth/demo",
+        json={"demo_type": "mitsos"},
+    )
+    assert demo_response.status_code == 200
+    assert "access_token" in demo_response.json()
+
 
 def test_character_routes(mocker):
     app.dependency_overrides[get_current_user] = lambda: {
@@ -126,6 +134,10 @@ def test_rules_router(mocker):
             "server.routers.rules_router.compare_rules",
             return_value="2024 Revision simplifies Grappling to a Saving Throw.",
         )
+        mocker.patch(
+            "server.routers.rules_router.validate_character_build",
+            return_value={"valid": True, "errors": []},
+        )
 
         # 1. Oracle query
         response = client.post(
@@ -141,6 +153,13 @@ def test_rules_router(mocker):
         )
         assert response.status_code == 200
         assert "Saving Throw" in response.json()["comparison_markdown"]
+
+        # 3. Rules validation
+        response = client.post(
+            "/api/v1/rules/validate", json={"character": {"char_name": "Valeros"}}
+        )
+        assert response.status_code == 200
+        assert response.json()["validation_result"]["valid"] is True
     finally:
         app.dependency_overrides.clear()
 
