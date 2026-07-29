@@ -11,25 +11,37 @@ import { CharacterStateService } from '../../../core/services/character-state.se
   template: `
     <header class="phyrexian-card navbar-header">
       <div class="brand-section">
-        <h1 class="brand-title">Phyrexian Forge</h1>
-        <span class="edition-badge" [class.badge-2024]="is2024()">
-          {{ charState.dndEdition() }}
-        </span>
+        <div class="brand-logo">
+          <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="50,15 85,35 85,75 50,90 15,75 15,35" stroke="var(--theme-accent)" stroke-width="6" fill="rgba(255, 75, 75, 0.15)" />
+            <line x1="50" y1="15" x2="50" y2="90" stroke="var(--theme-accent)" stroke-width="4" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Phyrexian Forge</h1>
+          <span class="edition-sub">"All will be one • {{ charState.dndEdition() }}"</span>
+        </div>
       </div>
 
       <nav class="nav-links">
-        <a routerLink="/player" routerLinkActive="active" class="nav-btn">🗡️ Player Hub</a>
+        <a routerLink="/player" routerLinkActive="active" class="nav-btn">🗡️ Player Dashboard</a>
         <a routerLink="/dm" routerLinkActive="active" class="nav-btn">🏰 DM Workspace</a>
-        <a routerLink="/rules" routerLinkActive="active" class="nav-btn">📚 Rules Oracle</a>
+        <a routerLink="/rules" routerLinkActive="active" class="nav-btn">📚 Rules Library</a>
       </nav>
 
       <div class="user-controls">
-        <button class="phyrexian-btn-secondary toggle-btn" (click)="toggleEdition()">
-          🔄 Switch Edition
-        </button>
+        <div class="edition-toggle">
+          <label class="switch">
+            <input type="checkbox" [checked]="is2024()" (change)="toggleEdition()" />
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label">{{ is2024() ? '2024 Revision' : '2014 Legacy' }}</span>
+        </div>
 
         <ng-container *ngIf="authService.currentUser() as user">
-          <span class="user-greeting">👤 {{ user.name || user.username }}</span>
+          <div class="user-greeting">
+            <span>👤 Logged in as <strong class="user-name">{{ user.name || user.username }}</strong></span>
+          </div>
           <button class="phyrexian-btn-secondary logout-btn" (click)="authService.logout()">
             Logout
           </button>
@@ -44,6 +56,7 @@ import { CharacterStateService } from '../../../core/services/character-state.se
       align-items: center;
       margin-bottom: 1.5rem;
       border-radius: 0 0 12px 12px;
+      padding: 0.8rem 1.5rem;
     }
     .brand-section {
       display: flex;
@@ -51,32 +64,27 @@ import { CharacterStateService } from '../../../core/services/character-state.se
       gap: 0.75rem;
     }
     .brand-title {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       color: var(--theme-accent);
+      margin: 0;
+      line-height: 1.1;
     }
-    .edition-badge {
-      font-size: 0.7rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 12px;
-      background: rgba(255, 75, 75, 0.15);
-      color: var(--primary-red);
-      border: 1px solid var(--primary-red);
-    }
-    .badge-2024 {
-      background: rgba(191, 90, 242, 0.15);
-      color: var(--accent-violet);
-      border-color: var(--accent-violet);
+    .edition-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-style: italic;
     }
     .nav-links {
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
     }
     .nav-btn {
       color: var(--text-muted);
       text-decoration: none;
       font-weight: 600;
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 0.9rem;
       border-radius: 6px;
+      font-size: 0.9rem;
       transition: all 0.2s;
     }
     .nav-btn:hover, .nav-btn.active {
@@ -87,15 +95,46 @@ import { CharacterStateService } from '../../../core/services/character-state.se
     .user-controls {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1.25rem;
     }
-    .user-greeting {
-      font-size: 0.85rem;
+    .edition-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .toggle-label {
+      font-size: 0.78rem;
       color: var(--text-muted);
     }
-    .toggle-btn, .logout-btn {
-      font-size: 0.8rem;
-      padding: 0.4rem 0.8rem;
+    /* Switch styling */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #333; transition: .3s; border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
+      background-color: white; transition: .3s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent-violet); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
+    .user-greeting {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .user-name {
+      color: var(--theme-accent);
+    }
+    .logout-btn {
+      font-size: 0.78rem;
+      padding: 0.35rem 0.75rem;
     }
   `]
 })

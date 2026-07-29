@@ -17,10 +17,9 @@ export class AuthService {
 
   constructor(private http: HttpClient) {
     if (this.token()) {
-      this.fetchCurrentUser().subscribe();
-    } else {
-      // Auto-authenticate as guest in dev mode so the app works out of the box
-      this.demoLogin('mitsos').subscribe();
+      this.fetchCurrentUser().subscribe({
+        error: () => this.logout(),
+      });
     }
   }
 
