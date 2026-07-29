@@ -1,10 +1,11 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
+
+from backend.core.constants import EDITION_2014, EDITION_2024
+from backend.repositories.rules_repository import RulesRepository
 from backend.services.forge_service import analyze_level_up
 from backend.services.mechanics_service import sync_character_stats
-from backend.repositories.rules_repository import RulesRepository
-from backend.core.constants import EDITION_2014, EDITION_2024
-
 
 # --- Fixtures ---
 
@@ -241,9 +242,7 @@ def test_feat_structured_prerequisites():
             assert isinstance(prereqs, dict), (
                 f"Feat '{feat['name']}' in {edition} has string prerequisites: {prereqs}"
             )
-            assert "min_level" in prereqs, (
-                f"Feat '{feat['name']}' in {edition} missing min_level"
-            )
+            assert "min_level" in prereqs, f"Feat '{feat['name']}' in {edition} missing min_level"
             assert "stat_requirements" in prereqs, (
                 f"Feat '{feat['name']}' in {edition} missing stat_requirements"
             )
@@ -258,9 +257,7 @@ def test_feat_stat_bonus_structure():
         feats = repo.get_all_feats(edition)
         for feat in feats:
             bonus = feat.get("stat_bonus")
-            assert isinstance(bonus, dict), (
-                f"Feat '{feat['name']}' in {edition} has no stat_bonus"
-            )
+            assert isinstance(bonus, dict), f"Feat '{feat['name']}' in {edition} has no stat_bonus"
             assert set(bonus.keys()) == expected_keys, (
                 f"Feat '{feat['name']}' in {edition} stat_bonus keys mismatch: {bonus.keys()}"
             )

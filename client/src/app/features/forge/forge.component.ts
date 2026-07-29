@@ -24,7 +24,7 @@ import { CharacterSchema } from '../../core/models/character.model';
         <!-- TAB 1: AI CHARACTER FORGE -->
         <div *ngIf="activeTab === 'ai'" class="tab-body">
           <p class="guide-text">Choose your core pillars or let the AI decide!</p>
-          
+
           <div class="inner-box">
             <!-- Row 1: Race, Class, Background -->
             <div class="form-row">
@@ -302,26 +302,26 @@ import { CharacterSchema } from '../../core/models/character.model';
               </div>
               <div class="metric-item">
                 <span class="m-label">⚡ INITIATIVE</span>
-                <span class="m-val init-val">{{ getModifierString(tempForgedChar.stats?.DEX || 10) }}</span>
+                <span class="m-val init-val">{{ getModifierString(tempForgedChar.stats.DEX || 10) }}</span>
               </div>
               <div class="metric-item">
                 <span class="m-label">👁️ PASSIVE PERC</span>
-                <span class="m-val perc-val">{{ 10 + Math.floor(((tempForgedChar.stats?.WIS || 10) - 10) / 2) }}</span>
+                <span class="m-val perc-val">{{ 10 + Math.floor(((tempForgedChar.stats.WIS || 10) - 10) / 2) }}</span>
               </div>
             </div>
 
             <!-- 6 Stat Badges with Primary Class Highlights -->
             <div class="stats-badges-grid">
-              <div 
-                *ngFor="let s of statKeys" 
-                class="stat-badge-card" 
+              <div
+                *ngFor="let s of statKeys"
+                class="stat-badge-card"
                 [class.primary-stat]="isPrimaryStat(tempForgedChar.char_class, s)"
                 [style.border-color]="isPrimaryStat(tempForgedChar.char_class, s) ? getClassColor(tempForgedChar.char_class) : 'rgba(255,255,255,0.12)'">
                 <span class="s-name" [style.color]="isPrimaryStat(tempForgedChar.char_class, s) ? getClassColor(tempForgedChar.char_class) : '#888'">
                   {{ isPrimaryStat(tempForgedChar.char_class, s) ? '⭐ ' : '' }}{{ s }}
                 </span>
-                <span class="s-val">{{ tempForgedChar.stats?.[s] || 10 }}</span>
-                <span class="s-mod">({{ getModifierString(tempForgedChar.stats?.[s] || 10) }})</span>
+                <span class="s-val">{{ tempForgedChar.stats[s] || 10 }}</span>
+                <span class="s-mod">({{ getModifierString(tempForgedChar.stats[s] || 10) }})</span>
               </div>
             </div>
 

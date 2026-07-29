@@ -1,8 +1,9 @@
+from typing import Any, Dict
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import Dict, Any
 
-from backend.services.rules_service import query_rules, compare_rules, validate_character_build
+from backend.services.rules_service import compare_rules, query_rules, validate_character_build
 from server.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/rules", tags=["Rules & Oracle"])

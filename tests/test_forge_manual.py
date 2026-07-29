@@ -1,6 +1,7 @@
 from unittest.mock import patch
-from backend.services.forge_service import forge_character_manual
+
 from backend.core.constants import EDITION_2014
+from backend.services.forge_service import forge_character_manual
 
 
 @patch("backend.services.forge_service.generate_ai_json")
@@ -73,12 +74,8 @@ def test_forge_character_manual_success(mock_ai_json):
 def test_forge_character_manual_with_custom_preferences(mock_ai_json):
     mock_ai_json.return_value = {
         "backstory": "Archmage of the High Tower.",
-        "features_traits": [
-            {"name": "Feat: War Caster", "description": "Advantage on CON saves"}
-        ],
-        "weapons": [
-            {"name": "Quarterstaff", "attack_bonus": "+2", "damage_dice": "1d6"}
-        ],
+        "features_traits": [{"name": "Feat: War Caster", "description": "Advantage on CON saves"}],
+        "weapons": [{"name": "Quarterstaff", "attack_bonus": "+2", "damage_dice": "1d6"}],
         "equipment": [{"name": "Robes", "equipped": True}],
         "spells": {
             "cantrips": ["Fire Bolt"],

@@ -1,19 +1,19 @@
-import streamlit as st
 import logging
 
-from backend.services.forge_service import (
-    generate_playstyle_guide,
+import streamlit as st
+
+from backend.core.state_manager import (
+    get_character_dict,
 )
 from backend.core.storage import (
     save_character,
 )
-from backend.core.state_manager import (
-    get_character_dict,
+from backend.services.forge_service import (
+    generate_playstyle_guide,
 )
 from backend.utils.ui_utils import (
     render_themed_markdown,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +27,7 @@ def _render_roleplay(edit_mode: bool):
         )
     else:
         st.write(
-            st.session_state.backstory
-            if st.session_state.backstory
-            else "No backstory provided."
+            st.session_state.backstory if st.session_state.backstory else "No backstory provided."
         )
 
     st.markdown("---")
@@ -38,15 +36,9 @@ def _render_roleplay(edit_mode: bool):
         st.session_state.personality_traits = st.text_area(
             "Personality Traits", st.session_state.personality_traits, height=68
         )
-        st.session_state.ideals = st.text_area(
-            "Ideals", st.session_state.ideals, height=68
-        )
-        st.session_state.bonds = st.text_area(
-            "Bonds", st.session_state.bonds, height=68
-        )
-        st.session_state.flaws = st.text_area(
-            "Flaws", st.session_state.flaws, height=68
-        )
+        st.session_state.ideals = st.text_area("Ideals", st.session_state.ideals, height=68)
+        st.session_state.bonds = st.text_area("Bonds", st.session_state.bonds, height=68)
+        st.session_state.flaws = st.text_area("Flaws", st.session_state.flaws, height=68)
     else:
         col_p1, col_p2 = st.columns(2)
         col_p1.write(f"**Personality:** {st.session_state.personality_traits}")
@@ -66,9 +58,7 @@ def _render_roleplay(edit_mode: bool):
         ).split(", ")
     else:
         st.write(f"**Languages:** {', '.join(st.session_state.languages)}")
-        st.write(
-            f"**Tool Proficiencies:** {', '.join(st.session_state.tool_proficiencies)}"
-        )
+        st.write(f"**Tool Proficiencies:** {', '.join(st.session_state.tool_proficiencies)}")
 
 
 def _render_campaign_chronicle():

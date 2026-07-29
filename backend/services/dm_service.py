@@ -1,12 +1,13 @@
 import logging
-from backend.core.ai_client import generate_ai_response, generate_ai_json
+
+from backend.core.ai_client import generate_ai_json, generate_ai_response
+from backend.core.constants import EDITION_2014
 from backend.core.prompts import (
+    NPC_PROMPT,
     RANDOM_ENCOUNTER_PROMPT,
     RIDDLE_PROMPT,
-    NPC_PROMPT,
     SESSION_PREP_PROMPT,
 )
-from backend.core.constants import EDITION_2014
 from backend.core.schemas import EncounterSchema
 
 logger = logging.getLogger("DnDAssistant.DMService")
@@ -32,9 +33,7 @@ def generate_random_encounter(
         try:
             return EncounterSchema(**result).model_dump()
         except Exception as e:
-            logger.warning(
-                f"Encounter generation failed validation: {e}. Returning raw result."
-            )
+            logger.warning(f"Encounter generation failed validation: {e}. Returning raw result.")
             return result
     return None
 
@@ -83,6 +82,7 @@ def create_manual_npc(
 ) -> dict:
     """Builds and validates a manual NPC character dictionary."""
     import uuid
+
     from backend.core.schemas import CharacterSchema
 
     if not name or not name.strip():

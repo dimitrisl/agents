@@ -1,5 +1,6 @@
 import re
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -223,9 +224,7 @@ class CharacterSchema(BaseModel):
     def convert_strings_to_features(cls, v):
         if isinstance(v, list):
             return [
-                {"name": item, "description": "Imported feature"}
-                if isinstance(item, str)
-                else item
+                {"name": item, "description": "Imported feature"} if isinstance(item, str) else item
                 for item in v
             ]
         return v

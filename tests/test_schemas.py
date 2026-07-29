@@ -1,11 +1,10 @@
 from backend.core.schemas import (
-    StatBlock,
-    CharacterSchema,
-    SpellList,
-    LevelUpAnalysisSchema,
     BuildValidationSchema,
+    CharacterSchema,
+    LevelUpAnalysisSchema,
+    SpellList,
+    StatBlock,
 )
-
 
 # --- StatBlock ---
 
@@ -151,9 +150,7 @@ def test_spell_list_defaults():
 
 def test_level_up_analysis_schema():
     data = {
-        "automatic_changes": [
-            {"name": "Extra Attack", "description": "Attack twice per action"}
-        ],
+        "automatic_changes": [{"name": "Extra Attack", "description": "Attack twice per action"}],
         "hp_increase": 8,
         "new_total_hp": 52,
         "choices_required": [],

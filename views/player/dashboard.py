@@ -1,19 +1,19 @@
-import streamlit as st
 import logging
 
-from backend.core.state_manager import (
-    get_character_dict,
-    update_session_from_dict,
-)
+import streamlit as st
+
 from backend.core.constants import (
     EDITION_2014,
     EDITION_2024,
 )
-
-from views.player.selection_screen import render_selection_screen
-from views.player.character_sheet import render_active_character
+from backend.core.state_manager import (
+    get_character_dict,
+    update_session_from_dict,
+)
+from views.player._helpers import show_pdf_export_preview, trigger_sync
 from views.player.character_creator import render_character_creator
-from views.player._helpers import trigger_sync, show_pdf_export_preview
+from views.player.character_sheet import render_active_character
+from views.player.selection_screen import render_selection_screen
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,7 @@ def render_player_dashboard(accent_color: str):
                         try:
                             update_session_from_dict(st.session_state, cdata)
                         except Exception as e:
-                            logger.error(
-                                f"Failed to load character state for {cid_param}: {e}"
-                            )
+                            logger.error(f"Failed to load character state for {cid_param}: {e}")
                             st.error(f"Failed to load hero state: {cid_param}")
                             st.stop()
                         st.session_state.character_active = True
@@ -55,8 +53,7 @@ def render_player_dashboard(accent_color: str):
 
     # Sidebar navigation for the Player Dashboard
     has_active_hero = bool(
-        st.session_state.get("char_name")
-        and st.session_state.get("char_name") != "New Hero"
+        st.session_state.get("char_name") and st.session_state.get("char_name") != "New Hero"
     )
 
     with st.sidebar:
@@ -94,10 +91,7 @@ def render_player_dashboard(accent_color: str):
             st.session_state.character_active = True
             st.rerun()
 
-        if (
-            st.session_state.character_active
-            and st.session_state.player_view == "sheet"
-        ):
+        if st.session_state.character_active and st.session_state.player_view == "sheet":
             if st.button(
                 "🔄 Sync & Refresh Sheet",
                 type="primary",
@@ -182,9 +176,8 @@ def render_player_dashboard(accent_color: str):
                 if st.button("🔙 Cancel", width="stretch"):
                     st.session_state.player_view = "sheet"
                     # If we don't have an active character (meaning we came from selection), go back to selection
-                    if (
-                        st.session_state.char_name == "New Hero"
-                        or not st.session_state.get("character_active")
+                    if st.session_state.char_name == "New Hero" or not st.session_state.get(
+                        "character_active"
                     ):
                         st.session_state.character_active = False
                     st.rerun()

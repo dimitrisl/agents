@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from backend.services.module_parser_service import ModuleParserService
 
 
@@ -18,7 +20,9 @@ def mock_gemini_client():
 
         # Mock generation response
         mock_response = MagicMock()
-        mock_response.text = '[{"name": "Klarg", "role": "Boss", "ac": 16, "hp": 27, "page_number_for_art": 12}]'
+        mock_response.text = (
+            '[{"name": "Klarg", "role": "Boss", "ac": 16, "hp": 27, "page_number_for_art": 12}]'
+        )
         mock_instance.models.generate_content.return_value = mock_response
 
         yield mock_instance

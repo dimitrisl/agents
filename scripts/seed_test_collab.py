@@ -1,8 +1,9 @@
 import hashlib
+
 from backend.core.db import get_db
-from backend.repositories.character_repository import CharacterRepository
-from backend.repositories.campaign_repository import CampaignRepository
 from backend.core.state_manager import get_default_character
+from backend.repositories.campaign_repository import CampaignRepository
+from backend.repositories.character_repository import CharacterRepository
 
 
 def hash_pass(password: str) -> str:

@@ -1,4 +1,5 @@
 import streamlit as st
+
 from backend.core.config_loader import load_config, save_config
 
 
@@ -94,9 +95,7 @@ def render_settings_view():
             "app_settings": {"debug_mode": debug_mode, "portrait_dir": portrait_dir},
         }
         save_config(new_config)
-        st.success(
-            "Settings saved successfully! Changes will take effect on next AI call."
-        )
+        st.success("Settings saved successfully! Changes will take effect on next AI call.")
         st.toast("Configuration updated.")
 
     if c2.button("🔄 Reset to Defaults", width="stretch"):

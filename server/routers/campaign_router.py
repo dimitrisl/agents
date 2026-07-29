@@ -1,8 +1,9 @@
-import uuid
 import datetime
 import hashlib
 import time
-from typing import List, Optional, Any, Dict
+import uuid
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
@@ -57,9 +58,7 @@ async def list_campaigns(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/", response_model=CampaignSchema)
-async def save_campaign(
-    payload: CampaignSchema, current_user: dict = Depends(get_current_user)
-):
+async def save_campaign(payload: CampaignSchema, current_user: dict = Depends(get_current_user)):
     db = get_database()
     existing = await db["campaigns"].find_one({"campaign_name": payload.campaign_name})
 
@@ -82,9 +81,7 @@ async def join_campaign_by_code(
     db = get_database()
     camp = await db["campaigns"].find_one({"invite_code": payload.invite_code.upper()})
     if not camp:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code."
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
 
     party = camp.get("party", [])
     if payload.char_filename not in party:
@@ -108,9 +105,7 @@ async def join_campaign_by_code(
 
 
 @router.post("/{name}/invite-code")
-async def generate_invite_code(
-    name: str, current_user: dict = Depends(get_current_user)
-):
+async def generate_invite_code(name: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
     camp = await db["campaigns"].find_one({"campaign_name": name})
 
@@ -134,9 +129,7 @@ async def generate_invite_code(
 
     raw = f"{name}-{time.time()}"
     code = hashlib.md5(raw.encode()).hexdigest()[:6].upper()
-    await db["campaigns"].update_one(
-        {"campaign_name": name}, {"$set": {"invite_code": code}}
-    )
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
     return {"invite_code": code}
 
 
@@ -175,14 +168,9 @@ async def add_roll_request(
 
     requests = camp.get("roll_requests", [])
     for r in requests:
-        if (
-            r.get("char_filename") == req_in.char_filename
-            and r.get("status") == "pending"
-        ):
+        if r.get("char_filename") == req_in.char_filename and r.get("status") == "pending":
             r["status"] = "cancelled"
 
     requests.append(new_req)
-    await db["campaigns"].update_one(
-        {"campaign_name": name}, {"$set": {"roll_requests": requests}}
-    )
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"roll_requests": requests}})
     return {"success": True, "request": new_req}

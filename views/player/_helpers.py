@@ -1,5 +1,6 @@
-import streamlit as st
 import logging
+
+import streamlit as st
 
 from backend.core.state_manager import (
     get_character_dict,
@@ -9,7 +10,6 @@ from backend.services.mechanics_service import (
     get_modifier as calculate_modifier,
 )
 from backend.utils.pdf_exporter import export_character_to_pdf
-
 
 logger = logging.getLogger(__name__)
 
@@ -92,9 +92,7 @@ def show_pdf_export_preview(char_dict: dict):
         portrait_url = char_dict.get("char_portrait")
         if portrait_url:
             display_portrait = portrait_url
-            if not portrait_url.startswith("http") and not portrait_url.startswith(
-                "data:"
-            ):
+            if not portrait_url.startswith("http") and not portrait_url.startswith("data:"):
                 from backend.utils.ui_utils import get_image_base64
 
                 b64 = get_image_base64(portrait_url)
@@ -157,9 +155,7 @@ def show_pdf_export_preview(char_dict: dict):
         st.markdown(f"**⚔️ Weapons ({len(weapons)}):**")
         if weapons:
             for w in weapons[:3]:
-                st.write(
-                    f"- {w.get('name')} ({w.get('damage_dice')} {w.get('attack_bonus')})"
-                )
+                st.write(f"- {w.get('name')} ({w.get('damage_dice')} {w.get('attack_bonus')})")
             if len(weapons) > 3:
                 st.write(f"*...and {len(weapons) - 3} more*")
         else:
@@ -178,11 +174,7 @@ def show_pdf_export_preview(char_dict: dict):
 
     # Spells summary
     spells = char_dict.get("spells", {})
-    total_spells = (
-        sum(len(s_list) for s_list in spells.values())
-        if isinstance(spells, dict)
-        else 0
-    )
+    total_spells = sum(len(s_list) for s_list in spells.values()) if isinstance(spells, dict) else 0
     if total_spells > 0:
         st.markdown(f"**🧙 Spellcasting:** `{total_spells}` spells known / prepared.")
 
@@ -244,9 +236,7 @@ def trigger_sync():
             )
             return
 
-    updated = process_character_update(
-        current_char, stat_updates, equipment_deltas, weapon_deltas
-    )
+    updated = process_character_update(current_char, stat_updates, equipment_deltas, weapon_deltas)
 
     # 4. Update UI State
     update_session_from_dict(st.session_state, updated)

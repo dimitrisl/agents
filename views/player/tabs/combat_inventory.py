@@ -1,8 +1,8 @@
-import streamlit as st
 import logging
 
+import streamlit as st
 
-from views.player._helpers import log_roll, get_item_effect, trigger_sync
+from views.player._helpers import get_item_effect, log_roll, trigger_sync
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +123,7 @@ def _render_combat_inventory(edit_mode: bool):
                     if global_atk:
                         bonus_text = f"{total_atk} ({atk_bonus} + {global_atk} Global)"
 
-                    log_roll(
-                        f"**{w.get('name')}** To Hit: **{res}** (d20: {raw} + {bonus_text})"
-                    )
+                    log_roll(f"**{w.get('name')}** To Hit: **{res}** (d20: {raw} + {bonus_text})")
                     st.session_state.active_roll = {
                         "label": f"{w.get('name')} Attack Roll",
                         "sides": 20,
@@ -139,11 +137,12 @@ def _render_combat_inventory(edit_mode: bool):
                     st.rerun()
 
                 if w_roll2.button("💥 Dmg", key=f"dmg_{i}", width="stretch"):
-                    from backend.utils.dice import roll_dice
                     import re
+
                     from backend.services.mechanics_service import (
                         rebuild_damage_formula,
                     )
+                    from backend.utils.dice import roll_dice
 
                     dmg_str = w.get("damage") or rebuild_damage_formula(
                         w.get("damage_dice"), w.get("damage_bonus")
@@ -198,6 +197,7 @@ def _render_combat_inventory(edit_mode: bool):
 
     st.markdown("#### Equipment")
     import pandas as pd
+
     from backend.repositories.rules_repository import RulesRepository
 
     _rules_repo = RulesRepository()
@@ -212,9 +212,7 @@ def _render_combat_inventory(edit_mode: bool):
     for e in equipment:
         if isinstance(e, dict):
             item_name = e.get("name", "")
-            item_data = next(
-                (i for i in all_items if i["name"].lower() == item_name.lower()), None
-            )
+            item_data = next((i for i in all_items if i["name"].lower() == item_name.lower()), None)
 
             display_ac = e.get("ac_bonus", 0)
             if display_ac == 0 and item_data:
@@ -259,9 +257,7 @@ def _render_combat_inventory(edit_mode: bool):
         col_inv1.markdown(f"📊 **Attunement:** :{att_color}[{attuned_count} / 3]")
         col_inv2.markdown(f"🛡️ **Total AC:** {st.session_state.armor_class}")
 
-        st.caption(
-            "💡 **Tip:** Manually set bonuses (e.g., ATK, STR, HP) in the Mod/Val columns."
-        )
+        st.caption("💡 **Tip:** Manually set bonuses (e.g., ATK, STR, HP) in the Mod/Val columns.")
 
         equip_df = pd.DataFrame(current_equip)
         if equip_df.empty:
@@ -310,9 +306,7 @@ def _render_combat_inventory(edit_mode: bool):
         )
         e_add_btn, e_add_qty = st.columns([5, 1])
         with e_add_qty:
-            qty = st.number_input(
-                "Qty", 1, 10, 1, key="add_item_qty", label_visibility="collapsed"
-            )
+            qty = st.number_input("Qty", 1, 10, 1, key="add_item_qty", label_visibility="collapsed")
         with e_add_btn:
             if st.button("➕ Add New Item(s)", width="stretch"):
                 # To add an item, we must trigger sync to save pending edits first,

@@ -1,16 +1,17 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.config import settings
-from server.db_async import connect_to_mongo, close_mongo_connection
+from server.db_async import close_mongo_connection, connect_to_mongo
 from server.routers import (
     auth_router,
-    character_router,
-    forge_router,
     campaign_router,
+    character_router,
     dm_router,
+    forge_router,
     rules_router,
     websocket_router,
 )

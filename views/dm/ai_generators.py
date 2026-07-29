@@ -1,6 +1,8 @@
-import streamlit as st
 import logging
 import uuid
+
+import streamlit as st
+
 from backend.services.dm_service import (
     generate_npc,
     generate_random_encounter,
@@ -9,7 +11,6 @@ from backend.services.dm_service import (
 from backend.utils.ui_utils import (
     render_themed_markdown,
 )
-
 
 logger = logging.getLogger("DnDAssistant.DMView")
 
@@ -125,9 +126,7 @@ def _render_ai_generators():
                     st.session_state.riddle_result = None
                     st.rerun()
     else:
-        npc_concept = st.text_input(
-            "Concept", "A sketchy merchant", key="npc_concept_input"
-        )
+        npc_concept = st.text_input("Concept", "A sketchy merchant", key="npc_concept_input")
         if st.button("Generate NPC", key="gen_npc_btn"):
             with st.spinner("Forging..."):
                 st.session_state.npc_result = generate_npc(

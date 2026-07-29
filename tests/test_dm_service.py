@@ -1,4 +1,5 @@
 import pytest
+
 from backend.services.dm_service import create_manual_npc
 
 

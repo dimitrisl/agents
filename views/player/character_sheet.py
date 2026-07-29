@@ -1,35 +1,35 @@
-import streamlit as st
 import logging
 
-from backend.services.rules_service import (
-    validate_character_build,
+import streamlit as st
+
+from backend.core.state_manager import (
+    _set_val,
+    get_character_dict,
 )
 from backend.core.storage import (
     save_character,
 )
-from backend.core.state_manager import (
-    get_character_dict,
-    _set_val,
-)
 from backend.services.mechanics_service import (
     get_modifier as calculate_modifier,
 )
-from backend.utils.ui_utils import (
-    render_character_header,
-    render_active_roll_visual,
+from backend.services.rules_service import (
+    validate_character_build,
 )
 from backend.utils.image_utils import generate_portrait_url, save_custom_portrait
-
-from views.player.tabs.core_stats import _render_core_stats
-from views.player.tabs.combat_inventory import _render_combat_inventory
-from views.player.tabs.features_spells import _render_features_spells
-from views.player.tabs.roleplay import (
-    _render_roleplay,
-    _render_campaign_chronicle,
-    _render_playstyle_guide,
+from backend.utils.ui_utils import (
+    render_active_roll_visual,
+    render_character_header,
 )
 from views.player._helpers import log_roll, trigger_sync
 from views.player.level_up import run_level_up_wizard
+from views.player.tabs.combat_inventory import _render_combat_inventory
+from views.player.tabs.core_stats import _render_core_stats
+from views.player.tabs.features_spells import _render_features_spells
+from views.player.tabs.roleplay import (
+    _render_campaign_chronicle,
+    _render_playstyle_guide,
+    _render_roleplay,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +70,7 @@ def render_active_character(accent_color: str):
                 roll_requests = camp_data.get("roll_requests", [])
                 camp_name = camp_data.get("campaign_name")
                 for req in roll_requests:
-                    if (
-                        req.get("status") == "pending"
-                        or req.get("status") == "completed"
-                    ) and (
+                    if (req.get("status") == "pending" or req.get("status") == "completed") and (
                         (char_id and char_id in req.get("char_filename", ""))
                         or (char_name and char_name == req.get("char_name"))
                     ):
@@ -135,9 +132,7 @@ def render_active_character(accent_color: str):
                             saves = st.session_state.get("saving_throw_values", {})
                             modifier = saves.get(
                                 stat_key,
-                                calculate_modifier(
-                                    st.session_state.stats.get(stat_key, 10)
-                                ),
+                                calculate_modifier(st.session_state.stats.get(stat_key, 10)),
                             )
                         elif "check" in roll_type_lower and stat_key in [
                             "STR",
@@ -147,9 +142,7 @@ def render_active_character(accent_color: str):
                             "WIS",
                             "CHA",
                         ]:
-                            modifier = calculate_modifier(
-                                st.session_state.stats.get(stat_key, 10)
-                            )
+                            modifier = calculate_modifier(st.session_state.stats.get(stat_key, 10))
                         elif "check" in roll_type_lower:
                             skills = st.session_state.get("skills", {})
                             modifier = skills.get(stat_key, 0)
@@ -201,9 +194,7 @@ def render_active_character(accent_color: str):
                                     "adv_type": "None",
                                 }
 
-                            if submit_roll_result(
-                                active_campaign, req["id"], result_text
-                            ):
+                            if submit_roll_result(active_campaign, req["id"], result_text):
                                 st.rerun()
                             else:
                                 st.error("Failed to submit roll result.")
@@ -295,24 +286,18 @@ def render_active_character(accent_color: str):
 
                     # Message input using form to clear automatically on submit
                     with st.form(key="player_whisper_form", clear_on_submit=True):
-                        col_input, col_send = st.columns(
-                            [4, 1], vertical_alignment="bottom"
-                        )
+                        col_input, col_send = st.columns([4, 1], vertical_alignment="bottom")
                         w_msg = col_input.text_input(
                             "Whisper to DM",
                             label_visibility="collapsed",
                             placeholder="Type a message to DM...",
                         )
-                        submitted = col_send.form_submit_button(
-                            "Send", use_container_width=True
-                        )
+                        submitted = col_send.form_submit_button("Send", use_container_width=True)
                         if submitted:
                             if w_msg.strip():
                                 from backend.core.storage import send_whisper
 
-                                if send_whisper(
-                                    campaign_name, char_name, "DM", w_msg.strip()
-                                ):
+                                if send_whisper(campaign_name, char_name, "DM", w_msg.strip()):
                                     st.toast("Whisper sent to DM!")
                                     st.rerun()
                             else:
@@ -367,9 +352,9 @@ def render_active_character(accent_color: str):
                     # Custom comparison helper to ignore list order for simple lists
                     def is_equal(val1, val2):
                         if isinstance(val1, list) and isinstance(val2, list):
-                            if all(
-                                isinstance(x, (str, int, float)) for x in val1
-                            ) and all(isinstance(x, (str, int, float)) for x in val2):
+                            if all(isinstance(x, (str, int, float)) for x in val1) and all(
+                                isinstance(x, (str, int, float)) for x in val2
+                            ):
                                 return sorted(val1) == sorted(val2)
                         return val1 == val2
 
@@ -411,15 +396,11 @@ def render_active_character(accent_color: str):
         edit_col1, edit_col3, edit_col5 = st.columns([1.2, 1, 1])
         edit_col2 = None
 
-    edit_mode = edit_col1.toggle(
-        "✏️ Edit Mode", key="edit_mode", on_change=sync_and_save_on_toggle
-    )
+    edit_mode = edit_col1.toggle("✏️ Edit Mode", key="edit_mode", on_change=sync_and_save_on_toggle)
 
     # If Edit Mode is active, show the Save Changes button
     if edit_mode and edit_col2:
-        if edit_col2.button(
-            "💾 Save Changes", use_container_width=True, type="primary"
-        ):
+        if edit_col2.button("💾 Save Changes", use_container_width=True, type="primary"):
             trigger_sync()
             st.session_state.last_saved_char = get_character_dict(st.session_state)
             st.session_state.needs_validation = True
@@ -469,9 +450,7 @@ def render_active_character(accent_color: str):
                     file_ext = uploaded_file.name.split(".")[-1]
                     char_id = st.session_state.char_id or str(uuid.uuid4())[:8]
                     filename = f"{char_id}_custom.{file_ext}"
-                    local_path = save_custom_portrait(
-                        uploaded_file.getbuffer(), filename
-                    )
+                    local_path = save_custom_portrait(uploaded_file.getbuffer(), filename)
                     st.session_state.char_portrait = local_path
                     updated = True
                 elif input_url != st.session_state.char_portrait:

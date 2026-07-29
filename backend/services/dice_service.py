@@ -1,7 +1,7 @@
+import logging
 import random
 import re
-import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 logger = logging.getLogger("DnDAssistant.DiceService")
 
@@ -45,9 +45,7 @@ def rebuild_damage_formula(damage_dice: str, damage_bonus: str) -> str:
         return f"{dice_part}{connector}{damage_bonus} {type_str}".strip()
 
 
-def roll_dice(
-    die_str: str, advantage: bool = False, disadvantage: bool = False
-) -> Dict[str, Any]:
+def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False) -> Dict[str, Any]:
     """
     Parses and rolls dice notation (e.g. '1d20+5', '2d6-1', 'd8').
     Returns a dictionary with raw rolls, modifier, and total result.
@@ -68,9 +66,7 @@ def roll_dice(
         roll1 = random.randint(1, 20)
         roll2 = random.randint(1, 20)
         rolls = [roll1, roll2]
-        raw_val = (
-            max(roll1, roll2) if advantage and not disadvantage else min(roll1, roll2)
-        )
+        raw_val = max(roll1, roll2) if advantage and not disadvantage else min(roll1, roll2)
     else:
         rolls = [random.randint(1, sides) for _ in range(num_dice)]
         raw_val = sum(rolls)

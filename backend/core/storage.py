@@ -1,9 +1,11 @@
 import functools
 import logging
 import os
+
 import streamlit as st
-from backend.repositories.character_repository import CharacterRepository
+
 from backend.repositories.campaign_repository import CampaignRepository
+from backend.repositories.character_repository import CharacterRepository
 
 logger = logging.getLogger("DnDAssistant.Storage")
 
@@ -103,9 +105,7 @@ def load_character(filename: str) -> dict:
                 db = get_db()
                 if db is not None:
                     campaigns_col = db["campaigns"]
-                    campaign = campaigns_col.find_one(
-                        {"owner_id": owner_id, "party": filename}
-                    )
+                    campaign = campaigns_col.find_one({"owner_id": owner_id, "party": filename})
                     if campaign:
                         return data
                 logger.warning(
@@ -126,9 +126,7 @@ def delete_character(filename: str) -> bool:
     """Delete a character and clean up associations."""
     char_data = load_character(filename)
     if not char_data:
-        logger.warning(
-            f"Unauthorized or non-existent delete attempt for character {filename}"
-        )
+        logger.warning(f"Unauthorized or non-existent delete attempt for character {filename}")
         return False
 
     # 1. Handle portrait
@@ -150,10 +148,7 @@ def delete_character(filename: str) -> bool:
         try:
             import streamlit as st
 
-            if (
-                "char_cache" in st.session_state
-                and filename in st.session_state.char_cache
-            ):
+            if "char_cache" in st.session_state and filename in st.session_state.char_cache:
                 del st.session_state.char_cache[filename]
         except Exception:
             pass
@@ -199,14 +194,10 @@ def load_campaign(name: str) -> dict:
             db = get_db()
             if db is not None:
                 characters_col = db["characters"]
-                char = characters_col.find_one(
-                    {"owner_id": owner_id, "active_campaign": name}
-                )
+                char = characters_col.find_one({"owner_id": owner_id, "active_campaign": name})
                 if char:
                     return data
-            logger.warning(
-                f"Unauthorized access attempt to campaign {name} by user {owner_id}"
-            )
+            logger.warning(f"Unauthorized access attempt to campaign {name} by user {owner_id}")
             return None
     return data
 
@@ -218,9 +209,7 @@ def list_campaigns(edition: str = None) -> list:
 def delete_campaign(campaign_name: str) -> bool:
     camp_data = load_campaign(campaign_name)
     if not camp_data:
-        logger.warning(
-            f"Unauthorized or non-existent delete attempt for campaign {campaign_name}"
-        )
+        logger.warning(f"Unauthorized or non-existent delete attempt for campaign {campaign_name}")
         return False
     res = _get_camp_repo().delete(campaign_name)
     if res:
@@ -278,8 +267,8 @@ def add_roll_request(
     if not camp:
         return False
 
-    import uuid
     import datetime
+    import uuid
 
     req_id = str(uuid.uuid4())
     req = {
@@ -299,10 +288,7 @@ def add_roll_request(
 
     # Ensure only one pending request per character by cancelling older ones
     for old_req in requests:
-        if (
-            old_req.get("char_filename") == char_filename
-            and old_req.get("status") == "pending"
-        ):
+        if old_req.get("char_filename") == char_filename and old_req.get("status") == "pending":
             old_req["status"] = "cancelled"
 
     requests.append(req)
@@ -362,8 +348,8 @@ def send_whisper(campaign_name: str, sender: str, recipient: str, message: str) 
     if not camp:
         return False
 
-    import uuid
     import datetime
+    import uuid
     from collections import defaultdict
 
     whisper_id = str(uuid.uuid4())

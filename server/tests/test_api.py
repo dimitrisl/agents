@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
 from fastapi.testclient import TestClient
-from server.main import app
+
 from server.dependencies.auth import get_current_user
+from server.main import app
 
 client = TestClient(app)
 
@@ -95,9 +96,7 @@ def test_character_routes(mocker):
         mock_chars_col.delete_one = AsyncMock(return_value=MagicMock(deleted_count=1))
 
         mock_db = {"characters": mock_chars_col}
-        mocker.patch(
-            "server.routers.character_router.get_database", return_value=mock_db
-        )
+        mocker.patch("server.routers.character_router.get_database", return_value=mock_db)
 
         # 1. List characters
         response = client.get("/api/v1/characters/")
@@ -148,9 +147,7 @@ def test_rules_router(mocker):
         assert "Athletics check" in response.json()["answer_markdown"]
 
         # 2. Rules comparison
-        response = client.post(
-            "/api/v1/rules/compare", json={"query": "Grapple rules"}
-        )
+        response = client.post("/api/v1/rules/compare", json={"query": "Grapple rules"})
         assert response.status_code == 200
         assert "Saving Throw" in response.json()["comparison_markdown"]
 

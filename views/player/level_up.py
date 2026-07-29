@@ -1,24 +1,24 @@
-import streamlit as st
 import logging
 
-from backend.services.forge_service import (
-    analyze_level_up,
-)
-from backend.services.rules_service import (
-    analyze_feat,
-)
-from backend.core.state_manager import (
-    get_character_dict,
-)
-from backend.services.mechanics_service import (
-    get_level_up_vitals,
-    check_progression_features,
-)
+import streamlit as st
+
 from backend.core.constants import (
     EDITION_2014,
     EDITION_2024,
 )
-
+from backend.core.state_manager import (
+    get_character_dict,
+)
+from backend.services.forge_service import (
+    analyze_level_up,
+)
+from backend.services.mechanics_service import (
+    check_progression_features,
+    get_level_up_vitals,
+)
+from backend.services.rules_service import (
+    analyze_feat,
+)
 from views.player._helpers import trigger_sync
 
 logger = logging.getLogger(__name__)
@@ -160,22 +160,14 @@ def run_level_up_wizard():
                         )
                 other_reqs = prereqs.get("other", [])
                 if other_reqs:
-                    prereq_warnings.append(
-                        f"Other requirements: {', '.join(other_reqs)}"
-                    )
+                    prereq_warnings.append(f"Other requirements: {', '.join(other_reqs)}")
                 if prereq_warnings:
-                    st.warning(
-                        "⚠️ **Prerequisite Warning:**\n- " + "\n- ".join(prereq_warnings)
-                    )
+                    st.warning("⚠️ **Prerequisite Warning:**\n- " + "\n- ".join(prereq_warnings))
 
             # --- Sync Feat Mechanics ---
             if st.button("🔍 Sync Feat Mechanics"):
-                with st.spinner(
-                    f"Consulting the Oracle about {temp['selected_feat']}..."
-                ):
-                    analysis = analyze_feat(
-                        temp["selected_feat"], st.session_state.dnd_edition
-                    )
+                with st.spinner(f"Consulting the Oracle about {temp['selected_feat']}..."):
+                    analysis = analyze_feat(temp["selected_feat"], st.session_state.dnd_edition)
                     temp["feat_analysis"] = analysis
 
                     # Apply automated HP bonuses (e.g. Tough)
@@ -183,9 +175,7 @@ def run_level_up_wizard():
                     if hp_per_lvl > 0:
                         extra_hp = hp_per_lvl * target_lv
                         temp["hp_inc"] += extra_hp
-                        st.success(
-                            f"📈 Applied +{extra_hp} HP from {temp['selected_feat']}!"
-                        )
+                        st.success(f"📈 Applied +{extra_hp} HP from {temp['selected_feat']}!")
 
                     # Suggest stat bonus
                     if analysis.get("has_stat_choice"):
@@ -194,28 +184,21 @@ def run_level_up_wizard():
                         )
                     elif any(v > 0 for v in analysis.get("stat_bonus", {}).values()):
                         bonus_stats = [
-                            k
-                            for k, v in analysis.get("stat_bonus", {}).items()
-                            if v > 0
+                            k for k, v in analysis.get("stat_bonus", {}).items() if v > 0
                         ]
-                        st.success(
-                            f"💡 This feat gives a +1 to: {', '.join(bonus_stats)}"
-                        )
+                        st.success(f"💡 This feat gives a +1 to: {', '.join(bonus_stats)}")
 
             # Support for Feats that provide an Ability Score Increase (+1)
             feat_desc = feat_map.get(temp["selected_feat"], {}).get("description", "")
             has_stat_increase = (
-                "increase your" in feat_desc.lower()
-                and "score by 1" in feat_desc.lower()
+                "increase your" in feat_desc.lower() and "score by 1" in feat_desc.lower()
             )
 
             # Determine index for the selectbox
             default_index = 0  # "None"
             if "feat_analysis" in temp:
                 analysis = temp["feat_analysis"]
-                bonus_stats = [
-                    k for k, v in analysis.get("stat_bonus", {}).items() if v > 0
-                ]
+                bonus_stats = [k for k, v in analysis.get("stat_bonus", {}).items() if v > 0]
                 if bonus_stats:
                     stat_options = ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"]
                     if bonus_stats[0] in stat_options:
@@ -239,15 +222,11 @@ def run_level_up_wizard():
                 selected_feat_data = feat_map.get(temp["selected_feat"])
                 if selected_feat_data:
                     with st.expander("Feat Details", expanded=False):
-                        desc = selected_feat_data.get(
-                            "description", "No description available."
-                        )
+                        desc = selected_feat_data.get("description", "No description available.")
                         st.write(desc)
 
                         # Removed AI completion button to avoid meta-text
-                    temp["selected_feat_desc"] = selected_feat_data.get(
-                        "description", ""
-                    )
+                    temp["selected_feat_desc"] = selected_feat_data.get("description", "")
 
     # STEP 2b: Choose Subclass (Required if level up crosses the subclass choice level)
     edition = st.session_state.get("dnd_edition", "2014 Edition")
@@ -329,9 +308,7 @@ def run_level_up_wizard():
             for c in ["wizard", "cleric", "druid", "sorcerer", "bard", "warlock"]
         )
         is_half = any(c in char_class_lower for c in ["paladin", "ranger", "artificer"])
-        is_third = any(
-            s in subclass_lower for s in ["eldritch knight", "arcane trickster"]
-        )
+        is_third = any(s in subclass_lower for s in ["eldritch knight", "arcane trickster"])
 
         if is_full:
             max_lvl = (target_lv + 1) // 2
@@ -346,14 +323,10 @@ def run_level_up_wizard():
 
         if "wizard" in char_class_lower:
             rec = "2 new Wizard spells"
-        elif any(
-            c in char_class_lower for c in ["sorcerer", "bard", "warlock", "ranger"]
-        ):
+        elif any(c in char_class_lower for c in ["sorcerer", "bard", "warlock", "ranger"]):
             rec = "1 new spell"
         elif any(c in char_class_lower for c in ["cleric", "druid", "paladin"]):
-            rec = (
-                "access to all class spells of your levels (add any you wish to track)"
-            )
+            rec = "access to all class spells of your levels (add any you wish to track)"
         elif is_third:
             rec = "1 new Wizard spell"
         else:
@@ -376,9 +349,7 @@ def run_level_up_wizard():
         all_spells = [s for s in all_spells if min_lvl <= s.get("level", 0) <= max_lvl]
 
         class_spells = [
-            s
-            for s in all_spells
-            if char_class_lower in [c.lower() for c in s.get("classes", [])]
+            s for s in all_spells if char_class_lower in [c.lower() for c in s.get("classes", [])]
         ]
 
         # Radio to toggle list
@@ -426,9 +397,7 @@ def run_level_up_wizard():
         limit = 0
         if "wizard" in char_class_lower:
             limit = 2
-        elif any(
-            c in char_class_lower for c in ["sorcerer", "bard", "warlock", "ranger"]
-        ):
+        elif any(c in char_class_lower for c in ["sorcerer", "bard", "warlock", "ranger"]):
             limit = 1
         elif is_third:
             limit = 1
@@ -458,13 +427,9 @@ def run_level_up_wizard():
                             f"ASI (+1 to {', '.join(temp['stats_raised'])})"
                         )
                     else:
-                        user_choices_context["Benefit Chosen"] = (
-                            f"Feat: {temp['selected_feat']}"
-                        )
+                        user_choices_context["Benefit Chosen"] = f"Feat: {temp['selected_feat']}"
 
-                analysis = analyze_level_up(
-                    char_data, user_choices=user_choices_context
-                )
+                analysis = analyze_level_up(char_data, user_choices=user_choices_context)
                 if analysis:
                     temp["new_features"] = analysis.get("automatic_changes", [])
                     temp["suggestions"] = analysis.get("suggestions", [])

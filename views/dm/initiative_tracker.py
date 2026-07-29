@@ -1,20 +1,21 @@
-import streamlit as st
 import logging
-import uuid
 import os
+import uuid
+
+import streamlit as st
+
 from backend.core.storage import (
-    load_campaign,
-    list_characters,
-    load_character,
-    save_character,
     add_roll_request,
     clear_roll_requests,
+    list_characters,
+    load_campaign,
+    load_character,
+    save_character,
 )
+from backend.services.mechanics_service import get_modifier as calculate_modifier
 from backend.utils.ui_utils import (
     get_image_base64,
 )
-from backend.services.mechanics_service import get_modifier as calculate_modifier
-
 
 logger = logging.getLogger("DnDAssistant.DMView")
 
@@ -30,16 +31,12 @@ def _render_initiative_tracker():
     ):
         with st.container(border=True):
             c1, c2, c3, c4, c5, c6 = st.columns([2, 1, 1, 1, 1, 1])
-            name = c1.text_input(
-                "Name", placeholder="e.g. Goblin", key="init_custom_name"
-            )
+            name = c1.text_input("Name", placeholder="e.g. Goblin", key="init_custom_name")
             init = c2.number_input("Init", value=10, key="init_custom_val")
             hp = c3.number_input("HP", value=20, min_value=1, key="init_custom_hp")
             ac = c4.number_input("AC", value=10, min_value=1, key="init_custom_ac")
             dex = c5.number_input("DEX", value=10, min_value=1, key="init_custom_dex")
-            qty = c6.number_input(
-                "Qty", value=1, min_value=1, max_value=50, key="init_custom_qty"
-            )
+            qty = c6.number_input("Qty", value=1, min_value=1, max_value=50, key="init_custom_qty")
 
             b1, b2, b3 = st.columns(3)
             if b1.button("➕ Add Custom", key="add_custom_init_btn", width="stretch"):
@@ -65,9 +62,7 @@ def _render_initiative_tracker():
                     )
                     st.rerun()
 
-            if b2.button(
-                "👥 Import Party", key="import_party_init_btn", width="stretch"
-            ):
+            if b2.button("👥 Import Party", key="import_party_init_btn", width="stretch"):
                 for member in st.session_state.party:
                     if not any(
                         c.get("name") == member["char_name"]
@@ -99,9 +94,7 @@ def _render_initiative_tracker():
                 st.rerun()
 
         st.markdown("**Load Character:**")
-        lc1, lc2, lc3, lc4 = st.columns(
-            [2.5, 0.8, 0.8, 0.9], vertical_alignment="bottom"
-        )
+        lc1, lc2, lc3, lc4 = st.columns([2.5, 0.8, 0.8, 0.9], vertical_alignment="bottom")
         init_filtered_chars = []
         active_edition = st.session_state.get("dnd_edition", "2014 Edition")
         is_active_2024 = "2024" in active_edition
@@ -113,9 +106,7 @@ def _render_initiative_tracker():
                 if is_active_2024 == is_char_2024:
                     init_filtered_chars.append(c_file)
 
-        char_file = lc1.selectbox(
-            "Character", init_filtered_chars, key="load_char_init_sel"
-        )
+        char_file = lc1.selectbox("Character", init_filtered_chars, key="load_char_init_sel")
         char_qty = lc2.number_input("Qty", 1, 20, 1, key="load_char_init_qty")
         if lc3.button("Load", key="load_char_init_btn", width="stretch"):
             if char_file:
@@ -123,9 +114,7 @@ def _render_initiative_tracker():
                 if data:
                     for i in range(1, char_qty + 1):
                         final_name = (
-                            f"{data['char_name']} {i}"
-                            if char_qty > 1
-                            else data["char_name"]
+                            f"{data['char_name']} {i}" if char_qty > 1 else data["char_name"]
                         )
                         mod = calculate_modifier(data["stats"]["DEX"])
                         st.session_state.initiative_order.append(
@@ -183,9 +172,7 @@ def _render_initiative_tracker():
                 with st.container(border=True):
                     cp1, cp2, cp3 = st.columns([1, 4, 1])
                     p_url = c.get("portrait")
-                    if not p_url or (
-                        not p_url.startswith("http") and not os.path.exists(p_url)
-                    ):
+                    if not p_url or (not p_url.startswith("http") and not os.path.exists(p_url)):
                         p_url = "https://img.icons8.com/color/96/monster.png"
                     cp1.image(p_url, width=40)
                     cp2.markdown(f"**{c['name']}**")
@@ -228,10 +215,7 @@ def _render_initiative_tracker():
                 not p_url_active
                 or p_url_active == "0"
                 or p_url_active == "None"
-                or (
-                    not p_url_active.startswith("http")
-                    and not os.path.exists(p_url_active)
-                )
+                or (not p_url_active.startswith("http") and not os.path.exists(p_url_active))
             ):
                 p_url_active = "https://img.icons8.com/color/96/monster.png"
             act_c1.image(p_url_active, width=100)
@@ -280,10 +264,7 @@ def _render_initiative_tracker():
             ):
                 p_url = "https://img.icons8.com/color/96/monster.png"
             elif not p_url.startswith("http") and not p_url.startswith("data:"):
-                p_url = (
-                    get_image_base64(p_url)
-                    or "https://img.icons8.com/color/96/monster.png"
-                )
+                p_url = get_image_base64(p_url) or "https://img.icons8.com/color/96/monster.png"
 
             conc_html = ""
             if c.get("concentration"):
@@ -404,9 +385,7 @@ def _render_initiative_tracker():
                     r2.write("")
 
                 with r3.popover("🎲 Roll"):
-                    d_type = st.selectbox(
-                        "Die", [20, 12, 10, 8, 6, 4], key=f"roll_d_{c['id']}_{i}"
-                    )
+                    d_type = st.selectbox("Die", [20, 12, 10, 8, 6, 4], key=f"roll_d_{c['id']}_{i}")
                     mod = st.number_input("Mod", value=0, key=f"roll_m_{c['id']}_{i}")
                     if st.button("Roll", key=f"roll_b_{c['id']}_{i}"):
                         from backend.utils.dice import quick_roll
@@ -457,9 +436,7 @@ def _render_initiative_tracker():
 
                             file_ext = p_upload.name.split(".")[-1]
                             fname = f"{c['id']}_custom.{file_ext}"
-                            target_portrait = save_custom_portrait(
-                                p_upload.getbuffer(), fname
-                            )
+                            target_portrait = save_custom_portrait(p_upload.getbuffer(), fname)
                         elif p_text:
                             target_portrait = p_text
 
@@ -502,18 +479,14 @@ def _render_roll_requests_section(tab_key: str):
     if "last_seen_roll_ids" not in st.session_state:
         st.session_state.last_seen_roll_ids = set()
 
-    current_completed_ids = {
-        r["id"] for r in roll_requests if r.get("status") == "completed"
-    }
+    current_completed_ids = {r["id"] for r in roll_requests if r.get("status") == "completed"}
     new_results = current_completed_ids - st.session_state.last_seen_roll_ids
 
     if new_results:
         for rid in new_results:
             req = next((r for r in roll_requests if r["id"] == rid), None)
             if req:
-                st.toast(
-                    f"🎲 **{req.get('char_name')}** rolled **{req.get('result')}**!"
-                )
+                st.toast(f"🎲 **{req.get('char_name')}** rolled **{req.get('result')}**!")
         st.session_state.last_seen_roll_ids.update(new_results)
 
     col_header, col_refresh = st.columns([4, 1])

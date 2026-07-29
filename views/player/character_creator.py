@@ -1,41 +1,41 @@
-import streamlit as st
 import logging
-
-import uuid
 import os
+import uuid
+
+import streamlit as st
+
+from backend.core.constants import (
+    ALIGNMENTS,
+    BACKGROUNDS_2014,
+    BACKGROUNDS_2024,
+    CLASSES_2014,
+    CLASSES_2024,
+    EDITION_2014,
+    EDITION_2024,
+    GENDERS,
+    RACES_2014,
+    SPECIES_2024,
+    SUBCLASSES_2014,
+    SUBCLASSES_2024,
+)
 from backend.core.schemas import CharacterSchema
-from backend.services.rules_service import (
-    validate_character_build,
+from backend.core.state_manager import (
+    get_character_dict,
+    update_session_from_dict,
 )
 from backend.services.forge_service import (
     forge_character,
     forge_character_manual,
 )
-from backend.core.state_manager import (
-    get_character_dict,
-    update_session_from_dict,
-)
 from backend.services.mechanics_service import (
     get_modifier as calculate_modifier,
 )
-from backend.utils.image_utils import generate_portrait_url
-from backend.core.constants import (
-    EDITION_2014,
-    EDITION_2024,
-    RACES_2014,
-    CLASSES_2014,
-    BACKGROUNDS_2014,
-    SUBCLASSES_2014,
-    SPECIES_2024,
-    CLASSES_2024,
-    BACKGROUNDS_2024,
-    SUBCLASSES_2024,
-    GENDERS,
-    ALIGNMENTS,
+from backend.services.rules_service import (
+    validate_character_build,
 )
-
+from backend.utils.image_utils import generate_portrait_url
 from views.player._helpers import trigger_sync
-from views.ui_utils import inject_global_theme, extract_flat_names
+from views.ui_utils import extract_flat_names, inject_global_theme
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +46,7 @@ def render_character_creator():
     st.markdown("### Forge a New Hero")
 
     if st.session_state.temp_forged_char is None:
-        tab_ai, tab_manual = st.tabs(
-            ["✨ AI Character Forge", "🛠️ Manual Character Builder"]
-        )
+        tab_ai, tab_manual = st.tabs(["✨ AI Character Forge", "🛠️ Manual Character Builder"])
 
         # Determine lists based on edition
         forge_edition = st.session_state.dnd_edition
@@ -244,13 +242,9 @@ def render_character_creator():
                 # 2. Pillars
                 col_m_race, col_m_class, col_m_bg = st.columns(3)
                 with col_m_race:
-                    manual_race = st.selectbox(
-                        f"{race_label}", race_options, key="manual_race"
-                    )
+                    manual_race = st.selectbox(f"{race_label}", race_options, key="manual_race")
                 with col_m_class:
-                    manual_class = st.selectbox(
-                        "Class", class_options, key="manual_class"
-                    )
+                    manual_class = st.selectbox("Class", class_options, key="manual_class")
                 with col_m_bg:
                     manual_background = st.selectbox(
                         "Background", bg_options, key="manual_background"
@@ -258,9 +252,7 @@ def render_character_creator():
 
                 col_m_align, col_m_sub = st.columns(2)
                 with col_m_align:
-                    manual_alignment = st.selectbox(
-                        "Alignment", ALIGNMENTS, key="manual_alignment"
-                    )
+                    manual_alignment = st.selectbox("Alignment", ALIGNMENTS, key="manual_alignment")
 
                 # Subclass Logic
                 manual_subclass_options = ["None"]
@@ -318,29 +310,17 @@ def render_character_creator():
                     col_s1, col_s2, col_s3, col_s4, col_s5, col_s6 = st.columns(6)
                     val_options = [15, 14, 13, 12, 10, 8]
                     with col_s1:
-                        s_str = st.selectbox(
-                            "STR", val_options, index=0, key="manual_arr_str"
-                        )
+                        s_str = st.selectbox("STR", val_options, index=0, key="manual_arr_str")
                     with col_s2:
-                        s_dex = st.selectbox(
-                            "DEX", val_options, index=1, key="manual_arr_dex"
-                        )
+                        s_dex = st.selectbox("DEX", val_options, index=1, key="manual_arr_dex")
                     with col_s3:
-                        s_con = st.selectbox(
-                            "CON", val_options, index=2, key="manual_arr_con"
-                        )
+                        s_con = st.selectbox("CON", val_options, index=2, key="manual_arr_con")
                     with col_s4:
-                        s_int = st.selectbox(
-                            "INT", val_options, index=3, key="manual_arr_int"
-                        )
+                        s_int = st.selectbox("INT", val_options, index=3, key="manual_arr_int")
                     with col_s5:
-                        s_wis = st.selectbox(
-                            "WIS", val_options, index=4, key="manual_arr_wis"
-                        )
+                        s_wis = st.selectbox("WIS", val_options, index=4, key="manual_arr_wis")
                     with col_s6:
-                        s_cha = st.selectbox(
-                            "CHA", val_options, index=5, key="manual_arr_cha"
-                        )
+                        s_cha = st.selectbox("CHA", val_options, index=5, key="manual_arr_cha")
 
                     stats_assigned = [s_str, s_dex, s_con, s_int, s_wis, s_cha]
                     is_stat_valid = len(set(stats_assigned)) == 6
@@ -350,9 +330,7 @@ def render_character_creator():
                         )
 
                 elif stat_method.startswith("Roll for Stats"):
-                    if st.button(
-                        "🎲 Roll 6 Stats (4d6 drop lowest)", key="manual_roll_button"
-                    ):
+                    if st.button("🎲 Roll 6 Stats (4d6 drop lowest)", key="manual_roll_button"):
                         import random
 
                         rolled = []
@@ -370,42 +348,26 @@ def render_character_creator():
 
                         col_s1, col_s2, col_s3, col_s4, col_s5, col_s6 = st.columns(6)
                         with col_s1:
-                            s_str = st.selectbox(
-                                "STR", rolled_vals, index=0, key="manual_roll_str"
-                            )
+                            s_str = st.selectbox("STR", rolled_vals, index=0, key="manual_roll_str")
                         with col_s2:
-                            s_dex = st.selectbox(
-                                "DEX", rolled_vals, index=1, key="manual_roll_dex"
-                            )
+                            s_dex = st.selectbox("DEX", rolled_vals, index=1, key="manual_roll_dex")
                         with col_s3:
-                            s_con = st.selectbox(
-                                "CON", rolled_vals, index=2, key="manual_roll_con"
-                            )
+                            s_con = st.selectbox("CON", rolled_vals, index=2, key="manual_roll_con")
                         with col_s4:
-                            s_int = st.selectbox(
-                                "INT", rolled_vals, index=3, key="manual_roll_int"
-                            )
+                            s_int = st.selectbox("INT", rolled_vals, index=3, key="manual_roll_int")
                         with col_s5:
-                            s_wis = st.selectbox(
-                                "WIS", rolled_vals, index=4, key="manual_roll_wis"
-                            )
+                            s_wis = st.selectbox("WIS", rolled_vals, index=4, key="manual_roll_wis")
                         with col_s6:
-                            s_cha = st.selectbox(
-                                "CHA", rolled_vals, index=5, key="manual_roll_cha"
-                            )
+                            s_cha = st.selectbox("CHA", rolled_vals, index=5, key="manual_roll_cha")
 
                         stats_assigned = [s_str, s_dex, s_con, s_int, s_wis, s_cha]
                         from collections import Counter
 
                         is_stat_valid = Counter(stats_assigned) == Counter(rolled_vals)
                         if not is_stat_valid:
-                            st.warning(
-                                "⚠️ Please assign each rolled score exactly once."
-                            )
+                            st.warning("⚠️ Please assign each rolled score exactly once.")
                     else:
-                        st.info(
-                            "Click the button above to roll your six ability scores."
-                        )
+                        st.info("Click the button above to roll your six ability scores.")
                         is_stat_valid = False
                         s_str = s_dex = s_con = s_int = s_wis = s_cha = 10
 
@@ -668,9 +630,7 @@ def render_character_creator():
                         st.session_state.temp_portrait = result["char_portrait"]
                         st.rerun()
                     else:
-                        st.error(
-                            "Failed to generate character. Please check inputs and try again."
-                        )
+                        st.error("Failed to generate character. Please check inputs and try again.")
     else:
         # --- Preview of the forged character ---
         char = st.session_state.temp_forged_char
@@ -785,9 +745,7 @@ def render_character_creator():
                         if is_primary
                         else "1px solid rgba(255,255,255,0.12)"
                     )
-                    bg_style = (
-                        f"{accent_color}18" if is_primary else "rgba(255,255,255,0.04)"
-                    )
+                    bg_style = f"{accent_color}18" if is_primary else "rgba(255,255,255,0.04)"
                     star = "⭐ " if is_primary else ""
 
                     badges_html.append(
@@ -839,9 +797,7 @@ def render_character_creator():
                 # Backstory snippet
                 backstory_text = char.get("backstory", "")
                 if backstory_text:
-                    snippet = backstory_text[:280] + (
-                        "..." if len(backstory_text) > 280 else ""
-                    )
+                    snippet = backstory_text[:280] + ("..." if len(backstory_text) > 280 else "")
                     st.markdown(
                         f'<div style="background: rgba(0,0,0,0.3); border-left: 3px solid {accent_color}; padding: 10px 14px; border-radius: 4px; font-size: 0.88rem; color: #ccc; font-style: italic; line-height: 1.4;">'
                         f'"{snippet}"'
@@ -850,10 +806,7 @@ def render_character_creator():
                     )
 
             with col_portrait:
-                if (
-                    "temp_portrait" in st.session_state
-                    and st.session_state.temp_portrait
-                ):
+                if "temp_portrait" in st.session_state and st.session_state.temp_portrait:
                     st.image(
                         st.session_state.temp_portrait,
                         caption="Character Portrait",
@@ -874,9 +827,7 @@ def render_character_creator():
             if c_btn1.button("✅ Accept & Equip Hero", width="stretch", type="primary"):
                 char["char_id"] = str(uuid.uuid4())[:8]
                 try:
-                    char = CharacterSchema.model_validate(
-                        char, strict=False
-                    ).model_dump()
+                    char = CharacterSchema.model_validate(char, strict=False).model_dump()
                 except Exception as val_err:
                     logger.warning(f"Accept character validation note: {val_err}")
                 update_session_from_dict(st.session_state, char)
@@ -903,10 +854,7 @@ def render_character_creator():
                 st.rerun()
 
             if c_btn2.button("❌ Discard", width="stretch"):
-                if (
-                    "temp_portrait" in st.session_state
-                    and st.session_state.temp_portrait
-                ):
+                if "temp_portrait" in st.session_state and st.session_state.temp_portrait:
                     try:
                         if os.path.exists(st.session_state.temp_portrait):
                             os.remove(st.session_state.temp_portrait)

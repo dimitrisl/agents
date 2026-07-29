@@ -1,10 +1,11 @@
 from unittest.mock import MagicMock
+
 from backend.core.state_manager import (
+    CHARACTER_FIELDS,
+    get_character_dict,
     get_default_character,
     init_session_state,
-    get_character_dict,
     update_session_from_dict,
-    CHARACTER_FIELDS,
 )
 
 

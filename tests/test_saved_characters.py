@@ -1,7 +1,9 @@
 import os
+
 import pytest
-from backend.repositories.character_repository import CharacterRepository
+
 from backend.core.state_manager import update_session_from_dict
+from backend.repositories.character_repository import CharacterRepository
 
 
 def test_load_all_real_database_characters():
@@ -12,9 +14,7 @@ def test_load_all_real_database_characters():
     """
     # Only run if MONGO_URI is defined
     if not os.environ.get("MONGO_URI"):
-        pytest.skip(
-            "MONGO_URI is not set in environment. Skipping live character verification."
-        )
+        pytest.skip("MONGO_URI is not set in environment. Skipping live character verification.")
 
     repo = CharacterRepository()
     if repo.collection is None:
@@ -37,6 +37,4 @@ def test_load_all_real_database_characters():
         try:
             update_session_from_dict(mock_state, char_data)
         except Exception as e:
-            pytest.fail(
-                f"Failed to load character '{char_file}' into session state: {e}"
-            )
+            pytest.fail(f"Failed to load character '{char_file}' into session state: {e}")

@@ -3,8 +3,8 @@ from pydantic import BaseModel
 
 from backend.core.schemas import EncounterSchema
 from backend.services.dm_service import (
-    generate_random_encounter,
     generate_npc,
+    generate_random_encounter,
     generate_riddle,
     generate_session_prep,
 )
@@ -56,17 +56,13 @@ async def create_encounter(
 
 
 @router.post("/npc")
-async def create_npc(
-    payload: NpcRequest, current_user: dict = Depends(get_current_user)
-):
+async def create_npc(payload: NpcRequest, current_user: dict = Depends(get_current_user)):
     npc_text = generate_npc(payload.npc_concept, payload.edition)
     return {"npc_markdown": npc_text}
 
 
 @router.post("/riddle")
-async def create_riddle(
-    payload: RiddleRequest, current_user: dict = Depends(get_current_user)
-):
+async def create_riddle(payload: RiddleRequest, current_user: dict = Depends(get_current_user)):
     riddle_text = generate_riddle(payload.location, payload.edition)
     return {"riddle_text": riddle_text}
 

@@ -1,17 +1,18 @@
-import streamlit as st
 import logging
 import os
+
+import streamlit as st
+
 from backend.utils.ui_utils import (
     render_active_roll_visual,
 )
-
-from views.dm.campaign_manager import _render_campaign_selection, _render_campaign_notes
-from views.dm.party_tracker import _render_party_tracker, _render_party_dashboard
 from views.dm.ai_generators import _render_ai_generators
+from views.dm.campaign_manager import _render_campaign_notes, _render_campaign_selection
 from views.dm.initiative_tracker import (
     _render_initiative_tracker,
     _render_roll_requests_section,
 )
+from views.dm.party_tracker import _render_party_dashboard, _render_party_tracker
 from views.dm.whisper_chat import _render_whisper_chat_section
 
 logger = logging.getLogger("DnDAssistant.DMView")
@@ -29,9 +30,7 @@ def render_dm_workspace():
         _render_campaign_selection()
     else:
         col_title, col_close = st.columns([4, 1], vertical_alignment="center")
-        col_title.markdown(
-            f"### Active Campaign: **{st.session_state.active_campaign_name}**"
-        )
+        col_title.markdown(f"### Active Campaign: **{st.session_state.active_campaign_name}**")
         if col_close.button("🚪 Close Campaign", key="close_camp_btn", width="stretch"):
             st.session_state.active_campaign_name = None
             st.rerun()
@@ -71,9 +70,7 @@ def render_dm_workspace():
 @st.dialog("NPC Stat Block", width="large")
 def show_npc_stat_block(npc_data):
     st.markdown(f"## {npc_data.get('char_name', 'Unknown')}")
-    st.caption(
-        f"{npc_data.get('race', 'Unknown')} {npc_data.get('char_class', 'Monster')}"
-    )
+    st.caption(f"{npc_data.get('race', 'Unknown')} {npc_data.get('char_class', 'Monster')}")
     st.markdown("---")
 
     col1, col2 = st.columns([2, 1])
@@ -96,9 +93,7 @@ def show_npc_stat_block(npc_data):
         st.markdown("### Traits")
         for trait in npc_data.get("features_traits", []):
             if isinstance(trait, dict):
-                st.markdown(
-                    f"**{trait.get('name', 'Feature')}.** {trait.get('description', '')}"
-                )
+                st.markdown(f"**{trait.get('name', 'Feature')}.** {trait.get('description', '')}")
             else:
                 st.markdown(f"**Feature.** {trait}")
 

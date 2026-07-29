@@ -1,20 +1,21 @@
 import functools
-import logging
 import json
+import logging
 import re
+
 import streamlit as st
-from backend.core.ai_client import generate_ai_response, generate_ai_json
+
+from backend.core.ai_client import generate_ai_json, generate_ai_response
+from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.prompts import (
-    RULES_ORACLE_PROMPT,
     BUILD_VALIDATION_PROMPT,
+    FEAT_ANALYSIS_PROMPT,
     PDF_PARSING_STEP1_PROMPT,
     PDF_PARSING_STEP2_PROMPT,
-    FEAT_ANALYSIS_PROMPT,
     RULE_COMPARISON_PROMPT,
+    RULES_ORACLE_PROMPT,
 )
-from backend.core.constants import EDITION_2014, EDITION_2024
-
-from backend.core.schemas import CharacterSchema, BuildValidationSchema
+from backend.core.schemas import BuildValidationSchema, CharacterSchema
 from backend.repositories.rules_repository import RulesRepository
 from backend.utils.api_client import fetch_feat_from_api
 
@@ -50,13 +51,13 @@ def validate_character_build(char_data: dict) -> dict:
     validated_char = CharacterSchema(**char_data)
 
     from backend.core.constants import (
-        RACES_2014,
-        CLASSES_2014,
         BACKGROUNDS_2014,
-        SUBCLASSES_2014,
-        SPECIES_2024,
-        CLASSES_2024,
         BACKGROUNDS_2024,
+        CLASSES_2014,
+        CLASSES_2024,
+        RACES_2014,
+        SPECIES_2024,
+        SUBCLASSES_2014,
         SUBCLASSES_2024,
     )
 
@@ -77,9 +78,7 @@ def validate_character_build(char_data: dict) -> dict:
         allowed_races=", ".join(allowed_races),
         allowed_classes=", ".join(allowed_classes),
         allowed_backgrounds=", ".join(allowed_backgrounds),
-        allowed_subclasses=", ".join(allowed_subclasses)
-        if allowed_subclasses
-        else "None",
+        allowed_subclasses=", ".join(allowed_subclasses) if allowed_subclasses else "None",
     )
     result = generate_ai_json(prompt)
     if result:
@@ -104,9 +103,7 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
         logger.error("Step 1 of chained parsing failed.")
         return None
 
-    logger.info(
-        f"Step 1 Complete (Name: {core_data.get('char_name')}). Starting Step 2..."
-    )
+    logger.info(f"Step 1 Complete (Name: {core_data.get('char_name')}). Starting Step 2...")
 
     # STEP 2: Combat, Equipment, Spells & Lore
     step2_prompt = PDF_PARSING_STEP2_PROMPT.format(
@@ -202,10 +199,7 @@ def regex_parse_feat_attributes(description: str) -> dict:
     norm_desc = re.sub(r"[.,;:]", "", norm_desc)
 
     # 1. HP bonus (Tough)
-    if (
-        "hit point maximum increases by an amount equal to twice your level"
-        in norm_desc
-    ):
+    if "hit point maximum increases by an amount equal to twice your level" in norm_desc:
         mechanics["hp_bonus_per_level"] = 2
     elif "hit point maximum increases by 1 for every level" in norm_desc:
         mechanics["hp_bonus_per_level"] = 1
@@ -238,9 +232,7 @@ def regex_parse_feat_attributes(description: str) -> dict:
     return mechanics
 
 
-def get_static_class_features(
-    class_name: str, level: int, edition: str = EDITION_2014
-) -> list:
+def get_static_class_features(class_name: str, level: int, edition: str = EDITION_2014) -> list:
     """Fetches features from the knowledge base if available."""
     return _get_rules_repo().get_features_at_level(class_name, level, edition)
 

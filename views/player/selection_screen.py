@@ -1,26 +1,26 @@
-import streamlit as st
 import logging
-
 import uuid
-from backend.services.rules_service import (
-    parse_character_from_text,
-)
-from backend.core.storage import (
-    save_character,
-    load_character,
-    list_characters,
-    delete_character,
+
+import streamlit as st
+
+from backend.core.constants import (
+    EDITION_2014,
+    EDITION_2024,
 )
 from backend.core.state_manager import (
     get_character_dict,
     update_session_from_dict,
 )
-from backend.utils.image_utils import generate_portrait_url
-from backend.core.constants import (
-    EDITION_2014,
-    EDITION_2024,
+from backend.core.storage import (
+    delete_character,
+    list_characters,
+    load_character,
+    save_character,
 )
-
+from backend.services.rules_service import (
+    parse_character_from_text,
+)
+from backend.utils.image_utils import generate_portrait_url
 from views.player._helpers import trigger_sync
 
 logger = logging.getLogger(__name__)
@@ -144,14 +144,10 @@ def render_selection_screen():
             index=0 if "2014" in st.session_state.dnd_edition else 1,
             key="pdf_import_edition",
         )
-        uploaded_pdf = st.file_uploader(
-            "Upload PDF", type=["pdf"], label_visibility="collapsed"
-        )
+        uploaded_pdf = st.file_uploader("Upload PDF", type=["pdf"], label_visibility="collapsed")
         if uploaded_pdf is not None:
             if st.button("🧠 Parse with AI", type="primary", width="stretch"):
-                with st.spinner(
-                    f"Extracting and parsing {import_edition} character data..."
-                ):
+                with st.spinner(f"Extracting and parsing {import_edition} character data..."):
                     try:
                         from backend.utils.pdf_importer import (
                             extract_text_and_fields_from_pdf,
@@ -172,29 +168,25 @@ def render_selection_screen():
                                 local_portrait_path = generate_portrait_url(parsed_data)
                                 if local_portrait_path:
                                     parsed_data["char_portrait"] = local_portrait_path
-                                from backend.services.mechanics_service import (
-                                    sync_character_stats,
-                                )
                                 from backend.repositories.rules_repository import (
                                     RulesRepository,
+                                )
+                                from backend.services.mechanics_service import (
+                                    sync_character_stats,
                                 )
 
                                 _rules_repo = RulesRepository()
                                 class_data = _rules_repo.get_class_progression(
                                     parsed_data.get("char_class"), import_edition
                                 )
-                                parsed_data = sync_character_stats(
-                                    parsed_data, class_data
-                                )
+                                parsed_data = sync_character_stats(parsed_data, class_data)
                                 update_session_from_dict(st.session_state, parsed_data)
                                 is_char_2024 = "2024" in import_edition
                                 st.session_state.dnd_edition_toggle = is_char_2024
                                 st.session_state.dnd_edition = (
                                     EDITION_2024 if is_char_2024 else EDITION_2014
                                 )
-                                st.query_params["edition"] = (
-                                    "2024" if is_char_2024 else "2014"
-                                )
+                                st.query_params["edition"] = "2024" if is_char_2024 else "2014"
                                 st.session_state.character_active = True
                                 st.session_state.player_view = "sheet"
                                 saved_dict = get_character_dict(st.session_state)
@@ -203,9 +195,7 @@ def render_selection_screen():
                                 st.toast("Character imported successfully!")
                                 st.rerun()
                             else:
-                                st.error(
-                                    "AI failed to parse the character data correctly."
-                                )
+                                st.error("AI failed to parse the character data correctly.")
                     except Exception as e:
                         st.error(f"Error reading PDF: {e}")
 
@@ -230,14 +220,13 @@ def render_selection_screen():
             if st.button("📥 Import Data", type="primary", width="stretch"):
                 try:
                     import json
+
                     from backend.core.schemas import CharacterSchema
                     from backend.utils.import_utils import import_vtt_character
 
                     raw_data = json.load(uploaded_json)
                     if "system" in raw_data and "items" in raw_data:
-                        st.info(
-                            "Foundry VTT format detected. Mapping to internal schema..."
-                        )
+                        st.info("Foundry VTT format detected. Mapping to internal schema...")
                         data = import_vtt_character(raw_data)
                     else:
                         data = {}
@@ -274,9 +263,7 @@ def render_selection_screen():
                     core_stats = ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
                     if "stats" not in data:
                         top_level_stats = {
-                            s: data.get(s)
-                            for s in core_stats
-                            if data.get(s) is not None
+                            s: data.get(s) for s in core_stats if data.get(s) is not None
                         }
                         if len(top_level_stats) >= 3:
                             data["stats"] = top_level_stats
@@ -299,9 +286,7 @@ def render_selection_screen():
                         st.query_params["edition"] = "2024" if is_char_2024 else "2014"
                         st.session_state.character_active = True
                         st.session_state.player_view = "sheet"
-                        st.success(
-                            f"Successfully imported {final_data.get('char_name')}!"
-                        )
+                        st.success(f"Successfully imported {final_data.get('char_name')}!")
                         st.rerun()
                     else:
                         st.error("Failed to save imported character.")
@@ -355,24 +340,18 @@ def render_selection_screen():
 
                     if not st.session_state[delete_key]:
                         c_col1, c_col2 = st.columns([5, 1])
-                        if c_col1.button(
-                            label, width="stretch", key=f"load_{char_file}"
-                        ):
+                        if c_col1.button(label, width="stretch", key=f"load_{char_file}"):
                             update_session_from_dict(st.session_state, char_data)
                             is_char_2024 = "2024" in edition
                             st.session_state.dnd_edition_toggle = is_char_2024
                             st.session_state.dnd_edition = (
                                 EDITION_2024 if is_char_2024 else EDITION_2014
                             )
-                            st.query_params["edition"] = (
-                                "2024" if is_char_2024 else "2014"
-                            )
+                            st.query_params["edition"] = "2024" if is_char_2024 else "2014"
                             trigger_sync()
                             st.session_state.character_active = True
                             st.session_state.player_view = "sheet"
-                            st.session_state.last_saved_char = get_character_dict(
-                                st.session_state
-                            )
+                            st.session_state.last_saved_char = get_character_dict(st.session_state)
                             char_id_val = char_data.get("char_id", "")
                             if char_id_val:
                                 st.query_params["cid"] = char_id_val

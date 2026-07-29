@@ -1,8 +1,10 @@
-import streamlit as st
 import os
 import urllib.parse
-import httpx
 from typing import Optional
+
+import httpx
+import streamlit as st
+
 from backend.core.db import get_db
 from backend.utils.auth_utils import hash_password
 
@@ -158,10 +160,7 @@ def list_users() -> list[dict]:
         return []
     try:
         users = db["users"].find({}, {"username": 1, "name": 1, "_id": 0})
-        return [
-            {"username": u["username"], "name": u.get("name", u["username"])}
-            for u in users
-        ]
+        return [{"username": u["username"], "name": u.get("name", u["username"])} for u in users]
     except Exception:
         return []
 
@@ -251,9 +250,7 @@ def render_choice_view():
             if st.button("✨ I'm New Here!", use_container_width=True):
                 st.session_state.login_page_mode = "tutorial"
                 st.rerun()
-            st.caption(
-                "<center>Start your first adventure!</center>", unsafe_allow_html=True
-            )
+            st.caption("<center>Start your first adventure!</center>", unsafe_allow_html=True)
 
         with c2:
             if st.button("⚔️ Seasoned Adventurer", use_container_width=True):
@@ -409,15 +406,11 @@ def render_tutorial_view():
 
         with nav_next:
             if step < total_steps - 1:
-                if st.button(
-                    "Next Incantation ➡️", type="primary", use_container_width=True
-                ):
+                if st.button("Next Incantation ➡️", type="primary", use_container_width=True):
                     st.session_state.tutorial_step += 1
                     st.rerun()
             else:
-                if st.button(
-                    "🚀 Enter the Forge", type="primary", use_container_width=True
-                ):
+                if st.button("🚀 Enter the Forge", type="primary", use_container_width=True):
                     st.session_state.login_page_mode = "login"
                     st.session_state.tutorial_step = 0  # Reset for next time
                     st.rerun()
@@ -468,9 +461,7 @@ def render_login_view():
 
         with tab_login:
             login_username = st.text_input("Username", key="login_username_input")
-            login_password = st.text_input(
-                "Password", type="password", key="login_password_input"
-            )
+            login_password = st.text_input("Password", type="password", key="login_password_input")
             if st.button(
                 "Log In",
                 type="primary",
@@ -488,9 +479,7 @@ def render_login_view():
 
         with tab_register:
             reg_username = st.text_input("Username", key="reg_username_input")
-            reg_password = st.text_input(
-                "Password", type="password", key="reg_password_input"
-            )
+            reg_password = st.text_input("Password", type="password", key="reg_password_input")
             reg_confirm = st.text_input(
                 "Confirm Password", type="password", key="reg_confirm_input"
             )
@@ -505,9 +494,7 @@ def render_login_view():
                 else:
                     result = create_user(reg_username, reg_password)
                     if result == "success":
-                        st.success(
-                            "✅ Account created successfully! You can now log in."
-                        )
+                        st.success("✅ Account created successfully! You can now log in.")
                     else:
                         st.error(f"❌ {result}")
 
@@ -515,9 +502,7 @@ def render_login_view():
         st.markdown("##### ⚡ Quick Access (Mock OAuth)")
         col_mock1, col_mock2 = st.columns(2)
         with col_mock1:
-            if st.button(
-                "🚀 Google (Mock)", use_container_width=True, key="btn_mock_google"
-            ):
+            if st.button("🚀 Google (Mock)", use_container_width=True, key="btn_mock_google"):
                 st.session_state.user = {
                     "id": "mock_google_123",
                     "email": "demo_google@phyrexian.forge",
@@ -526,9 +511,7 @@ def render_login_view():
                 st.query_params["uid"] = "mock_google_123"
                 st.rerun()
         with col_mock2:
-            if st.button(
-                "🎮 Discord (Mock)", use_container_width=True, key="btn_mock_discord"
-            ):
+            if st.button("🎮 Discord (Mock)", use_container_width=True, key="btn_mock_discord"):
                 st.session_state.user = {
                     "id": "mock_discord_123",
                     "email": "demo_discord@phyrexian.forge",
@@ -543,16 +526,12 @@ def render_login_view():
         discord_client_id = os.environ.get("DISCORD_CLIENT_ID")
 
         if client_id:
-            st.link_button(
-                "Login with Google", get_google_auth_url(), use_container_width=True
-            )
+            st.link_button("Login with Google", get_google_auth_url(), use_container_width=True)
         else:
             st.caption("ℹ️ Google login not configured (missing CLIENT_ID).")
 
         if discord_client_id:
-            st.link_button(
-                "Login with Discord", get_discord_auth_url(), use_container_width=True
-            )
+            st.link_button("Login with Discord", get_discord_auth_url(), use_container_width=True)
         else:
             st.caption("ℹ️ Discord login not configured (missing CLIENT_ID).")
 

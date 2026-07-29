@@ -1,5 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { User, AuthResponse } from '../models/user.model';
 
@@ -15,7 +16,7 @@ export class AuthService {
 
   readonly isAuthenticated = computed(() => !!this.currentUser() && !!this.token());
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private router: Router) {
     if (this.token()) {
       this.fetchCurrentUser().subscribe({
         error: () => this.logout(),
@@ -70,5 +71,6 @@ export class AuthService {
     localStorage.removeItem('token');
     this.token.set(null);
     this.currentUser.set(null);
+    this.router.navigate(['/login']);
   }
 }

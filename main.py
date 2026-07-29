@@ -1,16 +1,18 @@
-import streamlit as st
 import logging
+
+import streamlit as st
 from dotenv import load_dotenv
-from backend.core.state_manager import init_session_state
-from backend.utils.ui_utils import inject_custom_css
-from views.player import render_player_dashboard
-from views.dm import render_dm_workspace
-from views.settings_view import render_settings_view
-from views.library_view import render_library_view
-from views.admin_view import render_admin_view
-from views.login_view import render_login_view, get_user_by_id
-from backend.core.storage import clear_character_cache
+
 from backend.core.constants import EDITION_2014, EDITION_2024
+from backend.core.state_manager import init_session_state
+from backend.core.storage import clear_character_cache
+from backend.utils.ui_utils import inject_custom_css
+from views.admin_view import render_admin_view
+from views.dm import render_dm_workspace
+from views.library_view import render_library_view
+from views.login_view import get_user_by_id, render_login_view
+from views.player import render_player_dashboard
+from views.settings_view import render_settings_view
 
 # Load environment variables once at the entry point
 load_dotenv()

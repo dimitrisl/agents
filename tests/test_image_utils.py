@@ -1,5 +1,6 @@
 import os
-from backend.utils.image_utils import save_custom_portrait, PORTRAIT_DIR
+
+from backend.utils.image_utils import PORTRAIT_DIR, save_custom_portrait
 
 
 def test_save_custom_portrait():

@@ -1,13 +1,14 @@
-import streamlit as st
 import logging
 import uuid
+
+import streamlit as st
+
 from backend.core.storage import (
-    load_campaign,
     list_characters,
+    load_campaign,
     load_character,
 )
 from backend.services.mechanics_service import get_modifier as calculate_modifier
-
 
 logger = logging.getLogger("DnDAssistant.DMView")
 
@@ -21,10 +22,10 @@ def _render_party_tracker():
 
     # ── Invite Players by Username ────────────────────────────────────────────
     with st.expander("👤 Invite a Player", expanded=True):
-        from backend.repositories.user_repository import UserRepository as _UserRepo
         from backend.repositories.character_repository import (
             CharacterRepository as _CharRepo,
         )
+        from backend.repositories.user_repository import UserRepository as _UserRepo
 
         active_campaign = st.session_state.get("active_campaign_name")
         if not active_campaign:
@@ -36,16 +37,12 @@ def _render_party_tracker():
             dm_id = dm_user.get("id", "")
 
             # Exclude the DM from the player list
-            player_users = [
-                u for u in all_users if f"local_user_{u['username']}" != dm_id
-            ]
+            player_users = [u for u in all_users if f"local_user_{u['username']}" != dm_id]
 
             if not player_users:
                 st.info("No other registered players found.")
             else:
-                user_options = {
-                    u["name"]: f"local_user_{u['username']}" for u in player_users
-                }
+                user_options = {u["name"]: f"local_user_{u['username']}" for u in player_users}
                 selected_display = st.selectbox(
                     "Select Player",
                     list(user_options.keys()),
@@ -89,9 +86,7 @@ def _render_party_tracker():
                                     to_add.append((fname, cdata))
 
                             if already_in_names:
-                                st.info(
-                                    f"Already in party: {', '.join(already_in_names)}"
-                                )
+                                st.info(f"Already in party: {', '.join(already_in_names)}")
 
                             if to_add:
                                 if st.button(
@@ -105,9 +100,7 @@ def _render_party_tracker():
                                     for fname, cdata in to_add:
                                         st.session_state.party.append(cdata)
                                         join_campaign(active_campaign, fname)
-                                    st.success(
-                                        f"✅ Added {len(to_add)} character(s) to party!"
-                                    )
+                                    st.success(f"✅ Added {len(to_add)} character(s) to party!")
                                     st.rerun()
 
     with st.expander("📥 Ingest Characters from Storage", expanded=False):
@@ -158,9 +151,7 @@ def _render_party_tracker():
                     format_func=format_char_filename,
                     key="dm_ingest_select",
                 )
-                if st.button(
-                    "Add Selected to Party", key="add_to_party_btn", width="stretch"
-                ):
+                if st.button("Add Selected to Party", key="add_to_party_btn", width="stretch"):
                     if not chars_to_add:
                         st.warning("Please select at least one character.")
                     else:
@@ -182,17 +173,13 @@ def _render_party_tracker():
                                     already_in_party.append(char_data["char_name"])
                                 else:
                                     st.session_state.party.append(char_data)
-                                    join_campaign(
-                                        st.session_state.active_campaign_name, char_file
-                                    )
+                                    join_campaign(st.session_state.active_campaign_name, char_file)
                                     added_names.append(char_data["char_name"])
 
                         if added_names:
                             st.success(f"Successfully added: {', '.join(added_names)}")
                         if already_in_party:
-                            st.warning(
-                                f"Already in party: {', '.join(already_in_party)}"
-                            )
+                            st.warning(f"Already in party: {', '.join(already_in_party)}")
                         st.rerun()
             else:
                 st.info(
@@ -232,25 +219,19 @@ def _render_party_tracker():
                             for c in st.session_state.party
                             if c.get("char_id") != member_to_rem.get("char_id")
                         ]
-                        remove_from_campaign(
-                            st.session_state.active_campaign_name, m_fname
-                        )
+                        remove_from_campaign(st.session_state.active_campaign_name, m_fname)
 
                     data = load_campaign(st.session_state.active_campaign_name)
                     if data:
                         st.session_state.campaign_party_files = data.get("party", [])
-                    st.success(
-                        f"Removed {len(selected_to_remove)} character(s) from campaign!"
-                    )
+                    st.success(f"Removed {len(selected_to_remove)} character(s) from campaign!")
                     st.rerun()
 
         for i, member in enumerate(st.session_state.party):
             with st.container(border=True):
                 c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 0.5])
                 c1.markdown(f"**{member['char_name']}**")
-                c1.caption(
-                    f"{member['race']} {member['char_class']} (Lv.{member['char_level']})"
-                )
+                c1.caption(f"{member['race']} {member['char_class']} (Lv.{member['char_level']})")
                 c2.metric("HP", f"{member['hp_max']}")
                 c3.metric("AC", f"{member['armor_class']}")
                 pp = 10 + calculate_modifier(member["stats"]["WIS"])
@@ -259,15 +240,15 @@ def _render_party_tracker():
                     from backend.core.storage import remove_from_campaign
 
                     char_id = member.get("char_id")
-                    char_filename = f"{member['char_name'].replace(' ', '_').lower()}_{char_id}.json"
+                    char_filename = (
+                        f"{member['char_name'].replace(' ', '_').lower()}_{char_id}.json"
+                    )
 
                     # Remove from the session state party
                     st.session_state.party.pop(i)
 
                     # Also remove from the campaign storage if it's there
-                    remove_from_campaign(
-                        st.session_state.active_campaign_name, char_filename
-                    )
+                    remove_from_campaign(st.session_state.active_campaign_name, char_filename)
 
                     # Update the campaign_party_files in session state to reflect storage change
                     data = load_campaign(st.session_state.active_campaign_name)
@@ -313,9 +294,7 @@ def _render_party_dashboard():
                 for j, stat in enumerate(["STR", "DEX", "CON", "INT", "WIS", "CHA"]):
                     mod = calculate_modifier(member["stats"][stat])
                     mod_str = f"+{mod}" if mod >= 0 else str(mod)
-                    if r_cols[j % 3].button(
-                        f"{stat}\n{mod_str}", key=f"dash_roll_{stat}_{i}"
-                    ):
+                    if r_cols[j % 3].button(f"{stat}\n{mod_str}", key=f"dash_roll_{stat}_{i}"):
                         from backend.utils.dice import quick_roll
 
                         res, raw = quick_roll(20, mod)

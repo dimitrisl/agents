@@ -1,31 +1,32 @@
-from views.dm._helpers import show_npc_stat_block
+import logging
+import os
+import uuid
 
 import streamlit as st
-import logging
-import uuid
-import os
-from backend.services.forge_service import forge_character
+
 from backend.core.ai_client import generate_session_prep
-from backend.services.module_parser_service import ModuleParserService
+from backend.core.constants import (
+    CLASSES_2014,
+    CLASSES_2024,
+    EDITION_2014,
+    RACES_2014,
+    SPECIES_2024,
+)
 from backend.core.storage import (
-    save_campaign,
-    load_campaign,
+    delete_campaign,
     list_campaigns,
     list_characters,
+    load_campaign,
     load_character,
-    delete_campaign,
+    save_campaign,
 )
+from backend.services.forge_service import forge_character
+from backend.services.module_parser_service import ModuleParserService
 from backend.utils.image_utils import generate_portrait_url
 from backend.utils.ui_utils import (
     render_themed_markdown,
 )
-from backend.core.constants import (
-    EDITION_2014,
-    RACES_2014,
-    CLASSES_2014,
-    SPECIES_2024,
-    CLASSES_2024,
-)
+from views.dm._helpers import show_npc_stat_block
 
 logger = logging.getLogger("DnDAssistant.DMView")
 
@@ -37,9 +38,7 @@ def _render_campaign_selection():
 
         c_col1, c_col2 = st.columns([4, 1])
         with c_col2:
-            if st.button(
-                "🔄 Refresh", key="refresh_camp_list_btn", use_container_width=True
-            ):
+            if st.button("🔄 Refresh", key="refresh_camp_list_btn", use_container_width=True):
                 st.cache_data.clear()
                 st.rerun()
 
@@ -49,9 +48,7 @@ def _render_campaign_selection():
                 [2.5, 0.9, 0.8], vertical_alignment="bottom"
             )
             with col_sel:
-                selected_camp = st.selectbox(
-                    "Select Campaign", camp_list, key="sel_camp_main"
-                )
+                selected_camp = st.selectbox("Select Campaign", camp_list, key="sel_camp_main")
             with col_btn_load:
                 if st.button(
                     "Load Campaign",
@@ -188,9 +185,7 @@ def _render_campaign_notes():
         if sessions:
             st.markdown("#### Past Sessions")
             for idx, s in enumerate(sessions):
-                with st.expander(
-                    f"Session {s.get('session_number', idx + 1)}", expanded=False
-                ):
+                with st.expander(f"Session {s.get('session_number', idx + 1)}", expanded=False):
                     # Editable Recap
                     edited_recap = st.text_area(
                         "Recap (Visible to Players)",
@@ -223,9 +218,7 @@ def _render_campaign_notes():
                         st.toast(f"Session {idx + 1} updated successfully!")
                         st.rerun()
 
-                    if c_sync.button(
-                        "📤 Sync to Google Doc", key=f"btn_sync_session_{idx}"
-                    ):
+                    if c_sync.button("📤 Sync to Google Doc", key=f"btn_sync_session_{idx}"):
                         gdoc_id = camp_data.get("google_doc_id")
                         gcreds_str = camp_data.get("google_credentials_json")
 
@@ -242,12 +235,12 @@ def _render_campaign_notes():
                                     append_to_google_doc,
                                 )
 
-                                sync_text = f"\n\n=== Session {idx + 1} Chronicle ===\n{edited_recap}\n"
+                                sync_text = (
+                                    f"\n\n=== Session {idx + 1} Chronicle ===\n{edited_recap}\n"
+                                )
 
                                 with st.spinner("Syncing to Google Doc..."):
-                                    if append_to_google_doc(
-                                        creds_info, gdoc_id, sync_text
-                                    ):
+                                    if append_to_google_doc(creds_info, gdoc_id, sync_text):
                                         st.success(
                                             "Session recap successfully appended to Google Doc!"
                                         )
@@ -266,9 +259,7 @@ def _render_campaign_notes():
         )
         dm_ideas = st.text_area("Ideas for next session:", height=100)
 
-        if st.button(
-            "🪄 Generate Session Prep", type="primary", use_container_width=True
-        ):
+        if st.button("🪄 Generate Session Prep", type="primary", use_container_width=True):
             with st.spinner("Analyzing module and notes..."):
                 file_name = camp_data.get("module_pdf_uri")
                 prep_result = generate_session_prep(file_name, previous_recap, dm_ideas)
@@ -359,9 +350,7 @@ def _render_campaign_notes():
                         format_func=format_char_filename,
                         key="vault_ingest_select",
                     )
-                    if st.button(
-                        "Add to Vault", key="add_to_vault_btn", width="stretch"
-                    ):
+                    if st.button("Add to Vault", key="add_to_vault_btn", width="stretch"):
                         if char_to_add not in vault_npcs:
                             vault_npcs.append(char_to_add)
                             camp_data["vault_npcs"] = vault_npcs
@@ -383,12 +372,8 @@ def _render_campaign_notes():
         with col_forge:
             with st.expander("✨ AI Quick Forge (NPC)", expanded=False):
                 q_edition = st.session_state.dnd_edition
-                q_race_options = (
-                    RACES_2014 if q_edition == EDITION_2014 else SPECIES_2024
-                )
-                q_class_options = (
-                    CLASSES_2014 if q_edition == EDITION_2014 else CLASSES_2024
-                )
+                q_race_options = RACES_2014 if q_edition == EDITION_2014 else SPECIES_2024
+                q_class_options = CLASSES_2014 if q_edition == EDITION_2014 else CLASSES_2024
 
                 q_race = st.selectbox(
                     "Race/Species", ["AI Choice"] + q_race_options, key="vault_q_race"
@@ -402,9 +387,7 @@ def _render_campaign_notes():
                 )
                 q_concept = st.text_input("Concept", key="vault_q_concept")
 
-                if st.button(
-                    "Forge & Add to Vault", key="vault_forge_add_btn", width="stretch"
-                ):
+                if st.button("Forge & Add to Vault", key="vault_forge_add_btn", width="stretch"):
                     with st.spinner("Forging & Generating Portrait..."):
                         result = forge_character(
                             q_level,
@@ -438,9 +421,7 @@ def _render_campaign_notes():
                                     extracted_npcs=camp_data.get("extracted_npcs", []),
                                     vault_npcs=vault_npcs,
                                 )
-                                st.success(
-                                    f"Forged and added {result['char_name']} to Vault!"
-                                )
+                                st.success(f"Forged and added {result['char_name']} to Vault!")
                                 st.rerun()
                             else:
                                 st.error("Failed to save forged character.")
@@ -459,9 +440,7 @@ def _render_campaign_notes():
                 )
 
                 col_ac, col_hp, col_speed, col_cr = st.columns(4)
-                m_ac = col_ac.number_input(
-                    "Armor Class", min_value=0, value=10, key="m_npc_ac"
-                )
+                m_ac = col_ac.number_input("Armor Class", min_value=0, value=10, key="m_npc_ac")
                 m_hp = col_hp.number_input(
                     "Hit Points (Max)", min_value=1, value=10, key="m_npc_hp"
                 )
@@ -531,9 +510,7 @@ def _render_campaign_notes():
                     key="m_npc_portrait",
                 )
 
-                submit_btn = st.form_submit_button(
-                    "Create and Add NPC", use_container_width=True
-                )
+                submit_btn = st.form_submit_button("Create and Add NPC", use_container_width=True)
 
                 if submit_btn:
                     if not m_name:
@@ -590,8 +567,8 @@ def _render_campaign_notes():
                             "CHA": m_cha,
                         }
 
-                        from backend.services.dm_service import create_manual_npc
                         from backend.core.storage import save_character
+                        from backend.services.dm_service import create_manual_npc
 
                         img_path = None
                         if m_portrait:
@@ -638,9 +615,7 @@ def _render_campaign_notes():
                                         extracted_npcs=[],
                                         vault_npcs=vault_npcs,
                                     )
-                                    st.success(
-                                        f"Successfully created and added {m_name} to Vault!"
-                                    )
+                                    st.success(f"Successfully created and added {m_name} to Vault!")
                                     st.rerun()
                             else:
                                 st.error("Failed to save manually created NPC.")
@@ -675,9 +650,7 @@ def _render_campaign_notes():
                                 "name": npc_data["char_name"],
                                 "init": 10,
                                 "hp": int(
-                                    npc_data.get("hp_max")
-                                    or npc_data.get("hp_current")
-                                    or 10
+                                    npc_data.get("hp_max") or npc_data.get("hp_current") or 10
                                 ),
                                 "max_hp": int(npc_data.get("hp_max") or 10),
                                 "ac": int(npc_data.get("armor_class") or 10),
@@ -704,9 +677,7 @@ def _render_campaign_notes():
 
         with st.expander("📖 Extract from PDF Module", expanded=False):
             if camp_data.get("module_pdf_uri"):
-                st.success(
-                    "✅ An Adventure Module is currently loaded in the AI's memory."
-                )
+                st.success("✅ An Adventure Module is currently loaded in the AI's memory.")
                 if st.button("🗑️ Clear Module & Re-upload", use_container_width=True):
                     camp_data["module_pdf_uri"] = None
                     camp_data["extracted_npcs"] = []
@@ -722,9 +693,7 @@ def _render_campaign_notes():
                     )
                     st.rerun()
             else:
-                uploaded_pdf = st.file_uploader(
-                    "Upload Adventure Module (PDF)", type=["pdf"]
-                )
+                uploaded_pdf = st.file_uploader("Upload Adventure Module (PDF)", type=["pdf"])
                 if uploaded_pdf and st.button("Extract NPCs & Lore"):
                     temp_pdf_path = f"scratch/{uploaded_pdf.name}"
                     os.makedirs("scratch", exist_ok=True)
@@ -775,12 +744,8 @@ def _render_campaign_notes():
                                 weapons_clean.append(
                                     {
                                         "name": str(w.get("name") or "Unknown Weapon"),
-                                        "attack_bonus": str(
-                                            w.get("attack_bonus") or "+0"
-                                        ),
-                                        "damage_dice": str(
-                                            w.get("damage_dice") or "1d4"
-                                        ),
+                                        "attack_bonus": str(w.get("attack_bonus") or "+0"),
+                                        "damage_dice": str(w.get("damage_dice") or "1d4"),
                                         "is_custom": True,
                                     }
                                 )

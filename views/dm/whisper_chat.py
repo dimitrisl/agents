@@ -1,9 +1,10 @@
-import streamlit as st
 import logging
+
+import streamlit as st
+
 from backend.core.storage import (
     load_campaign,
 )
-
 
 logger = logging.getLogger("DnDAssistant.DMView")
 
@@ -29,9 +30,7 @@ def _render_whisper_chat_section():
 
     # Select recipient
     recipients = ["All (Broadcast)"] + char_names
-    selected_recipient = st.selectbox(
-        "Chat with:", recipients, key="dm_whisper_recipient_select"
-    )
+    selected_recipient = st.selectbox("Chat with:", recipients, key="dm_whisper_recipient_select")
 
     @st.fragment(run_every=5)
     def render_dm_whisper_chat_fragment(recipient):
@@ -102,9 +101,7 @@ def _render_whisper_chat_section():
                     label_visibility="collapsed",
                     placeholder=f"Send private message to {recipient}...",
                 )
-                submitted = col_send.form_submit_button(
-                    "Send", use_container_width=True
-                )
+                submitted = col_send.form_submit_button("Send", use_container_width=True)
                 if submitted:
                     if dm_msg.strip():
                         from backend.core.storage import send_whisper
@@ -119,9 +116,7 @@ def _render_whisper_chat_section():
     render_dm_whisper_chat_fragment(selected_recipient)
 
     st.markdown("---")
-    if st.button(
-        "🧹 Clear Chat History", key="btn_clear_whispers_dm", use_container_width=True
-    ):
+    if st.button("🧹 Clear Chat History", key="btn_clear_whispers_dm", use_container_width=True):
         from backend.core.storage import clear_whispers
 
         if clear_whispers(active_campaign):

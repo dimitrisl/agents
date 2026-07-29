@@ -1,30 +1,30 @@
 import functools
-import uuid
 import logging
-from backend.core.ai_client import generate_ai_response, generate_ai_json
-from backend.services.rules_service import (
-    get_static_class_features,
+import uuid
+
+from backend.core.ai_client import generate_ai_json, generate_ai_response
+from backend.core.constants import (
+    BACKGROUNDS_2014,
+    BACKGROUNDS_2024,
+    CLASSES_2014,
+    CLASSES_2024,
+    EDITION_2014,
+    GENDERS,
+    RACES_2014,
+    SPECIES_2024,
 )
 from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
-    PLAYSTYLE_GUIDE_PROMPT,
     LEVEL_UP_ANALYSIS_PROMPT,
     MANUAL_CHARACTER_ENRICH_PROMPT,
+    PLAYSTYLE_GUIDE_PROMPT,
 )
-from backend.core.constants import (
-    EDITION_2014,
-    RACES_2014,
-    CLASSES_2014,
-    BACKGROUNDS_2014,
-    SPECIES_2024,
-    CLASSES_2024,
-    BACKGROUNDS_2024,
-    GENDERS,
-)
-
 from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
-from backend.services.mechanics_service import sync_character_stats
 from backend.repositories.rules_repository import RulesRepository
+from backend.services.mechanics_service import sync_character_stats
+from backend.services.rules_service import (
+    get_static_class_features,
+)
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
 
@@ -61,9 +61,7 @@ def forge_character(
         current_backgrounds = BACKGROUNDS_2024
 
     race_prompt = (
-        forge_race
-        if forge_race != "AI Choice"
-        else f"Choose one from: {', '.join(current_races)}"
+        forge_race if forge_race != "AI Choice" else f"Choose one from: {', '.join(current_races)}"
     )
     class_prompt = (
         forge_class
@@ -75,9 +73,7 @@ def forge_character(
         if forge_background != "AI Choice"
         else f"Choose one from: {', '.join(current_backgrounds)}"
     )
-    gender_prompt = (
-        gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
-    )
+    gender_prompt = gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
 
     name_instruction = (
         f"The character's name MUST be: {name}"
@@ -136,22 +132,15 @@ def forge_character(
             result["prepared_spells"] = []
         if not auto_feats:
             result["advancements"] = []
-            if "features_traits" in result and isinstance(
-                result["features_traits"], list
-            ):
+            if "features_traits" in result and isinstance(result["features_traits"], list):
                 result["features_traits"] = [
                     f
                     for f in result["features_traits"]
-                    if not (
-                        isinstance(f, dict)
-                        and f.get("name", "").lower().startswith("feat:")
-                    )
+                    if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
                 ]
 
         # Synchronize derived stats (HP, AC, Proficiency, etc.)
-        class_data = _get_rules_repo().get_class_progression(
-            result.get("char_class"), edition
-        )
+        class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
         result = sync_character_stats(result, class_data)
 
         # Mandatory Schema & Build Validation
@@ -253,10 +242,7 @@ def forge_character_manual(
             result["features_traits"] = [
                 f
                 for f in result["features_traits"]
-                if not (
-                    isinstance(f, dict)
-                    and f.get("name", "").lower().startswith("feat:")
-                )
+                if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
             ]
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
@@ -334,18 +320,14 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     f"Found {len(static_features)} static features for {char_data.get('char_class')} level {target_level}"
                 )
                 # Ensure static features are in the automatic_changes
-                existing_names = [
-                    f.get("name") for f in result.get("automatic_changes", [])
-                ]
+                existing_names = [f.get("name") for f in result.get("automatic_changes", [])]
                 for sf in static_features:
                     if sf.get("name") not in existing_names:
                         result.setdefault("automatic_changes", []).append(sf)
         try:
             return LevelUpAnalysisSchema(**result).model_dump()
         except Exception as e:
-            logger.warning(
-                f"Level up analysis failed validation: {e}. Returning raw result."
-            )
+            logger.warning(f"Level up analysis failed validation: {e}. Returning raw result.")
             return result
     return None
 

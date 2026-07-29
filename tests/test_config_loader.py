@@ -1,10 +1,12 @@
 import os
+
 import pytest
+
 from backend.core.config_loader import (
-    load_config,
-    save_config,
     CONFIG_FILE,
     DEFAULT_CONFIG,
+    load_config,
+    save_config,
 )
 
 

@@ -1,4 +1,5 @@
 from unittest.mock import patch
+
 from backend.services.rules_service import compare_rules
 
 
@@ -20,8 +21,8 @@ def test_compare_rules():
 
 def test_validate_character_build():
     """Verify that validate_character_build correctly formats the prompt and returns results."""
-    from backend.services.rules_service import validate_character_build
     from backend.core.state_manager import get_default_character
+    from backend.services.rules_service import validate_character_build
 
     char_data = get_default_character()
     char_data["background"] = "Charlatan / Mercenary"

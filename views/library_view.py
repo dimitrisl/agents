@@ -1,6 +1,7 @@
 import streamlit as st
-from backend.repositories.rules_repository import RulesRepository
+
 from backend.core.constants import EDITION_2014
+from backend.repositories.rules_repository import RulesRepository
 from backend.utils.ui_utils import render_themed_markdown
 
 
@@ -34,9 +35,7 @@ def render_library_view():
             key="oracle_rule_query_input",
         )
 
-        if st.button(
-            "Query Oracle", key="oracle_rule_query_btn", type="primary", width="stretch"
-        ):
+        if st.button("Query Oracle", key="oracle_rule_query_btn", type="primary", width="stretch"):
             if rule_query:
                 from backend.services.rules_service import query_rules
 
@@ -61,9 +60,7 @@ def render_library_view():
     # Rule Comparison Tab
     with tabs[1]:
         st.subheader("⚖️ 2014 vs. 2024 Comparison")
-        st.markdown(
-            "Compare the legacy 2014 rules with the new 2024 Revision (5.5e) mechanics."
-        )
+        st.markdown("Compare the legacy 2014 rules with the new 2024 Revision (5.5e) mechanics.")
 
         compare_query = st.text_input(
             "Rule or Feat to compare:",
@@ -71,9 +68,7 @@ def render_library_view():
             key="rule_compare_input",
         )
 
-        if st.button(
-            "Compare Rules", key="rule_compare_btn", type="primary", width="stretch"
-        ):
+        if st.button("Compare Rules", key="rule_compare_btn", type="primary", width="stretch"):
             if compare_query:
                 from backend.services.rules_service import compare_rules
 
@@ -96,15 +91,11 @@ def render_library_view():
         spells = repo.get_all_spells(edition)
 
         if not spells:
-            st.info(
-                "No spells found for this edition. Try running the import script first."
-            )
+            st.info("No spells found for this edition. Try running the import script first.")
         else:
             col1, col2, col3 = st.columns(3)
             with col1:
-                search_query = st.text_input(
-                    "Search Spells by Name", key="spell_search"
-                )
+                search_query = st.text_input("Search Spells by Name", key="spell_search")
             with col2:
                 level_filter = st.selectbox(
                     "Level",
@@ -170,18 +161,12 @@ def render_library_view():
             filtered_spells = spells
             if search_query:
                 filtered_spells = [
-                    s
-                    for s in filtered_spells
-                    if search_query.lower() in s.get("name", "").lower()
+                    s for s in filtered_spells if search_query.lower() in s.get("name", "").lower()
                 ]
 
             if level_filter != "All":
-                level_val = (
-                    0 if level_filter == "Cantrip" else int(level_filter.split()[0][0])
-                )
-                filtered_spells = [
-                    s for s in filtered_spells if s.get("level") == level_val
-                ]
+                level_val = 0 if level_filter == "Cantrip" else int(level_filter.split()[0][0])
+                filtered_spells = [s for s in filtered_spells if s.get("level") == level_val]
 
             if school_filter != "All":
                 filtered_spells = [
@@ -200,16 +185,12 @@ def render_library_view():
             if conc_filter != "All":
                 is_conc = conc_filter == "Yes"
                 filtered_spells = [
-                    s
-                    for s in filtered_spells
-                    if s.get("concentration", False) == is_conc
+                    s for s in filtered_spells if s.get("concentration", False) == is_conc
                 ]
 
             if ritual_filter != "All":
                 is_rit = ritual_filter == "Yes"
-                filtered_spells = [
-                    s for s in filtered_spells if s.get("ritual", False) == is_rit
-                ]
+                filtered_spells = [s for s in filtered_spells if s.get("ritual", False) == is_rit]
 
             st.write(f"Showing **{len(filtered_spells)}** spells of {len(spells)}")
 
@@ -242,13 +223,9 @@ def render_library_view():
                 with st.expander(label):
                     c1, c2 = st.columns(2)
                     with c1:
-                        st.markdown(
-                            f"**Casting Time:** {spell.get('castingTime', '1 action')}"
-                        )
+                        st.markdown(f"**Casting Time:** {spell.get('castingTime', '1 action')}")
                         st.markdown(f"**Range:** {spell.get('range', 'Touch')}")
-                        st.markdown(
-                            f"**Duration:** {spell.get('duration', 'Instantaneous')}"
-                        )
+                        st.markdown(f"**Duration:** {spell.get('duration', 'Instantaneous')}")
                     with c2:
                         comps = [c.upper() for c in spell.get("components", [])]
                         comps_str = ", ".join(comps) if comps else "None"
@@ -262,9 +239,7 @@ def render_library_view():
                     st.markdown("---")
                     st.markdown(spell.get("description", ""))
                     if spell.get("higherLevelSlot"):
-                        st.markdown(
-                            f"**At Higher Levels:** {spell.get('higherLevelSlot')}"
-                        )
+                        st.markdown(f"**At Higher Levels:** {spell.get('higherLevelSlot')}")
 
     # Feats Tab
     with tabs[3]:

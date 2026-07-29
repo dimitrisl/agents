@@ -1,6 +1,7 @@
 import logging
-import pypdf
+
 import pdfplumber
+import pypdf
 
 logger = logging.getLogger("DnDAssistant.PDFImporter")
 
@@ -62,8 +63,7 @@ def extract_text_and_fields_from_pdf(uploaded_pdf) -> str:
                 for table in tables:
                     for row in table:
                         clean_row = [
-                            str(c).replace("\n", " ") if c is not None else ""
-                            for c in row
+                            str(c).replace("\n", " ") if c is not None else "" for c in row
                         ]
                         if any(c.strip() for c in clean_row):
                             extracted_text += " | ".join(clean_row) + "\n"

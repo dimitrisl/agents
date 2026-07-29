@@ -1,16 +1,16 @@
-import uuid
 import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
-from typing import Optional
 
 from server.db_async import get_database
 from server.dependencies.auth import (
-    verify_password,
-    get_password_hash,
     create_access_token,
     get_current_user,
+    get_password_hash,
+    verify_password,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -95,9 +95,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             )
 
     user_id = user.get("id") or f"local_user_{user['username']}"
-    access_token = create_access_token(
-        data={"sub": user_id, "username": user["username"]}
-    )
+    access_token = create_access_token(data={"sub": user_id, "username": user["username"]})
     user_res = UserResponseSchema(
         id=user_id,
         username=user["username"],
@@ -105,9 +103,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         name=user.get("name") or user["username"],
         has_completed_tutorial=user.get("has_completed_tutorial", True),
     )
-    return TokenResponseSchema(
-        access_token=access_token, token_type="bearer", user=user_res
-    )
+    return TokenResponseSchema(access_token=access_token, token_type="bearer", user=user_res)
 
 
 @router.post("/demo", response_model=TokenResponseSchema)
@@ -138,9 +134,7 @@ async def demo_login(payload: DemoLoginSchema):
         name=name,
         has_completed_tutorial=True,
     )
-    return TokenResponseSchema(
-        access_token=access_token, token_type="bearer", user=user_res
-    )
+    return TokenResponseSchema(access_token=access_token, token_type="bearer", user=user_res)
 
 
 @router.get("/me", response_model=UserResponseSchema)

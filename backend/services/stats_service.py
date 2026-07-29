@@ -1,8 +1,9 @@
 import copy
 import functools
-import math
 import logging
-from typing import Dict, Any, List
+import math
+from typing import Any, Dict, List
+
 from backend.services.dice_service import rebuild_damage_formula
 
 logger = logging.getLogger("DnDAssistant.StatsService")
@@ -24,9 +25,7 @@ def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -
     return math.ceil(level / 4) + 1
 
 
-def calculate_hp(
-    class_hit_die: str, level: int, con_score: int, existing_hp: int = None
-) -> int:
+def calculate_hp(class_hit_die: str, level: int, con_score: int, existing_hp: int = None) -> int:
     """Calculates HP Max, preserving existing manual rolls if provided."""
     try:
         parts = str(class_hit_die).lower().split("d")
@@ -78,18 +77,14 @@ def calculate_ac(
         if "shield" in item_name:
             has_shield = True
 
-        item_data = next(
-            (i for i in all_items if i.get("name", "").lower() == item_name), None
-        )
+        item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
         except (ValueError, TypeError):
             val = 0
 
         if item_data:
-            if (item_data.get("type") or "").endswith(
-                "Armor"
-            ) or "ac_base" in item_data:
+            if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
                 has_armor = True
         else:
             if val >= 10:
@@ -136,9 +131,7 @@ def calculate_ac(
             continue
 
         item_name = (equip.get("name") or "").lower()
-        item_data = next(
-            (i for i in all_items if i.get("name", "").lower() == item_name), None
-        )
+        item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
 
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
@@ -146,9 +139,7 @@ def calculate_ac(
             val = 0
 
         if item_data:
-            if (item_data.get("type") or "").endswith(
-                "Armor"
-            ) or "ac_base" in item_data:
+            if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
                 item_base = val if val >= 10 else item_data.get("ac_base", 10)
                 base_ac = max(base_ac, item_base)
 
@@ -163,17 +154,9 @@ def calculate_ac(
         else:
             if val >= 10:
                 base_ac = max(base_ac, val)
-                if (
-                    "heavy" in item_name
-                    or "plate" in item_name
-                    or "chain mail" in item_name
-                ):
+                if "heavy" in item_name or "plate" in item_name or "chain mail" in item_name:
                     max_dex = min(max_dex, 0)
-                elif (
-                    "medium" in item_name
-                    or "scale" in item_name
-                    or "breastplate" in item_name
-                ):
+                elif "medium" in item_name or "scale" in item_name or "breastplate" in item_name:
                     max_dex = min(max_dex, 2)
             else:
                 bonus_ac += val
@@ -400,9 +383,7 @@ def calculate_weapon_stats(
     else:
         name = weapon.get("name", "").lower()
         is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
-        is_finesse = any(
-            word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
-        )
+        is_finesse = any(word in name for word in ["rapier", "dagger", "scimitar", "shortsword"])
 
         if is_ranged:
             mod = dex_mod
@@ -414,9 +395,7 @@ def calculate_weapon_stats(
     magic_bonus = int(weapon.get("magic_bonus", 0))
 
     attack_bonus = mod + proficiency_bonus + magic_bonus
-    weapon["attack_bonus"] = (
-        f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
-    )
+    weapon["attack_bonus"] = f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
 
     damage_raw = weapon.get("damage") or rebuild_damage_formula(
         weapon.get("damage_dice"), weapon.get("damage_bonus")
@@ -433,9 +412,7 @@ def calculate_weapon_stats(
 
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
         weapon["damage_bonus"] = f"+{total_dmg_mod}"
-        weapon["damage"] = rebuild_damage_formula(
-            weapon["damage_dice"], weapon["damage_bonus"]
-        )
+        weapon["damage"] = rebuild_damage_formula(weapon["damage_dice"], weapon["damage_bonus"])
 
     return weapon
 
@@ -466,10 +443,7 @@ def sync_character_stats(
             "CHA": getattr(stats_raw, "CHA", 10),
         }
 
-    if (
-        "saving_throw_values" not in char_data
-        or char_data["saving_throw_values"] is None
-    ):
+    if "saving_throw_values" not in char_data or char_data["saving_throw_values"] is None:
         char_data["saving_throw_values"] = {}
 
     level = char_data.get("char_level", 1)
@@ -524,9 +498,7 @@ def sync_character_stats(
             elif attr_key in ["SPD", "SPEED"]:
                 char_data["speed"] = char_data.get("speed", 30) + bonus_val
             elif attr_key in ["INIT", "INITIATIVE"]:
-                char_data["initiative_bonus"] = (
-                    char_data.get("initiative_bonus", 0) + bonus_val
-                )
+                char_data["initiative_bonus"] = char_data.get("initiative_bonus", 0) + bonus_val
             elif attr_key in ["ATK", "HIT", "ATTACK"]:
                 char_data["global_attack_bonus"] = (
                     char_data.get("global_attack_bonus", 0) + bonus_val

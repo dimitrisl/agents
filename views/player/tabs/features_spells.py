@@ -1,13 +1,13 @@
-import streamlit as st
 import logging
 
-from backend.core.storage import (
-    save_character,
-)
+import streamlit as st
+
 from backend.core.state_manager import (
     get_character_dict,
 )
-
+from backend.core.storage import (
+    save_character,
+)
 from views.player._helpers import log_roll
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,7 @@ def _render_features_spells(edit_mode: bool):
             features = []
         for f in features:
             name = f.get("name", "Feature")
-            desc = f.get("description", "").replace(
-                "\n", "  \n"
-            )  # Ensure markdown line breaks
+            desc = f.get("description", "").replace("\n", "  \n")  # Ensure markdown line breaks
             st.markdown(f"**{name}**  \n{desc}")
             st.divider()
 
@@ -55,9 +53,7 @@ def _render_features_spells(edit_mode: bool):
         cs1, cs2, cs3 = st.columns(3)
         options = ["None", "STR", "DEX", "CON", "INT", "WIS", "CHA"]
         current_ability = st.session_state.spell_ability
-        ability_index = (
-            options.index(current_ability) if current_ability in options else 0
-        )
+        ability_index = options.index(current_ability) if current_ability in options else 0
         st.session_state.spell_ability = cs1.selectbox(
             "Spellcasting Ability",
             options,
@@ -151,9 +147,7 @@ def _render_features_spells(edit_mode: bool):
                 _level_opts = _sp_by_lvl.get(_lk, [])
                 # Exclude all other already-known spells at this level
                 _others_known = {
-                    x.strip().lower()
-                    for x in _slist
-                    if x.strip().lower() != _sn_clean.lower()
+                    x.strip().lower() for x in _slist if x.strip().lower() != _sn_clean.lower()
                 }
                 _ordered = [_sn_clean] + [
                     x
@@ -161,9 +155,7 @@ def _render_features_spells(edit_mode: bool):
                     if x.lower() != _sn_clean.lower() and x.lower() not in _others_known
                 ]
                 _c1, _c2 = st.columns([1, 3])
-                _c1.markdown(
-                    f"<small style='color:gray'>{_lk}</small>", unsafe_allow_html=True
-                )
+                _c1.markdown(f"<small style='color:gray'>{_lk}</small>", unsafe_allow_html=True)
                 _new = _c2.selectbox(
                     "s",
                     _ordered,
@@ -193,10 +185,7 @@ def _render_features_spells(edit_mode: bool):
         if not has_any_spell:
             st.write("No spells known.")
         else:
-            if (
-                st.session_state.spell_ability
-                and st.session_state.spell_ability != "None"
-            ):
+            if st.session_state.spell_ability and st.session_state.spell_ability != "None":
                 sc1, sc2, sc3 = st.columns(3)
                 sc1.metric("Ability", st.session_state.spell_ability)
                 sc2.metric("Save DC", st.session_state.spell_save_dc)
@@ -217,9 +206,7 @@ def _render_features_spells(edit_mode: bool):
                 st.session_state.prepared_spells = []
 
             # Clean list of prepared spells for easy case-insensitive check
-            prepared_clean = [
-                p.strip().lower() for p in st.session_state.prepared_spells if p
-            ]
+            prepared_clean = [p.strip().lower() for p in st.session_state.prepared_spells if p]
 
             if is_prepared_caster:
                 view_mode = st.radio(
@@ -232,7 +219,9 @@ def _render_features_spells(edit_mode: bool):
                     key="spellbook_view_toggle",
                 )
             else:
-                view_mode = "⚔️ Prepared Spells (Combat)"  # non-prepared casters show everything in combat
+                view_mode = (
+                    "⚔️ Prepared Spells (Combat)"  # non-prepared casters show everything in combat
+                )
 
             # Load rules repository to get spell details
             from backend.repositories.rules_repository import RulesRepository
@@ -240,9 +229,7 @@ def _render_features_spells(edit_mode: bool):
             repo = RulesRepository()
             edition = st.session_state.get("dnd_edition", "2014 Edition")
             all_spells = repo.get_all_spells(edition)
-            spells_lookup = (
-                {s["name"].lower().strip(): s for s in all_spells} if all_spells else {}
-            )
+            spells_lookup = {s["name"].lower().strip(): s for s in all_spells} if all_spells else {}
 
             level_keys = [
                 "cantrips",
@@ -266,9 +253,7 @@ def _render_features_spells(edit_mode: bool):
                 if st.session_state.get("concentrating_on"):
                     conc_col1, conc_col2 = st.columns([3, 1])
                     with conc_col1:
-                        st.info(
-                            f"🧠 **Concentrating on:** {st.session_state.concentrating_on}"
-                        )
+                        st.info(f"🧠 **Concentrating on:** {st.session_state.concentrating_on}")
                     with conc_col2:
                         if st.button(
                             "Drop",
@@ -284,9 +269,7 @@ def _render_features_spells(edit_mode: bool):
                     [k for k in spell_slots.keys() if k.startswith("level_")],
                     key=lambda x: int(x.split("_")[1]),
                 )
-                valid_slots = [
-                    sl for sl in slot_levels if spell_slots[sl].get("max", 0) > 0
-                ]
+                valid_slots = [sl for sl in slot_levels if spell_slots[sl].get("max", 0) > 0]
 
                 if valid_slots:
                     # chunk into rows of 4
@@ -298,9 +281,7 @@ def _render_features_spells(edit_mode: bool):
                             max_s = spell_slots[sl_key].get("max", 0)
                             used_s = spell_slots[sl_key].get("used", 0)
                             with cols[col_idx]:
-                                st.caption(
-                                    f"**Level {sl_num}** ({max_s - used_s}/{max_s})"
-                                )
+                                st.caption(f"**Level {sl_num}** ({max_s - used_s}/{max_s})")
                                 # Render inline checkboxes
                                 slot_cols = st.columns(max_s)
                                 for j in range(max_s):
@@ -316,17 +297,11 @@ def _render_features_spells(edit_mode: bool):
                                             # We need to compute the total used slots based on which ones are checked
                                             # Since Streamlit runs top-to-bottom, we just adjust the counter +1 or -1
                                             if new_used:
-                                                spell_slots[sl_key]["used"] = min(
-                                                    max_s, used_s + 1
-                                                )
+                                                spell_slots[sl_key]["used"] = min(max_s, used_s + 1)
                                             else:
-                                                spell_slots[sl_key]["used"] = max(
-                                                    0, used_s - 1
-                                                )
+                                                spell_slots[sl_key]["used"] = max(0, used_s - 1)
                                             st.session_state.spell_slots = spell_slots
-                                            save_character(
-                                                get_character_dict(st.session_state)
-                                            )
+                                            save_character(get_character_dict(st.session_state))
                                             st.rerun()
                     st.markdown("---")
 
@@ -350,9 +325,7 @@ def _render_features_spells(edit_mode: bool):
                                 if spell_data:
                                     lvl_num = spell_data.get("level", 0)
                                     target_lvl_key = (
-                                        "cantrips"
-                                        if lvl_num == 0
-                                        else f"level_{lvl_num}"
+                                        "cantrips" if lvl_num == 0 else f"level_{lvl_num}"
                                     )
                                 else:
                                     target_lvl_key = "level_1"  # Fallback
@@ -380,9 +353,7 @@ def _render_features_spells(edit_mode: bool):
                     and not is_cantrip
                     and is_prepared_caster
                 ):
-                    spell_list = [
-                        s for s in spell_list if s.strip().lower() in prepared_clean
-                    ]
+                    spell_list = [s for s in spell_list if s.strip().lower() in prepared_clean]
                     if not spell_list:
                         continue
 
@@ -410,9 +381,7 @@ def _render_features_spells(edit_mode: bool):
                     else:
                         school = "Unknown"
                         lvl_lbl = (
-                            "Cantrip"
-                            if lvl_key == "cantrips"
-                            else f"Level {lvl_key.split('_')[1]}"
+                            "Cantrip" if lvl_key == "cantrips" else f"Level {lvl_key.split('_')[1]}"
                         )
                         desc = "No description found in the rules database."
                         casting_time = "1 action"
@@ -455,9 +424,7 @@ def _render_features_spells(edit_mode: bool):
                             )
                             if prep_val != is_prep:
                                 if prep_val:
-                                    st.session_state.prepared_spells.append(
-                                        s_name_clean
-                                    )
+                                    st.session_state.prepared_spells.append(s_name_clean)
                                 else:
                                     st.session_state.prepared_spells = [
                                         p
@@ -476,9 +443,7 @@ def _render_features_spells(edit_mode: bool):
                             st.markdown(f"**Duration:** {duration}")
                         with c2:
                             comps_str = (
-                                ", ".join([c.upper() for c in components])
-                                if components
-                                else "None"
+                                ", ".join([c.upper() for c in components]) if components else "None"
                             )
                             st.markdown(f"**Components:** {comps_str}")
                             if material:
@@ -512,9 +477,7 @@ def _render_features_spells(edit_mode: bool):
                                 key=f"cast_{lvl_key}_{_s_idx}_{s_name_clean[:10]}",
                                 width="stretch",
                             ):
-                                spell_slots_state = st.session_state.get(
-                                    "spell_slots", {}
-                                )
+                                spell_slots_state = st.session_state.get("spell_slots", {})
                                 slot_key = lvl_key
 
                                 can_cast = True
@@ -526,9 +489,7 @@ def _render_features_spells(edit_mode: bool):
                                         st.session_state.spell_slots = spell_slots_state
                                     else:
                                         can_cast = False
-                                        st.toast(
-                                            f"No {lvl_lbl} slots remaining!", icon="⚠️"
-                                        )
+                                        st.toast(f"No {lvl_lbl} slots remaining!", icon="⚠️")
 
                                 if can_cast:
                                     if concentration:
@@ -540,8 +501,7 @@ def _render_features_spells(edit_mode: bool):
 
                         # Button 2: Spell Attack (if description mentions spell attack)
                         requires_attack = (
-                            "spell attack" in desc.lower()
-                            or "spell attack" in casting_time.lower()
+                            "spell attack" in desc.lower() or "spell attack" in casting_time.lower()
                         )
                         with cols[1]:
                             if requires_attack:
@@ -574,9 +534,7 @@ def _render_features_spells(edit_mode: bool):
                                     if raw == 20:
                                         st.balloons()
                                     st.rerun()
-                            elif (
-                                "saving throw" in desc.lower() or "save" in desc.lower()
-                            ):
+                            elif "saving throw" in desc.lower() or "save" in desc.lower():
                                 save_dc = st.session_state.get("spell_save_dc", 8)
                                 st.caption(f"🛡️ **Save DC:** {save_dc}")
 
@@ -598,18 +556,14 @@ def _render_features_spells(edit_mode: bool):
                                             f"**{s_name_clean}** ({formula}): **{res['total']}** ({res['result_text']})"
                                         )
                                         try:
-                                            sides = int(
-                                                re.search(r"d(\d+)", formula).group(1)
-                                            )
+                                            sides = int(re.search(r"d(\d+)", formula).group(1))
                                         except Exception:
                                             sides = 6
                                         rolls = res.get("rolls", [1])
                                         st.session_state.active_roll = {
                                             "label": f"{s_name_clean} — {formula}",
                                             "sides": sides,
-                                            "raw": rolls
-                                            if len(rolls) > 1
-                                            else rolls[0],
+                                            "raw": rolls if len(rolls) > 1 else rolls[0],
                                             "raw_selected": sum(rolls),
                                             "modifier": res.get("modifier", 0),
                                             "total": res.get("total", 1),

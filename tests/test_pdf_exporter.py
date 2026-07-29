@@ -1,4 +1,5 @@
 import pytest
+
 from backend.utils.pdf_exporter import PDFMappingProvider, export_character_to_pdf
 
 

@@ -40,7 +40,14 @@ export interface InitiativeCombatant {
       <!-- Top Campaign Header -->
       <div class="phyrexian-card campaign-header">
         <div class="campaign-info">
-          <h2>🏰 DM Workspace: {{ campaignName }}</h2>
+          <div class="campaign-selector-row">
+            <h2>🏰 DM Workspace:</h2>
+            <select class="phyrexian-select campaign-select" [(ngModel)]="campaignName" (change)="onCampaignSelect()">
+              <option *ngFor="let c of userCampaigns" [value]="c.campaign_name">{{ c.campaign_name }}</option>
+              <option *ngIf="userCampaigns.length === 0" [value]="campaignName">{{ campaignName }}</option>
+            </select>
+            <button class="phyrexian-btn-secondary mini-btn" (click)="showNewCampaignModal = true">➕ New Campaign</button>
+          </div>
           <span class="invite-badge" *ngIf="inviteCode">Invite Code: <strong>{{ inviteCode }}</strong></span>
         </div>
         <div class="campaign-actions">
@@ -76,9 +83,17 @@ export interface InitiativeCombatant {
       <div *ngIf="activeTab === 'party'" class="phyrexian-card">
         <div class="section-header">
           <h3>👥 Active Party Roster</h3>
-          <button class="phyrexian-btn" (click)="showRollModal = true">🎲 Issue Party Roll Request</button>
+          <div class="party-header-btns">
+            <button class="phyrexian-btn-secondary" (click)="showAddMemberModal = true">➕ Add Member</button>
+            <button class="phyrexian-btn" (click)="showRollModal = true">🎲 Issue Roll Request</button>
+          </div>
         </div>
         <p class="subtitle">Monitor health, status conditions, passive perception, and roll quick ability checks.</p>
+
+        <div *ngIf="partyMembers.length === 0" class="empty-party-card">
+          <p>🛡️ No active hero characters in <strong>{{ campaignName }}</strong> yet.</p>
+          <button class="phyrexian-btn" (click)="showAddMemberModal = true">➕ Add First Party Member</button>
+        </div>
 
         <div class="party-grid">
           <div class="party-card" *ngFor="let m of partyMembers">
@@ -324,13 +339,81 @@ export interface InitiativeCombatant {
           </div>
         </div>
       </div>
+
+      <!-- CREATE NEW CAMPAIGN MODAL -->
+      <div *ngIf="showNewCampaignModal" class="modal-backdrop">
+        <div class="phyrexian-card modal-card">
+          <h3>🏰 Create New Campaign</h3>
+          <p class="subtitle">Establish a new campaign realm for your party.</p>
+
+          <div class="form-group">
+            <label>Campaign Name:</label>
+            <input type="text" class="phyrexian-input" [(ngModel)]="newCampaignTitle" placeholder="e.g. Curse of Strahd" />
+          </div>
+
+          <div class="form-group">
+            <label>Initial DM Notes (Optional):</label>
+            <textarea class="phyrexian-textarea" rows="3" [(ngModel)]="newCampaignNotes" placeholder="Campaign setting and starting plot points..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showNewCampaignModal = false">Cancel</button>
+            <button class="phyrexian-btn" (click)="createNewCampaign()">Create Campaign</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADD PARTY MEMBER MODAL -->
+      <div *ngIf="showAddMemberModal" class="modal-backdrop">
+        <div class="phyrexian-card modal-card">
+          <h3>👤 Add Hero to {{ campaignName }}</h3>
+          <p class="subtitle">Enlist a new hero character into this campaign's party roster.</p>
+
+          <div class="form-group">
+            <label>Character Name:</label>
+            <input type="text" class="phyrexian-input" [(ngModel)]="newMemberName" placeholder="e.g. Minsc & Boo" />
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Class:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="newMemberClass" placeholder="Ranger" />
+            </div>
+            <div>
+              <label>Level:</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="newMemberLevel" min="1" max="20" style="width: 80px;" />
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top: 0.8rem;">
+            <div>
+              <label>Max HP:</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="newMemberHp" style="width: 100px;" />
+            </div>
+            <div>
+              <label>Armor Class (AC):</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="newMemberAc" style="width: 100px;" />
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showAddMemberModal = false">Cancel</button>
+            <button class="phyrexian-btn" (click)="addPartyMember()">Add to Party</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
     .campaign-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .campaign-selector-row { display: flex; align-items: center; gap: 0.75rem; }
+    .campaign-select { font-size: 1.1rem; font-weight: 700; color: var(--theme-accent); border: 1px solid var(--theme-accent); padding: 0.3rem 0.6rem; }
     .invite-badge { font-size: 0.8rem; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); border: 1px solid var(--accent-gold); padding: 0.2rem 0.6rem; border-radius: 12px; margin-left: 1rem; }
     .campaign-actions { display: flex; gap: 0.75rem; }
     .section-header { display: flex; justify-content: space-between; align-items: center; }
+    .party-header-btns { display: flex; gap: 0.5rem; }
+    .empty-party-card { background: rgba(0, 0, 0, 0.3); border: 1px border-dashed var(--border-card); padding: 2rem; text-align: center; border-radius: 8px; margin-bottom: 1.5rem; }
+    .empty-party-card p { margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem; }
     .subtitle { color: var(--text-muted); margin-bottom: 1rem; }
     .party-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
     .party-card { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); border-radius: 8px; padding: 1rem; }
@@ -373,11 +456,25 @@ export interface InitiativeCombatant {
 })
 export class DmComponent implements OnInit {
   activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' = 'party';
+  userCampaigns: any[] = [];
   campaignName = 'The Obsidian Citadel';
   campaignNotes = 'Chapter 3: The heroes enter the Sunless Citadel in search of the lost Gulthias Tree...';
   inviteCode = '';
+
   showWhisperModal = false;
   showRollModal = false;
+  showNewCampaignModal = false;
+  showAddMemberModal = false;
+
+  newCampaignTitle = '';
+  newCampaignNotes = '';
+
+  newMemberName = '';
+  newMemberClass = 'Fighter';
+  newMemberLevel = 5;
+  newMemberHp = 40;
+  newMemberAc = 16;
+
   selectedStatblockCombatant: InitiativeCombatant | null = null;
 
   whisperRecipient = 'All';
@@ -401,18 +498,27 @@ export class DmComponent implements OnInit {
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
-  partyMembers: PartyMember[] = [
-    { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'], stats: { STR: 18, DEX: 12, CON: 15, INT: 10, WIS: 14, CHA: 16 } },
-    { name: 'Ezren', char_class: 'Wizard', level: 5, hp_current: 28, hp_max: 28, ac: 13, passive_perception: 12, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 18, WIS: 13, CHA: 10 } },
-    { name: 'Merisiel', char_class: 'Rogue', level: 5, hp_current: 35, hp_max: 35, ac: 16, passive_perception: 16, conditions: [], stats: { STR: 12, DEX: 18, CON: 14, INT: 12, WIS: 14, CHA: 12 } },
-  ];
+  // Unique campaign party rosters
+  campaignParties: { [campaignName: string]: PartyMember[] } = {
+    'The Obsidian Citadel': [
+      { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'], stats: { STR: 18, DEX: 12, CON: 15, INT: 10, WIS: 14, CHA: 16 } },
+      { name: 'Ezren', char_class: 'Wizard', level: 5, hp_current: 28, hp_max: 28, ac: 13, passive_perception: 12, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 18, WIS: 13, CHA: 10 } },
+      { name: 'Merisiel', char_class: 'Rogue', level: 5, hp_current: 35, hp_max: 35, ac: 16, passive_perception: 16, conditions: [], stats: { STR: 12, DEX: 18, CON: 14, INT: 12, WIS: 14, CHA: 12 } },
+    ],
+    'Curse of Strahd': [
+      { name: 'Ismark Kolyanovich', char_class: 'Fighter', level: 4, hp_current: 38, hp_max: 38, ac: 17, passive_perception: 12, conditions: [], stats: { STR: 16, DEX: 12, CON: 14, INT: 10, WIS: 11, CHA: 14 } },
+      { name: 'Ireena Kolyana', char_class: 'Cleric', level: 3, hp_current: 24, hp_max: 24, ac: 15, passive_perception: 13, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 12, WIS: 16, CHA: 15 } },
+      { name: 'Rudolph van Richten', char_class: 'Ranger', level: 8, hp_current: 58, hp_max: 58, ac: 16, passive_perception: 18, conditions: [], stats: { STR: 11, DEX: 16, CON: 13, INT: 16, WIS: 18, CHA: 14 } },
+    ],
+    'Phyrexia Awakens': [
+      { name: 'Elspeth Tirel', char_class: 'Paladin', level: 7, hp_current: 64, hp_max: 64, ac: 20, passive_perception: 15, conditions: [], stats: { STR: 18, DEX: 12, CON: 16, INT: 11, WIS: 14, CHA: 18 } },
+      { name: 'Karn', char_class: 'Barbarian', level: 8, hp_current: 85, hp_max: 85, ac: 18, passive_perception: 13, conditions: [], stats: { STR: 20, DEX: 14, CON: 18, INT: 14, WIS: 12, CHA: 10 } },
+      { name: 'Teferi', char_class: 'Wizard', level: 7, hp_current: 42, hp_max: 42, ac: 14, passive_perception: 17, conditions: [], stats: { STR: 9, DEX: 14, CON: 14, INT: 20, WIS: 16, CHA: 13 } },
+    ]
+  };
 
-  combatants: InitiativeCombatant[] = [
-    { id: '1', name: 'Merisiel', initiative: 21, hp: 35, max_hp: 35, ac: 16, dex: 18, is_player: true },
-    { id: '2', name: 'Valeros', initiative: 16, hp: 44, max_hp: 44, ac: 18, dex: 12, is_player: true },
-    { id: '3', name: 'Goblin Warlord', initiative: 14, hp: 30, max_hp: 30, ac: 15, dex: 14, is_player: false, statblock: 'Medium humanoid (goblinoid), neutral evil. Multiattack (2 Scimitar attacks). Scimitar: +5 to hit, 1d6+3 slashing.' },
-    { id: '4', name: 'Ezren', initiative: 9, hp: 28, max_hp: 28, ac: 13, dex: 14, is_player: true },
-  ];
+  partyMembers: PartyMember[] = [];
+  combatants: InitiativeCombatant[] = [];
   activeTurnIndex = 0;
 
   newCombatantName = '';
@@ -425,7 +531,111 @@ export class DmComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadCampaigns();
     this.generateInviteCode();
+  }
+
+  loadCampaigns() {
+    this.http.get<any[]>('http://localhost:8000/api/v1/campaigns/').subscribe({
+      next: (camps) => {
+        this.userCampaigns = camps || [];
+        if (this.userCampaigns.length > 0 && !this.userCampaigns.some((c) => c.campaign_name === this.campaignName)) {
+          this.campaignName = this.userCampaigns[0].campaign_name;
+        }
+        this.onCampaignSelect();
+      },
+      error: () => {
+        this.userCampaigns = [
+          { campaign_name: 'The Obsidian Citadel', invite_code: '4D0705', notes: 'Chapter 3: The heroes enter the Sunless Citadel...' },
+          { campaign_name: 'Curse of Strahd', invite_code: 'BAROV1', notes: 'Chapter 1: Mist creeps into Castle Ravenloft...' },
+          { campaign_name: 'Phyrexia Awakens', invite_code: 'PHY001', notes: 'Chapter 1: The glistened oil spreads...' }
+        ];
+        this.onCampaignSelect();
+      }
+    });
+  }
+
+  onCampaignSelect() {
+    const selected = this.userCampaigns.find((c) => c.campaign_name === this.campaignName);
+    if (selected) {
+      this.inviteCode = selected.invite_code || '';
+      if (selected.notes) this.campaignNotes = selected.notes;
+    } else {
+      this.generateInviteCode();
+    }
+
+    // Dynamic party assignment per campaign
+    if (this.campaignParties[this.campaignName]) {
+      this.partyMembers = [...this.campaignParties[this.campaignName]];
+    } else {
+      this.partyMembers = [];
+      this.campaignParties[this.campaignName] = this.partyMembers;
+    }
+
+    if (this.partyMembers.length > 0) {
+      this.rollTargetMember = this.partyMembers[0].name;
+    }
+
+    this.importPartyToInitiative(true);
+    this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}" (${this.partyMembers.length} heroes in party).`);
+  }
+
+  addPartyMember() {
+    if (!this.newMemberName.trim()) return;
+    const member: PartyMember = {
+      name: this.newMemberName.trim(),
+      char_class: this.newMemberClass || 'Fighter',
+      level: this.newMemberLevel || 5,
+      hp_current: this.newMemberHp || 40,
+      hp_max: this.newMemberHp || 40,
+      ac: this.newMemberAc || 16,
+      passive_perception: 10 + Math.floor(((12) - 10) / 2),
+      conditions: [],
+      stats: { STR: 14, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 }
+    };
+
+    this.partyMembers.push(member);
+    if (!this.campaignParties[this.campaignName]) {
+      this.campaignParties[this.campaignName] = [];
+    }
+    this.campaignParties[this.campaignName] = [...this.partyMembers];
+
+    this.showAddMemberModal = false;
+    this.newMemberName = '';
+    this.importPartyToInitiative();
+    this.rollToast.showMessage('👤 HERO ENLISTED', `Added ${member.name} (${member.char_class}) to ${this.campaignName} party roster.`);
+  }
+
+  createNewCampaign() {
+    if (!this.newCampaignTitle.trim()) return;
+    const newCamp = {
+      campaign_name: this.newCampaignTitle.trim(),
+      notes: this.newCampaignNotes,
+      party: [],
+      dnd_edition: '2014 Edition'
+    };
+
+    this.http.post<any>('http://localhost:8000/api/v1/campaigns/', newCamp).subscribe({
+      next: (res) => {
+        this.userCampaigns.push(res);
+        this.campaignName = res.campaign_name;
+        this.campaignNotes = res.notes || '';
+        this.showNewCampaignModal = false;
+        this.newCampaignTitle = '';
+        this.newCampaignNotes = '';
+        this.generateInviteCode();
+        this.rollToast.showMessage('🏰 CAMPAIGN CREATED', `Successfully forged campaign: ${res.campaign_name}`);
+      },
+      error: () => {
+        // Local state fallback
+        this.userCampaigns.push(newCamp);
+        this.campaignName = newCamp.campaign_name;
+        this.showNewCampaignModal = false;
+        this.newCampaignTitle = '';
+        this.newCampaignNotes = '';
+        this.rollToast.showMessage('🏰 CAMPAIGN CREATED', `Created campaign locally: ${newCamp.campaign_name}`);
+      }
+    });
   }
 
   saveCampaignNotes() {
@@ -484,7 +694,11 @@ export class DmComponent implements OnInit {
     });
   }
 
-  importPartyToInitiative() {
+  importPartyToInitiative(silent = false) {
+    if (silent) {
+      // Remove old campaign player combatants
+      this.combatants = this.combatants.filter((c) => !c.is_player);
+    }
     this.partyMembers.forEach((p) => {
       if (!this.combatants.some((c) => c.name === p.name)) {
         const dexVal = p.stats?.['DEX'] || 10;
@@ -503,7 +717,9 @@ export class DmComponent implements OnInit {
       }
     });
     this.sortCombatants();
-    this.rollToast.showMessage('👥 PARTY IMPORTED', 'Imported active party members into Initiative Tracker.');
+    if (!silent) {
+      this.rollToast.showMessage('👥 PARTY IMPORTED', 'Imported active party members into Initiative Tracker.');
+    }
   }
 
   addCombatant() {

@@ -1,17 +1,18 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
 from backend.services.forge_service import (
+    analyze_level_up,
     forge_character,
     forge_character_manual,
     generate_playstyle_guide,
-    analyze_level_up,
 )
 from backend.utils.image_utils import generate_portrait_url
-from server.dependencies.auth import get_current_user
 from server.db_async import get_database
+from server.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/forge", tags=["Forge (AI)"])
 
@@ -156,9 +157,7 @@ async def generate_ai_portrait(
         {"char_id": payload.char_id, "owner_id": current_user["id"]}
     )
     if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Character not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
 
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
     portrait_url = generate_portrait_url(char_dict, force=payload.force)

@@ -1,7 +1,8 @@
-import os
 import json
 import logging
+import os
 from typing import Optional
+
 from backend.core.constants import EDITION_2014, EDITION_2024
 
 logger = logging.getLogger("DnDAssistant.RulesRepo")
@@ -36,9 +37,7 @@ class RulesRepository:
         os.makedirs(os.path.join(RULES_DIR, "2014"), exist_ok=True)
         os.makedirs(os.path.join(RULES_DIR, "2024"), exist_ok=True)
 
-    def get_class_progression(
-        self, class_name: str, edition: str = EDITION_2014
-    ) -> Optional[dict]:
+    def get_class_progression(self, class_name: str, edition: str = EDITION_2014) -> Optional[dict]:
         """
         Loads the progression data for a specific class and edition.
         Results are cached in module-level dict to avoid instance-level memory leaks.
@@ -52,9 +51,7 @@ class RulesRepository:
         filepath = os.path.join(RULES_DIR, edition_dir, filename)
 
         if not os.path.exists(filepath):
-            logger.warning(
-                f"No progression data found for {class_name} ({edition}) at {filepath}"
-            )
+            logger.warning(f"No progression data found for {class_name} ({edition}) at {filepath}")
             _class_progression_cache[cache_key] = None
             return None
 

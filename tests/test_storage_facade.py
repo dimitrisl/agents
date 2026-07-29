@@ -1,14 +1,15 @@
 from unittest.mock import patch
+
 from backend.core.storage import (
-    save_character,
-    load_character,
-    list_characters,
     delete_character,
-    save_campaign,
-    load_campaign,
-    list_campaigns,
     join_campaign,
+    list_campaigns,
+    list_characters,
+    load_campaign,
+    load_character,
     remove_from_campaign,
+    save_campaign,
+    save_character,
 )
 
 
@@ -104,9 +105,7 @@ def test_join_campaign(mock_save_char, mock_load_char, mock_save_camp, mock_load
 @patch("backend.core.storage.save_campaign")
 @patch("backend.core.storage.load_character")
 @patch("backend.core.storage.save_character")
-def test_remove_from_campaign(
-    mock_save_char, mock_load_char, mock_save_camp, mock_load_camp
-):
+def test_remove_from_campaign(mock_save_char, mock_load_char, mock_save_camp, mock_load_camp):
     mock_load_camp.return_value = {"notes": "Some notes", "party": ["hero.json"]}
     mock_load_char.return_value = {"active_campaign": "Camp1"}
     mock_save_camp.return_value = True
@@ -134,9 +133,7 @@ def test_whispers_and_secret_rolls(mock_save_camp, mock_load_camp):
 
     # Test add_roll_request with secret
     assert (
-        add_roll_request(
-            "Camp1", "hero.json", "Hero", "Stealth Check", "Stealth", is_secret=True
-        )
+        add_roll_request("Camp1", "hero.json", "Hero", "Stealth Check", "Stealth", is_secret=True)
         is True
     )
     assert mock_save_camp.called

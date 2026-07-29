@@ -1,18 +1,20 @@
-import os
-import logging
-import requests
 import io
 import json
+import logging
+import os
+
+import requests
 from pypdf import PdfReader, PdfWriter, generic
-from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from backend.services.mechanics_service import get_modifier as calculate_modifier
+from reportlab.pdfgen import canvas
+
 from backend.core.constants import (
+    PDF_PORTRAIT_HEIGHT,
+    PDF_PORTRAIT_WIDTH,
     PDF_PORTRAIT_X,
     PDF_PORTRAIT_Y,
-    PDF_PORTRAIT_WIDTH,
-    PDF_PORTRAIT_HEIGHT,
 )
+from backend.services.mechanics_service import get_modifier as calculate_modifier
 
 logger = logging.getLogger("DnDAssistant.PDFExporter")
 
@@ -79,9 +81,7 @@ class PDFMappingProvider:
         skill_profs = char_data.get("skill_proficiencies", [])
         skill_exps = char_data.get("skill_expertise", [])
 
-        logger.debug(
-            f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}"
-        )
+        logger.debug(f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}")
 
         for skill_name, pdf_key in self.mapping.get("skills", {}).items():
             if skill_name in char_skills:
@@ -90,9 +90,7 @@ class PDFMappingProvider:
             check_pdf_key = self.mapping.get("skill_checks", {}).get(skill_name)
             if check_pdf_key:
                 field_data[check_pdf_key] = (
-                    "Yes"
-                    if (skill_name in skill_profs or skill_name in skill_exps)
-                    else "/Off"
+                    "Yes" if (skill_name in skill_profs or skill_name in skill_exps) else "/Off"
                 )
 
         # 5. Saving Throws
@@ -181,9 +179,7 @@ class PDFMappingProvider:
             "Warlock": "CHA",
             "Bard": "CHA",
         }
-        spell_stat = char_data.get(
-            "spell_ability", spell_ability_map.get(char_class, "INT")
-        )
+        spell_stat = char_data.get("spell_ability", spell_ability_map.get(char_class, "INT"))
         spell_mod = calculate_modifier(stats.get(spell_stat, 10))
 
         field_data[spellcasting["class"]] = char_class
@@ -258,21 +254,13 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
                 writer.root_object.update(
                     {
                         generic.NameObject("/AcroForm"): generic.DictionaryObject(
-                            {
-                                generic.NameObject(
-                                    "/NeedAppearances"
-                                ): generic.BooleanObject(True)
-                            }
+                            {generic.NameObject("/NeedAppearances"): generic.BooleanObject(True)}
                         )
                     }
                 )
             else:
                 writer.root_object["/AcroForm"].update(
-                    {
-                        generic.NameObject("/NeedAppearances"): generic.BooleanObject(
-                            True
-                        )
-                    }
+                    {generic.NameObject("/NeedAppearances"): generic.BooleanObject(True)}
                 )
         except Exception as e:
             logger.warning(f"Failed to set NeedAppearances: {e}")

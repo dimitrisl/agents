@@ -1,6 +1,7 @@
-import os
 import json
 import logging
+import os
+
 import streamlit as st
 from google import genai
 
@@ -68,9 +69,7 @@ def get_flash_model(client):
         # 3. Fallback to whatever is in the config
         return fallback[7:] if fallback.startswith("models/") else fallback
     except Exception as e:
-        logger.warning(
-            f"Failed to fetch model list, defaulting to {fallback}. Error: {e}"
-        )
+        logger.warning(f"Failed to fetch model list, defaulting to {fallback}. Error: {e}")
         return fallback[7:] if fallback.startswith("models/") else fallback
 
 
@@ -202,9 +201,7 @@ def parse_user_intent(query: str) -> str:
         return "UNKNOWN"
 
 
-def generate_session_prep(
-    module_file_name: str, previous_recap: str, dm_ideas: str
-) -> str:
+def generate_session_prep(module_file_name: str, previous_recap: str, dm_ideas: str) -> str:
     """Generates DM session prep based on the module, recap, and new ideas."""
     logger.info("Generating session prep using uploaded module context...")
 

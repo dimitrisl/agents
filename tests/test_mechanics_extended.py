@@ -1,13 +1,12 @@
 from backend.services.mechanics_service import (
-    calculate_hp,
     calculate_ac,
+    calculate_hp,
     calculate_passive_perception,
+    calculate_proficiency_bonus,
     calculate_saving_throws,
     calculate_weapon_stats,
-    calculate_proficiency_bonus,
     sync_character_stats,
 )
-
 
 # --- calculate_hp edge cases ---
 
@@ -95,9 +94,7 @@ class TestCalculateAc:
 
     def test_warforged_integrated_protection(self):
         """Warforged feature should add +1 AC."""
-        features = [
-            {"name": "Integrated Protection", "description": "Warforged AC bonus"}
-        ]
+        features = [{"name": "Integrated Protection", "description": "Warforged AC bonus"}]
         assert calculate_ac(10, [], features) == 11  # 10 + 0 + 1
 
     def test_manual_ac_bonus_on_equipment(self):
@@ -332,9 +329,7 @@ class TestSyncCharacterStats:
             "char_level": 1,
             "char_class": "Rogue",
             "stats": {"STR": 10, "DEX": 16, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
-            "features_traits": [
-                {"name": "Alert", "description": "You gain +5 to initiative."}
-            ],
+            "features_traits": [{"name": "Alert", "description": "You gain +5 to initiative."}],
         }
         synced = sync_character_stats(char, {"hit_die": "d8"})
         # DEX mod (+3) + Alert (+5) = +8
@@ -602,9 +597,7 @@ class TestSneakAttackScaling:
             ],
         }
         synced1 = sync_character_stats(char1)
-        feat1 = next(
-            ft for ft in synced1["features_traits"] if ft["name"] == "Sneak Attack"
-        )
+        feat1 = next(ft for ft in synced1["features_traits"] if ft["name"] == "Sneak Attack")
         assert "extra 1d6 damage" in feat1["description"]
 
         # Level 3 Rogue (should be 2d6)
@@ -620,9 +613,7 @@ class TestSneakAttackScaling:
             ],
         }
         synced3 = sync_character_stats(char3)
-        feat3 = next(
-            ft for ft in synced3["features_traits"] if ft["name"] == "Sneak Attack"
-        )
+        feat3 = next(ft for ft in synced3["features_traits"] if ft["name"] == "Sneak Attack")
         assert "extra 2d6 damage" in feat3["description"]
 
         # Level 5 Rogue (should be 3d6)
@@ -638,7 +629,5 @@ class TestSneakAttackScaling:
             ],
         }
         synced5 = sync_character_stats(char5)
-        feat5 = next(
-            ft for ft in synced5["features_traits"] if ft["name"] == "Sneak Attack"
-        )
+        feat5 = next(ft for ft in synced5["features_traits"] if ft["name"] == "Sneak Attack")
         assert "extra 3d6 damage" in feat5["description"]

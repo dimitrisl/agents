@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 logger = logging.getLogger("DnDAssistant.ImportUtils")
 
@@ -46,9 +46,7 @@ def import_vtt_character(vtt_data: Dict[str, Any]) -> Dict[str, Any]:
         attrs = system.get("attributes", {})
         if attrs:
             internal_data["hp_max"] = attrs.get("hp", {}).get("max", 10)
-            internal_data["hp_current"] = attrs.get("hp", {}).get(
-                "value", internal_data["hp_max"]
-            )
+            internal_data["hp_current"] = attrs.get("hp", {}).get("value", internal_data["hp_max"])
             internal_data["armor_class"] = attrs.get("ac", {}).get("value", 10)
             internal_data["speed"] = attrs.get("movement", {}).get("walk", 30)
             internal_data["proficiency_bonus"] = attrs.get("prof", 2)

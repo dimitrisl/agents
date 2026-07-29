@@ -1,10 +1,10 @@
-import streamlit as st
 import logging
+
+import streamlit as st
 
 from backend.services.mechanics_service import (
     get_modifier as calculate_modifier,
 )
-
 from views.player._helpers import log_roll, safe_int
 from views.ui_utils import inject_global_theme
 
@@ -28,20 +28,14 @@ def _render_core_stats(edit_mode: bool):
         st.session_state.char_level = c_l.number_input(
             "Level", 1, 20, value=st.session_state.char_level, disabled=True
         )
-        st.session_state.race = c_r.text_input(
-            "Race", value=st.session_state.race, disabled=True
-        )
+        st.session_state.race = c_r.text_input("Race", value=st.session_state.race, disabled=True)
 
         c_b, c_a, c_hp, c_ac = st.columns(4)
         st.session_state.background = c_b.text_input(
             "Background", value=st.session_state.background, disabled=True
         )
-        st.session_state.alignment = c_a.text_input(
-            "Alignment", value=st.session_state.alignment
-        )
-        c_hp.number_input(
-            "Max HP (Derived)", 1, 500, value=st.session_state.hp_max, disabled=True
-        )
+        st.session_state.alignment = c_a.text_input("Alignment", value=st.session_state.alignment)
+        c_hp.number_input("Max HP (Derived)", 1, 500, value=st.session_state.hp_max, disabled=True)
         c_ac.number_input(
             "Armor Class (Derived)",
             1,
@@ -51,9 +45,7 @@ def _render_core_stats(edit_mode: bool):
         )
 
         c_hd, c_pass = st.columns(2)
-        c_hd.text_input(
-            "Hit Dice (Derived)", value=st.session_state.hit_dice or "", disabled=True
-        )
+        c_hd.text_input("Hit Dice (Derived)", value=st.session_state.hit_dice or "", disabled=True)
         c_pass.number_input(
             "Passive Perception (Derived)",
             0,
@@ -183,9 +175,7 @@ def _render_core_stats(edit_mode: bool):
             def _apply_dmg_callback():
                 dmg = st.session_state.get("dmg_val", 0)
                 if dmg > 0:
-                    curr = st.session_state.get(
-                        "hp_current", st.session_state.get("hp_max", 10)
-                    )
+                    curr = st.session_state.get("hp_current", st.session_state.get("hp_max", 10))
                     st.session_state.hp_current = max(0, curr - dmg)
                     st.session_state.dmg_val = 0
                     st.session_state.is_dirty = True
@@ -193,9 +183,7 @@ def _render_core_stats(edit_mode: bool):
             def _apply_heal_callback():
                 heal = st.session_state.get("heal_val", 0)
                 if heal > 0:
-                    curr = st.session_state.get(
-                        "hp_current", st.session_state.get("hp_max", 10)
-                    )
+                    curr = st.session_state.get("hp_current", st.session_state.get("hp_max", 10))
                     m_hp = st.session_state.get("hp_max", 10)
                     st.session_state.hp_current = min(m_hp, curr + heal)
                     st.session_state.heal_val = 0
@@ -287,18 +275,15 @@ def _render_core_stats(edit_mode: bool):
                         key="short_rest_hd_count",
                     )
 
-                    if st.button(
-                        "Roll & Heal", type="primary", use_container_width=True
-                    ):
+                    if st.button("Roll & Heal", type="primary", use_container_width=True):
                         import random
+
                         from backend.services.mechanics_service import get_modifier
 
                         con_score = st.session_state.stats.get("CON", 10)
                         con_mod = get_modifier(con_score)
 
-                        rolls = [
-                            random.randint(1, int(die_size)) for _ in range(hd_to_spend)
-                        ]
+                        rolls = [random.randint(1, int(die_size)) for _ in range(hd_to_spend)]
                         roll_sum = sum(rolls)
                         con_bonus = con_mod * hd_to_spend
                         total_healed = max(0, roll_sum + con_bonus)
@@ -325,9 +310,7 @@ def _render_core_stats(edit_mode: bool):
                         }
 
                         st.session_state.is_dirty = True
-                        st.success(
-                            f"Healed for {total_healed} HP! ({old_hp} ➡️ {new_hp})"
-                        )
+                        st.success(f"Healed for {total_healed} HP! ({old_hp} ➡️ {new_hp})")
 
                         # Class-specific resource restoration
                         char_class = st.session_state.get("char_class", "").lower()
@@ -349,9 +332,7 @@ def _render_core_stats(edit_mode: bool):
                 rest_toast = "Trance completed! 4 hours of meditation restored HP, Hit Dice, and Spell Slots."
             else:
                 rest_label = "🔥 Long Rest"
-                rest_toast = (
-                    "Long Rest completed! HP, Hit Dice, and Spell Slots restored."
-                )
+                rest_toast = "Long Rest completed! HP, Hit Dice, and Spell Slots restored."
 
             if st.button(rest_label, type="primary", use_container_width=True):
                 st.session_state.hp_current = st.session_state.hp_max
@@ -447,9 +428,7 @@ def _render_core_stats(edit_mode: bool):
             for w in st.session_state.weapons:
                 dmg = str(
                     w.get("damage")
-                    or rebuild_damage_formula(
-                        w.get("damage_dice"), w.get("damage_bonus")
-                    )
+                    or rebuild_damage_formula(w.get("damage_dice"), w.get("damage_bonus"))
                 )
                 found = re.findall(r"d(\d+)", dmg)
                 for d in found:
@@ -477,15 +456,11 @@ def _render_core_stats(edit_mode: bool):
             p_ability = pd_c2.selectbox("Ability", abilities, index=0)
 
             # Skill Modifier Picker
-            skill_list = ["None"] + sorted(
-                list(st.session_state.get("skills", {}).keys())
-            )
+            skill_list = ["None"] + sorted(list(st.session_state.get("skills", {}).keys()))
             p_skill = pd_c3.selectbox("Skill", skill_list, index=0)
 
             p_extra = pd_c4.number_input("Bonus", value=0)
-            st.caption(
-                "Note: Skill bonuses usually include their relevant ability modifier."
-            )
+            st.caption("Note: Skill bonuses usually include their relevant ability modifier.")
 
             p_adv = st.radio(
                 "Advantage?",
@@ -494,9 +469,7 @@ def _render_core_stats(edit_mode: bool):
                 key="custom_roll_adv",
             )
 
-            if st.button(
-                "Roll!", type="primary", width="stretch", key="custom_roll_btn"
-            ):
+            if st.button("Roll!", type="primary", width="stretch", key="custom_roll_btn"):
                 from backend.utils.dice import quick_roll
 
                 # Calculate total modifier
@@ -569,9 +542,7 @@ def _render_core_stats(edit_mode: bool):
                     from backend.utils.dice import quick_roll
 
                     res, raw = quick_roll(20, total_sv)
-                    log_roll(
-                        f"**{stat}** Saving Throw: **{res}** (d20: {raw} + {total_sv})"
-                    )
+                    log_roll(f"**{stat}** Saving Throw: **{res}** (d20: {raw} + {total_sv})")
                     st.session_state.active_roll = {
                         "label": f"{stat} Saving Throw",
                         "sides": 20,
@@ -608,9 +579,7 @@ def _render_core_stats(edit_mode: bool):
                         v_str = f"+{v}" if v >= 0 else str(v)
                         btn_label = f"🎲 {indicator}{k} ({v_str})"
 
-                        if st.button(
-                            btn_label, key=f"roll_skill_{k}", use_container_width=True
-                        ):
+                        if st.button(btn_label, key=f"roll_skill_{k}", use_container_width=True):
                             from backend.utils.dice import quick_roll
 
                             res, raw = quick_roll(20, v)
@@ -637,9 +606,7 @@ def _render_core_stats(edit_mode: bool):
             num_rows="dynamic",
             key="edit_advancements",
             column_config={
-                "level": st.column_config.NumberColumn(
-                    "Level", min_value=1, max_value=20
-                ),
+                "level": st.column_config.NumberColumn("Level", min_value=1, max_value=20),
                 "type": st.column_config.SelectboxColumn(
                     "Type", options=["Feat", "Origin Feat", "ASI"]
                 ),

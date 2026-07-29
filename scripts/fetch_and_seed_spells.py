@@ -1,12 +1,10 @@
-import os
 import json
 import logging
+import os
 import sys
 
 # Set up logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("SpellsFetcher")
 
 # Add project path to sys.path
@@ -158,9 +156,7 @@ def seed_to_mongodb(spells_data):
         except Exception as e:
             logger.error(f"Error seeding spell '{spell['name']}': {e}")
 
-    logger.info(
-        f"Seeding completed. Inserted: {inserted}, Updated/Upserted: {updated} spells."
-    )
+    logger.info(f"Seeding completed. Inserted: {inserted}, Updated/Upserted: {updated} spells.")
     return True
 
 

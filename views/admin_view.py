@@ -1,9 +1,11 @@
-import streamlit as st
 import logging
 import os
-from backend.repositories.user_repository import UserRepository
-from backend.repositories.character_repository import CharacterRepository
+
+import streamlit as st
+
 from backend.repositories.campaign_repository import CampaignRepository
+from backend.repositories.character_repository import CharacterRepository
+from backend.repositories.user_repository import UserRepository
 from backend.utils.auth_utils import hash_password
 from backend.utils.ui_utils import render_themed_markdown
 
@@ -84,16 +86,12 @@ def render_admin_view():
 
                 # Column 1: Identity
                 role_tag = " [ADMIN]" if is_admin else ""
-                u_col1.markdown(
-                    f"**{user.get('name', 'N/A')}** (`{username}`){role_tag}"
-                )
+                u_col1.markdown(f"**{user.get('name', 'N/A')}** (`{username}`){role_tag}")
                 u_col1.caption(user.get("email", "N/A"))
 
                 # Column 2: Stats
                 u_col2.markdown(f"**Heroes:** `{char_count}`")
-                account_type = (
-                    "Machine-Native" if username else "External Proxy (OAuth)"
-                )
+                account_type = "Machine-Native" if username else "External Proxy (OAuth)"
                 u_col2.caption(account_type)
 
                 # Column 3: Badge
@@ -112,9 +110,7 @@ def render_admin_view():
                         key=f"reset_{username}",
                         help="Reset password to '1234'",
                     ):
-                        if user_repo.update(
-                            username, {"password_hash": hash_password("1234")}
-                        ):
+                        if user_repo.update(username, {"password_hash": hash_password("1234")}):
                             st.toast(f"Password reset for {username} to '1234'")
                         else:
                             st.error("Reset failed.")
@@ -176,9 +172,7 @@ def render_admin_view():
         "Finds heroes with no owner or assigned to 'temp_dm' and transfers them to the Machine Orthodoxy (mitsos)."
     )
 
-    if st.button(
-        "🔥 Execute Reclaim Protocol", use_container_width=True, type="primary"
-    ):
+    if st.button("🔥 Execute Reclaim Protocol", use_container_width=True, type="primary"):
         from backend.core.db import get_db
 
         db = get_db()
@@ -200,12 +194,8 @@ def render_admin_view():
             orphans_camps = camp_col.count_documents(query)
 
             if orphans_chars > 0 or orphans_camps > 0:
-                char_res = char_col.update_many(
-                    query, {"$set": {"owner_id": "local_user_mitsos"}}
-                )
-                camp_res = camp_col.update_many(
-                    query, {"$set": {"owner_id": "local_user_mitsos"}}
-                )
+                char_res = char_col.update_many(query, {"$set": {"owner_id": "local_user_mitsos"}})
+                camp_res = camp_col.update_many(query, {"$set": {"owner_id": "local_user_mitsos"}})
                 st.success(
                     f"Successfully reclaimed {char_res.modified_count} characters and {camp_res.modified_count} campaigns for the Machine Orthodoxy."
                 )

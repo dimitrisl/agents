@@ -1,6 +1,6 @@
-import pytest
 from unittest.mock import patch
 
+import pytest
 
 # --- CharacterRepository ---
 
@@ -16,9 +16,7 @@ def mock_db():
 @pytest.fixture
 def char_repo(mock_db):
     """Create a CharacterRepository pointing at a mock database."""
-    with patch(
-        "backend.repositories.character_repository.get_db", return_value=mock_db
-    ):
+    with patch("backend.repositories.character_repository.get_db", return_value=mock_db):
         from backend.repositories.character_repository import CharacterRepository
 
         repo = CharacterRepository()
@@ -71,9 +69,7 @@ class TestCharacterRepository:
     def test_delete_nonexistent(self, char_repo):
         assert char_repo.delete("nonexistent.json") is False
 
-    def test_save_generates_filename_from_name_and_id(
-        self, char_repo, sample_char, tmp_path
-    ):
+    def test_save_generates_filename_from_name_and_id(self, char_repo, sample_char, tmp_path):
         char_repo.save(sample_char)
         files = char_repo.list_all()
         assert len(files) == 1

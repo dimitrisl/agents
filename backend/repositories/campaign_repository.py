@@ -1,6 +1,7 @@
-import os
 import logging
+import os
 from typing import List, Optional
+
 from backend.core.db import get_db
 
 logger = logging.getLogger("DnDAssistant.CampaignRepo")
@@ -104,9 +105,7 @@ class CampaignRepository:
             google_doc_id = existing.get("google_doc_id") if existing else None
 
         if google_credentials_json is None:
-            google_credentials_json = (
-                existing.get("google_credentials_json") if existing else None
-            )
+            google_credentials_json = existing.get("google_credentials_json") if existing else None
 
         data = {
             "campaign_name": campaign_name,
@@ -224,9 +223,7 @@ class CampaignRepository:
         if self.collection is None:
             return None
         try:
-            result = self.collection.find_one(
-                {"invite_code": invite_code.strip().upper()}
-            )
+            result = self.collection.find_one({"invite_code": invite_code.strip().upper()})
             if result:
                 result.pop("_id", None)
             return result

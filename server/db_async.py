@@ -1,5 +1,7 @@
 import logging
+
 from motor.motor_asyncio import AsyncIOMotorClient
+
 from server.config import settings
 
 logger = logging.getLogger("PhyrexianForge.AsyncDB")

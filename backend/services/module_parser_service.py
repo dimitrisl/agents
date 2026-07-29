@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 import re
-import json
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 import pdfplumber
 from google import genai
 from google.genai import types
@@ -91,9 +92,7 @@ class ModuleParserService:
             logger.error(f"Failed to extract NPCs: {e}")
             return []
 
-    def extract_image_from_page(
-        self, pdf_path: str, page_num: int, npc_name: str
-    ) -> str:
+    def extract_image_from_page(self, pdf_path: str, page_num: int, npc_name: str) -> str:
         """
         Extracts the largest image from a specific page using pdfplumber.
         Returns the path to the saved image.
@@ -114,9 +113,7 @@ class ModuleParserService:
                     return None
 
                 # Find the largest image by area (width * height)
-                largest_image = max(
-                    images, key=lambda img: img["width"] * img["height"]
-                )
+                largest_image = max(images, key=lambda img: img["width"] * img["height"])
 
                 # Extract the image
                 # In pdfplumber, you can crop the page to the image bounding box and save it as an image
@@ -138,7 +135,5 @@ class ModuleParserService:
                 return image_path
 
         except Exception as e:
-            logger.error(
-                f"Failed to extract image for {npc_name} from page {page_num}: {e}"
-            )
+            logger.error(f"Failed to extract image for {npc_name} from page {page_num}: {e}")
             return None

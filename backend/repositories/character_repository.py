@@ -1,8 +1,9 @@
-import os
 import logging
+import os
 from typing import List, Optional
-from backend.core.schemas import CharacterSchema
+
 from backend.core.db import get_db
+from backend.core.schemas import CharacterSchema
 
 logger = logging.getLogger("DnDAssistant.CharacterRepo")
 
@@ -43,12 +44,8 @@ class CharacterRepository:
 
         # Upsert based on char_id
         try:
-            self.collection.update_one(
-                {"char_id": char_id}, {"$set": char_data}, upsert=True
-            )
-            logger.info(
-                f"Successfully saved character {char_data['char_name']} to MongoDB"
-            )
+            self.collection.update_one({"char_id": char_id}, {"$set": char_data}, upsert=True)
+            logger.info(f"Successfully saved character {char_data['char_name']} to MongoDB")
             return True
         except Exception as e:
             logger.error(f"Failed to save character to MongoDB: {e}", exc_info=True)
@@ -73,12 +70,8 @@ class CharacterRepository:
                     validated = CharacterSchema.model_validate(data, strict=False)
                     return validated.model_dump()
                 except Exception as val_err:
-                    logger.error(
-                        f"Loaded character '{char_id}' failed validation: {val_err}"
-                    )
-                    raise ValueError(
-                        f"Loaded character schema validation failed: {val_err}"
-                    )
+                    logger.error(f"Loaded character '{char_id}' failed validation: {val_err}")
+                    raise ValueError(f"Loaded character schema validation failed: {val_err}")
             return data
         except Exception as e:
             logger.error(f"Failed to load character from MongoDB: {e}")

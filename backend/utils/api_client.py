@@ -1,13 +1,12 @@
-import requests
 import logging
+
+import requests
 
 logger = logging.getLogger("DnDAssistant.APIClient")
 
 DND_5E_API_BASE = "https://www.dnd5eapi.co/api/2014"
 # Community maintained raw JSON (more comprehensive than SRD)
-COMMUNITY_FEATS_URL = (
-    "https://raw.githubusercontent.com/BTMorton/dnd-5e-srd/master/json/feats.json"
-)
+COMMUNITY_FEATS_URL = "https://raw.githubusercontent.com/BTMorton/dnd-5e-srd/master/json/feats.json"
 
 
 def fetch_feat_from_api(feat_name: str) -> dict:

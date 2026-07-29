@@ -1,5 +1,6 @@
 import logging
-from typing import Optional, List
+from typing import List, Optional
+
 from backend.core.db import get_db
 
 logger = logging.getLogger("DnDAssistant.UserRepository")

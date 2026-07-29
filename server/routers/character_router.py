@@ -1,15 +1,16 @@
+import io
 import os
 from typing import List
+
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
-    status,
-    UploadFile,
     File,
+    HTTPException,
+    UploadFile,
+    status,
 )
 from fastapi.responses import StreamingResponse
-import io
 
 from backend.core.schemas import CharacterSchema
 from backend.services.forge_service import process_character_update
@@ -56,13 +57,9 @@ async def create_character(
 @router.get("/{char_id}", response_model=CharacterSchema)
 async def get_character(char_id: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
-    doc = await db["characters"].find_one(
-        {"char_id": char_id, "owner_id": current_user["id"]}
-    )
+    doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
     if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Character not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
     return CharacterSchema.model_validate(doc, strict=False)
 
@@ -74,13 +71,9 @@ async def update_character(
     current_user: dict = Depends(get_current_user),
 ):
     db = get_database()
-    existing = await db["characters"].find_one(
-        {"char_id": char_id, "owner_id": current_user["id"]}
-    )
+    existing = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
     if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Character not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
 
     char_dict = char_in.model_dump()
     char_dict["char_id"] = char_id
@@ -94,17 +87,11 @@ async def update_character(
 
 
 @router.delete("/{char_id}")
-async def delete_character(
-    char_id: str, current_user: dict = Depends(get_current_user)
-):
+async def delete_character(char_id: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
-    result = await db["characters"].delete_one(
-        {"char_id": char_id, "owner_id": current_user["id"]}
-    )
+    result = await db["characters"].delete_one({"char_id": char_id, "owner_id": current_user["id"]})
     if result.deleted_count == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Character not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
 
     # Clean up local portrait if exists
     portrait_path = os.path.join("data", "portraits", f"{char_id}.png")
@@ -120,13 +107,9 @@ async def delete_character(
 @router.post("/{char_id}/export-pdf")
 async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
-    doc = await db["characters"].find_one(
-        {"char_id": char_id, "owner_id": current_user["id"]}
-    )
+    doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
     if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Character not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
 
@@ -141,16 +124,12 @@ async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"attachment; filename={char_name_clean}_sheet.pdf"
-        },
+        headers={"Content-Disposition": f"attachment; filename={char_name_clean}_sheet.pdf"},
     )
 
 
 @router.post("/import-pdf", response_model=CharacterSchema)
-async def import_pdf(
-    file: UploadFile = File(...), current_user: dict = Depends(get_current_user)
-):
+async def import_pdf(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

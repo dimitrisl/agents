@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Dict, List
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger("PhyrexianForge.WebSocket")
@@ -26,9 +27,7 @@ class ConnectionManager:
                 self.active_connections[campaign_id].remove(websocket)
             if not self.active_connections[campaign_id]:
                 del self.active_connections[campaign_id]
-        logger.info(
-            f"WebSocket client disconnected from campaign channel '{campaign_id}'"
-        )
+        logger.info(f"WebSocket client disconnected from campaign channel '{campaign_id}'")
 
     async def broadcast(self, campaign_id: str, message: dict):
         if campaign_id in self.active_connections:
