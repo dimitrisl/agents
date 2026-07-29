@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RollToastService } from '../../../core/services/roll-toast.service';
 
@@ -22,16 +22,18 @@ import { RollToastService } from '../../../core/services/roll-toast.service';
         <!-- Numeric Roll Result Notification -->
         <div *ngIf="!roll.message" class="toast-roll-body">
           <div class="roll-badge-col">
-            <span class="raw-die" [class.gold-text]="roll.isNat20" [class.red-text]="roll.isNat1">
-              🎲 {{ roll.raw }}
-            </span>
-            <span *ngIf="roll.isNat20" class="crit-badge gold-badge">⭐ CRITICAL HIT!</span>
-            <span *ngIf="roll.isNat1" class="crit-badge red-badge">💀 CRITICAL FAIL!</span>
+            <div class="d20-icon-wrapper" [class.rolling]="isRolling">
+              <span class="raw-die" [class.gold-text]="roll.isNat20" [class.red-text]="roll.isNat1">
+                🎲 {{ roll.raw }}
+              </span>
+            </div>
+            <span *ngIf="roll.isNat20" class="crit-badge gold-badge animated-pulse">⭐ CRITICAL HIT!</span>
+            <span *ngIf="roll.isNat1" class="crit-badge red-badge animated-pulse">💀 CRITICAL FAIL!</span>
           </div>
 
           <div class="roll-math">
             <span class="math-expr">{{ roll.expression }}</span>
-            <span class="total-score">{{ roll.total }}</span>
+            <span class="total-score" [class.gold-glow]="roll.isNat20" [class.red-glow]="roll.isNat1">{{ roll.total }}</span>
           </div>
         </div>
       </div>
@@ -102,6 +104,12 @@ import { RollToastService } from '../../../core/services/roll-toast.service';
       flex-direction: column;
       align-items: flex-start;
     }
+    .d20-icon-wrapper {
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .d20-icon-wrapper.rolling {
+      transform: rotate(360deg) scale(1.15);
+    }
     .raw-die {
       font-size: 1.4rem;
       font-weight: 800;
@@ -134,8 +142,19 @@ import { RollToastService } from '../../../core/services/roll-toast.service';
       line-height: 1;
       text-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
     }
+    .gold-glow { color: var(--accent-gold); text-shadow: 0 0 12px rgba(212, 175, 55, 0.8); }
+    .red-glow { color: #ff4b4b; text-shadow: 0 0 12px rgba(255, 75, 75, 0.8); }
   `]
 })
-export class RollToastComponent {
+export class RollToastComponent implements OnInit {
+  isRolling = false;
+
   constructor(public rollService: RollToastService) {}
+
+  ngOnInit() {
+    this.isRolling = true;
+    setTimeout(() => {
+      this.isRolling = false;
+    }, 300);
+  }
 }
