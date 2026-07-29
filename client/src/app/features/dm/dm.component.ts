@@ -48,7 +48,10 @@ export interface InitiativeCombatant {
 
       <!-- TAB 1: PARTY TRACKER -->
       <div *ngIf="activeTab === 'party'" class="phyrexian-card">
-        <h3>👥 Active Party Roster</h3>
+        <div class="section-header">
+          <h3>👥 Active Party Roster</h3>
+          <button class="phyrexian-btn" (click)="showRollModal = true">🎲 Issue Party Roll Request</button>
+        </div>
         <p class="subtitle">Monitor health, status conditions, and send roll requests.</p>
         
         <div class="party-grid">
@@ -66,7 +69,8 @@ export interface InitiativeCombatant {
             <div class="hp-row">
               <label>HP:</label>
               <button class="hp-btn" (click)="adjustHp(m, -1)">-</button>
-              <span class="hp-val">{{ m.hp_current }} / {{ m.hp_max }}</span>
+              <input type="number" class="phyrexian-input mini-hp-input" [(ngModel)]="m.hp_current" min="0" [max]="m.hp_max" />
+              <span>/ {{ m.hp_max }}</span>
               <button class="hp-btn" (click)="adjustHp(m, 1)">+</button>
             </div>
 
@@ -80,8 +84,8 @@ export interface InitiativeCombatant {
               </span>
             </div>
 
-            <button class="phyrexian-btn-secondary full-btn mini-btn" style="margin-top: 0.75rem;" (click)="requestRoll(m)">
-              🎲 Request Roll
+            <button class="phyrexian-btn-secondary full-btn mini-btn" style="margin-top: 0.75rem;" (click)="openSingleRollModal(m)">
+              🎲 Roll Request
             </button>
           </div>
         </div>
@@ -100,7 +104,7 @@ export interface InitiativeCombatant {
         <div class="add-combatant-row">
           <input type="text" class="phyrexian-input" placeholder="Combatant Name" [(ngModel)]="newCombatantName" />
           <input type="number" class="phyrexian-input" placeholder="Init Score" [(ngModel)]="newCombatantInit" style="width: 100px;" />
-          <button class="phyrexian-btn" (click)="addCombatant()">+ Add</button>
+          <button class="phyrexian-btn" (click)="addCombatant()">+ Add Combatant</button>
         </div>
 
         <table class="init-table" *ngIf="combatants.length > 0">
@@ -118,7 +122,9 @@ export interface InitiativeCombatant {
               <td><span *ngIf="i === activeTurnIndex" class="turn-indicator">⚔️ CURRENT</span></td>
               <td><strong>{{ c.name }}</strong></td>
               <td>{{ c.initiative }}</td>
-              <td>{{ c.hp }}</td>
+              <td>
+                <input type="number" class="phyrexian-input mini-hp-input" [(ngModel)]="c.hp" />
+              </td>
               <td>
                 <button class="clear-btn" (click)="removeCombatant(i)">❌ Remove</button>
               </td>
@@ -150,7 +156,7 @@ export interface InitiativeCombatant {
             <button class="phyrexian-btn" (click)="generateNpc()">Forge NPC</button>
           </div>
           <div *ngIf="npcResult" class="result-box">
-            <p>{{ npcResult }}</p>
+            <p style="white-space: pre-wrap;">{{ npcResult }}</p>
           </div>
         </div>
       </div>
@@ -167,7 +173,7 @@ export interface InitiativeCombatant {
         <button class="phyrexian-btn" (click)="generatePrep()">Generate Session Prep</button>
 
         <div *ngIf="prepResult" class="result-box">
-          <p>{{ prepResult }}</p>
+          <p style="white-space: pre-wrap;">{{ prepResult }}</p>
         </div>
       </div>
 
@@ -194,42 +200,68 @@ export interface InitiativeCombatant {
           </div>
         </div>
       </div>
+
+      <!-- ROLL REQUEST MODAL -->
+      <div *ngIf="showRollModal" class="modal-backdrop">
+        <div class="phyrexian-card modal-card">
+          <h3>🎲 Issue Roll Request</h3>
+          
+          <div class="form-group">
+            <label>Target Member:</label>
+            <select class="phyrexian-select" [(ngModel)]="rollTargetMember">
+              <option *ngFor="let m of partyMembers" [value]="m.name">{{ m.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Roll Type:</label>
+              <select class="phyrexian-select" [(ngModel)]="rollType">
+                <option value="ability_check">Ability Check</option>
+                <option value="saving_throw">Saving Throw</option>
+                <option value="attack_roll">Attack Roll</option>
+              </select>
+            </div>
+            <div>
+              <label>Stat:</label>
+              <select class="phyrexian-select" [(ngModel)]="rollStat">
+                <option value="STR">STR</option>
+                <option value="DEX">DEX</option>
+                <option value="CON">CON</option>
+                <option value="INT">INT</option>
+                <option value="WIS">WIS</option>
+                <option value="CHA">CHA</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem;">
+            <label>Reason / Context:</label>
+            <input type="text" class="phyrexian-input" [(ngModel)]="rollReason" placeholder="e.g. Dragon Breath Fire Save" />
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showRollModal = false">Cancel</button>
+            <button class="phyrexian-btn" (click)="sendRollRequest()">Request Roll</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
-    .campaign-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    .invite-badge {
-      font-size: 0.8rem;
-      background: rgba(212, 175, 55, 0.15);
-      color: var(--accent-gold);
-      border: 1px solid var(--accent-gold);
-      padding: 0.2rem 0.6rem;
-      border-radius: 12px;
-      margin-left: 1rem;
-    }
+    .campaign-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .invite-badge { font-size: 0.8rem; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); border: 1px solid var(--accent-gold); padding: 0.2rem 0.6rem; border-radius: 12px; margin-left: 1rem; }
     .campaign-actions { display: flex; gap: 0.75rem; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; }
     .subtitle { color: var(--text-muted); margin-bottom: 1rem; }
-    .party-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
-    .party-card {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border-card);
-      border-radius: 8px;
-      padding: 1rem;
-    }
+    .party-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .party-card { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); border-radius: 8px; padding: 1rem; }
     .card-header { display: flex; justify-content: space-between; align-items: center; }
     .class-tag { font-size: 0.75rem; color: var(--text-muted); }
     .vitals-row { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); margin: 0.5rem 0; }
     .hp-row { display: flex; align-items: center; gap: 0.5rem; }
     .hp-btn { width: 22px; height: 22px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid var(--border-card); color: #fff; border-radius: 4px; }
+    .mini-hp-input { width: 55px; padding: 0.2rem; text-align: center; }
     .conditions-row { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.5rem; }
     .cond-badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; background: rgba(255, 255, 255, 0.1); cursor: pointer; }
     .cond-badge.active { background: var(--primary-red); color: #fff; }
@@ -255,9 +287,15 @@ export class DmComponent implements OnInit {
   campaignName = 'The Obsidian Citadel';
   inviteCode = '';
   showWhisperModal = false;
+  showRollModal = false;
 
   whisperRecipient = 'All';
   whisperMessage = '';
+
+  rollTargetMember = 'Valeros';
+  rollType = 'saving_throw';
+  rollStat = 'DEX';
+  rollReason = 'Dragon Breath Fire Save';
 
   avgLevel = 5;
   location = 'Crypt';
@@ -269,7 +307,7 @@ export class DmComponent implements OnInit {
   prepNotes = '';
   prepResult = '';
 
-  availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious'];
+  availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
   partyMembers: PartyMember[] = [
     { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'] },
@@ -310,15 +348,21 @@ export class DmComponent implements OnInit {
     else member.conditions.push(cond);
   }
 
-  requestRoll(member: PartyMember) {
+  openSingleRollModal(m: PartyMember) {
+    this.rollTargetMember = m.name;
+    this.showRollModal = true;
+  }
+
+  sendRollRequest() {
+    this.showRollModal = false;
     this.http.post(`http://localhost:8000/api/v1/campaigns/${this.campaignName}/roll-request`, {
-      char_filename: member.name.toLowerCase() + '.json',
-      char_name: member.name,
-      roll_type: 'saving_throw',
-      stat: 'DEX',
-      reason: 'Dragon Breath'
+      char_filename: this.rollTargetMember.toLowerCase() + '.json',
+      char_name: this.rollTargetMember,
+      roll_type: this.rollType,
+      stat: this.rollStat,
+      reason: this.rollReason
     }).subscribe(() => {
-      alert(`Sent roll request to ${member.name}!`);
+      alert(`Issued ${this.rollType} (${this.rollStat}) roll request to ${this.rollTargetMember}!`);
     });
   }
 

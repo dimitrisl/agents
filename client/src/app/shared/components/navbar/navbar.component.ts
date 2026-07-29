@@ -27,6 +27,8 @@ import { CharacterStateService } from '../../../core/services/character-state.se
         <a routerLink="/player" routerLinkActive="active" class="nav-btn">🗡️ Player Dashboard</a>
         <a routerLink="/dm" routerLinkActive="active" class="nav-btn">🏰 DM Workspace</a>
         <a routerLink="/rules" routerLinkActive="active" class="nav-btn">📚 Rules Library</a>
+        <a routerLink="/settings" routerLinkActive="active" class="nav-btn">⚙️ Settings</a>
+        <a *ngIf="isAdmin()" routerLink="/admin" routerLinkActive="active" class="nav-btn">🛡️ Admin</a>
       </nav>
 
       <div class="user-controls">
@@ -58,84 +60,24 @@ import { CharacterStateService } from '../../../core/services/character-state.se
       border-radius: 0 0 12px 12px;
       padding: 0.8rem 1.5rem;
     }
-    .brand-section {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    .brand-title {
-      font-size: 1.4rem;
-      color: var(--theme-accent);
-      margin: 0;
-      line-height: 1.1;
-    }
-    .edition-sub {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-style: italic;
-    }
-    .nav-links {
-      display: flex;
-      gap: 0.75rem;
-    }
-    .nav-btn {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-weight: 600;
-      padding: 0.5rem 0.9rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-    }
-    .nav-btn:hover, .nav-btn.active {
-      color: var(--text-primary);
-      background: rgba(255, 255, 255, 0.08);
-      border-bottom: 2px solid var(--theme-accent);
-    }
-    .user-controls {
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-    }
-    .edition-toggle {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .toggle-label {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-    }
-    /* Switch styling */
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 36px;
-      height: 20px;
-    }
+    .brand-section { display: flex; align-items: center; gap: 0.75rem; }
+    .brand-title { font-size: 1.4rem; color: var(--theme-accent); margin: 0; line-height: 1.1; }
+    .edition-sub { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+    .nav-links { display: flex; gap: 0.75rem; }
+    .nav-btn { color: var(--text-muted); text-decoration: none; font-weight: 600; padding: 0.5rem 0.9rem; border-radius: 6px; font-size: 0.9rem; transition: all 0.2s; }
+    .nav-btn:hover, .nav-btn.active { color: var(--text-primary); background: rgba(255, 255, 255, 0.08); border-bottom: 2px solid var(--theme-accent); }
+    .user-controls { display: flex; align-items: center; gap: 1.25rem; }
+    .edition-toggle { display: flex; align-items: center; gap: 0.5rem; }
+    .toggle-label { font-size: 0.78rem; color: var(--text-muted); }
+    .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #333; transition: .3s; border-radius: 20px;
-    }
-    .slider:before {
-      position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
-      background-color: white; transition: .3s; border-radius: 50%;
-    }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .3s; border-radius: 20px; }
+    .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
     input:checked + .slider { background-color: var(--accent-violet); }
     input:checked + .slider:before { transform: translateX(16px); }
-
-    .user-greeting {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-    }
-    .user-name {
-      color: var(--theme-accent);
-    }
-    .logout-btn {
-      font-size: 0.78rem;
-      padding: 0.35rem 0.75rem;
-    }
+    .user-greeting { font-size: 0.82rem; color: var(--text-muted); }
+    .user-name { color: var(--theme-accent); }
+    .logout-btn { font-size: 0.78rem; padding: 0.35rem 0.75rem; }
   `]
 })
 export class NavbarComponent {
@@ -150,5 +92,10 @@ export class NavbarComponent {
 
   toggleEdition() {
     this.charState.toggleEdition();
+  }
+
+  isAdmin(): boolean {
+    const u = this.authService.currentUser();
+    return u?.username === 'mitsos' || u?.id === 'local_user_mitsos';
   }
 }

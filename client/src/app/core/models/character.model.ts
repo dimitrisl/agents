@@ -1,4 +1,5 @@
 export interface StatBlock {
+  [key: string]: number;
   STR: number;
   DEX: number;
   CON: number;
