@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { CharacterStateService } from '../../core/services/character-state.service';
 
 @Component({
   selector: 'app-rules',
@@ -9,78 +10,102 @@ import { HttpClient } from '@angular/common/http';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="rules-container">
-      <h2>📚 Rules Oracle & Edition Comparison</h2>
+      <div class="phyrexian-card">
+        <h2>📚 D&D Arcane Rules Library</h2>
+        <p class="subtitle">Search rules, compare 2014 vs 2024 revisions, or run automated character build validation.</p>
 
-      <div class="nav-tabs">
-        <div class="tab-item" [class.active]="activeTab === 'oracle'" (click)="activeTab = 'oracle'">🔮 Rules Oracle</div>
-        <div class="tab-item" [class.active]="activeTab === 'compare'" (click)="activeTab = 'compare'">⚖️ 2014 vs 2024 Comparison</div>
-      </div>
-
-      <div *ngIf="activeTab === 'oracle'" class="phyrexian-card">
-        <h3>Ask the Rules Oracle</h3>
-        <div class="query-row">
-          <input type="text" class="phyrexian-input" placeholder="e.g. How does Grappling work?" [(ngModel)]="query" (keyup.enter)="askOracle()" />
-          <button class="phyrexian-btn" (click)="askOracle()">Consult Oracle</button>
+        <div class="nav-tabs">
+          <div class="tab-item" [class.active]="activeTab === 'oracle'" (click)="activeTab = 'oracle'">🔮 Rules Oracle</div>
+          <div class="tab-item" [class.active]="activeTab === 'compare'" (click)="activeTab = 'compare'">⚖️ 2014 vs 2024 Edition Comparator</div>
+          <div class="tab-item" [class.active]="activeTab === 'validate'" (click)="activeTab = 'validate'">🛡️ Character Rules Inspector</div>
         </div>
 
-        <div *ngIf="oracleAnswer" class="answer-box">
-          <p>{{ oracleAnswer }}</p>
-        </div>
-      </div>
+        <!-- TAB 1: RULES ORACLE -->
+        <div *ngIf="activeTab === 'oracle'" class="tab-body">
+          <div class="search-row">
+            <input type="text" class="phyrexian-input" [(ngModel)]="oracleQuery" placeholder="Ask any rule question (e.g., How does grapple work in 5.5e?)" (keyup.enter)="searchOracle()" />
+            <button class="phyrexian-btn" (click)="searchOracle()">Search Oracle</button>
+          </div>
 
-      <div *ngIf="activeTab === 'compare'" class="phyrexian-card">
-        <h3>Compare 2014 vs 2024 Revision</h3>
-        <div class="query-row">
-          <input type="text" class="phyrexian-input" placeholder="e.g. Counterspell changes" [(ngModel)]="compareQuery" (keyup.enter)="compareRules()" />
-          <button class="phyrexian-btn" (click)="compareRules()">Compare</button>
+          <div *ngIf="oracleAnswer" class="result-box">
+            <p style="white-space: pre-wrap;">{{ oracleAnswer }}</p>
+          </div>
         </div>
 
-        <div *ngIf="compareAnswer" class="answer-box">
-          <p>{{ compareAnswer }}</p>
+        <!-- TAB 2: EDITION COMPARATOR -->
+        <div *ngIf="activeTab === 'compare'" class="tab-body">
+          <div class="search-row">
+            <input type="text" class="phyrexian-input" [(ngModel)]="compareQuery" placeholder="Enter feature or spell to compare (e.g. Paladin Smite, Counterspell)" (keyup.enter)="compareEditions()" />
+            <button class="phyrexian-btn" (click)="compareEditions()">Compare Editions</button>
+          </div>
+
+          <div *ngIf="compareAnswer" class="result-box">
+            <p style="white-space: pre-wrap;">{{ compareAnswer }}</p>
+          </div>
+        </div>
+
+        <!-- TAB 3: CHARACTER BUILD RULES INSPECTOR -->
+        <div *ngIf="activeTab === 'validate'" class="tab-body">
+          <p>Inspect the currently selected hero for D&D 5e/5.5e rule compliance (ability bounds, spell slot allocations, proficiencies).</p>
+          <button class="phyrexian-btn" (click)="validateActiveHero()">Run Build Audit</button>
+
+          <div *ngIf="validationResult" class="result-box">
+            <p style="white-space: pre-wrap;">{{ validationResult | json }}</p>
+          </div>
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .query-row {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    .answer-box {
-      margin-top: 1.5rem;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 1.25rem;
-      border-radius: 8px;
-      line-height: 1.6;
-    }
+    .rules-container { max-width: 850px; margin: 0 auto; }
+    .subtitle { color: var(--text-muted); margin-bottom: 1.5rem; }
+    .search-row { display: flex; gap: 0.75rem; margin-top: 1rem; }
+    .search-row input { flex: 1; }
+    .result-box { margin-top: 1.5rem; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-card); padding: 1.25rem; border-radius: 8px; font-size: 0.9rem; line-height: 1.6; }
+    .tab-body { margin-top: 1rem; }
   `]
 })
 export class RulesComponent {
-  activeTab: 'oracle' | 'compare' = 'oracle';
-  query = '';
-  compareQuery = '';
+  activeTab: 'oracle' | 'compare' | 'validate' = 'oracle';
+  oracleQuery = '';
   oracleAnswer = '';
+
+  compareQuery = 'Paladin divine smite';
   compareAnswer = '';
 
-  constructor(private http: HttpClient) {}
+  validationResult: any = null;
 
-  askOracle() {
-    if (!this.query.trim()) return;
+  constructor(
+    private http: HttpClient,
+    public charState: CharacterStateService
+  ) {}
+
+  searchOracle() {
+    if (!this.oracleQuery) return;
     this.http.post<any>('http://localhost:8000/api/v1/rules/query', {
-      query: this.query,
-      edition: '2014 Edition'
+      query: this.oracleQuery,
+      edition: this.charState.dndEdition()
     }).subscribe((res) => {
       this.oracleAnswer = res.answer_markdown;
     });
   }
 
-  compareRules() {
-    if (!this.compareQuery.trim()) return;
+  compareEditions() {
+    if (!this.compareQuery) return;
     this.http.post<any>('http://localhost:8000/api/v1/rules/compare', {
       query: this.compareQuery
     }).subscribe((res) => {
       this.compareAnswer = res.comparison_markdown;
+    });
+  }
+
+  validateActiveHero() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.http.post<any>('http://localhost:8000/api/v1/rules/validate', {
+      character: char
+    }).subscribe((res) => {
+      this.validationResult = res.validation_result;
     });
   }
 }
