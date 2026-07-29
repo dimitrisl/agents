@@ -74,6 +74,18 @@ async def save_campaign(payload: CampaignSchema, current_user: dict = Depends(ge
     return CampaignSchema(**camp_dict)
 
 
+@router.get("/{name}/party", response_model=List[Dict[str, Any]])
+async def get_campaign_party(name: str, current_user: dict = Depends(get_current_user)):
+    db = get_database()
+    # Find all characters that have joined this campaign
+    cursor = db["characters"].find({"active_campaign": name})
+    party_members = []
+    async for char in cursor:
+        char.pop("_id", None)
+        party_members.append(char)
+    return party_members
+
+
 @router.post("/join", response_model=Dict[str, Any])
 async def join_campaign_by_code(
     payload: JoinCampaignRequest, current_user: dict = Depends(get_current_user)
@@ -173,4 +185,60 @@ async def add_roll_request(
 
     requests.append(new_req)
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"roll_requests": requests}})
+
+    # Broadcast to campaign websocket channel
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(name, {"type": "roll_request", "payload": new_req})
+
     return {"success": True, "request": new_req}
+
+
+@router.post("/{name}/whisper")
+async def send_whisper(
+    name: str,
+    payload: WhisperRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    db = get_database()
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    new_whisper = {
+        "id": str(uuid.uuid4()),
+        "sender": payload.sender,
+        "recipient": payload.recipient,
+        "message": payload.message,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    whispers = camp.get("whispers", [])
+    whispers.append(new_whisper)
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"whispers": whispers}})
+
+    # Broadcast via WebSocket
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(name, {"type": "whisper", "payload": new_whisper})
+
+    return {"success": True, "whisper": new_whisper}
+
+
+class CampaignNotesRequest(BaseModel):
+    notes: str
+
+
+@router.post("/{name}/notes")
+async def save_campaign_notes(
+    name: str,
+    payload: CampaignNotesRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    db = get_database()
+    result = await db["campaigns"].update_one(
+        {"campaign_name": name}, {"$set": {"notes": payload.notes}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return {"success": True, "message": "Notes saved successfully"}

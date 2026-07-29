@@ -334,7 +334,7 @@ import { environment } from '../../../environments/environment';
 
           <!-- Right Column (30%): Portrait -->
           <div class="preview-portrait">
-            <img [src]="tempForgedChar.char_portrait || 'assets/anvil.png'" alt="Portrait" class="portrait-image" />
+            <img [src]="tempForgedChar.char_portrait || 'https://image.pollinations.ai/prompt/epic%20dnd%20heroic%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true'" alt="Portrait" class="portrait-image" />
             <button class="phyrexian-btn-secondary full-btn" style="margin-top: 0.75rem;" (click)="regeneratePortrait()">
               🔄 Regenerate Portrait
             </button>
@@ -346,7 +346,7 @@ import { environment } from '../../../environments/environment';
           <button class="phyrexian-btn accept-btn" (click)="acceptAndEquipHero()">
             ✅ Accept & Equip Hero
           </button>
-          <button class="phyrexian-btn-secondary discard-btn" (click)="tempForgedChar = null">
+          <button class="phyrexian-btn-secondary discard-btn" (click)="discardHero()">
             ❌ Discard
           </button>
         </div>
@@ -385,16 +385,16 @@ import { environment } from '../../../environments/environment';
     .meta-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); padding: 0.3rem 0.8rem; border-radius: 14px; font-size: 0.85rem; }
     .edition-pill { background: rgba(52,152,219,0.18); color: #3498db; border: 1px solid rgba(52,152,219,0.4); padding: 0.3rem 0.8rem; border-radius: 14px; font-size: 0.85rem; font-weight: 700; }
     .metrics-bar { display: flex; background: rgba(0,0,0,0.4); border: 1px solid var(--border-card); border-radius: 8px; padding: 0.75rem; text-align: center; margin-bottom: 1rem; }
-    .metric-item { flex: 1; border-right: 1px solid rgba(255,255,255,0.1); }
+    .metric-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid rgba(255,255,255,0.1); }
     .metric-item:last-child { border-right: none; }
-    .m-label { display: block; font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
-    .m-val { font-size: 1.2rem; font-weight: 800; }
+    .m-label { display: block; font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-align: center; }
+    .m-val { font-size: 1.2rem; font-weight: 800; text-align: center; }
     .hp-val { color: #e74c3c; }
     .ac-val { color: #f39c12; }
     .init-val { color: #3498db; }
     .perc-val { color: #2ecc71; }
-    .stats-badges-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-    .stat-badge-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 0.5rem; text-align: center; }
+    .stats-badges-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; margin-bottom: 1rem; }
+    .stat-badge-card { flex: 1 1 65px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 0.5rem; text-align: center; min-width: 0; }
     .stat-badge-card.primary-stat { background: rgba(255,255,255,0.08); }
     .s-name { display: block; font-size: 0.7rem; font-weight: 700; }
     .s-val { font-size: 1.25rem; font-weight: 800; color: #fff; }
@@ -452,20 +452,37 @@ export class ForgeComponent implements OnInit {
   adjPlus1Alt = 'None';
 
   // Dictionaries
+  // Dictionaries representing full database ruleset
   subclassMap2014: Record<string, string[]> = {
     'Artificer': ['Alchemist', 'Armorer', 'Artillerist', 'Battle Smith'],
-    'Barbarian': ['Path of the Berserker', 'Path of the Totem Warrior', 'Path of the Zealot'],
-    'Bard': ['College of Lore', 'College of Valor', 'College of Glamour'],
+    'Barbarian': ['Path of the Berserker', 'Path of the Totem Warrior', 'Path of the Ancestral Guardian', 'Path of the Storm Herald', 'Path of the Zealot', 'Path of the Beast', 'Path of Wild Magic'],
+    'Bard': ['College of Lore', 'College of Valor', 'College of Glamour', 'College of Swords', 'College of Whispers', 'College of Creation', 'College of Eloquence', 'College of Spirits'],
+    'Cleric': ['Knowledge Domain', 'Life Domain', 'Light Domain', 'Nature Domain', 'Tempest Domain', 'Trickery Domain', 'War Domain', 'Forge Domain', 'Grave Domain', 'Order Domain', 'Peace Domain', 'Twilight Domain', 'Arcana Domain', 'Death Domain'],
+    'Druid': ['Circle of the Land', 'Circle of the Moon', 'Circle of Dreams', 'Circle of the Shepherd', 'Circle of Spores', 'Circle of Stars', 'Circle of Wildfire'],
+    'Fighter': ['Champion', 'Battle Master', 'Eldritch Knight', 'Arcane Archer', 'Cavalier', 'Samurai', 'Echo Knight', 'Psi Warrior', 'Rune Knight'],
+    'Monk': ['Way of the Open Hand', 'Way of Shadow', 'Way of the Four Elements', 'Way of the Long Death', 'Way of the Sun Soul', 'Way of the Drunken Master', 'Way of the Kensei', 'Way of the Astral Self', 'Way of the Mercy', 'Way of the Ascendant Dragon'],
+    'Paladin': ['Oath of Devotion', 'Oath of the Ancients', 'Oath of Vengeance', 'Oath of the Crown', 'Oath of Conquest', 'Oath of Redemption', 'Oath of Glory', 'Oath of the Watchers', 'Oathbreaker'],
+    'Ranger': ['Hunter', 'Beast Master', 'Gloom Stalker', 'Horizon Walker', 'Monster Slayer', 'Fey Wanderer', 'Swarmkeeper', 'Drakewarden'],
+    'Rogue': ['Thief', 'Assassin', 'Arcane Trickster', 'Inquisitive', 'Mastermind', 'Scout', 'Swashbuckler', 'Phantom', 'Soulknife'],
+    'Sorcerer': ['Draconic Bloodline', 'Wild Magic', 'Divine Soul', 'Shadow Magic', 'Storm Sorcery', 'Aberrant Mind', 'Clockwork Soul'],
+    'Warlock': ['The Archfey', 'The Fiend', 'The Great Old One', 'The Undying', 'The Celestial', 'The Hexblade', 'The Fathomless', 'The Genie', 'The Undead'],
+    'Wizard': ['School of Abjuration', 'School of Conjuration', 'School of Divination', 'School of Enchantment', 'School of Evocation', 'School of Illusion', 'School of Necromancy', 'School of Transmutation', 'Bladesinging', 'War Magic', 'Chronurgy Magic', 'Graviturgy Magic', 'Order of Scribes']
+  };
+
+  subclassMap2024: Record<string, string[]> = {
+    'Artificer': ['Alchemist', 'Armorer', 'Artillerist', 'Battle Smith', 'Cartographer'],
+    'Barbarian': ['Path of the Berserker', 'Path of the Wild Heart', 'Path of the World Tree', 'Path of the Zealot'],
+    'Bard': ['College of Dance', 'College of Glamour', 'College of Lore', 'College of Valor'],
     'Cleric': ['Life Domain', 'Light Domain', 'Trickery Domain', 'War Domain'],
-    'Druid': ['Circle of the Land', 'Circle of the Moon'],
-    'Fighter': ['Champion', 'Battle Master', 'Eldritch Knight'],
-    'Monk': ['Way of the Open Hand', 'Way of Shadow'],
-    'Paladin': ['Oath of Devotion', 'Oath of Vengeance'],
-    'Ranger': ['Hunter', 'Beast Master', 'Gloom Stalker'],
-    'Rogue': ['Thief', 'Assassin', 'Arcane Trickster'],
-    'Sorcerer': ['Draconic Bloodline', 'Wild Magic'],
-    'Warlock': ['The Fiend', 'The Archfey', 'The Great Old One'],
-    'Wizard': ['School of Evocation', 'School of Abjuration']
+    'Druid': ['Circle of the Land', 'Circle of the Moon', 'Circle of the Sea', 'Circle of the Stars'],
+    'Fighter': ['Battle Master', 'Champion', 'Eldritch Knight', 'Psi Warrior'],
+    'Monk': ['Warrior of Mercy', 'Warrior of Shadow', 'Warrior of the Elements', 'Warrior of the Open Hand'],
+    'Paladin': ['Oath of Devotion', 'Oath of Glory', 'Oath of the Ancients', 'Oath of Vengeance'],
+    'Ranger': ['Beast Master', 'Fey Wanderer', 'Gloom Stalker', 'Hunter'],
+    'Rogue': ['Arcane Trickster', 'Assassin', 'Soulknife', 'Thief'],
+    'Sorcerer': ['Aberrant Sorcery', 'Clockwork Sorcery', 'Draconic Sorcery', 'Wild Magic'],
+    'Warlock': ['Archfey Patron', 'Celestial Patron', 'Fiend Patron', 'Great Old One Patron'],
+    'Wizard': ['Abjurer', 'Diviner', 'Evoker', 'Illusionist']
   };
 
   classColors: Record<string, string> = {
@@ -512,14 +529,16 @@ export class ForgeComponent implements OnInit {
   updateSubclasses() {
     this.subclassOptions = ['AI Choice'];
     if (this.aiClass !== 'AI Choice') {
-      const subs = this.subclassMap2014[this.aiClass] || [];
+      const map = this.is2024 ? this.subclassMap2024 : this.subclassMap2014;
+      const subs = map[this.aiClass] || [];
       this.subclassOptions.push(...subs);
     }
   }
 
   updateManualSubclasses() {
     this.manualSubclassOptions = ['None'];
-    const subs = this.subclassMap2014[this.manualClass] || [];
+    const map = this.is2024 ? this.subclassMap2024 : this.subclassMap2014;
+    const subs = map[this.manualClass] || [];
     this.manualSubclassOptions.push(...subs);
   }
 
@@ -561,6 +580,16 @@ export class ForgeComponent implements OnInit {
     }).subscribe({
       next: (char) => {
         this.loading = false;
+
+        // Dynamically assign an AI portrait matching chosen options if missing
+        if (!char.char_portrait) {
+          const promptRace = char.race || this.aiRace || 'Heroic';
+          const promptClass = char.char_class || this.aiClass || 'Warrior';
+          const encoded = encodeURIComponent(`epic fantasy dnd ${promptRace} ${promptClass} character portrait dramatic lighting cinematic highly detailed`);
+          const seed = Math.floor(Math.random() * 90000) + 10000;
+          char.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
+        }
+
         this.tempForgedChar = char;
       },
       error: () => {
@@ -590,6 +619,15 @@ export class ForgeComponent implements OnInit {
     }).subscribe({
       next: (char) => {
         this.loading = false;
+
+        if (!char.char_portrait) {
+          const promptRace = char.race || this.manualRace || 'Heroic';
+          const promptClass = char.char_class || this.manualClass || 'Warrior';
+          const encoded = encodeURIComponent(`epic fantasy dnd ${promptRace} ${promptClass} character portrait dramatic lighting cinematic highly detailed`);
+          const seed = Math.floor(Math.random() * 90000) + 10000;
+          char.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
+        }
+
         this.tempForgedChar = char;
       },
       error: () => {
@@ -601,22 +639,69 @@ export class ForgeComponent implements OnInit {
 
   regeneratePortrait() {
     if (!this.tempForgedChar) return;
+    const promptRace = this.tempForgedChar.race || 'Heroic';
+    const promptClass = this.tempForgedChar.char_class || 'Warrior';
+    const encoded = encodeURIComponent(`epic fantasy dnd ${promptRace} ${promptClass} character portrait dramatic lighting cinematic highly detailed`);
+    const seed = Math.floor(Math.random() * 90000) + 10000;
+
+    // Instant high quality fallback portrait update
+    this.tempForgedChar.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
+
     this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: this.tempForgedChar.char_id || 'temp',
-      prompt: `${this.tempForgedChar.race} ${this.tempForgedChar.char_class}`
-    }).subscribe((res) => {
-      if (res.portrait_url && this.tempForgedChar) {
-        this.tempForgedChar.char_portrait = res.portrait_url;
-      }
+      force: true
+    }).subscribe({
+      next: (res) => {
+        if (res && res.portrait_url && this.tempForgedChar) {
+          this.tempForgedChar.char_portrait = res.portrait_url;
+        }
+      },
+      error: () => {}
     });
   }
 
   acceptAndEquipHero() {
     if (!this.tempForgedChar) return;
-    this.charState.saveCharacter(this.tempForgedChar).subscribe(() => {
-      this.tempForgedChar = null;
-      this.router.navigate(['/player']);
+    this.loading = true;
+    const heroToSave = { ...this.tempForgedChar };
+
+    this.charState.saveCharacter(heroToSave).subscribe({
+      next: (saved) => {
+        this.loading = false;
+        const finalChar = saved || heroToSave;
+        this.charState.activeCharacter.set(finalChar);
+
+        // Ensure character appears in local vault list immediately
+        const list = this.charState.characters();
+        const idx = list.findIndex((c) => c.char_id === finalChar.char_id);
+        if (idx >= 0) {
+          const updatedList = [...list];
+          updatedList[idx] = finalChar;
+          this.charState.characters.set(updatedList);
+        } else {
+          this.charState.characters.set([...list, finalChar]);
+        }
+
+        this.tempForgedChar = null;
+        this.router.navigate(['/player']);
+      },
+      error: (err) => {
+        this.loading = false;
+        console.error('Failed to save character to DB:', err);
+        alert('Error saving character to database. Check console for details. ' + (err.error?.detail || err.message));
+
+        // Force local fallback so player can still play, but warn them
+        this.charState.activeCharacter.set(heroToSave);
+        const list = this.charState.characters();
+        this.charState.characters.set([...list, heroToSave]);
+        this.tempForgedChar = null;
+        this.router.navigate(['/player']);
+      }
     });
+  }
+
+  discardHero() {
+    this.tempForgedChar = null;
   }
 
   getClassColor(charClass: string): string {

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { CharacterStateService } from '../../core/services/character-state.service';
+import { WebSocketService } from '../../core/services/websocket.service';
 import { environment } from '../../../environments/environment';
 
 export interface PartyMember {
@@ -368,38 +370,92 @@ export interface InitiativeCombatant {
       <div *ngIf="showAddMemberModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
           <h3>👤 Add Hero to {{ campaignName }}</h3>
-          <p class="subtitle">Enlist a new hero character into this campaign's party roster.</p>
+          <p class="subtitle">Enlist a hero character or invite players into this campaign.</p>
 
-          <div class="form-group">
-            <label>Character Name:</label>
-            <input type="text" class="phyrexian-input" [(ngModel)]="newMemberName" placeholder="e.g. Minsc & Boo" />
+          <div class="nav-tabs" style="margin-bottom: 1rem;">
+            <div class="tab-item" [class.active]="addMemberTab === 'existing'" (click)="addMemberTab = 'existing'">📜 Vault Heroes</div>
+            <div class="tab-item" [class.active]="addMemberTab === 'custom'" (click)="addMemberTab = 'custom'">✏️ Custom Hero</div>
+            <div class="tab-item" [class.active]="addMemberTab === 'invite'" (click)="addMemberTab = 'invite'">🔑 Invite Code</div>
           </div>
 
-          <div class="form-row">
-            <div>
-              <label>Class:</label>
-              <input type="text" class="phyrexian-input" [(ngModel)]="newMemberClass" placeholder="Ranger" />
-            </div>
-            <div>
-              <label>Level:</label>
-              <input type="number" class="phyrexian-input" [(ngModel)]="newMemberLevel" min="1" max="20" style="width: 80px;" />
+          <!-- TAB 1: EXISTING HERO FROM VAULT -->
+          <div *ngIf="addMemberTab === 'existing'" class="form-group">
+            <label>Select Player Hero from Vault:</label>
+            <select class="phyrexian-select" [(ngModel)]="selectedExistingCharId" style="margin-bottom: 0.8rem; width: 100%;">
+              <option value="">-- Choose a Hero --</option>
+              <option *ngFor="let c of charState.characters()" [value]="c.char_id">
+                {{ c.char_name }} (Lvl {{ c.char_level }} {{ c.char_class }}) - HP: {{ c.hp_max }}, AC: {{ c.armor_class }}
+              </option>
+            </select>
+
+            <div *ngIf="getSelectedHero() as selectedHero" class="preview-mini-card" style="background: rgba(0,0,0,0.3); padding: 0.8rem; border-radius: 6px; border: 1px solid var(--border-card); margin-top: 0.5rem;">
+              <div style="display: flex; gap: 0.8rem; align-items: center;">
+                <img [src]="selectedHero.char_portrait || 'https://img.icons8.com/color/96/knight.png'" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--theme-accent);" />
+                <div>
+                  <h4 style="margin: 0; color: var(--theme-accent);">{{ selectedHero.char_name }}</h4>
+                  <span style="font-size: 0.8rem; color: var(--text-muted);">Lvl {{ selectedHero.char_level }} {{ selectedHero.char_class }} ({{ selectedHero.race }})</span>
+                  <div style="font-size: 0.8rem; margin-top: 0.2rem; color: var(--accent-gold);">
+                    🛡️ AC: {{ selectedHero.armor_class }} | ❤️ HP: {{ selectedHero.hp_max }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="form-row" style="margin-top: 0.8rem;">
-            <div>
-              <label>Max HP:</label>
-              <input type="number" class="phyrexian-input" [(ngModel)]="newMemberHp" style="width: 100px;" />
+          <!-- TAB 2: CUSTOM MANUAL HERO -->
+          <div *ngIf="addMemberTab === 'custom'">
+            <div class="form-group">
+              <label>Character Name:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="newMemberName" placeholder="e.g. Minsc & Boo" />
             </div>
-            <div>
-              <label>Armor Class (AC):</label>
-              <input type="number" class="phyrexian-input" [(ngModel)]="newMemberAc" style="width: 100px;" />
+
+            <div class="form-row">
+              <div>
+                <label>Class:</label>
+                <input type="text" class="phyrexian-input" [(ngModel)]="newMemberClass" placeholder="Ranger" />
+              </div>
+              <div>
+                <label>Level:</label>
+                <input type="number" class="phyrexian-input" [(ngModel)]="newMemberLevel" min="1" max="20" style="width: 80px;" />
+              </div>
             </div>
+
+            <div class="form-row" style="margin-top: 0.8rem;">
+              <div>
+                <label>Max HP:</label>
+                <input type="number" class="phyrexian-input" [(ngModel)]="newMemberHp" style="width: 100px;" />
+              </div>
+              <div>
+                <label>Armor Class (AC):</label>
+                <input type="number" class="phyrexian-input" [(ngModel)]="newMemberAc" style="width: 100px;" />
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: INVITE CODE -->
+          <div *ngIf="addMemberTab === 'invite'" class="invite-info-box" style="text-align: center; background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-card);">
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Invite players to join <strong>{{ campaignName }}</strong> from their Player Dashboard:
+            </p>
+            <div style="font-size: 1.6rem; font-weight: 800; letter-spacing: 4px; color: var(--accent-gold); background: rgba(212,175,55,0.15); border: 1px solid var(--accent-gold); padding: 0.5rem 1rem; border-radius: 8px; display: inline-block; margin-bottom: 0.75rem;">
+              {{ inviteCode || '4D0705' }}
+            </div>
+            <br />
+            <button class="phyrexian-btn-secondary mini-btn" (click)="copyInviteCode()" style="margin-bottom: 0.75rem;">
+              📋 Copy Invite Code
+            </button>
+            <ol style="text-align: left; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-left: 1rem; margin-top: 0.5rem;">
+              <li>Players log into their account on the web app.</li>
+              <li>Navigate to <strong>Player Dashboard</strong> and click <strong>🔑 Join Campaign</strong>.</li>
+              <li>Enter invite code <strong style="color: var(--accent-gold);">{{ inviteCode || '4D0705' }}</strong> to join this realm.</li>
+            </ol>
           </div>
 
           <div class="modal-actions">
             <button class="phyrexian-btn-secondary" (click)="showAddMemberModal = false">Cancel</button>
-            <button class="phyrexian-btn" (click)="addPartyMember()">Add to Party</button>
+            <button *ngIf="addMemberTab === 'existing'" class="phyrexian-btn" [disabled]="!selectedExistingCharId" (click)="addExistingPartyMember()">Enlist Selected Hero</button>
+            <button *ngIf="addMemberTab === 'custom'" class="phyrexian-btn" (click)="addPartyMember()">Add Custom Hero</button>
+            <button *ngIf="addMemberTab === 'invite'" class="phyrexian-btn" (click)="copyInviteCode()">Copy Code & Close</button>
           </div>
         </div>
       </div>
@@ -526,14 +582,20 @@ export class DmComponent implements OnInit {
   newCombatantInit = 10;
   newCombatantHp = 20;
 
+  addMemberTab: 'existing' | 'custom' | 'invite' = 'existing';
+  selectedExistingCharId = '';
+
   constructor(
     private rollToast: RollToastService,
-    private http: HttpClient
+    private http: HttpClient,
+    public charState: CharacterStateService,
+    private wsService: WebSocketService
   ) {}
 
   ngOnInit() {
     this.loadCampaigns();
     this.generateInviteCode();
+    this.charState.loadCharacters().subscribe();
   }
 
   loadCampaigns() {
@@ -565,20 +627,89 @@ export class DmComponent implements OnInit {
       this.generateInviteCode();
     }
 
-    // Dynamic party assignment per campaign
-    if (this.campaignParties[this.campaignName]) {
-      this.partyMembers = [...this.campaignParties[this.campaignName]];
+    this.wsService.connect(this.campaignName);
+
+    this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/party`).subscribe({
+      next: (chars) => {
+        this.partyMembers = chars.map(char => ({
+          char_id: char.char_id,
+          name: char.char_name || 'Unknown',
+          char_class: char.char_class || 'Unknown',
+          level: char.char_level || 1,
+          hp_current: char.hp_current ?? char.hp_max ?? 10,
+          hp_max: char.hp_max ?? 10,
+          ac: char.armor_class ?? 10,
+          passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
+          conditions: [],
+          stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+          portrait: char.char_portrait
+        }));
+        this.campaignParties[this.campaignName] = [...this.partyMembers];
+
+        if (this.partyMembers.length > 0) {
+          this.rollTargetMember = this.partyMembers[0].name;
+        }
+        this.importPartyToInitiative(true);
+      },
+      error: () => {
+        if (this.campaignParties[this.campaignName]) {
+          this.partyMembers = [...this.campaignParties[this.campaignName]];
+        } else {
+          this.partyMembers = [];
+        }
+        if (this.partyMembers.length > 0) {
+          this.rollTargetMember = this.partyMembers[0].name;
+        }
+        this.importPartyToInitiative(true);
+      }
+    });
+
+    this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}".`);
+  }
+
+  getSelectedHero() {
+    if (!this.selectedExistingCharId) return null;
+    return this.charState.characters().find((c) => c.char_id === this.selectedExistingCharId) || null;
+  }
+
+  addExistingPartyMember() {
+    const char = this.getSelectedHero();
+    if (!char) return;
+
+    const member: PartyMember = {
+      char_id: char.char_id,
+      name: char.char_name,
+      char_class: char.char_class,
+      level: char.char_level,
+      hp_current: char.hp_current ?? char.hp_max,
+      hp_max: char.hp_max,
+      ac: char.armor_class,
+      passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
+      conditions: [],
+      stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+      portrait: char.char_portrait
+    };
+
+    if (!this.partyMembers.some((m) => m.name === member.name)) {
+      this.partyMembers.push(member);
+      if (!this.campaignParties[this.campaignName]) {
+        this.campaignParties[this.campaignName] = [];
+      }
+      this.campaignParties[this.campaignName] = [...this.partyMembers];
+      this.importPartyToInitiative();
+      this.rollToast.showMessage('👤 HERO ENLISTED', `Added ${member.name} (${member.char_class}) to ${this.campaignName} party roster.`);
     } else {
-      this.partyMembers = [];
-      this.campaignParties[this.campaignName] = this.partyMembers;
+      this.rollToast.showMessage('⚠️ ALREADY IN PARTY', `${member.name} is already in the active party roster.`);
     }
+    this.showAddMemberModal = false;
+    this.selectedExistingCharId = '';
+  }
 
-    if (this.partyMembers.length > 0) {
-      this.rollTargetMember = this.partyMembers[0].name;
-    }
-
-    this.importPartyToInitiative(true);
-    this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}" (${this.partyMembers.length} heroes in party).`);
+  copyInviteCode() {
+    const code = this.inviteCode || '4D0705';
+    navigator.clipboard.writeText(code);
+    this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
+    this.showAddMemberModal = false;
   }
 
   addPartyMember() {
@@ -640,7 +771,12 @@ export class DmComponent implements OnInit {
   }
 
   saveCampaignNotes() {
-    this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved.');
+    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/notes`, {
+      notes: this.campaignNotes
+    }).subscribe({
+      next: () => this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved to database.'),
+      error: () => this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign notes.')
+    });
   }
 
   generateInviteCode() {
@@ -802,8 +938,14 @@ export class DmComponent implements OnInit {
   }
 
   sendWhisper() {
-    this.showWhisperModal = false;
-    this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
-    this.whisperMessage = '';
+    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/whisper`, {
+      sender: 'DM',
+      recipient: this.whisperRecipient,
+      message: this.whisperMessage
+    }).subscribe(() => {
+      this.showWhisperModal = false;
+      this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
+      this.whisperMessage = '';
+    });
   }
 }

@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, effect, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-roller.component';
 import { environment } from '../../../environments/environment';
@@ -36,8 +38,9 @@ export interface SkillDefinition {
 
         <div class="vault-actions">
           <button class="phyrexian-btn" (click)="goToForge()">✨ New Hero</button>
-          <button class="phyrexian-btn-secondary" (click)="editMode = !editMode">
-            {{ editMode ? '💾 Done Editing' : '✏️ Edit Sheet' }}
+          <button class="phyrexian-btn-secondary" (click)="openEditModal()">✏️ Edit Sheet</button>
+          <button class="phyrexian-btn-secondary" (click)="toggleEditMode()">
+            {{ editMode ? '💾 Done Editing' : '⚡ Quick Edit' }}
           </button>
           <button class="phyrexian-btn-secondary" (click)="showJoinModal = true">🔑 Join Campaign</button>
         </div>
@@ -53,14 +56,14 @@ export interface SkillDefinition {
         <!-- Vitals Header Banner -->
         <div class="phyrexian-card vitals-grid">
           <div class="char-portrait" (click)="showPortraitModal = true">
-            <img [src]="char.char_portrait || 'assets/anvil.png'" alt="Portrait" class="portrait-img" />
+            <img [src]="getPortraitUrl(char)" alt="Portrait" class="portrait-img" />
             <div class="portrait-overlay">📷 AI Portrait</div>
           </div>
 
           <div class="vitals-info">
             <div class="hero-name-row">
               <h2 *ngIf="!editMode">{{ char.char_name }}</h2>
-              <input *ngIf="editMode" type="text" class="phyrexian-input name-input" [(ngModel)]="char.char_name" (change)="saveCurrentChar()" />
+              <input *ngIf="editMode" type="text" class="phyrexian-input name-input" [(ngModel)]="char.char_name" (ngModelChange)="saveCurrentChar()" />
               <span class="edition-pill">{{ char.dnd_edition || charState.dndEdition() }}</span>
             </div>
 
@@ -68,18 +71,18 @@ export interface SkillDefinition {
               {{ char.race }} {{ char.char_class }} ({{ char.subclass || 'No Subclass' }}) • Level {{ char.char_level }} • {{ char.background }}
             </p>
             <div *ngIf="editMode" class="edit-basics-row">
-              <input type="text" class="phyrexian-input" [(ngModel)]="char.race" placeholder="Race" (change)="saveCurrentChar()" />
-              <input type="text" class="phyrexian-input" [(ngModel)]="char.char_class" placeholder="Class" (change)="saveCurrentChar()" />
-              <input type="text" class="phyrexian-input" [(ngModel)]="char.subclass" placeholder="Subclass" (change)="saveCurrentChar()" />
-              <input type="number" class="phyrexian-input" [(ngModel)]="char.char_level" placeholder="Level" (change)="saveCurrentChar()" />
-              <input type="text" class="phyrexian-input" [(ngModel)]="char.background" placeholder="Background" (change)="saveCurrentChar()" />
+              <input type="text" class="phyrexian-input" [(ngModel)]="char.race" placeholder="Race" (ngModelChange)="saveCurrentChar()" />
+              <input type="text" class="phyrexian-input" [(ngModel)]="char.char_class" placeholder="Class" (ngModelChange)="saveCurrentChar()" />
+              <input type="text" class="phyrexian-input" [(ngModel)]="char.subclass" placeholder="Subclass" (ngModelChange)="saveCurrentChar()" />
+              <input type="number" class="phyrexian-input" [(ngModel)]="char.char_level" placeholder="Level" (ngModelChange)="saveCurrentChar()" />
+              <input type="text" class="phyrexian-input" [(ngModel)]="char.background" placeholder="Background" (ngModelChange)="saveCurrentChar()" />
             </div>
 
             <div class="vitals-boxes">
               <div class="stat-box">
                 <span class="stat-label">Armor Class</span>
                 <span *ngIf="!editMode" class="stat-value">🛡️ {{ char.armor_class }}</span>
-                <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.armor_class" (change)="saveCurrentChar()" />
+                <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.armor_class" (ngModelChange)="saveCurrentChar()" />
               </div>
 
               <div class="stat-box hp-box">
@@ -104,7 +107,7 @@ export interface SkillDefinition {
               <div class="stat-box">
                 <span class="stat-label">Speed</span>
                 <span *ngIf="!editMode" class="stat-value">👟 {{ char.speed }} ft</span>
-                <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.speed" (change)="saveCurrentChar()" />
+                <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.speed" (ngModelChange)="saveCurrentChar()" />
               </div>
               <div class="stat-box">
                 <span class="stat-label">Passive Perception</span>
@@ -119,7 +122,7 @@ export interface SkillDefinition {
           <div class="stat-box" *ngFor="let entry of getStatsArray(char.stats)">
             <span class="stat-label">{{ entry.key }}</span>
             <span *ngIf="!editMode" class="stat-value">{{ entry.value }}</span>
-            <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.stats[entry.key]" (change)="saveCurrentChar()" />
+            <input *ngIf="editMode" type="number" class="phyrexian-input mini-input" [(ngModel)]="char.stats[entry.key]" (ngModelChange)="saveCurrentChar()" />
             <span class="stat-mod">({{ getModifierString(char.stats[entry.key]) }})</span>
 
             <div class="stat-roll-btns">
@@ -324,6 +327,46 @@ export interface SkillDefinition {
         <button class="dock-btn" (click)="onExportPdf()" title="Export PDF">📥 PDF</button>
       </div>
 
+      <!-- LEVEL UP MODAL -->
+      <div *ngIf="showLevelUpModal && levelUpAnalysis" class="modal-backdrop">
+        <div class="phyrexian-card modal-card wide-modal">
+          <h2>⚡ Level Up: Level {{ (charState.activeCharacter()?.char_level || 1) + 1 }}</h2>
+          <p class="subtitle">Your character has reached a new level! Review the changes below.</p>
+
+          <div class="rest-details" style="margin-bottom: 1rem;">
+            <div class="rest-stat-row">
+              <span>❤️ Hit Points Increase:</span>
+              <strong style="color: #2ecc71;">+{{ levelUpAnalysis.hp_increase }} (Total: {{ levelUpAnalysis.new_total_hp }})</strong>
+            </div>
+          </div>
+
+          <div *ngIf="levelUpAnalysis.new_features?.length > 0">
+            <h3>✨ New Class Features</h3>
+            <div class="gear-list" style="max-height: 200px; overflow-y: auto;">
+              <div class="gear-item" *ngFor="let f of levelUpAnalysis.new_features" style="flex-direction: column; align-items: flex-start; gap: 0.25rem; padding: 0.75rem;">
+                <strong>{{ f.name }}</strong>
+                <span style="color: var(--text-muted); font-size: 0.85rem;">{{ f.description }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="levelUpAnalysis.new_spells_known?.length > 0 || levelUpAnalysis.spell_slots_update" style="margin-top: 1rem;">
+            <h3>🔮 Magical Progression</h3>
+            <p *ngIf="levelUpAnalysis.spell_slots_update" style="font-size: 0.9rem; color: var(--text-muted);">
+              <strong>Spell Slots Updated:</strong> (See Spells tab for full list)
+            </p>
+            <ul *ngIf="levelUpAnalysis.new_spells_known?.length > 0" style="font-size: 0.9rem; margin-top: 0.5rem; color: var(--text-muted);">
+              <li *ngFor="let s of levelUpAnalysis.new_spells_known">Learned: <strong>{{ s }}</strong></li>
+            </ul>
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showLevelUpModal = false">Cancel</button>
+            <button class="phyrexian-btn" (click)="applyLevelUp()">✅ Apply Level Up</button>
+          </div>
+        </div>
+      </div>
+
       <!-- SHORT REST MODAL -->
       <div *ngIf="showShortRestModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card">
@@ -408,9 +451,100 @@ export interface SkillDefinition {
           </div>
         </div>
       </div>
+
+      <!-- FULL EDIT CHARACTER SHEET MODAL -->
+      <div *ngIf="showEditModal && charState.activeCharacter() as editChar" class="modal-backdrop">
+        <div class="phyrexian-card modal-card wide-modal" style="max-height: 85vh; overflow-y: auto;">
+          <h2>✏️ Edit Character Sheet: {{ editChar.char_name }}</h2>
+          <p class="subtitle">Modify core stats, vitals, background traits, and backstory.</p>
+
+          <div class="form-row">
+            <div style="flex: 2;">
+              <label>Hero Name:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="editChar.char_name" />
+            </div>
+            <div style="flex: 1;">
+              <label>Level:</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="editChar.char_level" min="1" max="20" />
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top: 0.8rem;">
+            <div>
+              <label>Race:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="editChar.race" />
+            </div>
+            <div>
+              <label>Class:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="editChar.char_class" />
+            </div>
+            <div>
+              <label>Subclass:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="editChar.subclass" />
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top: 0.8rem;">
+            <div>
+              <label>Background:</label>
+              <input type="text" class="phyrexian-input" [(ngModel)]="editChar.background" />
+            </div>
+            <div>
+              <label>Max HP:</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="editChar.hp_max" />
+            </div>
+            <div>
+              <label>Armor Class (AC):</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="editChar.armor_class" />
+            </div>
+            <div>
+              <label>Speed (ft):</label>
+              <input type="number" class="phyrexian-input" [(ngModel)]="editChar.speed" />
+            </div>
+          </div>
+
+          <h4 style="margin-top: 1.2rem; color: var(--theme-accent);">Ability Scores</h4>
+          <div class="form-row" style="margin-top: 0.5rem;" *ngIf="editChar.stats">
+            <div><label>STR:</label><input type="number" class="phyrexian-input mini-input" [(ngModel)]="editChar.stats['STR']" /></div>
+            <div><label>DEX:</label><input type="number" class="phyrexian-input mini-input" [(ngModel)]="editChar.stats['DEX']" /></div>
+            <div><label>CON:</label><input type="number" class="phyrexian-input mini-input" [(ngModel)]="editChar.stats['CON']" /></div>
+            <div><label>INT:</label><input type="number" class="phyrexian-input mini-input" [(ngModel)]="editChar.stats['INT']" /></div>
+            <div><label>WIS:</label><input type="number" class="phyrexian-input mini-input" [(ngModel)]="editChar.stats['WIS']" /></div>
+            <div><label>CHA:</label><input type="number" class="phyrexian-input mini-input" [(ngModel)]="editChar.stats['CHA']" /></div>
+          </div>
+
+          <h4 style="margin-top: 1.2rem; color: var(--theme-accent);">Traits & Backstory</h4>
+          <div class="form-group" style="margin-top: 0.5rem;">
+            <label>Personality Traits:</label>
+            <textarea class="phyrexian-textarea" rows="2" [(ngModel)]="editChar.personality_traits"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Ideals:</label>
+            <textarea class="phyrexian-textarea" rows="2" [(ngModel)]="editChar.ideals"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Bonds:</label>
+            <textarea class="phyrexian-textarea" rows="2" [(ngModel)]="editChar.bonds"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Flaws:</label>
+            <textarea class="phyrexian-textarea" rows="2" [(ngModel)]="editChar.flaws"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Backstory:</label>
+            <textarea class="phyrexian-textarea" rows="3" [(ngModel)]="editChar.backstory"></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showEditModal = false">Cancel</button>
+            <button class="phyrexian-btn" (click)="saveEditModal()">💾 Save Changes</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
+    .player-container { padding-bottom: 6rem; max-width: 1200px; margin: 0 auto; }
     .vault-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
     .vault-selector { display: flex; align-items: center; gap: 0.75rem; }
     .vault-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
@@ -428,7 +562,7 @@ export interface SkillDefinition {
     .edition-pill { font-size: 0.7rem; background: rgba(255, 255, 255, 0.1); padding: 0.2rem 0.5rem; border-radius: 10px; }
     .subtitle { color: var(--text-muted); margin-bottom: 1rem; }
     .edit-basics-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .vitals-boxes { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .vitals-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 0.5rem; }
     .mini-input { width: 60px; padding: 0.2rem; text-align: center; }
     .hp-controls { display: flex; align-items: center; gap: 0.5rem; }
     .hp-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border-card); color: #fff; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; }
@@ -455,7 +589,7 @@ export interface SkillDefinition {
     .prof-star.active { opacity: 1; }
     .skill-actions { display: flex; align-items: center; gap: 0.5rem; }
     .skill-mod-badge { background: rgba(255, 255, 255, 0.1); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem; color: var(--text-gold); }
-    .floating-action-dock { position: fixed; bottom: 2rem; left: 2rem; z-index: 999; display: flex; gap: 0.5rem; background: rgba(14, 14, 22, 0.9); backdrop-filter: blur(12px); border: 1px solid var(--border-card); padding: 0.5rem 0.8rem; border-radius: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+    .floating-action-dock { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 999; display: flex; gap: 0.5rem; background: rgba(14, 14, 22, 0.9); backdrop-filter: blur(12px); border: 1px solid var(--border-card); padding: 0.5rem 0.8rem; border-radius: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
     .dock-btn { background: rgba(255,255,255,0.08); border: 1px solid var(--border-card); color: #fff; padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .dock-btn:hover { background: var(--theme-accent); transform: translateY(-2px); }
     .slots-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 0.5rem; margin-top: 0.75rem; }
@@ -485,16 +619,68 @@ export interface SkillDefinition {
     .wide-modal { max-width: 700px; max-height: 80vh; overflow-y: auto; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
     .guide-content { background: rgba(0,0,0,0.4); padding: 1rem; border-radius: 8px; margin-top: 1rem; max-height: 50vh; overflow-y: auto; }
+
+    /* ==========================================
+       Player Dashboard Responsive Mobile Styles
+       ========================================== */
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+      .slots-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      .vault-bar { flex-direction: column; align-items: stretch; gap: 0.85rem; }
+      .vault-selector { flex-direction: column; align-items: stretch; width: 100%; gap: 0.5rem; }
+      .vault-actions { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+      .vault-actions button { flex: 1 1 45%; justify-content: center; font-size: 0.8rem; padding: 0.45rem 0.5rem; }
+
+      .vitals-grid { flex-direction: column; align-items: center; gap: 1rem; text-align: center; }
+      .char-portrait { margin: 0 auto; }
+      .hero-name-row { justify-content: center; flex-wrap: wrap; }
+      .name-input { text-align: center; }
+      .edit-basics-row { flex-wrap: wrap; justify-content: center; }
+      .edit-basics-row input { flex: 1 1 45%; }
+      .vitals-boxes { grid-template-columns: repeat(2, 1fr); width: 100%; }
+
+      .skills-grid { grid-template-columns: 1fr; }
+      .slots-grid { grid-template-columns: repeat(3, 1fr); }
+      .gear-list { grid-template-columns: 1fr; }
+      .roleplay-grid { grid-template-columns: 1fr; }
+
+      .roll-mode-bar { flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+      .roll-mode-options { flex-wrap: wrap; gap: 0.75rem; }
+
+      .floating-action-dock {
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 0.75rem;
+        width: 95vw;
+        overflow-x: auto;
+        white-space: nowrap;
+        justify-content: flex-start;
+        border-radius: 18px;
+        padding: 0.4rem 0.6rem;
+      }
+      .dock-btn { flex-shrink: 0; font-size: 0.75rem; padding: 0.35rem 0.65rem; }
+    }
+
+    @media (max-width: 500px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+      .vitals-boxes { grid-template-columns: 1fr; }
+    }
   `]
 })
-export class PlayerComponent implements OnInit {
+export class PlayerComponent implements OnInit, OnDestroy {
   activeTab: 'sheet' = 'sheet';
   sheetSubTab: 'skills' | 'combat' | 'spells' | 'roleplay' = 'skills';
   editMode = false;
+  showEditModal = false;
   showPortraitModal = false;
   showJoinModal = false;
   showShortRestModal = false;
   showProficientOnly = false;
+  showLevelUpModal = false;
+  levelUpAnalysis: any = null;
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
   rollMode: 'normal' | 'advantage' | 'disadvantage' = 'normal';
@@ -531,15 +717,58 @@ export class PlayerComponent implements OnInit {
     { name: 'Persuasion', ability: 'CHA' },
   ];
 
+  private wsSub: Subscription | null = null;
+
   constructor(
     public charState: CharacterStateService,
     private rollToast: RollToastService,
     private http: HttpClient,
-    private router: Router
-  ) {}
+    private router: Router,
+    private wsService: WebSocketService
+  ) {
+    effect(() => {
+      const char = this.charState.activeCharacter();
+      if (char && char.active_campaign) {
+        this.wsService.connect(char.active_campaign);
+      } else {
+        this.wsService.disconnect();
+      }
+    });
+  }
 
   ngOnInit() {
     this.charState.loadCharacters().subscribe();
+
+    this.wsSub = this.wsService.messages$.subscribe((msg: WsMessage) => {
+      const char = this.charState.activeCharacter();
+      if (!char) return;
+
+      if (msg.type === 'roll_request') {
+        const req = msg['payload'];
+        // Check if this request is for the active character
+        const charId = req.char_filename.replace('.json', '').split('_').pop();
+        if (char.char_id === charId || req.char_name === char.char_name) {
+          const secText = req.is_secret ? '🔒 SECRET' : 'DM';
+          const title = `⚠️ ${secText} ROLL REQUESTED`;
+          const details = `The DM has requested a ${req.roll_type} (${req.stat}) check!\nReason: ${req.reason}`;
+          this.rollToast.showMessage(title, details);
+
+          // Execute the roll automatically (or we could open a modal, but auto-rolling is faster)
+          this.executeRollRequest(req.roll_type, req.stat);
+        }
+      } else if (msg.type === 'whisper') {
+        const whisper = msg['payload'];
+        if (whisper.recipient === char.char_name || whisper.recipient === 'All') {
+          this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
+        }
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.wsSub) {
+      this.wsSub.unsubscribe();
+    }
   }
 
   toggleGroup(attr: string) {
@@ -780,6 +1009,18 @@ export class PlayerComponent implements OnInit {
     });
   }
 
+  executeRollRequest(rollType: string, stat: string) {
+    if (rollType.toLowerCase() === 'save') {
+      this.rollSavingThrow(stat);
+    } else if (rollType.toLowerCase() === 'skill') {
+      const skill = this.allSkills.find(s => s.name.toLowerCase() === stat.toLowerCase());
+      if (skill) this.rollSkillCheck(skill);
+      else this.rollAbilityCheck(stat);
+    } else {
+      this.rollAbilityCheck(stat);
+    }
+  }
+
   joinCampaign() {
     const char = this.charState.activeCharacter();
     if (!char || !this.joinInviteCode) return;
@@ -805,10 +1046,78 @@ export class PlayerComponent implements OnInit {
     }
   }
 
-  saveCurrentChar() {
+  openEditModal() {
+    this.showEditModal = true;
+  }
+
+  saveEditModal() {
+    this.showEditModal = false;
+    this.saveCurrentChar(true);
+  }
+
+  toggleEditMode() {
+    this.editMode = !this.editMode;
+    if (!this.editMode) {
+      this.saveCurrentChar(true);
+    }
+  }
+
+  saveCurrentChar(showToast = false) {
     const char = this.charState.activeCharacter();
-    if (char && char.char_id) {
-      this.charState.updateCharacter(char.char_id, char).subscribe();
+    if (!char) return;
+
+    const copy = { ...char };
+    this.charState.activeCharacter.set(copy);
+
+    if (copy.char_id && copy.char_id !== 'default_paladin') {
+      this.charState.updateCharacter(copy.char_id, copy).subscribe({
+        next: (updated) => {
+          if (updated) {
+            this.charState.activeCharacter.set(updated);
+            this.updateLocalCharactersList(updated);
+          }
+          if (showToast) {
+            this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${copy.char_name}.`);
+          }
+        },
+        error: () => {
+          this.charState.saveCharacter(copy).subscribe({
+            next: (saved) => {
+              if (saved) {
+                this.charState.activeCharacter.set(saved);
+                this.updateLocalCharactersList(saved);
+              }
+              if (showToast) {
+                this.rollToast.showMessage('💾 SHEET SAVED', `Saved ${copy.char_name} to vault.`);
+              }
+            }
+          });
+        }
+      });
+    } else {
+      this.charState.saveCharacter(copy).subscribe({
+        next: (saved) => {
+          if (saved) {
+            this.charState.activeCharacter.set(saved);
+            this.updateLocalCharactersList(saved);
+          }
+          if (showToast) {
+            this.rollToast.showMessage('💾 HERO FORGED', `Saved ${copy.char_name} to vault.`);
+          }
+        }
+      });
+    }
+  }
+
+  private updateLocalCharactersList(char: CharacterSchema) {
+    const currentList = this.charState.characters();
+    const idx = currentList.findIndex((c) => c.char_id === char.char_id);
+    if (idx >= 0) {
+      const newList = [...currentList];
+      newList[idx] = char;
+      this.charState.characters.set(newList);
+    } else {
+      this.charState.characters.set([...currentList, char]);
     }
   }
 
@@ -859,6 +1168,21 @@ export class PlayerComponent implements OnInit {
     this.saveCurrentChar();
   }
 
+  getPortraitUrl(char: any): string {
+    if (char && char.char_portrait && !char.char_portrait.includes('anvil.png')) {
+      return char.char_portrait;
+    }
+    const className = (char?.char_class || '').toLowerCase();
+    if (className.includes('paladin') || className.includes('fighter') || className.includes('barbarian')) {
+      return 'https://image.pollinations.ai/prompt/sir%20valeros%20dnd%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true';
+    } else if (className.includes('wizard') || className.includes('sorcerer') || className.includes('warlock') || className.includes('mage')) {
+      return 'https://image.pollinations.ai/prompt/epic%20dnd%20wizard%20archmage%20glowing%20runes%20cinematic%20portrait?width=300&height=300&nologo=true';
+    } else if (className.includes('rogue') || className.includes('ranger') || className.includes('monk')) {
+      return 'https://image.pollinations.ai/prompt/epic%20dnd%20shadow%20rogue%20assassin%20hooded%20cinematic%20portrait?width=300&height=300&nologo=true';
+    }
+    return 'https://image.pollinations.ai/prompt/epic%20dnd%20heroic%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true';
+  }
+
   generateAiPortrait() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
@@ -880,8 +1204,37 @@ export class PlayerComponent implements OnInit {
     this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
       character: char
     }).subscribe((analysis) => {
-      this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `HP Increase: +${analysis.hp_increase} | New Total HP: ${analysis.new_total_hp}`);
+      this.levelUpAnalysis = analysis;
+      this.showLevelUpModal = true;
     });
+  }
+
+  applyLevelUp() {
+    const char = this.charState.activeCharacter();
+    if (!char || !this.levelUpAnalysis) return;
+
+    // Apply basic stat changes
+    char.char_level = (char.char_level || 1) + 1;
+    char.hp_max = this.levelUpAnalysis.new_total_hp;
+    char.hp_current = char.hp_max;
+
+    // Apply new features
+    if (this.levelUpAnalysis.new_features) {
+      if (!char.features_traits) char.features_traits = [];
+      char.features_traits = [...char.features_traits, ...this.levelUpAnalysis.new_features];
+    }
+
+    // Save back to API
+    this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id}`, char)
+      .subscribe({
+        next: (updatedChar) => {
+          this.charState.saveCharacter(updatedChar).subscribe();
+          this.showLevelUpModal = false;
+          this.levelUpAnalysis = null;
+          this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `Successfully leveled up to ${char.char_level}!`);
+        },
+        error: () => this.rollToast.showMessage('⚠️ LEVEL UP FAILED', 'Failed to save leveled up character.')
+      });
   }
 
   onGenerateStrategy() {
@@ -895,7 +1248,21 @@ export class PlayerComponent implements OnInit {
   onExportPdf() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
-    window.open(`${environment.apiBaseUrl}/characters/${char.char_id}/export-pdf`, `_blank');
+    this.rollToast.showMessage('📄 EXPORTING PDF', 'Generating your character sheet...');
+    this.http.post(`${environment.apiBaseUrl}/characters/${char.char_id}/export-pdf`, {}, { responseType: 'blob' })
+      .subscribe({
+        next: (blob) => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${char.char_name.replace(/ /g, '_').toLowerCase()}_sheet.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          a.remove();
+        },
+        error: () => this.rollToast.showMessage('⚠️ EXPORT FAILED', 'Failed to generate character sheet.')
+      });
   }
 
   onImportPdf(event: any) {

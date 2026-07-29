@@ -28,3 +28,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+if settings.GEMINI_API_KEY:
+    import os
+
+    os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY

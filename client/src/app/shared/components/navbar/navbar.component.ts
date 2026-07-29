@@ -72,6 +72,14 @@ import { CharacterStateService } from '../../../core/services/character-state.se
     .user-greeting { font-size: 0.82rem; color: var(--text-muted); }
     .user-name { color: var(--theme-accent); }
     .logout-btn { font-size: 0.78rem; padding: 0.35rem 0.75rem; }
+
+    @media (max-width: 900px) {
+      .navbar-header { flex-direction: column; align-items: stretch; gap: 0.85rem; padding: 0.8rem 1rem; }
+      .brand-section { justify-content: space-between; }
+      .nav-links { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 0.4rem; justify-content: flex-start; }
+      .nav-btn { flex-shrink: 0; padding: 0.4rem 0.75rem; font-size: 0.82rem; }
+      .user-controls { justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+    }
   `]
 })
 export class NavbarComponent {

@@ -26,7 +26,15 @@ def get_ai_client():
     """Initializes the Gemini AI Client. Not cached if it fails to find the API key."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        logger.error("GEMINI_API_KEY is missing from environment variables.")
+        try:
+            from server.config import settings
+
+            api_key = settings.GEMINI_API_KEY
+        except Exception:
+            pass
+
+    if not api_key:
+        logger.error("GEMINI_API_KEY is missing from environment variables and server config.")
         return None
 
     return _init_ai_client(api_key)

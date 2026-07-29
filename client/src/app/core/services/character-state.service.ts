@@ -19,6 +19,7 @@ export class CharacterStateService {
   private readonly defaultHero: CharacterSchema = {
     char_id: 'default_paladin',
     char_name: 'Sir Valeros',
+    char_portrait: 'https://image.pollinations.ai/prompt/sir%20valeros%20dnd%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true',
     char_class: 'Paladin',
     subclass: 'Oath of Devotion',
     char_level: 5,
@@ -74,19 +75,38 @@ export class CharacterStateService {
       tap({
         next: (chars) => {
           if (chars && chars.length > 0) {
-            this.characters.set(chars);
-            if (!this.activeCharacter()) {
+            const currentActive = this.activeCharacter();
+            if (!currentActive) {
+              this.characters.set(chars);
               this.activeCharacter.set(chars[0]);
+            } else {
+              // Ensure active character is included in list (e.g., if just forged but not persisted yet)
+              const exists = chars.find(c => c.char_id === currentActive.char_id);
+              if (!exists) {
+                this.characters.set([currentActive, ...chars]);
+              } else {
+                this.characters.set(chars);
+              }
             }
           } else {
             // Set default hero so sheet is never empty
-            this.characters.set([this.defaultHero]);
-            this.activeCharacter.set(this.defaultHero);
+            const currentActive = this.activeCharacter();
+            if (currentActive) {
+              this.characters.set([currentActive]);
+            } else {
+              this.characters.set([this.defaultHero]);
+              this.activeCharacter.set(this.defaultHero);
+            }
           }
         },
         error: () => {
-          this.characters.set([this.defaultHero]);
-          this.activeCharacter.set(this.defaultHero);
+          const currentActive = this.activeCharacter();
+          if (currentActive) {
+            this.characters.set([currentActive]);
+          } else {
+            this.characters.set([this.defaultHero]);
+            this.activeCharacter.set(this.defaultHero);
+          }
         }
       })
     );

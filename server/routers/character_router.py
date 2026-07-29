@@ -23,7 +23,7 @@ from server.dependencies.auth import get_current_user
 router = APIRouter(prefix="/characters", tags=["Characters"])
 
 
-@router.get("/", response_model=List[CharacterSchema])
+@router.get("", response_model=List[CharacterSchema])
 async def list_characters(current_user: dict = Depends(get_current_user)):
     db = get_database()
     cursor = db["characters"].find({"owner_id": current_user["id"]})
@@ -32,12 +32,13 @@ async def list_characters(current_user: dict = Depends(get_current_user)):
         doc.pop("_id", None)
         try:
             characters.append(CharacterSchema.model_validate(doc, strict=False))
-        except Exception:
+        except Exception as e:
+            print(f"Failed to load legacy character {doc.get('char_name', 'Unknown')}: {e}")
             pass
     return characters
 
 
-@router.post("/", response_model=CharacterSchema, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CharacterSchema, status_code=status.HTTP_201_CREATED)
 async def create_character(
     char_in: CharacterSchema, current_user: dict = Depends(get_current_user)
 ):
@@ -113,7 +114,7 @@ async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user
     doc.pop("_id", None)
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
 
-    pdf_bytes = export_character_to_pdf(char_dict)
+    pdf_bytes = export_character_to_pdf(char_dict, "5E_CharacterSheet_Fillable.pdf")
     if not pdf_bytes:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
