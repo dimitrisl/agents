@@ -47,7 +47,7 @@ export interface SkillDefinition {
       </div>
 
       <!-- Main Character Sheet Content -->
-      <ng-container *ngIf="charState.activeCharacter() as char">
+      <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
         <!-- Active Campaign Indicator -->
         <div *ngIf="char.active_campaign" class="campaign-indicator">
           🏰 Member of Campaign: <strong>{{ char.active_campaign }}</strong>
@@ -318,8 +318,19 @@ export interface SkillDefinition {
         </div>
       </ng-container>
 
+      <ng-template #emptyState>
+        <div class="phyrexian-card" style="text-align: center; padding: 4rem 2rem; max-width: 600px; margin: 2rem auto;">
+          <div style="font-size: 4rem; margin-bottom: 1rem;">🗡️</div>
+          <h2 style="color: var(--theme-accent); margin-bottom: 0.5rem;">No Heroes Found</h2>
+          <p class="subtitle" style="margin-bottom: 2rem;">Your vault is empty. It is time to forge a new legend.</p>
+          <button class="phyrexian-btn" (click)="goToForge()" style="font-size: 1.1rem; padding: 0.75rem 1.5rem;">
+            ✨ Forge Your First Hero
+          </button>
+        </div>
+      </ng-template>
+
       <!-- FLOATING ACTION DOCK -->
-      <div class="floating-action-dock">
+      <div *ngIf="charState.activeCharacter()" class="floating-action-dock">
         <button class="dock-btn rest-btn" (click)="openShortRestModal()" title="Short Rest">⛺ Short Rest</button>
         <button class="dock-btn rest-btn long-rest" (click)="triggerLongRest()" title="Long Rest">🌙 Long Rest</button>
         <button class="dock-btn" (click)="onLevelUp()" title="Level Up Analysis">⚡ Level Up</button>

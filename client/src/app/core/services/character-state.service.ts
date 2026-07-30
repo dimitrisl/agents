@@ -89,24 +89,13 @@ export class CharacterStateService {
               }
             }
           } else {
-            // Set default hero so sheet is never empty
-            const currentActive = this.activeCharacter();
-            if (currentActive) {
-              this.characters.set([currentActive]);
-            } else {
-              this.characters.set([this.defaultHero]);
-              this.activeCharacter.set(this.defaultHero);
-            }
+            this.characters.set([]);
+            this.activeCharacter.set(null);
           }
         },
         error: () => {
-          const currentActive = this.activeCharacter();
-          if (currentActive) {
-            this.characters.set([currentActive]);
-          } else {
-            this.characters.set([this.defaultHero]);
-            this.activeCharacter.set(this.defaultHero);
-          }
+          this.characters.set([]);
+          this.activeCharacter.set(null);
         }
       })
     );

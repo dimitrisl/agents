@@ -48,19 +48,20 @@ class TutorialUpdateSchema(BaseModel):
 @router.post("/register", response_model=UserResponseSchema, status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegisterSchema):
     db = get_database()
-    existing = await db["users"].find_one({"username": user_in.username})
+    username_clean = user_in.username.lower().strip()
+    existing = await db["users"].find_one({"username": username_clean})
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered.",
         )
 
-    user_id = f"local_user_{user_in.username}"
+    user_id = f"local_user_{username_clean}"
     hashed_pwd = get_password_hash(user_in.password)
 
     user_doc = {
         "id": user_id,
-        "username": user_in.username,
+        "username": username_clean,
         "password_hash": hashed_pwd,
         "email": user_in.email or f"{user_in.username}@phyrexian.forge",
         "name": user_in.name or user_in.username,
