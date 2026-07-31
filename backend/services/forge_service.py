@@ -121,42 +121,70 @@ def forge_character(
     )
 
     result = generate_ai_json(prompt)
-    if result:
-        result["dnd_edition"] = edition
-        # Ensure char_id is present
-        if not result.get("char_id"):
-            result["char_id"] = str(uuid.uuid4())[:8]
+    if not result:
+        logger.warning("AI JSON generation returned None. Generating default fallback character.")
+        from backend.core.state_manager import get_default_character
 
-        if not auto_spells:
-            result["spells"] = {}
-            result["prepared_spells"] = []
-        if not auto_feats:
-            result["advancements"] = []
-            if "features_traits" in result and isinstance(result["features_traits"], list):
-                result["features_traits"] = [
-                    f
-                    for f in result["features_traits"]
-                    if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
-                ]
+        result = get_default_character()
+        result.update(
+            {
+                "char_name": name if name != "AI Choice" else "Forged Hero",
+                "gender": gender if gender != "AI Choice" else "Male",
+                "char_class": forge_class if forge_class != "AI Choice" else "Fighter",
+                "subclass": subclass if subclass and subclass != "AI Choice" else None,
+                "char_level": target_level,
+                "race": forge_race if forge_race != "AI Choice" else "Human",
+                "background": forge_background if forge_background != "AI Choice" else "Soldier",
+                "alignment": alignment if alignment != "AI Choice" else "True Neutral",
+                "concept": concept or "",
+                "dnd_edition": edition,
+            }
+        )
 
-        # Synchronize derived stats (HP, AC, Proficiency, etc.)
-        class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
-        result = sync_character_stats(result, class_data)
+    result["dnd_edition"] = edition
+    if not result.get("char_id"):
+        result["char_id"] = str(uuid.uuid4())[:8]
 
-        # Mandatory Schema & Build Validation
+    if not auto_spells:
+        result["spells"] = {}
+        result["prepared_spells"] = []
+    if not auto_feats:
+        result["advancements"] = []
+        if "features_traits" in result and isinstance(result["features_traits"], list):
+            result["features_traits"] = [
+                f
+                for f in result["features_traits"]
+                if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
+            ]
+
+    # Synchronize derived stats (HP, AC, Proficiency, etc.)
+    class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
+    result = sync_character_stats(result, class_data)
+
+    # Mandatory Schema & Build Validation
+    try:
+        validated = CharacterSchema.model_validate(result, strict=False)
+        return validated.model_dump()
+    except Exception as e:
+        logger.warning(
+            f"Forged character failed initial validation: {e}. Coercing schema defaults."
+        )
+        from backend.core.state_manager import get_default_character
+
+        fallback = get_default_character()
+        for k, v in result.items():
+            if v is not None:
+                try:
+                    fallback[k] = v
+                except Exception:
+                    pass
         try:
-            validated = CharacterSchema.model_validate(result, strict=False)
-            return validated.model_dump()
-        except Exception as e:
-            logger.warning(
-                f"Forged character failed initial validation: {e}. Coercing schema defaults."
-            )
-            from backend.core.state_manager import get_default_character
-
-            fallback = get_default_character()
-            fallback.update({k: v for k, v in result.items() if v is not None})
             return CharacterSchema.model_validate(fallback, strict=False).model_dump()
-    return None
+        except Exception as e2:
+            logger.error(f"Fallback validation failed: {e2}. Returning clean default character.")
+            return CharacterSchema.model_validate(
+                get_default_character(), strict=False
+            ).model_dump()
 
 
 def forge_character_manual(

@@ -264,9 +264,10 @@ def calculate_spell_stats(
     }
 
 
-def calculate_max_spell_slots(char_class: str, level: int) -> Dict[str, int]:
-    """Calculates maximum spell slots per level based on class and level."""
+def calculate_max_spell_slots(char_class: str, level: int, subclass: str = None) -> Dict[str, int]:
+    """Calculates maximum spell slots per level based on class, level, and subclass."""
     char_class = (char_class or "").lower()
+    subclass_lower = (subclass or "").lower()
     full_casters = {"bard", "cleric", "druid", "sorcerer", "wizard"}
     half_casters = {"paladin", "ranger"}
 
@@ -328,6 +329,19 @@ def calculate_max_spell_slots(char_class: str, level: int) -> Dict[str, int]:
             count, slot_lvl = warlock_slots[level]
             slots[f"level_{slot_lvl}"] = count
         return slots
+    elif (
+        "eldritch knight" in subclass_lower
+        or "arcane trickster" in subclass_lower
+        or (char_class in ["fighter", "rogue"] and level >= 3 and subclass_lower)
+    ):
+        # Third-caster progression (Eldritch Knight / Arcane Trickster)
+        # Level 3: 2 1st lvl slots (Caster Level 1 equivalent)
+        # Level 4-6: 3 1st lvl slots (Caster Level 2 equivalent)
+        # Level 7-9: 4 1st lvl slots, 2 2nd lvl slots (Caster Level 3 equivalent)
+        if level >= 3:
+            caster_level = max(1, math.floor((level + 1) / 3))
+        else:
+            caster_level = 0
     else:
         caster_level = 0
 
@@ -645,17 +659,41 @@ def sync_character_stats(
         con_score=con_score,
     )
 
+    # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus
+    skill_profs = list(char_data.get("skill_proficiencies", []))
+    wis_mod = get_modifier(wis_score)
+    pass_perc = char_data.get("passive_perception", 10)
+
+    if pass_perc >= 10 + wis_mod + prof_bonus and "Perception" not in skill_profs:
+        skill_profs.append("Perception")
+
+    temp_skills = calculate_skills(
+        stats, prof_bonus, skill_profs, char_data.get("skill_expertise", [])
+    )
+    for skill_name, skill_val in temp_skills.items():
+        from backend.core.constants import SKILLS_BY_ABILITY
+
+        ability_for_skill = next(
+            (ab for ab, s_list in SKILLS_BY_ABILITY.items() if skill_name in s_list), None
+        )
+        if ability_for_skill:
+            ab_mod = get_modifier(stats.get(ability_for_skill, 10))
+            if skill_val >= ab_mod + prof_bonus and skill_name not in skill_profs:
+                skill_profs.append(skill_name)
+
+    char_data["skill_proficiencies"] = list(dict.fromkeys(skill_profs))
+
     char_data["passive_perception"] = calculate_passive_perception(
         wis_score,
         prof_bonus,
-        char_data.get("skill_proficiencies", []),
+        char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
     )
 
     char_data["skills"] = calculate_skills(
         stats,
         prof_bonus,
-        char_data.get("skill_proficiencies", []),
+        char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
     )
 
@@ -735,21 +773,48 @@ def sync_character_stats(
 
     char_data["weapons"] = updated_weapons
 
+    # Infer & Calculate Spellcasting Stats (DC & Attack Bonus)
     spell_ability = char_data.get("spell_ability")
+    if not spell_ability or spell_ability == "None":
+        class_lower = (char_class or "").lower()
+        subclass_lower = (char_data.get("subclass") or "").lower()
+        if (
+            class_lower in ["wizard", "artificer"]
+            or "eldritch knight" in subclass_lower
+            or "arcane trickster" in subclass_lower
+        ):
+            spell_ability = "INT"
+        elif class_lower in ["cleric", "druid", "ranger"]:
+            spell_ability = "WIS"
+        elif class_lower in ["paladin", "sorcerer", "warlock", "bard"]:
+            spell_ability = "CHA"
+        elif char_data.get("spells") or char_data.get("prepared_spells"):
+            mental_stats = {
+                "INT": stats.get("INT", 10),
+                "WIS": stats.get("WIS", 10),
+                "CHA": stats.get("CHA", 10),
+            }
+            spell_ability = max(mental_stats, key=mental_stats.get)
+
     if spell_ability and spell_ability != "None":
+        char_data["spell_ability"] = spell_ability
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
         char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
         char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
 
-    max_slots = calculate_max_spell_slots(char_class, level)
+    subclass = char_data.get("subclass")
+    max_slots = calculate_max_spell_slots(char_class, level, subclass=subclass)
     if "spell_slots" not in char_data or not char_data["spell_slots"]:
         char_data["spell_slots"] = {}
 
     for slot_lvl, max_val in max_slots.items():
-        if slot_lvl not in char_data["spell_slots"]:
-            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": 0}
+        existing = char_data["spell_slots"].get(slot_lvl)
+        if isinstance(existing, dict):
+            existing["max"] = max_val
+        elif isinstance(existing, int):
+            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": min(existing, max_val)}
         else:
-            char_data["spell_slots"][slot_lvl]["max"] = max_val
+            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": 0}
 
     keys_to_remove = [k for k in char_data["spell_slots"] if k not in max_slots]
     for k in keys_to_remove:
@@ -771,5 +836,114 @@ def sync_character_stats(
                     ft["description"] = re.sub(
                         r"extra \d+d6 damage", f"extra {sneak_attack_str} damage", desc
                     )
+
+    # ----------------------------------------------------
+    # 2024 Edition Rules (5.5e) Enhancements: Masteries, Origin Feats, Fighter Features
+    # ----------------------------------------------------
+    is_2024 = "2024" in str(edition)
+
+    if is_2024:
+        # A. Weapon Masteries
+        martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
+        if (char_class or "").lower() in martial_classes:
+            if not char_data.get("weapon_masteries"):
+                default_masteries = []
+                for w in char_data.get("weapons", []):
+                    w_name = w.get("name", "").lower() if isinstance(w, dict) else str(w).lower()
+                    if "longsword" in w_name or "sword" in w_name:
+                        default_masteries.append("Sap (Longsword)")
+                    elif "crossbow" in w_name or "bow" in w_name:
+                        default_masteries.append("Slow (Light Crossbow)")
+                    elif "greatsword" in w_name:
+                        default_masteries.append("Graze (Greatsword)")
+                    elif "dagger" in w_name:
+                        default_masteries.append("Nick (Dagger)")
+                    elif "axe" in w_name or "hammer" in w_name:
+                        default_masteries.append("Topple (Warhammer)")
+                if not default_masteries:
+                    default_masteries = ["Sap (Longsword)", "Slow (Light Crossbow)"]
+                char_data["weapon_masteries"] = default_masteries
+
+            for w in char_data.get("weapons", []):
+                if isinstance(w, dict):
+                    w_name = (w.get("name") or "").lower()
+                    props = w.get("properties") or ""
+                    if "mastery" not in props.lower():
+                        if "longsword" in w_name:
+                            w["properties"] = f"{props}, Mastery: Sap".strip(", ")
+                        elif "crossbow" in w_name:
+                            w["properties"] = f"{props}, Mastery: Slow".strip(", ")
+
+        # B. Background Origin Feat
+        bg = (char_data.get("background") or "").lower()
+        origin_feat_map = {
+            "guard": {
+                "name": "Origin Feat: Alert",
+                "description": "2024 Origin Feat: Add Proficiency Bonus (+3) to Initiative rolls and swap initiative with a willing ally.",
+            },
+            "soldier": {
+                "name": "Origin Feat: Savage Attacker",
+                "description": "2024 Origin Feat: Reroll weapon damage dice once per turn.",
+            },
+            "farmer": {
+                "name": "Origin Feat: Tough",
+                "description": "2024 Origin Feat: Gain +2 HP per level.",
+            },
+            "acolyte": {
+                "name": "Origin Feat: Magic Initiate (Cleric)",
+                "description": "2024 Origin Feat: Learn 2 Cleric cantrips and one 1st-level Cleric spell.",
+            },
+            "criminal": {
+                "name": "Origin Feat: Alert",
+                "description": "2024 Origin Feat: Add Proficiency Bonus to Initiative rolls.",
+            },
+            "guide": {
+                "name": "Origin Feat: Magic Initiate (Druid)",
+                "description": "2024 Origin Feat: Learn 2 Druid cantrips and one 1st-level Druid spell.",
+            },
+            "sage": {
+                "name": "Origin Feat: Magic Initiate (Wizard)",
+                "description": "2024 Origin Feat: Learn 2 Wizard cantrips and one 1st-level Wizard spell.",
+            },
+            "noble": {
+                "name": "Origin Feat: Skilled",
+                "description": "2024 Origin Feat: Gain proficiency in 3 skills of your choice.",
+            },
+            "sailor": {
+                "name": "Origin Feat: Tavern Brawler",
+                "description": "2024 Origin Feat: Re-roll 1s on unarmed strikes and shove as bonus action.",
+            },
+        }
+
+        has_origin_feat = any(
+            "origin feat" in f.get("name", "").lower()
+            or "alert" in f.get("name", "").lower()
+            or "savage attacker" in f.get("name", "").lower()
+            for f in char_data.get("features_traits", [])
+        )
+        if not has_origin_feat:
+            origin_info = origin_feat_map.get(bg, origin_feat_map["guard"])
+            char_data.setdefault("features_traits", []).append(origin_info)
+
+            if "alert" in origin_info["name"].lower():
+                char_data["initiative_modifier"] = get_modifier(dex_score) + prof_bonus
+
+        # C. 2024 Fighter Class Features (Tactical Mind & Tactical Shift)
+        if (char_class or "").lower() == "fighter":
+            ft_names = [f.get("name", "").lower() for f in char_data.get("features_traits", [])]
+            if level >= 2 and not any("tactical mind" in n for n in ft_names):
+                char_data.setdefault("features_traits", []).append(
+                    {
+                        "name": "Tactical Mind (2024)",
+                        "description": "When you fail an Ability Check, you can spend 1 use of Second Wind to roll 1d10 and add it to the check. If you still fail, the Second Wind use is not expended.",
+                    }
+                )
+            if level >= 5 and not any("tactical shift" in n for n in ft_names):
+                char_data.setdefault("features_traits", []).append(
+                    {
+                        "name": "Tactical Shift (2024)",
+                        "description": "As part of the Bonus Action you take to use Second Wind, you can move up to half your Speed without provoking Opportunity Attacks.",
+                    }
+                )
 
     return char_data

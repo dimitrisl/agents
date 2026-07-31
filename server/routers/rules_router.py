@@ -3,7 +3,12 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from backend.services.rules_service import compare_rules, query_rules, validate_character_build
+from backend.services.rules_service import (
+    autofix_character_build,
+    compare_rules,
+    query_rules,
+    validate_character_build,
+)
 from server.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/rules", tags=["Rules & Oracle"])
@@ -44,3 +49,11 @@ async def validate_rules(
 ):
     result = validate_character_build(payload.character)
     return {"validation_result": result}
+
+
+@router.post("/autofix")
+async def autofix_rules(
+    payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
+):
+    result = autofix_character_build(payload.character)
+    return result

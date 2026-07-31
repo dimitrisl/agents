@@ -48,7 +48,7 @@ def validate_character_build(char_data: dict) -> dict:
     """Uses AI to validate a character's build."""
     edition = char_data.get("dnd_edition", EDITION_2014)
     # Ensure char_data matches schema before sending
-    validated_char = CharacterSchema(**char_data)
+    validated_char = CharacterSchema.model_validate(char_data, strict=False)
 
     from backend.core.constants import (
         BACKGROUNDS_2014,
@@ -84,6 +84,41 @@ def validate_character_build(char_data: dict) -> dict:
     if result:
         return BuildValidationSchema(**result).model_dump()
     return {"is_valid": True, "issues": [], "suggestions": []}
+
+
+def autofix_character_build(char_data: dict) -> dict:
+    """Validates character build against edition rules, applies corrections, and resynchronizes mechanics."""
+    import copy
+
+    from backend.services.stats_service import sync_character_stats
+
+    validation = validate_character_build(char_data)
+    corrected_char = copy.deepcopy(char_data)
+
+    corrections = validation.get("corrections") or {}
+    if isinstance(corrections, dict):
+        for k, v in corrections.items():
+            if v is not None:
+                corrected_char[k] = v
+
+    edition = corrected_char.get("dnd_edition", EDITION_2014)
+    char_class = corrected_char.get("char_class", "Fighter")
+    level = corrected_char.get("char_level", 1)
+
+    # Edition 2024 Rule: Subclasses are gained exclusively at Level 3
+    if "2024" in edition and level < 3:
+        corrected_char["subclass"] = ""
+
+    # Re-sync derived stats using mechanics engine for the specific edition
+    class_data = _get_rules_repo().get_class_progression(char_class, edition)
+    synced_char = sync_character_stats(corrected_char, class_data)
+
+    try:
+        validated = CharacterSchema.model_validate(synced_char, strict=False)
+        return {"validation_result": validation, "character": validated.model_dump()}
+    except Exception as e:
+        logger.warning(f"Autofix validation failed: {e}")
+        return {"validation_result": validation, "character": synced_char}
 
 
 def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> dict:

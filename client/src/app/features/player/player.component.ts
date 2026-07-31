@@ -25,12 +25,15 @@ export interface SkillDefinition {
       <!-- Top Action & Vault Bar -->
       <div class="phyrexian-card vault-bar">
         <div class="vault-selector">
-          <label>📜 Hero Vault:</label>
+          <label>📜 Hero Vault ({{ charState.dndEdition() }}):</label>
           <select
             class="phyrexian-select"
             [ngModel]="charState.activeCharacter()?.char_id"
             (ngModelChange)="onSelectCharacter($event)">
-            <option *ngFor="let c of charState.characters()" [value]="c.char_id">
+            <option *ngIf="charState.filteredCharacters().length === 0" [value]="null" disabled>
+              ⚠️ No {{ charState.dndEdition() }} Heroes found
+            </option>
+            <option *ngFor="let c of charState.filteredCharacters()" [value]="c.char_id">
               {{ c.char_name }} (Lvl {{ c.char_level }} {{ c.char_class }})
             </option>
           </select>
@@ -39,6 +42,7 @@ export interface SkillDefinition {
         <div class="vault-actions">
           <button class="phyrexian-btn" (click)="goToForge()">✨ New Hero</button>
           <button class="phyrexian-btn-secondary" (click)="openEditModal()">✏️ Edit Sheet</button>
+          <button class="phyrexian-btn-secondary" (click)="onValidateCharacter()">🔍 Audit & Fix</button>
           <button class="phyrexian-btn-secondary" (click)="toggleEditMode()">
             {{ editMode ? '💾 Done Editing' : '⚡ Quick Edit' }}
           </button>
@@ -334,8 +338,58 @@ export interface SkillDefinition {
         <button class="dock-btn rest-btn" (click)="openShortRestModal()" title="Short Rest">⛺ Short Rest</button>
         <button class="dock-btn rest-btn long-rest" (click)="triggerLongRest()" title="Long Rest">🌙 Long Rest</button>
         <button class="dock-btn" (click)="onLevelUp()" title="Level Up Analysis">⚡ Level Up</button>
+        <button class="dock-btn" (click)="onValidateCharacter()" title="Audit & Auto-Fix Hero Rules">🔍 Audit & Fix</button>
         <button class="dock-btn" (click)="onGenerateStrategy()" title="AI Playstyle Guide">📖 AI Guide</button>
         <button class="dock-btn" (click)="onExportPdf()" title="Export PDF">📥 PDF</button>
+      </div>
+
+      <!-- VALIDATION & AUTO-FIX MODAL -->
+      <div *ngIf="showValidationModal" class="modal-backdrop">
+        <div class="phyrexian-card modal-card wide-modal">
+          <h2>🔍 Character Build & Rules Audit</h2>
+          <p class="subtitle">AI & Rules Engine validation for <strong>{{ charState.activeCharacter()?.char_name }}</strong></p>
+
+          <div *ngIf="isValidating" style="text-align: center; padding: 2.5rem 1rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔮</div>
+            <p style="color: var(--accent-gold); font-weight: 600;">Auditing character statistics, rules, and progression...</p>
+          </div>
+
+          <div *ngIf="!isValidating && validationResult">
+            <div class="validation-status-banner" [class.valid-banner]="validationResult.is_valid" [class.invalid-banner]="!validationResult.is_valid">
+              <span *ngIf="validationResult.is_valid">✅ HERO BUILD IS FULLY VALID (RULES-COMPLIANT)</span>
+              <span *ngIf="!validationResult.is_valid">⚠️ RULE INCONSISTENCIES OR ISSUES DETECTED</span>
+            </div>
+
+            <div *ngIf="validationResult.issues?.length > 0" style="margin-top: 1rem;">
+              <h3 style="color: #ff4b4b; font-size: 0.95rem; margin-bottom: 0.5rem;">⚠️ Detected Issues:</h3>
+              <div class="gear-list">
+                <div class="gear-item" *ngFor="let issue of validationResult.issues" style="background: rgba(255, 75, 75, 0.1); border: 1px solid rgba(255, 75, 75, 0.3); color: #ff8888; text-align: left;">
+                  <span>• {{ issue }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="validationResult.suggestions?.length > 0" style="margin-top: 1rem;">
+              <h3 style="color: var(--accent-gold); font-size: 0.95rem; margin-bottom: 0.5rem;">💡 Recommendations:</h3>
+              <div class="gear-list">
+                <div class="gear-item" *ngFor="let sug of validationResult.suggestions" style="background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--accent-gold); text-align: left;">
+                  <span>• {{ sug }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="validationResult.is_valid && (!validationResult.issues || validationResult.issues.length === 0)" style="text-align: center; margin-top: 1.5rem; color: var(--text-muted);">
+              All stats, proficiency bonuses, HP, AC, and feats match official D&D rules!
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="phyrexian-btn-secondary" (click)="showValidationModal = false">Close</button>
+            <button *ngIf="!isValidating" class="phyrexian-btn" [disabled]="isAutoFixing" (click)="applyAutoFix()">
+              {{ isAutoFixing ? '⚙️ Fixing...' : '🔧 Auto-Fix & Synchronize Sheet' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- LEVEL UP MODAL -->
@@ -675,6 +729,10 @@ export interface SkillDefinition {
       .dock-btn { flex-shrink: 0; font-size: 0.75rem; padding: 0.35rem 0.65rem; }
     }
 
+      .validation-status-banner { padding: 0.75rem 1rem; border-radius: 8px; font-weight: 700; font-size: 0.95rem; text-align: center; margin-bottom: 1rem; }
+      .valid-banner { background: rgba(46, 204, 113, 0.15); border: 1px solid #2ecc71; color: #2ecc71; }
+      .invalid-banner { background: rgba(255, 75, 75, 0.15); border: 1px solid #ff4b4b; color: #ff4b4b; }
+
     @media (max-width: 500px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
       .vitals-boxes { grid-template-columns: 1fr; }
@@ -691,6 +749,10 @@ export class PlayerComponent implements OnInit, OnDestroy {
   showShortRestModal = false;
   showProficientOnly = false;
   showLevelUpModal = false;
+  showValidationModal = false;
+  isValidating = false;
+  isAutoFixing = false;
+  validationResult: any = null;
   levelUpAnalysis: any = null;
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
@@ -1051,9 +1113,10 @@ export class PlayerComponent implements OnInit, OnDestroy {
   }
 
   onSelectCharacter(charId: string) {
-    const selected = this.charState.characters().find((c) => c.char_id === charId);
-    if (selected) {
-      this.charState.activeCharacter.set(selected);
+    if (!charId) return;
+    const success = this.charState.selectCharacter(charId);
+    if (!success) {
+      this.rollToast.showMessage('⚠️ EDITION MISMATCH', 'You can only select characters matching the active edition mode!');
     }
   }
 
@@ -1246,6 +1309,47 @@ export class PlayerComponent implements OnInit, OnDestroy {
         },
         error: () => this.rollToast.showMessage('⚠️ LEVEL UP FAILED', 'Failed to save leveled up character.')
       });
+  }
+
+  onValidateCharacter() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.isValidating = true;
+    this.validationResult = null;
+    this.showValidationModal = true;
+
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/validate`, { character: char }).subscribe({
+      next: (res) => {
+        this.isValidating = false;
+        this.validationResult = res.validation_result;
+      },
+      error: () => {
+        this.isValidating = false;
+        this.rollToast.showMessage('⚠️ VALIDATION FAILED', 'Failed to validate character build.');
+      }
+    });
+  }
+
+  applyAutoFix() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.isAutoFixing = true;
+
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/autofix`, { character: char }).subscribe({
+      next: (res) => {
+        this.isAutoFixing = false;
+        this.showValidationModal = false;
+        if (res.character) {
+          this.charState.activeCharacter.set(res.character);
+          this.saveCurrentChar(false);
+          this.rollToast.showMessage('✅ HERO AUTO-FIXED', `All rule issues for ${res.character.char_name} have been fixed & synchronized!`);
+        }
+      },
+      error: () => {
+        this.isAutoFixing = false;
+        this.rollToast.showMessage('⚠️ AUTO-FIX FAILED', 'Failed to auto-fix character build.');
+      }
+    });
   }
 
   onGenerateStrategy() {

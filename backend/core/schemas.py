@@ -33,6 +33,13 @@ class Weapon(BaseModel):
     ability_modifier: Optional[str] = None  # Explicit scaling stat (e.g., 'STR', 'DEX')
     damage: Optional[str] = None  # Added for legacy support/internal formula storage
 
+    @field_validator("properties", "range", mode="before")
+    @classmethod
+    def convert_list_to_str(cls, v):
+        if isinstance(v, list):
+            return ", ".join(str(item) for item in v if item is not None)
+        return v
+
     @classmethod
     def normalize_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Maps UI labels to backend field names and provides defaults."""
@@ -210,7 +217,23 @@ class CharacterSchema(BaseModel):
     char_portrait: Optional[str] = None
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
-    active_campaign: Optional[str] = None
+
+    @field_validator("spell_slots", mode="before")
+    @classmethod
+    def normalize_spell_slots(cls, v: Any) -> Dict[str, Dict[str, int]]:
+        if not isinstance(v, dict):
+            return {}
+        normalized = {}
+        for key, val in v.items():
+            if isinstance(val, dict):
+                max_val = int(val.get("max", 0))
+                used_val = int(val.get("used", 0))
+                normalized[key] = {"max": max_val, "used": used_val}
+            elif isinstance(val, (int, float)):
+                normalized[key] = {"max": int(val), "used": 0}
+            else:
+                normalized[key] = {"max": 0, "used": 0}
+        return normalized
 
     @field_validator("equipment", mode="before")
     @classmethod

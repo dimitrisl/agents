@@ -161,3 +161,43 @@ def test_forge_character_manual_disable_auto_spells_and_feats(mock_ai_json):
     feat_names = [f["name"] for f in char["features_traits"]]
     assert "Feat: War Caster" not in feat_names
     assert "Spellcasting" in feat_names
+
+
+@patch("backend.services.forge_service.generate_ai_json")
+def test_forge_character_weapon_properties_as_list(mock_ai_json):
+    mock_ai_json.return_value = {
+        "backstory": "A mighty warrior.",
+        "weapons": [
+            {
+                "name": "Longsword",
+                "attack_bonus": "+5",
+                "damage_dice": "1d8",
+                "damage_bonus": "+3",
+                "properties": ["versatile (1d10)"],
+                "range": ["5 ft"],
+            }
+        ],
+    }
+
+    base_stats = {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8}
+
+    char = forge_character_manual(
+        target_level=1,
+        race="Human",
+        char_class="Fighter",
+        background="Soldier",
+        subclass="None",
+        alignment="Lawful Good",
+        gender="Male",
+        name="Warrior",
+        base_stats=base_stats,
+        skill_proficiencies=["Athletics"],
+        saving_throws=["STR", "CON"],
+        spell_ability=None,
+        concept="Warrior",
+        edition=EDITION_2014,
+    )
+
+    assert len(char["weapons"]) == 1
+    assert char["weapons"][0]["properties"] == "versatile (1d10)"
+    assert char["weapons"][0]["range"] == "5 ft"

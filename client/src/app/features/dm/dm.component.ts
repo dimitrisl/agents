@@ -383,7 +383,7 @@ export interface InitiativeCombatant {
             <label>Select Player Hero from Vault:</label>
             <select class="phyrexian-select" [(ngModel)]="selectedExistingCharId" style="margin-bottom: 0.8rem; width: 100%;">
               <option value="">-- Choose a Hero --</option>
-              <option *ngFor="let c of charState.characters()" [value]="c.char_id">
+              <option *ngFor="let c of charState.filteredCharacters()" [value]="c.char_id">
                 {{ c.char_name }} (Lvl {{ c.char_level }} {{ c.char_class }}) - HP: {{ c.hp_max }}, AC: {{ c.armor_class }}
               </option>
             </select>

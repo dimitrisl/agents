@@ -48,6 +48,16 @@ export class CharacterStateService {
   };
 
   // Computed Modifiers
+  readonly filteredCharacters = computed(() => {
+    const activeEd = this.dndEdition();
+    const is2024Mode = activeEd.includes('2024');
+    return this.characters().filter(c => {
+      const charEd = c.dnd_edition || '2014 Edition';
+      const charIs2024 = charEd.includes('2024');
+      return is2024Mode ? charIs2024 : !charIs2024;
+    });
+  });
+
   readonly abilityModifiers = computed(() => {
     const stats = this.activeCharacter()?.stats;
     if (!stats) return { STR: 0, DEX: 0, CON: 0, INT: 0, WIS: 0, CHA: 0 };
@@ -74,23 +84,25 @@ export class CharacterStateService {
     return this.http.get<CharacterSchema[]>(this.API_URL).pipe(
       tap({
         next: (chars) => {
-          if (chars && chars.length > 0) {
-            const currentActive = this.activeCharacter();
-            if (!currentActive) {
-              this.characters.set(chars);
-              this.activeCharacter.set(chars[0]);
+          this.characters.set(chars || []);
+          const available = this.filteredCharacters();
+          const currentActive = this.activeCharacter();
+
+          if (!currentActive) {
+            this.activeCharacter.set(available.length > 0 ? available[0] : null);
+          } else {
+            const charEd = currentActive.dnd_edition || '2014 Edition';
+            const is2024 = this.dndEdition().includes('2024');
+            const charIs2024 = charEd.includes('2024');
+
+            if (is2024 !== charIs2024) {
+              this.activeCharacter.set(available.length > 0 ? available[0] : null);
             } else {
-              // Ensure active character is included in list (e.g., if just forged but not persisted yet)
-              const exists = chars.find(c => c.char_id === currentActive.char_id);
-              if (!exists) {
-                this.characters.set([currentActive, ...chars]);
-              } else {
-                this.characters.set(chars);
+              const exists = chars?.find(c => c.char_id === currentActive.char_id);
+              if (!exists && currentActive.char_id !== 'default_paladin') {
+                this.characters.set([currentActive, ...(chars || [])]);
               }
             }
-          } else {
-            this.characters.set([]);
-            this.activeCharacter.set(null);
           }
         },
         error: () => {
@@ -99,6 +111,21 @@ export class CharacterStateService {
         }
       })
     );
+  }
+
+  selectCharacter(id: string): boolean {
+    const target = this.characters().find(c => c.char_id === id);
+    if (!target) return false;
+
+    const charEd = target.dnd_edition || '2014 Edition';
+    const is2024 = this.dndEdition().includes('2024');
+    const charIs2024 = charEd.includes('2024');
+
+    if (is2024 === charIs2024) {
+      this.activeCharacter.set(target);
+      return true;
+    }
+    return false;
   }
 
   saveCharacter(char: CharacterSchema): Observable<CharacterSchema> {
@@ -136,5 +163,20 @@ export class CharacterStateService {
       'data-edition',
       next.includes('2024') ? '2024' : '2014'
     );
+
+    // Auto switch active character to match the new edition
+    const available = this.filteredCharacters();
+    const currentActive = this.activeCharacter();
+
+    if (currentActive) {
+      const charEd = currentActive.dnd_edition || '2014 Edition';
+      const is2024 = next.includes('2024');
+      const charIs2024 = charEd.includes('2024');
+      if (is2024 !== charIs2024) {
+        this.activeCharacter.set(available.length > 0 ? available[0] : null);
+      }
+    } else if (available.length > 0) {
+      this.activeCharacter.set(available[0]);
+    }
   }
 }

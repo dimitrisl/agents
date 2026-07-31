@@ -13,35 +13,50 @@ Answer (be helpful, use markdown for formatting):
 """
 
 BUILD_VALIDATION_PROMPT = """
-You are an expert Dungeon Master and Rules Arbiter for Dungeons & Dragons.
-Your task is to validate a character sheet to ensure it complies with the official rules.
+You are an expert Dungeon Master and Rules Arbiter for Dungeons & Dragons ({edition}).
+Your task is to validate a character sheet to ensure it complies STRICTLY with the official rules of the selected D&D edition ({edition}).
 
 Character Data:
 {char_json}
 
-Validate the following aspects based on their edition ({edition}):
-1. Are the Ability Scores possible? (e.g., standard array/point buy + racial bonuses, no score above 20 unless a specific feature allows it).
-2. Is the Max HP reasonable for their class, level, and CON modifier?
-3. Is the Proficiency Bonus correct for their level?
-4. Do they have too many or too few features/traits for their level and class?
-5. Are their spell slots correct for their class and level?
-6. Is the playstyle_guide correct and consistent with their current level and features?
-7. Do they have all required level-up advancements (e.g., level 4 feat/ASI)?
-8. Are the character's core identity fields (race, class, subclass, and background) valid for their edition?
-- Valid Races/Species for this edition: {allowed_races}
-- Valid Classes for this edition: {allowed_classes}
-- Valid Backgrounds for this edition: {allowed_backgrounds}
-- Valid Subclasses for this class: {allowed_subclasses}
+CRITICAL EDITION RULES TO ENFORCE ({edition}):
+IMPORTANT: Evaluate the character EXCLUSIVELY against the selected edition ({edition}). DO NOT apply 2024 rules/features to 2014 characters, and DO NOT apply 2014 rules to 2024 characters!
 
-If you find discrepancies, you MUST specify the corrected values in the "corrections" dictionary so they can be applied automatically to the character sheet.
+- IF EDITION IS 2014 EDITION (5e):
+  1. DO NOT require or inject 2024 mechanics (DO NOT expect Weapon Masteries, Origin Feats, Tactical Mind, or 2024 Species traits).
+  2. Subclasses are chosen at Level 1 (Cleric, Sorcerer, Warlock), Level 2 (Wizard, Druid), or Level 3 (Fighter, Paladin, Ranger, Rogue, Barbarian, Bard, Monk).
+  3. Race MUST be valid for 2014 Edition: {allowed_races}. Ability score bonuses in 2014 come from Race.
+  4. Background MUST be valid for 2014 Edition: {allowed_backgrounds}. (2014 Backgrounds grant traditional background features, NOT Origin Feats).
+  5. Class MUST be valid for 2014 Edition: {allowed_classes}.
+  6. Subclass MUST be valid for 2014 Edition: {allowed_subclasses}.
+
+- IF EDITION IS 2024 EDITION (5.5e):
+  1. Subclasses MUST be selected at Level 3 for ALL classes. If Level < 3, subclass MUST be cleared or corrected.
+  2. Race/Species MUST be valid for 2024 Edition: {allowed_races}.
+  3. Background MUST be valid for 2024 Edition: {allowed_backgrounds}. Backgrounds in 2024 grant Origin Feats at Level 1 and ability score adjustments (+2/+1 or +1/+1/+1).
+  4. Class MUST be valid for 2024 Edition: {allowed_classes}.
+  5. Martial classes (Fighter, Barbarian, Paladin, Ranger, Rogue) use 2024 Weapon Masteries. NOTE: Fighter Weapon Mastery progression in 2024 Edition is: Level 1-3: 3 Masteries, Level 4-9: 4 Masteries, Level 10+: 5 Masteries. Therefore, a Level 5 Fighter correctly has 4 Weapon Masteries (DO NOT flag 4 masteries as an error!).
+  6. Subclass MUST be valid for 2024 Edition: {allowed_subclasses}.
+
+VALIDATION CHECKLIST FOR ({edition}):
+1. Are Ability Scores legal under {edition} rules? (Standard Array / Point Buy + edition-specific racial/background bonuses, max 20 unless a high-level feature allows).
+2. Is Max HP correct for their class, level, CON modifier, and edition hit die rules?
+3. Is Proficiency Bonus correct for their level under {edition}?
+4. Are their class features, racial/species traits, and subclass features accurate for their level in {edition}?
+5. Are spell slots and prepared spells appropriate for their class, level, and edition?
+6. Are required level advancements present (e.g. Origin Feat at Lvl 1 in 2024 Edition; Feats/ASIs at Lvl 4, 8, 12, 16, 19)?
+7. Are core identity fields (species/race, class, subclass, background) valid for {edition}?
+
+If you find ANY discrepancies, you MUST specify the corrected values in the "corrections" dictionary so they can be applied automatically to the character sheet according to {edition} rules.
+
 You can correct ANY field in the CharacterSchema by providing it in the "corrections" dictionary:
-- "background", "race", "char_class", "subclass"
+- "dnd_edition", "background", "race", "char_class", "subclass"
 - "proficiency_bonus", "hp_max", "armor_class", "speed", "passive_perception", "spell_save_dc", "spell_attack_bonus", "initiative_modifier"
 - "stats": dictionary of ability scores (STR, DEX, CON, INT, WIS, CHA)
-- "prepared_spells": list of strings (fill/update with appropriate spells for their level if currently empty or wrong)
-- "features_traits": list of feature objects (name, description, source). If a feature's description is wrong or outdated, provide the corrected list of features.
-- "advancements": list of advancement objects (level, type, name, description) representing feats or ASIs. If missing, generate and add them.
-- "playstyle_guide": string. If it refers to an outdated level or is incorrect, rewrite it completely to align with the character's current level and features.
+- "prepared_spells": list of strings (fill/update with appropriate spells for their level in {edition})
+- "features_traits": list of feature objects (name, description, source) matching {edition} rules.
+- "advancements": list of advancement objects (level, type, name, description) appropriate for {edition}.
+- "playstyle_guide": string. Rewrite if incorrect for {edition}.
 
 Return a JSON object with the following structure exactly:
 {{

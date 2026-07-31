@@ -514,8 +514,8 @@ export class ForgeComponent implements OnInit {
 
   get raceOptions(): string[] {
     return this.is2024
-      ? ['Aasimar', 'Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Goliath', 'Halfling', 'Human', 'Orc', 'Tiefling']
-      : ['Human', 'Variant Human', 'Elf', 'Dwarf', 'Halfling', 'Dragonborn', 'Tiefling', 'Half-Orc', 'Gnome', 'Half-Elf'];
+      ? ['Aasimar', 'Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Goliath', 'Halfling', 'Human', 'Orc', 'Tiefling', 'Warforged']
+      : ['Human', 'Variant Human', 'Elf', 'Dwarf', 'Halfling', 'Dragonborn', 'Tiefling', 'Half-Orc', 'Gnome', 'Half-Elf', 'Warforged'];
   }
 
   get classOptions(): string[] {

@@ -265,6 +265,7 @@ SPECIES_2024 = [
     "Human",
     "Orc",
     "Tiefling",
+    "Warforged",
 ]
 
 CLASSES_2024 = [
