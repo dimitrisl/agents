@@ -885,7 +885,25 @@ def sync_character_stats(
         martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
         if (char_class or "").lower() in martial_classes:
             target_masteries_count = 4 if (char_class or "").lower() == "fighter" and level >= 4 else (3 if level >= 4 else 2)
-            existing_masteries = char_data.get("weapon_masteries") or []
+            existing_masteries = list(char_data.get("weapon_masteries") or [])
+
+            # Prioritize masteries matching equipped weapons
+            equipped_weapon_masteries = []
+            for w in char_data.get("weapons", []):
+                if isinstance(w, dict):
+                    w_name = (w.get("name") or "").lower()
+                    if "longsword" in w_name and "Sap (Longsword)" not in equipped_weapon_masteries:
+                        equipped_weapon_masteries.append("Sap (Longsword)")
+                    elif "crossbow" in w_name and "Slow (Light Crossbow)" not in equipped_weapon_masteries:
+                        equipped_weapon_masteries.append("Slow (Light Crossbow)")
+                    elif "greatsword" in w_name and "Graze (Greatsword)" not in equipped_weapon_masteries:
+                        equipped_weapon_masteries.append("Graze (Greatsword)")
+                    elif "warhammer" in w_name and "Topple (Warhammer)" not in equipped_weapon_masteries:
+                        equipped_weapon_masteries.append("Topple (Warhammer)")
+
+            for m in equipped_weapon_masteries:
+                if m not in existing_masteries:
+                    existing_masteries.insert(0, m)
 
             mastery_pool = [
                 "Sap (Longsword)",
@@ -903,7 +921,7 @@ def sync_character_stats(
                 if m not in existing_masteries:
                     existing_masteries.append(m)
 
-            char_data["weapon_masteries"] = existing_masteries
+            char_data["weapon_masteries"] = existing_masteries[:target_masteries_count]
 
             for w in char_data.get("weapons", []):
                 if isinstance(w, dict):
