@@ -156,7 +156,7 @@ class PDFMappingProvider:
 
             field_data[blocks["Proficiencies and Languages"]] = "\n".join(combined)
 
-        # 9. Spells
+        # 9. Spells & Slot Totals
         char_spells = char_data.get("spells", {})
         spell_mapping = self.mapping.get("spells", {})
         for lvl, pdf_keys in spell_mapping.items():
@@ -164,6 +164,20 @@ class PDFMappingProvider:
                 for i, spell in enumerate(char_spells[lvl]):
                     if i < len(pdf_keys):
                         field_data[pdf_keys[i]] = spell
+
+        slot_totals = self.mapping.get("slot_totals", {})
+        char_slots = char_data.get("spell_slots", {})
+        for lvl_key, pdf_field in slot_totals.items():
+            slot_info = char_slots.get(lvl_key)
+            if isinstance(slot_info, dict):
+                max_val = slot_info.get("max", 0)
+                used_val = slot_info.get("used", 0)
+                if max_val > 0:
+                    field_data[pdf_field] = str(max_val)
+                    rem_field = pdf_field.replace("SlotsTotal", "SlotsRemaining")
+                    field_data[rem_field] = str(max_val - used_val)
+            elif isinstance(slot_info, int) and slot_info > 0:
+                field_data[pdf_field] = str(slot_info)
 
         # 10. Spellcasting Stats
         char_class = char_data.get("char_class", "")

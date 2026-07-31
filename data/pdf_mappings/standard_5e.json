@@ -134,5 +134,16 @@
         "ability": "Spellcasting Ability 2",
         "dc": "Spell Save DC 2",
         "bonus": "Spell Attack Bonus 2"
+    },
+    "slot_totals": {
+        "level_1": "SlotsTotal 19",
+        "level_2": "SlotsTotal 20",
+        "level_3": "SlotsTotal 21",
+        "level_4": "SlotsTotal 22",
+        "level_5": "SlotsTotal 23",
+        "level_6": "SlotsTotal 24",
+        "level_7": "SlotsTotal 25",
+        "level_8": "SlotsTotal 26",
+        "level_9": "SlotsTotal 27"
     }
 }

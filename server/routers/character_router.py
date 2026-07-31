@@ -113,6 +113,7 @@ async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
+    char_dict = process_character_update(char_dict)
 
     pdf_bytes = export_character_to_pdf(char_dict, "5E_CharacterSheet_Fillable.pdf")
     if not pdf_bytes:
