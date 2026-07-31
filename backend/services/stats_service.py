@@ -854,7 +854,7 @@ def sync_character_stats(
     # ----------------------------------------------------
     # 2024 Edition Rules (5.5e) Enhancements: Masteries, Origin Feats, Fighter Features
     # ----------------------------------------------------
-    is_2024 = "2024" in str(edition)
+    is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
 
     if is_2024:
         # Filter out legacy 2014 background combat/roleplay traits

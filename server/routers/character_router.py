@@ -155,4 +155,5 @@ async def import_pdf(file: UploadFile = File(...), current_user: dict = Depends(
             detail="Could not parse character data from PDF text.",
         )
     parsed_char["owner_id"] = current_user["id"]
+    parsed_char = process_character_update(parsed_char)
     return CharacterSchema.model_validate(parsed_char, strict=False)

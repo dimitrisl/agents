@@ -102,6 +102,11 @@ def autofix_character_build(char_data: dict) -> dict:
                 corrected_char[k] = v
 
     edition = corrected_char.get("dnd_edition", EDITION_2014)
+    # Check if character contains 2024 indicators (masteries, origin feats, etc.)
+    if "2024" in str(edition) or corrected_char.get("weapon_masteries") or any("origin feat" in str(f).lower() for f in corrected_char.get("features_traits", [])):
+        edition = "2024 Edition"
+        corrected_char["dnd_edition"] = edition
+
     char_class = corrected_char.get("char_class", "Fighter")
     level = corrected_char.get("char_level", 1)
 
@@ -126,7 +131,10 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
     Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure.
     Uses a 2-step chained process for maximum precision.
     """
-    logger.info("Starting Chained Character Parsing (Step 1: Core Stats)...")
+    if "2024" in sheet_text or "mastery" in sheet_text.lower() or "origin feat" in sheet_text.lower():
+        edition = "2024 Edition"
+
+    logger.info(f"Starting Chained Character Parsing (Edition: {edition}, Step 1: Core Stats)...")
 
     # STEP 1: Core Statistics & Identity
     step1_prompt = PDF_PARSING_STEP1_PROMPT.format(
@@ -150,6 +158,12 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
 
     # Merge the results
     final_raw = {**core_data, **(combat_data or {})}
+    final_raw["dnd_edition"] = edition
+
+    # Synchronize derived stats according to edition rules
+    from backend.services.stats_service import sync_character_stats
+    class_data = _get_rules_repo().get_class_progression(final_raw.get("char_class", "Fighter"), edition)
+    final_raw = sync_character_stats(final_raw, class_data)
 
     try:
         # Validate against schema to ensure data integrity
