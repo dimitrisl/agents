@@ -161,11 +161,17 @@ class RulesRepository:
         except Exception as e:
             logger.error(f"Failed to load spells from MongoDB: {e}")
 
-        # Fallback to local JSON files if DB returns nothing
-        if not spells:
-            filename = f"spells_{edition_val}.json"
-            filepath = os.path.join(DATA_DIR, "rules", filename)
-            spells = _load_json(filepath)
+        # Always load from local JSON files as baseline or fallback
+        filename = f"spells_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+        local_spells = _load_json(filepath)
+        
+        # Merge DB spells, preferring DB versions if there are conflicts
+        db_spells_map = {s.get("name", "").lower(): s for s in spells}
+        for s in local_spells:
+            name_key = s.get("name", "").lower()
+            if name_key not in db_spells_map:
+                spells.append(s)
 
         _spells_cache[edition] = spells
         return spells
