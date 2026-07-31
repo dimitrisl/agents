@@ -1006,7 +1006,37 @@ def sync_character_stats(
                     }
                 )
 
-        # D. Eldritch Knight / Arcane Trickster Cantrip Limit (2 cantrips at level 5)
+        # D. Clean up miscategorized spells (move cantrips out of leveled slots)
+        spells_dict = char_data.get("spells")
+        if isinstance(spells_dict, dict):
+            cantrips = spells_dict.get("cantrips", [])
+            if not isinstance(cantrips, list):
+                cantrips = []
+                
+            known_cantrips_lower = {
+                "booming blade", "green-flame blade", "fire bolt", "mage hand", "prestidigitation", 
+                "minor illusion", "light", "ray of frost", "shocking grasp", "message", "guidance", 
+                "resistance", "sacred flame", "spare the dying", "thaumaturgy", "toll the dead", 
+                "word of radiance", "druidcraft", "produce flame", "shillelagh", "thorn whip", 
+                "eldritch blast", "vicious mockery", "chill touch", "poison spray", "true strike"
+            }
+            
+            for lvl in [f"level_{i}" for i in range(1, 10)]:
+                lvl_spells = spells_dict.get(lvl, [])
+                if isinstance(lvl_spells, list):
+                    new_lvl_spells = []
+                    for spell in lvl_spells:
+                        spell_clean = str(spell).strip().lower()
+                        if spell_clean in known_cantrips_lower:
+                            if spell not in cantrips:
+                                cantrips.append(spell)
+                        else:
+                            new_lvl_spells.append(spell)
+                    spells_dict[lvl] = new_lvl_spells
+            
+            spells_dict["cantrips"] = list(dict.fromkeys(cantrips))  # remove duplicates
+
+        # E. Eldritch Knight / Arcane Trickster Cantrip Limit (2 cantrips at level 5)
         subclass_clean = (char_data.get("subclass") or "").lower()
         if ("eldritch knight" in subclass_clean or "arcane trickster" in subclass_clean) and level < 10:
             spells_dict = char_data.get("spells")
