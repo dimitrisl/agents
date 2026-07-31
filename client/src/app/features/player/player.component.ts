@@ -10,6 +10,7 @@ import { WebSocketService, WsMessage } from '../../core/services/websocket.servi
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import { DiceRollerComponent } from '../../shared/components/dice-roller/dice-roller.component';
 import { environment } from '../../../environments/environment';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 export interface SkillDefinition {
   name: string;
@@ -834,7 +835,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
   ];
 
   private wsSub: Subscription | null = null;
-  pdfPreviewUrl: import('@angular/platform-browser').SafeResourceUrl | null = null;
+  pdfPreviewUrl: SafeResourceUrl | null = null;
   pdfPreviewBlobUrl: string | null = null;
 
   constructor(
@@ -843,7 +844,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private router: Router,
     private wsService: WebSocketService,
-    private sanitizer: import('@angular/platform-browser').DomSanitizer
+    private sanitizer: DomSanitizer
   ) {
     effect(() => {
       const char = this.charState.activeCharacter();
