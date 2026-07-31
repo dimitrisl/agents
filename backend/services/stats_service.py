@@ -1024,6 +1024,10 @@ def sync_character_stats(
             edition_val = char_data.get("dnd_edition") or "2014 Edition"
             known_cantrips_lower = _get_known_cantrips_for_edition(edition_val)
             
+            # Defensive fallback in case the database has dirty data (e.g. Booming Blade as level 1)
+            undeniable_cantrips = {"booming blade", "green-flame blade", "eldritch blast", "fire bolt", "mage hand", "prestidigitation", "minor illusion", "ray of frost", "shocking grasp"}
+            known_cantrips_lower.update(undeniable_cantrips)
+            
             for lvl in [f"level_{i}" for i in range(1, 10)]:
                 lvl_spells = spells_dict.get(lvl, [])
                 if isinstance(lvl_spells, list):
