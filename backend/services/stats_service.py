@@ -807,30 +807,31 @@ def sync_character_stats(
         char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
 
     subclass = char_data.get("subclass")
+    if not subclass and char_class.lower() == "fighter" and char_data.get("spells"):
+        subclass = "Eldritch Knight"
+        char_data["subclass"] = subclass
+
     max_slots = calculate_max_spell_slots(char_class, level, subclass=subclass)
-    if "spell_slots" not in char_data or not char_data["spell_slots"]:
-        char_data["spell_slots"] = {}
-
+    
+    # Rebuild spell_slots cleanly according to class/level max slots rules
+    new_spell_slots = {}
     for slot_lvl, max_val in max_slots.items():
-        existing = char_data["spell_slots"].get(slot_lvl)
+        existing = (char_data.get("spell_slots") or {}).get(slot_lvl)
+        used_val = 0
         if isinstance(existing, dict):
-            existing["max"] = max_val
-        elif isinstance(existing, int):
-            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": min(existing, max_val)}
-        else:
-            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": 0}
-
-    if max_slots:
-        keys_to_remove = [k for k in char_data["spell_slots"] if k not in max_slots]
-        for k in keys_to_remove:
-            del char_data["spell_slots"][k]
+            used_val = min(existing.get("used", 0), max_val)
+        elif isinstance(existing, int) and existing <= max_val:
+            used_val = existing
+        new_spell_slots[slot_lvl] = {"max": max_val, "used": used_val}
+    char_data["spell_slots"] = new_spell_slots
 
     # Ensure Passive Perception and Skill Proficiencies alignment
     skill_profs = char_data.get("skill_proficiencies") or []
+    normalized_profs = [str(s).strip().lower() for s in skill_profs]
     wis_mod = math.floor((stats.get("WIS", 10) - 10) / 2)
     passive_percep = char_data.get("passive_perception") or (10 + wis_mod)
     if passive_percep >= 10 + wis_mod + prof_bonus:
-        if "Perception" not in skill_profs:
+        if "perception" not in normalized_profs:
             skill_profs.append("Perception")
             char_data["skill_proficiencies"] = skill_profs
 

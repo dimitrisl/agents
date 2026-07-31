@@ -83,14 +83,18 @@ class PDFMappingProvider:
 
         logger.debug(f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}")
 
+        skill_checks_map = {k.strip(): v for k, v in self.mapping.get("skill_checks", {}).items()}
         for skill_name, pdf_key in self.mapping.get("skills", {}).items():
-            if skill_name in char_skills:
+            clean_skill = skill_name.strip()
+            if clean_skill in char_skills:
+                field_data[pdf_key] = str(char_skills[clean_skill])
+            elif skill_name in char_skills:
                 field_data[pdf_key] = str(char_skills[skill_name])
 
-            check_pdf_key = self.mapping.get("skill_checks", {}).get(skill_name)
+            check_pdf_key = skill_checks_map.get(clean_skill)
             if check_pdf_key:
-                clean_name = skill_name.strip().lower()
-                is_prof = clean_name in skill_profs or clean_name in skill_exps
+                clean_name_lower = clean_skill.lower()
+                is_prof = clean_name_lower in skill_profs or clean_name_lower in skill_exps
                 field_data[check_pdf_key] = "Yes" if is_prof else "/Off"
 
         # 5. Saving Throws
