@@ -37,7 +37,7 @@ IMPORTANT: Evaluate the character EXCLUSIVELY against the selected edition ({edi
   4. Class MUST be valid for 2024 Edition: {allowed_classes}.
   5. Martial classes (Fighter, Barbarian, Paladin, Ranger, Rogue) use 2024 Weapon Masteries. NOTE: Fighter Weapon Mastery progression in 2024 Edition is: Level 1-3: 3 Masteries, Level 4-9: 4 Masteries, Level 10+: 5 Masteries. Therefore, a Level 5 Fighter correctly has 4 Weapon Masteries. If weapons like Longsword or Crossbow are equipped, prioritize their masteries (Sap, Slow).
   6. Third-Casters (Eldritch Knight, Arcane Trickster) spell slot progression in 2024/5e: Level 3 has 2 1st-level slots; Level 4-6 has EXACTLY 3 1st-level slots (DO NOT flag 3 slots at Level 5 as an error!); Level 7+ has 4 1st-level slots.
-  7. Spells known: Ensure cantrips like "Booming Blade" and "Green-Flame Blade" are ONLY placed in the `cantrips` list, NOT in `level_1` spells.
+  7. Spells known: Ensure cantrips are ONLY placed in the `cantrips` list, NOT in `level_1` spells.
   8. Subclass MUST be valid for 2024 Edition: {allowed_subclasses}.
 
 VALIDATION CHECKLIST FOR ({edition}):

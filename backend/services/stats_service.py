@@ -15,6 +15,14 @@ def get_modifier(score: int) -> int:
     return math.floor((score - 10) / 2)
 
 
+@functools.lru_cache(maxsize=2)
+def _get_known_cantrips_for_edition(edition: str) -> set:
+    from backend.repositories.rules_repository import RulesRepository
+    repo = RulesRepository()
+    spells = repo.get_all_spells(edition)
+    return {s.get("name", "").strip().lower() for s in spells if str(s.get("level", "")).lower() in ["0", "cantrip"]}
+
+
 def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -> int:
     """Calculates proficiency bonus."""
     if class_data:
@@ -1013,13 +1021,8 @@ def sync_character_stats(
             if not isinstance(cantrips, list):
                 cantrips = []
                 
-            known_cantrips_lower = {
-                "booming blade", "green-flame blade", "fire bolt", "mage hand", "prestidigitation", 
-                "minor illusion", "light", "ray of frost", "shocking grasp", "message", "guidance", 
-                "resistance", "sacred flame", "spare the dying", "thaumaturgy", "toll the dead", 
-                "word of radiance", "druidcraft", "produce flame", "shillelagh", "thorn whip", 
-                "eldritch blast", "vicious mockery", "chill touch", "poison spray", "true strike"
-            }
+            edition_val = char_data.get("dnd_edition") or "2014 Edition"
+            known_cantrips_lower = _get_known_cantrips_for_edition(edition_val)
             
             for lvl in [f"level_{i}" for i in range(1, 10)]:
                 lvl_spells = spells_dict.get(lvl, [])
