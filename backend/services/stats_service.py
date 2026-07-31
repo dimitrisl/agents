@@ -778,17 +778,21 @@ def sync_character_stats(
     if not spell_ability or spell_ability == "None":
         class_lower = (char_class or "").lower()
         subclass_lower = (char_data.get("subclass") or "").lower()
+        feats_str = str(char_data.get("features_traits", [])).lower()
         if (
             class_lower in ["wizard", "artificer"]
             or "eldritch knight" in subclass_lower
             or "arcane trickster" in subclass_lower
+            or "eldritch knight" in feats_str
+            or "arcane trickster" in feats_str
+            or (class_lower == "fighter" and (char_data.get("spell_slots") or char_data.get("spells")))
         ):
             spell_ability = "INT"
         elif class_lower in ["cleric", "druid", "ranger"]:
             spell_ability = "WIS"
         elif class_lower in ["paladin", "sorcerer", "warlock", "bard"]:
             spell_ability = "CHA"
-        elif char_data.get("spells") or char_data.get("prepared_spells"):
+        elif char_data.get("spells") or char_data.get("prepared_spells") or char_data.get("spell_slots"):
             mental_stats = {
                 "INT": stats.get("INT", 10),
                 "WIS": stats.get("WIS", 10),
@@ -816,9 +820,19 @@ def sync_character_stats(
         else:
             char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": 0}
 
-    keys_to_remove = [k for k in char_data["spell_slots"] if k not in max_slots]
-    for k in keys_to_remove:
-        del char_data["spell_slots"][k]
+    if max_slots:
+        keys_to_remove = [k for k in char_data["spell_slots"] if k not in max_slots]
+        for k in keys_to_remove:
+            del char_data["spell_slots"][k]
+
+    # Ensure Passive Perception and Skill Proficiencies alignment
+    skill_profs = char_data.get("skill_proficiencies") or []
+    wis_mod = math.floor((stats.get("WIS", 10) - 10) / 2)
+    passive_percep = char_data.get("passive_perception") or (10 + wis_mod)
+    if passive_percep >= 10 + wis_mod + prof_bonus:
+        if "Perception" not in skill_profs:
+            skill_profs.append("Perception")
+            char_data["skill_proficiencies"] = skill_profs
 
     if char_class.lower() == "rogue":
         sneak_attack_dice = (level + 1) // 2
@@ -843,26 +857,53 @@ def sync_character_stats(
     is_2024 = "2024" in str(edition)
 
     if is_2024:
-        # A. Weapon Masteries
+        # Filter out legacy 2014 background combat/roleplay traits
+        legacy_bg_features = {
+            "stand your ground",
+            "military rank",
+            "shelter of the faithful",
+            "rustic hospitality",
+            "criminal contact",
+            "guild membership",
+            "position of privilege",
+            "researcher",
+            "watcher's eye",
+            "by popular demand",
+            "false identity",
+        }
+        if char_data.get("features_traits"):
+            char_data["features_traits"] = [
+                f
+                for f in char_data["features_traits"]
+                if not (
+                    isinstance(f, dict)
+                    and (f.get("name") or "").lower() in legacy_bg_features
+                )
+            ]
+
+        # A. Weapon Masteries (Fighter Lvl 1-3 = 3, Lvl 4+ = 4 masteries)
         martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
         if (char_class or "").lower() in martial_classes:
-            if not char_data.get("weapon_masteries"):
-                default_masteries = []
-                for w in char_data.get("weapons", []):
-                    w_name = w.get("name", "").lower() if isinstance(w, dict) else str(w).lower()
-                    if "longsword" in w_name or "sword" in w_name:
-                        default_masteries.append("Sap (Longsword)")
-                    elif "crossbow" in w_name or "bow" in w_name:
-                        default_masteries.append("Slow (Light Crossbow)")
-                    elif "greatsword" in w_name:
-                        default_masteries.append("Graze (Greatsword)")
-                    elif "dagger" in w_name:
-                        default_masteries.append("Nick (Dagger)")
-                    elif "axe" in w_name or "hammer" in w_name:
-                        default_masteries.append("Topple (Warhammer)")
-                if not default_masteries:
-                    default_masteries = ["Sap (Longsword)", "Slow (Light Crossbow)"]
-                char_data["weapon_masteries"] = default_masteries
+            target_masteries_count = 4 if (char_class or "").lower() == "fighter" and level >= 4 else (3 if level >= 4 else 2)
+            existing_masteries = char_data.get("weapon_masteries") or []
+
+            mastery_pool = [
+                "Sap (Longsword)",
+                "Slow (Light Crossbow)",
+                "Graze (Greatsword)",
+                "Nick (Dagger)",
+                "Topple (Warhammer)",
+                "Vex (Shortsword)",
+                "Push (Pike)",
+                "Cleave (Greataxe)",
+            ]
+            for m in mastery_pool:
+                if len(existing_masteries) >= target_masteries_count:
+                    break
+                if m not in existing_masteries:
+                    existing_masteries.append(m)
+
+            char_data["weapon_masteries"] = existing_masteries
 
             for w in char_data.get("weapons", []):
                 if isinstance(w, dict):

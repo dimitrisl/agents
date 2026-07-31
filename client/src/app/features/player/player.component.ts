@@ -207,6 +207,18 @@ export interface SkillDefinition {
         <!-- Subtab 1: Combat & Inventory -->
         <div *ngIf="sheetSubTab === 'combat'" class="tab-content">
           <div class="phyrexian-card">
+            <!-- 2024 Weapon Masteries Banner -->
+            <div *ngIf="char.weapon_masteries && char.weapon_masteries.length > 0" class="masteries-banner" style="margin-bottom: 1.25rem; background: rgba(212, 175, 55, 0.1); border: 1px solid var(--accent-gold); padding: 0.75rem 1rem; border-radius: 8px;">
+              <h4 style="margin: 0 0 0.4rem 0; color: var(--accent-gold); font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
+                ⚔️ 2024 Weapon Masteries ({{ char.weapon_masteries.length }} Active):
+              </h4>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <span *ngFor="let m of char.weapon_masteries" class="mastery-pill" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-card); padding: 0.25rem 0.6rem; border-radius: 12px; font-size: 0.8rem; color: #fff;">
+                  🎯 {{ m }}
+                </span>
+              </div>
+            </div>
+
             <div class="section-title-row">
               <h3>⚔️ Equipped Weapons & Attacks</h3>
               <button *ngIf="editMode" class="phyrexian-btn-secondary mini-btn" (click)="addWeapon()">+ Add Weapon</button>
@@ -226,6 +238,7 @@ export interface SkillDefinition {
                   <td>
                     <strong *ngIf="!editMode">{{ w.name }}</strong>
                     <input *ngIf="editMode" type="text" class="phyrexian-input" [(ngModel)]="w.name" (change)="saveCurrentChar()" />
+                    <div *ngIf="w.properties" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">{{ w.properties }}</div>
                   </td>
                   <td>
                     <span *ngIf="!editMode" class="hit-badge">{{ w.attack_bonus }}</span>
@@ -266,6 +279,22 @@ export interface SkillDefinition {
 
         <!-- Subtab 2: Spells & Features -->
         <div *ngIf="sheetSubTab === 'spells'" class="phyrexian-card">
+          <!-- Spell Stats Header Bar (DC & Attack Bonus) -->
+          <div class="spell-stats-bar" style="display: flex; gap: 1.5rem; margin-bottom: 1.25rem; background: rgba(0,0,0,0.3); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-card); flex-wrap: wrap;">
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; display: block;">Spellcasting Ability</span>
+              <strong style="color: var(--theme-accent); font-size: 1.05rem;">{{ char.spell_ability || 'INT' }}</strong>
+            </div>
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; display: block;">Spell Save DC</span>
+              <strong style="color: var(--accent-gold); font-size: 1.05rem;">🎯 {{ char.spell_save_dc || 13 }}</strong>
+            </div>
+            <div>
+              <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; display: block;">Spell Attack Bonus</span>
+              <strong style="color: var(--accent-gold); font-size: 1.05rem;">⚡ {{ char.spell_attack_bonus || '+5' }}</strong>
+            </div>
+          </div>
+
           <!-- Spell Slots Tracker -->
           <div class="spell-slots-section">
             <h3>✨ Spell Slots Tracker</h3>
