@@ -278,7 +278,22 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
         writer = PdfWriter()
         writer.append(reader)
 
-
+        # Set NeedAppearances to True to ensure the viewer renders the form fields
+        try:
+            if "/AcroForm" not in writer.root_object:
+                writer.root_object.update(
+                    {
+                        generic.NameObject("/AcroForm"): generic.DictionaryObject(
+                            {generic.NameObject("/NeedAppearances"): generic.BooleanObject(True)}
+                        )
+                    }
+                )
+            else:
+                writer.root_object["/AcroForm"].update(
+                    {generic.NameObject("/NeedAppearances"): generic.BooleanObject(True)}
+                )
+        except Exception as e:
+            logger.warning(f"Failed to set NeedAppearances: {e}")
 
         # Load mapping and translate data
         edition = char_data.get("dnd_edition", "2014 Edition")
@@ -303,17 +318,23 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
             else:
                 final_field_data[k] = v
 
-        # Fill fields and flatten them onto the page
+        # Fill fields
         for page in writer.pages:
-            writer.update_page_form_field_values(page, final_field_data, auto_regenerate=True, flatten=True)
-            
-            # Remove annotations (form fields) so they don't double-render over the flattened text in Adobe Reader
-            if "/Annots" in page:
-                del page["/Annots"]
+            writer.update_page_form_field_values(page, final_field_data)
 
-        # Remove the AcroForm completely to make it a static PDF
-        if "/AcroForm" in writer.root_object:
-            del writer.root_object["/AcroForm"]
+            # CRITICAL: Manually sync the Appearance State (/AS) for checkboxes
+            # Many PDF viewers (like Chrome) won't show the dot without this.
+            if "/Annots" in page:
+                for annot in page["/Annots"]:
+                    obj = annot.get_object()
+                    if "/T" in obj and obj["/T"] in checkbox_fields:
+                        val = final_field_data[obj["/T"]]
+                        obj.update(
+                            {
+                                generic.NameObject("/AS"): val,
+                                generic.NameObject("/V"): val,
+                            }
+                        )
 
         # Add portrait overlay
         portrait_url = char_data.get("char_portrait")
