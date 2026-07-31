@@ -131,9 +131,9 @@
     },
     "spellcasting": {
         "class": "Spellcasting Class 2",
-        "ability": "Spellcasting Ability 2",
-        "dc": "Spell Save DC 2",
-        "bonus": "Spell Attack Bonus 2"
+        "ability": "SpellcastingAbility 2",
+        "dc": "SpellSaveDC  2",
+        "bonus": "SpellAtkBonus 2"
     },
     "slot_totals": {
         "level_1": "SlotsTotal 19",

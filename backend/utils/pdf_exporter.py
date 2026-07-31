@@ -78,8 +78,8 @@ class PDFMappingProvider:
 
         # 4. Skills
         char_skills = char_data.get("skills", {})
-        skill_profs = char_data.get("skill_proficiencies", [])
-        skill_exps = char_data.get("skill_expertise", [])
+        skill_profs = [str(s).strip().lower() for s in char_data.get("skill_proficiencies", [])]
+        skill_exps = [str(s).strip().lower() for s in char_data.get("skill_expertise", [])]
 
         logger.debug(f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}")
 
@@ -89,9 +89,9 @@ class PDFMappingProvider:
 
             check_pdf_key = self.mapping.get("skill_checks", {}).get(skill_name)
             if check_pdf_key:
-                field_data[check_pdf_key] = (
-                    "Yes" if (skill_name in skill_profs or skill_name in skill_exps) else "/Off"
-                )
+                clean_name = skill_name.strip().lower()
+                is_prof = clean_name in skill_profs or clean_name in skill_exps
+                field_data[check_pdf_key] = "Yes" if is_prof else "/Off"
 
         # 5. Saving Throws
         char_saves = char_data.get("saving_throws", [])
@@ -141,9 +141,21 @@ class PDFMappingProvider:
 
         if "Features and Traits" in blocks:
             feats = char_data.get("features_traits", [])
-            field_data[blocks["Features and Traits"]] = "\n".join(
-                [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
-            )
+            ft_strings = []
+
+            # 2024 Weapon Masteries section
+            masteries = char_data.get("weapon_masteries", [])
+            if masteries:
+                ft_strings.append(f"WEAPON MASTERIES (2024): {', '.join(masteries)}")
+                ft_strings.append("")
+
+            for f in feats:
+                if isinstance(f, str):
+                    ft_strings.append(f)
+                elif isinstance(f, dict):
+                    ft_strings.append(f"{f.get('name', '')}: {f.get('description', '')}")
+
+            field_data[blocks["Features and Traits"]] = "\n".join(ft_strings)
 
         if "Proficiencies and Languages" in blocks:
             langs = char_data.get("languages", [])

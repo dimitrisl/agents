@@ -1005,4 +1005,13 @@ def sync_character_stats(
                     }
                 )
 
+        # D. Eldritch Knight / Arcane Trickster Cantrip Limit (2 cantrips at level 5)
+        subclass_clean = (char_data.get("subclass") or "").lower()
+        if ("eldritch knight" in subclass_clean or "arcane trickster" in subclass_clean) and level < 10:
+            spells_dict = char_data.get("spells")
+            if isinstance(spells_dict, dict) and "cantrips" in spells_dict:
+                cantrips = spells_dict.get("cantrips", [])
+                if isinstance(cantrips, list) and len(cantrips) > 2:
+                    spells_dict["cantrips"] = cantrips[:2]
+
     return char_data
