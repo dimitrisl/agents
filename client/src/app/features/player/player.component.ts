@@ -372,6 +372,20 @@ export interface SkillDefinition {
         <button class="dock-btn" (click)="onExportPdf()" title="Export PDF">📥 PDF</button>
       </div>
 
+      <!-- PDF PREVIEW MODAL -->
+      <div *ngIf="pdfPreviewUrl" class="modal-backdrop">
+        <div class="phyrexian-card modal-card wide-modal" style="width: 90vw; max-width: 1000px; height: 90vh; display: flex; flex-direction: column;">
+          <h2>📄 Character Sheet Preview</h2>
+          <div style="flex: 1; margin: 1rem 0; border: 1px solid var(--border-card); border-radius: 8px; overflow: hidden; background: #fff;">
+            <iframe [src]="pdfPreviewUrl" width="100%" height="100%" style="border: none;"></iframe>
+          </div>
+          <div class="modal-actions" style="margin-top: auto;">
+            <button class="phyrexian-btn-secondary" (click)="closePdfPreview()">Cancel</button>
+            <button class="phyrexian-btn" (click)="downloadPdf()">💾 Download PDF</button>
+          </div>
+        </div>
+      </div>
+
       <!-- VALIDATION & AUTO-FIX MODAL -->
       <div *ngIf="showValidationModal" class="modal-backdrop">
         <div class="phyrexian-card modal-card wide-modal">
@@ -820,13 +834,16 @@ export class PlayerComponent implements OnInit, OnDestroy {
   ];
 
   private wsSub: Subscription | null = null;
+  pdfPreviewUrl: import('@angular/platform-browser').SafeResourceUrl | null = null;
+  pdfPreviewBlobUrl: string | null = null;
 
   constructor(
     public charState: CharacterStateService,
     private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private sanitizer: import('@angular/platform-browser').DomSanitizer
   ) {
     effect(() => {
       const char = this.charState.activeCharacter();
@@ -1397,16 +1414,30 @@ export class PlayerComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (blob) => {
           const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${char.char_name.replace(/ /g, '_').toLowerCase()}_sheet.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          a.remove();
+          this.pdfPreviewBlobUrl = url;
+          this.pdfPreviewUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
         },
         error: () => this.rollToast.showMessage('⚠️ EXPORT FAILED', 'Failed to generate character sheet.')
       });
+  }
+
+  downloadPdf() {
+    if (!this.pdfPreviewBlobUrl) return;
+    const char = this.charState.activeCharacter();
+    const a = document.createElement('a');
+    a.href = this.pdfPreviewBlobUrl;
+    a.download = `${char?.char_name.replace(/ /g, '_').toLowerCase() || 'character'}_sheet.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  closePdfPreview() {
+    if (this.pdfPreviewBlobUrl) {
+      window.URL.revokeObjectURL(this.pdfPreviewBlobUrl);
+    }
+    this.pdfPreviewBlobUrl = null;
+    this.pdfPreviewUrl = null;
   }
 
   onImportPdf(event: any) {
