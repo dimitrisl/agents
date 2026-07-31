@@ -380,9 +380,11 @@ export interface SkillDefinition {
           <div style="flex: 1; margin: 1rem 0; border: 1px solid var(--border-card); border-radius: 8px; overflow: hidden; background: #fff;">
             <iframe [src]="pdfPreviewUrl" width="100%" height="100%" style="border: none;"></iframe>
           </div>
-          <div class="modal-actions" style="margin-top: auto;">
-            <button class="phyrexian-btn-secondary" (click)="closePdfPreview()">Cancel</button>
-            <button class="phyrexian-btn" (click)="downloadPdf()">💾 Download PDF</button>
+          <div class="modal-actions" style="margin-top: auto; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-muted); font-size: 0.9rem;">
+              <strong style="color: var(--accent-gold);">Pro Tip:</strong> Use your browser's Print menu and select "Save as PDF" to export.
+            </span>
+            <button class="phyrexian-btn-secondary" (click)="closePdfPreview()">Close Preview</button>
           </div>
         </div>
       </div>
@@ -1422,16 +1424,6 @@ export class PlayerComponent implements OnInit, OnDestroy {
       });
   }
 
-  downloadPdf() {
-    if (!this.pdfPreviewBlobUrl) return;
-    const char = this.charState.activeCharacter();
-    const a = document.createElement('a');
-    a.href = this.pdfPreviewBlobUrl;
-    a.download = `${char?.char_name.replace(/ /g, '_').toLowerCase() || 'character'}_sheet.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
 
   closePdfPreview() {
     if (this.pdfPreviewBlobUrl) {
