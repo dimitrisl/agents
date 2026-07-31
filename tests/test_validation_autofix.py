@@ -227,3 +227,30 @@ def test_autofix_weapon_properties_none_handling():
         char = res["character"]
         assert char["weapons"][0]["properties"] is not None
         assert "Mastery: Sap" in char["weapons"][0]["properties"]
+
+
+def test_2014_edition_isolation():
+    """Verify that 2014 Edition characters retain 2014 background features and do not receive 2024 Masteries."""
+    from backend.services.stats_service import sync_character_stats
+
+    char_2014 = {
+        "char_name": "Valeros 2014",
+        "char_class": "Fighter",
+        "char_level": 5,
+        "dnd_edition": "2014 Edition",
+        "stats": {"STR": 16, "DEX": 10, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8},
+        "background": "Guard",
+        "features_traits": [{"name": "Stand Your Ground", "description": "2014 Guard Feature"}],
+        "weapons": [{"name": "Longsword", "attack_bonus": "+6", "damage_dice": "1d8+3", "properties": "Versatile"}],
+    }
+
+    synced = sync_character_stats(char_2014, {})
+    # 2014 background feature preserved
+    trait_names = [f["name"] for f in synced["features_traits"]]
+    assert "Stand Your Ground" in trait_names
+    # No 2024 Origin Feat added
+    assert not any("Origin Feat" in name for name in trait_names)
+    # Weapon Masteries list remains empty
+    assert len(synced.get("weapon_masteries", [])) == 0
+    assert "Mastery" not in synced["weapons"][0]["properties"]
+
