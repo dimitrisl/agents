@@ -33,10 +33,11 @@ IMPORTANT: Evaluate the character EXCLUSIVELY against the selected edition ({edi
 - IF EDITION IS 2024 EDITION (5.5e):
   1. Subclasses MUST be selected at Level 3 for ALL classes. If Level < 3, subclass MUST be cleared or corrected.
   2. Race/Species MUST be valid for 2024 Edition: {allowed_races}.
-  3. Background MUST be valid for 2024 Edition: {allowed_backgrounds}. Backgrounds in 2024 grant Origin Feats at Level 1 and ability score adjustments (+2/+1 or +1/+1/+1).
+  3. Background MUST be valid for 2024 Edition: {allowed_backgrounds}. Backgrounds in 2024 grant Origin Feats at Level 1 (e.g. Guard background grants 'Origin Feat: Alert', NOT 2014 'Stand Your Ground').
   4. Class MUST be valid for 2024 Edition: {allowed_classes}.
-  5. Martial classes (Fighter, Barbarian, Paladin, Ranger, Rogue) use 2024 Weapon Masteries. NOTE: Fighter Weapon Mastery progression in 2024 Edition is: Level 1-3: 3 Masteries, Level 4-9: 4 Masteries, Level 10+: 5 Masteries. Therefore, a Level 5 Fighter correctly has 4 Weapon Masteries (DO NOT flag 4 masteries as an error!).
-  6. Subclass MUST be valid for 2024 Edition: {allowed_subclasses}.
+  5. Martial classes (Fighter, Barbarian, Paladin, Ranger, Rogue) use 2024 Weapon Masteries. NOTE: Fighter Weapon Mastery progression in 2024 Edition is: Level 1-3: 3 Masteries, Level 4-9: 4 Masteries, Level 10+: 5 Masteries. Therefore, a Level 5 Fighter correctly has 4 Weapon Masteries. If weapons like Longsword or Crossbow are equipped, prioritize their masteries (Sap, Slow).
+  6. Third-Casters (Eldritch Knight, Arcane Trickster) spell slot progression in 2024/5e: Level 3 has 2 1st-level slots; Level 4-6 has EXACTLY 3 1st-level slots (DO NOT flag 3 slots at Level 5 as an error!); Level 7+ has 4 1st-level slots.
+  7. Subclass MUST be valid for 2024 Edition: {allowed_subclasses}.
 
 VALIDATION CHECKLIST FOR ({edition}):
 1. Are Ability Scores legal under {edition} rules? (Standard Array / Point Buy + edition-specific racial/background bonuses, max 20 unless a high-level feature allows).
