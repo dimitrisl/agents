@@ -131,7 +131,7 @@ def forge_character(
             {
                 "char_name": name if name != "AI Choice" else "Forged Hero",
                 "gender": gender if gender != "AI Choice" else "Male",
-                "char_class": forge_class if forge_class != "AI Choice" else "Fighter",
+                "char_class": forge_class if forge_class != "AI Choice" else "",
                 "subclass": subclass if subclass and subclass != "AI Choice" else None,
                 "char_level": target_level,
                 "race": forge_race if forge_race != "AI Choice" else "Human",

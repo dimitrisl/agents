@@ -277,12 +277,12 @@ def calculate_spell_stats(
     }
 
 
-def calculate_max_spell_slots(char_class: str, level: int, subclass: str = None) -> Dict[str, int]:
-    """Calculates maximum spell slots per level based on class, level, and subclass."""
+def calculate_max_spell_slots(
+    char_class: str, level: int, subclass: str = None, caster_type: str = None
+) -> Dict[str, int]:
+    """Calculates maximum spell slots per level based on class, level, subclass, and caster type."""
     char_class = (char_class or "").lower()
     subclass_lower = (subclass or "").lower()
-    full_casters = {"bard", "cleric", "druid", "sorcerer", "wizard"}
-    half_casters = {"paladin", "ranger"}
 
     full_caster_slots = {
         1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -331,13 +331,13 @@ def calculate_max_spell_slots(char_class: str, level: int, subclass: str = None)
     }
 
     slots = {}
-    if char_class in full_casters:
+    if caster_type == "full":
         caster_level = level
-    elif char_class in half_casters:
+    elif caster_type == "half":
         caster_level = (level + 1) // 2 if level >= 2 else 0
-    elif char_class == "artificer":
-        caster_level = (level + 1) // 2
-    elif char_class == "warlock":
+        if char_class == "artificer":
+            caster_level = (level + 1) // 2
+    elif caster_type == "pact" or char_class == "warlock":
         if level in warlock_slots:
             count, slot_lvl = warlock_slots[level]
             slots[f"level_{slot_lvl}"] = count
@@ -559,24 +559,31 @@ def sync_character_stats(
     char_data["proficiency_bonus"] = prof_bonus
 
     if not char_data.get("saving_throws"):
-        class_saves = {
-            "barbarian": ["STR", "CON"],
-            "bard": ["DEX", "CHA"],
-            "cleric": ["WIS", "CHA"],
-            "druid": ["INT", "WIS"],
-            "fighter": ["STR", "CON"],
-            "monk": ["STR", "DEX"],
-            "paladin": ["WIS", "CHA"],
-            "ranger": ["STR", "DEX"],
-            "rogue": ["DEX", "INT"],
-            "sorcerer": ["CON", "CHA"],
-            "warlock": ["WIS", "CHA"],
-            "wizard": ["INT", "WIS"],
-            "artificer": ["CON", "INT"],
-        }
-        char_class_lower = char_class.lower() if char_class else ""
-        if char_class_lower in class_saves:
-            char_data["saving_throws"] = class_saves[char_class_lower]
+        saving_throws = []
+        if class_data:
+            sp = class_data.get("starting_proficiencies", {})
+            raw_saves = sp.get("saving_throws", [])
+            abbr_map = {
+                "strength": "STR",
+                "dexterity": "DEX",
+                "constitution": "CON",
+                "intelligence": "INT",
+                "wisdom": "WIS",
+                "charisma": "CHA",
+                "str": "STR",
+                "dex": "DEX",
+                "con": "CON",
+                "int": "INT",
+                "wis": "WIS",
+                "cha": "CHA",
+            }
+            for s in raw_saves:
+                s_clean = str(s).strip().lower()
+                if s_clean in abbr_map:
+                    saving_throws.append(abbr_map[s_clean])
+
+        if saving_throws:
+            char_data["saving_throws"] = saving_throws
         elif class_data:
             raw_saves = class_data.get("primary_ability", [])
             clean_saves = []
@@ -789,36 +796,34 @@ def sync_character_stats(
     # Infer & Calculate Spellcasting Stats (DC & Attack Bonus)
     spell_ability = char_data.get("spell_ability")
     if not spell_ability or spell_ability == "None":
-        class_lower = (char_class or "").lower()
-        subclass_lower = (char_data.get("subclass") or "").lower()
-        feats_str = str(char_data.get("features_traits", [])).lower()
-        if (
-            class_lower in ["wizard", "artificer"]
-            or "eldritch knight" in subclass_lower
-            or "arcane trickster" in subclass_lower
-            or "eldritch knight" in feats_str
-            or "arcane trickster" in feats_str
-            or (
-                class_lower == "fighter"
-                and (char_data.get("spell_slots") or char_data.get("spells"))
-            )
-        ):
-            spell_ability = "INT"
-        elif class_lower in ["cleric", "druid", "ranger"]:
-            spell_ability = "WIS"
-        elif class_lower in ["paladin", "sorcerer", "warlock", "bard"]:
-            spell_ability = "CHA"
-        elif (
-            char_data.get("spells")
-            or char_data.get("prepared_spells")
-            or char_data.get("spell_slots")
-        ):
-            mental_stats = {
-                "INT": stats.get("INT", 10),
-                "WIS": stats.get("WIS", 10),
-                "CHA": stats.get("CHA", 10),
-            }
-            spell_ability = max(mental_stats, key=mental_stats.get)
+        if class_data and "spellcasting_ability" in class_data:
+            spell_ability = class_data.get("spellcasting_ability")
+        else:
+            class_lower = (char_class or "").lower()
+            subclass_lower = (char_data.get("subclass") or "").lower()
+            feats_str = str(char_data.get("features_traits", [])).lower()
+            if (
+                "eldritch knight" in subclass_lower
+                or "arcane trickster" in subclass_lower
+                or "eldritch knight" in feats_str
+                or "arcane trickster" in feats_str
+                or (
+                    class_lower == "fighter"
+                    and (char_data.get("spell_slots") or char_data.get("spells"))
+                )
+            ):
+                spell_ability = "INT"
+            elif (
+                char_data.get("spells")
+                or char_data.get("prepared_spells")
+                or char_data.get("spell_slots")
+            ):
+                mental_stats = {
+                    "INT": stats.get("INT", 10),
+                    "WIS": stats.get("WIS", 10),
+                    "CHA": stats.get("CHA", 10),
+                }
+                spell_ability = max(mental_stats, key=mental_stats.get)
 
     if spell_ability and spell_ability != "None":
         char_data["spell_ability"] = spell_ability
@@ -831,7 +836,13 @@ def sync_character_stats(
         subclass = "Eldritch Knight"
         char_data["subclass"] = subclass
 
-    max_slots = calculate_max_spell_slots(char_class, level, subclass=subclass)
+    caster_type = None
+    if class_data and "caster_type" in class_data:
+        caster_type = class_data.get("caster_type")
+
+    max_slots = calculate_max_spell_slots(
+        char_class, level, subclass=subclass, caster_type=caster_type
+    )
 
     # Rebuild spell_slots cleanly according to class/level max slots rules
     new_spell_slots = {}
@@ -856,8 +867,8 @@ def sync_character_stats(
         if class_data and "progression" in class_data:
             import re
 
-            for l in range(1, level + 1):
-                lvl_data = class_data["progression"].get(str(l), {})
+            for lvl_idx in range(1, level + 1):
+                lvl_data = class_data["progression"].get(str(lvl_idx), {})
                 for feature in lvl_data.get("features", []):
                     f_name = feature.get("name", "")
                     # Look for explicit spell level grants in feature names (e.g. "Mystic Arcanum (6th level)")

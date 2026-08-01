@@ -6,12 +6,38 @@
         "Charisma"
     ],
     "starting_proficiencies": {
-        "saving_throws": ["Dexterity", "Charisma"],
-        "armor": ["Light"],
-        "weapons": ["Simple"],
+        "saving_throws": [
+            "Dexterity",
+            "Charisma"
+        ],
+        "armor": [
+            "Light"
+        ],
+        "weapons": [
+            "Simple"
+        ],
         "skills": {
             "count": 3,
-            "options": ["Acrobatics", "Animal Handling", "Arcana", "Athletics", "Deception", "History", "Insight", "Intimidation", "Investigation", "Medicine", "Nature", "Perception", "Performance", "Persuasion", "Religion", "Sleight of Hand", "Stealth", "Survival"]
+            "options": [
+                "Acrobatics",
+                "Animal Handling",
+                "Arcana",
+                "Athletics",
+                "Deception",
+                "History",
+                "Insight",
+                "Intimidation",
+                "Investigation",
+                "Medicine",
+                "Nature",
+                "Perception",
+                "Performance",
+                "Persuasion",
+                "Religion",
+                "Sleight of Hand",
+                "Stealth",
+                "Survival"
+            ]
         }
     },
     "progression": {
@@ -143,8 +169,8 @@
             "proficiency_bonus": 5,
             "features": [
                 {
-                  "name": "Bardic Inspiration Die (d12)",
-                  "description": "Your Bardic Inspiration die increases to a d12."
+                    "name": "Bardic Inspiration Die (d12)",
+                    "description": "Your Bardic Inspiration die increases to a d12."
                 }
             ]
         },
@@ -188,5 +214,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "full",
+    "spellcasting_ability": "CHA"
 }

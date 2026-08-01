@@ -3,12 +3,27 @@
     "edition": "2014 Edition",
     "hit_die": "d8",
     "starting_proficiencies": {
-        "saving_throws": ["Wisdom", "Charisma"],
-        "armor": ["Light armor"],
-        "weapons": ["Simple weapons"],
+        "saving_throws": [
+            "Wisdom",
+            "Charisma"
+        ],
+        "armor": [
+            "Light armor"
+        ],
+        "weapons": [
+            "Simple weapons"
+        ],
         "skills": {
             "count": 2,
-            "options": ["Arcana", "Deception", "History", "Intimidation", "Investigation", "Nature", "Religion"]
+            "options": [
+                "Arcana",
+                "Deception",
+                "History",
+                "Intimidation",
+                "Investigation",
+                "Nature",
+                "Religion"
+            ]
         }
     },
     "primary_ability": [
@@ -180,5 +195,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "pact",
+    "spellcasting_ability": "CHA"
 }
