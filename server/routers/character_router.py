@@ -14,9 +14,9 @@ from fastapi import (
     status,
 )
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-from backend.core.schemas import CharacterSchema
+from backend.core.schemas import CharacterSchema, SuccessResponseSchema
 from backend.services.forge_service import process_character_update
 from backend.services.rules_service import parse_character_from_text
 from backend.utils.pdf_exporter import export_character_to_pdf
@@ -120,7 +120,7 @@ async def update_character(
     return CharacterSchema.model_validate(char_dict, strict=False)
 
 
-@router.delete("/{char_id}")
+@router.delete("/{char_id}", response_model=SuccessResponseSchema)
 async def delete_character(char_id: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
     result = await db["characters"].delete_one({"char_id": char_id, "owner_id": current_user["id"]})
@@ -138,7 +138,7 @@ async def delete_character(char_id: str, current_user: dict = Depends(get_curren
     return {"success": True, "message": f"Character {char_id} deleted."}
 
 
-@router.post("/{char_id}/export-pdf")
+@router.post("/{char_id}/export-pdf", response_class=FileResponse)
 async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
     doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})

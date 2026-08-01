@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 
@@ -115,7 +116,7 @@ async def join_campaign_by_code(
     }
 
 
-@router.post("/{name}/invite-code")
+@router.post("/{name}/invite-code", response_model=InviteCodeResponse)
 async def generate_invite_code(name: str, current_user: dict = Depends(get_current_user)):
     db = get_database()
     camp = await db["campaigns"].find_one({"campaign_name": name})
@@ -142,7 +143,7 @@ async def generate_invite_code(name: str, current_user: dict = Depends(get_curre
     return {"invite_code": code}
 
 
-@router.post("/{name}/roll-request")
+@router.post("/{name}/roll-request", response_model=SuccessResponseSchema)
 async def add_roll_request(
     name: str,
     req_in: RollRequestSchema,
@@ -191,7 +192,7 @@ async def add_roll_request(
     return {"success": True, "request": new_req}
 
 
-@router.post("/{name}/whisper")
+@router.post("/{name}/whisper", response_model=SuccessResponseSchema)
 async def send_whisper(
     name: str,
     payload: WhisperRequest,
@@ -226,7 +227,7 @@ class CampaignNotesRequest(BaseModel):
     notes: str
 
 
-@router.post("/{name}/notes")
+@router.post("/{name}/notes", response_model=SuccessResponseSchema)
 async def save_campaign_notes(
     name: str,
     payload: CampaignNotesRequest,

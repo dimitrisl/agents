@@ -190,6 +190,6 @@ def test_dm_router(mocker):
             "/api/v1/dm/riddle", json={"location": "Crypt", "edition": "2014 Edition"}
         )
         assert response.status_code == 200
-        assert "speaks without a mouth" in response.json()["riddle_text"]
+        assert "speaks without a mouth" in response.json()["riddle_markdown"]
     finally:
         app.dependency_overrides.clear()
