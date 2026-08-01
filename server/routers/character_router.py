@@ -1,3 +1,4 @@
+import asyncio
 import io
 import os
 from typing import List
@@ -10,6 +11,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
 from backend.core.schemas import CharacterSchema
@@ -21,6 +23,8 @@ from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/characters", tags=["Characters"])
+
+_pending_updates = {}
 
 
 @router.get("", response_model=List[CharacterSchema])
@@ -80,10 +84,25 @@ async def update_character(
     char_dict["char_id"] = char_id
     char_dict["owner_id"] = current_user["id"]
 
-    # Re-calculate and sync stats
-    char_dict = process_character_update(char_dict)
+    # Register this exact dict object as the latest pending update
+    _pending_updates[char_id] = char_dict
+
+    # Debounce window: wait briefly to allow subsequent keystrokes/requests to supersede this one
+    await asyncio.sleep(0.4)
+
+    # If this request's payload was superseded by a newer one, abort processing
+    # and return the LATEST unprocessed payload to prevent the frontend cursor from jumping back.
+    if _pending_updates.get(char_id) is not char_dict:
+        return CharacterSchema.model_validate(_pending_updates[char_id], strict=False)
+
+    # Re-calculate and sync stats using threadpool to prevent blocking the async event loop
+    char_dict = await run_in_threadpool(process_character_update, char_dict)
 
     await db["characters"].update_one({"char_id": char_id}, {"$set": char_dict})
+
+    # Update the pending registry with the PROCESSED dict so straggler requests return the correctly synced stats
+    _pending_updates[char_id] = char_dict
+
     return CharacterSchema.model_validate(char_dict, strict=False)
 
 

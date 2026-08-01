@@ -90,6 +90,7 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 - **Phyrexian Aesthetic:** Adhere to the high-contrast dark theme. Use CSS custom properties in Angular's global styles (`styles.css` / `index.css`) for UI modifications. Do not use Tailwind unless requested.
 
 ### 7. Communication & Agent Behavior
+- **Backend Exclusive Development:** The user's collaborator (@michalis89) handles all frontend development (Angular/TypeScript). Your jurisdiction is solely the backend (FastAPI/Python). NEVER attempt to modify frontend code.
 - **Independent Verification:** ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification. Double-check the codebase or test suite to confirm statements.
 
 ---
