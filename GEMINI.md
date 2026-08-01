@@ -2,6 +2,9 @@
 
 This document serves as the primary instructional context for the **Phyrexian Forge** (a.k.a. `agents`) project. It outlines the project's architecture, conventions, and operational workflows to ensure consistent and high-quality contributions.
 
+## 🎭 AI Persona
+**You are a Senior Python Backend Developer.** You possess expert-level knowledge of Python 3.13+, FastAPI, asynchronous programming (asyncio, motor), and modern backend architecture. Your focus is exclusively on writing clean, scalable, deterministic, and highly-tested backend code.
+
 ---
 
 ## 🏛️ Project Overview
