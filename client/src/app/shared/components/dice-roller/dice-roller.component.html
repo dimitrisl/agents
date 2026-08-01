@@ -1,51 +1,66 @@
-<forge-section variant="card" density="compact" title="ðŸŽ² Interactive Dice Roller">
-  <button actions forgeButton variant="ghost" size="sm" (click)="rollHistory = []">
-    ðŸ—‘ï¸ Clear History
-  </button>
-
-  <div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
-    <button forgeButton variant="secondary" size="md" (click)="roll(4)">d4</button>
-    <button forgeButton variant="secondary" size="md" (click)="roll(6)">d6</button>
-    <button forgeButton variant="secondary" size="md" (click)="roll(8)">d8</button>
-    <button forgeButton variant="secondary" size="md" (click)="roll(10)">d10</button>
-    <button forgeButton variant="secondary" size="md" (click)="roll(12)">d12</button>
-    <button forgeButton variant="secondary" tone="accent" size="md" (click)="roll(20)">d20</button>
-    <button forgeButton variant="secondary" size="md" (click)="roll(100)">d100</button>
+<section class="rounded-xl bg-panel p-4" aria-labelledby="dice-roller-heading">
+  <div class="flex items-center justify-between gap-3">
+    <h3 id="dice-roller-heading" class="font-display text-title text-ink">
+      Interactive Dice Roller
+    </h3>
+    <button
+      forgeButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      [disabled]="rollHistory.length === 0"
+      (click)="rollHistory = []"
+    >
+      Clear history
+    </button>
   </div>
 
-  <div class="mt-3 flex flex-wrap items-center gap-3 text-body text-muted">
-    <label for="dice-modifier" class="text-label font-bold uppercase text-muted">
-      Modifier (+/-):
+  <div class="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
+    <button forgeButton variant="secondary" size="md" type="button" (click)="roll(4)">d4</button>
+    <button forgeButton variant="secondary" size="md" type="button" (click)="roll(6)">d6</button>
+    <button forgeButton variant="secondary" size="md" type="button" (click)="roll(8)">d8</button>
+    <button forgeButton variant="secondary" size="md" type="button" (click)="roll(10)">d10</button>
+    <button forgeButton variant="secondary" size="md" type="button" (click)="roll(12)">d12</button>
+    <button forgeButton variant="secondary" tone="accent" size="md" type="button" (click)="roll(20)">d20</button>
+    <button forgeButton variant="secondary" size="md" type="button" (click)="roll(100)">d100</button>
+  </div>
+
+  <div class="mt-3 flex flex-wrap items-center gap-3">
+    <label for="dice-modifier" class="text-micro font-semibold uppercase text-muted">
+      Modifier (+/−)
     </label>
     <input
       id="dice-modifier"
       forgeInput
       type="number"
-      class="max-w-[90px]"
+      class="max-w-24"
       [(ngModel)]="modifier"
     />
   </div>
 
-  @if (lastRoll) {
-    <section class="last-roll-card">
-      <span class="text-label font-bold uppercase text-muted">Latest Result:</span>
-      <span class="text-title text-ink">
-        {{ lastRoll.expression }} = <strong class="text-metric text-accent">{{ lastRoll.total }}</strong>
-      </span>
-      <span class="text-micro text-muted">
-        ({{ lastRoll.rolls.join(', ') }} + {{ lastRoll.modifier }})
-      </span>
-    </section>
-  }
+  <div aria-live="polite">
+    @if (lastRoll) {
+      <div class="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2 rounded-xl border border-accent/25 bg-accent/6 px-4 py-3">
+        <span class="text-micro font-semibold uppercase text-muted">Latest result</span>
+        <span class="text-body text-ink">
+          {{ lastRoll.expression }} =
+          <strong class="text-metric font-bold text-accent">{{ lastRoll.total }}</strong>
+        </span>
+        <span class="text-micro text-muted">
+          ({{ lastRoll.rolls.join(', ') }} + {{ lastRoll.modifier }})
+        </span>
+      </div>
+    }
+  </div>
 
   @if (rollHistory.length > 0) {
-    <div class="mt-2 flex flex-col gap-1">
+    <div class="mt-2 divide-y divide-hairline overflow-hidden rounded-xl bg-tile">
       @for (item of rollHistory.slice(0, 5); track $index) {
-        <div class="history-item">
-          <span>{{ item.expression }}</span>
-          <span class="font-bold text-accent">{{ item.total }}</span>
+        <div class="flex items-center justify-between gap-4 px-3 py-1.5 text-micro text-muted">
+          <span class="min-w-0 truncate">{{ item.expression }}</span>
+          <span class="shrink-0 font-semibold text-accent">{{ item.total }}</span>
         </div>
       }
     </div>
   }
-</forge-section>
+</section>

@@ -9,6 +9,7 @@ __pycache__/
 .vscode/
 .temp_env/
 *.log
+client/ui-refactor/
 data/*
 !data/rules/
 app_debug.log

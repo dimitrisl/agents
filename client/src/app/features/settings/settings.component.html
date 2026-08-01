@@ -2,7 +2,7 @@
   title="⚙️ Phyrexian Forge Settings"
   subtitle="Configure AI model parameters, edition defaults, and system options."
 >
-  <div class="mx-auto flex w-full max-w-[600px] flex-col gap-5">
+  <div class="mx-auto flex w-full max-w-150 flex-col gap-5">
     <forge-section variant="plain" density="comfortable">
       <label
         for="default-edition"
@@ -53,7 +53,12 @@
     </forge-section>
 
     <div>
-      <button forgeButton variant="primary" type="button" (click)="saveSettings()">
+      <button
+        forgeButton
+        variant="primary"
+        type="button"
+        (click)="saveSettings()"
+      >
         💾 Save Preferences
       </button>
     </div>

@@ -1,25 +1,25 @@
-<forge-page title="🗡️ Player Dashboard" subtitle="Your active hero sheet, rolls, combat state, and campaign tools.">
-  <app-hero-vault-bar
-    actions
-    [edition]="charState.dndEdition()"
+<forge-page>
+  <app-player-dashboard-header
+    [activeCharacter]="charState.activeCharacter()"
     [activeCharacterId]="charState.activeCharacter()?.char_id"
     [characters]="charState.filteredCharacters()"
     [editMode]="editMode"
+    [portraitUrl]="charState.activeCharacter() ? getPortraitUrl(charState.activeCharacter()) : ''"
     (selectCharacter)="onSelectCharacter($event)"
     (newHero)="goToForge()"
     (editSheet)="openEditModal()"
     (quickEdit)="toggleEditMode()"
     (joinCampaign)="showJoinModal = true"
-  ></app-hero-vault-bar>
+  ></app-player-dashboard-header>
 
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
-    <div class="grid grid-cols-1 gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-      <aside class="flex min-w-0 flex-col gap-4">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
         <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body-sm text-gold">
-          🏰 Member of Campaign: <strong>{{ char.active_campaign }}</strong>
+          Member of Campaign: <strong>{{ char.active_campaign }}</strong>
         </div>
 
-        <app-vitals-header
+        <app-character-overview-card
           [char]="char"
           [editMode]="editMode"
           [edition]="char.dnd_edition || charState.dndEdition()"
@@ -27,165 +27,111 @@
           [availableHitDice]="getAvailableHitDice()"
           [classHitDieSize]="getClassHitDieSize()"
           [passivePerception]="charState.passivePerception()"
+          [abilityEntries]="getStatsArray(char.stats)"
+          [getModifierString]="getModifierString.bind(this)"
           (portrait)="showPortraitModal = true"
           (hpDown)="adjustHp(-1)"
           (hpUp)="adjustHp(1)"
-        >
-          <app-ability-scores
-            [char]="char"
-            [entries]="getStatsArray(char.stats)"
-            [editMode]="editMode"
-            [getModifierString]="getModifierString.bind(this)"
-            (abilityCheck)="rollAbilityCheck($event)"
-            (savingThrow)="rollSavingThrow($event)"
-          ></app-ability-scores>
-        </app-vitals-header>
+          (abilityCheck)="rollAbilityCheck($event)"
+          (savingThrow)="rollSavingThrow($event)"
+        ></app-character-overview-card>
       </aside>
 
-      <section class="min-w-0 pb-24 lg:pb-20">
-        <div class="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <forge-tabs
-            instanceId="player-tabs"
-            [tabs]="sheetTabs"
-            [activeId]="sheetSubTab"
-            (activeIdChange)="selectSheetSubTab($event)"
-          ></forge-tabs>
+      <section class="min-w-0">
+        <forge-card padding="none" [hoverable]="false">
+          <div class="flex min-h-0 flex-col">
+            <div class="flex flex-col gap-3 border-b border-hairline p-4 lg:flex-row lg:items-center lg:justify-between">
+              <app-character-tabs
+                class="min-w-0 flex-1"
+                [tabs]="sheetTabs"
+                [activeId]="sheetSubTab"
+                (activeIdChange)="selectSheetSubTab($event)"
+              ></app-character-tabs>
 
-          <fieldset class="flex shrink-0 items-center gap-1 overflow-x-auto rounded-full border border-hairline bg-black/25 p-1" aria-label="Roll Advantage Mode">
-            <legend class="sr-only">Roll Advantage Mode</legend>
-            <label class="cursor-pointer rounded-full px-3 py-1.5 text-label font-semibold transition-colors" [class.bg-accent]="rollMode === 'normal'" [class.text-white]="rollMode === 'normal'">
-              <input class="sr-only" type="radio" name="rollMode" value="normal" [(ngModel)]="rollMode" /> Normal
-            </label>
-            <label class="cursor-pointer rounded-full px-3 py-1.5 text-label font-semibold transition-colors" [class.bg-accent]="rollMode === 'advantage'" [class.text-white]="rollMode === 'advantage'">
-              <input class="sr-only" type="radio" name="rollMode" value="advantage" [(ngModel)]="rollMode" /> Advantage ⚡
-            </label>
-            <label class="cursor-pointer rounded-full px-3 py-1.5 text-label font-semibold transition-colors" [class.bg-accent]="rollMode === 'disadvantage'" [class.text-white]="rollMode === 'disadvantage'">
-              <input class="sr-only" type="radio" name="rollMode" value="disadvantage" [(ngModel)]="rollMode" /> Disadvantage ⚠️
-            </label>
-          </fieldset>
-        </div>
+              <app-roll-mode-selector
+                class="min-w-0 shrink-0"
+                [(rollMode)]="rollMode"
+              ></app-roll-mode-selector>
+            </div>
 
-        <forge-section
-          *ngIf="sheetSubTab === 'skills'"
-          role="tabpanel"
-          aria-labelledby="player-tabs-tab-skills"
-          variant="card"
-          density="compact"
-          title="📜 Skill Proficiencies & Check Rollers"
-        >
-          <label actions class="inline-flex items-center gap-2 text-label font-semibold text-gold">
-            <input
-              type="checkbox"
-              class="h-4 w-4 accent-[var(--theme-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              [(ngModel)]="showProficientOnly"
-            />
-            Show Proficient Only (⭐)
-          </label>
+            <div class="min-w-0 p-4">
+              <app-skills-panel
+                *ngIf="sheetSubTab === 'skills'"
+                [showProficientOnly]="showProficientOnly"
+                (showProficientOnlyChange)="onShowProficientOnlyChange($event)"
+                [openGroups]="openGroups"
+                [attributes]="skillAttributes"
+                [getSkillsByAttribute]="getSkillsByAttribute.bind(this)"
+                [getAttributeFullName]="getAttributeFullName.bind(this)"
+                [getAttributeModifier]="getAttributeModifier.bind(this)"
+                [isProficient]="isProficient.bind(this)"
+                [getSkillModString]="getSkillModString.bind(this)"
+                (toggleGroup)="toggleGroup($event)"
+                (rollAbility)="rollAbilityCheck($event)"
+                (rollSkill)="rollSkillCheck($event)"
+              ></app-skills-panel>
 
-          <p class="text-body-sm text-muted">
-            Organized by primary attribute. Expand groups or filter by proficiency.
-          </p>
+              <app-combat-panel
+                *ngIf="sheetSubTab === 'combat'"
+                role="tabpanel"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [char]="char"
+                [editMode]="editMode"
+                (addWeapon)="addWeapon()"
+                (deleteWeapon)="deleteWeapon($event)"
+                (rollWeaponAttack)="rollWeaponAttack($event)"
+                (toggleEquipped)="toggleEquipped($event)"
+                (addEquipment)="addEquipment()"
+                (deleteEquipment)="deleteEquipment($event)"
+                (save)="saveCurrentChar()"
+              ></app-combat-panel>
 
-          <div class="flex flex-col gap-3">
-            <section *ngFor="let attr of ['STR', 'DEX', 'INT', 'WIS', 'CHA']" class="overflow-hidden rounded-lg border border-hairline bg-black/25">
-              <button
-                type="button"
-                class="flex w-full items-center justify-between gap-3 bg-white/[0.04] px-4 py-3 text-left font-display text-body font-bold text-ink transition-colors hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-                [attr.aria-expanded]="openGroups[attr]"
-                [attr.aria-controls]="'skills-panel-' + attr"
-                (click)="toggleGroup(attr)"
-              >
-                <span><strong>{{ getAttributeFullName(attr) }}</strong> ({{ attr }})</span>
-                <span class="text-label text-muted" aria-hidden="true">{{ openGroups[attr] ? '▼' : '►' }}</span>
-              </button>
+              <app-spells-panel
+                *ngIf="sheetSubTab === 'spells'"
+                role="tabpanel"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [char]="char"
+                [getSpellSlotUsed]="getSpellSlotUsed.bind(this)"
+                [getSpellSlotMax]="getSpellSlotMax.bind(this)"
+                (useSpellSlot)="useSpellSlot($event)"
+                (restoreSpellSlot)="restoreSpellSlot($event)"
+              ></app-spells-panel>
 
-              <div *ngIf="openGroups[attr]" [id]="'skills-panel-' + attr" class="border-t border-hairline p-3">
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <ng-container *ngFor="let skill of getSkillsByAttribute(attr)">
-                    <div
-                      *ngIf="!showProficientOnly || isProficient(skill.name)"
-                      class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-black/30 px-3 py-2"
-                    >
-                      <div class="flex min-w-0 items-center gap-2">
-                        <span class="text-body" [class.opacity-100]="isProficient(skill.name)" [class.opacity-30]="!isProficient(skill.name)">
-                          {{ isProficient(skill.name) ? '⭐' : '⚪' }}
-                        </span>
-                        <strong class="truncate text-body text-ink">{{ skill.name }}</strong>
-                      </div>
+              <app-roleplay-panel
+                *ngIf="sheetSubTab === 'roleplay'"
+                role="tabpanel"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [char]="char"
+                [editMode]="editMode"
+                (save)="saveCurrentChar()"
+              ></app-roleplay-panel>
+            </div>
 
-                      <div class="flex shrink-0 items-center gap-2">
-                        <forge-badge tone="gold" size="sm">{{ getSkillModString(skill) }}</forge-badge>
-                        <button forgeButton variant="secondary" size="sm" type="button" (click)="rollSkillCheck(skill)">
-                          🎲 Roll
-                        </button>
-                      </div>
-                    </div>
-                  </ng-container>
-                </div>
-              </div>
-            </section>
+            <app-action-dock
+              (shortRest)="openShortRestModal()"
+              (longRest)="triggerLongRest()"
+              (levelUp)="onLevelUp()"
+              (audit)="onValidateCharacter()"
+              (strategy)="onGenerateStrategy()"
+              (exportPdf)="onExportPdf()"
+            ></app-action-dock>
           </div>
-        </forge-section>
-
-        <app-combat-panel
-          *ngIf="sheetSubTab === 'combat'"
-          role="tabpanel"
-          [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
-          [char]="char"
-          [editMode]="editMode"
-          (addWeapon)="addWeapon()"
-          (deleteWeapon)="deleteWeapon($event)"
-          (rollWeaponAttack)="rollWeaponAttack($event)"
-          (toggleEquipped)="toggleEquipped($event)"
-          (addEquipment)="addEquipment()"
-          (deleteEquipment)="deleteEquipment($event)"
-          (save)="saveCurrentChar()"
-        ></app-combat-panel>
-
-        <app-spells-panel
-          *ngIf="sheetSubTab === 'spells'"
-          role="tabpanel"
-          [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
-          [char]="char"
-          [getSpellSlotUsed]="getSpellSlotUsed.bind(this)"
-          [getSpellSlotMax]="getSpellSlotMax.bind(this)"
-          (useSpellSlot)="useSpellSlot($event)"
-          (restoreSpellSlot)="restoreSpellSlot($event)"
-        ></app-spells-panel>
-
-        <app-roleplay-panel
-          *ngIf="sheetSubTab === 'roleplay'"
-          role="tabpanel"
-          [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
-          [char]="char"
-          [editMode]="editMode"
-          (save)="saveCurrentChar()"
-        ></app-roleplay-panel>
+        </forge-card>
       </section>
     </div>
   </ng-container>
 
   <ng-template #emptyState>
     <forge-empty-state
-      icon="🗡️"
+      icon="D20"
       title="No Heroes Found"
       description="Your vault is empty. It is time to forge a new legend."
     >
       <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
-        ✨ Forge Your First Hero
+        Forge Your First Hero
       </button>
     </forge-empty-state>
   </ng-template>
-
-  <app-action-dock
-    *ngIf="charState.activeCharacter()"
-    (shortRest)="openShortRestModal()"
-    (longRest)="triggerLongRest()"
-    (levelUp)="onLevelUp()"
-    (audit)="onValidateCharacter()"
-    (strategy)="onGenerateStrategy()"
-    (exportPdf)="onExportPdf()"
-  ></app-action-dock>
 
   <app-pdf-preview-modal
     [open]="!!pdfPreviewUrl"
@@ -248,5 +194,4 @@
     [editChar]="charState.activeCharacter()"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
-
 </forge-page>

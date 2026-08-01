@@ -2,14 +2,16 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RollToastService } from '../../../core/services/roll-toast.service';
-import { ForgeButtonDirective, ForgeInputDirective, ForgeSectionComponent } from '../../ui';
+import { ForgeButtonDirective, ForgeInputDirective } from '../../ui';
 
 @Component({
   selector: 'app-dice-roller',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeInputDirective, ForgeSectionComponent],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeInputDirective],
   templateUrl: './dice-roller.component.html',
-  styleUrl: './dice-roller.component.css',
+  host: {
+    class: 'block',
+  },
 })
 export class DiceRollerComponent {
   modifier = 0;
@@ -35,9 +37,11 @@ export class DiceRollerComponent {
     this.rollHistory.unshift(rollData);
 
     this.rollToast.showRoll({
-      title: `ðŸŽ² QUICK ROLL: D${sides}`,
+      title: `🎲 QUICK ROLL: D${sides}`,
       expression,
       raw,
+      rolls: [raw],
+      sides,
       modifier: this.modifier,
       total
     });

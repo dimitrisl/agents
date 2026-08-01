@@ -38,12 +38,12 @@ export class CommandPaletteComponent {
   private previouslyFocusedElement?: HTMLElement;
 
   commands: CommandItem[] = [
-    { icon: 'âœ¨', title: 'Open Character Forge', category: 'Navigation', route: '/forge' },
-    { icon: 'ðŸ“œ', title: 'Player Dashboard Sheet', category: 'Navigation', route: '/player' },
-    { icon: 'ðŸ°', title: 'Dungeon Master Workspace', category: 'Navigation', route: '/dm' },
-    { icon: 'ðŸ“š', title: 'Arcane Rules Library', category: 'Navigation', route: '/rules' },
-    { icon: 'âš™ï¸', title: 'System Settings', category: 'Navigation', route: '/settings' },
-    { icon: 'ðŸ”‘', title: 'Quick Admin Panel', category: 'Navigation', route: '/admin' },
+    { icon: '\u2728', title: 'Open Character Forge', category: 'Navigation', route: '/forge' },
+    { icon: '\u{1F4DC}', title: 'Player Dashboard Sheet', category: 'Navigation', route: '/player' },
+    { icon: '\u{1F3F0}', title: 'Dungeon Master Workspace', category: 'Navigation', route: '/dm' },
+    { icon: '\u{1F4DA}', title: 'Arcane Rules Library', category: 'Navigation', route: '/rules' },
+    { icon: '\u2699\uFE0F', title: 'System Settings', category: 'Navigation', route: '/settings' },
+    { icon: '\u{1F511}', title: 'Quick Admin Panel', category: 'Navigation', route: '/admin' },
   ];
 
   filteredCommands: CommandItem[] = [...this.commands];

@@ -372,6 +372,8 @@ export class DmComponent implements OnInit {
       title: `🎲 DM CHECK: ${member.name.toUpperCase()} (${stat})`,
       expression: expr,
       raw,
+      rolls: [raw],
+      sides: 20,
       modifier: mod,
       total
     });

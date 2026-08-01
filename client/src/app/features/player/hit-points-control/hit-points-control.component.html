@@ -1,0 +1,56 @@
+<section class="py-3" aria-labelledby="hit-points-heading">
+  <p
+    id="hit-points-heading"
+    class="text-micro font-semibold uppercase text-muted text-center"
+  >
+    Hit Points
+  </p>
+  <div class="mt-2 flex items-center justify-center gap-4">
+    <button
+      forgeButton
+      variant="secondary"
+      size="md"
+      iconOnly
+      type="button"
+      aria-label="Decrease hit points"
+      (click)="hpDown.emit()"
+    >
+      −
+    </button>
+    <div class="min-w-0 text-center leading-none">
+      <span
+        class="text-metric font-extrabold text-accent px-2"
+        aria-hidden="true"
+        >♥</span
+      >
+      <span class="sr-only">Current hit points</span>
+      <span class="text-[2rem] font-extrabold text-ink">{{ current }}</span>
+      <span class="px-1 text-title font-semibold text-muted">/</span>
+      <span class="text-title font-semibold text-muted">{{ max }}</span>
+    </div>
+    <button
+      forgeButton
+      variant="secondary"
+      size="md"
+      iconOnly
+      type="button"
+      aria-label="Increase hit points"
+      (click)="hpUp.emit()"
+    >
+      +
+    </button>
+  </div>
+  <div
+    class="mt-3 h-1 overflow-hidden rounded-full bg-tile"
+    role="meter"
+    [attr.aria-valuemin]="0"
+    [attr.aria-valuemax]="max"
+    [attr.aria-valuenow]="current"
+    aria-label="Hit point total"
+  >
+    <div
+      class="h-full rounded-full bg-accent transition-[width] duration-200"
+      [style.width.%]="percentage"
+    ></div>
+  </div>
+</section>

@@ -2,7 +2,11 @@
   <ng-container *ngTemplateOutlet="logoTemplate"></ng-container>
 
   <h2 class="mb-6 font-display text-title text-accent">
-    {{ isRegister ? 'ðŸ†• Create Account' : 'ðŸ”‘ Seasoned Adventurer Login' }}
+    @if (isRegister) {
+      &#127381; Create Account
+    } @else {
+      &#128273; Seasoned Adventurer Login
+    }
   </h2>
 
   <div class="mb-4 text-left">
@@ -27,7 +31,7 @@
   </div>
 
   @if (error) {
-    <div class="mb-4 text-body text-red">âŒ {{ error }}</div>
+    <div class="mb-4 text-body text-red">&#10060; {{ error }}</div>
   }
 
   <div class="mt-6 flex flex-col gap-3">
@@ -42,19 +46,19 @@
 
   <section class="mt-6 border-t border-hairline pt-5">
     <p class="mb-3 text-label font-semibold uppercase tracking-[0.08em] text-muted">
-      âš¡ Instant Demo Access
+      &#9889; Instant Demo Access
     </p>
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('mitsos')">
-        ðŸŽ® DM Mitsos Demo
+        &#127918; DM Mitsos Demo
       </button>
       <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('guest')">
-        ðŸ—¡ï¸ Adventurer Demo
+        &#128481;&#65039; Adventurer Demo
       </button>
     </div>
   </section>
 
   <button class="mt-4" forgeButton variant="ghost" size="md" fullWidth (click)="back.emit()">
-    â¬…ï¸ Back to Choice
+    &#11013;&#65039; Back to Choice
   </button>
 </forge-card>

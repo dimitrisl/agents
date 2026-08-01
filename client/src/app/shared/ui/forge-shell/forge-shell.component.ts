@@ -66,7 +66,7 @@ export class ForgeShellComponent {
   }
 
   get shellClasses(): string {
-    return this.hasSidebar ? 'lg:grid lg:grid-cols-[240px_minmax(0,1fr)]' : '';
+    return this.hasSidebar ? 'lg:grid lg:grid-cols-[256px_minmax(0,1fr)]' : '';
   }
 
   /**

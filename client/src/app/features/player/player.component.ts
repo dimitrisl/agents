@@ -9,17 +9,17 @@ import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
 import {
-  ForgeBadgeComponent,
   ForgeButtonDirective,
+  ForgeCardComponent,
   ForgeEmptyStateComponent,
   ForgePageComponent,
-  ForgeSectionComponent,
   ForgeTab,
-  ForgeTabsComponent,
 } from '../../shared/ui';
-import { HeroVaultBarComponent } from './hero-vault-bar/hero-vault-bar.component';
-import { VitalsHeaderComponent } from './vitals-header/vitals-header.component';
-import { AbilityScoresComponent } from './ability-scores/ability-scores.component';
+import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player-dashboard-header.component';
+import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
+import { CharacterTabsComponent } from './character-tabs/character-tabs.component';
+import { RollModeSelectorComponent } from './roll-mode-selector/roll-mode-selector.component';
+import { SkillsPanelComponent } from './skills-panel/skills-panel.component';
 import { ActionDockComponent } from './action-dock/action-dock.component';
 import { CombatPanelComponent } from './tabs/combat-panel/combat-panel.component';
 import { SpellsPanelComponent } from './tabs/spells-panel/spells-panel.component';
@@ -45,15 +45,15 @@ export interface SkillDefinition {
   imports: [
     CommonModule,
     FormsModule,
-    ForgeBadgeComponent,
     ForgeButtonDirective,
+    ForgeCardComponent,
     ForgeEmptyStateComponent,
     ForgePageComponent,
-    ForgeSectionComponent,
-    ForgeTabsComponent,
-    HeroVaultBarComponent,
-    VitalsHeaderComponent,
-    AbilityScoresComponent,
+    PlayerDashboardHeaderComponent,
+    CharacterOverviewCardComponent,
+    CharacterTabsComponent,
+    RollModeSelectorComponent,
+    SkillsPanelComponent,
     ActionDockComponent,
     CombatPanelComponent,
     SpellsPanelComponent,
@@ -112,6 +112,12 @@ export class PlayerComponent implements OnInit, OnDestroy {
     WIS: false,
     CHA: false
   };
+
+  readonly skillAttributes = ['STR', 'DEX', 'INT', 'WIS', 'CHA'];
+
+  // Snapshot of `openGroups` taken when the proficiency filter is switched on,
+  // so switching it back off returns the sheet to the user's own layout.
+  private openGroupsBeforeFilter: { [key: string]: boolean } | null = null;
 
   allSkills: SkillDefinition[] = [
     { name: 'Athletics', ability: 'STR' },
@@ -191,7 +197,36 @@ export class PlayerComponent implements OnInit, OnDestroy {
   }
 
   toggleGroup(attr: string) {
-    this.openGroups[attr] = !this.openGroups[attr];
+    this.openGroups = { ...this.openGroups, [attr]: !this.openGroups[attr] };
+  }
+
+  // Turning the proficiency filter on collapses every ability group that has no
+  // proficient skill and expands the ones that do, so the filtered sheet opens
+  // straight onto what is actually rollable. Turning it off restores whatever
+  // the user had expanded beforehand.
+  onShowProficientOnlyChange(showProficientOnly: boolean): void {
+    if (showProficientOnly === this.showProficientOnly) return;
+    this.showProficientOnly = showProficientOnly;
+
+    if (showProficientOnly) {
+      this.openGroupsBeforeFilter = { ...this.openGroups };
+
+      const filtered: { [key: string]: boolean } = { ...this.openGroups };
+      for (const attr of this.skillAttributes) {
+        filtered[attr] = this.hasProficientSkill(attr);
+      }
+      this.openGroups = filtered;
+      return;
+    }
+
+    if (this.openGroupsBeforeFilter) {
+      this.openGroups = { ...this.openGroupsBeforeFilter };
+      this.openGroupsBeforeFilter = null;
+    }
+  }
+
+  private hasProficientSkill(attr: string): boolean {
+    return this.getSkillsByAttribute(attr).some((skill) => this.isProficient(skill.name));
   }
 
   getSkillsByAttribute(attr: string): SkillDefinition[] {
@@ -207,6 +242,12 @@ export class PlayerComponent implements OnInit, OnDestroy {
       CHA: 'Charisma'
     };
     return names[attr] || attr;
+  }
+
+  getAttributeModifier(attr: string): string {
+    const char = this.charState.activeCharacter();
+    const value = char?.stats?.[attr] || 10;
+    return this.getModifierString(value);
   }
 
   goToForge() {
@@ -280,6 +321,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
       title: `⛺ SHORT REST HEAL (${count}d${dieSize})`,
       expression: `${count}d${dieSize} (${rolls.join(', ')}) ${conBonus >= 0 ? '+' + conBonus : conBonus}`,
       raw: rolls[0],
+      rolls,
+      sides: dieSize,
       modifier: conBonus,
       total: totalHealed,
       message: `Healed for +${totalHealed} HP! (${oldHp} ➡️ ${newHp})`
@@ -355,21 +398,23 @@ export class PlayerComponent implements OnInit, OnDestroy {
     return mod >= 0 ? `+${mod}` : `${mod}`;
   }
 
-  rollD20(): number {
+  rollD20(): { raw: number; rolls: number[] } {
     if (this.rollMode === 'advantage') {
       const r1 = Math.floor(Math.random() * 20) + 1;
       const r2 = Math.floor(Math.random() * 20) + 1;
-      return Math.max(r1, r2);
+      return { raw: Math.max(r1, r2), rolls: [r1, r2] };
     } else if (this.rollMode === 'disadvantage') {
       const r1 = Math.floor(Math.random() * 20) + 1;
       const r2 = Math.floor(Math.random() * 20) + 1;
-      return Math.min(r1, r2);
+      return { raw: Math.min(r1, r2), rolls: [r1, r2] };
     }
-    return Math.floor(Math.random() * 20) + 1;
+    const raw = Math.floor(Math.random() * 20) + 1;
+    return { raw, rolls: [raw] };
   }
 
   rollSkillCheck(skill: SkillDefinition) {
-    const raw = this.rollD20();
+    const d20 = this.rollD20();
+    const raw = d20.raw;
     const mod = this.getSkillModifier(skill);
     const total = raw + mod;
     const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
@@ -379,6 +424,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
       title: `🎲 ${skill.name.toUpperCase()} CHECK${modeLabel}`,
       expression: expr,
       raw,
+      rolls: d20.rolls,
+      sides: 20,
       modifier: mod,
       total,
       mode: this.rollMode
@@ -390,7 +437,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
     if (!char || !char.stats) return;
     const val = char.stats[stat] || 10;
     const mod = Math.floor((val - 10) / 2);
-    const raw = this.rollD20();
+    const d20 = this.rollD20();
+    const raw = d20.raw;
     const total = raw + mod;
     const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
     const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
@@ -399,6 +447,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
       title: `🎲 ${stat} CHECK${modeLabel}`,
       expression: expr,
       raw,
+      rolls: d20.rolls,
+      sides: 20,
       modifier: mod,
       total,
       mode: this.rollMode
@@ -413,7 +463,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const isSaveProf = char.saving_throws?.includes(stat);
     const profBonus = char.proficiency_bonus || 2;
     const totalMod = mod + (isSaveProf ? profBonus : 0);
-    const raw = this.rollD20();
+    const d20 = this.rollD20();
+    const raw = d20.raw;
     const total = raw + totalMod;
     const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
     const expr = `1d20 (${raw}) ${totalMod >= 0 ? '+' + totalMod : totalMod}`;
@@ -422,6 +473,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
       title: `🛡️ ${stat} SAVING THROW${modeLabel}`,
       expression: expr,
       raw,
+      rolls: d20.rolls,
+      sides: 20,
       modifier: totalMod,
       total,
       mode: this.rollMode
@@ -747,7 +800,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
   }
 
   rollWeaponAttack(w: Weapon) {
-    const raw = this.rollD20();
+    const d20 = this.rollD20();
+    const raw = d20.raw;
     const modNum = parseInt(w.attack_bonus) || 0;
     const total = raw + modNum;
     const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
@@ -757,6 +811,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
       title: `⚔️ ${w.name.toUpperCase()} ATTACK${modeLabel}`,
       expression: expr,
       raw,
+      rolls: d20.rolls,
+      sides: 20,
       modifier: modNum,
       total,
       mode: this.rollMode

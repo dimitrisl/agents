@@ -9,7 +9,7 @@ const BASE_CLASSES =
 
 const VARIANT_CLASSES: Record<ForgeButtonVariant, string> = {
   primary:
-    'border border-accent bg-[linear-gradient(135deg,rgba(255,75,75,0.25),rgba(255,75,75,0.08))] text-ink shadow-none [text-shadow:0_1px_2px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 hover:bg-accent hover:text-white hover:shadow-glow active:translate-y-0',
+    'border border-accent bg-[linear-gradient(135deg,color-mix(in_srgb,var(--theme-accent)_25%,transparent),color-mix(in_srgb,var(--theme-accent)_8%,transparent))] text-ink shadow-none [text-shadow:0_1px_2px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 hover:bg-accent hover:text-white hover:shadow-glow active:translate-y-0',
   secondary:
     'border border-hairline bg-white/5 text-muted hover:-translate-y-px hover:border-white/30 hover:bg-white/10 hover:text-ink active:translate-y-0',
   ghost:

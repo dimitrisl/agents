@@ -9,8 +9,10 @@
       (click)="$event.stopPropagation()"
       (keydown)="handlePaletteKeydown($event)"
     >
-      <div class="flex items-center gap-3 rounded-lg border border-hairline bg-black/40 p-2">
-        <span class="text-title" aria-hidden="true">ðŸ”</span>
+      <div
+        class="flex items-center gap-3 rounded-lg border border-hairline bg-black/40 p-2"
+      >
+        <span class="text-title" aria-hidden="true">&#128269;</span>
         <input
           forgeInput
           type="text"
@@ -19,11 +21,13 @@
           (input)="filterCommands()"
           #searchInput
         />
-        <span class="rounded bg-white/10 px-2 py-1 text-micro text-muted">ESC</span>
+        <span class="rounded bg-white/10 px-2 py-1 text-micro text-muted"
+          >ESC</span
+        >
       </div>
 
       <div
-        class="mt-3 max-h-[350px] overflow-y-auto"
+        class="mt-3 max-h-87.5 overflow-y-auto"
         role="listbox"
         aria-label="Command results"
       >
@@ -42,7 +46,9 @@
               <strong class="truncate text-body">{{ item.title }}</strong>
             </span>
 
-            <forge-badge tone="muted" size="sm">{{ item.category }}</forge-badge>
+            <forge-badge tone="muted" size="sm">{{
+              item.category
+            }}</forge-badge>
           </button>
         }
 

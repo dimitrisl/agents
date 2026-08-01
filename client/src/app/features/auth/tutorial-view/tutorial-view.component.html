@@ -1,6 +1,6 @@
 <forge-card class="text-center" [hoverable]="false" padding="lg">
   <h2 class="font-display text-title text-accent">
-    ðŸ”® Wizard's Journey: Step {{ step + 1 }} of 3
+    &#128302; Wizard's Journey: Step {{ step + 1 }} of 3
   </h2>
 
   <div class="my-6 flex justify-center gap-2">
@@ -11,7 +11,7 @@
 
   <section class="mb-6 rounded-[10px] border border-hairline bg-black/30 p-6">
     @if (step === 0) {
-      <div class="mb-2 text-[3.5rem] leading-none">ðŸ”®</div>
+      <div class="mb-2 text-[3.5rem] leading-none">&#128302;</div>
       <h3 class="mb-3 font-display text-title text-gold">Why the Forge?</h3>
       <p class="text-body leading-relaxed text-ink">
         Tired of messy scrolls and math-induced headaches? The Forge is your <b>arcane companion</b> that automates the complex mechanics of D&D 5e & 5.5e! We bridge the gap between imagination and rules, letting you focus on the story while we handle the heavy lifting.
@@ -19,7 +19,7 @@
     }
 
     @if (step === 1) {
-      <div class="mb-2 text-[3.5rem] leading-none">âœ¨</div>
+      <div class="mb-2 text-[3.5rem] leading-none">&#10024;</div>
       <h3 class="mb-3 font-display text-title text-gold">Manifest Your Hero</h3>
       <p class="text-body leading-relaxed text-ink">
         Jump into the <b>Player Dashboard</b> to forge your legend. Use our friendly Gemini AI to write backstories, optimize stats, level up seamlessly, and generate beautiful hero portraits with AI image tools!
@@ -27,7 +27,7 @@
     }
 
     @if (step === 2) {
-      <div class="mb-2 text-[3.5rem] leading-none">ðŸ§™â€â™‚ï¸</div>
+      <div class="mb-2 text-[3.5rem] leading-none">&#129497;&zwj;&#9794;&#65039;</div>
       <h3 class="mb-3 font-display text-title text-gold">Command the Realm</h3>
       <p class="text-body leading-relaxed text-ink">
         DMs can organize epic campaigns in the <b>DM Workspace</b> with live party hit point trackers, initiative sequencing, whisper channels, and a complete 2014 & 2024 digital rules oracle!
@@ -37,18 +37,18 @@
 
   <div class="flex flex-col justify-between gap-3 sm:flex-row">
     <button forgeButton variant="secondary" size="md" (click)="previous()">
-      â¬…ï¸ {{ step > 0 ? 'Previous Spell' : 'Back to Choice' }}
+      &#11013;&#65039; {{ step > 0 ? 'Previous Spell' : 'Back to Choice' }}
     </button>
 
     @if (step < 2) {
       <button forgeButton variant="primary" size="md" (click)="next()">
-        Next Incantation âž¡ï¸
+        Next Incantation &#10145;&#65039;
       </button>
     }
 
     @if (step === 2) {
       <button forgeButton variant="primary" size="md" (click)="finish.emit()">
-        ðŸš€ Enter the Forge
+        &#128640; Enter the Forge
       </button>
     }
   </div>

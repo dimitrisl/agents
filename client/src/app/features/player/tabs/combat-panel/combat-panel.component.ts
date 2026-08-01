@@ -6,7 +6,6 @@ import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeInputDirective,
-  ForgeSectionComponent,
 } from '../../../../shared/ui';
 import { DiceRollerComponent } from '../../../../shared/components/dice-roller/dice-roller.component';
 
@@ -19,11 +18,13 @@ import { DiceRollerComponent } from '../../../../shared/components/dice-roller/d
     ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeInputDirective,
-    ForgeSectionComponent,
     DiceRollerComponent,
   ],
   templateUrl: './combat-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class: 'block',
+  },
 })
 export class CombatPanelComponent {
   @Input({ required: true }) char!: CharacterSchema;

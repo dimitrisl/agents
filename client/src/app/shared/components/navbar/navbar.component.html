@@ -1,39 +1,48 @@
 @switch (section) {
   @case ('brand') {
-    <div class="flex min-w-0 items-center gap-3">
-      <svg
-        class="h-8 w-8 shrink-0"
-        viewBox="0 0 100 100"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <polygon
-          points="50,15 85,35 85,75 50,90 15,75 15,35"
-          stroke="var(--theme-accent)"
-          stroke-width="6"
-          fill="rgba(255, 75, 75, 0.15)"
-        />
-        <line
-          x1="50"
-          y1="15"
-          x2="50"
-          y2="90"
-          stroke="var(--theme-accent)"
-          stroke-width="4"
-        />
-      </svg>
+    <div class="flex min-w-0 flex-col gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <svg
+          class="h-9 w-9 shrink-0"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <polygon
+            points="50,15 85,35 85,75 50,90 15,75 15,35"
+            stroke="var(--theme-accent)"
+            stroke-width="6"
+            fill="color-mix(in srgb, var(--theme-accent) 14%, transparent)"
+          />
+          <line
+            x1="50"
+            y1="15"
+            x2="50"
+            y2="90"
+            stroke="var(--theme-accent)"
+            stroke-width="4"
+          />
+        </svg>
 
-      <div class="min-w-0">
-        <h1 class="font-display text-title text-accent">Phyrexian Forge</h1>
-        <span class="block text-micro italic text-muted">
-          "All will be one • {{ charState.dndEdition() }}"
-        </span>
+        <div class="min-w-0">
+          <h1 class="font-display text-title leading-tight text-accent">Phyrexian Forge</h1>
+        </div>
       </div>
+
+      <button
+        type="button"
+        class="flex h-9 w-full items-center justify-between rounded-lg border border-hairline bg-black/20 px-3 text-label text-muted transition-colors hover:bg-white/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+        [attr.aria-label]="'Switch edition. Current edition: ' + charState.dndEdition()"
+        (click)="toggleEdition()"
+      >
+        <span>{{ charState.dndEdition() }}</span>
+        <span aria-hidden="true">⌄</span>
+      </button>
     </div>
   }
 
   @case ('nav') {
-    <nav class="flex flex-col gap-1" aria-label="Primary navigation">
+    <nav class="flex flex-col gap-2" aria-label="Primary navigation">
       <a
         routerLink="/player"
         routerLinkActive="active"
@@ -42,7 +51,8 @@
         class="nav-link"
         [attr.aria-current]="playerLink.isActive ? 'page' : null"
       >
-        🗡️ Player Dashboard
+        <span class="nav-icon" aria-hidden="true">🗡</span>
+        <span>Player Dashboard</span>
       </a>
       <a
         routerLink="/forge"
@@ -52,7 +62,8 @@
         class="nav-link"
         [attr.aria-current]="forgeLink.isActive ? 'page' : null"
       >
-        ✨ Character Forge
+        <span class="nav-icon" aria-hidden="true">✦</span>
+        <span>Character Forge</span>
       </a>
       <a
         routerLink="/dm"
@@ -62,7 +73,8 @@
         class="nav-link"
         [attr.aria-current]="dmLink.isActive ? 'page' : null"
       >
-        🏰 DM Workspace
+        <span class="nav-icon" aria-hidden="true">🏰</span>
+        <span>DM Workspace</span>
       </a>
       <a
         routerLink="/rules"
@@ -72,7 +84,8 @@
         class="nav-link"
         [attr.aria-current]="rulesLink.isActive ? 'page' : null"
       >
-        📚 Rules Library
+        <span class="nav-icon" aria-hidden="true">📚</span>
+        <span>Rules Library</span>
       </a>
       <a
         routerLink="/settings"
@@ -82,7 +95,8 @@
         class="nav-link"
         [attr.aria-current]="settingsLink.isActive ? 'page' : null"
       >
-        ⚙️ Settings
+        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <span>Settings</span>
       </a>
       <a
         *ngIf="isAdmin()"
@@ -93,7 +107,8 @@
         class="nav-link"
         [attr.aria-current]="adminLink.isActive ? 'page' : null"
       >
-        🛡️ Admin
+        <span class="nav-icon" aria-hidden="true">🛡</span>
+        <span>Admin</span>
       </a>
     </nav>
   }
@@ -112,12 +127,15 @@
       </div>
 
       <ng-container *ngIf="authService.currentUser() as user">
-        <div class="text-micro text-muted">
-          👤 Logged in as
-          <strong class="font-semibold text-accent">{{ user.name || user.username }}</strong>
+        <div class="flex items-center gap-3 rounded-lg bg-white/[0.03] p-2">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-title" aria-hidden="true">👤</div>
+          <div class="min-w-0">
+            <p class="truncate text-body-sm font-semibold text-ink">{{ user.name || user.username }}</p>
+            <p class="text-micro text-muted">{{ isAdmin() ? 'Dungeon Master' : 'Player' }}</p>
+          </div>
         </div>
 
-        <button forgeButton variant="secondary" size="sm" (click)="authService.logout()">
+        <button forgeButton variant="ghost" size="sm" fullWidth (click)="authService.logout()">
           Logout
         </button>
       </ng-container>

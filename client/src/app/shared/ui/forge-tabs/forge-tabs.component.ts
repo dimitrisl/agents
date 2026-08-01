@@ -19,6 +19,8 @@ export interface ForgeTab {
   disabled?: boolean;
 }
 
+type ForgeTabsVariant = 'pill' | 'underline';
+
 let nextInstanceId = 0;
 
 @Directive({
@@ -48,6 +50,7 @@ export class ForgeTabsComponent implements AfterViewInit {
   @Input() tabs: ForgeTab[] = [];
   @Input() activeId!: string;
   @Input() instanceId = `forge-tabs-${nextInstanceId++}`;
+  @Input() variant: ForgeTabsVariant = 'pill';
 
   @Output() activeIdChange = new EventEmitter<string>();
 
@@ -70,6 +73,33 @@ export class ForgeTabsComponent implements AfterViewInit {
 
   tabId(tabId: string): string {
     return `${this.instanceId}-tab-${tabId}`;
+  }
+
+  get tablistClasses(): string {
+    return this.variant === 'underline'
+      ? 'flex gap-2 overflow-x-auto border-b border-hairline pb-0 whitespace-nowrap [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+      : 'flex gap-2 overflow-x-auto border-b border-hairline pb-0.5 whitespace-nowrap [-webkit-overflow-scrolling:touch]';
+  }
+
+  get buttonBaseClasses(): string {
+    const shared =
+      'shrink-0 border-b-2 px-4 py-3 text-body-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50';
+
+    return this.variant === 'underline'
+      ? shared
+      : `${shared} rounded-t-lg font-semibold`;
+  }
+
+  tabClasses(tab: ForgeTab): string {
+    if (this.variant === 'underline') {
+      return this.activeId === tab.id
+        ? 'border-accent bg-panel text-ink font-semibold'
+        : 'border-transparent text-muted hover:bg-panel hover:text-ink';
+    }
+
+    return this.activeId === tab.id
+      ? 'border-accent bg-accent text-white shadow-glow'
+      : 'border-transparent text-muted hover:border-accent hover:bg-white/5 hover:text-accent';
   }
 
   onKeydown(event: KeyboardEvent, currentIndex: number): void {

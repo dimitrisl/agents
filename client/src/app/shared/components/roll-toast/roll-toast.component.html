@@ -1,8 +1,20 @@
 @if (rollService.activeRoll(); as roll) {
-  <div class="roll-toast-overlay animated-fade">
-    <div class="roll-toast-card" [class.nat-20]="roll.isNat20" [class.nat-1]="roll.isNat1">
+  <div class="roll-toast-overlay animated-fade" [class.message-only]="roll.message">
+    <div
+      class="roll-toast-card"
+      [class.nat-20]="roll.isNat20 && diceSettled()"
+      [class.nat-1]="roll.isNat1 && diceSettled()"
+    >
+      @if ((roll.isNat20 || roll.isNat1) && diceSettled()) {
+        <div class="critical-aura" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      }
+
       <div class="toast-header">
-        <span class="font-display text-body font-bold tracking-[0.04em] text-gold">{{ roll.title }}</span>
+        <span class="font-display text-body font-bold tracking-[0.04em] text-gold">{{ displayTitle(roll.title) }}</span>
         <button
           forgeButton
           variant="ghost"
@@ -11,7 +23,7 @@
           aria-label="Dismiss roll notification"
           (click)="rollService.dismiss()"
         >
-          Ã—
+          &times;
         </button>
       </div>
 
@@ -22,33 +34,70 @@
       }
 
       @if (!roll.message) {
-        <div class="toast-roll-body">
-          <div class="flex flex-col items-start">
-            <div class="d20-icon-wrapper" [class.rolling]="isRolling">
-              <span class="text-[1.4rem] font-extrabold text-ink" [class.gold-text]="roll.isNat20" [class.red-text]="roll.isNat1">
-                ðŸŽ² {{ roll.raw }}
-              </span>
-            </div>
-
-            @if (roll.isNat20) {
-              <forge-badge tone="gold" size="md" class="animated-pulse mt-1">
-                â­ CRITICAL HIT!
-              </forge-badge>
-            }
-
-            @if (roll.isNat1) {
-              <forge-badge tone="danger" size="md" class="animated-pulse mt-1">
-                ðŸ’€ CRITICAL FAIL!
-              </forge-badge>
-            }
+        <div class="roll-stage">
+          <div class="mode-strip" aria-label="Roll mode">
+            <span [class.active]="!roll.mode || roll.mode === 'normal'">Normal</span>
+            <span [class.active]="roll.mode === 'advantage'">Advantage</span>
+            <span [class.active]="roll.mode === 'disadvantage'">Disadvantage</span>
           </div>
 
-          <div class="flex flex-col items-end">
+          @if (!webglFailed()) {
+            <div class="dice-arena">
+              <div class="arena-glow" aria-hidden="true"></div>
+              @defer (on immediate) {
+                <app-dice-3d
+                  [values]="roll.rolls || [roll.raw]"
+                  [sides]="roll.sides || 20"
+                  [rollKey]="rollKey()"
+                  [accent]="accent()"
+                  [crit]="roll.isNat20 ? 'success' : roll.isNat1 ? 'fail' : null"
+                  (settled)="onDiceSettled()"
+                  (unsupported)="onWebglUnsupported()"
+                />
+              }
+            </div>
+          } @else {
+            <div class="d20-stage" [class.rolling]="isRolling()" [class.critical]="roll.isNat20 || roll.isNat1">
+              <div class="d20-shadow" aria-hidden="true"></div>
+              <div class="d20-shell" [class.gold-text]="roll.isNat20" [class.red-text]="roll.isNat1">
+                <span class="d20-label" aria-hidden="true">d{{ roll.sides || 20 }}</span>
+                <span class="d20-value">{{ roll.raw }}</span>
+              </div>
+            </div>
+          }
+
+          @if ((roll.rolls?.length || 0) > 1) {
+            <div class="dice-breakdown reveal" [class.revealed]="diceSettled()">
+              @for (value of roll.rolls; track $index) {
+                <span
+                  class="roll-chip"
+                  [class.kept]="value === roll.raw"
+                  [class.discarded]="(roll.mode === 'advantage' && value < roll.raw) || (roll.mode === 'disadvantage' && value > roll.raw)"
+                >
+                  {{ value }}
+                </span>
+              }
+            </div>
+          }
+
+          <div class="roll-total-block reveal" [class.revealed]="diceSettled()">
             <span class="text-label text-muted">{{ roll.expression }}</span>
             <span class="total-score" [class.gold-glow]="roll.isNat20" [class.red-glow]="roll.isNat1">
               {{ roll.total }}
             </span>
           </div>
+
+          @if (roll.isNat20 && diceSettled()) {
+            <forge-badge tone="gold" size="md" class="critical-badge success">
+                &#11088; CRITICAL SUCCESS!
+            </forge-badge>
+          }
+
+          @if (roll.isNat1 && diceSettled()) {
+            <forge-badge tone="danger" size="md" class="critical-badge failure">
+                &#128128; CRITICAL FAIL!
+            </forge-badge>
+          }
         </div>
       }
     </div>
