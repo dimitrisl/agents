@@ -217,7 +217,7 @@ class CharacterSchema(BaseModel):
     char_portrait: Optional[str] = None
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
-
+    active_campaign: Optional[str] = None
     @field_validator("spell_slots", mode="before")
     @classmethod
     def normalize_spell_slots(cls, v: Any) -> Dict[str, Dict[str, int]]:
