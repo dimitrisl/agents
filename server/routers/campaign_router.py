@@ -49,8 +49,14 @@ class WhisperRequest(BaseModel):
 async def list_campaigns(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
 ):
+    user_chars = db["characters"].find({"owner_id": current_user["id"]})
+    joined_campaigns = []
+    async for char in user_chars:
+        if char.get("active_campaign"):
+            joined_campaigns.append(char["active_campaign"])
+
     cursor = db["campaigns"].find(
-        {"$or": [{"owner_id": current_user["id"]}, {"party": current_user["id"]}]}
+        {"$or": [{"owner_id": current_user["id"]}, {"campaign_name": {"$in": joined_campaigns}}]}
     )
     campaigns = []
     async for doc in cursor:
