@@ -219,6 +219,13 @@ export interface InitiativeCombatant {
           </div>
           <div *ngIf="encounterResult" class="result-box">
             <p><strong>Encounter Text:</strong> {{ encounterResult.encounter_text }}</p>
+            <div *ngIf="encounterResult.monsters && encounterResult.monsters.length > 0" style="margin-top: 1rem;">
+              <h5>Found Monsters:</h5>
+              <ul>
+                <li *ngFor="let m of encounterResult.monsters">{{ m.quantity }}x {{ m.name }} (HP: {{ m.hp }}, AC: {{ m.ac }})</li>
+              </ul>
+              <button class="phyrexian-btn" style="margin-top: 0.5rem;" (click)="addEncounterMonstersToInitiative()">➕ Add to Initiative</button>
+            </div>
           </div>
         </div>
 
@@ -917,6 +924,31 @@ export class DmComponent implements OnInit {
     }).subscribe((res) => {
       this.encounterResult = res;
     });
+  }
+
+  addEncounterMonstersToInitiative() {
+    if (!this.encounterResult || !this.encounterResult.monsters) return;
+
+    this.encounterResult.monsters.forEach((m: any) => {
+      const qty = m.quantity || 1;
+      for (let i = 0; i < qty; i++) {
+        const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
+        const dexMod = Math.floor((m.dex - 10) / 2);
+        this.combatants.push({
+          id: Math.random().toString(36).substring(2, 9),
+          name: monsterName,
+          initiative: 10 + dexMod,
+          hp: m.hp,
+          max_hp: m.hp,
+          ac: m.ac,
+          dex: m.dex,
+          is_player: false,
+          statblock: m.statblock_summary
+        });
+      }
+    });
+    this.sortCombatants();
+    this.rollToast.showMessage('⚔️ MONSTERS ADDED', `Added ${this.encounterResult.monsters.length} monster groups to the Initiative Tracker.`);
   }
 
   generateNpc() {
