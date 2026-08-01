@@ -3,8 +3,6 @@ import json
 import logging
 import re
 
-import streamlit as st
-
 from backend.core.ai_client import generate_ai_json, generate_ai_response
 from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.prompts import (
@@ -25,7 +23,7 @@ def _get_rules_repo():
     return RulesRepository()
 
 
-@st.cache_data(show_spinner=False)
+@functools.lru_cache(maxsize=128)
 def query_rules(query: str, edition: str = EDITION_2014) -> str:
     """Uses AI to answer questions about D&D rules."""
     prompt = RULES_ORACLE_PROMPT.format(
@@ -35,7 +33,7 @@ def query_rules(query: str, edition: str = EDITION_2014) -> str:
     return generate_ai_response(prompt)
 
 
-@st.cache_data(show_spinner=False)
+@functools.lru_cache(maxsize=128)
 def compare_rules(query: str) -> str:
     """Uses AI to compare 2014 and 2024 rules."""
     prompt = RULE_COMPARISON_PROMPT.format(query=query)
