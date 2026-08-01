@@ -1,9 +1,15 @@
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
+from backend.core.schemas import (
+    CharacterSchema,
+    LevelUpAnalysisSchema,
+    PlaystyleGuideResponse,
+    PortraitResponse,
+)
 from backend.services.forge_service import (
     analyze_level_up,
     forge_character,
@@ -139,7 +145,7 @@ async def get_level_up_analysis(
     return LevelUpAnalysisSchema.model_validate(analysis, strict=False)
 
 
-@router.post("/playstyle-guide")
+@router.post("/playstyle-guide", response_model=PlaystyleGuideResponse)
 async def get_playstyle_guide(
     character: CharacterSchema, current_user: dict = Depends(get_current_user)
 ):
@@ -148,11 +154,12 @@ async def get_playstyle_guide(
     return {"guide_markdown": guide_text}
 
 
-@router.post("/portrait")
+@router.post("/portrait", response_model=PortraitResponse)
 async def generate_ai_portrait(
-    payload: PortraitRequest, current_user: dict = Depends(get_current_user)
+    payload: PortraitRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     doc = await db["characters"].find_one(
         {"char_id": payload.char_id, "owner_id": current_user["id"]}
     )
@@ -169,4 +176,4 @@ async def generate_ai_portrait(
             {"char_id": payload.char_id}, {"$set": {"char_portrait": portrait_url}}
         )
 
-    return {"portrait_url": portrait_url}
+    return {"success": bool(portrait_url), "portrait_url": portrait_url or ""}

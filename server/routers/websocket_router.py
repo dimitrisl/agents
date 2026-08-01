@@ -2,7 +2,9 @@ import json
 import logging
 from typing import Dict, List
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
+
+from server.dependencies.auth import get_current_user_from_token
 
 logger = logging.getLogger("PhyrexianForge.WebSocket")
 
@@ -42,7 +44,16 @@ manager = ConnectionManager()
 
 
 @router.websocket("/ws/campaigns/{campaign_id}")
-async def campaign_websocket_endpoint(websocket: WebSocket, campaign_id: str):
+async def campaign_websocket_endpoint(
+    websocket: WebSocket, campaign_id: str, token: str = Query(...)
+):
+    try:
+        await get_current_user_from_token(token)
+    except Exception as e:
+        logger.warning(f"Unauthorized WebSocket connection attempt: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(campaign_id, websocket)
     try:
         while True:

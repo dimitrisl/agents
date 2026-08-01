@@ -1,0 +1,13 @@
+name: Rebase Enforcer
+
+on:
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  enforce-rebase:
+    name: Rebase Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dummy check for rebase rule
+        run: echo "This check only exists to satisfy GitHub's requirement for the 'Require branches to be up to date' rule."

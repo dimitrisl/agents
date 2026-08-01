@@ -3,8 +3,6 @@ import json
 import logging
 import re
 
-import streamlit as st
-
 from backend.core.ai_client import generate_ai_json, generate_ai_response
 from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.prompts import (
@@ -25,7 +23,7 @@ def _get_rules_repo():
     return RulesRepository()
 
 
-@st.cache_data(show_spinner=False)
+@functools.lru_cache(maxsize=128)
 def query_rules(query: str, edition: str = EDITION_2014) -> str:
     """Uses AI to answer questions about D&D rules."""
     prompt = RULES_ORACLE_PROMPT.format(
@@ -35,7 +33,7 @@ def query_rules(query: str, edition: str = EDITION_2014) -> str:
     return generate_ai_response(prompt)
 
 
-@st.cache_data(show_spinner=False)
+@functools.lru_cache(maxsize=128)
 def compare_rules(query: str) -> str:
     """Uses AI to compare 2014 and 2024 rules."""
     prompt = RULE_COMPARISON_PROMPT.format(query=query)
@@ -63,7 +61,7 @@ def autofix_character_build(char_data: dict) -> dict:
         edition = "2024 Edition"
         corrected_char["dnd_edition"] = edition
 
-    char_class = corrected_char.get("char_class", "Fighter")
+    char_class = corrected_char.get("char_class", "")
     level = corrected_char.get("char_level", 1)
 
     # Edition 2024 Rule: Subclasses are gained exclusively at Level 3
@@ -123,9 +121,7 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
     # Synchronize derived stats according to edition rules
     from backend.services.stats_service import sync_character_stats
 
-    class_data = _get_rules_repo().get_class_progression(
-        final_raw.get("char_class", "Fighter"), edition
-    )
+    class_data = _get_rules_repo().get_class_progression(final_raw.get("char_class", ""), edition)
     final_raw = sync_character_stats(final_raw, class_data)
 
     try:

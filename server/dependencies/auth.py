@@ -5,6 +5,7 @@ from typing import Optional
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
@@ -53,7 +54,9 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     return encoded_jwt
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+async def get_current_user_from_token(
+    token: str, db: Optional[AsyncIOMotorDatabase] = None
+) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -78,7 +81,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
             "has_completed_tutorial": True,
         }
 
-    db = get_database()
+    if db is None:
+        db = await get_database()
+
     user = await db["users"].find_one({"id": user_id})
     if user is None:
         user = await db["users"].find_one({"username": username})
@@ -94,3 +99,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 
     user.pop("password_hash", None)
     return user
+
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), db: AsyncIOMotorDatabase = Depends(get_database)
+) -> dict:
+    return await get_current_user_from_token(token, db)

@@ -218,6 +218,7 @@ class CharacterSchema(BaseModel):
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
+
     @field_validator("spell_slots", mode="before")
     @classmethod
     def normalize_spell_slots(cls, v: Any) -> Dict[str, Dict[str, int]]:
@@ -352,3 +353,59 @@ class WhisperSchema(BaseModel):
     recipient: str
     message: str
     timestamp: str
+
+
+# ==========================================
+# API Response Schemas
+# ==========================================
+class SuccessResponseSchema(BaseModel):
+    success: bool
+    message: str
+
+
+class NpcResponse(BaseModel):
+    npc_markdown: str
+
+
+class RiddleResponse(BaseModel):
+    riddle_markdown: str
+
+
+class SessionPrepResponse(BaseModel):
+    session_markdown: str
+
+
+class PlaystyleGuideResponse(BaseModel):
+    guide_markdown: str
+
+
+class PortraitResponse(BaseModel):
+    success: bool
+    portrait_url: str
+
+
+class InviteCodeResponse(BaseModel):
+    invite_code: str
+
+
+class RulesQueryResponse(BaseModel):
+    answer_markdown: str
+
+
+class RulesCompareResponse(BaseModel):
+    comparison_markdown: str
+
+
+class RulesValidationResult(BaseModel):
+    is_valid: bool
+    issues: List[str]
+    suggestions: List[str]
+    corrections: Dict[str, Any]
+
+
+class RulesValidationResponse(BaseModel):
+    validation_result: RulesValidationResult
+
+
+class RulesAutofixResponse(BaseModel):
+    corrected_character: Dict[str, Any]

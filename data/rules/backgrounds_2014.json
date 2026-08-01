@@ -1,0 +1,98 @@
+[
+    {
+        "name": "Acolyte"
+    },
+    {
+        "name": "Charlatan"
+    },
+    {
+        "name": "Criminal"
+    },
+    {
+        "name": "Entertainer"
+    },
+    {
+        "name": "Folk Hero"
+    },
+    {
+        "name": "Guild Artisan"
+    },
+    {
+        "name": "Hermit"
+    },
+    {
+        "name": "Noble"
+    },
+    {
+        "name": "Outlander"
+    },
+    {
+        "name": "Sage"
+    },
+    {
+        "name": "Sailor"
+    },
+    {
+        "name": "Soldier"
+    },
+    {
+        "name": "Urchin"
+    },
+    {
+        "name": "Anthropologist"
+    },
+    {
+        "name": "Archaeologist"
+    },
+    {
+        "name": "Athlete"
+    },
+    {
+        "name": "City Watch"
+    },
+    {
+        "name": "Clan Crafter"
+    },
+    {
+        "name": "Cloistered Scholar"
+    },
+    {
+        "name": "Courtier"
+    },
+    {
+        "name": "Faction Agent"
+    },
+    {
+        "name": "Far Traveler"
+    },
+    {
+        "name": "Fisher"
+    },
+    {
+        "name": "Gladiator"
+    },
+    {
+        "name": "Inheritor"
+    },
+    {
+        "name": "Knight"
+    },
+    {
+        "name": "Knight of the Order"
+    },
+    {
+        "name": "Marine"
+    },
+    {
+        "name": "Mercenary Veteran"
+    },
+    {
+        "name": "Urban Bounty Hunter"
+    },
+    {
+        "name": "Uthgardt Tribe Member"
+    },
+    {
+        "name": "Waterdhavian Noble"
+    }
+]

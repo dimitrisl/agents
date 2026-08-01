@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.main import app
 
@@ -23,7 +24,7 @@ def test_auth_registration_and_login(mocker):
     mock_users_col.insert_one = AsyncMock(return_value=MagicMock())
 
     mock_db = {"users": mock_users_col}
-    mocker.patch("server.routers.auth_router.get_database", return_value=mock_db)
+    app.dependency_overrides[get_database] = lambda: mock_db
 
     # Test Registration
     reg_response = client.post(
@@ -96,7 +97,7 @@ def test_character_routes(mocker):
         mock_chars_col.delete_one = AsyncMock(return_value=MagicMock(deleted_count=1))
 
         mock_db = {"characters": mock_chars_col}
-        mocker.patch("server.routers.character_router.get_database", return_value=mock_db)
+        app.dependency_overrides[get_database] = lambda: mock_db
 
         # 1. List characters
         response = client.get("/api/v1/characters/")
@@ -134,7 +135,7 @@ def test_rules_router(mocker):
             return_value="2024 Revision simplifies Grappling to a Saving Throw.",
         )
         mocker.patch(
-            "server.routers.rules_router.validate_character_build",
+            "server.routers.rules_router.deterministic_validate_build",
             return_value={"valid": True, "errors": []},
         )
 
@@ -156,7 +157,7 @@ def test_rules_router(mocker):
             "/api/v1/rules/validate", json={"character": {"char_name": "Valeros"}}
         )
         assert response.status_code == 200
-        assert response.json()["validation_result"]["valid"] is True
+        assert response.json()["validation_result"]["is_valid"] is True
     finally:
         app.dependency_overrides.clear()
 
@@ -190,6 +191,6 @@ def test_dm_router(mocker):
             "/api/v1/dm/riddle", json={"location": "Crypt", "edition": "2014 Edition"}
         )
         assert response.status_code == 200
-        assert "speaks without a mouth" in response.json()["riddle_text"]
+        assert "speaks without a mouth" in response.json()["riddle_markdown"]
     finally:
         app.dependency_overrides.clear()

@@ -6,12 +6,29 @@
         "Intelligence"
     ],
     "starting_proficiencies": {
-        "saving_throws": ["Constitution", "Intelligence"],
-        "armor": ["Light", "Medium", "Shields"],
-        "weapons": ["Simple"],
+        "saving_throws": [
+            "Constitution",
+            "Intelligence"
+        ],
+        "armor": [
+            "Light",
+            "Medium",
+            "Shields"
+        ],
+        "weapons": [
+            "Simple"
+        ],
         "skills": {
             "count": 2,
-            "options": ["Arcana", "History", "Investigation", "Medicine", "Nature", "Perception", "Sleight of Hand"]
+            "options": [
+                "Arcana",
+                "History",
+                "Investigation",
+                "Medicine",
+                "Nature",
+                "Perception",
+                "Sleight of Hand"
+            ]
         }
     },
     "progression": {
@@ -180,5 +197,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "half",
+    "spellcasting_ability": "INT"
 }

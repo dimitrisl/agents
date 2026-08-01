@@ -52,9 +52,8 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> Dict[str, Any]:
     corrected_char = copy.deepcopy(char_data)
     repo = RulesRepository()
 
-    char_class = corrected_char.get("char_class", "Fighter")
+    char_class = corrected_char.get("char_class", "")
     edition = corrected_char.get("dnd_edition", "2014 Edition")
-    level = corrected_char.get("char_level", 1)
 
     class_data = repo.get_class_progression(char_class, edition)
 

@@ -3,12 +3,26 @@
     "edition": "2024 Revision (5.5e)",
     "hit_die": "d6",
     "starting_proficiencies": {
-        "saving_throws": ["Constitution", "Charisma"],
-        "armor": ["None"],
-        "weapons": ["Simple Weapons"],
+        "saving_throws": [
+            "Constitution",
+            "Charisma"
+        ],
+        "armor": [
+            "None"
+        ],
+        "weapons": [
+            "Simple Weapons"
+        ],
         "skills": {
             "count": 2,
-            "options": ["Arcana", "Deception", "Insight", "Intimidation", "Persuasion", "Religion"]
+            "options": [
+                "Arcana",
+                "Deception",
+                "Insight",
+                "Intimidation",
+                "Persuasion",
+                "Religion"
+            ]
         }
     },
     "primary_ability": [
@@ -183,5 +197,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "full",
+    "spellcasting_ability": "CHA"
 }

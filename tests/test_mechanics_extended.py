@@ -400,19 +400,22 @@ class TestCalculateMaxSpellSlots:
         from backend.services.mechanics_service import calculate_max_spell_slots
 
         # Level 1 Wizard
-        assert calculate_max_spell_slots("Wizard", 1) == {"level_1": 2}
+        assert calculate_max_spell_slots("Wizard", 1, caster_type="full") == {"level_1": 2}
         # Level 2 Druid
-        assert calculate_max_spell_slots("Druid", 2) == {"level_1": 3}
+        assert calculate_max_spell_slots("Druid", 2, caster_type="full") == {"level_1": 3}
         # Level 3 Cleric
-        assert calculate_max_spell_slots("Cleric", 3) == {"level_1": 4, "level_2": 2}
+        assert calculate_max_spell_slots("Cleric", 3, caster_type="full") == {
+            "level_1": 4,
+            "level_2": 2,
+        }
         # Level 5 Sorcerer
-        assert calculate_max_spell_slots("Sorcerer", 5) == {
+        assert calculate_max_spell_slots("Sorcerer", 5, caster_type="full") == {
             "level_1": 4,
             "level_2": 3,
             "level_3": 2,
         }
         # Level 11 Bard
-        assert calculate_max_spell_slots("Bard", 11) == {
+        assert calculate_max_spell_slots("Bard", 11, caster_type="full") == {
             "level_1": 4,
             "level_2": 3,
             "level_3": 3,
@@ -421,7 +424,7 @@ class TestCalculateMaxSpellSlots:
             "level_6": 1,
         }
         # Level 17 Wizard
-        assert calculate_max_spell_slots("Wizard", 17) == {
+        assert calculate_max_spell_slots("Wizard", 17, caster_type="full") == {
             "level_1": 4,
             "level_2": 3,
             "level_3": 3,
@@ -433,7 +436,7 @@ class TestCalculateMaxSpellSlots:
             "level_9": 1,
         }
         # Level 20 Cleric
-        assert calculate_max_spell_slots("Cleric", 20) == {
+        assert calculate_max_spell_slots("Cleric", 20, caster_type="full") == {
             "level_1": 4,
             "level_2": 3,
             "level_3": 3,
@@ -462,15 +465,23 @@ class TestCalculateMaxSpellSlots:
         from backend.services.mechanics_service import calculate_max_spell_slots
 
         # Paladin Level 1 has no slots
-        assert calculate_max_spell_slots("Paladin", 1) == {}
+        assert calculate_max_spell_slots("Paladin", 1, caster_type="half") == {}
         # Paladin Level 2
-        assert calculate_max_spell_slots("Paladin", 2) == {"level_1": 2}
+        assert calculate_max_spell_slots("Paladin", 2, caster_type="half") == {"level_1": 2}
         # Ranger Level 3
-        assert calculate_max_spell_slots("Ranger", 3) == {"level_1": 3}
+        assert calculate_max_spell_slots("Ranger", 3, caster_type="half") == {"level_1": 3}
+        # Ranger Level 5
+        assert calculate_max_spell_slots("Ranger", 5, caster_type="half") == {
+            "level_1": 4,
+            "level_2": 2,
+        }
         # Paladin Level 5
-        assert calculate_max_spell_slots("Paladin", 5) == {"level_1": 4, "level_2": 2}
+        assert calculate_max_spell_slots("Paladin", 5, caster_type="half") == {
+            "level_1": 4,
+            "level_2": 2,
+        }
         # Ranger Level 20
-        assert calculate_max_spell_slots("Ranger", 20) == {
+        assert calculate_max_spell_slots("Ranger", 20, caster_type="half") == {
             "level_1": 4,
             "level_2": 3,
             "level_3": 3,
@@ -483,15 +494,18 @@ class TestCalculateMaxSpellSlots:
         from backend.services.mechanics_service import calculate_max_spell_slots
 
         # Artificer Level 1
-        assert calculate_max_spell_slots("Artificer", 1) == {"level_1": 2}
+        assert calculate_max_spell_slots("Artificer", 1, caster_type="half") == {"level_1": 2}
         # Artificer Level 2
-        assert calculate_max_spell_slots("Artificer", 2) == {"level_1": 2}
+        assert calculate_max_spell_slots("Artificer", 2, caster_type="half") == {"level_1": 2}
         # Artificer Level 3
-        assert calculate_max_spell_slots("Artificer", 3) == {"level_1": 3}
+        assert calculate_max_spell_slots("Artificer", 3, caster_type="half") == {"level_1": 3}
         # Artificer Level 5
-        assert calculate_max_spell_slots("Artificer", 5) == {"level_1": 4, "level_2": 2}
+        assert calculate_max_spell_slots("Artificer", 5, caster_type="half") == {
+            "level_1": 4,
+            "level_2": 2,
+        }
         # Artificer Level 20
-        assert calculate_max_spell_slots("Artificer", 20) == {
+        assert calculate_max_spell_slots("Artificer", 20, caster_type="half") == {
             "level_1": 4,
             "level_2": 3,
             "level_3": 3,

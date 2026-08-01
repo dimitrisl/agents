@@ -7,12 +7,42 @@
         "CHA"
     ],
     "starting_proficiencies": {
-        "saving_throws": ["Dexterity", "Charisma"],
-        "armor": ["Light"],
-        "weapons": ["Simple", "Hand Crossbows", "Longswords", "Rapiers", "Shortswords"],
+        "saving_throws": [
+            "Dexterity",
+            "Charisma"
+        ],
+        "armor": [
+            "Light"
+        ],
+        "weapons": [
+            "Simple",
+            "Hand Crossbows",
+            "Longswords",
+            "Rapiers",
+            "Shortswords"
+        ],
         "skills": {
             "count": 3,
-            "options": ["Acrobatics", "Animal Handling", "Arcana", "Athletics", "Deception", "History", "Insight", "Intimidation", "Investigation", "Medicine", "Nature", "Perception", "Performance", "Persuasion", "Religion", "Sleight of Hand", "Stealth", "Survival"]
+            "options": [
+                "Acrobatics",
+                "Animal Handling",
+                "Arcana",
+                "Athletics",
+                "Deception",
+                "History",
+                "Insight",
+                "Intimidation",
+                "Investigation",
+                "Medicine",
+                "Nature",
+                "Perception",
+                "Performance",
+                "Persuasion",
+                "Religion",
+                "Sleight of Hand",
+                "Stealth",
+                "Survival"
+            ]
         }
     },
     "progression": {
@@ -218,5 +248,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "full",
+    "spellcasting_ability": "CHA"
 }

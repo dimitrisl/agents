@@ -3,12 +3,39 @@
     "edition": "2014 Edition",
     "hit_die": "d8",
     "starting_proficiencies": {
-        "saving_throws": ["Intelligence", "Wisdom"],
-        "armor": ["Light armor", "Medium armor", "Shields (druids will not wear armor or use shields made of metal)"],
-        "weapons": ["Clubs", "Daggers", "Darts", "Javelins", "Maces", "Quarterstaffs", "Scimitars", "Sickles", "Slings", "Spears"],
+        "saving_throws": [
+            "Intelligence",
+            "Wisdom"
+        ],
+        "armor": [
+            "Light armor",
+            "Medium armor",
+            "Shields (druids will not wear armor or use shields made of metal)"
+        ],
+        "weapons": [
+            "Clubs",
+            "Daggers",
+            "Darts",
+            "Javelins",
+            "Maces",
+            "Quarterstaffs",
+            "Scimitars",
+            "Sickles",
+            "Slings",
+            "Spears"
+        ],
         "skills": {
             "count": 2,
-            "options": ["Arcana", "Animal Handling", "Insight", "Medicine", "Nature", "Perception", "Religion", "Survival"]
+            "options": [
+                "Arcana",
+                "Animal Handling",
+                "Insight",
+                "Medicine",
+                "Nature",
+                "Perception",
+                "Religion",
+                "Survival"
+            ]
         }
     },
     "primary_ability": [
@@ -176,5 +203,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "full",
+    "spellcasting_ability": "WIS"
 }

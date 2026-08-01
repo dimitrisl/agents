@@ -3,6 +3,12 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from backend.core.schemas import (
+    RulesAutofixResponse,
+    RulesCompareResponse,
+    RulesQueryResponse,
+    RulesValidationResponse,
+)
 from backend.services.rules_service import (
     autofix_character_build,
     compare_rules,
@@ -27,7 +33,7 @@ class CharacterValidationRequest(BaseModel):
     character: Dict[str, Any]
 
 
-@router.post("/query")
+@router.post("/query", response_model=RulesQueryResponse)
 async def ask_rules_oracle(
     payload: RulesQueryRequest, current_user: dict = Depends(get_current_user)
 ):
@@ -35,7 +41,7 @@ async def ask_rules_oracle(
     return {"answer_markdown": answer}
 
 
-@router.post("/compare")
+@router.post("/compare", response_model=RulesCompareResponse)
 async def compare_rule_editions(
     payload: RulesCompareRequest, current_user: dict = Depends(get_current_user)
 ):
@@ -43,18 +49,22 @@ async def compare_rule_editions(
     return {"comparison_markdown": comparison}
 
 
-@router.post("/validate")
+@router.post("/validate", response_model=RulesValidationResponse)
 async def validate_rules(
     payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
 ):
-    result = deterministic_validate_build(payload.character)
-    # The frontend might expect a validation schema with issues. Since it's deterministic and auto-fixed, we mock the result.
+    corrected = deterministic_validate_build(payload.character)
     return {
-        "validation_result": {"is_valid": True, "issues": [], "suggestions": [], "corrections": {}}
+        "validation_result": {
+            "is_valid": True,
+            "issues": [],
+            "suggestions": [],
+            "corrections": corrected,
+        }
     }
 
 
-@router.post("/autofix")
+@router.post("/autofix", response_model=RulesAutofixResponse)
 async def autofix_rules(
     payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
 ):

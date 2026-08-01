@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from backend.core.schemas import EncounterSchema
+from backend.core.schemas import (
+    EncounterSchema,
+    NpcResponse,
+    RiddleResponse,
+    SessionPrepResponse,
+)
 from backend.services.dm_service import (
     generate_npc,
     generate_random_encounter,
@@ -55,21 +60,21 @@ async def create_encounter(
     return EncounterSchema.model_validate(result, strict=False)
 
 
-@router.post("/npc")
+@router.post("/npc", response_model=NpcResponse)
 async def create_npc(payload: NpcRequest, current_user: dict = Depends(get_current_user)):
     npc_text = generate_npc(payload.npc_concept, payload.edition)
     return {"npc_markdown": npc_text}
 
 
-@router.post("/riddle")
+@router.post("/riddle", response_model=RiddleResponse)
 async def create_riddle(payload: RiddleRequest, current_user: dict = Depends(get_current_user)):
     riddle_text = generate_riddle(payload.location, payload.edition)
-    return {"riddle_text": riddle_text}
+    return {"riddle_markdown": riddle_text}
 
 
-@router.post("/session-prep")
+@router.post("/session-prep", response_model=SessionPrepResponse)
 async def create_session_prep(
     payload: SessionPrepRequest, current_user: dict = Depends(get_current_user)
 ):
     prep_text = generate_session_prep(payload.campaign_notes, payload.party_info)
-    return {"prep_markdown": prep_text}
+    return {"session_markdown": prep_text}

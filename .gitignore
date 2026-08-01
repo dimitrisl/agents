@@ -20,3 +20,7 @@ scratch/
 .pytest_cache/
 htmlcov/
 testenv/
+
+# Editor and AI configs
+.cursorrules
+GEMINI.md
