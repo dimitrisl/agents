@@ -148,7 +148,9 @@ async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
     char_dict = process_character_update(char_dict)
 
-    pdf_bytes = export_character_to_pdf(char_dict, "5E_CharacterSheet_Fillable.pdf")
+    pdf_bytes = export_character_to_pdf(
+        char_dict, "data/pdf_mappings/5E_CharacterSheet_Fillable.pdf"
+    )
     if not pdf_bytes:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

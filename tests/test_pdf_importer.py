@@ -114,9 +114,9 @@ def test_parse_character_from_text():
 def test_extract_real_pdf_ulad_bohr():
     import os
 
-    pdf_path = "Ulad Bohr.pdf"
+    pdf_path = "tests/fixtures/Ulad Bohr.pdf"
     if not os.path.exists(pdf_path):
-        pytest.skip("Ulad Bohr.pdf not found in root directory")
+        pytest.skip("tests/fixtures/Ulad Bohr.pdf not found")
 
     with open(pdf_path, "rb") as f:
         result = extract_text_and_fields_from_pdf(f)
@@ -133,9 +133,9 @@ def test_extract_real_pdf_ulad_bohr():
 def test_extract_real_pdf_elara_sunwhisper():
     import os
 
-    pdf_path = "elara.pdf"
+    pdf_path = "tests/fixtures/elara.pdf"
     if not os.path.exists(pdf_path):
-        pytest.skip("elara.pdf not found in root directory")
+        pytest.skip("tests/fixtures/elara.pdf not found")
 
     with open(pdf_path, "rb") as f:
         result = extract_text_and_fields_from_pdf(f)
