@@ -4,6 +4,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema
@@ -45,8 +46,9 @@ class WhisperRequest(BaseModel):
 
 
 @router.get("/", response_model=List[CampaignSchema])
-async def list_campaigns(current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def list_campaigns(
+    current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
+):
     cursor = db["campaigns"].find(
         {"$or": [{"owner_id": current_user["id"]}, {"party": current_user["id"]}]}
     )
@@ -58,8 +60,11 @@ async def list_campaigns(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/", response_model=CampaignSchema)
-async def save_campaign(payload: CampaignSchema, current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def save_campaign(
+    payload: CampaignSchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     existing = await db["campaigns"].find_one({"campaign_name": payload.campaign_name})
 
     camp_dict = payload.model_dump()
@@ -75,8 +80,11 @@ async def save_campaign(payload: CampaignSchema, current_user: dict = Depends(ge
 
 
 @router.get("/{name}/party", response_model=List[Dict[str, Any]])
-async def get_campaign_party(name: str, current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def get_campaign_party(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     # Find all characters that have joined this campaign
     cursor = db["characters"].find({"active_campaign": name})
     party_members = []
@@ -88,9 +96,10 @@ async def get_campaign_party(name: str, current_user: dict = Depends(get_current
 
 @router.post("/join", response_model=Dict[str, Any])
 async def join_campaign_by_code(
-    payload: JoinCampaignRequest, current_user: dict = Depends(get_current_user)
+    payload: JoinCampaignRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     camp = await db["campaigns"].find_one({"invite_code": payload.invite_code.upper()})
     if not camp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
@@ -117,8 +126,11 @@ async def join_campaign_by_code(
 
 
 @router.post("/{name}/invite-code", response_model=InviteCodeResponse)
-async def generate_invite_code(name: str, current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def generate_invite_code(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     camp = await db["campaigns"].find_one({"campaign_name": name})
 
     if not camp:
@@ -148,8 +160,8 @@ async def add_roll_request(
     name: str,
     req_in: RollRequestSchema,
     current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         camp = {
@@ -197,8 +209,8 @@ async def send_whisper(
     name: str,
     payload: WhisperRequest,
     current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -232,8 +244,8 @@ async def save_campaign_notes(
     name: str,
     payload: CampaignNotesRequest,
     current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     result = await db["campaigns"].update_one(
         {"campaign_name": name}, {"$set": {"notes": payload.notes}}
     )

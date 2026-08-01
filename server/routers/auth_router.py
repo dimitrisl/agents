@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, EmailStr
 
 from server.db_async import get_database
@@ -46,8 +47,7 @@ class TutorialUpdateSchema(BaseModel):
 
 
 @router.post("/register", response_model=UserResponseSchema, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserRegisterSchema):
-    db = get_database()
+async def register(user_in: UserRegisterSchema, db: AsyncIOMotorDatabase = Depends(get_database)):
     username_clean = user_in.username.lower().strip()
     existing = await db["users"].find_one({"username": username_clean})
     if existing:
@@ -73,8 +73,10 @@ async def register(user_in: UserRegisterSchema):
 
 
 @router.post("/login", response_model=TokenResponseSchema)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    db = get_database()
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     user = await db["users"].find_one({"username": form_data.username.lower()})
 
     # Allow direct login if password matches legacy or passlib
@@ -158,9 +160,10 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 @router.put("/tutorial", response_model=UserResponseSchema)
 async def update_tutorial(
-    payload: TutorialUpdateSchema, current_user: dict = Depends(get_current_user)
+    payload: TutorialUpdateSchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     await db["users"].update_one(
         {"id": current_user["id"]},
         {"$set": {"has_completed_tutorial": payload.has_completed_tutorial}},

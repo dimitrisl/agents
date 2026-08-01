@@ -20,6 +20,8 @@ _feats_cache: dict = {}
 _items_cache: list | None = None
 _spells_cache: dict = {}
 _features_level_cache: dict = {}
+_races_cache: dict = {}
+_backgrounds_cache: dict = {}
 
 
 def _load_json(filepath: str):
@@ -165,7 +167,7 @@ class RulesRepository:
         filename = f"spells_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         local_spells = _load_json(filepath)
-        
+
         # Merge DB spells, preferring DB versions if there are conflicts
         db_spells_map = {s.get("name", "").lower(): s for s in spells}
         for s in local_spells:
@@ -183,3 +185,41 @@ class RulesRepository:
         spells = self.get_all_spells(edition)
         query = query.lower()
         return [s for s in spells if query in s["name"].lower()]
+
+    def get_available_races(self, edition: str = EDITION_2014) -> list:
+        """
+        Loads all available races for the specified edition.
+        """
+        if edition in _races_cache:
+            return _races_cache[edition]
+
+        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        filename = f"races_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+
+        if not os.path.exists(filepath):
+            return []
+
+        data = _load_json(filepath)
+        races = [r.get("name") for r in data if "name" in r]
+        _races_cache[edition] = races
+        return races
+
+    def get_available_backgrounds(self, edition: str = EDITION_2014) -> list:
+        """
+        Loads all available backgrounds for the specified edition.
+        """
+        if edition in _backgrounds_cache:
+            return _backgrounds_cache[edition]
+
+        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        filename = f"backgrounds_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+
+        if not os.path.exists(filepath):
+            return []
+
+        data = _load_json(filepath)
+        backgrounds = [b.get("name") for b in data if "name" in b]
+        _backgrounds_cache[edition] = backgrounds
+        return backgrounds

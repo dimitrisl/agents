@@ -4,14 +4,8 @@ import uuid
 
 from backend.core.ai_client import generate_ai_json, generate_ai_response
 from backend.core.constants import (
-    BACKGROUNDS_2014,
-    BACKGROUNDS_2024,
-    CLASSES_2014,
-    CLASSES_2024,
     EDITION_2014,
     GENDERS,
-    RACES_2014,
-    SPECIES_2024,
 )
 from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
@@ -52,14 +46,10 @@ def forge_character(
     auto_feats: bool = True,
 ) -> dict:
     """Generates a full D&D character using AI."""
-    if edition == EDITION_2014:
-        current_races = RACES_2014
-        current_classes = CLASSES_2014
-        current_backgrounds = BACKGROUNDS_2014
-    else:
-        current_races = SPECIES_2024
-        current_classes = CLASSES_2024
-        current_backgrounds = BACKGROUNDS_2024
+    repo = _get_rules_repo()
+    current_races = repo.get_available_races(edition)
+    current_classes = repo.get_available_classes(edition)
+    current_backgrounds = repo.get_available_backgrounds(edition)
 
     race_prompt = (
         forge_race if forge_race != "AI Choice" else f"Choose one from: {', '.join(current_races)}"

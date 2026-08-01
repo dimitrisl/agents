@@ -15,6 +15,7 @@ from fastapi import (
 )
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from backend.core.schemas import CharacterSchema, SuccessResponseSchema
 from backend.services.forge_service import process_character_update
@@ -41,8 +42,9 @@ def _cleanup_stale_pending():
 
 
 @router.get("", response_model=List[CharacterSchema])
-async def list_characters(current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def list_characters(
+    current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
+):
     cursor = db["characters"].find({"owner_id": current_user["id"]})
     characters = []
     async for doc in cursor:
@@ -57,9 +59,10 @@ async def list_characters(current_user: dict = Depends(get_current_user)):
 
 @router.post("", response_model=CharacterSchema, status_code=status.HTTP_201_CREATED)
 async def create_character(
-    char_in: CharacterSchema, current_user: dict = Depends(get_current_user)
+    char_in: CharacterSchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     char_dict = char_in.model_dump()
     char_dict["owner_id"] = current_user["id"]
 
@@ -73,8 +76,11 @@ async def create_character(
 
 
 @router.get("/{char_id}", response_model=CharacterSchema)
-async def get_character(char_id: str, current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def get_character(
+    char_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
@@ -87,8 +93,8 @@ async def update_character(
     char_id: str,
     char_in: CharacterSchema,
     current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    db = get_database()
     existing = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
@@ -121,8 +127,11 @@ async def update_character(
 
 
 @router.delete("/{char_id}", response_model=SuccessResponseSchema)
-async def delete_character(char_id: str, current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def delete_character(
+    char_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     result = await db["characters"].delete_one({"char_id": char_id, "owner_id": current_user["id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
@@ -139,8 +148,11 @@ async def delete_character(char_id: str, current_user: dict = Depends(get_curren
 
 
 @router.post("/{char_id}/export-pdf", response_class=FileResponse)
-async def export_pdf(char_id: str, current_user: dict = Depends(get_current_user)):
-    db = get_database()
+async def export_pdf(
+    char_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
