@@ -1,0 +1,15 @@
+<forge-modal [open]="open" (openChange)="openChange.emit($event)" title="🔑 Join Campaign">
+  <p class="mb-4 text-body-sm text-muted">Enter the 6-character Invite Code provided by your DM:</p>
+  <input
+    forgeInput
+    type="text"
+    class="text-center text-title uppercase tracking-[3px]"
+    [(ngModel)]="joinInviteCode"
+    (ngModelChange)="joinInviteCodeChange.emit($event)"
+    placeholder="e.g. A3F9B2"
+  />
+  <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+    <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
+    <button forgeButton variant="primary" type="button" (click)="joinCampaign.emit()">Join Realm</button>
+  </div>
+</forge-modal>

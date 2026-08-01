@@ -1,0 +1,126 @@
+@switch (section) {
+  @case ('brand') {
+    <div class="flex min-w-0 items-center gap-3">
+      <svg
+        class="h-8 w-8 shrink-0"
+        viewBox="0 0 100 100"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <polygon
+          points="50,15 85,35 85,75 50,90 15,75 15,35"
+          stroke="var(--theme-accent)"
+          stroke-width="6"
+          fill="rgba(255, 75, 75, 0.15)"
+        />
+        <line
+          x1="50"
+          y1="15"
+          x2="50"
+          y2="90"
+          stroke="var(--theme-accent)"
+          stroke-width="4"
+        />
+      </svg>
+
+      <div class="min-w-0">
+        <h1 class="font-display text-title text-accent">Phyrexian Forge</h1>
+        <span class="block text-micro italic text-muted">
+          "All will be one • {{ charState.dndEdition() }}"
+        </span>
+      </div>
+    </div>
+  }
+
+  @case ('nav') {
+    <nav class="flex flex-col gap-1" aria-label="Primary navigation">
+      <a
+        routerLink="/player"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #playerLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="playerLink.isActive ? 'page' : null"
+      >
+        🗡️ Player Dashboard
+      </a>
+      <a
+        routerLink="/forge"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #forgeLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="forgeLink.isActive ? 'page' : null"
+      >
+        ✨ Character Forge
+      </a>
+      <a
+        routerLink="/dm"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #dmLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="dmLink.isActive ? 'page' : null"
+      >
+        🏰 DM Workspace
+      </a>
+      <a
+        routerLink="/rules"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #rulesLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="rulesLink.isActive ? 'page' : null"
+      >
+        📚 Rules Library
+      </a>
+      <a
+        routerLink="/settings"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #settingsLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="settingsLink.isActive ? 'page' : null"
+      >
+        ⚙️ Settings
+      </a>
+      <a
+        *ngIf="isAdmin()"
+        routerLink="/admin"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #adminLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="adminLink.isActive ? 'page' : null"
+      >
+        🛡️ Admin
+      </a>
+    </nav>
+  }
+
+  @case ('user') {
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <forge-toggle
+          [checked]="is2024()"
+          (checkedChange)="toggleEdition()"
+          ariaLabel="Switch to the 2024 Revision ruleset"
+        />
+        <span class="text-micro text-muted">
+          {{ is2024() ? '2024 Revision' : '2014 Legacy' }}
+        </span>
+      </div>
+
+      <ng-container *ngIf="authService.currentUser() as user">
+        <div class="text-micro text-muted">
+          👤 Logged in as
+          <strong class="font-semibold text-accent">{{ user.name || user.username }}</strong>
+        </div>
+
+        <button forgeButton variant="secondary" size="sm" (click)="authService.logout()">
+          Logout
+        </button>
+      </ng-container>
+    </div>
+  }
+}

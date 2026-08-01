@@ -1,0 +1,150 @@
+<forge-modal
+  [title]="'👤 Add Hero to ' + campaignName"
+  [open]="open"
+  maxWidth="760px"
+  (openChange)="openChange.emit($event)"
+  (closed)="closed.emit()"
+>
+  <div class="flex flex-col gap-4">
+    <p class="text-body text-muted">Enlist a hero character or invite players into this campaign.</p>
+
+    <forge-tabs
+      instanceId="dm-add-member-tabs"
+      [tabs]="addMemberTabs"
+      [activeId]="addMemberTab"
+      (activeIdChange)="selectAddMemberTab($event)"
+    ></forge-tabs>
+
+    <div *ngIf="addMemberTab === 'existing'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-existing" class="flex flex-col gap-3">
+      <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+        Select Player Hero from Vault:
+        <select
+          forgeSelect
+          [ngModel]="selectedExistingCharId"
+          (ngModelChange)="selectedExistingCharIdChange.emit($event)"
+        >
+          <option value="">-- Choose a Hero --</option>
+          <option *ngFor="let character of filteredCharacters" [value]="character.char_id">
+            {{ character.char_name }} (Lvl {{ character.char_level }} {{ character.char_class }}) - HP:
+            {{ character.hp_max }}, AC: {{ character.armor_class }}
+          </option>
+        </select>
+      </label>
+
+      <div *ngIf="selectedHero as selectedHero" class="rounded-lg border border-hairline bg-black/30 p-3">
+        <div class="flex flex-col gap-3 min-[375px]:flex-row min-[375px]:items-center">
+          <img
+            [src]="selectedHero.char_portrait || 'https://img.icons8.com/color/96/knight.png'"
+            class="h-11 w-11 rounded-full border border-accent object-cover"
+            alt=""
+          />
+          <div class="min-w-0">
+            <h4 class="truncate font-display text-title text-accent">{{ selectedHero.char_name }}</h4>
+            <span class="text-label text-muted">
+              Lvl {{ selectedHero.char_level }} {{ selectedHero.char_class }} ({{ selectedHero.race }})
+            </span>
+            <div class="mt-1 text-label text-gold">
+              🛡️ AC: {{ selectedHero.armor_class }} | ❤️ HP: {{ selectedHero.hp_max }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="addMemberTab === 'custom'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-custom" class="flex flex-col gap-4">
+      <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+        Character Name:
+        <input
+          forgeInput
+          type="text"
+          [ngModel]="newMemberName"
+          (ngModelChange)="newMemberNameChange.emit($event)"
+          placeholder="e.g. Minsc & Boo"
+        />
+      </label>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+          Class:
+          <input
+            forgeInput
+            type="text"
+            [ngModel]="newMemberClass"
+            (ngModelChange)="newMemberClassChange.emit($event)"
+            placeholder="Ranger"
+          />
+        </label>
+        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+          Level:
+          <input
+            forgeInput
+            type="number"
+            min="1"
+            max="20"
+            [ngModel]="newMemberLevel"
+            (ngModelChange)="newMemberLevelChange.emit($event)"
+          />
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+          Max HP:
+          <input
+            forgeInput
+            type="number"
+            [ngModel]="newMemberHp"
+            (ngModelChange)="newMemberHpChange.emit($event)"
+          />
+        </label>
+        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+          Armor Class (AC):
+          <input
+            forgeInput
+            type="number"
+            [ngModel]="newMemberAc"
+            (ngModelChange)="newMemberAcChange.emit($event)"
+          />
+        </label>
+      </div>
+    </div>
+
+    <div *ngIf="addMemberTab === 'invite'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-invite" class="rounded-lg border border-hairline bg-black/30 p-4 text-center">
+      <p class="mb-2 text-body text-muted">
+        Invite players to join <strong>{{ campaignName }}</strong> from their Player Dashboard:
+      </p>
+      <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-[1.6rem] font-extrabold tracking-[0.25em] text-gold">
+        {{ inviteCode || '4D0705' }}
+      </div>
+      <div>
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="copyInviteCode.emit()">
+          📋 Copy Invite Code
+        </button>
+      </div>
+      <ol class="mt-3 list-inside list-decimal space-y-1 text-left text-label leading-relaxed text-muted">
+        <li>Players log into their account on the web app.</li>
+        <li>Navigate to <strong>Player Dashboard</strong> and click <strong>🔑 Join Campaign</strong>.</li>
+        <li>Enter invite code <strong class="text-gold">{{ inviteCode || '4D0705' }}</strong> to join this realm.</li>
+      </ol>
+    </div>
+
+    <div class="flex flex-wrap justify-end gap-2">
+      <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
+      <button
+        *ngIf="addMemberTab === 'existing'"
+        forgeButton
+        type="button"
+        [disabled]="!selectedExistingCharId"
+        (click)="addExistingPartyMember.emit()"
+      >
+        Enlist Selected Hero
+      </button>
+      <button *ngIf="addMemberTab === 'custom'" forgeButton type="button" (click)="addPartyMember.emit()">
+        Add Custom Hero
+      </button>
+      <button *ngIf="addMemberTab === 'invite'" forgeButton type="button" (click)="copyInviteCode.emit()">
+        Copy Code & Close
+      </button>
+    </div>
+  </div>
+</forge-modal>

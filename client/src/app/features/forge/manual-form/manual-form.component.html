@@ -1,0 +1,283 @@
+<div class="flex flex-col gap-5">
+  <p class="text-body-sm text-muted">
+    Build your character step-by-step manually. The system handles all rules calculations!
+  </p>
+
+  <forge-section variant="plain" density="comfortable" title="Basic Info">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div>
+        <label for="manual-name" class="mb-1 block text-label font-semibold text-muted">
+          Character Name
+        </label>
+        <input
+          forgeInput
+          id="manual-name"
+          type="text"
+          [(ngModel)]="manualName"
+          (ngModelChange)="manualNameChange.emit($event)"
+        />
+      </div>
+
+      <div>
+        <label for="manual-level" class="mb-1 block text-label font-semibold text-muted">
+          Level
+        </label>
+        <input
+          forgeInput
+          id="manual-level"
+          type="number"
+          [(ngModel)]="manualLevel"
+          min="1"
+          max="20"
+          (ngModelChange)="manualLevelChange.emit($event)"
+          (change)="updateManualSubclasses.emit()"
+        />
+      </div>
+
+      <div>
+        <label for="manual-gender" class="mb-1 block text-label font-semibold text-muted">
+          Gender
+        </label>
+        <select
+          forgeSelect
+          id="manual-gender"
+          [(ngModel)]="manualGender"
+          (ngModelChange)="manualGenderChange.emit($event)"
+        >
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Non-binary">Non-binary</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+    </div>
+  </forge-section>
+
+  <forge-section variant="plain" density="comfortable" title="Pillars">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div>
+        <label for="manual-race" class="mb-1 block text-label font-semibold text-muted">
+          {{ is2024 ? 'Species' : 'Race' }}
+        </label>
+        <select
+          forgeSelect
+          id="manual-race"
+          [(ngModel)]="manualRace"
+          (ngModelChange)="manualRaceChange.emit($event)"
+        >
+          <option *ngFor="let r of raceOptions" [value]="r">{{ r }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="manual-class" class="mb-1 block text-label font-semibold text-muted">
+          Class
+        </label>
+        <select
+          forgeSelect
+          id="manual-class"
+          [(ngModel)]="manualClass"
+          (ngModelChange)="manualClassChange.emit($event); updateManualSubclasses.emit()"
+        >
+          <option *ngFor="let c of classOptions" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="manual-background" class="mb-1 block text-label font-semibold text-muted">
+          Background
+        </label>
+        <select
+          forgeSelect
+          id="manual-background"
+          [(ngModel)]="manualBackground"
+          (ngModelChange)="manualBackgroundChange.emit($event)"
+        >
+          <option *ngFor="let b of bgOptions" [value]="b">{{ b }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div>
+        <label for="manual-alignment" class="mb-1 block text-label font-semibold text-muted">
+          Alignment
+        </label>
+        <select
+          forgeSelect
+          id="manual-alignment"
+          [(ngModel)]="manualAlignment"
+          (ngModelChange)="manualAlignmentChange.emit($event)"
+        >
+          <option *ngFor="let a of alignments" [value]="a">{{ a }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="manual-subclass" class="mb-1 block text-label font-semibold text-muted">
+          Subclass
+        </label>
+        <select
+          forgeSelect
+          id="manual-subclass"
+          [(ngModel)]="manualSubclass"
+          (ngModelChange)="manualSubclassChange.emit($event)"
+        >
+          <option *ngFor="let s of manualSubclassOptions" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label for="manual-concept" class="mb-1 block text-label font-semibold text-muted">
+        Additional Flavor / Concept / Backstory Idea:
+      </label>
+      <textarea
+        forgeTextarea
+        id="manual-concept"
+        rows="2"
+        [(ngModel)]="manualConcept"
+        placeholder="E.g., A dwarf blacksmith seeking his ancestor's anvil."
+        (ngModelChange)="manualConceptChange.emit($event)"
+      ></textarea>
+    </div>
+  </forge-section>
+
+  <forge-section variant="plain" density="comfortable" title="🎲 Base Ability Scores">
+    <div>
+      <label for="manual-stat-method" class="mb-1 block text-label font-semibold text-muted">
+        Allocation Method:
+      </label>
+      <select
+        forgeSelect
+        id="manual-stat-method"
+        [(ngModel)]="manualStatMethod"
+        (ngModelChange)="manualStatMethodChange.emit($event)"
+      >
+        <option value="standard">Standard Array (15, 14, 13, 12, 10, 8)</option>
+        <option value="rolled">Roll for Stats (4d6 drop lowest)</option>
+        <option value="custom">Manual Entry / Custom</option>
+      </select>
+    </div>
+
+    @if (manualStatMethod === 'standard') {
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div *ngFor="let stat of statKeys">
+          <label [for]="'standard-' + stat" class="mb-1 block text-label font-semibold text-muted">
+            {{ stat }}
+          </label>
+          <select
+            forgeSelect
+            [id]="'standard-' + stat"
+            [(ngModel)]="manualStats[stat]"
+            (ngModelChange)="manualStatsChange.emit(manualStats)"
+          >
+            <option *ngFor="let val of standardArrayValues" [value]="val">{{ val }}</option>
+          </select>
+        </div>
+      </div>
+    }
+
+    @if (manualStatMethod === 'rolled') {
+      <div class="flex flex-col gap-4">
+        <button forgeButton variant="secondary" type="button" (click)="rollStats.emit()">
+          🎲 Roll 6 Stats (4d6 drop lowest)
+        </button>
+        @if (rolledScores.length > 0) {
+          <p class="text-body-sm text-gold">
+            Rolled Scores: <strong>{{ rolledScores.join(', ') }}</strong>
+          </p>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div *ngFor="let stat of statKeys">
+              <label [for]="'rolled-' + stat" class="mb-1 block text-label font-semibold text-muted">
+                {{ stat }}
+              </label>
+              <select
+                forgeSelect
+                [id]="'rolled-' + stat"
+                [(ngModel)]="manualStats[stat]"
+                (ngModelChange)="manualStatsChange.emit(manualStats)"
+              >
+                <option *ngFor="let val of rolledScores" [value]="val">{{ val }}</option>
+              </select>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (manualStatMethod === 'custom') {
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div *ngFor="let stat of statKeys">
+          <label [for]="'custom-' + stat" class="mb-1 block text-label font-semibold text-muted">
+            {{ stat }}
+          </label>
+          <input
+            forgeInput
+            [id]="'custom-' + stat"
+            type="number"
+            [(ngModel)]="manualStats[stat]"
+            min="3"
+            max="30"
+            (ngModelChange)="manualStatsChange.emit(manualStats)"
+          />
+        </div>
+      </div>
+    }
+  </forge-section>
+
+  <forge-section variant="plain" density="comfortable" title="📈 Ability Score Adjustments (+2 / +1)">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div>
+        <label for="adj-plus-2" class="mb-1 block text-label font-semibold text-muted">
+          +2 Bonus to:
+        </label>
+        <select forgeSelect id="adj-plus-2" [(ngModel)]="adjPlus2" (ngModelChange)="adjPlus2Change.emit($event)">
+          <option value="None">None</option>
+          <option *ngFor="let s of statKeys" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="adj-plus-1" class="mb-1 block text-label font-semibold text-muted">
+          +1 Bonus to:
+        </label>
+        <select forgeSelect id="adj-plus-1" [(ngModel)]="adjPlus1" (ngModelChange)="adjPlus1Change.emit($event)">
+          <option value="None">None</option>
+          <option *ngFor="let s of statKeys" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="adj-plus-1-alt" class="mb-1 block text-label font-semibold text-muted">
+          Alt +1 Bonus to:
+        </label>
+        <select forgeSelect id="adj-plus-1-alt" [(ngModel)]="adjPlus1Alt" (ngModelChange)="adjPlus1AltChange.emit($event)">
+          <option value="None">None</option>
+          <option *ngFor="let s of statKeys" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-hairline bg-black/25 p-4 text-body-sm">
+      <strong class="text-ink">Final Ability Scores:</strong>
+      <div class="mt-2 flex flex-wrap gap-3 text-muted">
+        <span *ngFor="let s of statKeys">
+          <strong class="text-gold">{{ s }}:</strong> {{ getFinalStat(s) }} ({{ getModifierString(getFinalStat(s)) }})
+        </span>
+      </div>
+    </div>
+  </forge-section>
+
+  <button
+    forgeButton
+    variant="primary"
+    size="lg"
+    fullWidth
+    type="button"
+    [disabled]="loading"
+    (click)="create.emit()"
+  >
+    {{ loading ? 'Compiling Rules...' : 'Create Character' }}
+  </button>
+</div>

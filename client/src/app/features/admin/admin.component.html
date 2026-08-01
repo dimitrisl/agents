@@ -1,0 +1,44 @@
+<forge-page
+  title="🛡️ Machine Orthodoxy Admin Workspace"
+  subtitle="System diagnostics, database metrics, and user management."
+>
+  <div class="mx-auto flex w-full max-w-[800px] flex-col gap-6">
+    <forge-section variant="plain">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <forge-stat-box label="Active Users" value="1"></forge-stat-box>
+        <forge-stat-box
+          label="Characters Forged"
+          [value]="totalCharacters"
+        ></forge-stat-box>
+        <forge-stat-box
+          label="Database Status"
+          value="ONLINE"
+          valueTone="success"
+        ></forge-stat-box>
+      </div>
+    </forge-section>
+
+    <forge-section variant="plain" title="Registered Users">
+      <div class="overflow-x-auto rounded-[10px] border border-hairline bg-black/20">
+        <table class="min-w-full text-left text-body-sm">
+          <thead class="border-b border-hairline text-label uppercase tracking-[0.04em] text-muted">
+            <tr>
+              <th scope="col" class="px-4 py-3 font-bold">Username</th>
+              <th scope="col" class="px-4 py-3 font-bold">Name</th>
+              <th scope="col" class="px-4 py-3 font-bold">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-hairline text-ink">
+            <tr>
+              <td class="px-4 py-3 font-bold">mitsos</td>
+              <td class="px-4 py-3">Mitsos (DM)</td>
+              <td class="px-4 py-3">
+                <forge-badge tone="danger">Superadmin</forge-badge>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </forge-section>
+  </div>
+</forge-page>

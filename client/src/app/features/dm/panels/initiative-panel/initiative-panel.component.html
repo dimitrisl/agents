@@ -1,0 +1,85 @@
+<forge-section variant="plain" density="compact" title="⚔️ Initiative Combat Tracker">
+  <div class="flex flex-wrap gap-2">
+    <button forgeButton variant="secondary" type="button" (click)="importParty.emit()">👥 Import Party</button>
+    <button forgeButton variant="secondary" type="button" (click)="rollAll.emit()">🎲 Roll All</button>
+    <button forgeButton type="button" (click)="advanceTurn.emit()">Next Turn ➡️</button>
+  </div>
+
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-[1fr_8rem_7rem_auto] md:items-center">
+    <input
+      forgeInput
+      type="text"
+      placeholder="Combatant Name (e.g. Goblin Warlord)"
+      [ngModel]="newCombatantName"
+      (ngModelChange)="newCombatantNameChange.emit($event)"
+    />
+    <input
+      forgeInput
+      type="number"
+      placeholder="Init Score"
+      [ngModel]="newCombatantInit"
+      (ngModelChange)="newCombatantInitChange.emit($event)"
+    />
+    <input
+      forgeInput
+      type="number"
+      placeholder="HP"
+      [ngModel]="newCombatantHp"
+      (ngModelChange)="newCombatantHpChange.emit($event)"
+    />
+    <button forgeButton type="button" (click)="addCombatant.emit()">+ Add Monster</button>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-hairline">
+    <table class="min-w-full border-collapse text-left text-body">
+      <thead class="bg-black/30 text-label uppercase tracking-wide text-muted">
+        <tr>
+          <th class="px-3 py-2">Turn</th>
+          <th class="px-3 py-2">Combatant</th>
+          <th class="px-3 py-2">Initiative</th>
+          <th class="px-3 py-2">HP</th>
+          <th class="px-3 py-2">Actions & Info</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let combatant of combatants; let index = index"
+          class="border-t border-hairline"
+          [style.background]="index === activeTurnIndex ? 'rgba(255, 75, 75, 0.15)' : null"
+          [style.box-shadow]="index === activeTurnIndex ? 'inset 3px 0 0 var(--color-accent)' : null"
+        >
+          <td class="px-3 py-2">
+            <span *ngIf="index === activeTurnIndex" class="font-semibold text-accent">⚔️ CURRENT</span>
+          </td>
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <img
+                [src]="combatant.portrait || 'https://img.icons8.com/color/96/monster.png'"
+                class="h-9 w-9 rounded-full border border-accent object-cover"
+                alt=""
+              />
+              <strong class="text-ink">{{ combatant.name }}</strong>
+            </div>
+          </td>
+          <td class="px-3 py-2">{{ combatant.initiative }}</td>
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <input forgeInput type="number" class="max-w-20 text-center" [(ngModel)]="combatant.hp" />
+              <span class="text-muted">/ {{ combatant.max_hp }}</span>
+            </div>
+          </td>
+          <td class="px-3 py-2">
+            <div class="flex flex-wrap gap-2">
+              <button forgeButton variant="secondary" size="sm" type="button" (click)="openStatblock.emit(combatant)">
+                📜 Statblock
+              </button>
+              <button forgeButton variant="danger" size="sm" type="button" (click)="removeCombatant.emit(index)">
+                ❌ Remove
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</forge-section>

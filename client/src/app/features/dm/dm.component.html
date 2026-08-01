@@ -1,0 +1,131 @@
+<forge-page title="🎲 DM Workspace" subtitle="Campaign control center for notes, party state, initiative, generators, and prep.">
+  <app-campaign-header
+    [(campaignName)]="campaignName"
+    [userCampaigns]="userCampaigns"
+    [inviteCode]="inviteCode"
+    (campaignSelected)="onCampaignSelect()"
+    (createCampaign)="showNewCampaignModal = true"
+    (generateInvite)="generateInviteCode()"
+    (sendWhisper)="showWhisperModal = true"
+  ></app-campaign-header>
+
+  <forge-tabs instanceId="dm-tabs" [tabs]="dmTabs" [(activeId)]="activeTab"></forge-tabs>
+
+  <app-notes-panel
+    *ngIf="activeTab === 'notes'"
+    role="tabpanel"
+    aria-labelledby="dm-tabs-tab-notes"
+    [(campaignNotes)]="campaignNotes"
+    (saveNotes)="saveCampaignNotes()"
+  ></app-notes-panel>
+
+  <app-party-panel
+    *ngIf="activeTab === 'party'"
+    role="tabpanel"
+    aria-labelledby="dm-tabs-tab-party"
+    [campaignName]="campaignName"
+    [partyMembers]="partyMembers"
+    [availableConditions]="availableConditions"
+    (addMember)="showAddMemberModal = true"
+    (issueRollRequest)="showRollModal = true"
+    (adjustHp)="adjustHp($event.member, $event.delta)"
+    (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
+    (toggleCondition)="toggleCondition($event.member, $event.condition)"
+    (privateRollRequest)="openSingleRollModal($event)"
+  ></app-party-panel>
+
+  <app-initiative-panel
+    *ngIf="activeTab === 'initiative'"
+    role="tabpanel"
+    aria-labelledby="dm-tabs-tab-initiative"
+    [combatants]="combatants"
+    [activeTurnIndex]="activeTurnIndex"
+    [(newCombatantName)]="newCombatantName"
+    [(newCombatantInit)]="newCombatantInit"
+    [(newCombatantHp)]="newCombatantHp"
+    (importParty)="importPartyToInitiative()"
+    (rollAll)="rollAllInitiative()"
+    (advanceTurn)="nextTurn()"
+    (addCombatant)="addCombatant()"
+    (openStatblock)="openStatblock($event)"
+    (removeCombatant)="removeCombatant($event)"
+  ></app-initiative-panel>
+
+  <app-generators-panel
+    *ngIf="activeTab === 'generators'"
+    role="tabpanel"
+    aria-labelledby="dm-tabs-tab-generators"
+    [(avgLevel)]="avgLevel"
+    [(location)]="location"
+    [encounterResult]="encounterResult"
+    [(npcConcept)]="npcConcept"
+    [npcResult]="npcResult"
+    (generateEncounter)="generateEncounter()"
+    (addEncounterMonsters)="addEncounterMonstersToInitiative()"
+    (generateNpc)="generateNpc()"
+  ></app-generators-panel>
+
+  <app-prep-panel
+    *ngIf="activeTab === 'prep'"
+    role="tabpanel"
+    aria-labelledby="dm-tabs-tab-prep"
+    [(prepNotes)]="prepNotes"
+    [prepResult]="prepResult"
+    (generatePrep)="generatePrep()"
+  ></app-prep-panel>
+  <app-whisper-modal
+    [open]="showWhisperModal"
+    (openChange)="showWhisperModal = $event"
+    [partyMembers]="partyMembers"
+    [(whisperRecipient)]="whisperRecipient"
+    [(whisperMessage)]="whisperMessage"
+    (send)="sendWhisper()"
+  ></app-whisper-modal>
+
+  <app-roll-request-modal
+    [open]="showRollModal"
+    (openChange)="showRollModal = $event"
+    [partyMembers]="partyMembers"
+    [(rollTargetMember)]="rollTargetMember"
+    [(rollType)]="rollType"
+    [(rollStat)]="rollStat"
+    [(rollReason)]="rollReason"
+    [(isSecretRoll)]="isSecretRoll"
+    (requestRoll)="sendRollRequest()"
+  ></app-roll-request-modal>
+
+  <app-statblock-modal
+    [open]="!!selectedStatblockCombatant"
+    [combatant]="selectedStatblockCombatant"
+    (closed)="selectedStatblockCombatant = null"
+    (viewBeyond)="openBeyondUrl($event)"
+  ></app-statblock-modal>
+
+  <app-new-campaign-modal
+    [open]="showNewCampaignModal"
+    (openChange)="showNewCampaignModal = $event"
+    [(newCampaignTitle)]="newCampaignTitle"
+    [(newCampaignNotes)]="newCampaignNotes"
+    (createCampaign)="createNewCampaign()"
+  ></app-new-campaign-modal>
+
+  <app-add-member-modal
+    [open]="showAddMemberModal"
+    (openChange)="showAddMemberModal = $event"
+    [campaignName]="campaignName"
+    [(addMemberTab)]="addMemberTab"
+    [(selectedExistingCharId)]="selectedExistingCharId"
+    [filteredCharacters]="charState.filteredCharacters()"
+    [selectedHero]="getSelectedHero()"
+    [(newMemberName)]="newMemberName"
+    [(newMemberClass)]="newMemberClass"
+    [(newMemberLevel)]="newMemberLevel"
+    [(newMemberHp)]="newMemberHp"
+    [(newMemberAc)]="newMemberAc"
+    [inviteCode]="inviteCode"
+    (addExistingPartyMember)="addExistingPartyMember()"
+    (addPartyMember)="addPartyMember()"
+    (copyInviteCode)="copyInviteCode()"
+  ></app-add-member-modal>
+
+</forge-page>

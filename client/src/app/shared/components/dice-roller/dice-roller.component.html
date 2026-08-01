@@ -1,0 +1,51 @@
+<forge-section variant="card" density="compact" title="ðŸŽ² Interactive Dice Roller">
+  <button actions forgeButton variant="ghost" size="sm" (click)="rollHistory = []">
+    ðŸ—‘ï¸ Clear History
+  </button>
+
+  <div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
+    <button forgeButton variant="secondary" size="md" (click)="roll(4)">d4</button>
+    <button forgeButton variant="secondary" size="md" (click)="roll(6)">d6</button>
+    <button forgeButton variant="secondary" size="md" (click)="roll(8)">d8</button>
+    <button forgeButton variant="secondary" size="md" (click)="roll(10)">d10</button>
+    <button forgeButton variant="secondary" size="md" (click)="roll(12)">d12</button>
+    <button forgeButton variant="secondary" tone="accent" size="md" (click)="roll(20)">d20</button>
+    <button forgeButton variant="secondary" size="md" (click)="roll(100)">d100</button>
+  </div>
+
+  <div class="mt-3 flex flex-wrap items-center gap-3 text-body text-muted">
+    <label for="dice-modifier" class="text-label font-bold uppercase text-muted">
+      Modifier (+/-):
+    </label>
+    <input
+      id="dice-modifier"
+      forgeInput
+      type="number"
+      class="max-w-[90px]"
+      [(ngModel)]="modifier"
+    />
+  </div>
+
+  @if (lastRoll) {
+    <section class="last-roll-card">
+      <span class="text-label font-bold uppercase text-muted">Latest Result:</span>
+      <span class="text-title text-ink">
+        {{ lastRoll.expression }} = <strong class="text-metric text-accent">{{ lastRoll.total }}</strong>
+      </span>
+      <span class="text-micro text-muted">
+        ({{ lastRoll.rolls.join(', ') }} + {{ lastRoll.modifier }})
+      </span>
+    </section>
+  }
+
+  @if (rollHistory.length > 0) {
+    <div class="mt-2 flex flex-col gap-1">
+      @for (item of rollHistory.slice(0, 5); track $index) {
+        <div class="history-item">
+          <span>{{ item.expression }}</span>
+          <span class="font-bold text-accent">{{ item.total }}</span>
+        </div>
+      }
+    </div>
+  }
+</forge-section>

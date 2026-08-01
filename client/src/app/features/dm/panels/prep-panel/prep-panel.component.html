@@ -1,0 +1,24 @@
+<forge-section variant="plain" density="compact" title="📜 AI Session Prep Assistant">
+  <p class="text-body text-muted">
+    Enter your recap and ideas to generate structured DM session notes.
+  </p>
+
+  <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+    Campaign Recap & DM Ideas:
+    <textarea
+      forgeTextarea
+      rows="4"
+      [ngModel]="prepNotes"
+      (ngModelChange)="prepNotesChange.emit($event)"
+      placeholder="Recap: The party defeated the goblin warlord... Ideas: Introduce a secretive cult next."
+    ></textarea>
+  </label>
+
+  <button forgeButton class="self-start" type="button" (click)="generatePrep.emit()">
+    Generate Session Prep
+  </button>
+
+  <forge-card *ngIf="prepResult" padding="sm" [hoverable]="false">
+    <p class="whitespace-pre-wrap">{{ prepResult }}</p>
+  </forge-card>
+</forge-section>

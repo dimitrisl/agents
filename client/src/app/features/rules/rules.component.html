@@ -1,0 +1,133 @@
+<forge-page
+  title="📚 D&D Arcane Rules Library"
+  subtitle="Search rules, compare 2014 vs 2024 revisions, or run automated character build validation."
+>
+  <forge-tabs
+    instanceId="rules-tabs"
+    [tabs]="rulesTabs"
+    [(activeId)]="activeTab"
+  ></forge-tabs>
+
+  @if (activeTab === 'oracle') {
+    <forge-section
+      variant="plain"
+      density="comfortable"
+      role="tabpanel"
+      [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
+    >
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <input
+          forgeInput
+          type="text"
+          class="min-w-0 flex-1"
+          [(ngModel)]="oracleQuery"
+          placeholder="Ask any rule question (e.g., How does grapple work in 5.5e?)"
+          (keyup.enter)="searchOracle()"
+        />
+        <button forgeButton variant="primary" type="button" (click)="searchOracle()">
+          Search Oracle
+        </button>
+      </div>
+
+      @if (oracleAnswer) {
+        <forge-card padding="md" [hoverable]="false">
+          <div class="rules-result-card">
+            <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">
+              {{ oracleAnswer }}
+            </p>
+          </div>
+        </forge-card>
+      }
+    </forge-section>
+  }
+
+  @if (activeTab === 'compare') {
+    <forge-section
+      variant="plain"
+      density="comfortable"
+      role="tabpanel"
+      [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
+    >
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <input
+          forgeInput
+          type="text"
+          class="min-w-0 flex-1"
+          [(ngModel)]="compareQuery"
+          placeholder="Enter feature or spell to compare (e.g. Paladin Smite, Counterspell)"
+          (keyup.enter)="compareEditions()"
+        />
+        <button forgeButton variant="primary" type="button" (click)="compareEditions()">
+          Compare Editions
+        </button>
+      </div>
+
+      @if (compareAnswer) {
+        <forge-card padding="md" [hoverable]="false">
+          <div class="rules-result-card">
+            <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">
+              {{ compareAnswer }}
+            </p>
+          </div>
+        </forge-card>
+      }
+    </forge-section>
+  }
+
+  @if (activeTab === 'validate') {
+    <forge-section
+      variant="plain"
+      density="comfortable"
+      role="tabpanel"
+      [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
+    >
+      <p class="max-w-3xl text-body text-muted">
+        Inspect the currently selected hero for D&D 5e/5.5e rule compliance
+        (ability score bounds, spell slot allocations, proficiencies).
+      </p>
+
+      <div>
+        <button forgeButton variant="primary" type="button" (click)="validateActiveHero()">
+          🛡️ Run Build Audit
+        </button>
+      </div>
+
+      @if (validationResult) {
+        <forge-card padding="md" [hoverable]="false">
+          <div
+            class="rules-result-card audit-result border-l-4 border-accent"
+            [class.audit-result-pass]="validationResult.valid"
+          >
+            <div class="mb-3 text-body font-extrabold">
+              @if (validationResult.valid) {
+                <span class="text-emerald">✅ BUILD PASSED ALL 5E/5.5E RULES AUDITS</span>
+              } @else {
+                <span class="text-red">⚠️ BUILD AUDIT DISCREPANCIES DETECTED</span>
+              }
+            </div>
+
+            @if (validationResult.errors?.length > 0) {
+              <div>
+                <h4 class="mb-2 font-display text-body-sm font-bold text-gold">
+                  Detected Audit Discrepancies:
+                </h4>
+                <ul class="list-inside list-disc space-y-1 text-body-sm text-red">
+                  <li *ngFor="let err of validationResult.errors">⚠️ {{ err }}</li>
+                </ul>
+              </div>
+            }
+
+            @if (validationResult.valid) {
+              <div class="text-body-sm text-muted">
+                <p>
+                  Character statistics, ability bounds (3 to 20), proficiency
+                  bonuses, and armor class comply with core 5e specifications.
+                </p>
+              </div>
+            }
+          </div>
+        </forge-card>
+      }
+    </forge-section>
+  }
+</forge-page>

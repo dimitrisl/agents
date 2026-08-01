@@ -1,0 +1,25 @@
+@if (variant === 'card') {
+  <forge-card [hoverable]="false" [padding]="cardPadding">
+    <ng-container *ngTemplateOutlet="sectionContent"></ng-container>
+  </forge-card>
+} @else {
+  <ng-container *ngTemplateOutlet="sectionContent"></ng-container>
+}
+
+<ng-template #sectionContent>
+  @if (title) {
+    <header class="mb-2 flex items-center justify-between gap-3">
+      <h2 class="font-display text-title text-ink">
+        {{ title }}
+      </h2>
+
+      <div class="flex shrink-0 items-center gap-2">
+        <ng-content select="[actions]"></ng-content>
+      </div>
+    </header>
+  }
+
+  <div [class]="contentClasses">
+    <ng-content></ng-content>
+  </div>
+</ng-template>

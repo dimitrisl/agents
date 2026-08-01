@@ -1,0 +1,33 @@
+<forge-section variant="plain" density="compact" title="📖 Personality & Lore">
+  <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <h4 class="font-display text-body font-bold text-gold">Personality Traits</h4>
+      <p *ngIf="!editMode" class="mt-1 text-body-sm text-muted">{{ char.personality_traits || 'None' }}</p>
+      <textarea *ngIf="editMode" forgeTextarea rows="2" [(ngModel)]="char.personality_traits" (change)="save.emit()"></textarea>
+    </div>
+
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <h4 class="font-display text-body font-bold text-gold">Ideals</h4>
+      <p *ngIf="!editMode" class="mt-1 text-body-sm text-muted">{{ char.ideals || 'None' }}</p>
+      <textarea *ngIf="editMode" forgeTextarea rows="2" [(ngModel)]="char.ideals" (change)="save.emit()"></textarea>
+    </div>
+
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <h4 class="font-display text-body font-bold text-gold">Bonds</h4>
+      <p *ngIf="!editMode" class="mt-1 text-body-sm text-muted">{{ char.bonds || 'None' }}</p>
+      <textarea *ngIf="editMode" forgeTextarea rows="2" [(ngModel)]="char.bonds" (change)="save.emit()"></textarea>
+    </div>
+
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <h4 class="font-display text-body font-bold text-gold">Flaws</h4>
+      <p *ngIf="!editMode" class="mt-1 text-body-sm text-muted">{{ char.flaws || 'None' }}</p>
+      <textarea *ngIf="editMode" forgeTextarea rows="2" [(ngModel)]="char.flaws" (change)="save.emit()"></textarea>
+    </div>
+  </div>
+
+  <section class="rounded-lg border border-hairline bg-black/20 p-3">
+    <h3 class="font-display text-title text-ink">Backstory</h3>
+    <p *ngIf="!editMode" class="mt-2 text-body-sm leading-relaxed text-muted">{{ char.backstory || 'No backstory recorded.' }}</p>
+    <textarea *ngIf="editMode" forgeTextarea rows="4" [(ngModel)]="char.backstory" (change)="save.emit()"></textarea>
+  </section>
+</forge-section>

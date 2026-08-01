@@ -1,0 +1,28 @@
+:host {
+  display: block;
+  margin-top: 1.5rem;
+}
+
+.last-roll-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+  border: 1px solid var(--theme-accent);
+  border-radius: 0.5rem;
+  background: rgba(255, 75, 75, 0.1);
+  padding: 0.75rem 0.875rem;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.375rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.25rem 0.5rem;
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  line-height: var(--text-micro--line-height);
+}

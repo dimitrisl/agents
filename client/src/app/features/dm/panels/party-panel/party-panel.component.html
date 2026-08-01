@@ -1,0 +1,100 @@
+<forge-section variant="plain" density="compact" title="👥 Active Party Roster">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <p class="text-body text-muted">
+      Monitor health, status conditions, passive perception, and roll quick ability checks.
+    </p>
+    <div class="flex flex-wrap gap-2">
+      <button forgeButton variant="secondary" type="button" (click)="addMember.emit()">
+        ➕ Add Member
+      </button>
+      <button forgeButton type="button" (click)="issueRollRequest.emit()">
+        🎲 Issue Roll Request
+      </button>
+    </div>
+  </div>
+
+  <forge-empty-state
+    *ngIf="partyMembers.length === 0"
+    icon="🛡️"
+    title="No active hero characters"
+    [description]="'No active hero characters in ' + campaignName + ' yet.'"
+  >
+    <button forgeButton type="button" (click)="addMember.emit()">➕ Add First Party Member</button>
+  </forge-empty-state>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <forge-card *ngFor="let member of partyMembers" padding="sm">
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3">
+          <img
+            [src]="member.portrait || 'https://img.icons8.com/color/96/knight.png'"
+            class="h-10 w-10 rounded-full border border-accent object-cover"
+            alt=""
+          />
+          <div class="min-w-0">
+            <h4 class="truncate font-display text-title text-ink">{{ member.name }}</h4>
+            <forge-badge tone="accent">Lvl {{ member.level }} {{ member.char_class }}</forge-badge>
+          </div>
+        </div>
+
+        <forge-metric-strip>
+          <forge-metric label="AC" [value]="member.ac" icon="🛡️"></forge-metric>
+          <forge-metric label="Perception" [value]="member.passive_perception" icon="👁️"></forge-metric>
+        </forge-metric-strip>
+
+        <div class="flex items-center gap-2">
+          <label class="text-label font-semibold uppercase tracking-wide text-muted">HP</label>
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="adjustHp.emit({ member, delta: -1 })">
+            -
+          </button>
+          <input
+            forgeInput
+            type="number"
+            class="max-w-20 text-center"
+            [(ngModel)]="member.hp_current"
+            min="0"
+            [max]="member.hp_max"
+          />
+          <span class="text-body text-muted">/ {{ member.hp_max }}</span>
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="adjustHp.emit({ member, delta: 1 })">
+            +
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="text-label font-semibold uppercase tracking-wide text-muted">DM Quick Check</span>
+          <div class="grid grid-cols-6 gap-1">
+            <button
+              *ngFor="let stat of stats"
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="quickStatRoll.emit({ member, stat })"
+            >
+              {{ stat }}
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5">
+          <forge-badge
+            *ngFor="let condition of availableConditions"
+            [tone]="conditionTone(member, condition)"
+            [interactive]="true"
+            tabindex="0"
+            (click)="toggleCondition.emit({ member, condition })"
+            (keydown.enter)="toggleCondition.emit({ member, condition })"
+            (keydown.space)="toggleCondition.emit({ member, condition })"
+          >
+            {{ condition }}
+          </forge-badge>
+        </div>
+
+        <button forgeButton variant="secondary" size="sm" fullWidth type="button" (click)="privateRollRequest.emit(member)">
+          🎲 Private Roll Request
+        </button>
+      </div>
+    </forge-card>
+  </div>
+</forge-section>

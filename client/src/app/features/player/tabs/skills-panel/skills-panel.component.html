@@ -1,0 +1,56 @@
+<forge-section variant="plain" density="compact" title="📜 Skill Proficiencies & Check Rollers">
+  <label actions class="inline-flex items-center gap-2 text-label font-semibold text-muted">
+    <input
+      type="checkbox"
+      class="h-4 w-4 accent-[var(--theme-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      [(ngModel)]="showProficientOnly"
+    />
+    Show Proficient Only (⭐)
+  </label>
+
+  <p class="text-body-sm text-muted">
+    Organized by primary attribute. Expand groups or filter by proficiency.
+  </p>
+
+  <div class="flex flex-col gap-2">
+    <section *ngFor="let attr of skillAttributes" class="rounded-lg border border-hairline bg-black/20">
+      <button
+        type="button"
+        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left font-display text-body font-bold text-ink transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+        [attr.aria-expanded]="openGroups[attr]"
+        [attr.aria-controls]="'skills-panel-' + attr"
+        (click)="toggleGroup(attr)"
+      >
+        <span>{{ getAttributeFullName(attr) }} ({{ attr }})</span>
+        <span aria-hidden="true">{{ openGroups[attr] ? '▼' : '►' }}</span>
+      </button>
+
+      <div *ngIf="openGroups[attr]" [id]="'skills-panel-' + attr" class="border-t border-hairline p-3">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <ng-container *ngFor="let skill of getSkillsByAttribute(attr)">
+            <div
+              *ngIf="!showProficientOnly || isProficient(skill.name)"
+              class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-white/[0.03] px-3 py-2"
+            >
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-micro" [class.text-gold]="isProficient(skill.name)">
+                    {{ isProficient(skill.name) ? '⭐' : '⚪' }}
+                  </span>
+                  <strong class="truncate text-body text-ink">{{ skill.name }}</strong>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 items-center gap-2">
+                <forge-badge tone="accent" size="md">{{ getSkillModString(skill) }}</forge-badge>
+                <button forgeButton variant="secondary" size="sm" type="button" (click)="rollSkill.emit(skill)">
+                  🎲 Roll
+                </button>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </section>
+  </div>
+</forge-section>

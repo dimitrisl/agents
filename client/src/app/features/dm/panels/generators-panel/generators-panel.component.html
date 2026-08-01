@@ -1,0 +1,59 @@
+<forge-section variant="plain" density="compact" title="🎲 AI Encounter & NPC Generators">
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-3">
+      <h4 class="font-display text-title text-ink">⚔️ Random Encounter Generator</h4>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-[8rem_1fr_auto] md:items-center">
+        <input
+          forgeInput
+          type="number"
+          placeholder="Avg Level"
+          [ngModel]="avgLevel"
+          (ngModelChange)="avgLevelChange.emit($event)"
+        />
+        <input
+          forgeInput
+          type="text"
+          placeholder="Environment (e.g. Dungeon)"
+          [ngModel]="location"
+          (ngModelChange)="locationChange.emit($event)"
+        />
+        <button forgeButton type="button" (click)="generateEncounter.emit()">Generate Encounter</button>
+      </div>
+
+      <forge-card *ngIf="encounterResult" padding="sm" [hoverable]="false">
+        <div class="flex flex-col gap-3 whitespace-pre-wrap">
+          <p><strong>Encounter Text:</strong> {{ encounterResult.encounter_text }}</p>
+          <div *ngIf="encounterResult.monsters?.length" class="flex flex-col gap-2">
+            <h5 class="font-semibold text-ink">Found Monsters:</h5>
+            <ul class="list-disc space-y-1 pl-6">
+              <li *ngFor="let monster of encounterResult.monsters">
+                {{ monster.quantity }}x {{ monster.name }} (HP: {{ monster.hp }}, AC: {{ monster.ac }})
+              </li>
+            </ul>
+            <button forgeButton class="self-start" type="button" (click)="addEncounterMonsters.emit()">
+              ➕ Add to Initiative
+            </button>
+          </div>
+        </div>
+      </forge-card>
+    </div>
+
+    <div class="flex flex-col gap-3">
+      <h4 class="font-display text-title text-ink">👤 Quick NPC Forge</h4>
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-center">
+        <input
+          forgeInput
+          type="text"
+          placeholder="NPC Concept (e.g. Greedy merchant thief)"
+          [ngModel]="npcConcept"
+          (ngModelChange)="npcConceptChange.emit($event)"
+        />
+        <button forgeButton type="button" (click)="generateNpc.emit()">Forge NPC</button>
+      </div>
+
+      <forge-card *ngIf="npcResult" padding="sm" [hoverable]="false">
+        <p class="whitespace-pre-wrap">{{ npcResult }}</p>
+      </forge-card>
+    </div>
+  </div>
+</forge-section>

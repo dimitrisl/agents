@@ -2,6 +2,10 @@
 __pycache__/
 .env
 .ruff_cache
+.venv/
+.poetry-cache/
+.poetry-config/
+.poetry-data/
 .vscode/
 .temp_env/
 *.log

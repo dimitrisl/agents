@@ -1,0 +1,14 @@
+<forge-section variant="plain" density="compact" title="📝 Campaign Lore & DM Notes">
+  <p class="text-body text-muted">
+    Record plot points, secret quest hooks, and session notes. Auto-saves to workspace.
+  </p>
+
+  <textarea
+    forgeTextarea
+    rows="12"
+    [ngModel]="campaignNotes"
+    (ngModelChange)="campaignNotesChange.emit($event)"
+    placeholder="e.g. Chapter 3: The heroes enter the Sunless Citadel..."
+    (change)="saveNotes.emit()"
+  ></textarea>
+</forge-section>

@@ -1,0 +1,44 @@
+<forge-section variant="plain" density="compact" title="✨ Spells & Features">
+  <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <span class="block text-label font-bold uppercase tracking-[0.04em] text-muted">Spellcasting Ability</span>
+      <strong class="text-title text-accent">{{ char.spell_ability || 'INT' }}</strong>
+    </div>
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <span class="block text-label font-bold uppercase tracking-[0.04em] text-muted">Spell Save DC</span>
+      <strong class="text-title text-gold">🎯 {{ char.spell_save_dc || 13 }}</strong>
+    </div>
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <span class="block text-label font-bold uppercase tracking-[0.04em] text-muted">Spell Attack Bonus</span>
+      <strong class="text-title text-gold">⚡ {{ char.spell_attack_bonus || '+5' }}</strong>
+    </div>
+  </div>
+
+  <section>
+    <h3 class="mb-2 font-display text-title text-ink">✨ Spell Slots Tracker</h3>
+    <div class="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+      <div *ngFor="let level of spellLevels" class="rounded-lg border border-hairline bg-white/[0.03] p-2 text-center">
+        <span class="block text-label font-bold uppercase text-muted">Lvl {{ level }}</span>
+        <div class="mt-2 flex items-center justify-center gap-1">
+          <button forgeButton variant="secondary" size="sm" iconOnly type="button" [attr.aria-label]="'Use level ' + level + ' spell slot'" (click)="useSpellSlot.emit(level)">
+            -
+          </button>
+          <span class="min-w-10 text-body-sm font-bold text-gold">{{ getSpellSlotUsed(level) }} / {{ getSpellSlotMax(level) }}</span>
+          <button forgeButton variant="secondary" size="sm" iconOnly type="button" [attr.aria-label]="'Restore level ' + level + ' spell slot'" (click)="restoreSpellSlot.emit(level)">
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="mb-2 font-display text-title text-ink">🌟 Class Features & Racial Traits</h3>
+    <ul class="flex list-disc flex-col gap-2 pl-5">
+      <li *ngFor="let feature of char.features_traits" class="rounded-lg border border-hairline bg-black/20 p-3">
+        <h4 class="font-display text-body font-bold text-gold">{{ feature.name }}</h4>
+        <p class="mt-1 text-body-sm text-muted">{{ feature.description }}</p>
+      </li>
+    </ul>
+  </section>
+</forge-section>

@@ -1,0 +1,15 @@
+<div class="text-label font-bold uppercase tracking-[0.04em] text-muted">
+  {{ label }}
+</div>
+
+<div [class]="valueClasses">
+  <ng-content select="[value]">{{ value }}</ng-content>
+</div>
+
+@if (modifier) {
+  <div class="text-micro font-bold text-gold">
+    {{ modifier }}
+  </div>
+}
+
+<ng-content></ng-content>

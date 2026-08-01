@@ -1,0 +1,56 @@
+@if (rollService.activeRoll(); as roll) {
+  <div class="roll-toast-overlay animated-fade">
+    <div class="roll-toast-card" [class.nat-20]="roll.isNat20" [class.nat-1]="roll.isNat1">
+      <div class="toast-header">
+        <span class="font-display text-body font-bold tracking-[0.04em] text-gold">{{ roll.title }}</span>
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label="Dismiss roll notification"
+          (click)="rollService.dismiss()"
+        >
+          Ã—
+        </button>
+      </div>
+
+      @if (roll.message) {
+        <div class="py-1">
+          <p class="m-0 text-body text-ink">{{ roll.message }}</p>
+        </div>
+      }
+
+      @if (!roll.message) {
+        <div class="toast-roll-body">
+          <div class="flex flex-col items-start">
+            <div class="d20-icon-wrapper" [class.rolling]="isRolling">
+              <span class="text-[1.4rem] font-extrabold text-ink" [class.gold-text]="roll.isNat20" [class.red-text]="roll.isNat1">
+                ðŸŽ² {{ roll.raw }}
+              </span>
+            </div>
+
+            @if (roll.isNat20) {
+              <forge-badge tone="gold" size="md" class="animated-pulse mt-1">
+                â­ CRITICAL HIT!
+              </forge-badge>
+            }
+
+            @if (roll.isNat1) {
+              <forge-badge tone="danger" size="md" class="animated-pulse mt-1">
+                ðŸ’€ CRITICAL FAIL!
+              </forge-badge>
+            }
+          </div>
+
+          <div class="flex flex-col items-end">
+            <span class="text-label text-muted">{{ roll.expression }}</span>
+            <span class="total-score" [class.gold-glow]="roll.isNat20" [class.red-glow]="roll.isNat1">
+              {{ roll.total }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}

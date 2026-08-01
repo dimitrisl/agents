@@ -1,10 +1,10 @@
-<div class="app-layout">
-  <app-navbar *ngIf="authService.currentUser()"></app-navbar>
+<forge-shell [hasSidebar]="!!authService.currentUser()" mobileTitle="Phyrexian Forge">
+  <app-navbar *ngIf="authService.currentUser()" brand section="brand" />
+  <app-navbar *ngIf="authService.currentUser()" nav section="nav" />
+  <app-navbar *ngIf="authService.currentUser()" user section="user" />
 
-  <main class="main-content">
-    <router-outlet></router-outlet>
-  </main>
+  <router-outlet />
+</forge-shell>
 
-  <app-roll-toast></app-roll-toast>
-  <app-command-palette></app-command-palette>
-</div>
+<app-roll-toast />
+<app-command-palette />

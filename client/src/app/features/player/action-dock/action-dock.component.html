@@ -1,0 +1,20 @@
+<div class="fixed inset-x-3 bottom-3 z-[999] mx-auto flex max-w-[calc(100vw-1.5rem)] flex-nowrap gap-2 overflow-x-auto rounded-full border border-hairline bg-surface/95 p-2 shadow-card backdrop-blur-lg sm:inset-x-auto sm:left-1/2 sm:max-w-none sm:-translate-x-1/2">
+  <button forgeButton variant="secondary" size="sm" type="button" class="shrink-0" (click)="shortRest.emit()" title="Short Rest">
+    ⛺ Short Rest
+  </button>
+  <button forgeButton variant="secondary" size="sm" type="button" class="shrink-0" (click)="longRest.emit()" title="Long Rest">
+    🌙 Long Rest
+  </button>
+  <button forgeButton variant="secondary" size="sm" type="button" class="shrink-0" (click)="levelUp.emit()" title="Level Up Analysis">
+    ⚡ Level Up
+  </button>
+  <button forgeButton variant="secondary" size="sm" type="button" class="shrink-0" (click)="audit.emit()" title="Audit & Auto-Fix Hero Rules">
+    🔍 Audit & Fix
+  </button>
+  <button forgeButton variant="secondary" size="sm" type="button" class="shrink-0" (click)="strategy.emit()" title="AI Playstyle Guide">
+    📖 AI Guide
+  </button>
+  <button forgeButton variant="secondary" size="sm" type="button" class="shrink-0" (click)="exportPdf.emit()" title="Export PDF">
+    📥 PDF
+  </button>
+</div>

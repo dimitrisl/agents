@@ -1,0 +1,37 @@
+<forge-toolbar collapseAt="lg">
+  <div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+    <div class="flex items-center gap-3">
+      <h2 class="font-display text-title text-ink">🏰 DM Workspace:</h2>
+      <select
+        forgeSelect
+        class="max-w-xs font-semibold text-accent"
+        [ngModel]="campaignName"
+        (ngModelChange)="campaignNameChange.emit($event)"
+        (change)="campaignSelected.emit()"
+      >
+        <option *ngFor="let campaign of userCampaigns" [value]="campaign.campaign_name">
+          {{ campaign.campaign_name }}
+        </option>
+        <option *ngIf="userCampaigns.length === 0" [value]="campaignName">
+          {{ campaignName }}
+        </option>
+      </select>
+    </div>
+
+    <forge-badge *ngIf="inviteCode" tone="gold" size="md">
+      Invite Code: {{ inviteCode }}
+    </forge-badge>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <button forgeButton variant="secondary" size="sm" type="button" (click)="createCampaign.emit()">
+      ➕ New Campaign
+    </button>
+    <button forgeButton variant="secondary" size="sm" type="button" (click)="generateInvite.emit()">
+      🔑 Generate Invite Code
+    </button>
+    <button forgeButton size="sm" type="button" (click)="sendWhisper.emit()">
+      💬 Send Whisper
+    </button>
+  </div>
+</forge-toolbar>

@@ -1,7 +1,17 @@
-import { Component, HostListener, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+  signal,
+} from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { ForgeBadgeComponent, ForgeCardComponent, ForgeInputDirective } from '../../ui';
 
 export interface CommandItem {
   icon: string;
@@ -14,135 +24,26 @@ export interface CommandItem {
 @Component({
   selector: 'app-command-palette',
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <div *ngIf="isOpen()" class="palette-backdrop" (click)="close()">
-      <div class="palette-card phyrexian-card animated-fade" (click)="$event.stopPropagation()">
-        <div class="palette-input-row">
-          <span class="search-icon">🔍</span>
-          <input
-            type="text"
-            class="palette-input"
-            placeholder="Type a command or search... (e.g. Forge, Rules, Rest)"
-            [(ngModel)]="searchQuery"
-            (input)="filterCommands()"
-            #searchInput
-          />
-          <span class="esc-badge">ESC</span>
-        </div>
-
-        <div class="palette-results">
-          <div
-            *ngFor="let item of filteredCommands; let i = index"
-            class="command-row"
-            [class.selected]="i === selectedIndex"
-            (click)="selectItem(item)">
-            <div class="cmd-title-row">
-              <span class="cmd-icon">{{ item.icon }}</span>
-              <strong class="cmd-title">{{ item.title }}</strong>
-            </div>
-            <span class="category-badge">{{ item.category }}</span>
-          </div>
-
-          <div *ngIf="filteredCommands.length === 0" class="no-results">
-            No matching commands found.
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .palette-backdrop {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(8px);
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding-top: 10vh;
-      z-index: 10000;
-    }
-    .palette-card {
-      width: 100%;
-      max-width: 600px;
-      padding: 1rem;
-      border: 1px solid var(--theme-accent);
-      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 75, 75, 0.3);
-    }
-    .palette-input-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      background: rgba(0,0,0,0.4);
-      border-radius: 8px;
-      padding: 0.5rem 0.8rem;
-      border: 1px solid var(--border-card);
-    }
-    .search-icon { font-size: 1.1rem; }
-    .palette-input {
-      background: none;
-      border: none;
-      outline: none;
-      color: #fff;
-      font-size: 1.1rem;
-      font-family: var(--font-body);
-      width: 100%;
-    }
-    .esc-badge {
-      font-size: 0.7rem;
-      background: rgba(255,255,255,0.1);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      color: var(--text-muted);
-    }
-    .palette-results {
-      margin-top: 0.75rem;
-      max-height: 350px;
-      overflow-y: auto;
-    }
-    .command-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.65rem 0.85rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .command-row:hover, .command-row.selected {
-      background: rgba(255, 75, 75, 0.2);
-      border-left: 3px solid var(--theme-accent);
-    }
-    .cmd-title-row { display: flex; align-items: center; gap: 0.6rem; }
-    .cmd-icon { font-size: 1.1rem; }
-    .cmd-title { font-size: 0.95rem; }
-    .category-badge {
-      font-size: 0.72rem;
-      color: var(--text-gold);
-      background: rgba(212, 175, 55, 0.15);
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-    }
-    .no-results {
-      padding: 1.5rem;
-      text-align: center;
-      color: var(--text-muted);
-    }
-  `]
+  imports: [A11yModule, CommonModule, FormsModule, ForgeBadgeComponent, ForgeCardComponent, ForgeInputDirective],
+  templateUrl: './command-palette.component.html',
+  styleUrl: './command-palette.component.css',
 })
 export class CommandPaletteComponent {
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
+  @ViewChildren('commandRow') commandRows?: QueryList<ElementRef<HTMLElement>>;
+
   isOpen = signal<boolean>(false);
   searchQuery = '';
   selectedIndex = 0;
+  private previouslyFocusedElement?: HTMLElement;
 
   commands: CommandItem[] = [
-    { icon: '✨', title: 'Open Character Forge', category: 'Navigation', route: '/forge' },
-    { icon: '📜', title: 'Player Dashboard Sheet', category: 'Navigation', route: '/player' },
-    { icon: '🏰', title: 'Dungeon Master Workspace', category: 'Navigation', route: '/dm' },
-    { icon: '📚', title: 'Arcane Rules Library', category: 'Navigation', route: '/rules' },
-    { icon: '⚙️', title: 'System Settings', category: 'Navigation', route: '/settings' },
-    { icon: '🔑', title: 'Quick Admin Panel', category: 'Navigation', route: '/admin' },
+    { icon: 'âœ¨', title: 'Open Character Forge', category: 'Navigation', route: '/forge' },
+    { icon: 'ðŸ“œ', title: 'Player Dashboard Sheet', category: 'Navigation', route: '/player' },
+    { icon: 'ðŸ°', title: 'Dungeon Master Workspace', category: 'Navigation', route: '/dm' },
+    { icon: 'ðŸ“š', title: 'Arcane Rules Library', category: 'Navigation', route: '/rules' },
+    { icon: 'âš™ï¸', title: 'System Settings', category: 'Navigation', route: '/settings' },
+    { icon: 'ðŸ”‘', title: 'Quick Admin Panel', category: 'Navigation', route: '/admin' },
   ];
 
   filteredCommands: CommandItem[] = [...this.commands];
@@ -153,13 +54,26 @@ export class CommandPaletteComponent {
   handleKeyboardEvent(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
       event.preventDefault();
-      this.isOpen.set(!this.isOpen());
       if (this.isOpen()) {
-        this.searchQuery = '';
-        this.filterCommands();
+        this.close();
+      } else {
+        this.open();
       }
     } else if (event.key === 'Escape' && this.isOpen()) {
       this.close();
+    }
+  }
+
+  handlePaletteKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.moveSelection(1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.moveSelection(-1);
+    } else if (event.key === 'Enter' && this.filteredCommands[this.selectedIndex]) {
+      event.preventDefault();
+      this.selectItem(this.filteredCommands[this.selectedIndex]);
     }
   }
 
@@ -186,5 +100,43 @@ export class CommandPaletteComponent {
 
   close() {
     this.isOpen.set(false);
+    this.restoreFocus();
+  }
+
+  private open(): void {
+    this.previouslyFocusedElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+    this.isOpen.set(true);
+    this.searchQuery = '';
+    this.filterCommands();
+    this.focusSearchInput();
+  }
+
+  private moveSelection(delta: number): void {
+    if (!this.filteredCommands.length) {
+      this.selectedIndex = 0;
+      return;
+    }
+
+    const lastIndex = this.filteredCommands.length - 1;
+    this.selectedIndex = Math.min(lastIndex, Math.max(0, this.selectedIndex + delta));
+    this.scrollSelectedIntoView();
+  }
+
+  private focusSearchInput(): void {
+    window.setTimeout(() => this.searchInput?.nativeElement.focus());
+  }
+
+  private restoreFocus(): void {
+    window.setTimeout(() => this.previouslyFocusedElement?.focus());
+  }
+
+  private scrollSelectedIntoView(): void {
+    window.setTimeout(() => {
+      this.commandRows
+        ?.get(this.selectedIndex)
+        ?.nativeElement.scrollIntoView({ block: 'nearest' });
+    });
   }
 }

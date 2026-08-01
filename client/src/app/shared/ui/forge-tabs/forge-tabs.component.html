@@ -1,0 +1,25 @@
+<div
+  class="flex gap-2 overflow-x-auto border-b border-hairline pb-0.5 whitespace-nowrap [-webkit-overflow-scrolling:touch]"
+  role="tablist"
+>
+  @for (tab of tabs; track tab.id; let index = $index) {
+    <button
+      #tabButton
+      forgeTabButton
+      type="button"
+      role="tab"
+      class="shrink-0 rounded-t-lg border-b-2 px-5 py-3 text-body-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+      [ngClass]="activeId === tab.id
+        ? 'border-accent bg-accent text-white shadow-glow'
+        : 'border-transparent text-muted hover:border-accent hover:bg-white/5 hover:text-accent'"
+      [id]="tabId(tab.id)"
+      [attr.aria-selected]="activeId === tab.id"
+      [attr.tabindex]="activeId === tab.id ? 0 : -1"
+      [disabled]="tab.disabled"
+      (click)="selectTab(tab)"
+      (keydown)="onKeydown($event, index)"
+    >
+      {{ tab.label }}
+    </button>
+  }
+</div>

@@ -1,0 +1,122 @@
+<div class="mx-auto flex w-full max-w-screen-lg flex-col gap-5">
+  <div>
+    <h2 class="font-display text-title text-gold">🔍 Hero Preview</h2>
+  </div>
+
+  <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_1.85fr]">
+    <forge-card padding="md" [hoverable]="false">
+      <div class="flex flex-col gap-4">
+        <img
+          [src]="hero.char_portrait || 'https://image.pollinations.ai/prompt/epic%20dnd%20heroic%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true'"
+          alt="Portrait"
+          class="aspect-square w-full rounded-xl border-2 border-accent object-cover shadow-glow"
+        />
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="regeneratePortrait.emit()"
+        >
+          🔄 Regenerate Portrait
+        </button>
+      </div>
+    </forge-card>
+
+    <forge-card padding="md" [hoverable]="false">
+      <div class="flex flex-col gap-5">
+        <div>
+          <label for="hero-preview-name" class="mb-1 block text-label font-semibold text-muted">
+            ✏️ Edit Hero Name:
+          </label>
+          <input
+            forgeInput
+            id="hero-preview-name"
+            type="text"
+            class="font-display text-title text-accent"
+            [(ngModel)]="hero.char_name"
+          />
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <span
+            class="rounded-full px-3 py-1 text-body-sm font-bold text-white"
+            [style.background]="getClassColor(hero.char_class)"
+          >
+            Level {{ hero.char_level }} {{ hero.char_class }}
+            <ng-container *ngIf="hero.subclass">({{ hero.subclass }})</ng-container>
+          </span>
+          <span class="rounded-full border border-hairline bg-white/5 px-3 py-1 text-body-sm">
+            {{ hero.race }}
+          </span>
+          <span class="rounded-full border border-hairline bg-white/5 px-3 py-1 text-body-sm">
+            {{ hero.background }}
+          </span>
+          <span class="rounded-full border border-cobalt/40 bg-cobalt/10 px-3 py-1 text-body-sm font-bold text-cobalt">
+            {{ edition }}
+          </span>
+        </div>
+
+        <forge-metric-strip>
+          <forge-metric label="❤️ MAX HP" [value]="hero.hp_max"></forge-metric>
+          <forge-metric label="🛡️ ARMOR CLASS" [value]="hero.armor_class"></forge-metric>
+          <forge-metric label="⚡ INITIATIVE" [value]="getModifierString(hero.stats.DEX || 10)"></forge-metric>
+          <forge-metric label="👁️ PASSIVE PERC" [value]="10 + Math.floor(((hero.stats.WIS || 10) - 10) / 2)"></forge-metric>
+        </forge-metric-strip>
+
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <div
+            *ngFor="let s of statKeys"
+            class="rounded-lg border bg-white/[0.04] p-3 text-center"
+            [style.background]="isPrimaryStat(hero.char_class, s) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'"
+            [style.border-color]="isPrimaryStat(hero.char_class, s) ? getClassColor(hero.char_class) : 'rgba(255,255,255,0.12)'"
+          >
+            <span
+              class="block text-label font-bold"
+              [style.color]="isPrimaryStat(hero.char_class, s) ? getClassColor(hero.char_class) : '#888'"
+            >
+              {{ isPrimaryStat(hero.char_class, s) ? '⭐ ' : '' }}{{ s }}
+            </span>
+            <span class="block text-metric font-extrabold text-ink">
+              {{ hero.stats[s] || 10 }}
+            </span>
+            <span class="text-label font-bold text-gold">
+              ({{ getModifierString(hero.stats[s] || 10) }})
+            </span>
+          </div>
+        </div>
+
+        <div
+          *ngIf="hero.backstory"
+          class="rounded-lg border-l-4 bg-black/30 p-4 text-body-sm italic leading-relaxed text-muted"
+          [style.border-left-color]="getClassColor(hero.char_class)"
+        >
+          "{{ hero.backstory }}"
+        </div>
+      </div>
+    </forge-card>
+  </div>
+
+  <div class="flex flex-col gap-3 sm:flex-row">
+    <button
+      forgeButton
+      variant="primary"
+      size="lg"
+      type="button"
+      class="flex-1"
+      (click)="accept.emit()"
+    >
+      ✅ Accept & Equip Hero
+    </button>
+    <button
+      forgeButton
+      variant="secondary"
+      size="lg"
+      type="button"
+      class="flex-1"
+      (click)="discard.emit()"
+    >
+      ❌ Discard
+    </button>
+  </div>
+</div>

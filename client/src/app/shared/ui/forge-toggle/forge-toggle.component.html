@@ -1,0 +1,15 @@
+<button
+  type="button"
+  role="switch"
+  class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-hairline transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+  [ngClass]="checked ? 'bg-accent' : 'bg-black/45'"
+  [attr.aria-checked]="checked"
+  [attr.aria-label]="ariaLabel"
+  (click)="toggle()"
+>
+  <span
+    class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+    [class.translate-x-6]="checked"
+    [class.translate-x-1]="!checked"
+  ></span>
+</button>

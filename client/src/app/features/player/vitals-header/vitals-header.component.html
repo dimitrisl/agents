@@ -1,0 +1,99 @@
+<forge-card padding="md" [hoverable]="false">
+  <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-4 sm:flex-row">
+      <button
+        type="button"
+        class="group relative mx-auto h-32 w-32 shrink-0 overflow-hidden rounded-xl border-2 border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep sm:mx-0"
+        (click)="portrait.emit()"
+      >
+        <img [src]="portraitUrl" alt="Portrait" class="h-full w-full object-cover" />
+        <span class="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-label font-bold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          📷 AI Portrait
+        </span>
+      </button>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 *ngIf="!editMode" class="truncate font-display text-display text-ink">
+            {{ char.char_name }}
+          </h2>
+          <input
+            *ngIf="editMode"
+            forgeInput
+            type="text"
+            class="min-w-0"
+            [(ngModel)]="char.char_name"
+          />
+          <forge-badge tone="accent">{{ edition }}</forge-badge>
+        </div>
+
+        <p *ngIf="!editMode" class="mt-2 text-body text-muted">
+          {{ char.race }} {{ char.char_class }} ({{ char.subclass || 'No Subclass' }}) • Level {{ char.char_level }} • {{ char.background }}
+        </p>
+
+        <div *ngIf="editMode" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input forgeInput type="text" [(ngModel)]="char.race" placeholder="Race" />
+          <input forgeInput type="text" [(ngModel)]="char.char_class" placeholder="Class" />
+          <input forgeInput type="text" [(ngModel)]="char.subclass" placeholder="Subclass" />
+          <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" />
+          <input forgeInput type="text" class="sm:col-span-2" [(ngModel)]="char.background" placeholder="Background" />
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-2">
+      <div class="rounded-xl border border-hairline bg-black/30 p-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span class="text-label font-bold uppercase tracking-[0.04em] text-muted">Hit Points</span>
+          <div class="flex items-center gap-3">
+            <button forgeButton variant="secondary" size="sm" iconOnly type="button" aria-label="Decrease HP" (click)="hpDown.emit()">−</button>
+            <span class="text-metric font-extrabold text-accent">❤️ {{ char.hp_current ?? char.hp_max }} / {{ char.hp_max }}</span>
+            <button forgeButton variant="secondary" size="sm" iconOnly type="button" aria-label="Increase HP" (click)="hpUp.emit()">+</button>
+          </div>
+        </div>
+        <div class="mt-3 h-2 overflow-hidden rounded-full bg-black/45">
+          <div
+            class="h-full rounded-full bg-accent"
+            [style.width.%]="((char.hp_current ?? char.hp_max) / char.hp_max) * 100"
+          ></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-black/25 px-3 py-2 text-body font-semibold">
+        <span class="text-muted">🎲 Hit Dice</span>
+        <span class="text-accent">{{ availableHitDice }} / {{ char.char_level }} (d{{ classHitDieSize }})</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-black/25 px-3 py-2 text-body font-semibold">
+        <span class="text-muted">🛡️ AC</span>
+        <span class="text-accent">{{ char.armor_class }}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-black/25 px-3 py-2 text-body font-semibold">
+        <span class="text-muted">Prof. Bonus</span>
+        <span class="text-accent">+{{ char.proficiency_bonus }}</span>
+      </div>
+    </div>
+
+    <div class="border-t border-hairline pt-4">
+      <ng-content></ng-content>
+    </div>
+
+    <div class="grid grid-cols-1 gap-2">
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-black/25 px-3 py-2 text-body font-semibold">
+        <span class="text-muted">👁️ Passive Perc</span>
+        <span class="text-accent">{{ passivePerception }}</span>
+      </div>
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-black/25 px-3 py-2 text-body font-semibold">
+        <span class="text-muted">👟 Speed</span>
+        <span class="text-accent">{{ char.speed }} ft</span>
+      </div>
+    </div>
+
+    <div *ngIf="editMode" class="grid grid-cols-2 gap-2">
+      <input forgeInput type="number" [(ngModel)]="char.armor_class" placeholder="Armor Class" />
+      <input forgeInput type="number" [(ngModel)]="char.speed" placeholder="Speed" />
+    </div>
+  </div>
+</forge-card>

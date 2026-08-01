@@ -1,0 +1,81 @@
+<forge-section variant="plain" density="compact" title="⚔️ Combat & Inventory">
+  <div *ngIf="char.weapon_masteries && char.weapon_masteries.length > 0" class="rounded-lg border border-gold/40 bg-gold/10 p-3">
+    <h4 class="mb-2 font-display text-body-sm font-bold text-gold">
+      ⚔️ 2024 Weapon Masteries ({{ char.weapon_masteries.length }} Active):
+    </h4>
+    <div class="flex flex-wrap gap-2">
+      <forge-badge *ngFor="let mastery of char.weapon_masteries" tone="gold">
+        🎯 {{ mastery }}
+      </forge-badge>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-between gap-3">
+    <h3 class="font-display text-title text-ink">Equipped Weapons & Attacks</h3>
+    <button *ngIf="editMode" forgeButton variant="secondary" size="sm" type="button" (click)="addWeapon.emit()">
+      + Add Weapon
+    </button>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-hairline bg-black/20">
+    <table class="min-w-[680px] w-full text-left text-body-sm">
+      <thead class="border-b border-hairline text-label uppercase tracking-[0.04em] text-muted">
+        <tr>
+          <th scope="col" class="px-3 py-2 font-bold">Weapon</th>
+          <th scope="col" class="px-3 py-2 font-bold">To Hit</th>
+          <th scope="col" class="px-3 py-2 font-bold">Damage</th>
+          <th scope="col" class="px-3 py-2 font-bold">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-hairline">
+        <tr *ngFor="let weapon of char.weapons; let index = index">
+          <td class="px-3 py-2 align-top">
+            <strong *ngIf="!editMode" class="text-ink">{{ weapon.name }}</strong>
+            <input *ngIf="editMode" forgeInput type="text" [(ngModel)]="weapon.name" (change)="save.emit()" />
+            <div *ngIf="weapon.properties" class="mt-1 text-micro text-muted">{{ weapon.properties }}</div>
+          </td>
+          <td class="px-3 py-2 align-top">
+            <forge-badge *ngIf="!editMode" tone="accent">{{ weapon.attack_bonus }}</forge-badge>
+            <input *ngIf="editMode" forgeInput type="text" [(ngModel)]="weapon.attack_bonus" (change)="save.emit()" />
+          </td>
+          <td class="px-3 py-2 align-top">
+            <span *ngIf="!editMode">{{ weapon.damage_dice }} {{ weapon.damage_bonus }}</span>
+            <input *ngIf="editMode" forgeInput type="text" [(ngModel)]="weapon.damage_dice" (change)="save.emit()" />
+          </td>
+          <td class="px-3 py-2 align-top">
+            <div class="flex gap-2">
+              <button forgeButton variant="secondary" size="sm" type="button" (click)="rollWeaponAttack.emit(weapon)">
+                🎲 Attack
+              </button>
+              <button *ngIf="editMode" forgeButton variant="danger" size="sm" iconOnly type="button" aria-label="Delete weapon" (click)="deleteWeapon.emit(index)">
+                ❌
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex items-center justify-between gap-3">
+    <h3 class="font-display text-title text-ink">🎒 Equipment & Gear</h3>
+    <button *ngIf="editMode" forgeButton variant="secondary" size="sm" type="button" (click)="addEquipment.emit()">
+      + Add Item
+    </button>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <div *ngFor="let item of char.equipment; let index = index" class="flex items-center gap-2 rounded-lg border border-hairline bg-white/[0.03] p-2">
+      <span *ngIf="!editMode" class="min-w-0 flex-1 text-body text-ink">{{ item.name }}</span>
+      <input *ngIf="editMode" forgeInput type="text" class="min-w-0 flex-1" [(ngModel)]="item.name" (change)="save.emit()" />
+      <forge-badge [interactive]="true" [tone]="item.equipped ? 'success' : 'muted'" (click)="toggleEquipped.emit(item)">
+        {{ item.equipped ? 'Equipped' : 'Inventory' }}
+      </forge-badge>
+      <button *ngIf="editMode" forgeButton variant="danger" size="sm" iconOnly type="button" aria-label="Delete equipment" (click)="deleteEquipment.emit(index)">
+        ❌
+      </button>
+    </div>
+  </div>
+
+  <app-dice-roller></app-dice-roller>
+</forge-section>
