@@ -1,6 +1,8 @@
 import asyncio
 import io
+import logging
 import os
+import time
 from typing import List
 
 from fastapi import (
@@ -23,8 +25,19 @@ from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/characters", tags=["Characters"])
+logger = logging.getLogger("PhyrexianForge.CharacterRouter")
 
-_pending_updates = {}
+# Debounce registry: char_id -> (char_dict, timestamp)
+_pending_updates: dict[str, tuple[dict, float]] = {}
+_PENDING_TTL_SECONDS = 30.0
+
+
+def _cleanup_stale_pending():
+    """Remove entries older than TTL to prevent unbounded memory growth."""
+    now = time.monotonic()
+    stale = [k for k, (_, ts) in _pending_updates.items() if now - ts > _PENDING_TTL_SECONDS]
+    for k in stale:
+        del _pending_updates[k]
 
 
 @router.get("", response_model=List[CharacterSchema])
@@ -37,7 +50,7 @@ async def list_characters(current_user: dict = Depends(get_current_user)):
         try:
             characters.append(CharacterSchema.model_validate(doc, strict=False))
         except Exception as e:
-            print(f"Failed to load legacy character {doc.get('char_name', 'Unknown')}: {e}")
+            logger.warning("Skipping legacy character %s: %s", doc.get("char_name", "Unknown"), e)
             pass
     return characters
 
@@ -85,15 +98,16 @@ async def update_character(
     char_dict["owner_id"] = current_user["id"]
 
     # Register this exact dict object as the latest pending update
-    _pending_updates[char_id] = char_dict
+    _cleanup_stale_pending()
+    _pending_updates[char_id] = (char_dict, time.monotonic())
 
     # Debounce window: wait briefly to allow subsequent keystrokes/requests to supersede this one
     await asyncio.sleep(0.4)
 
     # If this request's payload was superseded by a newer one, abort processing
     # and return the LATEST unprocessed payload to prevent the frontend cursor from jumping back.
-    if _pending_updates.get(char_id) is not char_dict:
-        return CharacterSchema.model_validate(_pending_updates[char_id], strict=False)
+    if _pending_updates.get(char_id) is not None and _pending_updates[char_id][0] is not char_dict:
+        return CharacterSchema.model_validate(_pending_updates[char_id][0], strict=False)
 
     # Re-calculate and sync stats using threadpool to prevent blocking the async event loop
     char_dict = await run_in_threadpool(process_character_update, char_dict)
@@ -101,7 +115,7 @@ async def update_character(
     await db["characters"].update_one({"char_id": char_id}, {"$set": char_dict})
 
     # Update the pending registry with the PROCESSED dict so straggler requests return the correctly synced stats
-    _pending_updates[char_id] = char_dict
+    _pending_updates[char_id] = (char_dict, time.monotonic())
 
     return CharacterSchema.model_validate(char_dict, strict=False)
 
@@ -118,8 +132,8 @@ async def delete_character(char_id: str, current_user: dict = Depends(get_curren
     if os.path.exists(portrait_path):
         try:
             os.remove(portrait_path)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to delete portrait for %s: %s", char_id, e)
 
     return {"success": True, "message": f"Character {char_id} deleted."}
 

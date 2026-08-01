@@ -1,6 +1,5 @@
 import datetime
-import hashlib
-import time
+import secrets
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -122,8 +121,7 @@ async def generate_invite_code(name: str, current_user: dict = Depends(get_curre
     camp = await db["campaigns"].find_one({"campaign_name": name})
 
     if not camp:
-        raw = f"{name}-{time.time()}"
-        code = hashlib.md5(raw.encode()).hexdigest()[:6].upper()
+        code = secrets.token_hex(3).upper()
         camp_dict = {
             "campaign_name": name,
             "owner_id": current_user["id"],
@@ -139,8 +137,7 @@ async def generate_invite_code(name: str, current_user: dict = Depends(get_curre
     if camp.get("invite_code"):
         return {"invite_code": camp["invite_code"]}
 
-    raw = f"{name}-{time.time()}"
-    code = hashlib.md5(raw.encode()).hexdigest()[:6].upper()
+    code = secrets.token_hex(3).upper()
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
     return {"invite_code": code}
 

@@ -79,8 +79,15 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
     # Allow direct login if password matches legacy or passlib
     if not user or not verify_password(form_data.password, user.get("password_hash", "")):
-        # Fallback for dev mode / demo accounts
-        if form_data.username.lower() in ["mitsos", "admin", "demo", "player"]:
+        # Fallback for dev mode / demo accounts — only when DEBUG_MODE is enabled
+        from server.config import settings as auth_settings
+
+        if auth_settings.DEBUG_MODE and form_data.username.lower() in [
+            "mitsos",
+            "admin",
+            "demo",
+            "player",
+        ]:
             user = {
                 "id": f"local_user_{form_data.username.lower()}",
                 "username": form_data.username,

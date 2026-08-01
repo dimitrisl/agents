@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from typing import List, Optional
 
 from backend.core.db import get_db
@@ -66,14 +67,7 @@ class CampaignRepository:
             party = existing.get("party", []) if existing else []
 
         if dnd_edition is None:
-            try:
-                import streamlit as st
-
-                dnd_edition = st.session_state.get("dnd_edition")
-            except Exception:
-                pass
-            if not dnd_edition:
-                dnd_edition = existing.get("dnd_edition") if existing else None
+            dnd_edition = existing.get("dnd_edition") if existing else None
             if not dnd_edition:
                 dnd_edition = "2014 Edition"
 
@@ -147,7 +141,7 @@ class CampaignRepository:
             # Try to find by exact name (case-insensitive search would be better, but we assume exact for now)
             # Actually, let's do a case-insensitive regex search just in case
             data = self.collection.find_one(
-                {"campaign_name": {"$regex": f"^{name}$", "$options": "i"}}
+                {"campaign_name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}}
             )
             if data and "_id" in data:
                 del data["_id"]
@@ -160,15 +154,6 @@ class CampaignRepository:
         """Return a list of available campaign names from MongoDB, filtered by edition and owner_id."""
         if self.collection is None:
             return []
-
-        if edition is None:
-            # Fallback to streamlit session state if available
-            try:
-                import streamlit as st
-
-                edition = st.session_state.get("dnd_edition")
-            except Exception:
-                pass
 
         query = {}
         if edition:
@@ -211,7 +196,7 @@ class CampaignRepository:
 
         try:
             result = self.collection.delete_one(
-                {"campaign_name": {"$regex": f"^{name}$", "$options": "i"}}
+                {"campaign_name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}}
             )
             return result.deleted_count > 0
         except Exception as e:

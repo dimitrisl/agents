@@ -47,10 +47,14 @@ async def compare_rule_editions(
 async def validate_rules(
     payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
 ):
-    result = deterministic_validate_build(payload.character)
-    # The frontend might expect a validation schema with issues. Since it's deterministic and auto-fixed, we mock the result.
+    corrected = deterministic_validate_build(payload.character)
     return {
-        "validation_result": {"is_valid": True, "issues": [], "suggestions": [], "corrections": {}}
+        "validation_result": {
+            "is_valid": True,
+            "issues": [],
+            "suggestions": [],
+            "corrections": corrected,
+        }
     }
 
 
