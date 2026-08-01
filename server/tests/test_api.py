@@ -134,7 +134,7 @@ def test_rules_router(mocker):
             return_value="2024 Revision simplifies Grappling to a Saving Throw.",
         )
         mocker.patch(
-            "server.routers.rules_router.validate_character_build",
+            "server.routers.rules_router.deterministic_validate_build",
             return_value={"valid": True, "errors": []},
         )
 
@@ -156,7 +156,7 @@ def test_rules_router(mocker):
             "/api/v1/rules/validate", json={"character": {"char_name": "Valeros"}}
         )
         assert response.status_code == 200
-        assert response.json()["validation_result"]["valid"] is True
+        assert response.json()["validation_result"]["is_valid"] is True
     finally:
         app.dependency_overrides.clear()
 
