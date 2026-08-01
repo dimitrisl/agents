@@ -128,3 +128,20 @@ def test_extract_real_pdf_ulad_bohr():
     assert "Favored Enemy" in result
     assert "Speak with Animals" in result
     assert "Planar Warrior" in result
+
+
+def test_extract_real_pdf_elara_sunwhisper():
+    import os
+
+    pdf_path = "elara.pdf"
+    if not os.path.exists(pdf_path):
+        pytest.skip("elara.pdf not found in root directory")
+
+    with open(pdf_path, "rb") as f:
+        result = extract_text_and_fields_from_pdf(f)
+
+    # Assert that Elara's core attributes are parsed without errors
+    assert "Elara Sunwhisper" in result
+    assert "Cleric" in result
+    assert "18" in result  # Her AC
+    assert "Mace" in result

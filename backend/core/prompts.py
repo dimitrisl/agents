@@ -11,64 +11,6 @@ Question: {query}
 
 Answer (be helpful, use markdown for formatting):
 """
-
-BUILD_VALIDATION_PROMPT = """
-You are an expert Dungeon Master and Rules Arbiter for Dungeons & Dragons ({edition}).
-Your task is to validate a character sheet to ensure it complies STRICTLY with the official rules of the selected D&D edition ({edition}).
-
-Character Data:
-{char_json}
-
-CRITICAL EDITION RULES TO ENFORCE ({edition}):
-IMPORTANT: Evaluate the character EXCLUSIVELY against the selected edition ({edition}). DO NOT apply 2024 rules/features to 2014 characters, and DO NOT apply 2014 rules to 2024 characters!
-
-- IF EDITION IS 2014 EDITION (5e):
-  1. DO NOT require or inject 2024 mechanics (DO NOT expect Weapon Masteries, Origin Feats, Tactical Mind, or 2024 Species traits).
-  2. Subclasses are chosen at Level 1 (Cleric, Sorcerer, Warlock), Level 2 (Wizard, Druid), or Level 3 (Fighter, Paladin, Ranger, Rogue, Barbarian, Bard, Monk).
-  3. Race MUST be valid for 2014 Edition: {allowed_races}. Ability score bonuses in 2014 come from Race.
-  4. Background MUST be valid for 2014 Edition: {allowed_backgrounds}. (2014 Backgrounds grant traditional background features, NOT Origin Feats).
-  5. Class MUST be valid for 2014 Edition: {allowed_classes}.
-  6. Subclass MUST be valid for 2014 Edition: {allowed_subclasses}.
-
-- IF EDITION IS 2024 EDITION (5.5e):
-  1. Subclasses MUST be selected at Level 3 for ALL classes. If Level < 3, subclass MUST be cleared or corrected.
-  2. Race/Species MUST be valid for 2024 Edition: {allowed_races}.
-  3. Background MUST be valid for 2024 Edition: {allowed_backgrounds}. Backgrounds in 2024 grant Origin Feats at Level 1 (e.g. Guard background grants 'Origin Feat: Alert', NOT 2014 'Stand Your Ground').
-  4. Class MUST be valid for 2024 Edition: {allowed_classes}.
-  5. Martial classes (Fighter, Barbarian, Paladin, Ranger, Rogue) use 2024 Weapon Masteries. NOTE: Fighter Weapon Mastery progression in 2024 Edition is: Level 1-3: 3 Masteries, Level 4-9: 4 Masteries, Level 10+: 5 Masteries. Therefore, a Level 5 Fighter correctly has 4 Weapon Masteries. If weapons like Longsword or Crossbow are equipped, prioritize their masteries (Sap, Slow).
-  6. Third-Casters (Eldritch Knight, Arcane Trickster) spell slot progression in 2024/5e: Level 3 has 2 1st-level slots; Level 4-6 has EXACTLY 3 1st-level slots (DO NOT flag 3 slots at Level 5 as an error!); Level 7+ has 4 1st-level slots.
-  7. Spells known: Ensure cantrips are ONLY placed in the `cantrips` list, NOT in `level_1` spells.
-  8. Subclass MUST be valid for 2024 Edition: {allowed_subclasses}.
-
-VALIDATION CHECKLIST FOR ({edition}):
-1. Are Ability Scores legal under {edition} rules? (Standard Array / Point Buy + edition-specific racial/background bonuses, max 20 unless a high-level feature allows).
-2. Is Max HP correct for their class, level, CON modifier, and edition hit die rules?
-3. Is Proficiency Bonus correct for their level under {edition}?
-4. Are their class features, racial/species traits, and subclass features accurate for their level in {edition}?
-5. Are spell slots and prepared spells appropriate for their class, level, and edition?
-6. Are required level advancements present (e.g. Origin Feat at Lvl 1 in 2024 Edition; Feats/ASIs at Lvl 4, 8, 12, 16, 19)?
-7. Are core identity fields (species/race, class, subclass, background) valid for {edition}?
-
-If you find ANY discrepancies, you MUST specify the corrected values in the "corrections" dictionary so they can be applied automatically to the character sheet according to {edition} rules.
-
-You can correct ANY field in the CharacterSchema by providing it in the "corrections" dictionary:
-- "dnd_edition", "background", "race", "char_class", "subclass"
-- "proficiency_bonus", "hp_max", "armor_class", "speed", "passive_perception", "spell_save_dc", "spell_attack_bonus", "initiative_modifier"
-- "stats": dictionary of ability scores (STR, DEX, CON, INT, WIS, CHA)
-- "prepared_spells": list of strings (fill/update with appropriate spells for their level in {edition})
-- "features_traits": list of feature objects (name, description, source) matching {edition} rules.
-- "advancements": list of advancement objects (level, type, name, description) appropriate for {edition}.
-- "playstyle_guide": string. Rewrite if incorrect for {edition}.
-
-Return a JSON object with the following structure exactly:
-{{
-    "is_valid": true,
-    "issues": [],
-    "suggestions": [],
-    "corrections": {{}}
-}}
-"""
-
 # --- Character Forge ---
 CHARACTER_FORGE_PROMPT = """
 Create a fully fleshed out level {target_level} D&D {edition} character.
@@ -305,28 +247,6 @@ Return JSON:
 }}
 """
 
-
-# --- Feat Analysis ---
-FEAT_ANALYSIS_PROMPT = """
-Analyze the mechanical effects of the D&D {edition} feat: "{feat_name}".
-
-Extract the following technical details as a JSON object:
-{{
-    "description": "The full, official text of the feat.",
-    "stat_bonus": {{"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0}},
-    "hp_bonus_per_level": 0,
-    "hp_bonus_flat": 0,
-    "ac_bonus": 0,
-    "speed_bonus": 0,
-    "has_stat_choice": true,
-    "stat_choice_options": ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
-}}
-
-Note:
-- If the feat gives a +1 to ANY stat of choice, set has_stat_choice to true and list all options.
-- If it gives a +1 to a specific stat (e.g. STR), set stat_bonus STR to 1 and has_stat_choice to false.
-- For the 'Tough' feat, hp_bonus_per_level should be 2.
-"""
 
 RULE_COMPARISON_PROMPT = """
 You are the 'Phyrexian Sage', a grand master of D&D evolution.

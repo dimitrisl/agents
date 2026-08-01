@@ -18,9 +18,14 @@ def get_modifier(score: int) -> int:
 @functools.lru_cache(maxsize=2)
 def _get_known_cantrips_for_edition(edition: str) -> set:
     from backend.repositories.rules_repository import RulesRepository
+
     repo = RulesRepository()
     spells = repo.get_all_spells(edition)
-    return {s.get("name", "").strip().lower() for s in spells if str(s.get("level", "")).lower() in ["0", "cantrip"]}
+    return {
+        s.get("name", "").strip().lower()
+        for s in spells
+        if str(s.get("level", "")).lower() in ["0", "cantrip"]
+    }
 
 
 def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -> int:
@@ -793,14 +798,21 @@ def sync_character_stats(
             or "arcane trickster" in subclass_lower
             or "eldritch knight" in feats_str
             or "arcane trickster" in feats_str
-            or (class_lower == "fighter" and (char_data.get("spell_slots") or char_data.get("spells")))
+            or (
+                class_lower == "fighter"
+                and (char_data.get("spell_slots") or char_data.get("spells"))
+            )
         ):
             spell_ability = "INT"
         elif class_lower in ["cleric", "druid", "ranger"]:
             spell_ability = "WIS"
         elif class_lower in ["paladin", "sorcerer", "warlock", "bard"]:
             spell_ability = "CHA"
-        elif char_data.get("spells") or char_data.get("prepared_spells") or char_data.get("spell_slots"):
+        elif (
+            char_data.get("spells")
+            or char_data.get("prepared_spells")
+            or char_data.get("spell_slots")
+        ):
             mental_stats = {
                 "INT": stats.get("INT", 10),
                 "WIS": stats.get("WIS", 10),
@@ -820,7 +832,7 @@ def sync_character_stats(
         char_data["subclass"] = subclass
 
     max_slots = calculate_max_spell_slots(char_class, level, subclass=subclass)
-    
+
     # Rebuild spell_slots cleanly according to class/level max slots rules
     new_spell_slots = {}
     for slot_lvl, max_val in max_slots.items():
@@ -832,6 +844,47 @@ def sync_character_stats(
             used_val = existing
         new_spell_slots[slot_lvl] = {"max": max_val, "used": used_val}
     char_data["spell_slots"] = new_spell_slots
+
+    # Enforce Spell Level Caps (Stops AI from hallucinating spells higher than allowed)
+    spells_dict = char_data.get("spells")
+    if isinstance(spells_dict, dict):
+        max_spell_level = 0
+        for i in range(1, 10):
+            if new_spell_slots.get(f"level_{i}", {}).get("max", 0) > 0:
+                max_spell_level = i
+        # Dynamically determine if the class progression grants high-level spells beyond basic slots (e.g., Mystic Arcanum)
+        if class_data and "progression" in class_data:
+            import re
+
+            for l in range(1, level + 1):
+                lvl_data = class_data["progression"].get(str(l), {})
+                for feature in lvl_data.get("features", []):
+                    f_name = feature.get("name", "")
+                    # Look for explicit spell level grants in feature names (e.g. "Mystic Arcanum (6th level)")
+                    match = re.search(r"\((\d)(?:st|nd|rd|th)\s+level\)", f_name, re.IGNORECASE)
+                    if match:
+                        max_spell_level = max(max_spell_level, int(match.group(1)))
+
+        # Allow innate/racial spells (up to level 3) for characters with few/no slots
+        max_spell_level = max(max_spell_level, min(3, math.ceil(level / 2)))
+
+        for i in range(max_spell_level + 1, 10):
+            lvl_key = f"level_{i}"
+            if spells_dict.get(lvl_key):
+                logger.info(
+                    f"Removing hallucinated {lvl_key} spells (max allowed for this build is {max_spell_level})"
+                )
+                spells_dict[lvl_key] = []
+
+        # Update prepared_spells as well to remove spells we just deleted
+        valid_spell_names = set(spells_dict.get("cantrips", []))
+        for i in range(1, max_spell_level + 1):
+            valid_spell_names.update(spells_dict.get(f"level_{i}", []))
+
+        if "prepared_spells" in char_data:
+            char_data["prepared_spells"] = [
+                ps for ps in char_data["prepared_spells"] if ps in valid_spell_names
+            ]
 
     # Ensure Passive Perception and Skill Proficiencies alignment
     skill_profs = char_data.get("skill_proficiencies") or []
@@ -884,16 +937,17 @@ def sync_character_stats(
             char_data["features_traits"] = [
                 f
                 for f in char_data["features_traits"]
-                if not (
-                    isinstance(f, dict)
-                    and (f.get("name") or "").lower() in legacy_bg_features
-                )
+                if not (isinstance(f, dict) and (f.get("name") or "").lower() in legacy_bg_features)
             ]
 
         # A. Weapon Masteries (Fighter Lvl 1-3 = 3, Lvl 4+ = 4 masteries)
         martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
         if (char_class or "").lower() in martial_classes:
-            target_masteries_count = 4 if (char_class or "").lower() == "fighter" and level >= 4 else (3 if level >= 4 else 2)
+            target_masteries_count = (
+                4
+                if (char_class or "").lower() == "fighter" and level >= 4
+                else (3 if level >= 4 else 2)
+            )
             existing_masteries = list(char_data.get("weapon_masteries") or [])
 
             # Prioritize masteries matching equipped weapons
@@ -903,11 +957,20 @@ def sync_character_stats(
                     w_name = (w.get("name") or "").lower()
                     if "longsword" in w_name and "Sap (Longsword)" not in equipped_weapon_masteries:
                         equipped_weapon_masteries.append("Sap (Longsword)")
-                    elif "crossbow" in w_name and "Slow (Light Crossbow)" not in equipped_weapon_masteries:
+                    elif (
+                        "crossbow" in w_name
+                        and "Slow (Light Crossbow)" not in equipped_weapon_masteries
+                    ):
                         equipped_weapon_masteries.append("Slow (Light Crossbow)")
-                    elif "greatsword" in w_name and "Graze (Greatsword)" not in equipped_weapon_masteries:
+                    elif (
+                        "greatsword" in w_name
+                        and "Graze (Greatsword)" not in equipped_weapon_masteries
+                    ):
                         equipped_weapon_masteries.append("Graze (Greatsword)")
-                    elif "warhammer" in w_name and "Topple (Warhammer)" not in equipped_weapon_masteries:
+                    elif (
+                        "warhammer" in w_name
+                        and "Topple (Warhammer)" not in equipped_weapon_masteries
+                    ):
                         equipped_weapon_masteries.append("Topple (Warhammer)")
 
             for m in equipped_weapon_masteries:
@@ -1020,14 +1083,24 @@ def sync_character_stats(
             cantrips = spells_dict.get("cantrips", [])
             if not isinstance(cantrips, list):
                 cantrips = []
-                
+
             edition_val = char_data.get("dnd_edition") or "2014 Edition"
             known_cantrips_lower = _get_known_cantrips_for_edition(edition_val)
-            
+
             # Defensive fallback in case the database has dirty data (e.g. Booming Blade as level 1)
-            undeniable_cantrips = {"booming blade", "green-flame blade", "eldritch blast", "fire bolt", "mage hand", "prestidigitation", "minor illusion", "ray of frost", "shocking grasp"}
+            undeniable_cantrips = {
+                "booming blade",
+                "green-flame blade",
+                "eldritch blast",
+                "fire bolt",
+                "mage hand",
+                "prestidigitation",
+                "minor illusion",
+                "ray of frost",
+                "shocking grasp",
+            }
             known_cantrips_lower.update(undeniable_cantrips)
-            
+
             for lvl in [f"level_{i}" for i in range(1, 10)]:
                 lvl_spells = spells_dict.get(lvl, [])
                 if isinstance(lvl_spells, list):
@@ -1040,14 +1113,14 @@ def sync_character_stats(
                                 if uc in spell_clean:
                                     is_cantrip = True
                                     break
-                                    
+
                         if is_cantrip:
                             if spell not in cantrips:
                                 cantrips.append(spell)
                         else:
                             new_lvl_spells.append(spell)
                     spells_dict[lvl] = new_lvl_spells
-            
+
             spells_dict["cantrips"] = list(dict.fromkeys(cantrips))  # remove duplicates
 
         # E. (Removed) Eldritch Knight / Arcane Trickster Cantrip Limit

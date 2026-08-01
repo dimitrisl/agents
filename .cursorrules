@@ -17,3 +17,6 @@
 - Format code cleanly.
 - If you encounter a failure, fix the code and rerun tests.
 - ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification.
+
+## 4. Coding Practices
+- **No Hard-Coding:** NEVER hard-code rules, constants, options, or domain data in the Python files (e.g., class names, level caps, lists of proficiencies). All logic and validation MUST rely entirely on data loaded from the `data/rules` JSON files via the `RulesRepository`. Ensure the system remains flexible and deterministic.

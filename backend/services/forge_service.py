@@ -23,6 +23,7 @@ from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
 from backend.services.rules_service import (
+    autofix_character_build,
     get_static_class_features,
 )
 
@@ -161,6 +162,13 @@ def forge_character(
     class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
     result = sync_character_stats(result, class_data)
 
+    # D&D Rules Autofix & Deep Validation
+    try:
+        autofix_result = autofix_character_build(result)
+        result = autofix_result.get("character", result)
+    except Exception as e:
+        logger.error(f"Rule autofix failed during AI forge: {e}")
+
     # Mandatory Schema & Build Validation
     try:
         validated = CharacterSchema.model_validate(result, strict=False)
@@ -276,6 +284,13 @@ def forge_character_manual(
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
     result = sync_character_stats(result, class_data)
+
+    # D&D Rules Autofix & Deep Validation
+    try:
+        autofix_result = autofix_character_build(result)
+        result = autofix_result.get("character", result)
+    except Exception as e:
+        logger.error(f"Rule autofix failed during manual forge: {e}")
 
     # Mandatory Schema & Build Validation
     try:

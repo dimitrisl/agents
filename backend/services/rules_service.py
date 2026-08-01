@@ -8,14 +8,12 @@ import streamlit as st
 from backend.core.ai_client import generate_ai_json, generate_ai_response
 from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.prompts import (
-    BUILD_VALIDATION_PROMPT,
-    FEAT_ANALYSIS_PROMPT,
     PDF_PARSING_STEP1_PROMPT,
     PDF_PARSING_STEP2_PROMPT,
     RULE_COMPARISON_PROMPT,
     RULES_ORACLE_PROMPT,
 )
-from backend.core.schemas import BuildValidationSchema, CharacterSchema
+from backend.core.schemas import CharacterSchema
 from backend.repositories.rules_repository import RulesRepository
 from backend.utils.api_client import fetch_feat_from_api
 
@@ -44,66 +42,24 @@ def compare_rules(query: str) -> str:
     return generate_ai_response(prompt)
 
 
-def validate_character_build(char_data: dict) -> dict:
-    """Uses AI to validate a character's build."""
-    edition = char_data.get("dnd_edition", EDITION_2014)
-    # Ensure char_data matches schema before sending
-    validated_char = CharacterSchema.model_validate(char_data, strict=False)
-
-    from backend.core.constants import (
-        BACKGROUNDS_2014,
-        BACKGROUNDS_2024,
-        CLASSES_2014,
-        CLASSES_2024,
-        RACES_2014,
-        SPECIES_2024,
-        SUBCLASSES_2014,
-        SUBCLASSES_2024,
-    )
-
-    if "2024" in edition:
-        allowed_races = SPECIES_2024
-        allowed_classes = CLASSES_2024
-        allowed_backgrounds = BACKGROUNDS_2024
-        allowed_subclasses = SUBCLASSES_2024.get(validated_char.char_class, [])
-    else:
-        allowed_races = RACES_2014
-        allowed_classes = CLASSES_2014
-        allowed_backgrounds = BACKGROUNDS_2014
-        allowed_subclasses = SUBCLASSES_2014.get(validated_char.char_class, [])
-
-    prompt = BUILD_VALIDATION_PROMPT.format(
-        char_json=validated_char.model_dump_json(indent=2),
-        edition=edition,
-        allowed_races=", ".join(allowed_races),
-        allowed_classes=", ".join(allowed_classes),
-        allowed_backgrounds=", ".join(allowed_backgrounds),
-        allowed_subclasses=", ".join(allowed_subclasses) if allowed_subclasses else "None",
-    )
-    result = generate_ai_json(prompt)
-    if result:
-        return BuildValidationSchema(**result).model_dump()
-    return {"is_valid": True, "issues": [], "suggestions": []}
-
-
 def autofix_character_build(char_data: dict) -> dict:
-    """Validates character build against edition rules, applies corrections, and resynchronizes mechanics."""
-    import copy
-
+    """Validates character build against edition rules deterministically, applies corrections, and resynchronizes mechanics."""
     from backend.services.stats_service import sync_character_stats
+    from backend.services.validation_service import deterministic_validate_build
 
-    validation = validate_character_build(char_data)
-    corrected_char = copy.deepcopy(char_data)
+    # 1. Deterministic Validation & Corrections
+    corrected_char = deterministic_validate_build(char_data)
 
-    corrections = validation.get("corrections") or {}
-    if isinstance(corrections, dict):
-        for k, v in corrections.items():
-            if v is not None:
-                corrected_char[k] = v
+    # We create a dummy validation result to keep compatibility with any frontend code expecting it
+    validation = {"is_valid": True, "issues": [], "suggestions": [], "corrections": {}}
 
     edition = corrected_char.get("dnd_edition", EDITION_2014)
     # Check if character contains 2024 indicators (masteries, origin feats, etc.)
-    if "2024" in str(edition) or corrected_char.get("weapon_masteries") or any("origin feat" in str(f).lower() for f in corrected_char.get("features_traits", [])):
+    if (
+        "2024" in str(edition)
+        or corrected_char.get("weapon_masteries")
+        or any("origin feat" in str(f).lower() for f in corrected_char.get("features_traits", []))
+    ):
         edition = "2024 Edition"
         corrected_char["dnd_edition"] = edition
 
@@ -131,7 +87,11 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
     Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure.
     Uses a 2-step chained process for maximum precision.
     """
-    if "2024" in sheet_text or "mastery" in sheet_text.lower() or "origin feat" in sheet_text.lower():
+    if (
+        "2024" in sheet_text
+        or "mastery" in sheet_text.lower()
+        or "origin feat" in sheet_text.lower()
+    ):
         edition = "2024 Edition"
 
     logger.info(f"Starting Chained Character Parsing (Edition: {edition}, Step 1: Core Stats)...")
@@ -162,7 +122,10 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
 
     # Synchronize derived stats according to edition rules
     from backend.services.stats_service import sync_character_stats
-    class_data = _get_rules_repo().get_class_progression(final_raw.get("char_class", "Fighter"), edition)
+
+    class_data = _get_rules_repo().get_class_progression(
+        final_raw.get("char_class", "Fighter"), edition
+    )
     final_raw = sync_character_stats(final_raw, class_data)
 
     try:
@@ -319,12 +282,13 @@ def analyze_feat(feat_name: str, edition: str = EDITION_2014) -> dict:
         mechanics = regex_parse_feat_attributes(description)
         return {"description": description, "source": api_data["source"], **mechanics}
 
-    # Full AI Fallback for Homebrew/Non-SRD (since it's not in the API)
-    # We still use the AI here because if it's not in the official SRD,
-    # we have no text to parse with regex!
-    prompt = FEAT_ANALYSIS_PROMPT.format(
-        feat_name=feat_name,
-        edition=edition,
-    )
-    result = generate_ai_json(prompt)
-    return result or {}
+    # No AI Fallback as per deterministic validation rule
+    # If a homebrew feat is not in the database, it must be added to the database.
+    return {
+        "description": "Unknown Feat. Please add it to the local rules database.",
+        "source": "Unknown",
+        "stat_bonus": {"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0},
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": False,
+        "stat_choice_options": [],
+    }
