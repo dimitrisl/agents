@@ -100,4 +100,57 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> Dict[str, Any]:
     # or remove custom non-proficient items if AI hallucinated them.
     # We will leave weapons equipped, as using weapons without proficiency is legal (unlike spellcasting in unproficient armor).
 
+    # 4. Subclass Level Validation
+    # Clear the subclass if the character has not yet reached the level where the class
+    # grants a subclass choice. The threshold is read from the static JSON progression,
+    # so no domain data is ever hardcoded here.
+    subclass = corrected_char.get("subclass")
+    level = corrected_char.get("char_level", 1)
+    if subclass and class_data:
+        subclass_min_level = _get_subclass_min_level(class_data)
+        if subclass_min_level and level < subclass_min_level:
+            logger.warning(
+                f"Character is level {level} but subclass '{subclass}' requires level "
+                f"{subclass_min_level} for class '{char_class}'. Clearing subclass."
+            )
+            corrected_char["subclass"] = None
+
     return corrected_char
+
+
+# Keywords that identify the "choose your subclass" feature in progression JSON.
+_SUBCLASS_KEYWORDS = (
+    "archetype",
+    "subclass",
+    "domain",
+    "circle",
+    "sacred oath",
+    "patron",
+    "monastic tradition",
+    "primal path",
+    "college",
+    "roguish archetype",
+    "ranger archetype",
+    "arcane tradition",
+    "sorcerous origin",
+    "otherworldly patron",
+    "artificer specialist",
+    "divine order",  # 2024 cleric
+    "warrior order",  # 2024 fighter variant
+)
+
+
+def _get_subclass_min_level(class_data: Dict[str, Any]) -> int | None:
+    """Returns the earliest level at which the class grants a subclass choice.
+
+    Reads the static JSON progression and looks for feature names matching
+    known subclass-granting keywords. Returns None if no such entry is found,
+    which is treated as 'no restriction' by the caller.
+    """
+    progression = class_data.get("progression", {})
+    for level_str, level_data in sorted(progression.items(), key=lambda x: int(x[0])):
+        for feature in level_data.get("features", []):
+            name = feature.get("name", "").lower()
+            if any(kw in name for kw in _SUBCLASS_KEYWORDS):
+                return int(level_str)
+    return None

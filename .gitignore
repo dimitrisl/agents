@@ -24,3 +24,7 @@ testenv/
 # Editor and AI configs
 .cursorrules
 GEMINI.md
+
+# Local dev scratch files
+lala.py
+config.json

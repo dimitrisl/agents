@@ -207,7 +207,7 @@ async def add_roll_request(
 
     await manager.broadcast(name, {"type": "roll_request", "payload": new_req})
 
-    return {"success": True, "request": new_req}
+    return {"success": True, "message": f"Roll request sent for {req_in.char_name}"}
 
 
 @router.post("/{name}/whisper", response_model=SuccessResponseSchema)
@@ -238,7 +238,7 @@ async def send_whisper(
 
     await manager.broadcast(name, {"type": "whisper", "payload": new_whisper})
 
-    return {"success": True, "whisper": new_whisper}
+    return {"success": True, "message": f"Whisper sent to {new_whisper['recipient']}"}
 
 
 class CampaignNotesRequest(BaseModel):

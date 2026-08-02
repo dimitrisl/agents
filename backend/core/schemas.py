@@ -330,6 +330,19 @@ class LevelUpAnalysisSchema(BaseModel):
     updated_proficiency_bonus: Optional[int] = None
     updated_spell_slots: Optional[Dict[str, int]] = None
 
+    @property
+    def new_features(self) -> List[FeatureTrait]:
+        """Alias for automatic_changes — kept for frontend compatibility."""
+        return self.automatic_changes
+
+    def model_dump(self, **kwargs) -> dict:
+        data = super().model_dump(**kwargs)
+        # Inject new_features so the Angular frontend receives it directly.
+        data["new_features"] = [
+            f.model_dump() if hasattr(f, "model_dump") else f for f in self.automatic_changes
+        ]
+        return data
+
 
 class BuildValidationSchema(BaseModel):
     is_valid: bool
@@ -408,4 +421,5 @@ class RulesValidationResponse(BaseModel):
 
 
 class RulesAutofixResponse(BaseModel):
-    corrected_character: Dict[str, Any]
+    validation_result: Optional[RulesValidationResult] = None
+    character: Dict[str, Any]
