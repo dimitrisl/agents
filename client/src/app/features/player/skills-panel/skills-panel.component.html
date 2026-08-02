@@ -1,0 +1,41 @@
+<section role="tabpanel" aria-labelledby="player-tabs-tab-skills" class="flex flex-col gap-4">
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <label class="inline-flex min-h-10 items-center gap-3 rounded-xl border border-hairline bg-panel px-3 text-label font-semibold text-gold">
+      <span aria-hidden="true">★</span>
+      <span>Proficient only</span>
+      <forge-toggle
+        [checked]="showProficientOnly"
+        (checkedChange)="showProficientOnlyChange.emit($event)"
+        ariaLabel="Show proficient skills only"
+      ></forge-toggle>
+    </label>
+
+    <label class="relative min-w-0 lg:w-80">
+      <span class="sr-only">Search skills</span>
+      <input
+        forgeInput
+        type="search"
+        class="pr-10"
+        placeholder="Search skills..."
+        [(ngModel)]="searchTerm"
+      />
+      <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true">⌕</span>
+    </label>
+  </div>
+
+  <div class="flex flex-col gap-3">
+    <app-ability-skill-group
+      *ngFor="let attr of attributes"
+      [attr]="attr"
+      [attrName]="getAttributeFullName(attr)"
+      [modifier]="getAttributeModifier(attr)"
+      [open]="openGroups[attr]"
+      [skills]="visibleSkills(attr)"
+      [isProficient]="isProficient"
+      [getSkillModString]="getSkillModString"
+      (toggle)="toggleGroup.emit($event)"
+      (rollAbility)="rollAbility.emit($event)"
+      (rollSkill)="rollSkill.emit($event)"
+    ></app-ability-skill-group>
+  </div>
+</section>

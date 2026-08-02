@@ -1,0 +1,26 @@
+<div
+  #tablist
+  [class]="tablistClasses"
+  [ngClass]="fadeClasses"
+  role="tablist"
+  (scroll)="onTablistScroll()"
+>
+  @for (tab of tabs; track tab.id; let index = $index) {
+    <button
+      #tabButton
+      forgeTabButton
+      type="button"
+      role="tab"
+      [class]="buttonBaseClasses"
+      [ngClass]="tabClasses(tab)"
+      [id]="tabId(tab.id)"
+      [attr.aria-selected]="activeId === tab.id"
+      [attr.tabindex]="activeId === tab.id ? 0 : -1"
+      [disabled]="tab.disabled"
+      (click)="selectTab(tab)"
+      (keydown)="onKeydown($event, index)"
+    >
+      {{ tab.label }}
+    </button>
+  }
+</div>

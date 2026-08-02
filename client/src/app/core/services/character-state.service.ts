@@ -1,6 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, of, shareReplay, tap } from 'rxjs';
 import { CharacterSchema } from '../models/character.model';
 import { environment } from '../../../environments/environment';
 
@@ -78,12 +78,34 @@ export class CharacterStateService {
     return 10 + wisMod + (isProf ? profBonus : 0);
   });
 
+  // The vault is fetched once per session; mutations patch the local list from
+  // their own response instead of triggering another round trip.
+  private loaded = false;
+  private inFlight$: Observable<CharacterSchema[]> | null = null;
+
   constructor(private http: HttpClient) {}
 
+  /**
+   * Returns the vault, fetching it only the first time. Concurrent callers share
+   * the same in-flight request, so navigating between features costs nothing.
+   */
+  ensureLoaded(): Observable<CharacterSchema[]> {
+    if (this.loaded) {
+      return of(this.characters());
+    }
+    if (!this.inFlight$) {
+      this.inFlight$ = this.loadCharacters().pipe(shareReplay(1));
+    }
+    return this.inFlight$;
+  }
+
+  /** Forces a fresh fetch, bypassing the cache. */
   loadCharacters(): Observable<CharacterSchema[]> {
     return this.http.get<CharacterSchema[]>(this.API_URL).pipe(
       tap({
         next: (chars) => {
+          this.loaded = true;
+          this.inFlight$ = null;
           this.characters.set(chars || []);
           const available = this.filteredCharacters();
           const currentActive = this.activeCharacter();
@@ -106,10 +128,29 @@ export class CharacterStateService {
           }
         },
         error: () => {
+          this.inFlight$ = null;
           this.characters.set([]);
           this.activeCharacter.set(null);
         }
       })
+    );
+  }
+
+  /** Clears every cached signal so the next consumer refetches (used on logout). */
+  reset(): void {
+    this.loaded = false;
+    this.inFlight$ = null;
+    this.characters.set([]);
+    this.activeCharacter.set(null);
+  }
+
+  /** Replaces a character in the local list, or appends it when it is new. */
+  private upsertCharacter(char: CharacterSchema): void {
+    if (!char?.char_id) return;
+    const list = this.characters();
+    const idx = list.findIndex((c) => c.char_id === char.char_id);
+    this.characters.set(
+      idx >= 0 ? list.map((c, i) => (i === idx ? char : c)) : [...list, char]
     );
   }
 
@@ -132,7 +173,7 @@ export class CharacterStateService {
     return this.http.post<CharacterSchema>(this.API_URL, char).pipe(
       tap((saved) => {
         this.activeCharacter.set(saved);
-        this.loadCharacters().subscribe();
+        this.upsertCharacter(saved);
       })
     );
   }
@@ -141,7 +182,7 @@ export class CharacterStateService {
     return this.http.put<CharacterSchema>(`${this.API_URL}/${id}`, char).pipe(
       tap((updated) => {
         this.activeCharacter.set(updated);
-        this.loadCharacters().subscribe();
+        this.upsertCharacter(updated);
       })
     );
   }
@@ -149,8 +190,13 @@ export class CharacterStateService {
   deleteCharacter(id: string): Observable<any> {
     return this.http.delete(`${this.API_URL}/${id}`).pipe(
       tap(() => {
-        this.activeCharacter.set(null);
-        this.loadCharacters().subscribe();
+        this.characters.set(this.characters().filter((c) => c.char_id !== id));
+        // Fall through to whatever hero is left in the active edition, matching
+        // the selection the old post-delete refetch used to land on.
+        if (this.activeCharacter()?.char_id === id) {
+          const available = this.filteredCharacters();
+          this.activeCharacter.set(available.length > 0 ? available[0] : null);
+        }
       })
     );
   }

@@ -1,0 +1,144 @@
+@switch (section) {
+  @case ('brand') {
+    <div class="flex min-w-0 flex-col gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <svg
+          class="h-9 w-9 shrink-0"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <polygon
+            points="50,15 85,35 85,75 50,90 15,75 15,35"
+            stroke="var(--theme-accent)"
+            stroke-width="6"
+            fill="color-mix(in srgb, var(--theme-accent) 14%, transparent)"
+          />
+          <line
+            x1="50"
+            y1="15"
+            x2="50"
+            y2="90"
+            stroke="var(--theme-accent)"
+            stroke-width="4"
+          />
+        </svg>
+
+        <div class="min-w-0">
+          <h1 class="font-display text-title leading-tight text-accent">Phyrexian Forge</h1>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="flex h-9 w-full items-center justify-between rounded-lg border border-hairline bg-black/20 px-3 text-label text-muted transition-colors hover:bg-white/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+        [attr.aria-label]="'Switch edition. Current edition: ' + charState.dndEdition()"
+        (click)="toggleEdition()"
+      >
+        <span>{{ charState.dndEdition() }}</span>
+        <span aria-hidden="true">⌄</span>
+      </button>
+    </div>
+  }
+
+  @case ('nav') {
+    <nav class="flex flex-col gap-2" aria-label="Primary navigation">
+      <a
+        routerLink="/player"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #playerLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="playerLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">🗡</span>
+        <span>Player Dashboard</span>
+      </a>
+      <a
+        routerLink="/forge"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #forgeLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="forgeLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">✦</span>
+        <span>Character Forge</span>
+      </a>
+      <a
+        routerLink="/dm"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #dmLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="dmLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">🏰</span>
+        <span>DM Workspace</span>
+      </a>
+      <a
+        routerLink="/rules"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #rulesLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="rulesLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">📚</span>
+        <span>Rules Library</span>
+      </a>
+      <a
+        routerLink="/settings"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #settingsLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="settingsLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <span>Settings</span>
+      </a>
+      <a
+        *ngIf="isAdmin()"
+        routerLink="/admin"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #adminLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="adminLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">🛡</span>
+        <span>Admin</span>
+      </a>
+    </nav>
+  }
+
+  @case ('user') {
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <forge-toggle
+          [checked]="is2024()"
+          (checkedChange)="toggleEdition()"
+          ariaLabel="Switch to the 2024 Revision ruleset"
+        />
+        <span class="text-micro text-muted">
+          {{ is2024() ? '2024 Revision' : '2014 Legacy' }}
+        </span>
+      </div>
+
+      <ng-container *ngIf="authService.currentUser() as user">
+        <div class="flex items-center gap-3 rounded-lg bg-white/[0.03] p-2">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-title" aria-hidden="true">👤</div>
+          <div class="min-w-0">
+            <p class="truncate text-body-sm font-semibold text-ink">{{ user.name || user.username }}</p>
+            <p class="text-micro text-muted">{{ isAdmin() ? 'Dungeon Master' : 'Player' }}</p>
+          </div>
+        </div>
+
+        <button forgeButton variant="ghost" size="sm" fullWidth (click)="authService.logout()">
+          Logout
+        </button>
+      </ng-container>
+    </div>
+  }
+}

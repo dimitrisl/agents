@@ -6,7 +6,7 @@ on:
 
 jobs:
   enforce-rebase:
-    name: Rebase Check
+    name: rebase-check
     runs-on: ubuntu-latest
     steps:
       - name: Dummy check for rebase rule

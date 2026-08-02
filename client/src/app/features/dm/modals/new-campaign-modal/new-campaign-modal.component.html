@@ -1,0 +1,37 @@
+<forge-modal
+  title="🏰 Create New Campaign"
+  [open]="open"
+  (openChange)="openChange.emit($event)"
+  (closed)="closed.emit()"
+>
+  <div class="flex flex-col gap-4">
+    <p class="text-body text-muted">Establish a new campaign realm for your party.</p>
+
+    <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+      Campaign Name:
+      <input
+        forgeInput
+        type="text"
+        [ngModel]="newCampaignTitle"
+        (ngModelChange)="newCampaignTitleChange.emit($event)"
+        placeholder="e.g. Curse of Strahd"
+      />
+    </label>
+
+    <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+      Initial DM Notes (Optional):
+      <textarea
+        forgeTextarea
+        rows="3"
+        [ngModel]="newCampaignNotes"
+        (ngModelChange)="newCampaignNotesChange.emit($event)"
+        placeholder="Campaign setting and starting plot points..."
+      ></textarea>
+    </label>
+
+    <div class="flex justify-end gap-2">
+      <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
+      <button forgeButton type="button" (click)="createCampaign.emit()">Create Campaign</button>
+    </div>
+  </div>
+</forge-modal>

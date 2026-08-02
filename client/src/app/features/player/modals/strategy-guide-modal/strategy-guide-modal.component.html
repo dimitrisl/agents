@@ -1,0 +1,8 @@
+<forge-modal [open]="open" (closed)="closed.emit()" title="📖 AI Strategic Playstyle Guide" maxWidth="820px">
+  <div class="max-h-[60vh] overflow-y-auto rounded-lg border border-hairline bg-black/20 p-4">
+    <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">{{ strategyGuideText }}</p>
+  </div>
+  <div class="mt-5 flex justify-end">
+    <button forgeButton variant="primary" type="button" (click)="closed.emit()">Close</button>
+  </div>
+</forge-modal>

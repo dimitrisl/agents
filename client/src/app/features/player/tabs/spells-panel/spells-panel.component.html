@@ -1,0 +1,162 @@
+<div class="flex flex-col gap-6">
+  <section aria-labelledby="spellcasting-stats-heading">
+    <h3 id="spellcasting-stats-heading" class="sr-only">Spellcasting statistics</h3>
+    <div class="grid grid-cols-1 overflow-hidden rounded-xl bg-tile sm:grid-cols-3">
+      <div class="px-4 py-3 text-center">
+        <p class="text-micro font-semibold uppercase text-muted">Spellcasting Ability</p>
+        <p class="mt-1 text-metric font-bold leading-none text-accent">
+          {{ char.spell_ability || '—' }}
+        </p>
+      </div>
+      <div class="border-y border-hairline px-4 py-3 text-center sm:border-x sm:border-y-0">
+        <p class="text-micro font-semibold uppercase text-muted">Spell Save DC</p>
+        <p class="mt-1 text-metric font-bold leading-none text-accent">
+          {{ char.spell_save_dc ?? '—' }}
+        </p>
+      </div>
+      <div class="px-4 py-3 text-center">
+        <p class="text-micro font-semibold uppercase text-muted">Spell Attack Bonus</p>
+        <p class="mt-1 text-metric font-bold leading-none text-accent">
+          {{ char.spell_attack_bonus || '—' }}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="flex flex-col gap-3" aria-labelledby="spell-slots-heading">
+    <h3 id="spell-slots-heading" class="font-display text-title text-ink">Spell Slots</h3>
+
+    <div
+      *ngIf="activeSpellLevels.length > 0; else noSpellSlots"
+      class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+    >
+      <article
+        *ngFor="let level of activeSpellLevels; trackBy: trackByLevel"
+        class="rounded-xl bg-tile p-3"
+      >
+        <p class="text-micro font-semibold uppercase text-muted">Level {{ level }}</p>
+
+        <div class="mt-2 flex items-center justify-between gap-2">
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            iconOnly
+            type="button"
+            [disabled]="slotsRemaining(level) === 0"
+            [attr.aria-label]="'Spend a level ' + level + ' spell slot'"
+            (click)="useSpellSlot.emit(level)"
+          >
+            −
+          </button>
+
+          <p class="min-w-0 leading-none">
+            <span class="text-metric font-bold text-ink">{{ slotsRemaining(level) }}</span>
+            <span class="px-1 text-body font-semibold text-muted">/</span>
+            <span class="text-body font-semibold text-muted">{{ getSpellSlotMax(level) }}</span>
+          </p>
+
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            iconOnly
+            type="button"
+            [disabled]="getSpellSlotUsed(level) === 0"
+            [attr.aria-label]="'Restore a level ' + level + ' spell slot'"
+            (click)="restoreSpellSlot.emit(level)"
+          >
+            +
+          </button>
+        </div>
+
+        <div
+          class="mt-3 h-1 overflow-hidden rounded-full bg-panel"
+          role="meter"
+          [attr.aria-valuemin]="0"
+          [attr.aria-valuemax]="getSpellSlotMax(level)"
+          [attr.aria-valuenow]="slotsRemaining(level)"
+          [attr.aria-label]="'Level ' + level + ' spell slots remaining'"
+        >
+          <div
+            class="h-full rounded-full bg-accent transition-[width] duration-200"
+            [style.width.%]="slotPercentage(level)"
+          ></div>
+        </div>
+      </article>
+    </div>
+
+    <ng-template #noSpellSlots>
+      <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
+        This hero has no spell slots.
+      </p>
+    </ng-template>
+  </section>
+
+  <section class="flex flex-col gap-3" aria-labelledby="features-heading">
+    <div class="flex items-center justify-between gap-3">
+      <h3 id="features-heading" class="font-display text-title text-ink">
+        Class Features &amp; Racial Traits
+      </h3>
+      <button
+        *ngIf="features.length > 0"
+        forgeButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="toggleAllFeatures()"
+      >
+        {{ allFeaturesExpanded ? 'Collapse all' : 'Expand all' }}
+      </button>
+    </div>
+
+    <div
+      *ngIf="features.length > 0; else noFeatures"
+      class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
+    >
+      <div *ngFor="let feature of features; let index = index">
+        <button
+          type="button"
+          class="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+          [attr.aria-expanded]="isFeatureExpanded(index)"
+          [attr.aria-controls]="'feature-body-' + index"
+          (click)="toggleFeature(index)"
+        >
+          <span class="min-w-0 font-display text-body text-ink">{{ feature.name }}</span>
+
+          <forge-badge *ngIf="feature.source" tone="muted">{{ feature.source }}</forge-badge>
+
+          <svg
+            class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
+            [class.rotate-180]="isFeatureExpanded(index)"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M5 7.5L10 12.5L15 7.5"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <p
+          *ngIf="isFeatureExpanded(index)"
+          [id]="'feature-body-' + index"
+          class="bg-tile px-4 py-3 text-body leading-relaxed text-muted"
+        >
+          {{ feature.description }}
+        </p>
+      </div>
+    </div>
+
+    <ng-template #noFeatures>
+      <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
+        No features or traits recorded yet.
+      </p>
+    </ng-template>
+  </section>
+</div>

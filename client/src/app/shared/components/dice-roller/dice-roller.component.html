@@ -1,0 +1,94 @@
+<section class="rounded-xl bg-panel p-4" aria-labelledby="dice-roller-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <h3 id="dice-roller-heading" class="font-display text-title text-ink">
+      Interactive Dice Roller
+    </h3>
+    <button
+      forgeButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      [disabled]="rollHistory.length === 0"
+      (click)="rollHistory = []"
+    >
+      Clear history
+    </button>
+  </div>
+
+  <div class="mt-3 flex flex-wrap items-end gap-4">
+    <div class="flex flex-col gap-1">
+      <label for="dice-count" class="text-micro font-semibold uppercase text-muted">
+        How many
+      </label>
+      <input
+        id="dice-count"
+        forgeInput
+        type="number"
+        min="1"
+        max="20"
+        class="max-w-20"
+        [(ngModel)]="numDice"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label for="dice-modifier" class="text-micro font-semibold uppercase text-muted">
+        Modifier (+/−)
+      </label>
+      <input
+        id="dice-modifier"
+        forgeInput
+        type="number"
+        class="max-w-20"
+        [(ngModel)]="modifier"
+      />
+    </div>
+
+    <p class="text-micro text-muted">
+      Rolling <strong class="text-ink">{{ diceCount }}d…</strong>
+      {{ modifier >= 0 ? '+' : '' }}{{ modifier }}
+      <span *ngIf="rollMode !== 'normal'"> · {{ rollMode }} applies to a single d20</span>
+    </p>
+  </div>
+
+  <div class="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7">
+    <button
+      *ngFor="let sides of diceSides"
+      forgeButton
+      variant="secondary"
+      [tone]="sides === 20 ? 'accent' : undefined"
+      size="md"
+      type="button"
+      [attr.aria-label]="'Roll ' + diceCount + ' d' + sides"
+      (click)="roll(sides)"
+    >
+      d{{ sides }}
+    </button>
+  </div>
+
+  <div aria-live="polite">
+    @if (lastRoll) {
+      <div class="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2 rounded-xl border border-accent/25 bg-accent/6 px-4 py-3">
+        <span class="text-micro font-semibold uppercase text-muted">Latest result</span>
+        <span class="text-body text-ink">
+          {{ lastRoll.expression }} =
+          <strong class="text-metric font-bold text-accent">{{ lastRoll.total }}</strong>
+        </span>
+        <span class="text-micro text-muted">
+          ({{ lastRoll.rolls.join(', ') }} + {{ lastRoll.modifier }})
+        </span>
+      </div>
+    }
+  </div>
+
+  @if (rollHistory.length > 0) {
+    <div class="mt-2 divide-y divide-hairline overflow-hidden rounded-xl bg-tile">
+      @for (item of rollHistory.slice(0, 5); track $index) {
+        <div class="flex items-center justify-between gap-4 px-3 py-1.5 text-micro text-muted">
+          <span class="min-w-0 truncate">{{ item.expression }}</span>
+          <span class="shrink-0 font-semibold text-accent">{{ item.total }}</span>
+        </div>
+      }
+    </div>
+  }
+</section>

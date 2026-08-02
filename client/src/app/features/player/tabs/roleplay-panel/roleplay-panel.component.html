@@ -1,0 +1,100 @@
+<div class="flex flex-col gap-6">
+  <section class="flex flex-col gap-3" aria-labelledby="roleplay-personality-heading">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 id="roleplay-personality-heading" class="font-display text-title text-ink">
+        Personality
+      </h3>
+      <div class="flex flex-wrap items-center gap-2">
+        <forge-badge *ngIf="char.alignment" tone="muted">{{ char.alignment }}</forge-badge>
+        <forge-badge *ngIf="char.background" tone="muted">{{ char.background }}</forge-badge>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+      <div *ngFor="let field of traitFields" class="rounded-xl bg-panel p-4">
+        <h4 class="text-micro font-semibold uppercase text-muted">{{ field.label }}</h4>
+
+        <p *ngIf="!editMode && char[field.key]" class="mt-2 text-body leading-relaxed text-ink">
+          {{ char[field.key] }}
+        </p>
+        <p *ngIf="!editMode && !char[field.key]" class="mt-2 text-body italic text-muted">
+          Not recorded yet.
+        </p>
+
+        <textarea
+          *ngIf="editMode"
+          forgeTextarea
+          class="mt-2"
+          rows="3"
+          [attr.aria-label]="field.label"
+          [(ngModel)]="char[field.key]"
+          (change)="save.emit()"
+        ></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="flex flex-col gap-3" aria-labelledby="roleplay-backstory-heading">
+    <h3 id="roleplay-backstory-heading" class="font-display text-title text-ink">Backstory</h3>
+
+    <div class="rounded-xl bg-panel p-4">
+      <ng-container *ngIf="!editMode">
+        <p
+          *ngIf="char.backstory; else noBackstory"
+          class="text-body leading-relaxed text-ink"
+          [class.line-clamp-6]="isBackstoryClampable && !backstoryExpanded"
+        >
+          {{ char.backstory }}
+        </p>
+
+        <button
+          *ngIf="isBackstoryClampable"
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="mt-2"
+          [attr.aria-expanded]="backstoryExpanded"
+          (click)="toggleBackstory()"
+        >
+          {{ backstoryExpanded ? 'Show less' : 'Show more' }}
+        </button>
+      </ng-container>
+
+      <textarea
+        *ngIf="editMode"
+        forgeTextarea
+        rows="8"
+        aria-label="Backstory"
+        [(ngModel)]="char.backstory"
+        (change)="save.emit()"
+      ></textarea>
+    </div>
+
+    <ng-template #noBackstory>
+      <p class="text-body italic text-muted">No backstory recorded yet.</p>
+    </ng-template>
+  </section>
+
+  <section *ngIf="hasProficiencies" class="flex flex-col gap-3" aria-labelledby="roleplay-proficiencies-heading">
+    <h3 id="roleplay-proficiencies-heading" class="font-display text-title text-ink">
+      Languages &amp; Tools
+    </h3>
+
+    <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+      <div *ngIf="languages.length > 0" class="rounded-xl bg-panel p-4">
+        <h4 class="text-micro font-semibold uppercase text-muted">Languages</h4>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <forge-badge *ngFor="let language of languages" tone="muted">{{ language }}</forge-badge>
+        </div>
+      </div>
+
+      <div *ngIf="toolProficiencies.length > 0" class="rounded-xl bg-panel p-4">
+        <h4 class="text-micro font-semibold uppercase text-muted">Tool Proficiencies</h4>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <forge-badge *ngFor="let tool of toolProficiencies" tone="gold">{{ tool }}</forge-badge>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

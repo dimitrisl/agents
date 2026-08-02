@@ -1,70 +1,64 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { CharacterStateService } from '../../core/services/character-state.service';
+import {
+  ForgeBadgeComponent,
+  ForgeCardComponent,
+  ForgeEmptyStateComponent,
+  ForgePageComponent,
+} from '../../shared/ui';
+
+interface AdminUser {
+  username: string;
+  name: string;
+  role: string;
+  superadmin: boolean;
+}
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div class="admin-container">
-      <div class="phyrexian-card">
-        <h2>🛡️ Machine Orthodoxy Admin Workspace</h2>
-        <p class="subtitle">System diagnostics, database metrics, and user management.</p>
-
-        <div class="stats-grid">
-          <div class="stat-box">
-            <span class="stat-label">Active Users</span>
-            <span class="stat-value">1</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Characters Forged</span>
-            <span class="stat-value">{{ totalCharacters }}</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Database Status</span>
-            <span class="stat-value" style="color: #4CAF50;">ONLINE</span>
-          </div>
-        </div>
-
-        <h3 style="margin-top: 1.5rem;">Registered Users</h3>
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Name</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>mitsos</strong></td>
-              <td>Mitsos (DM)</td>
-              <td><span class="role-badge">Superadmin</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .admin-container { max-width: 800px; margin: 0 auto; }
-    .subtitle { color: var(--text-muted); margin-bottom: 1.5rem; }
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
-    .admin-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-    .admin-table th, .admin-table td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border-card); }
-    .role-badge { background: var(--primary-red); color: #fff; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-  `]
+  imports: [
+    CommonModule,
+    ForgeBadgeComponent,
+    ForgeCardComponent,
+    ForgeEmptyStateComponent,
+    ForgePageComponent,
+  ],
+  templateUrl: './admin.component.html',
+  styleUrl: './admin.component.css',
 })
 export class AdminComponent implements OnInit {
-  totalCharacters = 0;
+  activeUsers = 1;
 
-  constructor(private http: HttpClient) {}
+  /** Reads straight off the shared vault so it stays in sync with forge/player. */
+  get totalCharacters(): number {
+    return this.charState.characters().length;
+  }
+
+  readonly users: AdminUser[] = [
+    {
+      username: 'mitsos',
+      name: 'Mitsos (DM)',
+      role: 'Superadmin',
+      superadmin: true,
+    },
+    {
+      username: 'michalis',
+      name: 'Michalis (PLAYER)',
+      role: 'Superadmin',
+      superadmin: true,
+    },
+  ];
+
+  constructor(private charState: CharacterStateService) {}
+
+  trackUser(_index: number, user: AdminUser): string {
+    return user.username;
+  }
 
   ngOnInit() {
-    this.http.get<any[]>(`${environment.apiBaseUrl}/characters/`).subscribe((chars) => {
-      this.totalCharacters = chars ? chars.length : 0;
-    });
+    // Reuses the shared vault, so opening admin after playing costs no request.
+    this.charState.ensureLoaded().subscribe();
   }
 }

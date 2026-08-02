@@ -1,0 +1,36 @@
+<div
+  class="grid min-h-11 grid-cols-[28px_minmax(0,1fr)_auto_auto] items-center gap-3 bg-panel px-4 py-2 transition-colors hover:bg-tile"
+  [ngClass]="proficient ? 'bg-gold/[0.06] hover:bg-gold/[0.10]' : ''"
+>
+  <span
+    class="text-title leading-none"
+    [class.text-gold]="proficient"
+    [class.text-muted]="!proficient"
+    [class.opacity-40]="!proficient"
+    [attr.aria-label]="proficient ? 'Proficient in ' + skill.name : 'Not proficient in ' + skill.name"
+    [title]="proficient ? 'Proficient' : 'Not proficient'"
+  >
+    {{ proficient ? '★' : '☆' }}
+  </span>
+  <span
+    class="min-w-0 text-body"
+    [class.font-semibold]="proficient"
+    [class.text-ink]="proficient"
+    [class.font-medium]="!proficient"
+    [class.text-muted]="!proficient"
+  >
+    {{ skill.name }}
+  </span>
+  <forge-badge tone="gold" size="sm">{{ modifier }}</forge-badge>
+  <button
+    forgeButton
+    variant="ghost"
+    size="sm"
+    type="button"
+    [attr.aria-label]="'Roll ' + skill.name"
+    (click)="roll.emit(skill)"
+  >
+    <span aria-hidden="true">🎲</span>
+    <span class="hidden sm:inline">Roll</span>
+  </button>
+</div>

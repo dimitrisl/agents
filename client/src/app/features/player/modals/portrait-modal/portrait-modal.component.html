@@ -1,0 +1,16 @@
+<forge-modal [open]="open" (openChange)="openChange.emit($event)" title="🖼️ AI Portrait Generator">
+  <p class="mb-4 text-body-sm text-muted">Generate a custom portrait using Pollinations.ai!</p>
+  <label for="portrait-prompt" class="mb-1 block text-label font-semibold text-muted">Visual Description Prompt (Optional):</label>
+  <textarea
+    forgeTextarea
+    id="portrait-prompt"
+    rows="3"
+    [(ngModel)]="portraitPrompt"
+    (ngModelChange)="portraitPromptChange.emit($event)"
+    placeholder="e.g. Glowing golden armor, divine sword, cinematic lighting..."
+  ></textarea>
+  <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+    <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
+    <button forgeButton variant="primary" type="button" (click)="generateAiPortrait.emit()">🎨 Generate Art</button>
+  </div>
+</forge-modal>

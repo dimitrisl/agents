@@ -1,0 +1,28 @@
+<section class="py-3" aria-labelledby="combat-stats-heading">
+  <h3 id="combat-stats-heading" class="sr-only">Combat statistics</h3>
+  <div class="grid grid-cols-3 overflow-hidden rounded-xl bg-tile">
+    <div class="px-3 py-3 text-center">
+      <p class="text-micro font-semibold uppercase text-muted">AC</p>
+      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ armorClass }}</p>
+    </div>
+    <div class="border-x border-hairline px-3 py-3 text-center">
+      <p class="text-micro font-semibold uppercase text-muted">Prof. Bonus</p>
+      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ formatSigned(proficiencyBonus) }}</p>
+    </div>
+    <div class="px-3 py-3 text-center">
+      <p class="text-micro font-semibold uppercase text-muted">Speed</p>
+      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ speed }} <span class="text-body font-semibold">ft</span></p>
+    </div>
+  </div>
+
+  <div class="mt-2 grid grid-cols-1 overflow-hidden rounded-xl bg-tile sm:grid-cols-2">
+    <div class="px-3 py-3 text-center">
+      <p class="text-micro font-semibold uppercase text-muted">Passive Perception</p>
+      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ passivePerception }}</p>
+    </div>
+    <div *ngIf="initiativeModifier !== undefined" class="border-t border-hairline px-3 py-3 text-center sm:border-l sm:border-t-0">
+      <p class="text-micro font-semibold uppercase text-muted">Initiative</p>
+      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ formatSigned(initiativeModifier) }}</p>
+    </div>
+  </div>
+</section>
