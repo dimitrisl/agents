@@ -133,9 +133,18 @@ async def campaign_websocket_endpoint(
             data = await websocket.receive_text()
             try:
                 payload = json.loads(data)
-                # Broadcast payload to all subscribers of this campaign room
-                await manager.broadcast(decoded_id, payload)
             except Exception as e:
                 logger.error(f"Invalid JSON frame received on WebSocket: {e}")
+                continue
+
+            # The channel is server-authored: whispers, roll requests and results
+            # all arrive through the REST endpoints, which persist them first.
+            # A client frame is therefore never relayed to the room — it would let
+            # any connected browser forge a message from the DM. Only the
+            # heartbeat is answered, and only to the socket that sent it.
+            if isinstance(payload, dict) and payload.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+            else:
+                logger.debug(f"Ignoring unsolicited WebSocket frame: {payload}")
     except WebSocketDisconnect:
         manager.disconnect(decoded_id, websocket)

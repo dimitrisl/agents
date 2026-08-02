@@ -20,6 +20,11 @@ export interface WsIdentity {
   character?: string;
 }
 
+/** How often the client pings to keep the tunnel from idling the socket out. */
+const HEARTBEAT_INTERVAL = 25000;
+/** No frame at all for this long means the connection is dead, `close` or not. */
+const SILENCE_TIMEOUT = 70000;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -32,8 +37,16 @@ export class WebSocketService {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private manuallyClosed = false;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private lastMessageAt = 0;
 
   public messages$ = new Subject<WsMessage>();
+
+  /**
+   * Fires every time the channel comes up — first connect and every reconnect.
+   * Subscribers use it to re-sync whatever they missed while it was down.
+   */
+  public opened$ = new Subject<string>();
 
   public connect(campaignId: string, identity: WsIdentity): void {
     this.clearReconnectTimer();
@@ -94,11 +107,18 @@ export class WebSocketService {
     socket.onopen = () => {
       this.reconnectAttempts = 0;
       console.log(`[WebSocket] Connected to campaign channel: ${campaignId}`);
+      this.startHeartbeat(socket);
+      // Anything that happened while the socket was down was missed entirely, so
+      // subscribers get a chance to re-read the history instead of showing a gap
+      // until someone hits refresh.
+      this.opened$.next(campaignId);
     };
 
     socket.onmessage = (event) => {
+      this.lastMessageAt = Date.now();
       try {
         const data: WsMessage = JSON.parse(event.data);
+        if (data.type === 'pong') return; // Heartbeat only, nothing to show.
         this.messages$.next(data);
       } catch (e) {
         console.error('[WebSocket] Failed to parse message', event.data);
@@ -151,9 +171,45 @@ export class WebSocketService {
   }
 
   private closeSocket(): void {
+    this.stopHeartbeat();
     if (this.socket) {
       this.socket.close();
       this.socket = null;
+    }
+  }
+
+  /**
+   * A socket can die without ever firing `close` — a proxy or tunnel drops it and
+   * the browser keeps believing it is OPEN, so messages simply stop arriving and
+   * the page looks frozen until someone reloads. The ping keeps the tunnel warm,
+   * and the silence watchdog tears down a connection that has gone quiet so the
+   * normal reconnect path can take over.
+   */
+  private startHeartbeat(socket: WebSocket): void {
+    this.stopHeartbeat();
+    this.lastMessageAt = Date.now();
+
+    this.heartbeatTimer = setInterval(() => {
+      if (this.socket !== socket || socket.readyState !== WebSocket.OPEN) {
+        this.stopHeartbeat();
+        return;
+      }
+
+      if (Date.now() - this.lastMessageAt > SILENCE_TIMEOUT) {
+        console.warn('[WebSocket] Channel went silent, reconnecting');
+        this.stopHeartbeat();
+        socket.close();
+        return;
+      }
+
+      socket.send(JSON.stringify({ type: 'ping' }));
+    }, HEARTBEAT_INTERVAL);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 

@@ -223,78 +223,68 @@
           </button>
         </header>
 
-        <div class="whisper-list">
-          <section class="inbox-section">
-            <div class="inbox-section-title">
-              <span>Roll Requests</span>
-              <span class="inbox-count">{{ rollRequestHistory.length }}</span>
-            </div>
+        <div #whisperFeed class="whisper-list" role="log" aria-live="polite">
+          <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
+            Nothing yet. Whispers and roll requests from the DM appear here as they happen.
+          </div>
 
-            <div *ngIf="rollRequestHistory.length === 0" class="whisper-empty">
-              No roll requests for {{ char.char_name }} yet.
-            </div>
-
-            <article
-              *ngFor="let request of rollRequestHistory; trackBy: trackRollRequest"
-              class="roll-request-message"
-              [class.pending]="request.status === 'pending'"
-              [class.secret]="request.is_secret"
-            >
-              <div class="whisper-meta">
-                <span class="message-kind">
-                  {{ request.is_secret ? 'Secret' : 'DM' }} {{ request.roll_type }}
-                </span>
-                <time class="shrink-0 text-micro text-muted">{{ formatRollRequestTime(request.created_at) }}</time>
-              </div>
-              <p class="whisper-text">
-                {{ request.stat }}{{ request.reason ? ' · ' + request.reason : '' }}
-              </p>
-              <p *ngIf="request.result" class="roll-request-result">
-                Result: {{ request.result.total }} ({{ request.result.expression }})
-              </p>
-              <div class="roll-request-actions">
-                <span class="message-status">{{ request.status || 'pending' }}</span>
-                <button
-                  forgeButton
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  (click)="rollForRequest(request)"
-                >
-                  Roll
-                </button>
-              </div>
-            </article>
-          </section>
-
-          <section class="inbox-section">
-            <div class="inbox-section-title">
-              <span>Whispers</span>
-              <span class="inbox-count">{{ whisperHistory.length }}</span>
-            </div>
-
-            <div *ngIf="whisperHistory.length === 0" class="whisper-empty">
-              No whispers for {{ char.char_name }} yet.
-            </div>
-
-            <article
-              *ngFor="let whisper of whisperHistory; trackBy: trackWhisper"
-              class="whisper-message"
-              [class.broadcast]="whisper.recipient === 'All'"
-              [class.own]="isOwnWhisper(whisper)"
-            >
-              <div class="whisper-meta">
-                <span class="message-kind">{{ isOwnWhisper(whisper) ? 'You' : whisper.sender }}</span>
-                <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(whisper.timestamp) }}</time>
-              </div>
-              <p class="whisper-text">{{ whisper.message }}</p>
-              <p class="message-status">
-                {{ isOwnWhisper(whisper)
-                    ? '↩ Replied to ' + whisper.recipient
-                    : (whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + whisper.recipient) }}
-              </p>
-            </article>
-          </section>
+          @for (entry of inboxFeed; track entry.key) {
+            @if (entry.kind === 'whisper') {
+              <article
+                class="whisper-message"
+                [class.broadcast]="entry.whisper.recipient === 'All'"
+                [class.own]="isOwnWhisper(entry.whisper)"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    {{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatWhisperTime(entry.whisper.timestamp) }}
+                  </time>
+                </div>
+                <p class="whisper-text">{{ entry.whisper.message }}</p>
+                <p class="message-status">
+                  💬 {{ isOwnWhisper(entry.whisper)
+                      ? 'Replied to ' + entry.whisper.recipient
+                      : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to you') }}
+                </p>
+              </article>
+            } @else {
+              <article
+                class="roll-request-message"
+                [class.pending]="entry.request.status === 'pending'"
+                [class.secret]="entry.request.is_secret"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    🎲 {{ entry.request.is_secret ? 'Secret' : 'DM' }} {{ entry.request.roll_type }}
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatRollRequestTime(entry.request.created_at) }}
+                  </time>
+                </div>
+                <p class="whisper-text">
+                  {{ entry.request.stat }}{{ entry.request.reason ? ' · ' + entry.request.reason : '' }}
+                </p>
+                <p *ngIf="entry.request.result" class="roll-request-result">
+                  Result: {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+                </p>
+                <div class="roll-request-actions">
+                  <span class="message-status">{{ entry.request.status || 'pending' }}</span>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    (click)="rollForRequest(entry.request)"
+                  >
+                    Roll
+                  </button>
+                </div>
+              </article>
+            }
+          }
         </div>
 
         <form class="whisper-reply" (ngSubmit)="sendWhisperReply()">
@@ -331,12 +321,17 @@
         iconOnly
         type="button"
         class="whisper-toggle"
-        aria-label="Open whisper inbox"
+        [attr.aria-label]="
+          unreadMessages > 0
+            ? unreadMessages + ' new messages from the DM. Open inbox'
+            : (showWhisperInbox ? 'Close DM inbox' : 'Open DM inbox')
+        "
+        [attr.aria-expanded]="showWhisperInbox"
         (click)="toggleWhisperInbox()"
       >
         💬
-        <span *ngIf="unreadWhispers + unreadRollRequests > 0" class="whisper-unread">
-          {{ unreadWhispers + unreadRollRequests }}
+        <span *ngIf="unreadMessages > 0" class="whisper-unread" aria-hidden="true">
+          {{ unreadMessages }}
         </span>
       </button>
     </div>

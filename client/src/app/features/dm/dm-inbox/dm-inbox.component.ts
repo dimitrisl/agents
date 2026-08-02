@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  AfterViewChecked,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -8,14 +18,19 @@ import {
   ForgeTextareaDirective,
 } from '../../../shared/ui';
 import type { RollRequest, Whisper } from '../../../core/models/campaign.model';
+import {
+  buildInboxFeed,
+  formatInboxTime,
+  type InboxEntry,
+} from '../../../core/models/campaign-inbox';
 import type { PartyMember } from '../dm.component';
 
 /**
- * The DM's live end of the table chatter: every whisper in both directions and
- * every roll request with the answer the player rolled, as they happen.
+ * The DM's live end of the table chatter: whispers in both directions and roll
+ * requests with the answer the player rolled, in one chronological thread.
  *
- * Mirrors the player's whisper dock (`features/player/player.component.html`)
- * so both sides of the table read the same way.
+ * Mirrors the player's dock (`features/player/player.component.html`) so both
+ * sides of the table read the same way.
  */
 @Component({
   selector: 'app-dm-inbox',
@@ -32,7 +47,7 @@ import type { PartyMember } from '../dm.component';
   styleUrl: './dm-inbox.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class DmInboxComponent {
+export class DmInboxComponent implements OnChanges, AfterViewChecked {
   @Input() open = false;
   @Input() campaignName = '';
   @Input() partyMembers: PartyMember[] = [];
@@ -48,16 +63,35 @@ export class DmInboxComponent {
   @Output() replyMessageChange = new EventEmitter<string>();
   @Output() sendReply = new EventEmitter<void>();
 
+  @ViewChild('feedList') private feedList?: ElementRef<HTMLElement>;
+
+  feed: InboxEntry[] = [];
+
+  private pendingScroll = false;
+
+  ngOnChanges(): void {
+    this.feed = buildInboxFeed(this.whispers, this.rollRequests);
+    this.pendingScroll = true;
+  }
+
+  /** A chat thread is only useful if it lands on the newest message. */
+  ngAfterViewChecked(): void {
+    if (!this.pendingScroll || !this.feedList) return;
+    this.pendingScroll = false;
+    const element = this.feedList.nativeElement;
+    element.scrollTop = element.scrollHeight;
+  }
+
   toggle(): void {
     this.openChange.emit(!this.open);
   }
 
-  trackWhisper(index: number, whisper: Whisper): string {
-    return whisper.id || `${whisper.timestamp || 'no-time'}-${index}`;
+  trackEntry(_index: number, entry: InboxEntry): string {
+    return entry.key;
   }
 
-  trackRollRequest(index: number, request: RollRequest): string {
-    return request.id || `${request.created_at || 'no-time'}-${index}`;
+  formatTime(timestamp?: string): string {
+    return formatInboxTime(timestamp);
   }
 
   /** A whisper the DM sent, as opposed to a player answering back. */
@@ -89,25 +123,5 @@ export class DmInboxComponent {
     if (status === 'resolved') return '✓ Answered';
     if (status === 'pending') return '⏳ Waiting';
     return `✕ ${status}`;
-  }
-
-  formatTime(timestamp?: string): string {
-    if (!timestamp) return 'Just now';
-
-    // Mongo stores a naive UTC string; the trailing Z is what makes it read as
-    // the player's local time rather than drifting by the timezone offset.
-    const normalized = timestamp.includes('T') ? timestamp : `${timestamp.replace(' ', 'T')}Z`;
-    const date = new Date(normalized);
-
-    if (Number.isNaN(date.getTime())) {
-      return timestamp;
-    }
-
-    return new Intl.DateTimeFormat('el-GR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
   }
 }

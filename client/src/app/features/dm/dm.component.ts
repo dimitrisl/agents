@@ -183,9 +183,19 @@ export class DmComponent implements OnInit, OnDestroy {
   // one from the dropdown does not refetch it.
   private activeWorkspace: string | null = null;
   private wsSub: Subscription | null = null;
+  private openedSub: Subscription | null = null;
 
   ngOnInit() {
     this.loadCampaigns();
+
+    // Every (re)connect re-reads the thread, so a dropped socket costs nothing
+    // and nobody ever has to reload the page to catch up.
+    this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
+      if (campaignName === this.campaignName) {
+        this.loadCampaignMessages(campaignName, true);
+      }
+    });
+
     this.wsSub = this.wsService.messages$.subscribe((msg: WsMessage) => {
       const payload = msg['payload'];
       if (!payload) return;
@@ -216,6 +226,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
+    this.openedSub?.unsubscribe();
   }
 
   // --- Live table inbox ---
@@ -258,27 +269,55 @@ export class DmComponent implements OnInit, OnDestroy {
       });
   }
 
-  private loadCampaignMessages(campaignName: string) {
+  /**
+   * `isCatchUp` is the reconnect case: the thread is merged rather than replaced,
+   * so anything that happened while the socket was down still lands as unread
+   * instead of silently filling in.
+   */
+  private loadCampaignMessages(campaignName: string, isCatchUp = false) {
     this.http
       .get<CampaignMessages>(
         `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
       )
       .subscribe({
         next: (messages) => {
-          this.inboxWhispers = [...(messages.whispers || [])].sort(
-            (a, b) => this.timestampSortValue(a.timestamp) - this.timestampSortValue(b.timestamp)
-          );
-          this.inboxRollRequests = [...(messages.roll_requests || [])].sort(
-            (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
-          );
-          this.unreadInboxMessages = 0;
+          if (campaignName !== this.campaignName) return;
+
+          if (!isCatchUp) {
+            this.inboxWhispers = [...(messages.whispers || [])].sort(
+              (a, b) => this.timestampSortValue(a.timestamp) - this.timestampSortValue(b.timestamp)
+            );
+            this.inboxRollRequests = [...(messages.roll_requests || [])].sort(
+              (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+            );
+            this.unreadInboxMessages = 0;
+            return;
+          }
+
+          for (const whisper of messages.whispers || []) {
+            this.addInboxWhisper(whisper, whisper.sender !== 'DM');
+          }
+          for (const request of messages.roll_requests || []) {
+            this.mergeRollRequestFromHistory(request);
+          }
         },
         error: () => {
+          if (isCatchUp || campaignName !== this.campaignName) return;
           this.inboxWhispers = [];
           this.inboxRollRequests = [];
           this.unreadInboxMessages = 0;
         },
       });
+  }
+
+  /** Only a request we have never seen, or one that changed state, is news. */
+  private mergeRollRequestFromHistory(request: RollRequest) {
+    const existing = request.id
+      ? this.inboxRollRequests.find((item) => item.id === request.id)
+      : undefined;
+    if (existing && existing.status === request.status) return;
+
+    this.upsertRollRequest(request, request.status === 'resolved');
   }
 
   private addInboxWhisper(whisper: Whisper, markUnread: boolean) {

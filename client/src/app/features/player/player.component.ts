@@ -1,4 +1,12 @@
-﻿import { Component, OnInit, effect, OnDestroy } from '@angular/core';
+﻿import {
+  AfterViewChecked,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  effect,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,6 +19,7 @@ import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
 import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import { buildInboxFeed, type InboxEntry } from '../../core/models/campaign-inbox';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
@@ -75,7 +84,9 @@ export interface SkillDefinition {
   templateUrl: './player.component.html',
   styleUrl: './player.component.css', 
 })
-export class PlayerComponent implements OnInit, OnDestroy {
+export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
+  @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
+
   activeTab: 'sheet' = 'sheet';
   sheetSubTab: 'skills' | 'combat' | 'spells' | 'roleplay' = 'skills';
 
@@ -147,15 +158,18 @@ export class PlayerComponent implements OnInit, OnDestroy {
   ];
 
   private wsSub: Subscription | null = null;
+  private openedSub: Subscription | null = null;
   pdfPreviewUrl: string | null = null;
   pdfPreviewBlobUrl: string | null = null;
   whisperHistory: Whisper[] = [];
   rollRequestHistory: RollRequest[] = [];
-  unreadWhispers = 0;
-  unreadRollRequests = 0;
+  /** Both kinds in one chronological thread — the timestamps tell them apart. */
+  inboxFeed: InboxEntry[] = [];
+  unreadMessages = 0;
   whisperReply = '';
   isSendingWhisperReply = false;
   private loadedCampaignMessageKey: string | null = null;
+  private pendingFeedScroll = false;
   private resolvedRollRequestIds = new Set<string>();
 
   // The HP steppers fire once per click; only the value the user settles on is
@@ -198,17 +212,26 @@ export class PlayerComponent implements OnInit, OnDestroy {
         this.wsService.disconnect();
         this.whisperHistory = [];
         this.rollRequestHistory = [];
-        this.unreadWhispers = 0;
-        this.unreadRollRequests = 0;
+        this.unreadMessages = 0;
         this.whisperReply = '';
         this.showWhisperInbox = false;
         this.loadedCampaignMessageKey = null;
+        this.rebuildInboxFeed();
       }
     });
   }
 
   ngOnInit() {
     this.charState.ensureLoaded().subscribe();
+
+    // Every (re)connect re-reads the thread, so a dropped socket costs nothing
+    // and the hero never has to reload the page to see what the DM sent.
+    this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
+      const char = this.charState.activeCharacter();
+      if (char?.active_campaign === campaignName) {
+        this.loadCampaignMessageHistory(campaignName, char.char_name, true);
+      }
+    });
 
     this.wsSub = this.wsService.messages$.subscribe((msg: WsMessage) => {
       const char = this.charState.activeCharacter();
@@ -246,6 +269,20 @@ export class PlayerComponent implements OnInit, OnDestroy {
     if (this.wsSub) {
       this.wsSub.unsubscribe();
     }
+    this.openedSub?.unsubscribe();
+  }
+
+  /** A chat thread is only useful if it lands on the newest message. */
+  ngAfterViewChecked() {
+    if (!this.pendingFeedScroll || !this.whisperFeed) return;
+    this.pendingFeedScroll = false;
+    const element = this.whisperFeed.nativeElement;
+    element.scrollTop = element.scrollHeight;
+  }
+
+  private rebuildInboxFeed() {
+    this.inboxFeed = buildInboxFeed(this.whisperHistory, this.rollRequestHistory);
+    this.pendingFeedScroll = true;
   }
 
   toggleGroup(attr: string) {
@@ -518,21 +555,13 @@ export class PlayerComponent implements OnInit, OnDestroy {
   toggleWhisperInbox(): void {
     this.showWhisperInbox = !this.showWhisperInbox;
     if (this.showWhisperInbox) {
-      this.unreadWhispers = 0;
-      this.unreadRollRequests = 0;
+      this.unreadMessages = 0;
+      this.pendingFeedScroll = true;
     }
   }
 
   closeWhisperInbox(): void {
     this.showWhisperInbox = false;
-  }
-
-  trackWhisper(index: number, whisper: Whisper): string {
-    return whisper.id || `${whisper.timestamp || 'no-time'}-${index}`;
-  }
-
-  trackRollRequest(index: number, request: RollRequest): string {
-    return request.id || `${request.created_at || 'no-time'}-${index}`;
   }
 
   formatWhisperTime(timestamp?: string): string {
@@ -559,10 +588,21 @@ export class PlayerComponent implements OnInit, OnDestroy {
     return this.formatWhisperTime(timestamp);
   }
 
-  private loadCampaignMessageHistory(campaignName: string, characterName: string): void {
+  /**
+   * `isCatchUp` is the reconnect case: the thread is merged rather than replaced,
+   * so whatever the DM sent while the socket was down still lands as unread
+   * instead of quietly filling in.
+   */
+  private loadCampaignMessageHistory(
+    campaignName: string,
+    characterName: string,
+    isCatchUp = false
+  ): void {
     const key = `${campaignName}::${characterName}`;
-    if (this.loadedCampaignMessageKey === key) return;
-    this.loadedCampaignMessageKey = key;
+    if (!isCatchUp) {
+      if (this.loadedCampaignMessageKey === key) return;
+      this.loadedCampaignMessageKey = key;
+    }
 
     this.http
       .get<CampaignMessages>(
@@ -570,22 +610,65 @@ export class PlayerComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (messages) => {
-          this.whisperHistory = (messages.whispers || [])
-            .filter((whisper) => this.isWhisperForCharacter(whisper, characterName))
-            .sort((a, b) => this.whisperSortValue(a) - this.whisperSortValue(b));
-          this.rollRequestHistory = (messages.roll_requests || [])
-            .filter((request) => this.isRollRequestForCharacterName(request, characterName))
-            .sort(
+          const char = this.charState.activeCharacter();
+          if (char?.active_campaign !== campaignName || char?.char_name !== characterName) return;
+
+          const whispers = (messages.whispers || []).filter((whisper) =>
+            this.isWhisperForCharacter(whisper, characterName)
+          );
+          const requests = (messages.roll_requests || []).filter((request) =>
+            this.isRollRequestForCharacterName(request, characterName)
+          );
+
+          if (!isCatchUp) {
+            this.whisperHistory = whispers.sort(
+              (a, b) => this.whisperSortValue(a) - this.whisperSortValue(b)
+            );
+            this.rollRequestHistory = requests.sort(
               (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
             );
-          this.unreadWhispers = 0;
-          this.unreadRollRequests = 0;
+            this.unreadMessages = 0;
+            this.rebuildInboxFeed();
+            return;
+          }
+
+          for (const whisper of whispers) {
+            this.addWhisper(whisper, whisper.sender !== characterName);
+          }
+          for (const request of requests) {
+            this.mergeRollRequestFromHistory(request);
+          }
         },
         error: () => {
+          if (isCatchUp) return;
           this.whisperHistory = [];
           this.rollRequestHistory = [];
+          this.rebuildInboxFeed();
         },
       });
+  }
+
+  /** A request we never saw is news; one we already have just updates in place. */
+  private mergeRollRequestFromHistory(request: RollRequest): void {
+    const existing = request.id
+      ? this.rollRequestHistory.find((item) => item.id === request.id)
+      : undefined;
+
+    if (!existing) {
+      this.addRollRequest(request, true);
+      // Missed while offline — roll it now so the DM still gets an answer.
+      if ((request.status || 'pending') === 'pending') {
+        this.rollForRequest(request);
+      }
+      return;
+    }
+
+    if (existing.status !== request.status || existing.result !== request.result) {
+      this.rollRequestHistory = this.rollRequestHistory.map((item) =>
+        item.id === request.id ? request : item
+      );
+      this.rebuildInboxFeed();
+    }
   }
 
   /** Answers the DM in the same thread the whisper arrived on. */
@@ -630,9 +713,10 @@ export class PlayerComponent implements OnInit, OnDestroy {
     this.whisperHistory = [...this.whisperHistory, whisper].sort(
       (a, b) => this.whisperSortValue(a) - this.whisperSortValue(b)
     );
+    this.rebuildInboxFeed();
 
     if (markUnread && !this.showWhisperInbox) {
-      this.unreadWhispers += 1;
+      this.unreadMessages += 1;
     }
   }
 
@@ -642,9 +726,10 @@ export class PlayerComponent implements OnInit, OnDestroy {
     this.rollRequestHistory = [...this.rollRequestHistory, request].sort(
       (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
     );
+    this.rebuildInboxFeed();
 
     if (markUnread && !this.showWhisperInbox) {
-      this.unreadRollRequests += 1;
+      this.unreadMessages += 1;
     }
   }
 
@@ -666,6 +751,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
           }
         : item
     );
+    this.rebuildInboxFeed();
   }
 
   private submitRollRequestResult(request: RollRequest, roll: any): void {
