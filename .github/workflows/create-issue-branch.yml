@@ -1,0 +1,98 @@
+name: Create issue branch
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  create-branch:
+    if: github.event.label.name == 'create-branch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create branch from issue
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = issue.labels.map(label =>
+              typeof label === 'string' ? label : label.name
+            );
+
+            const prefixByLabel = {
+              bug: 'fix',
+              feature: 'feat',
+              improvement: 'improve',
+              'tech-debt': 'chore',
+              documentation: 'docs'
+            };
+
+            const typeLabel = Object.keys(prefixByLabel).find(label =>
+              labels.includes(label)
+            );
+
+            if (!typeLabel) {
+              core.setFailed(
+                'No supported type label found. Add one of: bug, feature, improvement, tech-debt, documentation.'
+              );
+              return;
+            }
+
+            const prefix = prefixByLabel[typeLabel];
+
+            const slug = issue.title
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '')
+              .substring(0, 60);
+
+            const branchName = `${prefix}/${issue.number}-${slug}`;
+            const baseBranch = 'dev';
+
+            const { data: baseRef } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${baseBranch}`
+            });
+
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/heads/${branchName}`,
+                sha: baseRef.object.sha
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: [
+                  '🌿 Development branch created automatically:',
+                  '',
+                  `\`${branchName}\``,
+                  '',
+                  `Base branch: \`${baseBranch}\``
+                ].join('\n')
+              });
+            } catch (error) {
+              if (error.status === 422) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `⚠️ Branch \`${branchName}\` already exists.`
+                });
+
+                return;
+              }
+
+              throw error;
+            }
