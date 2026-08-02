@@ -1,59 +1,141 @@
-<forge-section variant="plain" density="compact" title="🎲 AI Encounter & NPC Generators">
-  <div class="flex flex-col gap-6">
-    <div class="flex flex-col gap-3">
-      <h4 class="font-display text-title text-ink">⚔️ Random Encounter Generator</h4>
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-[8rem_1fr_auto] md:items-center">
-        <input
-          forgeInput
-          type="number"
-          placeholder="Avg Level"
-          [ngModel]="avgLevel"
-          (ngModelChange)="avgLevelChange.emit($event)"
-        />
-        <input
-          forgeInput
-          type="text"
-          placeholder="Environment (e.g. Dungeon)"
-          [ngModel]="location"
-          (ngModelChange)="locationChange.emit($event)"
-        />
-        <button forgeButton type="button" (click)="generateEncounter.emit()">Generate Encounter</button>
-      </div>
+<div class="flex min-w-0 flex-col">
+  <div class="flex flex-col gap-4 p-4">
+    <div class="min-w-0">
+      <h2 class="font-display text-title text-ink">🎲 AI Encounter &amp; NPC Generators</h2>
+      <p class="mt-1 text-label text-muted">
+        Spin up a balanced encounter or a ready-to-play NPC in one click.
+      </p>
+    </div>
 
-      <forge-card *ngIf="encounterResult" padding="sm" [hoverable]="false">
-        <div class="flex flex-col gap-3 whitespace-pre-wrap">
-          <p><strong>Encounter Text:</strong> {{ encounterResult.encounter_text }}</p>
-          <div *ngIf="encounterResult.monsters?.length" class="flex flex-col gap-2">
-            <h5 class="font-semibold text-ink">Found Monsters:</h5>
-            <ul class="list-disc space-y-1 pl-6">
-              <li *ngFor="let monster of encounterResult.monsters">
-                {{ monster.quantity }}x {{ monster.name }} (HP: {{ monster.hp }}, AC: {{ monster.ac }})
+    <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-encounter-heading">
+      <header class="flex items-center gap-3 bg-tile px-4 py-3">
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+          aria-hidden="true"
+        >
+          ⚔
+        </span>
+        <h3 id="dm-encounter-heading" class="min-w-0 font-display text-title text-ink">
+          Random Encounter Generator
+        </h3>
+      </header>
+
+      <div class="flex flex-col gap-4 p-4">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-[8rem_minmax(0,1fr)_auto] md:items-end">
+          <div class="min-w-0">
+            <label for="encounter-level" class="mb-2 block text-label font-semibold text-muted">
+              Avg Level
+            </label>
+            <input
+              forgeInput
+              id="encounter-level"
+              type="number"
+              [ngModel]="avgLevel"
+              (ngModelChange)="avgLevelChange.emit($event)"
+            />
+          </div>
+
+          <div class="min-w-0">
+            <label for="encounter-location" class="mb-2 block text-label font-semibold text-muted">
+              Environment
+            </label>
+            <input
+              forgeInput
+              id="encounter-location"
+              type="text"
+              placeholder="e.g. Dungeon"
+              [ngModel]="location"
+              (ngModelChange)="locationChange.emit($event)"
+            />
+          </div>
+
+          <button
+            forgeButton
+            variant="secondary"
+            tone="accent"
+            type="button"
+            class="w-full md:w-auto"
+            (click)="generateEncounter.emit()"
+          >
+            Generate Encounter
+          </button>
+        </div>
+
+        <div *ngIf="encounterResult" class="flex min-w-0 flex-col gap-3 rounded-xl bg-tile p-4">
+          <div class="min-w-0">
+            <p class="text-micro font-semibold uppercase text-muted">Encounter</p>
+            <p class="mt-1 whitespace-pre-wrap text-body text-ink">
+              {{ encounterResult.encounter_text }}
+            </p>
+          </div>
+
+          <div *ngIf="encounterResult.monsters?.length" class="flex min-w-0 flex-col gap-2">
+            <p class="text-micro font-semibold uppercase text-muted">Found Monsters</p>
+            <ul class="flex flex-col gap-1">
+              <li *ngFor="let monster of encounterResult.monsters" class="text-body text-muted">
+                <span class="font-semibold text-ink">{{ monster.quantity }}× {{ monster.name }}</span>
+                — HP {{ monster.hp }} · AC {{ monster.ac }}
               </li>
             </ul>
-            <button forgeButton class="self-start" type="button" (click)="addEncounterMonsters.emit()">
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="self-start"
+              (click)="addEncounterMonsters.emit()"
+            >
               ➕ Add to Initiative
             </button>
           </div>
         </div>
-      </forge-card>
-    </div>
-
-    <div class="flex flex-col gap-3">
-      <h4 class="font-display text-title text-ink">👤 Quick NPC Forge</h4>
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-center">
-        <input
-          forgeInput
-          type="text"
-          placeholder="NPC Concept (e.g. Greedy merchant thief)"
-          [ngModel]="npcConcept"
-          (ngModelChange)="npcConceptChange.emit($event)"
-        />
-        <button forgeButton type="button" (click)="generateNpc.emit()">Forge NPC</button>
       </div>
+    </section>
 
-      <forge-card *ngIf="npcResult" padding="sm" [hoverable]="false">
-        <p class="whitespace-pre-wrap">{{ npcResult }}</p>
-      </forge-card>
-    </div>
+    <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-npc-heading">
+      <header class="flex items-center gap-3 bg-tile px-4 py-3">
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+          aria-hidden="true"
+        >
+          👤
+        </span>
+        <h3 id="dm-npc-heading" class="min-w-0 font-display text-title text-ink">Quick NPC Forge</h3>
+      </header>
+
+      <div class="flex flex-col gap-4 p-4">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div class="min-w-0">
+            <label for="npc-concept" class="mb-2 block text-label font-semibold text-muted">
+              NPC Concept
+            </label>
+            <input
+              forgeInput
+              id="npc-concept"
+              type="text"
+              placeholder="e.g. Greedy merchant thief"
+              [ngModel]="npcConcept"
+              (ngModelChange)="npcConceptChange.emit($event)"
+            />
+          </div>
+
+          <button
+            forgeButton
+            variant="secondary"
+            tone="accent"
+            type="button"
+            class="w-full md:w-auto"
+            (click)="generateNpc.emit()"
+          >
+            Forge NPC
+          </button>
+        </div>
+
+        <div *ngIf="npcResult" class="min-w-0 rounded-xl bg-tile p-4">
+          <p class="text-micro font-semibold uppercase text-muted">Result</p>
+          <p class="mt-1 whitespace-pre-wrap text-body text-ink">{{ npcResult }}</p>
+        </div>
+      </div>
+    </section>
   </div>
-</forge-section>
+</div>

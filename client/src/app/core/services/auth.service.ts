@@ -1,8 +1,9 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, shareReplay, tap } from 'rxjs';
 import { User, AuthResponse } from '../models/user.model';
+import { CharacterStateService } from './character-state.service';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -20,7 +21,15 @@ export class AuthService {
   readonly isAuthenticated = computed(() => !!this.currentUser() && !!this.token());
   readonly hasToken = computed(() => !!this.token());
 
-  constructor(private http: HttpClient, private router: Router) {
+  // The boot-time session check and the route guard both ask for the current
+  // user, so they share one request instead of racing two identical ones.
+  private currentUser$: Observable<User> | null = null;
+
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private charState: CharacterStateService
+  ) {
     if (this.token()) {
       this.fetchCurrentUser().subscribe({
         error: (error) => {
@@ -61,14 +70,24 @@ export class AuthService {
   }
 
   fetchCurrentUser(): Observable<User> {
-    return this.http.get<User>(`${this.API_URL}/me`).pipe(
-      tap({
-        next: (user) => {
-          localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(user));
-          this.currentUser.set(user);
-        },
-      })
-    );
+    if (!this.currentUser$) {
+      this.currentUser$ = this.http.get<User>(`${this.API_URL}/me`).pipe(
+        tap({
+          // Cleared once settled, so this only ever collapses concurrent callers
+          // and a later check still re-validates the session against the server.
+          next: (user) => {
+            this.currentUser$ = null;
+            localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(user));
+            this.currentUser.set(user);
+          },
+          error: () => {
+            this.currentUser$ = null;
+          },
+        }),
+        shareReplay(1)
+      );
+    }
+    return this.currentUser$;
   }
 
   updateTutorial(completed: boolean): Observable<User> {
@@ -87,6 +106,10 @@ export class AuthService {
     localStorage.removeItem(this.USER_STORAGE_KEY);
     this.token.set(null);
     this.currentUser.set(null);
+    this.currentUser$ = null;
+    // The vault is cached for the whole session, so it has to be dropped here or
+    // the next user to sign in would open onto the previous one's heroes.
+    this.charState.reset();
     this.router.navigate(['/login']);
   }
 

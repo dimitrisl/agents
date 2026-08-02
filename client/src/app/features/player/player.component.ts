@@ -1,13 +1,15 @@
 ﻿import { Component, OnInit, effect, OnDestroy } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
-import { CharacterSchema, Weapon, EquipmentItem } from '../../core/models/character.model';
+import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
@@ -100,7 +102,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
   levelUpAnalysis: any = null;
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
-  rollMode: 'normal' | 'advantage' | 'disadvantage' = 'normal';
+  rollMode: RollMode = 'normal';
 
   portraitPrompt = '';
   strategyGuideText: string | null = null;
@@ -144,13 +146,32 @@ export class PlayerComponent implements OnInit, OnDestroy {
   pdfPreviewUrl: string | null = null;
   pdfPreviewBlobUrl: string | null = null;
 
+  // The HP steppers fire once per click; only the value the user settles on is
+  // worth a round trip, so writes are collapsed into a single trailing save.
+  private readonly hpSave$ = new Subject<CharacterSchema>();
+
   constructor(
     public charState: CharacterStateService,
+    private dice: DiceService,
     private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router,
     private wsService: WebSocketService
   ) {
+    this.hpSave$
+      .pipe(
+        debounceTime(700),
+        // switchMap aborts a still-flying save, so a stale response can never
+        // overwrite the HP the user just clicked to.
+        switchMap((char) =>
+          this.charState
+            .updateCharacter(char.char_id!, char)
+            .pipe(catchError(() => EMPTY))
+        ),
+        takeUntilDestroyed()
+      )
+      .subscribe();
+
     effect(() => {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
@@ -162,7 +183,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.charState.loadCharacters().subscribe();
+    this.charState.ensureLoaded().subscribe();
 
     this.wsSub = this.wsService.messages$.subscribe((msg: WsMessage) => {
       const char = this.charState.activeCharacter();
@@ -292,15 +313,9 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const dieSize = this.getClassHitDieSize();
     const conMod = this.getConModifier();
 
-    let rollSum = 0;
-    const rolls: number[] = [];
-    for (let i = 0; i < count; i++) {
-      const r = Math.floor(Math.random() * dieSize) + 1;
-      rolls.push(r);
-      rollSum += r;
-    }
     const conBonus = conMod * count;
-    const totalHealed = Math.max(0, rollSum + conBonus);
+    const roll = this.dice.roll({ numDice: count, sides: dieSize, modifier: conBonus });
+    const totalHealed = Math.max(0, roll.total);
 
     const oldHp = char.hp_current ?? char.hp_max;
     const newHp = Math.min(char.hp_max, oldHp + totalHealed);
@@ -319,9 +334,11 @@ export class PlayerComponent implements OnInit, OnDestroy {
 
     this.rollToast.showRoll({
       title: `⛺ SHORT REST HEAL (${count}d${dieSize})`,
-      expression: `${count}d${dieSize} (${rolls.join(', ')}) ${conBonus >= 0 ? '+' + conBonus : conBonus}`,
-      raw: rolls[0],
-      rolls,
+      // Every hit die is worth showing here, so this spells them out rather than
+      // using the service's summed form.
+      expression: `${count}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+      raw: roll.raw,
+      rolls: roll.rolls,
       sides: dieSize,
       modifier: conBonus,
       total: totalHealed,
@@ -398,38 +415,24 @@ export class PlayerComponent implements OnInit, OnDestroy {
     return mod >= 0 ? `+${mod}` : `${mod}`;
   }
 
-  rollD20(): { raw: number; rolls: number[] } {
-    if (this.rollMode === 'advantage') {
-      const r1 = Math.floor(Math.random() * 20) + 1;
-      const r2 = Math.floor(Math.random() * 20) + 1;
-      return { raw: Math.max(r1, r2), rolls: [r1, r2] };
-    } else if (this.rollMode === 'disadvantage') {
-      const r1 = Math.floor(Math.random() * 20) + 1;
-      const r2 = Math.floor(Math.random() * 20) + 1;
-      return { raw: Math.min(r1, r2), rolls: [r1, r2] };
-    }
-    const raw = Math.floor(Math.random() * 20) + 1;
-    return { raw, rolls: [raw] };
+  /** Rolls a d20 in the sheet's current mode and pushes the result to the toast. */
+  private showD20Roll(title: string, modifier: number) {
+    const roll = this.dice.rollD20(modifier, this.rollMode);
+
+    this.rollToast.showRoll({
+      title: `${title}${this.dice.modeLabel(roll.mode)}`,
+      expression: roll.expression,
+      raw: roll.raw,
+      rolls: roll.rolls,
+      sides: roll.sides,
+      modifier: roll.modifier,
+      total: roll.total,
+      mode: roll.mode
+    });
   }
 
   rollSkillCheck(skill: SkillDefinition) {
-    const d20 = this.rollD20();
-    const raw = d20.raw;
-    const mod = this.getSkillModifier(skill);
-    const total = raw + mod;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
-    const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
-
-    this.rollToast.showRoll({
-      title: `🎲 ${skill.name.toUpperCase()} CHECK${modeLabel}`,
-      expression: expr,
-      raw,
-      rolls: d20.rolls,
-      sides: 20,
-      modifier: mod,
-      total,
-      mode: this.rollMode
-    });
+    this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill));
   }
 
   rollAbilityCheck(stat: string) {
@@ -437,22 +440,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
     if (!char || !char.stats) return;
     const val = char.stats[stat] || 10;
     const mod = Math.floor((val - 10) / 2);
-    const d20 = this.rollD20();
-    const raw = d20.raw;
-    const total = raw + mod;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
-    const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
 
-    this.rollToast.showRoll({
-      title: `🎲 ${stat} CHECK${modeLabel}`,
-      expression: expr,
-      raw,
-      rolls: d20.rolls,
-      sides: 20,
-      modifier: mod,
-      total,
-      mode: this.rollMode
-    });
+    this.showD20Roll(`🎲 ${stat} CHECK`, mod);
   }
 
   rollSavingThrow(stat: string) {
@@ -462,23 +451,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const mod = Math.floor((val - 10) / 2);
     const isSaveProf = char.saving_throws?.includes(stat);
     const profBonus = char.proficiency_bonus || 2;
-    const totalMod = mod + (isSaveProf ? profBonus : 0);
-    const d20 = this.rollD20();
-    const raw = d20.raw;
-    const total = raw + totalMod;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
-    const expr = `1d20 (${raw}) ${totalMod >= 0 ? '+' + totalMod : totalMod}`;
 
-    this.rollToast.showRoll({
-      title: `🛡️ ${stat} SAVING THROW${modeLabel}`,
-      expression: expr,
-      raw,
-      rolls: d20.rolls,
-      sides: 20,
-      modifier: totalMod,
-      total,
-      mode: this.rollMode
-    });
+    this.showD20Roll(`🛡️ ${stat} SAVING THROW`, mod + (isSaveProf ? profBonus : 0));
   }
 
   executeRollRequest(rollType: string, stat: string) {
@@ -542,56 +516,47 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const copy = { ...char };
     this.charState.activeCharacter.set(copy);
 
-    if (copy.char_id && copy.char_id !== 'default_paladin') {
-      this.charState.updateCharacter(copy.char_id, copy).subscribe({
-        next: (updated) => {
-          if (updated) {
-            this.charState.activeCharacter.set(updated);
-            this.updateLocalCharactersList(updated);
-          }
-          if (showToast) {
-            this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${copy.char_name}.`);
-          }
-        },
-        error: () => {
-          this.charState.saveCharacter(copy).subscribe({
-            next: (saved) => {
-              if (saved) {
-                this.charState.activeCharacter.set(saved);
-                this.updateLocalCharactersList(saved);
-              }
-              if (showToast) {
-                this.rollToast.showMessage('💾 SHEET SAVED', `Saved ${copy.char_name} to vault.`);
-              }
-            }
-          });
-        }
-      });
-    } else {
-      this.charState.saveCharacter(copy).subscribe({
-        next: (saved) => {
-          if (saved) {
-            this.charState.activeCharacter.set(saved);
-            this.updateLocalCharactersList(saved);
-          }
-          if (showToast) {
-            this.rollToast.showMessage('💾 HERO FORGED', `Saved ${copy.char_name} to vault.`);
-          }
-        }
-      });
+    if (!this.isInVault(copy)) {
+      this.createInVault(copy, showToast, '💾 HERO FORGED');
+      return;
     }
+
+    this.charState.updateCharacter(copy.char_id!, copy).subscribe({
+      next: () => {
+        if (showToast) {
+          this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${copy.char_name}.`);
+        }
+      },
+      // Only a missing record justifies creating one. Any other failure is a real
+      // error, and forging a duplicate hero out of it would make things worse.
+      error: (err) => {
+        if (err?.status === 404) {
+          this.createInVault(copy, showToast, '💾 SHEET SAVED');
+        } else {
+          this.rollToast.showMessage(
+            '⚠️ SAVE FAILED',
+            `Could not save ${copy.char_name}. Your changes are still on screen — try again.`
+          );
+        }
+      }
+    });
   }
 
-  private updateLocalCharactersList(char: CharacterSchema) {
-    const currentList = this.charState.characters();
-    const idx = currentList.findIndex((c) => c.char_id === char.char_id);
-    if (idx >= 0) {
-      const newList = [...currentList];
-      newList[idx] = char;
-      this.charState.characters.set(newList);
-    } else {
-      this.charState.characters.set([...currentList, char]);
-    }
+  /** A hero without an id, or the built-in fallback, has no vault record yet. */
+  private isInVault(char: CharacterSchema): boolean {
+    return !!char.char_id && char.char_id !== 'default_paladin';
+  }
+
+  private createInVault(char: CharacterSchema, showToast: boolean, title: string) {
+    this.charState.saveCharacter(char).subscribe({
+      next: () => {
+        if (showToast) {
+          this.rollToast.showMessage(title, `Saved ${char.char_name} to vault.`);
+        }
+      },
+      error: () =>
+        this.rollToast.showMessage('⚠️ SAVE FAILED', `Could not save ${char.char_name} to vault.`)
+    });
   }
 
   adjustHp(delta: number) {
@@ -601,8 +566,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const updatedHp = Math.max(0, Math.min(char.hp_max, current + delta));
     const updated = { ...char, hp_current: updatedHp };
     this.charState.activeCharacter.set(updated);
-    if (char.char_id) {
-      this.charState.updateCharacter(char.char_id, updated).subscribe();
+    if (this.isInVault(updated)) {
+      this.hpSave$.next(updated);
     }
   }
 
@@ -698,10 +663,9 @@ export class PlayerComponent implements OnInit, OnDestroy {
     }
 
     // Save back to API
-    this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id}`, char)
+    this.charState.updateCharacter(char.char_id!, char)
       .subscribe({
-        next: (updatedChar) => {
-          this.charState.saveCharacter(updatedChar).subscribe();
+        next: () => {
           this.showLevelUpModal = false;
           this.levelUpAnalysis = null;
           this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `Successfully leveled up to ${char.char_level}!`);
@@ -796,26 +760,6 @@ export class PlayerComponent implements OnInit, OnDestroy {
         this.rollToast.showMessage('📥 PDF IMPORTED', `Successfully imported ${imported.char_name}!`);
       },
       error: () => this.rollToast.showMessage('⚠️ IMPORT FAILED', 'Failed to import PDF character sheet.')
-    });
-  }
-
-  rollWeaponAttack(w: Weapon) {
-    const d20 = this.rollD20();
-    const raw = d20.raw;
-    const modNum = parseInt(w.attack_bonus) || 0;
-    const total = raw + modNum;
-    const modeLabel = this.rollMode !== 'normal' ? ` (${this.rollMode.toUpperCase()})` : '';
-    const expr = `1d20 (${raw}) ${w.attack_bonus}`;
-
-    this.rollToast.showRoll({
-      title: `⚔️ ${w.name.toUpperCase()} ATTACK${modeLabel}`,
-      expression: expr,
-      raw,
-      rolls: d20.rolls,
-      sides: 20,
-      modifier: modNum,
-      total,
-      mode: this.rollMode
     });
   }
 

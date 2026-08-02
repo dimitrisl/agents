@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
   ForgeInputDirective,
-  ForgeSectionComponent,
 } from '../../../../shared/ui';
 import type { InitiativeCombatant } from '../../dm.component';
 
@@ -16,7 +15,6 @@ import type { InitiativeCombatant } from '../../dm.component';
     FormsModule,
     ForgeButtonDirective,
     ForgeInputDirective,
-    ForgeSectionComponent,
   ],
   templateUrl: './initiative-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,4 +35,8 @@ export class InitiativePanelComponent {
   @Output() addCombatant = new EventEmitter<void>();
   @Output() openStatblock = new EventEmitter<InitiativeCombatant>();
   @Output() removeCombatant = new EventEmitter<number>();
+
+  trackCombatant(_index: number, combatant: InitiativeCombatant): string {
+    return combatant.id || combatant.name;
+  }
 }

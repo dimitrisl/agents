@@ -1,133 +1,467 @@
-<forge-page
-  title="📚 D&D Arcane Rules Library"
-  subtitle="Search rules, compare 2014 vs 2024 revisions, or run automated character build validation."
->
-  <forge-tabs
-    instanceId="rules-tabs"
-    [tabs]="rulesTabs"
-    [(activeId)]="activeTab"
-  ></forge-tabs>
-
-  @if (activeTab === 'oracle') {
-    <forge-section
-      variant="plain"
-      density="comfortable"
-      role="tabpanel"
-      [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
-    >
-      <div class="flex flex-col gap-3 sm:flex-row">
-        <input
-          forgeInput
-          type="text"
-          class="min-w-0 flex-1"
-          [(ngModel)]="oracleQuery"
-          placeholder="Ask any rule question (e.g., How does grapple work in 5.5e?)"
-          (keyup.enter)="searchOracle()"
-        />
-        <button forgeButton variant="primary" type="button" (click)="searchOracle()">
-          Search Oracle
-        </button>
-      </div>
-
-      @if (oracleAnswer) {
-        <forge-card padding="md" [hoverable]="false">
-          <div class="rules-result-card">
-            <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">
-              {{ oracleAnswer }}
-            </p>
-          </div>
-        </forge-card>
-      }
-    </forge-section>
-  }
-
-  @if (activeTab === 'compare') {
-    <forge-section
-      variant="plain"
-      density="comfortable"
-      role="tabpanel"
-      [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
-    >
-      <div class="flex flex-col gap-3 sm:flex-row">
-        <input
-          forgeInput
-          type="text"
-          class="min-w-0 flex-1"
-          [(ngModel)]="compareQuery"
-          placeholder="Enter feature or spell to compare (e.g. Paladin Smite, Counterspell)"
-          (keyup.enter)="compareEditions()"
-        />
-        <button forgeButton variant="primary" type="button" (click)="compareEditions()">
-          Compare Editions
-        </button>
-      </div>
-
-      @if (compareAnswer) {
-        <forge-card padding="md" [hoverable]="false">
-          <div class="rules-result-card">
-            <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">
-              {{ compareAnswer }}
-            </p>
-          </div>
-        </forge-card>
-      }
-    </forge-section>
-  }
-
-  @if (activeTab === 'validate') {
-    <forge-section
-      variant="plain"
-      density="comfortable"
-      role="tabpanel"
-      [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
-    >
-      <p class="max-w-3xl text-body text-muted">
-        Inspect the currently selected hero for D&D 5e/5.5e rule compliance
-        (ability score bounds, spell slot allocations, proficiencies).
+<forge-page>
+  <header
+    class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+  >
+    <div class="min-w-0 lg:max-w-140">
+      <p class="text-micro font-semibold uppercase text-accent">
+        Rules Library
       </p>
+      <h1 class="mt-1 font-display text-[2rem] leading-tight text-ink">
+        📚 Arcane Rules Library
+      </h1>
+      <p class="mt-1 text-body text-muted">
+        Search rules, compare 2014 vs 2024 revisions, or audit a hero build
+        against the ruleset.
+      </p>
+    </div>
 
-      <div>
-        <button forgeButton variant="primary" type="button" (click)="validateActiveHero()">
-          🛡️ Run Build Audit
-        </button>
-      </div>
+    <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
+      <forge-badge tone="accent">{{ editionShort }} Rules</forge-badge>
+    </div>
+  </header>
 
-      @if (validationResult) {
-        <forge-card padding="md" [hoverable]="false">
-          <div
-            class="rules-result-card audit-result border-l-4 border-accent"
-            [class.audit-result-pass]="validationResult.valid"
-          >
-            <div class="mb-3 text-body font-extrabold">
-              @if (validationResult.valid) {
-                <span class="text-emerald">✅ BUILD PASSED ALL 5E/5.5E RULES AUDITS</span>
-              } @else {
-                <span class="text-red">⚠️ BUILD AUDIT DISCREPANCIES DETECTED</span>
-              }
-            </div>
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <aside
+      class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto"
+    >
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex flex-col">
+          <header class="border-b border-hairline p-4">
+            <p class="text-micro font-semibold uppercase text-muted">
+              Active Ruleset
+            </p>
+            <h2 class="mt-1 truncate font-display text-title text-ink">
+              {{ charState.dndEdition() }}
+            </h2>
+            <p class="mt-1 text-label text-muted">
+              Every answer below is resolved against this edition.
+            </p>
+          </header>
 
-            @if (validationResult.errors?.length > 0) {
-              <div>
-                <h4 class="mb-2 font-display text-body-sm font-bold text-gold">
-                  Detected Audit Discrepancies:
-                </h4>
-                <ul class="list-inside list-disc space-y-1 text-body-sm text-red">
-                  <li *ngFor="let err of validationResult.errors">⚠️ {{ err }}</li>
-                </ul>
-              </div>
-            }
-
-            @if (validationResult.valid) {
-              <div class="text-body-sm text-muted">
-                <p>
-                  Character statistics, ability bounds (3 to 20), proficiency
-                  bonuses, and armor class comply with core 5e specifications.
+          <div class="p-4">
+            <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
+              <div class="px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">
+                  Edition
+                </p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">
+                  {{ editionShort }}
                 </p>
               </div>
-            }
+              <div class="border-l border-hairline px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">
+                  Last Audit
+                </p>
+                <p
+                  class="mt-1 text-body font-semibold leading-tight"
+                  [ngClass]="auditStatusClass"
+                >
+                  {{ auditStatusLabel }}
+                </p>
+              </div>
+            </div>
           </div>
-        </forge-card>
-      }
-    </forge-section>
-  }
+
+          <div class="border-t border-hairline">
+            <p
+              class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted"
+            >
+              Audit Target
+            </p>
+
+            <div
+              *ngIf="charState.activeCharacter() as char; else noHero"
+              class="flex min-h-11 items-center gap-3 px-4 py-3"
+            >
+              <img
+                *ngIf="char.char_portrait"
+                [src]="char.char_portrait"
+                alt=""
+                class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
+              />
+              <span
+                *ngIf="!char.char_portrait"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-title"
+                aria-hidden="true"
+              >
+                ⚔
+              </span>
+              <div class="min-w-0">
+                <p class="truncate text-body font-semibold text-ink">
+                  {{ char.char_name }}
+                </p>
+                <p class="truncate text-label text-muted">
+                  Level {{ char.char_level }} {{ char.char_class }}
+                </p>
+              </div>
+            </div>
+
+            <ng-template #noHero>
+              <p class="px-4 py-3 text-body text-muted">
+                No active hero. Select one in the Player Dashboard to run a
+                build audit.
+              </p>
+            </ng-template>
+          </div>
+        </div>
+      </forge-card>
+    </aside>
+
+    <section class="min-w-0">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex min-h-0 flex-col">
+          <div
+            class="flex flex-col gap-3 border-b border-hairline p-4 lg:flex-row lg:items-center lg:justify-between"
+          >
+            <forge-tabs
+              class="min-w-0 flex-1"
+              instanceId="rules-tabs"
+              variant="underline"
+              [tabs]="rulesTabs"
+              [(activeId)]="activeTab"
+            ></forge-tabs>
+
+            <p class="shrink-0 text-micro font-semibold uppercase text-muted">
+              {{ is2024 ? "D&D 2024" : "D&D 2014" }}
+            </p>
+          </div>
+
+          @if (activeTab === "oracle") {
+            <div
+              class="flex min-w-0 flex-col gap-4 p-4"
+              role="tabpanel"
+              [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
+            >
+              <section
+                class="overflow-hidden rounded-xl bg-panel"
+                aria-labelledby="rules-oracle-heading"
+              >
+                <header class="flex items-center gap-3 bg-tile px-4 py-3">
+                  <span
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label text-accent"
+                    aria-hidden="true"
+                  >
+                    🔮
+                  </span>
+                  <h2
+                    id="rules-oracle-heading"
+                    class="min-w-0 font-display text-title text-ink"
+                  >
+                    Ask the Oracle
+                  </h2>
+                </header>
+
+                <div class="flex flex-col gap-3 p-4">
+                  <label
+                    for="oracle-query"
+                    class="block text-label font-semibold text-muted"
+                  >
+                    Rule question
+                  </label>
+                  <div class="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      forgeInput
+                      id="oracle-query"
+                      type="text"
+                      class="min-w-0 flex-1"
+                      [(ngModel)]="oracleQuery"
+                      placeholder="e.g. How does grappling work in 5.5e?"
+                      (keyup.enter)="searchOracle()"
+                    />
+                    <button
+                      forgeButton
+                      variant="primary"
+                      type="button"
+                      class="shrink-0"
+                      (click)="searchOracle()"
+                    >
+                      Search Oracle
+                    </button>
+                  </div>
+                  <p class="text-label text-muted">
+                    Press Enter to search. Answers cite the
+                    {{ editionShort }} ruleset.
+                  </p>
+                </div>
+              </section>
+
+              @if (oracleAnswer) {
+                <section
+                  class="overflow-hidden rounded-xl bg-panel"
+                  aria-labelledby="rules-oracle-answer"
+                >
+                  <header
+                    class="flex flex-wrap items-center justify-between gap-3 bg-tile px-4 py-3"
+                  >
+                    <h3
+                      id="rules-oracle-answer"
+                      class="min-w-0 font-display text-title text-ink"
+                    >
+                      Oracle Answer
+                    </h3>
+                    <forge-badge tone="muted">{{ editionShort }}</forge-badge>
+                  </header>
+
+                  <div class="max-h-[min(34rem,55vh)] overflow-y-auto p-4">
+                    <p
+                      class="max-w-3xl whitespace-pre-wrap text-body leading-relaxed text-ink"
+                    >
+                      {{ oracleAnswer }}
+                    </p>
+                  </div>
+                </section>
+              } @else {
+                <forge-empty-state
+                  icon="🔮"
+                  title="The Oracle is listening"
+                  description="Ask a rules question above to get a cited answer for the active edition."
+                ></forge-empty-state>
+              }
+            </div>
+          }
+
+          @if (activeTab === "compare") {
+            <div
+              class="flex min-w-0 flex-col gap-4 p-4"
+              role="tabpanel"
+              [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
+            >
+              <section
+                class="overflow-hidden rounded-xl bg-panel"
+                aria-labelledby="rules-compare-heading"
+              >
+                <header class="flex items-center gap-3 bg-tile px-4 py-3">
+                  <span
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label text-accent"
+                    aria-hidden="true"
+                  >
+                    ⚖
+                  </span>
+                  <h2
+                    id="rules-compare-heading"
+                    class="min-w-0 font-display text-title text-ink"
+                  >
+                    2014 vs 2024 Comparator
+                  </h2>
+                </header>
+
+                <div class="flex flex-col gap-3 p-4">
+                  <label
+                    for="compare-query"
+                    class="block text-label font-semibold text-muted"
+                  >
+                    Feature or spell
+                  </label>
+                  <div class="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      forgeInput
+                      id="compare-query"
+                      type="text"
+                      class="min-w-0 flex-1"
+                      [(ngModel)]="compareQuery"
+                      placeholder="e.g. Paladin Smite, Counterspell"
+                      (keyup.enter)="compareEditions()"
+                    />
+                    <button
+                      forgeButton
+                      variant="primary"
+                      type="button"
+                      class="shrink-0"
+                      (click)="compareEditions()"
+                    >
+                      Compare Editions
+                    </button>
+                  </div>
+                  <p class="text-label text-muted">
+                    Compares both rulesets side by side, regardless of the
+                    active edition.
+                  </p>
+                </div>
+              </section>
+
+              @if (compareAnswer) {
+                <section
+                  class="overflow-hidden rounded-xl bg-panel"
+                  aria-labelledby="rules-compare-answer"
+                >
+                  <header
+                    class="flex flex-wrap items-center justify-between gap-3 bg-tile px-4 py-3"
+                  >
+                    <h3
+                      id="rules-compare-answer"
+                      class="min-w-0 font-display text-title text-ink"
+                    >
+                      Comparison
+                    </h3>
+                    <div class="flex shrink-0 items-center gap-2">
+                      <forge-badge tone="muted">2014</forge-badge>
+                      <forge-badge tone="muted">2024</forge-badge>
+                    </div>
+                  </header>
+
+                  <div class="max-h-[min(34rem,55vh)] overflow-y-auto p-4">
+                    <p
+                      class="max-w-3xl whitespace-pre-wrap text-body leading-relaxed text-ink"
+                    >
+                      {{ compareAnswer }}
+                    </p>
+                  </div>
+                </section>
+              } @else {
+                <forge-empty-state
+                  icon="⚖️"
+                  title="Nothing compared yet"
+                  description="Enter a feature or spell to see how the 2014 and 2024 rules differ."
+                ></forge-empty-state>
+              }
+            </div>
+          }
+
+          @if (activeTab === "validate") {
+            <div
+              class="flex min-w-0 flex-col gap-4 p-4"
+              role="tabpanel"
+              [attr.aria-labelledby]="'rules-tabs-tab-' + activeTab"
+            >
+              <section
+                class="overflow-hidden rounded-xl bg-panel"
+                aria-labelledby="rules-validate-heading"
+              >
+                <header class="flex items-center gap-3 bg-tile px-4 py-3">
+                  <span
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label text-accent"
+                    aria-hidden="true"
+                  >
+                    🛡
+                  </span>
+                  <h2
+                    id="rules-validate-heading"
+                    class="min-w-0 font-display text-title text-ink"
+                  >
+                    Character Rules Inspector
+                  </h2>
+                </header>
+
+                <div class="flex flex-col gap-4 p-4">
+                  <p class="max-w-3xl text-body text-muted">
+                    Inspects the selected hero for 5e / 5.5e rule compliance —
+                    ability score bounds, spell slot allocation and
+                    proficiencies.
+                  </p>
+
+                  <div
+                    class="flex min-w-0 flex-col gap-3 rounded-xl bg-tile px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div class="min-w-0">
+                      <p class="text-micro font-semibold uppercase text-muted">
+                        Audit target
+                      </p>
+                      <p class="mt-1 truncate text-body font-semibold text-ink">
+                        {{ auditTargetLabel }}
+                      </p>
+                    </div>
+
+                    <button
+                      forgeButton
+                      variant="primary"
+                      type="button"
+                      class="w-full shrink-0 sm:w-auto"
+                      [disabled]="!charState.activeCharacter()"
+                      (click)="validateActiveHero()"
+                    >
+                      🛡️ Run Build Audit
+                    </button>
+                  </div>
+
+                  <p
+                    *ngIf="!charState.activeCharacter()"
+                    class="text-label text-muted"
+                  >
+                    Select a hero in the Player Dashboard to enable the audit.
+                  </p>
+                </div>
+              </section>
+
+              @if (validationResult) {
+                <section
+                  class="overflow-hidden rounded-xl bg-panel"
+                  aria-labelledby="rules-audit-result"
+                >
+                  <header
+                    class="flex flex-wrap items-center justify-between gap-3 bg-tile px-4 py-3"
+                  >
+                    <h3
+                      id="rules-audit-result"
+                      class="min-w-0 font-display text-title text-ink"
+                    >
+                      Audit Result
+                    </h3>
+                    <forge-badge
+                      [tone]="validationResult.valid ? 'success' : 'danger'"
+                    >
+                      {{
+                        validationResult.valid ? "✓ Passed" : "⚠ Discrepancies"
+                      }}
+                    </forge-badge>
+                  </header>
+
+                  <div
+                    class="max-h-[min(34rem,55vh)] overflow-y-auto border-l-2 p-4"
+                    [ngClass]="
+                      validationResult.valid ? 'border-emerald' : 'border-red'
+                    "
+                  >
+                    <p class="text-body font-bold">
+                      @if (validationResult.valid) {
+                        <span class="text-emerald"
+                          >✅ Build passed all 5e / 5.5e rules audits</span
+                        >
+                      } @else {
+                        <span class="text-red"
+                          >⚠️ Build audit discrepancies detected</span
+                        >
+                      }
+                    </p>
+
+                    @if (validationResult.errors?.length > 0) {
+                      <div class="mt-3">
+                        <p
+                          class="mb-2 text-micro font-semibold uppercase text-muted"
+                        >
+                          Detected discrepancies
+                        </p>
+                        <ul class="flex flex-col gap-1">
+                          <li
+                            *ngFor="let err of validationResult.errors"
+                            class="flex gap-2 text-body text-red"
+                          >
+                            <span aria-hidden="true">⚠️</span>
+                            <span class="min-w-0">{{ err }}</span>
+                          </li>
+                        </ul>
+                      </div>
+                    }
+
+                    @if (validationResult.valid) {
+                      <p class="mt-3 max-w-3xl text-body text-muted">
+                        Character statistics, ability bounds (3 to 20),
+                        proficiency bonuses and armor class comply with core 5e
+                        specifications.
+                      </p>
+                    }
+                  </div>
+                </section>
+              } @else {
+                <forge-empty-state
+                  icon="🛡️"
+                  title="No audit run yet"
+                  description="Run a build audit to check the selected hero against the ruleset."
+                ></forge-empty-state>
+              }
+            </div>
+          }
+        </div>
+      </forge-card>
+    </section>
+  </div>
 </forge-page>

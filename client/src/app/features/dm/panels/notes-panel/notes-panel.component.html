@@ -1,14 +1,63 @@
-<forge-section variant="plain" density="compact" title="📝 Campaign Lore & DM Notes">
-  <p class="text-body text-muted">
-    Record plot points, secret quest hooks, and session notes. Auto-saves to workspace.
-  </p>
+<div class="flex min-w-0 flex-col">
+  <div class="flex flex-col gap-4 p-4">
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="dm-notes-heading"
+    >
+      <header class="flex flex-col gap-1 bg-tile px-4 py-3">
+        <h2
+          id="dm-notes-heading"
+          class="min-w-0 font-display text-title text-ink"
+        >
+          📝 Campaign Lore &amp; DM Notes
+        </h2>
+        <p class="text-label text-muted">
+          Plot points, secret quest hooks and session notes — saved to the
+          workspace.
+        </p>
+      </header>
 
-  <textarea
-    forgeTextarea
-    rows="12"
-    [ngModel]="campaignNotes"
-    (ngModelChange)="campaignNotesChange.emit($event)"
-    placeholder="e.g. Chapter 3: The heroes enter the Sunless Citadel..."
-    (change)="saveNotes.emit()"
-  ></textarea>
-</forge-section>
+      <div class="p-4">
+        <label
+          for="dm-campaign-notes"
+          class="mb-2 block text-label font-semibold text-muted"
+        >
+          Notes
+        </label>
+        <textarea
+          forgeTextarea
+          id="dm-campaign-notes"
+          rows="14"
+          [ngModel]="campaignNotes"
+          (ngModelChange)="campaignNotesChange.emit($event)"
+          placeholder="e.g. Chapter 3: The heroes enter the Sunless Citadel..."
+          (change)="saveNotes.emit()"
+        ></textarea>
+      </div>
+    </section>
+  </div>
+
+  <footer
+    class="sticky bottom-0 flex flex-col gap-3 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div class="min-w-0">
+      <p class="text-micro font-semibold uppercase text-muted">
+        Campaign notes
+      </p>
+      <p class="mt-1 text-label text-muted">
+        Saved automatically when you leave the field.
+      </p>
+    </div>
+
+    <button
+      forgeButton
+      variant="secondary"
+      tone="accent"
+      type="button"
+      class="w-full sm:w-auto"
+      (click)="saveNotes.emit()"
+    >
+      💾 Save Notes
+    </button>
+  </footer>
+</div>

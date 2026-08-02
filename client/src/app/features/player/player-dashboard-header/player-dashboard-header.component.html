@@ -1,15 +1,23 @@
-<header class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between">
-  <div class="min-w-0 lg:max-w-[420px]">
-    <p class="text-micro font-semibold uppercase text-accent">Player Dashboard</p>
-    <h1 class="mt-1 font-display text-[2rem] leading-tight text-ink sm:text-[2.25rem]">
-      {{ activeCharacter?.char_name || 'Player Dashboard' }}
+<header
+  class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+>
+  <div class="min-w-0 lg:max-w-105">
+    <p class="text-micro font-semibold uppercase text-accent">
+      Player Dashboard
+    </p>
+    <h1
+      class="mt-1 font-display text-[2rem] leading-tight text-ink sm:text-[2.25rem]"
+    >
+      {{ activeCharacter?.char_name || "Player Dashboard" }}
     </h1>
     <p class="mt-1 text-body text-muted">
       Manage your hero, track your abilities, and prepare for adventure.
     </p>
   </div>
 
-  <div class="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end">
+  <div
+    class="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end"
+  >
     <label
       for="hero-vault-select"
       class="relative flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-hairline bg-panel px-3 py-2 shadow-sm transition-colors hover:bg-tile focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep md:w-[320px]"
@@ -30,9 +38,11 @@
       </span>
       <span class="min-w-0 flex-1">
         <span class="block truncate text-body font-semibold text-ink">
-          {{ activeCharacter?.char_name || 'No hero selected' }}
+          {{ activeCharacter?.char_name || "No hero selected" }}
         </span>
-        <span class="block truncate text-label text-muted">{{ levelClassLine }}</span>
+        <span class="block truncate text-label text-muted">{{
+          levelClassLine
+        }}</span>
       </span>
       <span class="shrink-0 text-muted" aria-hidden="true">⌄</span>
 
@@ -43,7 +53,9 @@
         [ngModel]="activeCharacterId"
         (ngModelChange)="selectCharacter.emit($event)"
       >
-        <option *ngIf="characters.length === 0" [value]="null" disabled>No heroes found</option>
+        <option *ngIf="characters.length === 0" [value]="null" disabled>
+          No heroes found
+        </option>
         <option *ngFor="let c of characters" [value]="c.char_id">
           {{ c.char_name }} (Lvl {{ c.char_level }} {{ c.char_class }})
         </option>
@@ -51,12 +63,38 @@
     </label>
 
     <div class="flex min-w-0 flex-wrap items-center gap-2">
-      <button forgeButton variant="primary" type="button" (click)="newHero.emit()">✦ New Hero</button>
-      <button forgeButton variant="secondary" type="button" (click)="editSheet.emit()">✎ Edit Sheet</button>
-      <button forgeButton variant="secondary" type="button" (click)="quickEdit.emit()">
-        {{ editMode ? '💾 Done Editing' : '⚡ Quick Edit' }}
+      <button
+        forgeButton
+        variant="primary"
+        type="button"
+        (click)="newHero.emit()"
+      >
+        ✦ New Hero
       </button>
-      <button forgeButton variant="secondary" type="button" (click)="joinCampaign.emit()">🔑 Join Campaign</button>
+      <button
+        forgeButton
+        variant="secondary"
+        type="button"
+        (click)="editSheet.emit()"
+      >
+        ✎ Edit Sheet
+      </button>
+      <button
+        forgeButton
+        variant="secondary"
+        type="button"
+        (click)="quickEdit.emit()"
+      >
+        {{ editMode ? "💾 Done Editing" : "⚡ Quick Edit" }}
+      </button>
+      <button
+        forgeButton
+        variant="secondary"
+        type="button"
+        (click)="joinCampaign.emit()"
+      >
+        🔑 Join Campaign
+      </button>
     </div>
   </div>
 </header>

@@ -1,66 +1,261 @@
-<forge-page
-  title="⚙️ Phyrexian Forge Settings"
-  subtitle="Configure AI model parameters, edition defaults, and system options."
->
-  <div class="mx-auto flex w-full max-w-150 flex-col gap-5">
-    <forge-section variant="plain" density="comfortable">
-      <label
-        for="default-edition"
-        class="font-display text-body-sm font-semibold text-ink"
-      >
-        Default D&D Edition:
-      </label>
-      <select
-        forgeSelect
-        id="default-edition"
-        [ngModel]="charState.dndEdition()"
-        (ngModelChange)="onEditionChange($event)"
-      >
-        <option value="2014 Edition">2014 Legacy Edition (5e)</option>
-        <option value="2024 Revision (5.5e)">2024 Revision (5.5e)</option>
-      </select>
-    </forge-section>
-
-    <forge-section variant="plain" density="comfortable">
-      <label
-        for="ai-temperature"
-        class="font-display text-body-sm font-semibold text-ink"
-      >
-        AI Temperature (Creativity: {{ aiTemperature }}):
-      </label>
-      <input
-        id="ai-temperature"
-        type="range"
-        min="0.0"
-        max="1.0"
-        step="0.1"
-        [(ngModel)]="aiTemperature"
-        class="settings-range h-2 w-full cursor-pointer rounded-full bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-      />
-    </forge-section>
-
-    <forge-section variant="plain" density="comfortable">
-      <label
-        for="preferred-model"
-        class="font-display text-body-sm font-semibold text-ink"
-      >
-        Preferred Gemini Model:
-      </label>
-      <select forgeSelect id="preferred-model" [(ngModel)]="preferredModel">
-        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fast)</option>
-        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Reasoning)</option>
-      </select>
-    </forge-section>
-
-    <div>
-      <button
-        forgeButton
-        variant="primary"
-        type="button"
-        (click)="saveSettings()"
-      >
-        💾 Save Preferences
-      </button>
+<forge-page>
+  <header
+    class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+  >
+    <div class="min-w-0 lg:max-w-140">
+      <p class="text-micro font-semibold uppercase text-accent">
+        Forge Settings
+      </p>
+      <h1 class="mt-1 font-display text-[2rem] leading-tight text-ink">
+        ⚙️ Forge Settings
+      </h1>
+      <p class="mt-1 text-body text-muted">
+        Configure the default ruleset, AI model parameters and system options.
+      </p>
     </div>
+
+    <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
+      <forge-badge tone="accent">{{ editionShort }} Rules</forge-badge>
+      <forge-badge tone="muted">{{ temperatureLabel }}</forge-badge>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <aside
+      class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto"
+    >
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex flex-col">
+          <header class="border-b border-hairline p-4">
+            <p class="text-micro font-semibold uppercase text-muted">
+              Current Configuration
+            </p>
+            <h2 class="mt-1 truncate font-display text-title text-ink">
+              {{ charState.dndEdition() }}
+            </h2>
+            <p class="mt-1 text-label text-muted">
+              The edition drives the accent color, hero filtering and rules
+              lookups.
+            </p>
+          </header>
+
+          <div class="p-4">
+            <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
+              <div class="px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">
+                  Edition
+                </p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">
+                  {{ editionShort }}
+                </p>
+              </div>
+              <div class="border-l border-hairline px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">
+                  Temperature
+                </p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">
+                  {{ aiTemperature }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <dl class="divide-y divide-hairline/70 border-t border-hairline">
+            <div
+              class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
+            >
+              <dt
+                class="shrink-0 text-micro font-semibold uppercase text-muted"
+              >
+                Creativity
+              </dt>
+              <dd
+                class="min-w-0 truncate text-right text-body font-semibold text-ink"
+              >
+                {{ temperatureLabel }}
+              </dd>
+            </div>
+            <div
+              class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
+            >
+              <dt
+                class="shrink-0 text-micro font-semibold uppercase text-muted"
+              >
+                AI Model
+              </dt>
+              <dd
+                class="min-w-0 truncate text-right text-body font-semibold text-ink"
+              >
+                {{ preferredModelLabel }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </forge-card>
+    </aside>
+
+    <section class="min-w-0">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex min-h-0 flex-col">
+          <div class="flex flex-col gap-4 p-4">
+            <section
+              class="overflow-hidden rounded-xl bg-panel"
+              aria-labelledby="settings-ruleset-heading"
+            >
+              <header class="flex items-center gap-3 bg-tile px-4 py-3">
+                <span
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label text-accent"
+                  aria-hidden="true"
+                >
+                  📖
+                </span>
+                <h2
+                  id="settings-ruleset-heading"
+                  class="min-w-0 font-display text-title text-ink"
+                >
+                  Ruleset
+                </h2>
+              </header>
+
+              <div class="flex flex-col gap-2 p-4">
+                <label
+                  for="default-edition"
+                  class="block text-label font-semibold text-muted"
+                >
+                  Default D&D Edition
+                </label>
+                <select
+                  forgeSelect
+                  id="default-edition"
+                  aria-describedby="default-edition-hint"
+                  [ngModel]="charState.dndEdition()"
+                  (ngModelChange)="onEditionChange($event)"
+                >
+                  <option value="2014 Edition">2014 Legacy Edition (5e)</option>
+                  <option value="2024 Revision (5.5e)">
+                    2024 Revision (5.5e)
+                  </option>
+                </select>
+                <p id="default-edition-hint" class="text-label text-muted">
+                  Applies immediately — the interface recolors and the hero
+                  vault filters to matching characters.
+                </p>
+              </div>
+            </section>
+
+            <section
+              class="overflow-hidden rounded-xl bg-panel"
+              aria-labelledby="settings-ai-heading"
+            >
+              <header class="flex items-center gap-3 bg-tile px-4 py-3">
+                <span
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label text-accent"
+                  aria-hidden="true"
+                >
+                  ✨
+                </span>
+                <h2
+                  id="settings-ai-heading"
+                  class="min-w-0 font-display text-title text-ink"
+                >
+                  AI Generation
+                </h2>
+              </header>
+
+              <div class="flex flex-col gap-4 p-4">
+                <div class="min-w-0">
+                  <div
+                    class="flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <label
+                      for="ai-temperature"
+                      class="text-label font-semibold text-muted"
+                    >
+                      Temperature
+                    </label>
+                    <span
+                      class="rounded-md bg-tile px-2 py-1 text-label font-semibold text-ink"
+                    >
+                      {{ aiTemperature }} · {{ temperatureLabel }}
+                    </span>
+                  </div>
+
+                  <input
+                    id="ai-temperature"
+                    type="range"
+                    min="0.0"
+                    max="1.0"
+                    step="0.1"
+                    aria-describedby="ai-temperature-hint"
+                    [(ngModel)]="aiTemperature"
+                    class="settings-range mt-3 h-2 w-full cursor-pointer rounded-full bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                  />
+
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="text-micro uppercase text-muted">Precise</span>
+                    <span class="text-micro uppercase text-muted"
+                      >Creative</span
+                    >
+                  </div>
+
+                  <p
+                    id="ai-temperature-hint"
+                    class="mt-2 text-label text-muted"
+                  >
+                    Lower values keep generated heroes and rules answers closer
+                    to the source material.
+                  </p>
+                </div>
+
+                <div class="min-w-0">
+                  <label
+                    for="preferred-model"
+                    class="mb-2 block text-label font-semibold text-muted"
+                  >
+                    Preferred Gemini Model
+                  </label>
+                  <select
+                    forgeSelect
+                    id="preferred-model"
+                    [(ngModel)]="preferredModel"
+                  >
+                    <option value="gemini-2.5-flash">
+                      Gemini 2.5 Flash (Fast)
+                    </option>
+                    <option value="gemini-2.5-pro">
+                      Gemini 2.5 Pro (Deep Reasoning)
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <footer
+            class="sticky bottom-0 flex flex-col gap-3 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div class="min-w-0">
+              <p class="text-micro font-semibold uppercase text-muted">
+                Preferences
+              </p>
+              <p class="mt-1 truncate text-label text-muted">
+                {{ editionShort }} rules · {{ preferredModelLabel }} ·
+                {{ temperatureLabel }}
+              </p>
+            </div>
+
+            <button
+              forgeButton
+              variant="primary"
+              type="button"
+              class="w-full sm:w-auto"
+              (click)="saveSettings()"
+            >
+              💾 Save Preferences
+            </button>
+          </footer>
+        </div>
+      </forge-card>
+    </section>
   </div>
 </forge-page>

@@ -6,11 +6,12 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { environment } from '../../../environments/environment';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeCardComponent,
+  ForgeEmptyStateComponent,
   ForgeInputDirective,
   ForgePageComponent,
-  ForgeSectionComponent,
   ForgeTab,
   ForgeTabsComponent,
 } from '../../shared/ui';
@@ -21,11 +22,12 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeCardComponent,
+    ForgeEmptyStateComponent,
     ForgeInputDirective,
     ForgePageComponent,
-    ForgeSectionComponent,
     ForgeTabsComponent,
   ],
   templateUrl: './rules.component.html',
@@ -36,8 +38,8 @@ export class RulesComponent {
 
   readonly rulesTabs: ForgeTab[] = [
     { id: 'oracle', label: '🔮 Rules Oracle' },
-    { id: 'compare', label: '⚖️ 2014 vs 2024 Edition Comparator' },
-    { id: 'validate', label: '🛡️ Character Rules Inspector' },
+    { id: 'compare', label: '⚖️ Edition Comparator' },
+    { id: 'validate', label: '🛡️ Build Inspector' },
   ];
 
   oracleQuery = '';
@@ -53,6 +55,32 @@ export class RulesComponent {
     public charState: CharacterStateService,
     private rollToast: RollToastService
   ) {}
+
+  // --- Reference side panel (presentation only, derived from existing state) ---
+
+  get is2024(): boolean {
+    return this.charState.dndEdition().includes('2024');
+  }
+
+  get editionShort(): string {
+    return this.is2024 ? '2024' : '2014';
+  }
+
+  get auditStatusLabel(): string {
+    if (!this.validationResult) return 'Not run';
+    return this.validationResult.valid ? 'Passed' : 'Issues found';
+  }
+
+  get auditStatusClass(): string {
+    if (!this.validationResult) return 'text-muted';
+    return this.validationResult.valid ? 'text-emerald' : 'text-red';
+  }
+
+  get auditTargetLabel(): string {
+    const char = this.charState.activeCharacter();
+    if (!char) return 'No hero selected';
+    return `${char.char_name} · Level ${char.char_level} ${char.char_class}`;
+  }
 
   searchOracle() {
     if (!this.oracleQuery) return;

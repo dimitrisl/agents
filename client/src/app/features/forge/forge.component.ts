@@ -3,9 +3,12 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { DiceService } from '../../core/services/dice.service';
 import { CharacterSchema } from '../../core/models/character.model';
 import { environment } from '../../../environments/environment';
 import {
+  ForgeBadgeComponent,
+  ForgeCardComponent,
   ForgePageComponent,
   ForgeTab,
   ForgeTabsComponent,
@@ -19,6 +22,8 @@ import { HeroPreviewComponent } from './hero-preview/hero-preview.component';
   standalone: true,
   imports: [
     CommonModule,
+    ForgeBadgeComponent,
+    ForgeCardComponent,
     ForgePageComponent,
     ForgeTabsComponent,
     AiFormComponent,
@@ -34,8 +39,8 @@ export class ForgeComponent implements OnInit {
   tempForgedChar: CharacterSchema | null = null;
 
   readonly forgeTabs: ForgeTab[] = [
-    { id: 'ai', label: '✨ AI Character Forge' },
-    { id: 'manual', label: '🛠️ Manual Character Builder' },
+    { id: 'ai', label: '✨ AI Forge' },
+    { id: 'manual', label: '🛠️ Manual Build' },
   ];
 
   // Options
@@ -125,6 +130,7 @@ export class ForgeComponent implements OnInit {
 
   constructor(
     public charState: CharacterStateService,
+    private dice: DiceService,
     private http: HttpClient,
     private router: Router
   ) {}
@@ -152,6 +158,63 @@ export class ForgeComponent implements OnInit {
     return ['Acolyte', 'Charlatan', 'Criminal', 'Entertainer', 'Folk Hero', 'Guild Artisan', 'Hermit', 'Noble', 'Outlander', 'Sage', 'Sailor', 'Soldier', 'Urchin'];
   }
 
+  // --- Blueprint side panel (presentation only, derived from the form state) ---
+
+  get blueprintName(): string {
+    const name = ((this.activeTab === 'ai' ? this.aiName : this.manualName) || '').trim();
+    return name || 'Unnamed Hero';
+  }
+
+  get blueprintSubtitle(): string {
+    const race = this.activeTab === 'ai' ? this.aiRace : this.manualRace;
+    const charClass = this.activeTab === 'ai' ? this.aiClass : this.manualClass;
+    const parts = [race, charClass].filter((v) => v && v !== 'AI Choice' && v !== 'None');
+    return parts.length ? parts.join(' · ') : 'The forge will decide the details';
+  }
+
+  get blueprintLevel(): number {
+    return this.activeTab === 'ai' ? this.aiLevel : this.manualLevel;
+  }
+
+  get blueprintStatsMode(): string {
+    if (this.activeTab === 'ai') return this.aiUseRolled ? 'Rolled 4d6' : 'Standard Array';
+    if (this.manualStatMethod === 'rolled') return 'Rolled 4d6';
+    if (this.manualStatMethod === 'custom') return 'Custom';
+    return 'Standard Array';
+  }
+
+  get blueprintRows(): { label: string; value: string; auto: boolean }[] {
+    const speciesLabel = this.is2024 ? 'Species' : 'Race';
+    const rows =
+      this.activeTab === 'ai'
+        ? [
+            { label: speciesLabel, value: this.aiRace },
+            { label: 'Class', value: this.aiClass },
+            { label: 'Subclass', value: this.aiSubclass },
+            { label: 'Background', value: this.aiBackground },
+            { label: 'Alignment', value: this.aiAlignment },
+            { label: 'Gender', value: this.aiGender },
+          ]
+        : [
+            { label: speciesLabel, value: this.manualRace },
+            { label: 'Class', value: this.manualClass },
+            { label: 'Subclass', value: this.manualSubclass },
+            { label: 'Background', value: this.manualBackground },
+            { label: 'Alignment', value: this.manualAlignment },
+            { label: 'Gender', value: this.manualGender },
+          ];
+
+    const placeholder = this.activeTab === 'ai' ? 'AI decides' : 'Not set';
+    return rows.map(({ label, value }) => {
+      const auto = !value || value === 'AI Choice' || value === 'None';
+      return { label, value: auto ? placeholder : value, auto };
+    });
+  }
+
+  trackBlueprintRow(_index: number, row: { label: string }): string {
+    return row.label;
+  }
+
   updateSubclasses() {
     this.subclassOptions = ['AI Choice'];
     if (this.aiClass !== 'AI Choice') {
@@ -169,13 +232,7 @@ export class ForgeComponent implements OnInit {
   }
 
   roll4d6Stats() {
-    const rolled: number[] = [];
-    for (let i = 0; i < 6; i++) {
-      const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
-      dice.sort((a, b) => a - b);
-      rolled.push(dice[1] + dice[2] + dice[3]);
-    }
-    this.rolledScores = rolled.sort((a, b) => b - a);
+    this.rolledScores = this.dice.rollAbilityScores(6);
     this.statKeys.forEach((k, idx) => {
       this.manualStats[k] = this.rolledScores[idx] || 10;
     });
@@ -294,18 +351,12 @@ export class ForgeComponent implements OnInit {
     this.charState.saveCharacter(heroToSave).subscribe({
       next: (saved) => {
         this.loading = false;
-        const finalChar = saved || heroToSave;
-        this.charState.activeCharacter.set(finalChar);
 
-        // Ensure character appears in local vault list immediately
-        const list = this.charState.characters();
-        const idx = list.findIndex((c) => c.char_id === finalChar.char_id);
-        if (idx >= 0) {
-          const updatedList = [...list];
-          updatedList[idx] = finalChar;
-          this.charState.characters.set(updatedList);
-        } else {
-          this.charState.characters.set([...list, finalChar]);
+        // saveCharacter already equipped the hero and put them in the vault list;
+        // this only covers an API that answered without a body.
+        if (!saved) {
+          this.charState.activeCharacter.set(heroToSave);
+          this.charState.characters.set([...this.charState.characters(), heroToSave]);
         }
 
         this.tempForgedChar = null;

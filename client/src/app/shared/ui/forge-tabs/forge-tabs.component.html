@@ -1,6 +1,9 @@
 <div
+  #tablist
   [class]="tablistClasses"
+  [ngClass]="fadeClasses"
   role="tablist"
+  (scroll)="onTablistScroll()"
 >
   @for (tab of tabs; track tab.id; let index = $index) {
     <button

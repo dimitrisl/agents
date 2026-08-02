@@ -1,122 +1,142 @@
-<div class="mx-auto flex w-full max-w-screen-lg flex-col gap-5">
-  <div>
-    <h2 class="font-display text-title text-gold">🔍 Hero Preview</h2>
-  </div>
+<div class="flex w-full min-w-0 flex-col gap-6">
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <aside class="flex min-w-0 flex-col gap-4">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex flex-col">
+          <header class="border-b border-hairline p-4">
+            <p class="text-micro font-semibold uppercase text-accent">Hero Preview</p>
+            <p class="mt-1 text-label text-muted">Nothing is saved until you equip this hero.</p>
+          </header>
 
-  <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_1.85fr]">
-    <forge-card padding="md" [hoverable]="false">
-      <div class="flex flex-col gap-4">
-        <img
-          [src]="hero.char_portrait || 'https://image.pollinations.ai/prompt/epic%20dnd%20heroic%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true'"
-          alt="Portrait"
-          class="aspect-square w-full rounded-xl border-2 border-accent object-cover shadow-glow"
-        />
-        <button
-          forgeButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="regeneratePortrait.emit()"
-        >
-          🔄 Regenerate Portrait
-        </button>
-      </div>
-    </forge-card>
+          <div class="flex flex-col gap-4 p-4">
+            <img
+              [src]="hero.char_portrait || 'https://image.pollinations.ai/prompt/epic%20dnd%20heroic%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true'"
+              alt="Portrait of {{ hero.char_name }}"
+              class="aspect-square w-full rounded-xl border border-hairline object-cover"
+            />
 
-    <forge-card padding="md" [hoverable]="false">
-      <div class="flex flex-col gap-5">
-        <div>
-          <label for="hero-preview-name" class="mb-1 block text-label font-semibold text-muted">
-            ✏️ Edit Hero Name:
-          </label>
-          <input
-            forgeInput
-            id="hero-preview-name"
-            type="text"
-            class="font-display text-title text-accent"
-            [(ngModel)]="hero.char_name"
-          />
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <span
-            class="rounded-full px-3 py-1 text-body-sm font-bold text-white"
-            [style.background]="getClassColor(hero.char_class)"
-          >
-            Level {{ hero.char_level }} {{ hero.char_class }}
-            <ng-container *ngIf="hero.subclass">({{ hero.subclass }})</ng-container>
-          </span>
-          <span class="rounded-full border border-hairline bg-white/5 px-3 py-1 text-body-sm">
-            {{ hero.race }}
-          </span>
-          <span class="rounded-full border border-hairline bg-white/5 px-3 py-1 text-body-sm">
-            {{ hero.background }}
-          </span>
-          <span class="rounded-full border border-cobalt/40 bg-cobalt/10 px-3 py-1 text-body-sm font-bold text-cobalt">
-            {{ edition }}
-          </span>
-        </div>
-
-        <forge-metric-strip>
-          <forge-metric label="❤️ MAX HP" [value]="hero.hp_max"></forge-metric>
-          <forge-metric label="🛡️ ARMOR CLASS" [value]="hero.armor_class"></forge-metric>
-          <forge-metric label="⚡ INITIATIVE" [value]="getModifierString(hero.stats.DEX || 10)"></forge-metric>
-          <forge-metric label="👁️ PASSIVE PERC" [value]="10 + Math.floor(((hero.stats.WIS || 10) - 10) / 2)"></forge-metric>
-        </forge-metric-strip>
-
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          <div
-            *ngFor="let s of statKeys"
-            class="rounded-lg border bg-white/[0.04] p-3 text-center"
-            [style.background]="isPrimaryStat(hero.char_class, s) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'"
-            [style.border-color]="isPrimaryStat(hero.char_class, s) ? getClassColor(hero.char_class) : 'rgba(255,255,255,0.12)'"
-          >
-            <span
-              class="block text-label font-bold"
-              [style.color]="isPrimaryStat(hero.char_class, s) ? getClassColor(hero.char_class) : '#888'"
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              fullWidth
+              (click)="regeneratePortrait.emit()"
             >
-              {{ isPrimaryStat(hero.char_class, s) ? '⭐ ' : '' }}{{ s }}
-            </span>
-            <span class="block text-metric font-extrabold text-ink">
-              {{ hero.stats[s] || 10 }}
-            </span>
-            <span class="text-label font-bold text-gold">
-              ({{ getModifierString(hero.stats[s] || 10) }})
-            </span>
+              🔄 Regenerate Portrait
+            </button>
           </div>
         </div>
+      </forge-card>
+    </aside>
 
-        <div
-          *ngIf="hero.backstory"
-          class="rounded-lg border-l-4 bg-black/30 p-4 text-body-sm italic leading-relaxed text-muted"
-          [style.border-left-color]="getClassColor(hero.char_class)"
-        >
-          "{{ hero.backstory }}"
+    <section class="min-w-0">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex min-w-0 flex-col">
+          <div class="border-b border-hairline p-4">
+            <label for="hero-preview-name" class="mb-2 block text-label font-semibold text-muted">
+              Hero Name
+            </label>
+            <input
+              forgeInput
+              id="hero-preview-name"
+              type="text"
+              class="font-display text-title text-ink"
+              [(ngModel)]="hero.char_name"
+            />
+
+            <div class="mt-3 flex min-w-0 flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-2 rounded-full bg-tile px-3 py-1 text-label font-semibold text-ink">
+                <span
+                  class="h-2 w-2 shrink-0 rounded-full"
+                  [style.background]="getClassColor(hero.char_class)"
+                  aria-hidden="true"
+                ></span>
+                Level {{ hero.char_level }} {{ hero.char_class }}
+                <ng-container *ngIf="hero.subclass">({{ hero.subclass }})</ng-container>
+              </span>
+              <span class="rounded-full bg-tile px-3 py-1 text-label text-muted">{{ hero.race }}</span>
+              <span class="rounded-full bg-tile px-3 py-1 text-label text-muted">{{ hero.background }}</span>
+              <forge-badge tone="accent">{{ edition }}</forge-badge>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-4 p-4">
+            <forge-metric-strip>
+              <forge-metric label="❤️ MAX HP" [value]="hero.hp_max"></forge-metric>
+              <forge-metric label="🛡️ ARMOR CLASS" [value]="hero.armor_class"></forge-metric>
+              <forge-metric label="⚡ INITIATIVE" [value]="getModifierString(hero.stats.DEX || 10)"></forge-metric>
+              <forge-metric label="👁️ PASSIVE PERC" [value]="10 + Math.floor(((hero.stats.WIS || 10) - 10) / 2)"></forge-metric>
+            </forge-metric-strip>
+
+            <div class="min-w-0">
+              <p class="mb-2 text-micro font-semibold uppercase text-muted">Ability Scores</p>
+              <div class="grid grid-cols-3 overflow-hidden rounded-xl bg-tile sm:grid-cols-6">
+                <div
+                  *ngFor="let s of statKeys; let i = index"
+                  class="border-hairline px-3 py-3 text-center"
+                  [ngClass]="{
+                    'border-l': i % 3 !== 0,
+                    'sm:border-l': i !== 0,
+                    'border-t sm:border-t-0': i > 2
+                  }"
+                >
+                  <p class="flex items-center justify-center gap-1 text-micro font-semibold uppercase text-muted">
+                    <span
+                      *ngIf="isPrimaryStat(hero.char_class, s)"
+                      aria-hidden="true"
+                      [style.color]="getClassColor(hero.char_class)"
+                    >
+                      ★
+                    </span>
+                    {{ s }}
+                    <span *ngIf="isPrimaryStat(hero.char_class, s)" class="sr-only">(primary ability)</span>
+                  </p>
+                  <p
+                    class="mt-1 text-metric font-bold leading-none"
+                    [ngClass]="isPrimaryStat(hero.char_class, s) ? 'text-accent' : 'text-ink'"
+                  >
+                    {{ hero.stats[s] || 10 }}
+                  </p>
+                  <p class="mt-1 text-label text-muted">
+                    {{ getModifierString(hero.stats[s] || 10) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="hero.backstory" class="min-w-0">
+              <p class="mb-2 text-micro font-semibold uppercase text-muted">Backstory</p>
+              <p
+                class="rounded-xl border-l-2 bg-panel p-4 text-body italic leading-relaxed text-muted"
+                [style.border-left-color]="getClassColor(hero.char_class)"
+              >
+                “{{ hero.backstory }}”
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-    </forge-card>
+      </forge-card>
+    </section>
   </div>
 
-  <div class="flex flex-col gap-3 sm:flex-row">
-    <button
-      forgeButton
-      variant="primary"
-      size="lg"
-      type="button"
-      class="flex-1"
-      (click)="accept.emit()"
-    >
-      ✅ Accept & Equip Hero
-    </button>
-    <button
-      forgeButton
-      variant="secondary"
-      size="lg"
-      type="button"
-      class="flex-1"
-      (click)="discard.emit()"
-    >
-      ❌ Discard
-    </button>
-  </div>
+  <forge-card padding="sm" [hoverable]="false">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <p class="text-micro font-semibold uppercase text-muted">Finish</p>
+        <p class="mt-1 text-label text-muted">
+          Equip to save this hero to your vault, or discard and forge again.
+        </p>
+      </div>
+
+      <div class="flex min-w-0 flex-wrap items-center gap-2">
+        <button forgeButton variant="secondary" type="button" (click)="discard.emit()">
+          ✕ Discard
+        </button>
+        <button forgeButton variant="primary" type="button" (click)="accept.emit()">
+          ✅ Accept &amp; Equip Hero
+        </button>
+      </div>
+    </div>
+  </forge-card>
 </div>

@@ -2,10 +2,8 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeSelectDirective,
-  ForgeToolbarComponent,
 } from '../../../shared/ui';
 
 @Component({
@@ -14,10 +12,8 @@ import {
   imports: [
     CommonModule,
     FormsModule,
-    ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeSelectDirective,
-    ForgeToolbarComponent,
   ],
   templateUrl: './campaign-header.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

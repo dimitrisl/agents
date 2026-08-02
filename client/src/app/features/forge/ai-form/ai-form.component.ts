@@ -4,9 +4,9 @@ import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
   ForgeInputDirective,
-  ForgeSectionComponent,
   ForgeSelectDirective,
   ForgeTextareaDirective,
+  ForgeToggleComponent,
 } from '../../../shared/ui';
 
 @Component({
@@ -17,9 +17,9 @@ import {
     FormsModule,
     ForgeButtonDirective,
     ForgeInputDirective,
-    ForgeSectionComponent,
     ForgeSelectDirective,
     ForgeTextareaDirective,
+    ForgeToggleComponent,
   ],
   templateUrl: './ai-form.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

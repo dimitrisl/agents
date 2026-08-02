@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema } from '../../../core/models/character.model';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeCardComponent,
   ForgeInputDirective,
@@ -16,6 +17,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeCardComponent,
     ForgeInputDirective,

@@ -1,16 +1,3 @@
 :host {
   display: block;
 }
-
-.rules-result-card {
-  max-height: min(34rem, 55vh);
-  overflow-y: auto;
-}
-
-.audit-result {
-  padding-left: 1rem;
-}
-
-.audit-result-pass {
-  border-left-color: var(--accent-emerald);
-}

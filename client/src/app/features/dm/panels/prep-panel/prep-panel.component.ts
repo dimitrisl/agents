@@ -3,8 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
-  ForgeCardComponent,
-  ForgeSectionComponent,
   ForgeTextareaDirective,
 } from '../../../../shared/ui';
 
@@ -15,8 +13,6 @@ import {
     CommonModule,
     FormsModule,
     ForgeButtonDirective,
-    ForgeCardComponent,
-    ForgeSectionComponent,
     ForgeTextareaDirective,
   ],
   templateUrl: './prep-panel.component.html',

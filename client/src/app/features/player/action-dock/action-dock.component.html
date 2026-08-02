@@ -1,34 +1,89 @@
-<footer class="sticky bottom-0 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg [padding-bottom:calc(0.75rem+env(safe-area-inset-bottom))]">
+<footer
+  class="sticky bottom-0 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+>
   <div class="flex flex-wrap items-end gap-6 lg:gap-8">
     <section class="min-w-0">
-      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">Rest & Recovery</h3>
+      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">
+        Rest & Recovery
+      </h3>
       <div class="flex flex-wrap gap-2">
-        <button forgeButton variant="secondary" size="sm" type="button" (click)="shortRest.emit()" title="Short Rest">
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="shortRest.emit()"
+          title="Short Rest"
+        >
           ⛺ Short Rest
         </button>
-        <button forgeButton variant="secondary" size="sm" type="button" (click)="longRest.emit()" title="Long Rest">
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="longRest.emit()"
+          title="Long Rest"
+        >
           ◐ Long Rest
         </button>
       </div>
     </section>
 
-    <section class="min-w-0 border-t border-hairline pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 lg:pl-8">
-      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">Progression</h3>
-      <button forgeButton variant="secondary" tone="accent" size="sm" type="button" (click)="levelUp.emit()" title="Level Up Analysis">
+    <section
+      class="min-w-0 border-t border-hairline pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 lg:pl-8"
+    >
+      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">
+        Progression
+      </h3>
+      <button
+        forgeButton
+        variant="secondary"
+        tone="accent"
+        size="sm"
+        type="button"
+        (click)="levelUp.emit()"
+        title="Level Up Analysis"
+      >
         ✦ Level Up
       </button>
     </section>
 
-    <section class="min-w-0 border-t border-hairline pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 lg:pl-8">
-      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">Tools & Utilities</h3>
+    <section
+      class="min-w-0 border-t border-hairline pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 lg:pl-8"
+    >
+      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">
+        Tools & Utilities
+      </h3>
       <div class="flex flex-wrap gap-2">
-        <button forgeButton variant="ghost" size="sm" type="button" (click)="audit.emit()" title="Audit & Auto-Fix Hero Rules">
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="audit.emit()"
+          title="Audit & Auto-Fix Hero Rules"
+        >
           🔍 Audit & Fix
         </button>
-        <button forgeButton variant="ghost" size="sm" type="button" (click)="strategy.emit()" title="AI Playstyle Guide">
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="strategy.emit()"
+          title="AI Playstyle Guide"
+        >
           📖 AI Guide
         </button>
-        <button forgeButton variant="ghost" size="sm" type="button" (click)="exportPdf.emit()" title="Export PDF">
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="exportPdf.emit()"
+          title="Export PDF"
+        >
           📥 Export PDF
         </button>
       </div>

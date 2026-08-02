@@ -1,176 +1,296 @@
-<div class="flex flex-col gap-5">
-  <p class="text-body-sm text-muted">
-    Choose your core pillars or let the AI decide!
-  </p>
+<div class="flex min-w-0 flex-col">
+  <div class="flex flex-col gap-4 p-4">
+    <p class="text-body text-muted">
+      Set the pillars you care about and leave the rest on
+      <span class="font-semibold text-ink">AI Choice</span> — the forge fills in
+      the blanks.
+    </p>
 
-  <forge-section variant="plain" density="comfortable" title="Identity">
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-      <div>
-        <label for="ai-race" class="mb-1 block text-label font-semibold text-muted">
-          {{ is2024 ? 'Species' : 'Race' }}
-        </label>
-        <select
-          forgeSelect
-          id="ai-race"
-          [(ngModel)]="aiRace"
-          (ngModelChange)="aiRaceChange.emit($event)"
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="ai-step-identity"
+    >
+      <header class="flex items-center gap-3 bg-tile px-4 py-3">
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+          aria-hidden="true"
         >
-          <option value="AI Choice">AI Choice</option>
-          <option *ngFor="let r of raceOptions" [value]="r">{{ r }}</option>
-        </select>
-      </div>
-
-      <div>
-        <label for="ai-background" class="mb-1 block text-label font-semibold text-muted">
-          Background
-        </label>
-        <select
-          forgeSelect
-          id="ai-background"
-          [(ngModel)]="aiBackground"
-          (ngModelChange)="aiBackgroundChange.emit($event)"
+          1
+        </span>
+        <h2
+          id="ai-step-identity"
+          class="min-w-0 font-display text-title text-ink"
         >
-          <option value="AI Choice">AI Choice</option>
-          <option *ngFor="let b of bgOptions" [value]="b">{{ b }}</option>
-        </select>
-      </div>
+          Identity
+        </h2>
+      </header>
 
-      <div>
-        <label for="ai-gender" class="mb-1 block text-label font-semibold text-muted">
-          Gender
-        </label>
-        <select
-          forgeSelect
-          id="ai-gender"
-          [(ngModel)]="aiGender"
-          (ngModelChange)="aiGenderChange.emit($event)"
+      <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+        <div class="min-w-0">
+          <label
+            for="ai-race"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            {{ is2024 ? "Species" : "Race" }}
+          </label>
+          <select
+            forgeSelect
+            id="ai-race"
+            [(ngModel)]="aiRace"
+            (ngModelChange)="aiRaceChange.emit($event)"
+          >
+            <option value="AI Choice">AI Choice</option>
+            <option *ngFor="let r of raceOptions" [value]="r">{{ r }}</option>
+          </select>
+        </div>
+
+        <div class="min-w-0">
+          <label
+            for="ai-background"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Background
+          </label>
+          <select
+            forgeSelect
+            id="ai-background"
+            [(ngModel)]="aiBackground"
+            (ngModelChange)="aiBackgroundChange.emit($event)"
+          >
+            <option value="AI Choice">AI Choice</option>
+            <option *ngFor="let b of bgOptions" [value]="b">{{ b }}</option>
+          </select>
+        </div>
+
+        <div class="min-w-0">
+          <label
+            for="ai-gender"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Gender
+          </label>
+          <select
+            forgeSelect
+            id="ai-gender"
+            [(ngModel)]="aiGender"
+            (ngModelChange)="aiGenderChange.emit($event)"
+          >
+            <option value="AI Choice">AI Choice</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Non-binary">Non-binary</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="ai-step-class"
+    >
+      <header class="flex items-center gap-3 bg-tile px-4 py-3">
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+          aria-hidden="true"
         >
-          <option value="AI Choice">AI Choice</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Non-binary">Non-binary</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-    </div>
-  </forge-section>
+          2
+        </span>
+        <h2 id="ai-step-class" class="min-w-0 font-display text-title text-ink">
+          Class Plan
+        </h2>
+      </header>
 
-  <forge-section variant="plain" density="comfortable" title="Class Plan">
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-      <div>
-        <label for="ai-class" class="mb-1 block text-label font-semibold text-muted">
-          Class
-        </label>
-        <select
-          forgeSelect
-          id="ai-class"
-          [(ngModel)]="aiClass"
-          (ngModelChange)="aiClassChange.emit($event); updateSubclasses.emit()"
+      <div class="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+        <div class="min-w-0">
+          <label
+            for="ai-class"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Class
+          </label>
+          <select
+            forgeSelect
+            id="ai-class"
+            [(ngModel)]="aiClass"
+            (ngModelChange)="
+              aiClassChange.emit($event); updateSubclasses.emit()
+            "
+          >
+            <option value="AI Choice">AI Choice</option>
+            <option *ngFor="let c of classOptions" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <div class="min-w-0">
+          <label
+            for="ai-level"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Target Level
+          </label>
+          <input
+            forgeInput
+            id="ai-level"
+            type="number"
+            [(ngModel)]="aiLevel"
+            min="1"
+            max="20"
+            (ngModelChange)="aiLevelChange.emit($event)"
+            (change)="updateSubclasses.emit()"
+          />
+        </div>
+
+        <div class="min-w-0">
+          <label
+            for="ai-subclass"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Subclass
+          </label>
+          <select
+            forgeSelect
+            id="ai-subclass"
+            [(ngModel)]="aiSubclass"
+            [disabled]="subclassOptions.length <= 1"
+            [attr.aria-describedby]="
+              subclassOptions.length <= 1 ? 'ai-subclass-hint' : null
+            "
+            (ngModelChange)="aiSubclassChange.emit($event)"
+          >
+            <option *ngFor="let s of subclassOptions" [value]="s">
+              {{ s }}
+            </option>
+          </select>
+          <p
+            *ngIf="subclassOptions.length <= 1"
+            id="ai-subclass-hint"
+            class="mt-2 text-micro uppercase text-muted"
+          >
+            Pick a class to unlock subclasses
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="ai-step-flavor"
+    >
+      <header class="flex items-center gap-3 bg-tile px-4 py-3">
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+          aria-hidden="true"
         >
-          <option value="AI Choice">AI Choice</option>
-          <option *ngFor="let c of classOptions" [value]="c">{{ c }}</option>
-        </select>
-      </div>
-
-      <div>
-        <label for="ai-level" class="mb-1 block text-label font-semibold text-muted">
-          Target Level
-        </label>
-        <input
-          forgeInput
-          id="ai-level"
-          type="number"
-          [(ngModel)]="aiLevel"
-          min="1"
-          max="20"
-          (ngModelChange)="aiLevelChange.emit($event)"
-          (change)="updateSubclasses.emit()"
-        />
-      </div>
-
-      <div>
-        <label for="ai-subclass" class="mb-1 block text-label font-semibold text-muted">
-          Subclass
-        </label>
-        <select
-          forgeSelect
-          id="ai-subclass"
-          [(ngModel)]="aiSubclass"
-          [disabled]="subclassOptions.length <= 1"
-          (ngModelChange)="aiSubclassChange.emit($event)"
+          3
+        </span>
+        <h2
+          id="ai-step-flavor"
+          class="min-w-0 font-display text-title text-ink"
         >
-          <option *ngFor="let s of subclassOptions" [value]="s">{{ s }}</option>
-        </select>
-      </div>
-    </div>
-  </forge-section>
+          Flavor
+        </h2>
+      </header>
 
-  <forge-section variant="plain" density="comfortable" title="Flavor">
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div>
-        <label for="ai-name" class="mb-1 block text-label font-semibold text-muted">
-          Character Name (optional)
-        </label>
-        <input
-          forgeInput
-          id="ai-name"
-          type="text"
-          [(ngModel)]="aiName"
-          placeholder="AI Choice"
-          (ngModelChange)="aiNameChange.emit($event)"
-        />
-      </div>
+      <div class="flex flex-col gap-4 p-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="min-w-0">
+            <label
+              for="ai-name"
+              class="mb-2 block text-label font-semibold text-muted"
+            >
+              Character Name (optional)
+            </label>
+            <input
+              forgeInput
+              id="ai-name"
+              type="text"
+              [(ngModel)]="aiName"
+              placeholder="AI Choice"
+              (ngModelChange)="aiNameChange.emit($event)"
+            />
+          </div>
 
-      <div>
-        <label for="ai-alignment" class="mb-1 block text-label font-semibold text-muted">
-          Alignment
-        </label>
-        <select
-          forgeSelect
-          id="ai-alignment"
-          [(ngModel)]="aiAlignment"
-          (ngModelChange)="aiAlignmentChange.emit($event)"
+          <div class="min-w-0">
+            <label
+              for="ai-alignment"
+              class="mb-2 block text-label font-semibold text-muted"
+            >
+              Alignment
+            </label>
+            <select
+              forgeSelect
+              id="ai-alignment"
+              [(ngModel)]="aiAlignment"
+              (ngModelChange)="aiAlignmentChange.emit($event)"
+            >
+              <option value="AI Choice">AI Choice</option>
+              <option *ngFor="let a of alignments" [value]="a">{{ a }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="min-w-0">
+          <label
+            for="ai-concept"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Additional Flavor / Concept
+          </label>
+          <textarea
+            forgeTextarea
+            id="ai-concept"
+            rows="3"
+            [(ngModel)]="aiConcept"
+            placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon."
+            (ngModelChange)="aiConceptChange.emit($event)"
+          ></textarea>
+        </div>
+
+        <div
+          class="flex min-h-11 items-center justify-between gap-4 rounded-xl bg-tile px-4 py-3"
         >
-          <option value="AI Choice">AI Choice</option>
-          <option *ngFor="let a of alignments" [value]="a">{{ a }}</option>
-        </select>
+          <div class="min-w-0">
+            <p class="text-body font-semibold text-ink">
+              🎲 Roll for ability scores
+            </p>
+            <p class="mt-1 text-label text-muted">
+              4d6 drop lowest instead of the standard array.
+            </p>
+          </div>
+          <forge-toggle
+            class="shrink-0"
+            ariaLabel="Use rolled ability scores (4d6 drop lowest)"
+            [checked]="aiUseRolled"
+            (checkedChange)="aiUseRolledChange.emit($event)"
+          ></forge-toggle>
+        </div>
       </div>
-    </div>
+    </section>
+  </div>
 
-    <div>
-      <label for="ai-concept" class="mb-1 block text-label font-semibold text-muted">
-        Additional Flavor / Concept:
-      </label>
-      <textarea
-        forgeTextarea
-        id="ai-concept"
-        rows="3"
-        [(ngModel)]="aiConcept"
-        placeholder="E.g., A grumpy baker who uses a massive rolling pin as a weapon."
-        (ngModelChange)="aiConceptChange.emit($event)"
-      ></textarea>
-    </div>
-
-    <label class="inline-flex items-center gap-2 text-body-sm text-ink">
-      <input
-        type="checkbox"
-        class="h-4 w-4 accent-[var(--theme-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        [(ngModel)]="aiUseRolled"
-        (ngModelChange)="aiUseRolledChange.emit($event)"
-      />
-      🎲 Use Rolled Stats (4d6 drop lowest)
-    </label>
-  </forge-section>
-
-  <button
-    forgeButton
-    variant="primary"
-    size="lg"
-    fullWidth
-    type="button"
-    [disabled]="loading"
-    (click)="generate.emit()"
+  <footer
+    class="sticky bottom-0 flex flex-col gap-3 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
   >
-    {{ loading ? '⏳ Forging Character...' : 'Generate Character' }}
-  </button>
+    <div class="min-w-0">
+      <p class="text-micro font-semibold uppercase text-muted">
+        Ready to forge
+      </p>
+      <p class="mt-1 truncate text-label text-muted">
+        Level {{ aiLevel }} ·
+        {{ aiUseRolled ? "rolled scores" : "standard array" }}
+      </p>
+    </div>
+
+    <button
+      forgeButton
+      variant="primary"
+      type="button"
+      class="w-full sm:w-auto"
+      [disabled]="loading"
+      (click)="generate.emit()"
+    >
+      {{ loading ? "⏳ Forging Character…" : "✨ Generate Character" }}
+    </button>
+  </footer>
 </div>

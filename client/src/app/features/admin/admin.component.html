@@ -1,44 +1,174 @@
-<forge-page
-  title="🛡️ Machine Orthodoxy Admin Workspace"
-  subtitle="System diagnostics, database metrics, and user management."
->
-  <div class="mx-auto flex w-full max-w-[800px] flex-col gap-6">
-    <forge-section variant="plain">
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <forge-stat-box label="Active Users" value="1"></forge-stat-box>
-        <forge-stat-box
-          label="Characters Forged"
-          [value]="totalCharacters"
-        ></forge-stat-box>
-        <forge-stat-box
-          label="Database Status"
-          value="ONLINE"
-          valueTone="success"
-        ></forge-stat-box>
-      </div>
-    </forge-section>
+<forge-page>
+  <header
+    class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+  >
+    <div class="min-w-0 lg:max-w-140">
+      <p class="text-micro font-semibold uppercase text-accent">
+        Administration
+      </p>
+      <h1 class="mt-1 font-display text-[2rem] leading-tight text-ink">
+        🛡️ Admin Workspace
+      </h1>
+      <p class="mt-1 text-body text-muted">
+        System diagnostics, database metrics and user management.
+      </p>
+    </div>
 
-    <forge-section variant="plain" title="Registered Users">
-      <div class="overflow-x-auto rounded-[10px] border border-hairline bg-black/20">
-        <table class="min-w-full text-left text-body-sm">
-          <thead class="border-b border-hairline text-label uppercase tracking-[0.04em] text-muted">
-            <tr>
-              <th scope="col" class="px-4 py-3 font-bold">Username</th>
-              <th scope="col" class="px-4 py-3 font-bold">Name</th>
-              <th scope="col" class="px-4 py-3 font-bold">Status</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-hairline text-ink">
-            <tr>
-              <td class="px-4 py-3 font-bold">mitsos</td>
-              <td class="px-4 py-3">Mitsos (DM)</td>
-              <td class="px-4 py-3">
-                <forge-badge tone="danger">Superadmin</forge-badge>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </forge-section>
+    <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
+      <forge-badge tone="success">● Database Online</forge-badge>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <aside
+      class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto"
+    >
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex flex-col">
+          <header class="border-b border-hairline p-4">
+            <p class="text-micro font-semibold uppercase text-muted">
+              System Status
+            </p>
+            <h2 class="mt-1 truncate font-display text-title text-ink">
+              Machine Orthodoxy
+            </h2>
+            <p class="mt-1 text-label text-muted">
+              Live metrics for this forge instance.
+            </p>
+          </header>
+
+          <div class="p-4">
+            <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
+              <div class="px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">
+                  Active Users
+                </p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">
+                  {{ activeUsers }}
+                </p>
+              </div>
+              <div class="border-l border-hairline px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">
+                  Characters
+                </p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">
+                  {{ totalCharacters }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <dl class="divide-y divide-hairline/70 border-t border-hairline">
+            <div
+              class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
+            >
+              <dt
+                class="shrink-0 text-micro font-semibold uppercase text-muted"
+              >
+                Database
+              </dt>
+              <dd
+                class="flex min-w-0 items-center gap-2 text-body font-semibold text-emerald"
+              >
+                <span
+                  class="h-2 w-2 shrink-0 rounded-full bg-emerald"
+                  aria-hidden="true"
+                ></span>
+                Online
+              </dd>
+            </div>
+            <div
+              class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
+            >
+              <dt
+                class="shrink-0 text-micro font-semibold uppercase text-muted"
+              >
+                Registered
+              </dt>
+              <dd
+                class="min-w-0 truncate text-right text-body font-semibold text-ink"
+              >
+                {{ users.length }}
+                {{ users.length === 1 ? "account" : "accounts" }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </forge-card>
+    </aside>
+
+    <section class="min-w-0">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex min-h-0 flex-col">
+          <div
+            class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div class="min-w-0">
+              <h2 class="font-display text-title text-ink">Registered Users</h2>
+              <p class="mt-1 text-label text-muted">
+                Accounts with access to this forge instance.
+              </p>
+            </div>
+
+            <forge-badge tone="muted" class="shrink-0"
+              >{{ users.length }} total</forge-badge
+            >
+          </div>
+
+          <div class="flex min-w-0 flex-col gap-4 p-4">
+            @if (users.length === 0) {
+              <forge-empty-state
+                icon="👤"
+                title="No registered users"
+                description="Accounts will appear here once someone signs up to this instance."
+              ></forge-empty-state>
+            } @else {
+              <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
+                <table class="min-w-full border-collapse text-left text-body">
+                  <thead class="bg-tile text-micro uppercase text-muted">
+                    <tr>
+                      <th scope="col" class="px-4 py-3 font-semibold">
+                        Username
+                      </th>
+                      <th scope="col" class="px-4 py-3 font-semibold">Name</th>
+                      <th scope="col" class="px-4 py-3 font-semibold">Role</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-hairline">
+                    <tr
+                      *ngFor="let user of users; trackBy: trackUser"
+                      class="transition-colors hover:bg-tile"
+                    >
+                      <td class="px-4 py-3">
+                        <div class="flex min-w-0 items-center gap-3">
+                          <span
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile text-label font-bold uppercase text-muted"
+                            aria-hidden="true"
+                          >
+                            {{ user.username.charAt(0) }}
+                          </span>
+                          <span
+                            class="min-w-0 truncate font-semibold text-ink"
+                            >{{ user.username }}</span
+                          >
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-muted">{{ user.name }}</td>
+                      <td class="px-4 py-3">
+                        <forge-badge
+                          [tone]="user.superadmin ? 'danger' : 'muted'"
+                        >
+                          {{ user.role }}
+                        </forge-badge>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      </forge-card>
+    </section>
   </div>
 </forge-page>

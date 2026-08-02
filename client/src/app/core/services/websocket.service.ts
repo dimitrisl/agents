@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 export interface WsMessage {
   type: 'whisper' | 'roll_request' | 'party_update' | string;
@@ -14,16 +15,32 @@ export interface WsMessage {
   providedIn: 'root'
 })
 export class WebSocketService {
+  private auth = inject(AuthService);
+
   private socket: WebSocket | null = null;
   private currentCampaignId: string | null = null;
 
   public messages$ = new Subject<WsMessage>();
 
-  constructor() {}
-
   public connect(campaignId: string): void {
-    if (this.currentCampaignId === campaignId && this.socket?.readyState === WebSocket.OPEN) {
-      return; // Already connected to this campaign
+    // CONNECTING counts as connected here: tearing a socket down mid-handshake
+    // just to open an identical one is pure churn.
+    const alive =
+      this.socket?.readyState === WebSocket.OPEN ||
+      this.socket?.readyState === WebSocket.CONNECTING;
+
+    if (this.currentCampaignId === campaignId && alive) {
+      return; // Already connected (or connecting) to this campaign
+    }
+
+    // The handshake is authenticated, so a tokenless attempt would just be closed
+    // by the server with 1008. Bail out without claiming the campaign id, so a
+    // later call (once the session is restored) still gets to connect.
+    const token = this.auth.token();
+    if (!token) {
+      console.warn('[WebSocket] No auth token available, skipping connection');
+      this.disconnect();
+      return;
     }
 
     this.disconnect();
@@ -42,7 +59,11 @@ export class WebSocketService {
 
     // Remove the /api/v1 suffix to get the root ws path
     wsUrl = wsUrl.replace('/api/v1', '');
-    const fullUrl = `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}`;
+    // The JWT rides as a query param because the browser WebSocket API offers no
+    // way to set an Authorization header on the handshake.
+    const fullUrl =
+      `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}` +
+      `?token=${encodeURIComponent(token)}`;
 
     this.socket = new WebSocket(fullUrl);
 
@@ -59,7 +80,13 @@ export class WebSocketService {
       }
     };
 
-    this.socket.onclose = () => {
+    this.socket.onclose = (event) => {
+      // 1008 is what the server sends back when the JWT is missing or expired,
+      // which otherwise looks identical to a plain disconnect in the console.
+      if (event.code === 1008) {
+        console.warn(`[WebSocket] Rejected by server (unauthorized): ${campaignId}`);
+        return;
+      }
       console.log(`[WebSocket] Disconnected from campaign channel: ${campaignId}`);
     };
 

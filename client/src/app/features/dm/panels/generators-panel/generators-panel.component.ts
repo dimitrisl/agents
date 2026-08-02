@@ -3,9 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
-  ForgeCardComponent,
   ForgeInputDirective,
-  ForgeSectionComponent,
 } from '../../../../shared/ui';
 
 @Component({
@@ -15,9 +13,7 @@ import {
     CommonModule,
     FormsModule,
     ForgeButtonDirective,
-    ForgeCardComponent,
     ForgeInputDirective,
-    ForgeSectionComponent,
   ],
   templateUrl: './generators-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

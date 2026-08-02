@@ -1,13 +1,18 @@
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
+  HostListener,
   Input,
+  OnChanges,
   Output,
   QueryList,
+  SimpleChanges,
   Directive,
+  ViewChild,
   ViewChildren,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -45,8 +50,42 @@ class ForgeTabButtonDirective implements FocusableOption {
   imports: [CommonModule, ForgeTabButtonDirective],
   templateUrl: './forge-tabs.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [
+    `
+      /* Discoverability for a horizontally scrollable tab bar: fade whichever
+         edge still has tabs beyond it. The scrollbar itself stays hidden per
+         the design contract (§5). These gradients are alpha masks, not palette
+         colors — the tabs keep their own token colors. */
+      .forge-tabs-fade-start {
+        -webkit-mask-image: linear-gradient(to right, transparent 0, #000 1.5rem);
+        mask-image: linear-gradient(to right, transparent 0, #000 1.5rem);
+      }
+
+      .forge-tabs-fade-end {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent 100%);
+        mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent 100%);
+      }
+
+      .forge-tabs-fade-both {
+        -webkit-mask-image: linear-gradient(
+          to right,
+          transparent 0,
+          #000 1.5rem,
+          #000 calc(100% - 1.5rem),
+          transparent 100%
+        );
+        mask-image: linear-gradient(
+          to right,
+          transparent 0,
+          #000 1.5rem,
+          #000 calc(100% - 1.5rem),
+          transparent 100%
+        );
+      }
+    `,
+  ],
 })
-export class ForgeTabsComponent implements AfterViewInit {
+export class ForgeTabsComponent implements AfterViewInit, OnChanges {
   @Input() tabs: ForgeTab[] = [];
   @Input() activeId!: string;
   @Input() instanceId = `forge-tabs-${nextInstanceId++}`;
@@ -57,13 +96,40 @@ export class ForgeTabsComponent implements AfterViewInit {
   @ViewChildren(ForgeTabButtonDirective)
   private tabButtons!: QueryList<ForgeTabButtonDirective>;
 
+  @ViewChild('tablist')
+  private tablist?: ElementRef<HTMLDivElement>;
+
   private keyManager?: FocusKeyManager<ForgeTabButtonDirective>;
+
+  protected overflowStart = false;
+  protected overflowEnd = false;
+
+  constructor(private changeDetectorRef: ChangeDetectorRef) {}
 
   ngAfterViewInit(): void {
     this.keyManager = new FocusKeyManager(this.tabButtons)
       .withHorizontalOrientation('ltr')
       .withHomeAndEnd()
       .withWrap();
+
+    queueMicrotask(() => this.syncOverflow());
+
+    // Display-font swap changes label widths after first paint, which can turn a
+    // fitting tab bar into a scrolling one (or the reverse).
+    if (typeof document !== 'undefined') {
+      (document as Document & { fonts?: FontFaceSet }).fonts?.ready?.then(() =>
+        this.syncOverflow()
+      );
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['tabs'] && !changes['activeId']) return;
+
+    queueMicrotask(() => {
+      if (changes['activeId']) this.scrollActiveTabIntoView();
+      this.syncOverflow();
+    });
   }
 
   selectTab(tab: ForgeTab): void {
@@ -81,9 +147,16 @@ export class ForgeTabsComponent implements AfterViewInit {
       : 'flex gap-2 overflow-x-auto border-b border-hairline pb-0.5 whitespace-nowrap [-webkit-overflow-scrolling:touch]';
   }
 
+  get fadeClasses(): string {
+    if (this.overflowStart && this.overflowEnd) return 'forge-tabs-fade-both';
+    if (this.overflowEnd) return 'forge-tabs-fade-end';
+    if (this.overflowStart) return 'forge-tabs-fade-start';
+    return '';
+  }
+
   get buttonBaseClasses(): string {
     const shared =
-      'shrink-0 border-b-2 px-4 py-3 text-body-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50';
+      'shrink-0 border-b-2 px-3 py-3 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 sm:px-4';
 
     return this.variant === 'underline'
       ? shared
@@ -111,6 +184,46 @@ export class ForgeTabsComponent implements AfterViewInit {
     if (activeItemIndex !== null && activeItemIndex !== currentIndex) {
       this.selectTab(this.tabs[activeItemIndex]);
     }
+  }
+
+  onTablistScroll(): void {
+    this.syncOverflow();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.syncOverflow();
+  }
+
+  private syncOverflow(): void {
+    const element = this.tablist?.nativeElement;
+    if (!element) return;
+
+    const start = element.scrollLeft > 1;
+    const end =
+      Math.ceil(element.scrollLeft + element.clientWidth) < element.scrollWidth - 1;
+
+    if (start === this.overflowStart && end === this.overflowEnd) return;
+
+    this.overflowStart = start;
+    this.overflowEnd = end;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private scrollActiveTabIntoView(): void {
+    const element = this.tablist?.nativeElement;
+    const activeTab = element?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!activeTab) return;
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    activeTab.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
   }
 
   private readonly handledKeys = new Set(['ArrowRight', 'ArrowLeft', 'Home', 'End']);

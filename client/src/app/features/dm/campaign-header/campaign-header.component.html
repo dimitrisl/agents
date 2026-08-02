@@ -1,37 +1,88 @@
-<forge-toolbar collapseAt="lg">
-  <div class="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-    <div class="flex items-center gap-3">
-      <h2 class="font-display text-title text-ink">🏰 DM Workspace:</h2>
+<header
+  class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+>
+  <div class="min-w-0 lg:max-w-105">
+    <p class="text-micro font-semibold uppercase text-accent">DM Workspace</p>
+    <h1 class="mt-1 truncate font-display text-[2rem] leading-tight text-ink">
+      {{ campaignName }}
+    </h1>
+    <p class="mt-1 text-body text-muted">
+      Campaign control center for notes, party state, initiative, generators and
+      prep.
+    </p>
+  </div>
+
+  <div
+    class="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end"
+  >
+    <label
+      for="dm-campaign-select"
+      class="relative flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-hairline bg-panel px-3 py-2 shadow-sm transition-colors hover:bg-tile focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep md:w-[320px]"
+    >
+      <span class="sr-only">Select active campaign</span>
+      <span
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-title"
+        aria-hidden="true"
+      >
+        🏰
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-body font-semibold text-ink">{{
+          campaignName
+        }}</span>
+        <span class="block truncate text-label text-muted">
+          {{
+            inviteCode ? "Invite code · " + inviteCode : "No invite code yet"
+          }}
+        </span>
+      </span>
+      <span class="shrink-0 text-muted" aria-hidden="true">⌄</span>
+
       <select
         forgeSelect
-        class="max-w-xs font-semibold text-accent"
+        id="dm-campaign-select"
+        class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         [ngModel]="campaignName"
         (ngModelChange)="campaignNameChange.emit($event)"
         (change)="campaignSelected.emit()"
       >
-        <option *ngFor="let campaign of userCampaigns" [value]="campaign.campaign_name">
+        <option
+          *ngFor="let campaign of userCampaigns"
+          [value]="campaign.campaign_name"
+        >
           {{ campaign.campaign_name }}
         </option>
         <option *ngIf="userCampaigns.length === 0" [value]="campaignName">
           {{ campaignName }}
         </option>
       </select>
+    </label>
+
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
+      <button
+        forgeButton
+        variant="primary"
+        type="button"
+        (click)="sendWhisper.emit()"
+      >
+        💬 Send Whisper
+      </button>
+      <button
+        forgeButton
+        variant="secondary"
+        type="button"
+        (click)="createCampaign.emit()"
+      >
+        ➕ New Campaign
+      </button>
+      <button
+        forgeButton
+        variant="secondary"
+        type="button"
+        (click)="generateInvite.emit()"
+      >
+        🔑 Invite Code
+      </button>
     </div>
-
-    <forge-badge *ngIf="inviteCode" tone="gold" size="md">
-      Invite Code: {{ inviteCode }}
-    </forge-badge>
   </div>
-
-  <div class="flex flex-wrap items-center gap-2">
-    <button forgeButton variant="secondary" size="sm" type="button" (click)="createCampaign.emit()">
-      ➕ New Campaign
-    </button>
-    <button forgeButton variant="secondary" size="sm" type="button" (click)="generateInvite.emit()">
-      🔑 Generate Invite Code
-    </button>
-    <button forgeButton size="sm" type="button" (click)="sendWhisper.emit()">
-      💬 Send Whisper
-    </button>
-  </div>
-</forge-toolbar>
+</header>

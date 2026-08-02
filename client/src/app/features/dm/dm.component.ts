@@ -4,9 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { DiceService } from '../../core/services/dice.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { environment } from '../../../environments/environment';
-import { ForgePageComponent, ForgeTab, ForgeTabsComponent } from '../../shared/ui';
+import {
+  ForgeCardComponent,
+  ForgePageComponent,
+  ForgeTab,
+  ForgeTabsComponent,
+} from '../../shared/ui';
 import { CampaignHeaderComponent } from './campaign-header/campaign-header.component';
 import { NotesPanelComponent } from './panels/notes-panel/notes-panel.component';
 import { PartyPanelComponent } from './panels/party-panel/party-panel.component';
@@ -52,6 +58,7 @@ export interface InitiativeCombatant {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeCardComponent,
     ForgePageComponent,
     ForgeTabsComponent,
     CampaignHeaderComponent,
@@ -153,15 +160,45 @@ export class DmComponent implements OnInit {
 
   constructor(
     private rollToast: RollToastService,
+    private dice: DiceService,
     private http: HttpClient,
     public charState: CharacterStateService,
     private wsService: WebSocketService
   ) {}
 
+  // The campaign whose party/socket is currently live, so re-picking the same
+  // one from the dropdown does not refetch it.
+  private activeWorkspace: string | null = null;
+
   ngOnInit() {
     this.loadCampaigns();
-    this.generateInviteCode();
-    this.charState.loadCharacters().subscribe();
+  }
+
+  /** The vault is only needed for the "existing hero" picker, so it loads with it. */
+  openAddMemberModal() {
+    this.showAddMemberModal = true;
+    this.charState.ensureLoaded().subscribe();
+  }
+
+  // --- Session board (presentation only, derived from the live workspace state) ---
+
+  get partyAverageLevel(): number {
+    if (this.partyMembers.length === 0) return 0;
+    const total = this.partyMembers.reduce((sum, member) => sum + (member.level || 0), 0);
+    return Math.round(total / this.partyMembers.length);
+  }
+
+  get currentTurnName(): string {
+    return this.combatants[this.activeTurnIndex]?.name || '—';
+  }
+
+  hpPercent(member: PartyMember): number {
+    if (!member.hp_max) return 0;
+    return Math.max(0, Math.min(100, (member.hp_current / member.hp_max) * 100));
+  }
+
+  trackPartyMember(_index: number, member: PartyMember): string {
+    return member.char_id || member.name;
   }
 
   loadCampaigns() {
@@ -185,12 +222,17 @@ export class DmComponent implements OnInit {
   }
 
   onCampaignSelect() {
+    if (this.activeWorkspace === this.campaignName) return;
+    const isFirstLoad = this.activeWorkspace === null;
+    this.activeWorkspace = this.campaignName;
+
     const selected = this.userCampaigns.find((c) => c.campaign_name === this.campaignName);
     if (selected) {
       this.inviteCode = selected.invite_code || '';
       if (selected.notes) this.campaignNotes = selected.notes;
     } else {
-      this.generateInviteCode();
+      // No code yet — the DM forges one from the header button when they need it.
+      this.inviteCode = '';
     }
 
     this.wsService.connect(this.campaignName);
@@ -230,7 +272,9 @@ export class DmComponent implements OnInit {
       }
     });
 
-    this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}".`);
+    if (!isFirstLoad) {
+      this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}".`);
+    }
   }
 
   getSelectedHero() {
@@ -364,18 +408,17 @@ export class DmComponent implements OnInit {
   quickDmStatRoll(member: PartyMember, stat: string) {
     const val = member.stats?.[stat] || 10;
     const mod = Math.floor((val - 10) / 2);
-    const raw = Math.floor(Math.random() * 20) + 1;
-    const total = raw + mod;
-    const expr = `1d20 (${raw}) ${mod >= 0 ? '+' + mod : mod}`;
+    const roll = this.dice.rollD20(mod);
 
     this.rollToast.showRoll({
       title: `🎲 DM CHECK: ${member.name.toUpperCase()} (${stat})`,
-      expression: expr,
-      raw,
-      rolls: [raw],
-      sides: 20,
-      modifier: mod,
-      total
+      expression: roll.expression,
+      raw: roll.raw,
+      rolls: roll.rolls,
+      sides: roll.sides,
+      modifier: roll.modifier,
+      total: roll.total,
+      mode: roll.mode
     });
   }
 
@@ -449,9 +492,8 @@ export class DmComponent implements OnInit {
 
   rollAllInitiative() {
     this.combatants.forEach((c) => {
-      const raw = Math.floor(Math.random() * 20) + 1;
       const dexMod = Math.floor((c.dex - 10) / 2);
-      c.initiative = raw + dexMod;
+      c.initiative = this.dice.rollD20(dexMod).total;
     });
     this.sortCombatants();
     this.rollToast.showMessage('🎲 INITIATIVE ROLLED', 'Rolled initiative for all active combatants!');

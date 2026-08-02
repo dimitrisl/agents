@@ -1,76 +1,183 @@
-<forge-page
-  title="Forge a New Hero"
-  subtitle="Generate an AI character or build one manually with rules-aware enrichment."
->
+<forge-page>
+  <header
+    class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+  >
+    <div class="min-w-0 lg:max-w-140">
+      <p class="text-micro font-semibold uppercase text-accent">
+        Character Forge
+      </p>
+      <h1 class="mt-1 font-display text-[2rem] leading-tight text-ink">
+        Forge a New Hero
+      </h1>
+      <p class="mt-1 text-body text-muted">
+        Generate an AI character or build one manually — the forge applies the
+        rules for you.
+      </p>
+    </div>
+
+    <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
+      <forge-badge tone="accent">{{
+        is2024 ? "2024 Rules" : "2014 Rules"
+      }}</forge-badge>
+      <forge-badge tone="muted">{{
+        activeTab === "ai" ? "AI Forge" : "Manual Build"
+      }}</forge-badge>
+    </div>
+  </header>
+
   @if (!tempForgedChar) {
-    <div class="mx-auto flex w-full max-w-[900px] flex-col gap-5">
-      <forge-tabs
-        instanceId="forge-tabs"
-        [tabs]="forgeTabs"
-        [(activeId)]="activeTab"
-      ></forge-tabs>
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <aside
+        class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto"
+      >
+        <forge-card padding="none" [hoverable]="false">
+          <div class="flex flex-col">
+            <header class="border-b border-hairline p-4">
+              <p class="text-micro font-semibold uppercase text-muted">
+                Blueprint
+              </p>
+              <h2 class="mt-1 truncate font-display text-title text-ink">
+                {{ blueprintName }}
+              </h2>
+              <p class="mt-1 truncate text-label text-muted">
+                {{ blueprintSubtitle }}
+              </p>
+            </header>
 
-      @if (activeTab === 'ai') {
-        <app-ai-form
-          role="tabpanel"
-          [attr.aria-labelledby]="'forge-tabs-tab-' + activeTab"
-          [is2024]="is2024"
-          [raceOptions]="raceOptions"
-          [classOptions]="classOptions"
-          [bgOptions]="bgOptions"
-          [alignments]="alignments"
-          [subclassOptions]="subclassOptions"
-          [loading]="loading"
-          [(aiRace)]="aiRace"
-          [(aiClass)]="aiClass"
-          [(aiBackground)]="aiBackground"
-          [(aiLevel)]="aiLevel"
-          [(aiGender)]="aiGender"
-          [(aiSubclass)]="aiSubclass"
-          [(aiConcept)]="aiConcept"
-          [(aiName)]="aiName"
-          [(aiAlignment)]="aiAlignment"
-          [(aiUseRolled)]="aiUseRolled"
-          (updateSubclasses)="updateSubclasses()"
-          (generate)="generateAiCharacter()"
-        ></app-ai-form>
-      }
+            <div class="p-4">
+              <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
+                <div class="px-3 py-3 text-center">
+                  <p class="text-micro font-semibold uppercase text-muted">
+                    Level
+                  </p>
+                  <p
+                    class="mt-1 text-metric font-bold leading-none text-accent"
+                  >
+                    {{ blueprintLevel }}
+                  </p>
+                </div>
+                <div class="border-l border-hairline px-3 py-3 text-center">
+                  <p class="text-micro font-semibold uppercase text-muted">
+                    Ability Scores
+                  </p>
+                  <p
+                    class="mt-1 text-body font-semibold leading-tight text-ink"
+                  >
+                    {{ blueprintStatsMode }}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-      @if (activeTab === 'manual') {
-        <app-manual-form
-          role="tabpanel"
-          [attr.aria-labelledby]="'forge-tabs-tab-' + activeTab"
-          [is2024]="is2024"
-          [raceOptions]="raceOptions"
-          [classOptions]="classOptions"
-          [bgOptions]="bgOptions"
-          [alignments]="alignments"
-          [statKeys]="statKeys"
-          [standardArrayValues]="standardArrayValues"
-          [manualSubclassOptions]="manualSubclassOptions"
-          [rolledScores]="rolledScores"
-          [loading]="loading"
-          [getFinalStat]="getFinalStat.bind(this)"
-          [getModifierString]="getModifierString.bind(this)"
-          [(manualName)]="manualName"
-          [(manualLevel)]="manualLevel"
-          [(manualGender)]="manualGender"
-          [(manualRace)]="manualRace"
-          [(manualClass)]="manualClass"
-          [(manualBackground)]="manualBackground"
-          [(manualAlignment)]="manualAlignment"
-          [(manualSubclass)]="manualSubclass"
-          [(manualConcept)]="manualConcept"
-          [(manualStatMethod)]="manualStatMethod"
-          [(manualStats)]="manualStats"
-          [(adjPlus2)]="adjPlus2"
-          [(adjPlus1)]="adjPlus1"
-          [(adjPlus1Alt)]="adjPlus1Alt"
-          (updateManualSubclasses)="updateManualSubclasses()"
-          (rollStats)="roll4d6Stats()"
-          (create)="createManualCharacter()"
-        ></app-manual-form>
-      }
+            <dl class="divide-y divide-hairline/70 border-t border-hairline">
+              <div
+                *ngFor="let row of blueprintRows; trackBy: trackBlueprintRow"
+                class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
+              >
+                <dt
+                  class="shrink-0 text-micro font-semibold uppercase text-muted"
+                >
+                  {{ row.label }}
+                </dt>
+                <dd
+                  class="min-w-0 truncate text-right text-body"
+                  [ngClass]="
+                    row.auto ? 'italic text-muted' : 'font-semibold text-ink'
+                  "
+                >
+                  {{ row.value }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </forge-card>
+      </aside>
+
+      <section class="min-w-0">
+        <forge-card padding="none" [hoverable]="false">
+          <div class="flex min-h-0 flex-col">
+            <div
+              class="flex flex-col gap-3 border-b border-hairline p-4 lg:flex-row lg:items-center lg:justify-between"
+            >
+              <forge-tabs
+                class="min-w-0 flex-1"
+                instanceId="forge-tabs"
+                variant="underline"
+                [tabs]="forgeTabs"
+                [(activeId)]="activeTab"
+              ></forge-tabs>
+
+              <p class="shrink-0 text-micro font-semibold uppercase text-muted">
+                {{ is2024 ? "D&D 2024" : "D&D 2014" }}
+              </p>
+            </div>
+
+            @if (activeTab === "ai") {
+              <app-ai-form
+                class="block min-w-0"
+                role="tabpanel"
+                [attr.aria-labelledby]="'forge-tabs-tab-' + activeTab"
+                [is2024]="is2024"
+                [raceOptions]="raceOptions"
+                [classOptions]="classOptions"
+                [bgOptions]="bgOptions"
+                [alignments]="alignments"
+                [subclassOptions]="subclassOptions"
+                [loading]="loading"
+                [(aiRace)]="aiRace"
+                [(aiClass)]="aiClass"
+                [(aiBackground)]="aiBackground"
+                [(aiLevel)]="aiLevel"
+                [(aiGender)]="aiGender"
+                [(aiSubclass)]="aiSubclass"
+                [(aiConcept)]="aiConcept"
+                [(aiName)]="aiName"
+                [(aiAlignment)]="aiAlignment"
+                [(aiUseRolled)]="aiUseRolled"
+                (updateSubclasses)="updateSubclasses()"
+                (generate)="generateAiCharacter()"
+              ></app-ai-form>
+            }
+
+            @if (activeTab === "manual") {
+              <app-manual-form
+                class="block min-w-0"
+                role="tabpanel"
+                [attr.aria-labelledby]="'forge-tabs-tab-' + activeTab"
+                [is2024]="is2024"
+                [raceOptions]="raceOptions"
+                [classOptions]="classOptions"
+                [bgOptions]="bgOptions"
+                [alignments]="alignments"
+                [statKeys]="statKeys"
+                [standardArrayValues]="standardArrayValues"
+                [manualSubclassOptions]="manualSubclassOptions"
+                [rolledScores]="rolledScores"
+                [loading]="loading"
+                [getFinalStat]="getFinalStat.bind(this)"
+                [getModifierString]="getModifierString.bind(this)"
+                [(manualName)]="manualName"
+                [(manualLevel)]="manualLevel"
+                [(manualGender)]="manualGender"
+                [(manualRace)]="manualRace"
+                [(manualClass)]="manualClass"
+                [(manualBackground)]="manualBackground"
+                [(manualAlignment)]="manualAlignment"
+                [(manualSubclass)]="manualSubclass"
+                [(manualConcept)]="manualConcept"
+                [(manualStatMethod)]="manualStatMethod"
+                [(manualStats)]="manualStats"
+                [(adjPlus2)]="adjPlus2"
+                [(adjPlus1)]="adjPlus1"
+                [(adjPlus1Alt)]="adjPlus1Alt"
+                (updateManualSubclasses)="updateManualSubclasses()"
+                (rollStats)="roll4d6Stats()"
+                (create)="createManualCharacter()"
+              ></app-manual-form>
+            }
+          </div>
+        </forge-card>
+      </section>
     </div>
   }
 

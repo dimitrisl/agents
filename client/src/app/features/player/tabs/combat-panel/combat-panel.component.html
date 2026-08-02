@@ -14,10 +14,15 @@
   </div>
 
   <section class="flex flex-col gap-3" aria-labelledby="combat-weapons-heading">
-    <div class="flex items-center justify-between gap-3">
-      <h3 id="combat-weapons-heading" class="font-display text-title text-ink">
-        Equipped Weapons &amp; Attacks
-      </h3>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <h3 id="combat-weapons-heading" class="font-display text-title text-ink">
+          Equipped Weapons &amp; Attacks
+        </h3>
+        <forge-badge *ngIf="profile.critThreshold < 20" tone="gold">
+          Crits on {{ profile.critThreshold }}+
+        </forge-badge>
+      </div>
       <button
         *ngIf="editMode"
         forgeButton
@@ -30,88 +35,126 @@
       </button>
     </div>
 
-    <div *ngIf="char.weapons && char.weapons.length > 0; else noWeapons" class="overflow-x-auto rounded-xl bg-panel">
-      <table class="w-full min-w-160 text-left text-body">
-        <thead class="bg-tile text-micro font-semibold uppercase text-muted">
-          <tr>
-            <th scope="col" class="px-4 py-3 font-semibold">Weapon</th>
-            <th scope="col" class="px-4 py-3 font-semibold">To Hit</th>
-            <th scope="col" class="px-4 py-3 font-semibold">Damage</th>
-            <th scope="col" class="px-4 py-3 text-right font-semibold">Action</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-hairline">
-          <tr
-            *ngFor="let weapon of char.weapons; let index = index"
-            class="transition-colors hover:bg-tile"
+    <div
+      *ngIf="char.weapons && char.weapons.length > 0; else noWeapons"
+      class="grid gap-3 sm:grid-cols-2"
+    >
+      <article
+        *ngFor="let weapon of char.weapons; let index = index"
+        class="flex flex-col gap-3 rounded-xl border border-hairline bg-panel p-4 transition-colors hover:border-accent/40"
+      >
+        <header class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <span *ngIf="!editMode" class="block truncate font-display text-body font-semibold text-ink">
+              {{ weapon.name }}
+            </span>
+            <input
+              *ngIf="editMode"
+              forgeInput
+              type="text"
+              class="w-full"
+              [(ngModel)]="weapon.name"
+              aria-label="Weapon name"
+              (change)="save.emit()"
+            />
+
+            <div
+              *ngIf="!editMode && weaponProperties(weapon).length > 0"
+              class="mt-1.5 flex flex-wrap gap-1"
+            >
+              <forge-badge *ngFor="let property of weaponProperties(weapon)" tone="muted">
+                {{ property }}
+              </forge-badge>
+            </div>
+          </div>
+
+          <button
+            *ngIf="editMode"
+            forgeButton
+            variant="danger"
+            size="sm"
+            iconOnly
+            type="button"
+            [attr.aria-label]="'Delete ' + weapon.name"
+            (click)="deleteWeapon.emit(index)"
           >
-            <td class="px-4 py-2 align-middle">
-              <span *ngIf="!editMode" class="font-semibold text-ink">{{ weapon.name }}</span>
-              <input
-                *ngIf="editMode"
-                forgeInput
-                type="text"
-                [(ngModel)]="weapon.name"
-                [attr.aria-label]="'Weapon name'"
-                (change)="save.emit()"
-              />
-              <span *ngIf="!editMode && weapon.properties" class="mt-1 block text-micro text-muted">
-                {{ weapon.properties }}
+            ✕
+          </button>
+        </header>
+
+        <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
+          <div class="text-center">
+            <span class="block text-micro font-semibold uppercase text-muted">To Hit</span>
+            <span *ngIf="!editMode" class="block font-display text-metric font-bold text-accent">
+              {{ weapon.attack_bonus }}
+            </span>
+            <input
+              *ngIf="editMode"
+              forgeInput
+              type="text"
+              class="mt-1 max-w-20"
+              [(ngModel)]="weapon.attack_bonus"
+              aria-label="Attack bonus"
+              (change)="save.emit()"
+            />
+          </div>
+
+          <div class="min-w-0">
+            <span class="block text-micro font-semibold uppercase text-muted">Damage</span>
+            <ng-container *ngIf="!editMode">
+              <span class="block truncate text-body font-semibold text-ink">
+                {{ damagePreview(weapon) }}
               </span>
-            </td>
-            <td class="px-4 py-2 align-middle">
-              <forge-badge *ngIf="!editMode" tone="accent">{{ weapon.attack_bonus }}</forge-badge>
-              <input
-                *ngIf="editMode"
-                forgeInput
-                type="text"
-                class="max-w-24"
-                [(ngModel)]="weapon.attack_bonus"
-                [attr.aria-label]="'Attack bonus'"
-                (change)="save.emit()"
-              />
-            </td>
-            <td class="px-4 py-2 align-middle text-muted">
-              <span *ngIf="!editMode">{{ weapon.damage_dice }} {{ weapon.damage_bonus }}</span>
-              <input
-                *ngIf="editMode"
-                forgeInput
-                type="text"
-                [(ngModel)]="weapon.damage_dice"
-                [attr.aria-label]="'Damage dice'"
-                (change)="save.emit()"
-              />
-            </td>
-            <td class="px-4 py-2 align-middle">
-              <div class="flex items-center justify-end gap-2">
-                <button
-                  forgeButton
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  [attr.aria-label]="'Roll attack with ' + weapon.name"
-                  (click)="rollWeaponAttack.emit(weapon)"
-                >
-                  <span aria-hidden="true">🎲</span>
-                  <span class="hidden sm:inline">Attack</span>
-                </button>
-                <button
-                  *ngIf="editMode"
-                  forgeButton
-                  variant="danger"
-                  size="sm"
-                  iconOnly
-                  type="button"
-                  [attr.aria-label]="'Delete ' + weapon.name"
-                  (click)="deleteWeapon.emit(index)"
-                >
-                  ✕
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <span *ngIf="weaponDamageType(weapon)" class="block text-micro text-muted">
+                {{ weaponDamageType(weapon) }}
+              </span>
+            </ng-container>
+            <input
+              *ngIf="editMode"
+              forgeInput
+              type="text"
+              class="mt-1 w-full"
+              [(ngModel)]="weapon.damage_dice"
+              aria-label="Damage dice"
+              (change)="save.emit()"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button
+            forgeButton
+            variant="secondary"
+            tone="accent"
+            size="sm"
+            type="button"
+            [attr.aria-label]="'Roll attack with ' + weapon.name"
+            (click)="rollAttack(weapon)"
+          >
+            <span aria-hidden="true">🎲</span> Attack
+          </button>
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [attr.aria-label]="'Roll damage for ' + weapon.name"
+            (click)="rollWeaponDamage(weapon)"
+          >
+            <span aria-hidden="true">🩸</span> Damage
+          </button>
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [attr.aria-label]="'Roll critical damage for ' + weapon.name"
+            (click)="rollWeaponDamage(weapon, true)"
+          >
+            <span aria-hidden="true">💥</span> Crit
+          </button>
+        </div>
+      </article>
     </div>
 
     <ng-template #noWeapons>
@@ -119,6 +162,60 @@
         No weapons equipped yet.
       </p>
     </ng-template>
+
+    <div
+      *ngIf="riders.length > 0"
+      class="rounded-xl border border-hairline bg-tile p-3"
+      aria-labelledby="damage-riders-heading"
+    >
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h4 id="damage-riders-heading" class="text-micro font-semibold uppercase text-muted">
+          Damage Riders
+        </h4>
+        <span class="text-micro text-muted">Switch on to stack onto Damage and Crit</span>
+      </div>
+
+      <div class="mt-2 flex flex-col gap-2">
+        <div *ngFor="let rider of riders" class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [attr.aria-pressed]="isRiderActive(rider)"
+            [attr.aria-label]="(isRiderActive(rider) ? 'Remove ' : 'Add ') + rider.name + ' to damage rolls'"
+            [title]="rider.hint"
+            (click)="toggleRider(rider)"
+          >
+            <forge-badge
+              size="md"
+              [interactive]="true"
+              [tone]="isRiderActive(rider) ? 'success' : 'muted'"
+            >
+              <span aria-hidden="true">{{ rider.icon }}</span>
+              {{ rider.name }} {{ riderNotation(rider) }}
+              <span *ngIf="isRiderActive(rider)" aria-hidden="true">✓</span>
+            </forge-badge>
+          </button>
+
+          <div *ngIf="rider.options && rider.options.length > 1" class="flex flex-wrap gap-1">
+            <button
+              *ngFor="let option of rider.options"
+              type="button"
+              class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+              [attr.aria-pressed]="isOptionSelected(rider, option.notation)"
+              [attr.aria-label]="rider.name + ' at ' + option.label"
+              (click)="selectOption(rider, option.notation)"
+            >
+              <forge-badge
+                [interactive]="true"
+                [tone]="isOptionSelected(rider, option.notation) ? 'accent' : 'muted'"
+              >
+                {{ option.label }}
+              </forge-badge>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section class="flex flex-col gap-3" aria-labelledby="combat-equipment-heading">
@@ -192,5 +289,12 @@
     </ng-template>
   </section>
 
-  <app-dice-roller></app-dice-roller>
+  <app-combat-dice-panel
+    [actions]="profile.actions"
+    [charClass]="char.char_class"
+    [charLevel]="char.char_level"
+    [subclass]="char.subclass"
+    [rollMode]="rollMode"
+    (rollAction)="rollClassAction($event)"
+  ></app-combat-dice-panel>
 </div>
