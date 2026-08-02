@@ -33,11 +33,16 @@ class ConnectionManager:
 
     async def broadcast(self, campaign_id: str, message: dict):
         if campaign_id in self.active_connections:
-            for connection in self.active_connections[campaign_id]:
+            dead_connections: List[WebSocket] = []
+            for connection in list(self.active_connections[campaign_id]):
                 try:
                     await connection.send_json(message)
                 except Exception as e:
                     logger.warning(f"Error sending WebSocket message: {e}")
+                    dead_connections.append(connection)
+
+            for connection in dead_connections:
+                self.disconnect(campaign_id, connection)
 
 
 manager = ConnectionManager()

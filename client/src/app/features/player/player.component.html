@@ -194,4 +194,67 @@
     [editChar]="charState.activeCharacter()"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
+
+  <ng-container *ngIf="charState.activeCharacter() as char">
+    <div *ngIf="char.active_campaign" class="whisper-dock">
+      <section
+        *ngIf="showWhisperInbox"
+        class="whisper-panel animated-fade"
+        aria-label="Whisper inbox"
+      >
+        <header class="whisper-panel-header">
+          <div class="min-w-0">
+            <p class="text-micro font-semibold uppercase text-muted">Whispers</p>
+            <h2 class="truncate font-display text-title text-ink">{{ char.active_campaign }}</h2>
+          </div>
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            iconOnly
+            type="button"
+            aria-label="Close whisper inbox"
+            (click)="closeWhisperInbox()"
+          >
+            &times;
+          </button>
+        </header>
+
+        <div class="whisper-list">
+          <div *ngIf="whisperHistory.length === 0" class="whisper-empty">
+            No whispers for {{ char.char_name }} yet.
+          </div>
+
+          <article
+            *ngFor="let whisper of whisperHistory; trackBy: trackWhisper"
+            class="whisper-message"
+            [class.broadcast]="whisper.recipient === 'All'"
+          >
+            <div class="whisper-meta">
+              <span class="truncate font-semibold text-ink">{{ whisper.sender }}</span>
+              <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(whisper.timestamp) }}</time>
+            </div>
+            <p class="whisper-text">{{ whisper.message }}</p>
+            <p class="whisper-target">
+              {{ whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + whisper.recipient }}
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <button
+        forgeButton
+        variant="primary"
+        size="lg"
+        iconOnly
+        type="button"
+        class="whisper-toggle"
+        aria-label="Open whisper inbox"
+        (click)="toggleWhisperInbox()"
+      >
+        💬
+        <span *ngIf="unreadWhispers > 0" class="whisper-unread">{{ unreadWhispers }}</span>
+      </button>
+    </div>
+  </ng-container>
 </forge-page>

@@ -10,6 +10,7 @@ import { DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
+import { Campaign, Whisper } from '../../core/models/campaign.model';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
@@ -96,6 +97,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
   showProficientOnly = false;
   showLevelUpModal = false;
   showValidationModal = false;
+  showWhisperInbox = false;
   isValidating = false;
   isAutoFixing = false;
   validationResult: any = null;
@@ -145,6 +147,9 @@ export class PlayerComponent implements OnInit, OnDestroy {
   private wsSub: Subscription | null = null;
   pdfPreviewUrl: string | null = null;
   pdfPreviewBlobUrl: string | null = null;
+  whisperHistory: Whisper[] = [];
+  unreadWhispers = 0;
+  private loadedWhisperKey: string | null = null;
 
   // The HP steppers fire once per click; only the value the user settles on is
   // worth a round trip, so writes are collapsed into a single trailing save.
@@ -176,8 +181,13 @@ export class PlayerComponent implements OnInit, OnDestroy {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
         this.wsService.connect(char.active_campaign);
+        this.loadWhisperHistory(char.active_campaign, char.char_name);
       } else {
         this.wsService.disconnect();
+        this.whisperHistory = [];
+        this.unreadWhispers = 0;
+        this.showWhisperInbox = false;
+        this.loadedWhisperKey = null;
       }
     });
   }
@@ -204,7 +214,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
         }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
-        if (whisper.recipient === char.char_name || whisper.recipient === 'All') {
+        if (this.isWhisperForCharacter(whisper, char.char_name)) {
+          this.addWhisper(whisper, true);
           this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
         }
       }
@@ -467,6 +478,85 @@ export class PlayerComponent implements OnInit, OnDestroy {
     }
   }
 
+  toggleWhisperInbox(): void {
+    this.showWhisperInbox = !this.showWhisperInbox;
+    if (this.showWhisperInbox) {
+      this.unreadWhispers = 0;
+    }
+  }
+
+  closeWhisperInbox(): void {
+    this.showWhisperInbox = false;
+  }
+
+  trackWhisper(index: number, whisper: Whisper): string {
+    return whisper.id || `${whisper.timestamp || 'no-time'}-${index}`;
+  }
+
+  formatWhisperTime(timestamp?: string): string {
+    if (!timestamp) return 'Just now';
+
+    const normalized = timestamp.includes('T')
+      ? timestamp
+      : `${timestamp.replace(' ', 'T')}Z`;
+    const date = new Date(normalized);
+
+    if (Number.isNaN(date.getTime())) {
+      return timestamp;
+    }
+
+    return new Intl.DateTimeFormat('el-GR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  private loadWhisperHistory(campaignName: string, characterName: string): void {
+    const key = `${campaignName}::${characterName}`;
+    if (this.loadedWhisperKey === key) return;
+    this.loadedWhisperKey = key;
+
+    this.http.get<Campaign[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
+      next: (campaigns) => {
+        const campaign = campaigns.find((item) => item.campaign_name === campaignName);
+        this.whisperHistory = (campaign?.whispers || [])
+          .filter((whisper) => this.isWhisperForCharacter(whisper, characterName))
+          .sort((a, b) => this.whisperSortValue(a) - this.whisperSortValue(b));
+        this.unreadWhispers = 0;
+      },
+      error: () => {
+        this.whisperHistory = [];
+      },
+    });
+  }
+
+  private addWhisper(whisper: Whisper, markUnread: boolean): void {
+    if (whisper.id && this.whisperHistory.some((item) => item.id === whisper.id)) return;
+
+    this.whisperHistory = [...this.whisperHistory, whisper].sort(
+      (a, b) => this.whisperSortValue(a) - this.whisperSortValue(b)
+    );
+
+    if (markUnread && !this.showWhisperInbox) {
+      this.unreadWhispers += 1;
+    }
+  }
+
+  private isWhisperForCharacter(whisper: Whisper | undefined, characterName: string): boolean {
+    return !!whisper && (whisper.recipient === characterName || whisper.recipient === 'All');
+  }
+
+  private whisperSortValue(whisper: Whisper): number {
+    if (!whisper.timestamp) return 0;
+    const normalized = whisper.timestamp.includes('T')
+      ? whisper.timestamp
+      : `${whisper.timestamp.replace(' ', 'T')}Z`;
+    const value = new Date(normalized).getTime();
+    return Number.isNaN(value) ? 0 : value;
+  }
+
   joinCampaign() {
     const char = this.charState.activeCharacter();
     if (!char || !this.joinInviteCode) return;
@@ -479,6 +569,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
         this.showJoinModal = false;
         char.active_campaign = res.campaign_name;
         this.saveCurrentChar();
+        this.loadedWhisperKey = null;
+        this.loadWhisperHistory(res.campaign_name, char.char_name);
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
       error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')
