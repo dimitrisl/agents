@@ -55,8 +55,7 @@
             [(ngModel)]="manualLevel"
             min="1"
             max="20"
-            (ngModelChange)="manualLevelChange.emit($event)"
-            (change)="updateManualSubclasses.emit()"
+            (ngModelChange)="manualLevelChange.emit($event); updateManualSubclasses.emit()"
           />
         </div>
 
@@ -188,12 +187,21 @@
               forgeSelect
               id="manual-subclass"
               [(ngModel)]="manualSubclass"
+              [disabled]="subclassLocked"
+              [attr.aria-describedby]="subclassLocked ? 'manual-subclass-hint' : null"
               (ngModelChange)="manualSubclassChange.emit($event)"
             >
               <option *ngFor="let s of manualSubclassOptions" [value]="s">
                 {{ s }}
               </option>
             </select>
+            <p
+              *ngIf="subclassLocked"
+              id="manual-subclass-hint"
+              class="mt-2 text-micro uppercase text-muted"
+            >
+              {{ subclassLockHint }}
+            </p>
           </div>
         </div>
 

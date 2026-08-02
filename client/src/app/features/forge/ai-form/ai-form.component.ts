@@ -31,6 +31,8 @@ export class AiFormComponent {
   @Input() bgOptions: string[] = [];
   @Input() alignments: string[] = [];
   @Input() subclassOptions: string[] = [];
+  @Input() subclassLocked = true;
+  @Input() subclassLockHint = 'Subclasses unlock at level 3';
   @Input() loading = false;
 
   @Input() aiRace = 'AI Choice';

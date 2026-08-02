@@ -6,6 +6,8 @@ from backend.repositories.rules_repository import RulesRepository
 
 logger = logging.getLogger("DnDAssistant.ValidationService")
 
+SUBCLASS_MIN_LEVEL = 3
+
 
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
     """Extracts all armor proficiencies granted by class, subclass, and features."""
@@ -106,7 +108,13 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> Dict[str, Any]:
     # so no domain data is ever hardcoded here.
     subclass = corrected_char.get("subclass")
     level = corrected_char.get("char_level", 1)
-    if subclass and class_data:
+    if subclass and level < SUBCLASS_MIN_LEVEL:
+        logger.warning(
+            f"Character is level {level} but subclass '{subclass}' requires level "
+            f"{SUBCLASS_MIN_LEVEL}. Clearing subclass."
+        )
+        corrected_char["subclass"] = None
+    elif subclass and class_data:
         subclass_min_level = _get_subclass_min_level(class_data)
         if subclass_min_level and level < subclass_min_level:
             logger.warning(
