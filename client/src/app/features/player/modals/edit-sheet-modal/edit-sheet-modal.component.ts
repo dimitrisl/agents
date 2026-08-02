@@ -17,4 +17,8 @@ export class EditSheetModalComponent {
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() saveEditModal = new EventEmitter<void>();
+
+  get canEditSubclass(): boolean {
+    return Number(this.editChar?.char_level || 1) >= 3;
+  }
 }

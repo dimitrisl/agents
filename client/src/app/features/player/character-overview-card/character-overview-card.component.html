@@ -29,7 +29,8 @@
         <div *ngIf="editMode" class="mt-3 grid grid-cols-1 gap-2">
           <input forgeInput type="text" [(ngModel)]="char.race" placeholder="Race" aria-label="Race" />
           <input forgeInput type="text" [(ngModel)]="char.char_class" placeholder="Class" aria-label="Class" />
-          <input forgeInput type="text" [(ngModel)]="char.subclass" placeholder="Subclass" aria-label="Subclass" />
+          <input forgeInput type="text" [(ngModel)]="char.subclass" placeholder="Subclass" aria-label="Subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'overview-subclass-hint' : null" />
+          <p *ngIf="!canEditSubclass" id="overview-subclass-hint" class="text-micro uppercase text-muted">Subclasses unlock at level 3</p>
           <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" aria-label="Level" />
           <input forgeInput type="text" [(ngModel)]="char.background" placeholder="Background" aria-label="Background" />
         </div>

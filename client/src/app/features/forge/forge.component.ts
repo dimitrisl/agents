@@ -33,6 +33,8 @@ import { HeroPreviewComponent } from './hero-preview/hero-preview.component';
   templateUrl: './forge.component.html',
 })
 export class ForgeComponent implements OnInit {
+  readonly subclassMinLevel = 3;
+  readonly subclassLockHint = 'Subclasses unlock at level 3';
   Math = Math;
   activeTab: 'ai' | 'manual' = 'ai';
   loading = false;
@@ -176,6 +178,14 @@ export class ForgeComponent implements OnInit {
     return this.activeTab === 'ai' ? this.aiLevel : this.manualLevel;
   }
 
+  get aiSubclassLocked(): boolean {
+    return Number(this.aiLevel || 1) < this.subclassMinLevel;
+  }
+
+  get manualSubclassLocked(): boolean {
+    return Number(this.manualLevel || 1) < this.subclassMinLevel;
+  }
+
   get blueprintStatsMode(): string {
     if (this.activeTab === 'ai') return this.aiUseRolled ? 'Rolled 4d6' : 'Standard Array';
     if (this.manualStatMethod === 'rolled') return 'Rolled 4d6';
@@ -217,6 +227,10 @@ export class ForgeComponent implements OnInit {
 
   updateSubclasses() {
     this.subclassOptions = ['AI Choice'];
+    if (this.aiSubclassLocked) {
+      this.aiSubclass = 'AI Choice';
+      return;
+    }
     if (this.aiClass !== 'AI Choice') {
       const map = this.is2024 ? this.subclassMap2024 : this.subclassMap2014;
       const subs = map[this.aiClass] || [];
@@ -226,6 +240,10 @@ export class ForgeComponent implements OnInit {
 
   updateManualSubclasses() {
     this.manualSubclassOptions = ['None'];
+    if (this.manualSubclassLocked) {
+      this.manualSubclass = 'None';
+      return;
+    }
     const map = this.is2024 ? this.subclassMap2024 : this.subclassMap2014;
     const subs = map[this.manualClass] || [];
     this.manualSubclassOptions.push(...subs);
@@ -258,7 +276,7 @@ export class ForgeComponent implements OnInit {
       name: this.aiName || 'AI Choice',
       alignment: this.aiAlignment,
       stats_mode: this.aiUseRolled ? 'rolled' : 'standard',
-      subclass: this.aiSubclass !== 'AI Choice' ? this.aiSubclass : null,
+      subclass: !this.aiSubclassLocked && this.aiSubclass !== 'AI Choice' ? this.aiSubclass : null,
       edition: this.charState.dndEdition()
     }).subscribe({
       next: (char) => {
@@ -293,7 +311,7 @@ export class ForgeComponent implements OnInit {
       race: this.manualRace,
       target_level: this.manualLevel,
       background: this.manualBackground,
-      subclass: this.manualSubclass !== 'None' ? this.manualSubclass : null,
+      subclass: !this.manualSubclassLocked && this.manualSubclass !== 'None' ? this.manualSubclass : null,
       alignment: this.manualAlignment,
       gender: this.manualGender,
       concept: this.manualConcept,
