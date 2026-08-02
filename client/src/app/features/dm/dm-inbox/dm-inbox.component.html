@@ -1,0 +1,141 @@
+<div class="inbox-dock">
+  <section *ngIf="open" class="inbox-panel animated-fade" aria-label="Table inbox">
+    <header class="inbox-panel-header">
+      <div class="inbox-heading min-w-0">
+        <span class="inbox-mark" aria-hidden="true">💬</span>
+        <div class="min-w-0">
+          <p class="text-micro font-semibold uppercase text-accent">Table Inbox</p>
+          <h2 class="truncate font-display text-title text-ink">{{ campaignName }}</h2>
+        </div>
+      </div>
+      <button
+        forgeButton
+        variant="ghost"
+        size="sm"
+        iconOnly
+        type="button"
+        aria-label="Close table inbox"
+        (click)="openChange.emit(false)"
+      >
+        &times;
+      </button>
+    </header>
+
+    <div class="inbox-list">
+      <section class="inbox-section">
+        <div class="inbox-section-title">
+          <span>Roll Requests &amp; Results</span>
+          <span class="inbox-count">{{ rollRequests.length }}</span>
+        </div>
+
+        <div *ngIf="rollRequests.length === 0" class="inbox-empty">
+          No roll requests issued in this campaign yet.
+        </div>
+
+        <article
+          *ngFor="let request of rollRequests; trackBy: trackRollRequest"
+          class="inbox-message"
+          [class.pending]="rollRequestStatus(request) === 'pending'"
+          [class.resolved]="rollRequestStatus(request) === 'resolved'"
+          [class.secret]="request.is_secret"
+        >
+          <div class="inbox-meta">
+            <span class="message-kind">
+              {{ request.char_name }} · {{ request.roll_type }} ({{ request.stat }})
+            </span>
+            <time class="shrink-0 text-micro text-muted">{{ formatTime(request.created_at) }}</time>
+          </div>
+          <p *ngIf="request.reason" class="inbox-text">{{ request.reason }}</p>
+          <p *ngIf="request.result" class="inbox-result">
+            🎲 {{ request.result.total }} ({{ request.result.expression }})
+          </p>
+          <div class="inbox-badges">
+            <forge-badge *ngIf="request.is_secret" tone="accent">🔒 Secret</forge-badge>
+            <forge-badge [tone]="rollRequestTone(request)">{{ rollRequestLabel(request) }}</forge-badge>
+          </div>
+        </article>
+      </section>
+
+      <section class="inbox-section">
+        <div class="inbox-section-title">
+          <span>Whispers</span>
+          <span class="inbox-count">{{ whispers.length }}</span>
+        </div>
+
+        <div *ngIf="whispers.length === 0" class="inbox-empty">No whispers exchanged yet.</div>
+
+        <article
+          *ngFor="let whisper of whispers; trackBy: trackWhisper"
+          class="inbox-message"
+          [class.broadcast]="whisper.recipient === 'All'"
+          [class.from-player]="!isFromDm(whisper)"
+        >
+          <div class="inbox-meta">
+            <span class="message-kind">{{ isFromDm(whisper) ? 'You (DM)' : whisper.sender }}</span>
+            <time class="shrink-0 text-micro text-muted">{{ formatTime(whisper.timestamp) }}</time>
+          </div>
+          <p class="inbox-text">{{ whisper.message }}</p>
+          <p class="message-status">{{ whisperDirection(whisper) }}</p>
+        </article>
+      </section>
+    </div>
+
+    <form class="inbox-reply" (ngSubmit)="sendReply.emit()">
+      <label class="flex flex-col gap-2 text-micro font-semibold uppercase text-muted">
+        Reply to
+        <select
+          forgeSelect
+          name="replyRecipient"
+          [ngModel]="replyRecipient"
+          (ngModelChange)="replyRecipientChange.emit($event)"
+        >
+          <option value="All">All Players</option>
+          <option *ngFor="let member of partyMembers" [value]="member.name">{{ member.name }}</option>
+        </select>
+      </label>
+
+      <label class="sr-only" for="dm-inbox-reply">Whisper message</label>
+      <textarea
+        forgeTextarea
+        id="dm-inbox-reply"
+        rows="2"
+        name="replyMessage"
+        placeholder="Whisper back…"
+        [ngModel]="replyMessage"
+        (ngModelChange)="replyMessageChange.emit($event)"
+      ></textarea>
+
+      <div class="inbox-reply-actions">
+        <span class="text-micro text-muted">
+          {{ replyRecipient === 'All' ? 'Everyone sees this' : 'Private to ' + replyRecipient }}
+        </span>
+        <button
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          type="submit"
+          [disabled]="!replyMessage.trim() || isSendingReply"
+        >
+          {{ isSendingReply ? 'Sending…' : 'Send' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <button
+    forgeButton
+    variant="secondary"
+    tone="accent"
+    size="lg"
+    iconOnly
+    type="button"
+    class="inbox-toggle"
+    [attr.aria-label]="open ? 'Close table inbox' : 'Open table inbox'"
+    [attr.aria-expanded]="open"
+    (click)="toggle()"
+  >
+    💬
+    <span *ngIf="unreadCount > 0" class="inbox-unread">{{ unreadCount }}</span>
+  </button>
+</div>

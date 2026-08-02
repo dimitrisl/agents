@@ -25,6 +25,13 @@ export interface Whisper {
   timestamp?: string;
 }
 
+/** Replayed history for one campaign channel — `GET /campaigns/{name}/messages`. */
+export interface CampaignMessages {
+  campaign_name: string;
+  whispers: Whisper[];
+  roll_requests: RollRequest[];
+}
+
 export interface Campaign {
   campaign_name: string;
   owner_id?: string;

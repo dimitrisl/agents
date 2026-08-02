@@ -281,18 +281,46 @@
               *ngFor="let whisper of whisperHistory; trackBy: trackWhisper"
               class="whisper-message"
               [class.broadcast]="whisper.recipient === 'All'"
+              [class.own]="isOwnWhisper(whisper)"
             >
               <div class="whisper-meta">
-                <span class="message-kind">{{ whisper.sender }}</span>
+                <span class="message-kind">{{ isOwnWhisper(whisper) ? 'You' : whisper.sender }}</span>
                 <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(whisper.timestamp) }}</time>
               </div>
               <p class="whisper-text">{{ whisper.message }}</p>
               <p class="message-status">
-                {{ whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + whisper.recipient }}
+                {{ isOwnWhisper(whisper)
+                    ? '↩ Replied to ' + whisper.recipient
+                    : (whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + whisper.recipient) }}
               </p>
             </article>
           </section>
         </div>
+
+        <form class="whisper-reply" (ngSubmit)="sendWhisperReply()">
+          <label class="sr-only" for="whisper-reply-input">Reply to the DM</label>
+          <textarea
+            forgeTextarea
+            id="whisper-reply-input"
+            rows="2"
+            name="whisperReply"
+            placeholder="Answer the DM…"
+            [(ngModel)]="whisperReply"
+          ></textarea>
+          <div class="whisper-reply-actions">
+            <span class="text-micro text-muted">Private to the DM</span>
+            <button
+              forgeButton
+              variant="secondary"
+              tone="accent"
+              size="sm"
+              type="submit"
+              [disabled]="!whisperReply.trim() || isSendingWhisperReply"
+            >
+              {{ isSendingWhisperReply ? 'Sending…' : 'Reply' }}
+            </button>
+          </div>
+        </form>
       </section>
 
       <button

@@ -10,13 +10,14 @@ import { DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
-import { Campaign, RollRequest, Whisper } from '../../core/models/campaign.model';
+import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
   ForgeEmptyStateComponent,
   ForgePageComponent,
   ForgeTab,
+  ForgeTextareaDirective,
 } from '../../shared/ui';
 import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player-dashboard-header.component';
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
@@ -52,6 +53,7 @@ export interface SkillDefinition {
     ForgeCardComponent,
     ForgeEmptyStateComponent,
     ForgePageComponent,
+    ForgeTextareaDirective,
     PlayerDashboardHeaderComponent,
     CharacterOverviewCardComponent,
     CharacterTabsComponent,
@@ -151,6 +153,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
   rollRequestHistory: RollRequest[] = [];
   unreadWhispers = 0;
   unreadRollRequests = 0;
+  whisperReply = '';
+  isSendingWhisperReply = false;
   private loadedCampaignMessageKey: string | null = null;
   private resolvedRollRequestIds = new Set<string>();
 
@@ -183,7 +187,12 @@ export class PlayerComponent implements OnInit, OnDestroy {
     effect(() => {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
-        this.wsService.connect(char.active_campaign);
+        // The character rides along on the handshake so the server can route
+        // private whispers and roll requests to this hero alone.
+        this.wsService.connect(char.active_campaign, {
+          role: 'player',
+          character: char.char_name,
+        });
         this.loadCampaignMessageHistory(char.active_campaign, char.char_name);
       } else {
         this.wsService.disconnect();
@@ -191,6 +200,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
         this.rollRequestHistory = [];
         this.unreadWhispers = 0;
         this.unreadRollRequests = 0;
+        this.whisperReply = '';
         this.showWhisperInbox = false;
         this.loadedCampaignMessageKey = null;
       }
@@ -219,8 +229,13 @@ export class PlayerComponent implements OnInit, OnDestroy {
         }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
-        if (this.isWhisperForCharacter(whisper, char.char_name)) {
-          this.addWhisper(whisper, true);
+        if (!this.isWhisperForCharacter(whisper, char.char_name)) return;
+
+        // The hero's own reply comes back down the socket too; it belongs in the
+        // thread, but it is not news worth a toast or an unread badge.
+        const isOwnReply = whisper.sender === char.char_name;
+        this.addWhisper(whisper, !isOwnReply);
+        if (!isOwnReply) {
           this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
         }
       }
@@ -549,23 +564,64 @@ export class PlayerComponent implements OnInit, OnDestroy {
     if (this.loadedCampaignMessageKey === key) return;
     this.loadedCampaignMessageKey = key;
 
-    this.http.get<Campaign[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
-      next: (campaigns) => {
-        const campaign = campaigns.find((item) => item.campaign_name === campaignName);
-        this.whisperHistory = (campaign?.whispers || [])
-          .filter((whisper) => this.isWhisperForCharacter(whisper, characterName))
-          .sort((a, b) => this.whisperSortValue(a) - this.whisperSortValue(b));
-        this.rollRequestHistory = (campaign?.roll_requests || [])
-          .filter((request) => this.isRollRequestForCharacterName(request, characterName))
-          .sort((a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at));
-        this.unreadWhispers = 0;
-        this.unreadRollRequests = 0;
-      },
-      error: () => {
-        this.whisperHistory = [];
-        this.rollRequestHistory = [];
-      },
-    });
+    this.http
+      .get<CampaignMessages>(
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
+      )
+      .subscribe({
+        next: (messages) => {
+          this.whisperHistory = (messages.whispers || [])
+            .filter((whisper) => this.isWhisperForCharacter(whisper, characterName))
+            .sort((a, b) => this.whisperSortValue(a) - this.whisperSortValue(b));
+          this.rollRequestHistory = (messages.roll_requests || [])
+            .filter((request) => this.isRollRequestForCharacterName(request, characterName))
+            .sort(
+              (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+            );
+          this.unreadWhispers = 0;
+          this.unreadRollRequests = 0;
+        },
+        error: () => {
+          this.whisperHistory = [];
+          this.rollRequestHistory = [];
+        },
+      });
+  }
+
+  /** Answers the DM in the same thread the whisper arrived on. */
+  sendWhisperReply(): void {
+    const char = this.charState.activeCharacter();
+    const message = this.whisperReply.trim();
+    if (!char?.active_campaign || !message || this.isSendingWhisperReply) return;
+
+    this.isSendingWhisperReply = true;
+    this.http
+      .post<{ whisper: Whisper }>(
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(char.active_campaign)}/whisper`,
+        {
+          sender: char.char_name,
+          recipient: 'DM',
+          message,
+        }
+      )
+      .subscribe({
+        next: (res) => {
+          this.isSendingWhisperReply = false;
+          this.whisperReply = '';
+          // Thread it straight away rather than waiting on the socket echo, which
+          // never arrives if the connection happens to be down.
+          if (res?.whisper) {
+            this.addWhisper(res.whisper, false);
+          }
+        },
+        error: () => {
+          this.isSendingWhisperReply = false;
+          this.rollToast.showMessage(
+            '⚠️ REPLY NOT SENT',
+            'Your whisper did not reach the DM — try again.'
+          );
+        },
+      });
   }
 
   private addWhisper(whisper: Whisper, markUnread: boolean): void {
@@ -633,8 +689,18 @@ export class PlayerComponent implements OnInit, OnDestroy {
       });
   }
 
+  /** Both sides of this hero's thread with the DM, plus table-wide announcements. */
   private isWhisperForCharacter(whisper: Whisper | undefined, characterName: string): boolean {
-    return !!whisper && (whisper.recipient === characterName || whisper.recipient === 'All');
+    return (
+      !!whisper &&
+      (whisper.recipient === characterName ||
+        whisper.recipient === 'All' ||
+        whisper.sender === characterName)
+    );
+  }
+
+  isOwnWhisper(whisper: Whisper): boolean {
+    return whisper.sender === this.charState.activeCharacter()?.char_name;
   }
 
   private whisperSortValue(whisper: Whisper): number {

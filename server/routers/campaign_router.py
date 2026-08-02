@@ -53,6 +53,19 @@ class RollRequestResultSchema(BaseModel):
     modifier: int = 0
 
 
+class WhisperResponse(SuccessResponseSchema):
+    """The stored whisper travels back so the sender can thread it immediately,
+    without waiting for the WebSocket echo to arrive."""
+
+    whisper: Dict[str, Any]
+
+
+class CampaignMessagesResponse(BaseModel):
+    campaign_name: str
+    whispers: List[Dict[str, Any]] = []
+    roll_requests: List[Dict[str, Any]] = []
+
+
 @router.get("/", response_model=List[CampaignSchema])
 async def list_campaigns(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
@@ -210,10 +223,13 @@ async def add_roll_request(
     requests.append(new_req)
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"roll_requests": requests}})
 
-    # Broadcast to campaign websocket channel
+    # Broadcast to campaign websocket channel — only the hero being asked to roll
+    # needs it (the DM's own socket always receives, so their board stays live).
     from server.routers.websocket_router import manager
 
-    await manager.broadcast(name, {"type": "roll_request", "payload": new_req})
+    await manager.broadcast(
+        name, {"type": "roll_request", "payload": new_req}, characters=[req_in.char_name]
+    )
 
     return {"success": True, "message": f"Roll request sent for {req_in.char_name}"}
 
@@ -249,12 +265,36 @@ async def resolve_roll_request(
 
     from server.routers.websocket_router import manager
 
-    await manager.broadcast(name, {"type": "roll_result", "payload": target})
+    await manager.broadcast(
+        name, {"type": "roll_result", "payload": target}, characters=[target.get("char_name")]
+    )
 
     return {"success": True, "message": "Roll request resolved"}
 
 
-@router.post("/{name}/whisper", response_model=SuccessResponseSchema)
+@router.get("/{name}/messages", response_model=CampaignMessagesResponse)
+async def get_campaign_messages(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Whisper + roll-request history for one campaign.
+
+    Both dashboards replay this on load so the live socket only ever has to carry
+    what happens from that moment on.
+    """
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    return {
+        "campaign_name": camp["campaign_name"],
+        "whispers": camp.get("whispers", []),
+        "roll_requests": camp.get("roll_requests", []),
+    }
+
+
+@router.post("/{name}/whisper", response_model=WhisperResponse)
 async def send_whisper(
     name: str,
     payload: WhisperRequest,
@@ -277,12 +317,21 @@ async def send_whisper(
     whispers.append(new_whisper)
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"whispers": whispers}})
 
-    # Broadcast via WebSocket
+    # Broadcast via WebSocket. A whisper addressed to one hero reaches that hero
+    # and its sender only — "All" is the one case that goes out to the room.
     from server.routers.websocket_router import manager
 
-    await manager.broadcast(name, {"type": "whisper", "payload": new_whisper})
+    audience = None
+    if new_whisper["recipient"] != "All":
+        audience = [new_whisper["recipient"], new_whisper["sender"]]
 
-    return {"success": True, "message": f"Whisper sent to {new_whisper['recipient']}"}
+    await manager.broadcast(name, {"type": "whisper", "payload": new_whisper}, characters=audience)
+
+    return {
+        "success": True,
+        "message": f"Whisper sent to {new_whisper['recipient']}",
+        "whisper": new_whisper,
+    }
 
 
 class CampaignNotesRequest(BaseModel):

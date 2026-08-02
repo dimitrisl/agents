@@ -4,11 +4,20 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
 export interface WsMessage {
-  type: 'whisper' | 'roll_request' | 'party_update' | string;
+  type: 'whisper' | 'roll_request' | 'roll_result' | 'party_update' | string;
   sender?: string;
   recipient?: string;
   message?: string;
   [key: string]: any;
+}
+
+/**
+ * Who is behind this socket. The server routes private traffic with it, so a
+ * whisper for one hero never reaches the rest of the table.
+ */
+export interface WsIdentity {
+  role: 'dm' | 'player';
+  character?: string;
 }
 
 @Injectable({
@@ -19,13 +28,14 @@ export class WebSocketService {
 
   private socket: WebSocket | null = null;
   private currentCampaignId: string | null = null;
+  private currentIdentity: WsIdentity | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private manuallyClosed = false;
 
   public messages$ = new Subject<WsMessage>();
 
-  public connect(campaignId: string): void {
+  public connect(campaignId: string, identity: WsIdentity): void {
     this.clearReconnectTimer();
     this.manuallyClosed = false;
 
@@ -35,7 +45,9 @@ export class WebSocketService {
       this.socket?.readyState === WebSocket.OPEN ||
       this.socket?.readyState === WebSocket.CONNECTING;
 
-    if (this.currentCampaignId === campaignId && alive) {
+    // A changed identity (the player swapped hero) has to be re-announced, so
+    // that only counts as "already connected" when it matches too.
+    if (this.currentCampaignId === campaignId && this.isSameIdentity(identity) && alive) {
       return; // Already connected (or connecting) to this campaign
     }
 
@@ -51,6 +63,7 @@ export class WebSocketService {
 
     this.closeSocket();
     this.currentCampaignId = campaignId;
+    this.currentIdentity = identity;
 
     // Construct absolute WebSocket URL
     let wsUrl = environment.apiBaseUrl;
@@ -67,9 +80,13 @@ export class WebSocketService {
     wsUrl = wsUrl.replace('/api/v1', '');
     // The JWT rides as a query param because the browser WebSocket API offers no
     // way to set an Authorization header on the handshake.
+    const character = identity.character
+      ? `&character=${encodeURIComponent(identity.character)}`
+      : '';
     const fullUrl =
       `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}` +
-      `?token=${encodeURIComponent(token)}`;
+      `?token=${encodeURIComponent(token)}` +
+      `&role=${encodeURIComponent(identity.role)}${character}`;
 
     const socket = new WebSocket(fullUrl);
     this.socket = socket;
@@ -89,7 +106,10 @@ export class WebSocketService {
     };
 
     socket.onclose = (event) => {
-      if (this.socket === socket) {
+      // A socket that has already been replaced (campaign switch, hero swap) must
+      // not resurrect itself and fight the connection that superseded it.
+      const isCurrent = this.socket === socket;
+      if (isCurrent) {
         this.socket = null;
       }
 
@@ -97,13 +117,16 @@ export class WebSocketService {
       // which otherwise looks identical to a plain disconnect in the console.
       if (event.code === 1008) {
         console.warn(`[WebSocket] Rejected by server (unauthorized): ${campaignId}`);
-        this.currentCampaignId = null;
+        if (isCurrent) {
+          this.currentCampaignId = null;
+          this.currentIdentity = null;
+        }
         return;
       }
       console.log(`[WebSocket] Disconnected from campaign channel: ${campaignId}`);
 
-      if (!this.manuallyClosed && this.currentCampaignId === campaignId) {
-        this.scheduleReconnect(campaignId);
+      if (isCurrent && !this.manuallyClosed && this.currentCampaignId === campaignId) {
+        this.scheduleReconnect(campaignId, identity);
       }
     };
 
@@ -117,6 +140,14 @@ export class WebSocketService {
     this.clearReconnectTimer();
     this.closeSocket();
     this.currentCampaignId = null;
+    this.currentIdentity = null;
+  }
+
+  private isSameIdentity(identity: WsIdentity): boolean {
+    return (
+      this.currentIdentity?.role === identity.role &&
+      (this.currentIdentity?.character || '') === (identity.character || '')
+    );
   }
 
   private closeSocket(): void {
@@ -126,13 +157,13 @@ export class WebSocketService {
     }
   }
 
-  private scheduleReconnect(campaignId: string): void {
+  private scheduleReconnect(campaignId: string, identity: WsIdentity): void {
     this.clearReconnectTimer();
     const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 10000);
     this.reconnectAttempts += 1;
     this.reconnectTimer = setTimeout(() => {
       if (!this.manuallyClosed && this.currentCampaignId === campaignId) {
-        this.connect(campaignId);
+        this.connect(campaignId, identity);
       }
     }, delay);
   }

@@ -7,6 +7,7 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
+import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
 import { environment } from '../../../environments/environment';
 import {
   ForgeCardComponent,
@@ -25,6 +26,7 @@ import { RollRequestModalComponent } from './modals/roll-request-modal/roll-requ
 import { StatblockModalComponent } from './modals/statblock-modal/statblock-modal.component';
 import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campaign-modal.component';
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
+import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
 
 export interface PartyMember {
   char_id?: string;
@@ -73,6 +75,7 @@ export interface InitiativeCombatant {
     StatblockModalComponent,
     NewCampaignModalComponent,
     AddMemberModalComponent,
+    DmInboxComponent,
   ],
   templateUrl: './dm.component.html',
   styleUrl: './dm.component.css',
@@ -110,6 +113,15 @@ export class DmComponent implements OnInit, OnDestroy {
 
   whisperRecipient = 'All';
   whisperMessage = '';
+
+  // --- Live table inbox ---
+  showDmInbox = false;
+  inboxWhispers: Whisper[] = [];
+  inboxRollRequests: RollRequest[] = [];
+  unreadInboxMessages = 0;
+  inboxReplyRecipient = 'All';
+  inboxReplyMessage = '';
+  isSendingInboxReply = false;
 
   rollTargetMember = 'Valeros';
   rollType = 'saving_throw';
@@ -175,21 +187,153 @@ export class DmComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadCampaigns();
     this.wsSub = this.wsService.messages$.subscribe((msg: WsMessage) => {
-      if (msg.type !== 'roll_result') return;
+      const payload = msg['payload'];
+      if (!payload) return;
 
-      const request = msg['payload'];
-      const result = request?.result;
-      if (!request || !result) return;
+      if (msg.type === 'roll_request') {
+        // Echo of what this DM (or a co-DM) just asked for — it belongs on the
+        // board immediately so the answer has somewhere to land.
+        this.cancelSupersededRollRequests(payload);
+        this.upsertRollRequest(payload, false);
+      } else if (msg.type === 'roll_result') {
+        const result = payload.result;
+        if (!result) return;
 
-      this.rollToast.showMessage(
-        `🎲 ROLL RESULT: ${request.char_name}`,
-        `${request.roll_type} (${request.stat}) = ${result.total}`
-      );
+        this.upsertRollRequest(payload, true);
+        this.rollToast.showMessage(
+          `🎲 ROLL RESULT: ${payload.char_name}`,
+          `${payload.roll_type} (${payload.stat}) = ${result.total}`
+        );
+      } else if (msg.type === 'whisper') {
+        const isOwnWhisper = payload.sender === 'DM';
+        this.addInboxWhisper(payload, !isOwnWhisper);
+        if (!isOwnWhisper) {
+          this.rollToast.showMessage(`💬 ${payload.sender} REPLIED`, payload.message);
+        }
+      }
     });
   }
 
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
+  }
+
+  // --- Live table inbox ---
+
+  onDmInboxOpenChange(open: boolean) {
+    this.showDmInbox = open;
+    if (open) {
+      this.unreadInboxMessages = 0;
+    }
+  }
+
+  /** Whispers back to a player from inside the inbox, without leaving the thread. */
+  sendInboxReply() {
+    const message = this.inboxReplyMessage.trim();
+    if (!message || this.isSendingInboxReply) return;
+
+    this.isSendingInboxReply = true;
+    this.http
+      .post<{ whisper: Whisper }>(
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whisper`,
+        {
+          sender: 'DM',
+          recipient: this.inboxReplyRecipient,
+          message,
+        }
+      )
+      .subscribe({
+        next: (res) => {
+          this.isSendingInboxReply = false;
+          this.inboxReplyMessage = '';
+          // Thread it locally too: the socket echo is a nicety, not a guarantee.
+          if (res?.whisper) {
+            this.addInboxWhisper(res.whisper, false);
+          }
+        },
+        error: () => {
+          this.isSendingInboxReply = false;
+          this.rollToast.showMessage('⚠️ WHISPER NOT SENT', 'The whisper did not reach the table.');
+        },
+      });
+  }
+
+  private loadCampaignMessages(campaignName: string) {
+    this.http
+      .get<CampaignMessages>(
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
+      )
+      .subscribe({
+        next: (messages) => {
+          this.inboxWhispers = [...(messages.whispers || [])].sort(
+            (a, b) => this.timestampSortValue(a.timestamp) - this.timestampSortValue(b.timestamp)
+          );
+          this.inboxRollRequests = [...(messages.roll_requests || [])].sort(
+            (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+          );
+          this.unreadInboxMessages = 0;
+        },
+        error: () => {
+          this.inboxWhispers = [];
+          this.inboxRollRequests = [];
+          this.unreadInboxMessages = 0;
+        },
+      });
+  }
+
+  private addInboxWhisper(whisper: Whisper, markUnread: boolean) {
+    if (whisper.id && this.inboxWhispers.some((item) => item.id === whisper.id)) return;
+
+    this.inboxWhispers = [...this.inboxWhispers, whisper].sort(
+      (a, b) => this.timestampSortValue(a.timestamp) - this.timestampSortValue(b.timestamp)
+    );
+
+    if (markUnread && !this.showDmInbox) {
+      this.unreadInboxMessages += 1;
+    }
+  }
+
+  /**
+   * A new ask retires the hero's previous unanswered one — the same rule the
+   * server applies when it stores the request, mirrored so the board does not
+   * keep showing a request nobody will ever roll.
+   */
+  private cancelSupersededRollRequests(request: RollRequest) {
+    this.inboxRollRequests = this.inboxRollRequests.map((item) =>
+      item.id !== request.id &&
+      item.char_filename === request.char_filename &&
+      item.status === 'pending'
+        ? { ...item, status: 'cancelled' }
+        : item
+    );
+  }
+
+  /** Roll requests arrive twice — once when issued, once answered. */
+  private upsertRollRequest(request: RollRequest, markUnread: boolean) {
+    const index = request.id
+      ? this.inboxRollRequests.findIndex((item) => item.id === request.id)
+      : -1;
+
+    if (index >= 0) {
+      const next = [...this.inboxRollRequests];
+      next[index] = request;
+      this.inboxRollRequests = next;
+    } else {
+      this.inboxRollRequests = [...this.inboxRollRequests, request].sort(
+        (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+      );
+    }
+
+    if (markUnread && !this.showDmInbox) {
+      this.unreadInboxMessages += 1;
+    }
+  }
+
+  private timestampSortValue(timestamp?: string): number {
+    if (!timestamp) return 0;
+    const normalized = timestamp.includes('T') ? timestamp : `${timestamp.replace(' ', 'T')}Z`;
+    const value = new Date(normalized).getTime();
+    return Number.isNaN(value) ? 0 : value;
   }
 
   /** The vault is only needed for the "existing hero" picker, so it loads with it. */
@@ -253,7 +397,14 @@ export class DmComponent implements OnInit, OnDestroy {
       this.inviteCode = '';
     }
 
-    this.wsService.connect(this.campaignName);
+    // role=dm means the server routes every whisper and roll result here, even
+    // the private ones addressed to a single hero.
+    this.wsService.connect(this.campaignName, { role: 'dm' });
+
+    this.showDmInbox = false;
+    this.inboxReplyMessage = '';
+    this.inboxReplyRecipient = 'All';
+    this.loadCampaignMessages(this.campaignName);
 
     this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/party`).subscribe({
       next: (chars) => {
@@ -447,16 +598,27 @@ export class DmComponent implements OnInit, OnDestroy {
 
   sendRollRequest() {
     this.showRollModal = false;
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/roll-request`, {
-      char_filename: this.rollTargetMember.toLowerCase() + '.json',
+    // Vault heroes are addressed by their real sheet filename, so the player's
+    // dashboard matches the request to the exact character, not just a name.
+    const target = this.partyMembers.find((m) => m.name === this.rollTargetMember);
+    const charFilename = target?.char_id
+      ? `${this.rollTargetMember.toLowerCase()}_${target.char_id}.json`
+      : `${this.rollTargetMember.toLowerCase()}.json`;
+
+    this.http.post(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/roll-request`, {
+      char_filename: charFilename,
       char_name: this.rollTargetMember,
       roll_type: this.rollType,
       stat: this.rollStat,
       reason: this.rollReason,
       is_secret: this.isSecretRoll
-    }).subscribe(() => {
-      const secTag = this.isSecretRoll ? ' 🔒 [SECRET]' : '';
-      this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}${secTag}.`);
+    }).subscribe({
+      next: () => {
+        const secTag = this.isSecretRoll ? ' 🔒 [SECRET]' : '';
+        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}${secTag}.`);
+      },
+      error: () =>
+        this.rollToast.showMessage('⚠️ REQUEST NOT SENT', `Could not reach ${this.rollTargetMember}.`)
     });
   }
 
@@ -591,14 +753,24 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   sendWhisper() {
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/whisper`, {
-      sender: 'DM',
-      recipient: this.whisperRecipient,
-      message: this.whisperMessage
-    }).subscribe(() => {
-      this.showWhisperModal = false;
-      this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
-      this.whisperMessage = '';
+    this.http.post<{ whisper: Whisper }>(
+      `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whisper`,
+      {
+        sender: 'DM',
+        recipient: this.whisperRecipient,
+        message: this.whisperMessage
+      }
+    ).subscribe({
+      next: (res) => {
+        this.showWhisperModal = false;
+        this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
+        this.whisperMessage = '';
+        if (res?.whisper) {
+          this.addInboxWhisper(res.whisper, false);
+        }
+      },
+      error: () =>
+        this.rollToast.showMessage('⚠️ WHISPER NOT SENT', 'The whisper did not reach the table.')
     });
   }
 }
