@@ -54,15 +54,23 @@ async def campaign_websocket_endpoint(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await manager.connect(campaign_id, websocket)
+    # FastAPI does not automatically URL-decode path parameters when they come
+    # from a WebSocket URL constructed with encodeURIComponent() on the client.
+    # Normalise here so the key always matches the plain campaign_name used
+    # everywhere else (DB queries, broadcast calls in campaign_router).
+    from urllib.parse import unquote
+
+    decoded_id = unquote(campaign_id)
+
+    await manager.connect(decoded_id, websocket)
     try:
         while True:
             data = await websocket.receive_text()
             try:
                 payload = json.loads(data)
                 # Broadcast payload to all subscribers of this campaign room
-                await manager.broadcast(campaign_id, payload)
+                await manager.broadcast(decoded_id, payload)
             except Exception as e:
                 logger.error(f"Invalid JSON frame received on WebSocket: {e}")
     except WebSocketDisconnect:
-        manager.disconnect(campaign_id, websocket)
+        manager.disconnect(decoded_id, websocket)
