@@ -31,6 +31,8 @@ export class ManualFormComponent {
   @Input() statKeys: string[] = [];
   @Input() standardArrayValues: number[] = [];
   @Input() manualSubclassOptions: string[] = [];
+  @Input() subclassLocked = true;
+  @Input() subclassLockHint = 'Subclasses unlock at level 3';
   @Input() rolledScores: number[] = [];
   @Input() loading = false;
   @Input() getFinalStat!: (key: string) => number;

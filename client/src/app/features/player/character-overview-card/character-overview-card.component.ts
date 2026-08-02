@@ -42,4 +42,8 @@ export class CharacterOverviewCardComponent {
   @Output() hpUp = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
+
+  get canEditSubclass(): boolean {
+    return Number(this.char?.char_level || 1) >= 3;
+  }
 }

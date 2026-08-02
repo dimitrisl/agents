@@ -20,6 +20,7 @@ from backend.services.rules_service import (
     autofix_character_build,
     get_static_class_features,
 )
+from backend.services.validation_service import deterministic_validate_build
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
 
@@ -431,6 +432,8 @@ def process_character_update(
                 current_list.pop(idx)
 
         updated_char["equipment"] = current_list
+
+    updated_char = deterministic_validate_build(updated_char)
 
     # 3. Synchronize derived stats
     class_data = _get_rules_repo().get_class_progression(

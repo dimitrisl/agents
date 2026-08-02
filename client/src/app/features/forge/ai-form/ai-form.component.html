@@ -136,8 +136,7 @@
             [(ngModel)]="aiLevel"
             min="1"
             max="20"
-            (ngModelChange)="aiLevelChange.emit($event)"
-            (change)="updateSubclasses.emit()"
+            (ngModelChange)="aiLevelChange.emit($event); updateSubclasses.emit()"
           />
         </div>
 
@@ -152,9 +151,9 @@
             forgeSelect
             id="ai-subclass"
             [(ngModel)]="aiSubclass"
-            [disabled]="subclassOptions.length <= 1"
+            [disabled]="subclassLocked || subclassOptions.length <= 1"
             [attr.aria-describedby]="
-              subclassOptions.length <= 1 ? 'ai-subclass-hint' : null
+              subclassLocked || subclassOptions.length <= 1 ? 'ai-subclass-hint' : null
             "
             (ngModelChange)="aiSubclassChange.emit($event)"
           >
@@ -163,11 +162,11 @@
             </option>
           </select>
           <p
-            *ngIf="subclassOptions.length <= 1"
+            *ngIf="subclassLocked || subclassOptions.length <= 1"
             id="ai-subclass-hint"
             class="mt-2 text-micro uppercase text-muted"
           >
-            Pick a class to unlock subclasses
+            {{ subclassLocked ? subclassLockHint : "Pick a class to unlock subclasses" }}
           </p>
         </div>
       </div>

@@ -16,7 +16,11 @@
     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div><label class="mb-1 block text-label font-semibold text-muted">Race:</label><input forgeInput type="text" [(ngModel)]="editChar.race" /></div>
       <div><label class="mb-1 block text-label font-semibold text-muted">Class:</label><input forgeInput type="text" [(ngModel)]="editChar.char_class" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Subclass:</label><input forgeInput type="text" [(ngModel)]="editChar.subclass" /></div>
+      <div>
+        <label class="mb-1 block text-label font-semibold text-muted">Subclass:</label>
+        <input forgeInput type="text" [(ngModel)]="editChar.subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'edit-subclass-hint' : null" />
+        <p *ngIf="!canEditSubclass" id="edit-subclass-hint" class="mt-1 text-micro uppercase text-muted">Subclasses unlock at level 3</p>
+      </div>
     </div>
 
     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
