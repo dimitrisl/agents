@@ -1,11 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
-import { WebSocketService } from '../../core/services/websocket.service';
+import { Subscription } from 'rxjs';
+import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { environment } from '../../../environments/environment';
 import {
   ForgeCardComponent,
@@ -76,7 +77,7 @@ export interface InitiativeCombatant {
   templateUrl: './dm.component.html',
   styleUrl: './dm.component.css',
 })
-export class DmComponent implements OnInit {
+export class DmComponent implements OnInit, OnDestroy {
   activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' = 'party';
   readonly dmTabs: ForgeTab[] = [
     { id: 'notes', label: '📝 Campaign Notes' },
@@ -169,9 +170,26 @@ export class DmComponent implements OnInit {
   // The campaign whose party/socket is currently live, so re-picking the same
   // one from the dropdown does not refetch it.
   private activeWorkspace: string | null = null;
+  private wsSub: Subscription | null = null;
 
   ngOnInit() {
     this.loadCampaigns();
+    this.wsSub = this.wsService.messages$.subscribe((msg: WsMessage) => {
+      if (msg.type !== 'roll_result') return;
+
+      const request = msg['payload'];
+      const result = request?.result;
+      if (!request || !result) return;
+
+      this.rollToast.showMessage(
+        `🎲 ROLL RESULT: ${request.char_name}`,
+        `${request.roll_type} (${request.stat}) = ${result.total}`
+      );
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
   }
 
   /** The vault is only needed for the "existing hero" picker, so it loads with it. */

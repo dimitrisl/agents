@@ -10,7 +10,7 @@ import { DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
-import { Campaign, Whisper } from '../../core/models/campaign.model';
+import { Campaign, RollRequest, Whisper } from '../../core/models/campaign.model';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
@@ -148,8 +148,11 @@ export class PlayerComponent implements OnInit, OnDestroy {
   pdfPreviewUrl: string | null = null;
   pdfPreviewBlobUrl: string | null = null;
   whisperHistory: Whisper[] = [];
+  rollRequestHistory: RollRequest[] = [];
   unreadWhispers = 0;
-  private loadedWhisperKey: string | null = null;
+  unreadRollRequests = 0;
+  private loadedCampaignMessageKey: string | null = null;
+  private resolvedRollRequestIds = new Set<string>();
 
   // The HP steppers fire once per click; only the value the user settles on is
   // worth a round trip, so writes are collapsed into a single trailing save.
@@ -181,13 +184,15 @@ export class PlayerComponent implements OnInit, OnDestroy {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
         this.wsService.connect(char.active_campaign);
-        this.loadWhisperHistory(char.active_campaign, char.char_name);
+        this.loadCampaignMessageHistory(char.active_campaign, char.char_name);
       } else {
         this.wsService.disconnect();
         this.whisperHistory = [];
+        this.rollRequestHistory = [];
         this.unreadWhispers = 0;
+        this.unreadRollRequests = 0;
         this.showWhisperInbox = false;
-        this.loadedWhisperKey = null;
+        this.loadedCampaignMessageKey = null;
       }
     });
   }
@@ -202,15 +207,15 @@ export class PlayerComponent implements OnInit, OnDestroy {
       if (msg.type === 'roll_request') {
         const req = msg['payload'];
         // Check if this request is for the active character
-        const charId = req.char_filename.replace('.json', '').split('_').pop();
-        if (char.char_id === charId || req.char_name === char.char_name) {
+        if (this.isRollRequestForCharacter(req, char)) {
+          this.addRollRequest(req, true);
           const secText = req.is_secret ? '🔒 SECRET' : 'DM';
           const title = `⚠️ ${secText} ROLL REQUESTED`;
           const details = `The DM has requested a ${req.roll_type} (${req.stat}) check!\nReason: ${req.reason}`;
           this.rollToast.showMessage(title, details);
 
           // Execute the roll automatically (or we could open a modal, but auto-rolling is faster)
-          this.executeRollRequest(req.roll_type, req.stat);
+          this.rollForRequest(req);
         }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
@@ -440,10 +445,12 @@ export class PlayerComponent implements OnInit, OnDestroy {
       total: roll.total,
       mode: roll.mode
     });
+
+    return roll;
   }
 
   rollSkillCheck(skill: SkillDefinition) {
-    this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill));
+    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill));
   }
 
   rollAbilityCheck(stat: string) {
@@ -452,7 +459,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const val = char.stats[stat] || 10;
     const mod = Math.floor((val - 10) / 2);
 
-    this.showD20Roll(`🎲 ${stat} CHECK`, mod);
+    return this.showD20Roll(`🎲 ${stat} CHECK`, mod);
   }
 
   rollSavingThrow(stat: string) {
@@ -463,25 +470,41 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const isSaveProf = char.saving_throws?.includes(stat);
     const profBonus = char.proficiency_bonus || 2;
 
-    this.showD20Roll(`🛡️ ${stat} SAVING THROW`, mod + (isSaveProf ? profBonus : 0));
+    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, mod + (isSaveProf ? profBonus : 0));
   }
 
   executeRollRequest(rollType: string, stat: string) {
-    if (rollType.toLowerCase() === 'save') {
-      this.rollSavingThrow(stat);
-    } else if (rollType.toLowerCase() === 'skill') {
+    const normalizedType = rollType.toLowerCase().replace(/[\s-]+/g, '_');
+
+    if (normalizedType === 'save' || normalizedType === 'saving_throw' || normalizedType === 'savingthrow') {
+      return this.rollSavingThrow(stat);
+    } else if (normalizedType === 'skill' || normalizedType === 'skill_check') {
       const skill = this.allSkills.find(s => s.name.toLowerCase() === stat.toLowerCase());
-      if (skill) this.rollSkillCheck(skill);
-      else this.rollAbilityCheck(stat);
+      if (skill) return this.rollSkillCheck(skill);
+      return this.rollAbilityCheck(stat);
     } else {
-      this.rollAbilityCheck(stat);
+      return this.rollAbilityCheck(stat);
     }
+  }
+
+  rollForRequest(request: RollRequest): void {
+    if (request.id && this.resolvedRollRequestIds.has(request.id)) return;
+
+    const roll = this.executeRollRequest(request.roll_type, request.stat);
+    if (!roll) return;
+
+    if (request.id) {
+      this.resolvedRollRequestIds.add(request.id);
+    }
+    this.markRollRequestResolved(request, roll);
+    this.submitRollRequestResult(request, roll);
   }
 
   toggleWhisperInbox(): void {
     this.showWhisperInbox = !this.showWhisperInbox;
     if (this.showWhisperInbox) {
       this.unreadWhispers = 0;
+      this.unreadRollRequests = 0;
     }
   }
 
@@ -491,6 +514,10 @@ export class PlayerComponent implements OnInit, OnDestroy {
 
   trackWhisper(index: number, whisper: Whisper): string {
     return whisper.id || `${whisper.timestamp || 'no-time'}-${index}`;
+  }
+
+  trackRollRequest(index: number, request: RollRequest): string {
+    return request.id || `${request.created_at || 'no-time'}-${index}`;
   }
 
   formatWhisperTime(timestamp?: string): string {
@@ -513,10 +540,14 @@ export class PlayerComponent implements OnInit, OnDestroy {
     }).format(date);
   }
 
-  private loadWhisperHistory(campaignName: string, characterName: string): void {
+  formatRollRequestTime(timestamp?: string): string {
+    return this.formatWhisperTime(timestamp);
+  }
+
+  private loadCampaignMessageHistory(campaignName: string, characterName: string): void {
     const key = `${campaignName}::${characterName}`;
-    if (this.loadedWhisperKey === key) return;
-    this.loadedWhisperKey = key;
+    if (this.loadedCampaignMessageKey === key) return;
+    this.loadedCampaignMessageKey = key;
 
     this.http.get<Campaign[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
       next: (campaigns) => {
@@ -524,10 +555,15 @@ export class PlayerComponent implements OnInit, OnDestroy {
         this.whisperHistory = (campaign?.whispers || [])
           .filter((whisper) => this.isWhisperForCharacter(whisper, characterName))
           .sort((a, b) => this.whisperSortValue(a) - this.whisperSortValue(b));
+        this.rollRequestHistory = (campaign?.roll_requests || [])
+          .filter((request) => this.isRollRequestForCharacterName(request, characterName))
+          .sort((a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at));
         this.unreadWhispers = 0;
+        this.unreadRollRequests = 0;
       },
       error: () => {
         this.whisperHistory = [];
+        this.rollRequestHistory = [];
       },
     });
   }
@@ -544,17 +580,87 @@ export class PlayerComponent implements OnInit, OnDestroy {
     }
   }
 
+  private addRollRequest(request: RollRequest, markUnread: boolean): void {
+    if (request.id && this.rollRequestHistory.some((item) => item.id === request.id)) return;
+
+    this.rollRequestHistory = [...this.rollRequestHistory, request].sort(
+      (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+    );
+
+    if (markUnread && !this.showWhisperInbox) {
+      this.unreadRollRequests += 1;
+    }
+  }
+
+  private markRollRequestResolved(request: RollRequest, roll: any): void {
+    if (!request.id) return;
+
+    this.rollRequestHistory = this.rollRequestHistory.map((item) =>
+      item.id === request.id
+        ? {
+            ...item,
+            status: 'resolved',
+            result: {
+              total: roll.total,
+              expression: roll.expression,
+              raw: roll.raw,
+              rolls: roll.rolls,
+              modifier: roll.modifier,
+            },
+          }
+        : item
+    );
+  }
+
+  private submitRollRequestResult(request: RollRequest, roll: any): void {
+    const char = this.charState.activeCharacter();
+    if (!char?.active_campaign || !request.id) return;
+
+    this.http
+      .post(`${environment.apiBaseUrl}/campaigns/${char.active_campaign}/roll-request/${request.id}/result`, {
+        total: roll.total,
+        expression: roll.expression,
+        raw: roll.raw,
+        rolls: roll.rolls,
+        modifier: roll.modifier,
+      })
+      .subscribe({
+        error: () =>
+          this.rollToast.showMessage(
+            '⚠️ ROLL RESULT NOT SENT',
+            'The roll completed locally, but the DM did not receive the result.'
+          ),
+      });
+  }
+
   private isWhisperForCharacter(whisper: Whisper | undefined, characterName: string): boolean {
     return !!whisper && (whisper.recipient === characterName || whisper.recipient === 'All');
   }
 
   private whisperSortValue(whisper: Whisper): number {
-    if (!whisper.timestamp) return 0;
-    const normalized = whisper.timestamp.includes('T')
-      ? whisper.timestamp
-      : `${whisper.timestamp.replace(' ', 'T')}Z`;
+    return this.timestampSortValue(whisper.timestamp);
+  }
+
+  private timestampSortValue(timestamp?: string): number {
+    if (!timestamp) return 0;
+    const normalized = timestamp.includes('T')
+      ? timestamp
+      : `${timestamp.replace(' ', 'T')}Z`;
     const value = new Date(normalized).getTime();
     return Number.isNaN(value) ? 0 : value;
+  }
+
+  private isRollRequestForCharacter(request: RollRequest | undefined, char: CharacterSchema): boolean {
+    if (!request) return false;
+    const requestedCharId = request.char_filename?.replace('.json', '').split('_').pop();
+    return (
+      (!!requestedCharId && requestedCharId === char.char_id) ||
+      request.char_name === char.char_name
+    );
+  }
+
+  private isRollRequestForCharacterName(request: RollRequest | undefined, characterName: string): boolean {
+    return !!request && request.char_name === characterName;
   }
 
   joinCampaign() {
@@ -569,8 +675,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
         this.showJoinModal = false;
         char.active_campaign = res.campaign_name;
         this.saveCurrentChar();
-        this.loadedWhisperKey = null;
-        this.loadWhisperHistory(res.campaign_name, char.char_name);
+        this.loadedCampaignMessageKey = null;
+        this.loadCampaignMessageHistory(res.campaign_name, char.char_name);
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
       error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')

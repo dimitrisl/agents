@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Dict, List
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 
@@ -32,6 +33,7 @@ class ConnectionManager:
         logger.info(f"WebSocket client disconnected from campaign channel '{campaign_id}'")
 
     async def broadcast(self, campaign_id: str, message: dict):
+        campaign_id = unquote(campaign_id)
         if campaign_id in self.active_connections:
             dead_connections: List[WebSocket] = []
             for connection in list(self.active_connections[campaign_id]):
@@ -63,8 +65,6 @@ async def campaign_websocket_endpoint(
     # from a WebSocket URL constructed with encodeURIComponent() on the client.
     # Normalise here so the key always matches the plain campaign_name used
     # everywhere else (DB queries, broadcast calls in campaign_router).
-    from urllib.parse import unquote
-
     decoded_id = unquote(campaign_id)
 
     await manager.connect(decoded_id, websocket)

@@ -45,6 +45,14 @@ class WhisperRequest(BaseModel):
     message: str
 
 
+class RollRequestResultSchema(BaseModel):
+    total: int
+    expression: str
+    raw: int
+    rolls: List[int] = []
+    modifier: int = 0
+
+
 @router.get("/", response_model=List[CampaignSchema])
 async def list_campaigns(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
@@ -208,6 +216,42 @@ async def add_roll_request(
     await manager.broadcast(name, {"type": "roll_request", "payload": new_req})
 
     return {"success": True, "message": f"Roll request sent for {req_in.char_name}"}
+
+
+@router.post("/{name}/roll-request/{request_id}/result", response_model=SuccessResponseSchema)
+async def resolve_roll_request(
+    name: str,
+    request_id: str,
+    result_in: RollRequestResultSchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    requests = camp.get("roll_requests", [])
+    target = None
+    for request in requests:
+        if request.get("id") == request_id:
+            target = request
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Roll request not found")
+
+    result = result_in.model_dump()
+    target["status"] = "resolved"
+    target["result"] = result
+    target["resolved_at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"roll_requests": requests}})
+
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(name, {"type": "roll_result", "payload": target})
+
+    return {"success": True, "message": "Roll request resolved"}
 
 
 @router.post("/{name}/whisper", response_model=SuccessResponseSchema)

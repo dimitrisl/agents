@@ -6,7 +6,13 @@ export interface RollRequest {
   stat: string;
   reason?: string;
   status?: string;
-  result?: string;
+  result?: {
+    total: number;
+    expression: string;
+    raw: number;
+    rolls: number[];
+    modifier: number;
+  } | null;
   is_secret?: boolean;
   created_at?: string;
 }

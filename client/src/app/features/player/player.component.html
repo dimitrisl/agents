@@ -15,7 +15,7 @@
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
-        <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body-sm text-gold">
+        <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
           Member of Campaign: <strong>{{ char.active_campaign }}</strong>
         </div>
 
@@ -200,12 +200,15 @@
       <section
         *ngIf="showWhisperInbox"
         class="whisper-panel animated-fade"
-        aria-label="Whisper inbox"
+        aria-label="DM inbox"
       >
         <header class="whisper-panel-header">
-          <div class="min-w-0">
-            <p class="text-micro font-semibold uppercase text-muted">Whispers</p>
-            <h2 class="truncate font-display text-title text-ink">{{ char.active_campaign }}</h2>
+          <div class="whisper-heading min-w-0">
+            <span class="whisper-mark" aria-hidden="true">DM</span>
+            <div class="min-w-0">
+              <p class="text-micro font-semibold uppercase text-accent">DM Inbox</p>
+              <h2 class="truncate font-display text-title text-ink">{{ char.active_campaign }}</h2>
+            </div>
           </div>
           <button
             forgeButton
@@ -221,30 +224,81 @@
         </header>
 
         <div class="whisper-list">
-          <div *ngIf="whisperHistory.length === 0" class="whisper-empty">
-            No whispers for {{ char.char_name }} yet.
-          </div>
-
-          <article
-            *ngFor="let whisper of whisperHistory; trackBy: trackWhisper"
-            class="whisper-message"
-            [class.broadcast]="whisper.recipient === 'All'"
-          >
-            <div class="whisper-meta">
-              <span class="truncate font-semibold text-ink">{{ whisper.sender }}</span>
-              <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(whisper.timestamp) }}</time>
+          <section class="inbox-section">
+            <div class="inbox-section-title">
+              <span>Roll Requests</span>
+              <span class="inbox-count">{{ rollRequestHistory.length }}</span>
             </div>
-            <p class="whisper-text">{{ whisper.message }}</p>
-            <p class="whisper-target">
-              {{ whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + whisper.recipient }}
-            </p>
-          </article>
+
+            <div *ngIf="rollRequestHistory.length === 0" class="whisper-empty">
+              No roll requests for {{ char.char_name }} yet.
+            </div>
+
+            <article
+              *ngFor="let request of rollRequestHistory; trackBy: trackRollRequest"
+              class="roll-request-message"
+              [class.pending]="request.status === 'pending'"
+              [class.secret]="request.is_secret"
+            >
+              <div class="whisper-meta">
+                <span class="message-kind">
+                  {{ request.is_secret ? 'Secret' : 'DM' }} {{ request.roll_type }}
+                </span>
+                <time class="shrink-0 text-micro text-muted">{{ formatRollRequestTime(request.created_at) }}</time>
+              </div>
+              <p class="whisper-text">
+                {{ request.stat }}{{ request.reason ? ' · ' + request.reason : '' }}
+              </p>
+              <p *ngIf="request.result" class="roll-request-result">
+                Result: {{ request.result.total }} ({{ request.result.expression }})
+              </p>
+              <div class="roll-request-actions">
+                <span class="message-status">{{ request.status || 'pending' }}</span>
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  (click)="rollForRequest(request)"
+                >
+                  Roll
+                </button>
+              </div>
+            </article>
+          </section>
+
+          <section class="inbox-section">
+            <div class="inbox-section-title">
+              <span>Whispers</span>
+              <span class="inbox-count">{{ whisperHistory.length }}</span>
+            </div>
+
+            <div *ngIf="whisperHistory.length === 0" class="whisper-empty">
+              No whispers for {{ char.char_name }} yet.
+            </div>
+
+            <article
+              *ngFor="let whisper of whisperHistory; trackBy: trackWhisper"
+              class="whisper-message"
+              [class.broadcast]="whisper.recipient === 'All'"
+            >
+              <div class="whisper-meta">
+                <span class="message-kind">{{ whisper.sender }}</span>
+                <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(whisper.timestamp) }}</time>
+              </div>
+              <p class="whisper-text">{{ whisper.message }}</p>
+              <p class="message-status">
+                {{ whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + whisper.recipient }}
+              </p>
+            </article>
+          </section>
         </div>
       </section>
 
       <button
         forgeButton
-        variant="primary"
+        variant="secondary"
+        tone="accent"
         size="lg"
         iconOnly
         type="button"
@@ -253,7 +307,9 @@
         (click)="toggleWhisperInbox()"
       >
         💬
-        <span *ngIf="unreadWhispers > 0" class="whisper-unread">{{ unreadWhispers }}</span>
+        <span *ngIf="unreadWhispers + unreadRollRequests > 0" class="whisper-unread">
+          {{ unreadWhispers + unreadRollRequests }}
+        </span>
       </button>
     </div>
   </ng-container>

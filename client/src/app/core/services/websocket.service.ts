@@ -19,10 +19,16 @@ export class WebSocketService {
 
   private socket: WebSocket | null = null;
   private currentCampaignId: string | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private manuallyClosed = false;
 
   public messages$ = new Subject<WsMessage>();
 
   public connect(campaignId: string): void {
+    this.clearReconnectTimer();
+    this.manuallyClosed = false;
+
     // CONNECTING counts as connected here: tearing a socket down mid-handshake
     // just to open an identical one is pure churn.
     const alive =
@@ -43,7 +49,7 @@ export class WebSocketService {
       return;
     }
 
-    this.disconnect();
+    this.closeSocket();
     this.currentCampaignId = campaignId;
 
     // Construct absolute WebSocket URL
@@ -65,13 +71,15 @@ export class WebSocketService {
       `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}` +
       `?token=${encodeURIComponent(token)}`;
 
-    this.socket = new WebSocket(fullUrl);
+    const socket = new WebSocket(fullUrl);
+    this.socket = socket;
 
-    this.socket.onopen = () => {
+    socket.onopen = () => {
+      this.reconnectAttempts = 0;
       console.log(`[WebSocket] Connected to campaign channel: ${campaignId}`);
     };
 
-    this.socket.onmessage = (event) => {
+    socket.onmessage = (event) => {
       try {
         const data: WsMessage = JSON.parse(event.data);
         this.messages$.next(data);
@@ -80,27 +88,60 @@ export class WebSocketService {
       }
     };
 
-    this.socket.onclose = (event) => {
+    socket.onclose = (event) => {
+      if (this.socket === socket) {
+        this.socket = null;
+      }
+
       // 1008 is what the server sends back when the JWT is missing or expired,
       // which otherwise looks identical to a plain disconnect in the console.
       if (event.code === 1008) {
         console.warn(`[WebSocket] Rejected by server (unauthorized): ${campaignId}`);
+        this.currentCampaignId = null;
         return;
       }
       console.log(`[WebSocket] Disconnected from campaign channel: ${campaignId}`);
+
+      if (!this.manuallyClosed && this.currentCampaignId === campaignId) {
+        this.scheduleReconnect(campaignId);
+      }
     };
 
-    this.socket.onerror = (error) => {
+    socket.onerror = (error) => {
       console.error('[WebSocket] Error', error);
     };
   }
 
   public disconnect(): void {
+    this.manuallyClosed = true;
+    this.clearReconnectTimer();
+    this.closeSocket();
+    this.currentCampaignId = null;
+  }
+
+  private closeSocket(): void {
     if (this.socket) {
       this.socket.close();
       this.socket = null;
     }
-    this.currentCampaignId = null;
+  }
+
+  private scheduleReconnect(campaignId: string): void {
+    this.clearReconnectTimer();
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 10000);
+    this.reconnectAttempts += 1;
+    this.reconnectTimer = setTimeout(() => {
+      if (!this.manuallyClosed && this.currentCampaignId === campaignId) {
+        this.connect(campaignId);
+      }
+    }, delay);
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
   }
 
   public sendMessage(msg: WsMessage): void {
