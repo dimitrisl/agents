@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -423,3 +424,11 @@ class RulesValidationResponse(BaseModel):
 class RulesAutofixResponse(BaseModel):
     validation_result: Optional[RulesValidationResult] = None
     character: Dict[str, Any]
+
+
+class CampaignMemberSchema(BaseModel):
+    campaign_id: str
+    user_id: str
+    role: str  # "dm" or "player"
+    character_id: Optional[str] = None
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

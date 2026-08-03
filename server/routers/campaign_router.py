@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
+from server.dependencies.campaign import require_campaign_member, require_campaign_role
 
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 
@@ -54,9 +55,6 @@ class RollRequestResultSchema(BaseModel):
 
 
 class WhisperResponse(SuccessResponseSchema):
-    """The stored whisper travels back so the sender can thread it immediately,
-    without waiting for the WebSocket echo to arrive."""
-
     whisper: Dict[str, Any]
 
 
@@ -70,42 +68,39 @@ class RollRequestResponse(SuccessResponseSchema):
     request: Dict[str, Any]
 
 
-async def check_campaign_auth(
-    camp: dict, current_user: dict, db: AsyncIOMotorDatabase, require_owner: bool = False
-) -> bool:
-    """Verifies that the user is allowed to access the campaign."""
-    if camp.get("owner_id") == current_user["id"]:
-        return True
-
-    if require_owner:
-        raise HTTPException(
-            status_code=403, detail="Not authorized. Campaign owner access required."
-        )
-
-    # Check if the user has a character in this campaign
-    char_count = await db["characters"].count_documents(
-        {"owner_id": current_user["id"], "active_campaign": camp["campaign_name"]}
+async def _ensure_dm_access(name: str, current_user: dict, db: AsyncIOMotorDatabase):
+    """
+    Helper for endpoints that might lazily create a campaign (like invite-code).
+    It checks if the user is a DM, or if the campaign doesn't exist, it allows creation.
+    """
+    member = await db["campaign_members"].find_one(
+        {"campaign_id": name, "user_id": current_user["id"]}
     )
-
-    if char_count > 0:
+    if member:
+        if member.get("role") != "dm":
+            raise HTTPException(
+                status_code=403, detail="Not authorized. Campaign owner access required."
+            )
         return True
 
-    raise HTTPException(status_code=403, detail="Not authorized to access this campaign.")
+    # If the campaign exists but the user is not a member, deny
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if camp:
+        raise HTTPException(status_code=403, detail="Not authorized to access this campaign.")
+
+    return False
 
 
 @router.get("/", response_model=List[CampaignSchema])
 async def list_campaigns(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    user_chars = db["characters"].find({"owner_id": current_user["id"]})
-    joined_campaigns = []
-    async for char in user_chars:
-        if char.get("active_campaign"):
-            joined_campaigns.append(char["active_campaign"])
+    members = db["campaign_members"].find({"user_id": current_user["id"]})
+    campaign_names = []
+    async for member in members:
+        campaign_names.append(member["campaign_id"])
 
-    cursor = db["campaigns"].find(
-        {"$or": [{"owner_id": current_user["id"]}, {"campaign_name": {"$in": joined_campaigns}}]}
-    )
+    cursor = db["campaigns"].find({"campaign_name": {"$in": campaign_names}})
     campaigns = []
     async for doc in cursor:
         doc.pop("_id", None)
@@ -123,11 +118,13 @@ async def save_campaign(
 
     camp_dict = payload.model_dump()
     if existing:
-        if existing.get("owner_id") and existing.get("owner_id") != current_user["id"]:
+        member = await db["campaign_members"].find_one(
+            {"campaign_id": payload.campaign_name, "user_id": current_user["id"]}
+        )
+        if not member or member.get("role") != "dm":
             raise HTTPException(status_code=403, detail="Not authorized to edit this campaign")
-        camp_dict["owner_id"] = existing.get("owner_id") or current_user["id"]
 
-        # Preserve lists and critical metadata so they don't get overwritten by an empty UI payload
+        camp_dict["owner_id"] = existing.get("owner_id") or current_user["id"]
         camp_dict["whispers"] = existing.get("whispers", [])
         camp_dict["roll_requests"] = existing.get("roll_requests", [])
         camp_dict["party"] = existing.get("party", [])
@@ -135,6 +132,15 @@ async def save_campaign(
             camp_dict["invite_code"] = existing["invite_code"]
     else:
         camp_dict["owner_id"] = current_user["id"]
+        await db["campaign_members"].insert_one(
+            {
+                "campaign_id": payload.campaign_name,
+                "user_id": current_user["id"],
+                "role": "dm",
+                "character_id": None,
+                "joined_at": datetime.datetime.now(datetime.timezone.utc),
+            }
+        )
 
     await db["campaigns"].update_one(
         {"campaign_name": payload.campaign_name}, {"$set": camp_dict}, upsert=True
@@ -147,8 +153,8 @@ async def get_campaign_party(
     name: str,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
 ):
-    # Find all characters that have joined this campaign
     cursor = db["characters"].find({"active_campaign": name})
     party_members = []
     async for char in cursor:
@@ -174,12 +180,29 @@ async def join_campaign_by_code(
             {"campaign_name": camp["campaign_name"]}, {"$set": {"party": party}}
         )
 
-    # Update character active campaign
     char_id = payload.char_filename.replace(".json", "").split("_")[-1]
     await db["characters"].update_one(
         {"char_id": char_id},
         {"$set": {"active_campaign": camp["campaign_name"]}},
     )
+
+    existing_member = await db["campaign_members"].find_one(
+        {"campaign_id": camp["campaign_name"], "user_id": current_user["id"]}
+    )
+    if not existing_member:
+        await db["campaign_members"].insert_one(
+            {
+                "campaign_id": camp["campaign_name"],
+                "user_id": current_user["id"],
+                "role": "player",
+                "character_id": char_id,
+                "joined_at": datetime.datetime.now(datetime.timezone.utc),
+            }
+        )
+    else:
+        await db["campaign_members"].update_one(
+            {"_id": existing_member["_id"]}, {"$set": {"character_id": char_id, "role": "player"}}
+        )
 
     return {
         "success": True,
@@ -194,10 +217,11 @@ async def generate_invite_code(
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
+    await _ensure_dm_access(name, current_user, db)
+
     camp = await db["campaigns"].find_one({"campaign_name": name})
 
     if camp:
-        await check_campaign_auth(camp, current_user, db, require_owner=True)
         if camp.get("invite_code"):
             return {"invite_code": camp["invite_code"]}
 
@@ -216,6 +240,15 @@ async def generate_invite_code(
         "whispers": [],
     }
     await db["campaigns"].insert_one(camp_dict)
+    await db["campaign_members"].insert_one(
+        {
+            "campaign_id": name,
+            "user_id": current_user["id"],
+            "role": "dm",
+            "character_id": None,
+            "joined_at": datetime.datetime.now(datetime.timezone.utc),
+        }
+    )
     return {"invite_code": code}
 
 
@@ -226,9 +259,9 @@ async def add_roll_request(
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
+    await _ensure_dm_access(name, current_user, db)
+
     camp = await db["campaigns"].find_one({"campaign_name": name})
-    if camp:
-        await check_campaign_auth(camp, current_user, db, require_owner=True)
     if not camp:
         camp = {
             "campaign_name": name,
@@ -239,6 +272,15 @@ async def add_roll_request(
             "whispers": [],
         }
         await db["campaigns"].insert_one(camp)
+        await db["campaign_members"].insert_one(
+            {
+                "campaign_id": name,
+                "user_id": current_user["id"],
+                "role": "dm",
+                "character_id": None,
+                "joined_at": datetime.datetime.now(datetime.timezone.utc),
+            }
+        )
 
     req_id = str(uuid.uuid4())
     new_req = {
@@ -262,8 +304,6 @@ async def add_roll_request(
 
     await db["campaigns"].update_one({"campaign_name": name}, {"$push": {"roll_requests": new_req}})
 
-    # Broadcast to campaign websocket channel — only the hero being asked to roll
-    # needs it (the DM's own socket always receives, so their board stays live).
     from server.routers.websocket_router import manager
 
     await manager.broadcast(
@@ -284,12 +324,11 @@ async def resolve_roll_request(
     result_in: RollRequestResultSchema,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
 ):
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
-
-    await check_campaign_auth(camp, current_user, db, require_owner=False)
 
     requests = camp.get("roll_requests", [])
     target = None
@@ -333,17 +372,11 @@ async def get_campaign_messages(
     name: str,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
 ):
-    """Whisper + roll-request history for one campaign.
-
-    Both dashboards replay this on load so the live socket only ever has to carry
-    what happens from that moment on.
-    """
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
-
-    await check_campaign_auth(camp, current_user, db, require_owner=False)
 
     return {
         "campaign_name": camp["campaign_name"],
@@ -358,12 +391,11 @@ async def send_whisper(
     payload: WhisperRequest,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
 ):
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
-
-    await check_campaign_auth(camp, current_user, db, require_owner=False)
 
     new_whisper = {
         "id": str(uuid.uuid4()),
@@ -375,8 +407,6 @@ async def send_whisper(
 
     await db["campaigns"].update_one({"campaign_name": name}, {"$push": {"whispers": new_whisper}})
 
-    # Broadcast via WebSocket. A whisper addressed to one hero reaches that hero
-    # and its sender only — "All" is the one case that goes out to the room.
     from server.routers.websocket_router import manager
 
     audience = None
@@ -402,12 +432,11 @@ async def save_campaign_notes(
     payload: CampaignNotesRequest,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
 ):
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
-
-    await check_campaign_auth(camp, current_user, db, require_owner=True)
 
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"notes": payload.notes}})
     return {"success": True, "message": "Notes saved successfully"}

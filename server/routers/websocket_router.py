@@ -6,6 +6,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 
+from server.db_async import get_database
 from server.dependencies.auth import get_current_user_from_token
 
 logger = logging.getLogger("PhyrexianForge.WebSocket")
@@ -114,20 +115,28 @@ async def campaign_websocket_endpoint(
     character: Optional[str] = Query(None),
 ):
     try:
-        await get_current_user_from_token(token)
+        user = await get_current_user_from_token(token)
     except Exception as e:
         logger.warning(f"Unauthorized WebSocket connection attempt: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # FastAPI does not automatically URL-decode path parameters when they come
-    # from a WebSocket URL constructed with encodeURIComponent() on the client.
-    # Normalise here so the key always matches the plain campaign_name used
-    # everywhere else (DB queries, broadcast calls in campaign_router).
     decoded_id = unquote(campaign_id)
-    normalized_role = "dm" if role == "dm" else "player"
 
-    await manager.connect(decoded_id, websocket, role=normalized_role, character=character)
+    db = await get_database()
+    member = await db["campaign_members"].find_one(
+        {"campaign_id": decoded_id, "user_id": user.get("id")}
+    )
+
+    if not member:
+        logger.warning(f"User {user.get('id')} is not a member of campaign {decoded_id}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # Use the role from the database, completely ignoring the `role` Query param
+    db_role = member.get("role", "player")
+
+    await manager.connect(decoded_id, websocket, role=db_role, character=character)
     try:
         while True:
             data = await websocket.receive_text()
