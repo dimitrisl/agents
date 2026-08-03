@@ -126,6 +126,13 @@ async def save_campaign(
         if existing.get("owner_id") and existing.get("owner_id") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not authorized to edit this campaign")
         camp_dict["owner_id"] = existing.get("owner_id") or current_user["id"]
+
+        # Preserve lists and critical metadata so they don't get overwritten by an empty UI payload
+        camp_dict["whispers"] = existing.get("whispers", [])
+        camp_dict["roll_requests"] = existing.get("roll_requests", [])
+        camp_dict["party"] = existing.get("party", [])
+        if "invite_code" in existing:
+            camp_dict["invite_code"] = existing["invite_code"]
     else:
         camp_dict["owner_id"] = current_user["id"]
 
