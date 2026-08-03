@@ -147,4 +147,6 @@ async def campaign_websocket_endpoint(
             else:
                 logger.debug(f"Ignoring unsolicited WebSocket frame: {payload}")
     except WebSocketDisconnect:
+        pass  # Expected client disconnection
+    finally:
         manager.disconnect(decoded_id, websocket)
