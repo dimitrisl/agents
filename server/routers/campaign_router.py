@@ -44,7 +44,6 @@ class RollRequestSchema(BaseModel):
 
 
 class WhisperRequest(BaseModel):
-    sender: str
     recipient: str
     message: str
 
@@ -180,28 +179,7 @@ def _visible_roll_requests(camp: dict, is_dm: bool) -> List[Dict[str, Any]]:
         return requests
     return [request for request in requests if not request.get("is_secret")]
 
-
-async def _ensure_dm_access(name: str, current_user: dict, db: AsyncIOMotorDatabase):
-    """
-    Helper for endpoints that might lazily create a campaign (like invite-code).
-    It checks if the user is a DM, or if the campaign doesn't exist, it allows creation.
-    """
-    member = await db["campaign_members"].find_one(
-        {"campaign_id": name, "user_id": current_user["id"]}
-    )
-    if member:
-        if member.get("role") != "dm":
-            raise HTTPException(
-                status_code=403, detail="Not authorized. Campaign owner access required."
-            )
-        return True
-
-    # If the campaign exists but the user is not a member, deny
-    camp = await db["campaigns"].find_one({"campaign_name": name})
-    if camp:
-        raise HTTPException(status_code=403, detail="Not authorized to access this campaign.")
-
-    return False
+# _ensure_dm_access removed as per #ticket
 
 
 @router.get("/", response_model=List[CampaignSchema])
@@ -358,6 +336,12 @@ async def join_campaign_by_code(
     if not camp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
 
+    char_id = payload.char_filename.replace(".json", "").split("_")[-1]
+
+    char = await db["characters"].find_one({"char_id": char_id})
+    if not char or char.get("owner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
+
     party = camp.get("party", [])
     if payload.char_filename not in party:
         party.append(payload.char_filename)
@@ -401,39 +385,17 @@ async def generate_invite_code(
     name: str,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
 ):
-    await _ensure_dm_access(name, current_user, db)
-
     camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
 
-    if camp:
-        if camp.get("invite_code"):
-            return {"invite_code": camp["invite_code"]}
-
-        code = secrets.token_hex(3).upper()
-        await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
-        return {"invite_code": code}
+    if camp.get("invite_code"):
+        return {"invite_code": camp["invite_code"]}
 
     code = secrets.token_hex(3).upper()
-    camp_dict = {
-        "campaign_name": name,
-        "owner_id": current_user["id"],
-        "invite_code": code,
-        "party": [],
-        "notes": "",
-        "roll_requests": [],
-        "whispers": [],
-    }
-    await db["campaigns"].insert_one(camp_dict)
-    await db["campaign_members"].insert_one(
-        {
-            "campaign_id": name,
-            "user_id": current_user["id"],
-            "role": "dm",
-            "character_id": None,
-            "joined_at": datetime.datetime.now(datetime.timezone.utc),
-        }
-    )
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
     return {"invite_code": code}
 
 
@@ -443,29 +405,11 @@ async def add_roll_request(
     req_in: RollRequestSchema,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
 ):
-    await _ensure_dm_access(name, current_user, db)
-
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
-        camp = {
-            "campaign_name": name,
-            "owner_id": current_user["id"],
-            "party": [],
-            "notes": "",
-            "roll_requests": [],
-            "whispers": [],
-        }
-        await db["campaigns"].insert_one(camp)
-        await db["campaign_members"].insert_one(
-            {
-                "campaign_id": name,
-                "user_id": current_user["id"],
-                "role": "dm",
-                "character_id": None,
-                "joined_at": datetime.datetime.now(datetime.timezone.utc),
-            }
-        )
+        raise HTTPException(status_code=404, detail="Campaign not found")
 
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     req_id = str(uuid.uuid4())
@@ -639,9 +583,29 @@ async def get_campaign_messages(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
+    whispers = camp.get("whispers", [])
+    roll_requests = camp.get("roll_requests", [])
+
+    if member.get("role") == "player":
+        char_name = None
+        if member.get("character_id"):
+            char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
+            if char_doc:
+                char_name = char_doc.get("name")
+
+        filtered_whispers = []
+        for w in whispers:
+            if (
+                w.get("recipient") == "All"
+                or w.get("sender") == char_name
+                or w.get("recipient") == char_name
+            ):
+                filtered_whispers.append(w)
+        whispers = filtered_whispers
+
     return {
         "campaign_name": camp["campaign_name"],
-        "whispers": camp.get("whispers", []),
+        "whispers": whispers,
         "roll_requests": _visible_roll_requests(camp, member.get("role") == "dm"),
     }
 
@@ -658,9 +622,19 @@ async def send_whisper(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
+    sender_name = "DM"
+    if member.get("role") == "player":
+        if member.get("character_id"):
+            char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
+            sender_name = (
+                char_doc.get("name") if char_doc else current_user.get("username", "Player")
+            )
+        else:
+            sender_name = current_user.get("username", "Player")
+
     new_whisper = {
         "id": str(uuid.uuid4()),
-        "sender": payload.sender,
+        "sender": sender_name,
         "recipient": payload.recipient,
         "message": payload.message,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
