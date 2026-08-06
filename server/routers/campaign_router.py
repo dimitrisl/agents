@@ -342,14 +342,10 @@ async def join_campaign_by_code(
     if not char or char.get("owner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
 
-    party = camp.get("party", [])
-    if payload.char_filename not in party:
-        party.append(payload.char_filename)
-        await db["campaigns"].update_one(
-            {"campaign_name": camp["campaign_name"]}, {"$set": {"party": party}}
-        )
+    await db["campaigns"].update_one(
+        {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": payload.char_filename}}
+    )
 
-    char_id = payload.char_filename.replace(".json", "").split("_")[-1]
     await db["characters"].update_one(
         {"char_id": char_id},
         {"$set": {"active_campaign": camp["campaign_name"]}},
