@@ -68,6 +68,7 @@ class LevelUpRequest(BaseModel):
 class PortraitRequest(BaseModel):
     char_id: str
     force: bool = False
+    character_data: Optional[Dict[str, Any]] = None
 
 
 @router.post("/generate", response_model=CharacterSchema)
@@ -166,9 +167,9 @@ async def generate_ai_portrait(
     if doc:
         char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
     else:
-        char_dict = {"char_id": payload.char_id}
+        char_dict = payload.character_data or {"char_id": payload.char_id}
 
-    portrait_url = generate_portrait_url(char_dict, force=payload.force)
+    portrait_url = await generate_portrait_url(char_dict, force=payload.force)
 
     if doc and portrait_url:
         char_dict["char_portrait"] = portrait_url

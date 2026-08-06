@@ -330,6 +330,7 @@ class LevelUpAnalysisSchema(BaseModel):
     choices_required: List[LevelUpChoice] = []
     updated_proficiency_bonus: Optional[int] = None
     updated_spell_slots: Optional[Dict[str, int]] = None
+    new_spells_known: List[str] = []
 
     @property
     def new_features(self) -> List[FeatureTrait]:

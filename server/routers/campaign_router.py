@@ -182,7 +182,7 @@ async def join_campaign_by_code(
         )
     else:
         await db["campaign_members"].update_one(
-            {"_id": existing_member["_id"]}, {"$set": {"character_id": char_id, "role": "player"}}
+            {"_id": existing_member["_id"]}, {"$set": {"character_id": char_id}}
         )
 
     return {
