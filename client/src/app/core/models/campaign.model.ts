@@ -6,7 +6,13 @@ export interface RollRequest {
   stat: string;
   reason?: string;
   status?: string;
-  result?: string;
+  result?: {
+    total: number;
+    expression: string;
+    raw: number;
+    rolls: number[];
+    modifier: number;
+  } | null;
   is_secret?: boolean;
   created_at?: string;
 }
@@ -17,6 +23,13 @@ export interface Whisper {
   recipient: string;
   message: string;
   timestamp?: string;
+}
+
+/** Replayed history for one campaign channel — `GET /campaigns/{name}/messages`. */
+export interface CampaignMessages {
+  campaign_name: string;
+  whispers: Whisper[];
+  roll_requests: RollRequest[];
 }
 
 export interface Campaign {

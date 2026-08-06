@@ -6,6 +6,8 @@ import { User, AuthResponse } from '../models/user.model';
 import { CharacterStateService } from './character-state.service';
 import { environment } from '../../../environments/environment';
 
+type AuthStatus = 'checking' | 'authenticated' | 'anonymous';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -14,11 +16,16 @@ export class AuthService {
   private readonly TOKEN_STORAGE_KEY = 'token';
   private readonly USER_STORAGE_KEY = 'currentUser';
 
-  // Angular Signals for active user state
-  readonly currentUser = signal<User | null>(this.readStoredUser());
+  // Angular Signals for active user state. A cached user is only used after the
+  // token is validated with the API, so the shell never renders as logged-in
+  // while the guard is about to reject the session.
+  readonly currentUser = signal<User | null>(null);
   readonly token = signal<string | null>(localStorage.getItem(this.TOKEN_STORAGE_KEY));
+  readonly authStatus = signal<AuthStatus>(this.token() ? 'checking' : 'anonymous');
 
-  readonly isAuthenticated = computed(() => !!this.currentUser() && !!this.token());
+  readonly isAuthenticated = computed(
+    () => this.authStatus() === 'authenticated' && !!this.currentUser() && !!this.token()
+  );
   readonly hasToken = computed(() => !!this.token());
 
   // The boot-time session check and the route guard both ask for the current
@@ -36,6 +43,7 @@ export class AuthService {
           if (this.isAuthFailure(error)) {
             this.logout();
           }
+          this.authStatus.set('anonymous');
         },
       });
     }
@@ -51,6 +59,7 @@ export class AuthService {
         this.persistSession(res);
         this.token.set(res.access_token);
         this.currentUser.set(res.user);
+        this.authStatus.set('authenticated');
       })
     );
   }
@@ -61,6 +70,7 @@ export class AuthService {
         this.persistSession(res);
         this.token.set(res.access_token);
         this.currentUser.set(res.user);
+        this.authStatus.set('authenticated');
       })
     );
   }
@@ -79,9 +89,11 @@ export class AuthService {
             this.currentUser$ = null;
             localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(user));
             this.currentUser.set(user);
+            this.authStatus.set('authenticated');
           },
           error: () => {
             this.currentUser$ = null;
+            this.authStatus.set('anonymous');
           },
         }),
         shareReplay(1)
@@ -106,6 +118,7 @@ export class AuthService {
     localStorage.removeItem(this.USER_STORAGE_KEY);
     this.token.set(null);
     this.currentUser.set(null);
+    this.authStatus.set('anonymous');
     this.currentUser$ = null;
     // The vault is cached for the whole session, so it has to be dropped here or
     // the next user to sign in would open onto the previous one's heroes.
@@ -118,50 +131,7 @@ export class AuthService {
     localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(res.user));
   }
 
-  private readStoredUser(): User | null {
-    const storedUser = localStorage.getItem(this.USER_STORAGE_KEY);
-    if (!storedUser) {
-      return this.readUserFromToken();
-    }
-
-    try {
-      return JSON.parse(storedUser) as User;
-    } catch {
-      localStorage.removeItem(this.USER_STORAGE_KEY);
-      return this.readUserFromToken();
-    }
-  }
-
   private isAuthFailure(error: unknown): boolean {
     return error instanceof HttpErrorResponse && [401, 403].includes(error.status);
-  }
-
-  private readUserFromToken(): User | null {
-    const token = localStorage.getItem(this.TOKEN_STORAGE_KEY);
-    if (!token) {
-      return null;
-    }
-
-    try {
-      const encodedPayload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-      const paddedPayload = encodedPayload.padEnd(
-        Math.ceil(encodedPayload.length / 4) * 4,
-        '='
-      );
-      const payload = JSON.parse(atob(paddedPayload));
-      if (!payload.sub || !payload.username) {
-        return null;
-      }
-
-      return {
-        id: payload.sub,
-        username: payload.username,
-        email: `${payload.username}@phyrexian.forge`,
-        name: payload.username,
-        has_completed_tutorial: true,
-      };
-    } catch {
-      return null;
-    }
   }
 }

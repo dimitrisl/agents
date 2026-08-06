@@ -1,8 +1,11 @@
+/* Docked inbox — same surface hierarchy and tokens as the player whisper dock
+   (features/player/player.component.css). Tokens only: see 21-design-contract §1. */
+
 :host {
   display: block;
 }
 
-.whisper-dock {
+.inbox-dock {
   position: fixed;
   right: 1rem;
   bottom: 1rem;
@@ -14,7 +17,8 @@
   gap: 0.75rem;
 }
 
-.whisper-panel {
+/* Top level surface: bg-card + one hairline + shadow-card. */
+.inbox-panel {
   width: min(24rem, calc(100vw - 2rem));
   overflow: hidden;
   border: 1px solid var(--border-card);
@@ -24,7 +28,7 @@
   backdrop-filter: var(--glass-backdrop);
 }
 
-.whisper-panel-header {
+.inbox-panel-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -33,13 +37,13 @@
   padding: 1rem;
 }
 
-.whisper-heading {
+.inbox-heading {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.whisper-mark {
+.inbox-mark {
   display: inline-flex;
   width: 2.75rem;
   height: 2.75rem;
@@ -53,11 +57,11 @@
   font-weight: 800;
 }
 
-/* One chronological thread — whispers and roll requests interleaved. */
-.whisper-list {
+/* Inner panel level. One chronological thread — whispers and rolls interleaved. */
+.inbox-list {
   display: flex;
   /* Leaves room for the reply composer below without pushing the dock off-screen. */
-  max-height: min(26rem, 46vh);
+  max-height: min(24rem, 42vh);
   flex-direction: column;
   gap: 0.75rem;
   overflow-y: auto;
@@ -67,12 +71,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .whisper-list {
+  .inbox-list {
     scroll-behavior: auto;
   }
 }
 
-.whisper-empty {
+.inbox-empty {
   border-radius: 0.75rem;
   background: var(--bg-tile);
   padding: 1rem;
@@ -81,47 +85,33 @@
   text-align: center;
 }
 
-.whisper-message,
-.roll-request-message {
+/* Tile level. The left edge carries the meaning, paired with the status line
+   underneath so it is never colour alone (contract §4). */
+.inbox-message {
   border-left: 3px solid var(--border-card);
   border-radius: 0.75rem;
   background: var(--bg-tile);
   padding: 0.75rem;
 }
 
-.whisper-message.broadcast {
-  border-left-color: var(--accent-cobalt);
-}
-
-.whisper-message.own {
-  border-left-color: var(--accent-emerald);
-}
-
-.whisper-reply {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  border-top: 1px solid var(--border-card);
-  padding: 1rem;
-  background: var(--bg-panel);
-}
-
-.whisper-reply-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.roll-request-message.pending {
+.inbox-message.pending {
   border-left-color: var(--theme-accent);
 }
 
-.roll-request-message.secret {
+.inbox-message.resolved,
+.inbox-message.from-player {
+  border-left-color: var(--accent-emerald);
+}
+
+.inbox-message.broadcast {
+  border-left-color: var(--accent-cobalt);
+}
+
+.inbox-message.secret {
   background: color-mix(in srgb, var(--theme-accent) 8%, var(--bg-tile));
 }
 
-.whisper-meta {
+.inbox-meta {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -138,13 +128,27 @@
   white-space: nowrap;
 }
 
-.whisper-text {
+.inbox-text {
   margin: 0.5rem 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--text-primary);
   font-size: var(--text-body);
   line-height: 1.5;
+}
+
+.inbox-result {
+  margin: 0.5rem 0 0;
+  color: var(--theme-accent);
+  font-size: var(--text-label);
+  font-weight: 800;
+}
+
+.inbox-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 .message-status {
@@ -155,33 +159,30 @@
   text-transform: uppercase;
 }
 
-.roll-request-actions {
+.inbox-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border-card);
+  padding: 1rem;
+  background: var(--bg-panel);
+}
+
+.inbox-reply-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-top: 0.75rem;
 }
 
-.roll-request-result {
-  margin: 0.5rem 0 0;
-  color: var(--theme-accent);
-  font-size: var(--text-label);
-  font-weight: 800;
-}
-
-.roll-request-actions .message-status {
-  margin: 0;
-}
-
-.whisper-toggle {
+.inbox-toggle {
   position: relative;
 }
 
 /* Unread count, messenger style: a filled red pill on the icon. Red is the fixed
    semantic token, not the edition accent, so it stays red in both editions. The
    fill is darkened via color-mix so --text-primary on it clears WCAG AA. */
-.whisper-unread {
+.inbox-unread {
   position: absolute;
   top: -0.375rem;
   right: -0.375rem;
@@ -201,13 +202,17 @@
 }
 
 @media (max-width: 640px) {
-  .whisper-dock {
+  .inbox-dock {
     right: 0.5rem;
     bottom: 0.5rem;
     max-width: calc(100vw - 1rem);
   }
 
-  .whisper-panel {
+  .inbox-panel {
     width: calc(100vw - 1rem);
+  }
+
+  .inbox-list {
+    max-height: min(16rem, 34vh);
   }
 }

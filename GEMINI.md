@@ -95,6 +95,8 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 ### 7. Communication & Agent Behavior
 - **Backend Exclusive Development:** The user's collaborator (@michalis89) handles all frontend development (Angular/TypeScript). Your jurisdiction is solely the backend (FastAPI/Python). NEVER attempt to modify frontend code.
 - **Independent Verification:** ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification. Double-check the codebase or test suite to confirm statements.
+- **Strict Code Reviews:** When asked to perform a code review on a branch, you MUST review EVERYTHING (Frontend, Backend, CI/CD, Scripts) against `origin/dev`. Read the exact procedure defined in `.claude/skills/code-review/SKILL.md` before starting any review.
+- **Ticket Resolution:** Before implementing any ticket or issue, you MUST follow the strict analysis procedure defined in `.claude/skills/ticket-resolution/SKILL.md`. This ensures architectural impact is fully understood and a plan is approved before execution.
 
 ---
 

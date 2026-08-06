@@ -1,7 +1,7 @@
-<forge-shell [hasSidebar]="!!authService.currentUser()" mobileTitle="Phyrexian Forge">
-  <app-navbar *ngIf="authService.currentUser()" brand section="brand" />
-  <app-navbar *ngIf="authService.currentUser()" nav section="nav" />
-  <app-navbar *ngIf="authService.currentUser()" user section="user" />
+<forge-shell [hasSidebar]="authService.isAuthenticated()" mobileTitle="Phyrexian Forge">
+  <app-navbar *ngIf="authService.isAuthenticated()" brand section="brand" />
+  <app-navbar *ngIf="authService.isAuthenticated()" nav section="nav" />
+  <app-navbar *ngIf="authService.isAuthenticated()" user section="user" />
 
   <router-outlet />
 </forge-shell>

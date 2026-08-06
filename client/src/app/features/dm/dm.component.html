@@ -168,6 +168,20 @@
     </section>
   </div>
 
+  <app-dm-inbox
+    [open]="showDmInbox"
+    (openChange)="onDmInboxOpenChange($event)"
+    [campaignName]="campaignName"
+    [partyMembers]="partyMembers"
+    [whispers]="inboxWhispers"
+    [rollRequests]="inboxRollRequests"
+    [unreadCount]="unreadInboxMessages"
+    [(replyRecipient)]="inboxReplyRecipient"
+    [(replyMessage)]="inboxReplyMessage"
+    [isSendingReply]="isSendingInboxReply"
+    (sendReply)="sendInboxReply()"
+  ></app-dm-inbox>
+
   <app-whisper-modal
     [open]="showWhisperModal"
     (openChange)="showWhisperModal = $event"

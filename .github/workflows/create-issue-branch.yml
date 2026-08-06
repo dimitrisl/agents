@@ -24,9 +24,12 @@ jobs:
               typeof label === 'string' ? label : label.name
             );
 
+            // Checked in this order, so the first match wins when an issue
+            // carries more than one type label.
             const prefixByLabel = {
               bug: 'fix',
               feature: 'feat',
+              enhancement: 'feat',
               improvement: 'improve',
               'tech-debt': 'chore',
               documentation: 'docs'
@@ -37,21 +40,37 @@ jobs:
             );
 
             if (!typeLabel) {
-              core.setFailed(
-                'No supported type label found. Add one of: bug, feature, improvement, tech-debt, documentation.'
-              );
+              const supported = Object.keys(prefixByLabel)
+                .map(label => `\`${label}\``)
+                .join(', ');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: [
+                  '⚠️ No branch was created: this issue has no type label.',
+                  '',
+                  `Add one of ${supported}, then re-apply the \`create-branch\` label.`
+                ].join('\n')
+              });
+
+              core.notice(`Issue #${issue.number} has no type label. No branch created.`);
               return;
             }
 
             const prefix = prefixByLabel[typeLabel];
 
+            // Non-latin titles (e.g. Greek) reduce to an empty slug, so fall
+            // back to a fixed word to avoid a branch ending in a bare dash.
             const slug = issue.title
               .toLowerCase()
               .normalize('NFD')
               .replace(/[\u0300-\u036f]/g, '')
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/^-+|-+$/g, '')
-              .substring(0, 60);
+              .substring(0, 60)
+              .replace(/-+$/, '') || 'issue';
 
             const branchName = `${prefix}/${issue.number}-${slug}`;
             const baseBranch = 'dev';
@@ -63,12 +82,33 @@ jobs:
             });
 
             try {
-              await github.rest.git.createRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `refs/heads/${branchName}`,
-                sha: baseRef.object.sha
-              });
+              // createLinkedBranch creates the branch *and* registers it under
+              // the issue's Development sidebar, the same as the "Create a
+              // branch" button. github.rest.git.createRef would only do the
+              // former, leaving the sidebar empty.
+              const result = await github.graphql(
+                `mutation($issue: ID!, $repository: ID!, $name: String!, $oid: GitObjectID!) {
+                   createLinkedBranch(input: {
+                     issueId: $issue,
+                     repositoryId: $repository,
+                     name: $name,
+                     oid: $oid
+                   }) {
+                     linkedBranch { ref { name } }
+                   }
+                 }`,
+                {
+                  issue: issue.node_id,
+                  repository: context.payload.repository.node_id,
+                  name: branchName,
+                  oid: baseRef.object.sha
+                }
+              );
+
+              // Report whatever GitHub actually named the ref rather than
+              // assuming it honoured `branchName` verbatim.
+              const createdName =
+                result.createLinkedBranch.linkedBranch.ref.name;
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -77,13 +117,13 @@ jobs:
                 body: [
                   '🌿 Development branch created automatically:',
                   '',
-                  `\`${branchName}\``,
+                  `\`${createdName}\``,
                   '',
                   `Base branch: \`${baseBranch}\``
                 ].join('\n')
               });
             } catch (error) {
-              if (error.status === 422) {
+              if (/already exists/i.test(error.message || '')) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,

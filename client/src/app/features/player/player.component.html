@@ -15,7 +15,7 @@
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
-        <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body-sm text-gold">
+        <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
           Member of Campaign: <strong>{{ char.active_campaign }}</strong>
         </div>
 
@@ -194,4 +194,146 @@
     [editChar]="charState.activeCharacter()"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
+
+  <ng-container *ngIf="charState.activeCharacter() as char">
+    <div *ngIf="char.active_campaign" class="whisper-dock">
+      <section
+        *ngIf="showWhisperInbox"
+        class="whisper-panel animated-fade"
+        aria-label="DM inbox"
+      >
+        <header class="whisper-panel-header">
+          <div class="whisper-heading min-w-0">
+            <span class="whisper-mark" aria-hidden="true">DM</span>
+            <div class="min-w-0">
+              <p class="text-micro font-semibold uppercase text-accent">DM Inbox</p>
+              <h2 class="truncate font-display text-title text-ink">{{ char.active_campaign }}</h2>
+            </div>
+          </div>
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            iconOnly
+            type="button"
+            aria-label="Close whisper inbox"
+            (click)="closeWhisperInbox()"
+          >
+            &times;
+          </button>
+        </header>
+
+        <div #whisperFeed class="whisper-list" role="log" aria-live="polite">
+          <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
+            Nothing yet. Whispers and roll requests from the DM appear here as they happen.
+          </div>
+
+          @for (entry of inboxFeed; track entry.key) {
+            @if (entry.kind === 'whisper') {
+              <article
+                class="whisper-message"
+                [class.broadcast]="entry.whisper.recipient === 'All'"
+                [class.own]="isOwnWhisper(entry.whisper)"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    {{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatWhisperTime(entry.whisper.timestamp) }}
+                  </time>
+                </div>
+                <p class="whisper-text">{{ entry.whisper.message }}</p>
+                <p class="message-status">
+                  💬 {{ isOwnWhisper(entry.whisper)
+                      ? 'Replied to ' + entry.whisper.recipient
+                      : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to you') }}
+                </p>
+              </article>
+            } @else {
+              <article
+                class="roll-request-message"
+                [class.pending]="entry.request.status === 'pending'"
+                [class.secret]="entry.request.is_secret"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    🎲 {{ entry.request.is_secret ? 'Secret' : 'DM' }} {{ entry.request.roll_type }}
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatRollRequestTime(entry.request.created_at) }}
+                  </time>
+                </div>
+                <p class="whisper-text">
+                  {{ entry.request.stat }}{{ entry.request.reason ? ' · ' + entry.request.reason : '' }}
+                </p>
+                <p *ngIf="entry.request.result" class="roll-request-result">
+                  Result: {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+                </p>
+                <div class="roll-request-actions">
+                  <span class="message-status">{{ entry.request.status || 'pending' }}</span>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    (click)="rollForRequest(entry.request)"
+                  >
+                    Roll
+                  </button>
+                </div>
+              </article>
+            }
+          }
+        </div>
+
+        <form class="whisper-reply" (ngSubmit)="sendWhisperReply()">
+          <label class="sr-only" for="whisper-reply-input">Reply to the DM</label>
+          <textarea
+            forgeTextarea
+            id="whisper-reply-input"
+            rows="2"
+            name="whisperReply"
+            placeholder="Answer the DM…"
+            [(ngModel)]="whisperReply"
+          ></textarea>
+          <div class="whisper-reply-actions">
+            <span class="text-micro text-muted">Private to the DM</span>
+            <button
+              forgeButton
+              variant="secondary"
+              tone="accent"
+              size="sm"
+              type="submit"
+              [disabled]="!whisperReply.trim() || isSendingWhisperReply"
+            >
+              {{ isSendingWhisperReply ? 'Sending…' : 'Reply' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <button
+        forgeButton
+        variant="secondary"
+        tone="accent"
+        size="lg"
+        iconOnly
+        type="button"
+        class="whisper-toggle"
+        [attr.aria-label]="
+          unreadMessages > 0
+            ? unreadMessages + ' new messages from the DM. Open inbox'
+            : (showWhisperInbox ? 'Close DM inbox' : 'Open DM inbox')
+        "
+        [attr.aria-expanded]="showWhisperInbox"
+        (click)="toggleWhisperInbox()"
+      >
+        💬
+        <span *ngIf="unreadMessages > 0" class="whisper-unread" aria-hidden="true">
+          {{ unreadMessages }}
+        </span>
+      </button>
+    </div>
+  </ng-container>
 </forge-page>
