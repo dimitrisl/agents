@@ -4,9 +4,10 @@ import os
 import urllib.parse
 import uuid
 
-import requests
+import httpx
 
 from backend.core.prompts import PORTRAIT_PROMPT
+from server.config import settings
 
 logger = logging.getLogger("DnDAssistant.ImageUtils")
 
@@ -17,22 +18,35 @@ def _ensure_dir():
     os.makedirs(PORTRAIT_DIR, exist_ok=True)
 
 
-def generate_portrait_url(char_data: dict, force: bool = False) -> str:
+async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
     """
     Generates a character portrait using image.pollinations.ai,
-    downloads it, saves it to a local folder, and returns the local path.
+    downloads it, saves it to a local folder, and returns the public API URL.
     """
     _ensure_dir()
 
     # If the character already has a local portrait that exists, just return it.
     existing_portrait = char_data.get("char_portrait")
+    base_url_path = f"{settings.API_V1_STR}/portraits/"
+    
     if (
         not force
         and existing_portrait
-        and existing_portrait.startswith("data/portraits/")
-        and os.path.exists(existing_portrait)
+        and existing_portrait.startswith(base_url_path)
     ):
-        return existing_portrait
+        filename = existing_portrait.replace(base_url_path, "")
+        local_path = os.path.join(PORTRAIT_DIR, filename)
+        if os.path.exists(local_path):
+            return existing_portrait
+    elif (
+        not force
+        and existing_portrait
+        and existing_portrait.startswith("data/portraits/")
+    ):
+        # Legacy support
+        if os.path.exists(existing_portrait):
+            filename = os.path.basename(existing_portrait)
+            return f"{base_url_path}{filename}"
 
     race = char_data.get("race", "Human")
     char_class = char_data.get("char_class", "Warrior")
@@ -68,8 +82,9 @@ def generate_portrait_url(char_data: dict, force: bool = False) -> str:
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed={seed}&nologo=true"
 
     try:
-        response = requests.get(image_url, timeout=15)
-        response.raise_for_status()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(image_url, timeout=15.0)
+            response.raise_for_status()
 
         # Save locally
         import time
@@ -82,16 +97,16 @@ def generate_portrait_url(char_data: dict, force: bool = False) -> str:
             f.write(response.content)
 
         logger.info(f"Successfully downloaded and saved portrait to {filepath}")
-        return filepath
+        return f"{base_url_path}{filename}"
     except Exception as e:
         logger.error(f"Failed to generate and download portrait: {e}")
         return None
 
 
 def save_custom_portrait(image_bytes: bytes, filename: str) -> str:
-    """Saves custom uploaded portrait bytes to data/portraits/ and returns the local file path."""
+    """Saves custom uploaded portrait bytes to data/portraits/ and returns the public API URL."""
     _ensure_dir()
     filepath = os.path.join(PORTRAIT_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(image_bytes)
-    return filepath
+    return f"{settings.API_V1_STR}/portraits/{filename}"

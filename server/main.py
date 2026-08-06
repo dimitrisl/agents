@@ -1,8 +1,10 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from server.config import settings
 from server.db_async import close_mongo_connection, connect_to_mongo
@@ -59,6 +61,10 @@ app.include_router(campaign_router.router, prefix=settings.API_V1_STR)
 app.include_router(dm_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
+
+# Mount portrait images directory
+os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
+app.mount(f"{settings.API_V1_STR}/portraits", StaticFiles(directory=os.path.join("data", "portraits")), name="portraits")
 
 
 @app.get("/")
