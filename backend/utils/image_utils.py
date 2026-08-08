@@ -104,7 +104,8 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
 
 
 def save_custom_portrait(image_bytes: bytes, filename: str) -> str:
-    """Saves custom uploaded portrait bytes to data/portraits/ and returns the public API URL."""
+    """Saves custom uploaded portrait bytes
+     to data/portraits/ and returns the public API URL."""
     _ensure_dir()
     filepath = os.path.join(PORTRAIT_DIR, filename)
     with open(filepath, "wb") as f:
