@@ -29,20 +29,12 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
     existing_portrait = char_data.get("char_portrait")
     base_url_path = f"{settings.API_V1_STR}/portraits/"
 
-    if (
-        not force
-        and existing_portrait
-        and existing_portrait.startswith(base_url_path)
-    ):
+    if not force and existing_portrait and existing_portrait.startswith(base_url_path):
         filename = existing_portrait.replace(base_url_path, "")
         local_path = os.path.join(PORTRAIT_DIR, filename)
         if os.path.exists(local_path):
             return existing_portrait
-    elif (
-        not force
-        and existing_portrait
-        and existing_portrait.startswith("data/portraits/")
-    ):
+    elif not force and existing_portrait and existing_portrait.startswith("data/portraits/"):
         # Legacy support
         if os.path.exists(existing_portrait):
             filename = os.path.basename(existing_portrait)
@@ -105,7 +97,7 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
 
 def save_custom_portrait(image_bytes: bytes, filename: str) -> str:
     """Saves custom uploaded portrait bytes
-     to data/portraits/ and returns the public API URL."""
+    to data/portraits/ and returns the public API URL."""
     _ensure_dir()
     filepath = os.path.join(PORTRAIT_DIR, filename)
     with open(filepath, "wb") as f:
