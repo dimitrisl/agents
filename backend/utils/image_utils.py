@@ -28,7 +28,7 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
     # If the character already has a local portrait that exists, just return it.
     existing_portrait = char_data.get("char_portrait")
     base_url_path = f"{settings.API_V1_STR}/portraits/"
-    
+
     if (
         not force
         and existing_portrait
