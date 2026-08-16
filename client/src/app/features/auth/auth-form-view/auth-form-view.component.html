@@ -1,0 +1,64 @@
+<forge-card class="text-center" [hoverable]="false" padding="lg">
+  <ng-container *ngTemplateOutlet="logoTemplate"></ng-container>
+
+  <h2 class="mb-6 font-display text-title text-accent">
+    @if (isRegister) {
+      &#127381; Create Account
+    } @else {
+      &#128273; Seasoned Adventurer Login
+    }
+  </h2>
+
+  <div class="mb-4 text-left">
+    <label class="mb-2 block text-label font-bold uppercase text-muted">Username:</label>
+    <input
+      forgeInput
+      type="text"
+      [ngModel]="username"
+      (ngModelChange)="usernameChange.emit($event)"
+    />
+  </div>
+
+  <div class="mb-4 text-left">
+    <label class="mb-2 block text-label font-bold uppercase text-muted">Password:</label>
+    <input
+      forgeInput
+      type="password"
+      [ngModel]="password"
+      (ngModelChange)="passwordChange.emit($event)"
+      (keyup.enter)="submitAuth.emit()"
+    />
+  </div>
+
+  @if (error) {
+    <div class="mb-4 text-body text-red">&#10060; {{ error }}</div>
+  }
+
+  <div class="mt-6 flex flex-col gap-3">
+    <button forgeButton variant="primary" size="md" fullWidth (click)="submitAuth.emit()">
+      {{ isRegister ? 'Create Account' : 'Enter Forge' }}
+    </button>
+
+    <button forgeButton variant="secondary" size="md" fullWidth (click)="toggleMode.emit()">
+      {{ isRegister ? 'Already registered? Login' : 'New Hero? Register' }}
+    </button>
+  </div>
+
+  <section class="mt-6 border-t border-hairline pt-5">
+    <p class="mb-3 text-label font-semibold uppercase tracking-[0.08em] text-muted">
+      &#9889; Instant Demo Access
+    </p>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('mitsos')">
+        &#127918; DM Mitsos Demo
+      </button>
+      <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('guest')">
+        &#128481;&#65039; Adventurer Demo
+      </button>
+    </div>
+  </section>
+
+  <button class="mt-4" forgeButton variant="ghost" size="md" fullWidth (click)="back.emit()">
+    &#11013;&#65039; Back to Choice
+  </button>
+</forge-card>

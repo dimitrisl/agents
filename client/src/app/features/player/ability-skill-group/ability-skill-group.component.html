@@ -1,0 +1,52 @@
+<section class="overflow-hidden rounded-xl border border-hairline bg-panel">
+  <div
+    role="button"
+    tabindex="0"
+    class="grid min-h-14 w-full grid-cols-[auto_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 bg-tile px-4 py-3 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+    [attr.aria-expanded]="open"
+    [attr.aria-controls]="'skills-panel-' + attr"
+    (click)="toggle.emit(attr)"
+    (keydown.enter)="toggle.emit(attr)"
+    (keydown.space)="$event.preventDefault(); toggle.emit(attr)"
+  >
+    <span class="text-title text-gold" aria-hidden="true">{{ glyphFor(attr) }}</span>
+    <span class="min-w-0 font-display text-title text-ink">{{ attrName }}</span>
+    <span class="rounded-md border border-hairline bg-panel px-2 py-1 text-micro font-semibold text-muted">{{ attr }}</span>
+    <span class="rounded-md border border-hairline bg-panel px-2 py-1 text-label font-semibold text-ink">{{ modifier }}</span>
+    <button
+      forgeButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      class="hidden shrink-0 sm:inline-flex"
+      (click)="$event.stopPropagation(); rollAbility.emit(attr)"
+      (keydown.enter)="$event.stopPropagation()"
+      (keydown.space)="$event.stopPropagation()"
+    >
+      🎲 Roll Ability Check
+    </button>
+    <svg
+      class="h-4 w-4 text-muted transition-transform duration-150"
+      [class.rotate-180]="open"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </div>
+
+  <div *ngIf="open" [id]="'skills-panel-' + attr" class="divide-y divide-hairline">
+    <p *ngIf="skills.length === 0" class="bg-panel px-4 py-3 text-body text-muted">
+      No matching skills.
+    </p>
+
+    <app-skill-roll-row
+      *ngFor="let skill of skills"
+      [skill]="skill"
+      [proficient]="isProficient(skill.name)"
+      [modifier]="getSkillModString(skill)"
+      (roll)="rollSkill.emit($event)"
+    ></app-skill-roll-row>
+  </div>
+</section>

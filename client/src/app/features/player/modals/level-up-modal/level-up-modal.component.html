@@ -1,0 +1,35 @@
+<forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'⚡ Level Up: Level ' + nextLevel" maxWidth="820px">
+  <p class="mb-4 text-body-sm text-muted">Your character has reached a new level! Review the changes below.</p>
+
+  <div *ngIf="levelUpAnalysis" class="flex flex-col gap-4">
+    <div class="rounded-lg border border-hairline bg-black/20 p-3">
+      <span class="text-body-sm text-muted">❤️ Hit Points Increase:</span>
+      <strong class="ml-2 text-emerald">+{{ levelUpAnalysis.hp_increase }} (Total: {{ levelUpAnalysis.new_total_hp }})</strong>
+    </div>
+
+    <div *ngIf="levelUpAnalysis.new_features?.length > 0">
+      <h3 class="mb-2 font-display text-body font-bold text-ink">✨ New Class Features</h3>
+      <ul class="max-h-52 list-disc space-y-2 overflow-y-auto pl-5">
+        <li *ngFor="let feature of levelUpAnalysis.new_features" class="text-body-sm text-muted">
+          <strong class="text-ink">{{ feature.name }}</strong>
+          <span class="block">{{ feature.description }}</span>
+        </li>
+      </ul>
+    </div>
+
+    <div *ngIf="levelUpAnalysis.new_spells_known?.length > 0 || levelUpAnalysis.spell_slots_update">
+      <h3 class="mb-2 font-display text-body font-bold text-ink">🔮 Magical Progression</h3>
+      <p *ngIf="levelUpAnalysis.spell_slots_update" class="text-body-sm text-muted">
+        <strong>Spell Slots Updated:</strong> (See Spells tab for full list)
+      </p>
+      <ul *ngIf="levelUpAnalysis.new_spells_known?.length > 0" class="mt-2 list-disc pl-5 text-body-sm text-muted">
+        <li *ngFor="let spell of levelUpAnalysis.new_spells_known">Learned: <strong>{{ spell }}</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+    <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
+    <button forgeButton variant="primary" type="button" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
+  </div>
+</forge-modal>

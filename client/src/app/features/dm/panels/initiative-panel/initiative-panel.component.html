@@ -1,0 +1,166 @@
+<div class="flex min-w-0 flex-col">
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div class="min-w-0">
+        <h2 class="font-display text-title text-ink">⚔️ Initiative Combat Tracker</h2>
+        <p class="mt-1 text-label text-muted">
+          Turn order, hit points and statblocks for the current encounter.
+        </p>
+      </div>
+
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="importParty.emit()">
+          👥 Import Party
+        </button>
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="rollAll.emit()">
+          🎲 Roll All
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          type="button"
+          (click)="advanceTurn.emit()"
+        >
+          Next Turn ➡️
+        </button>
+      </div>
+    </div>
+
+    <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-add-combatant-heading">
+      <header class="bg-tile px-4 py-3">
+        <h3 id="dm-add-combatant-heading" class="font-display text-title text-ink">Add Combatant</h3>
+      </header>
+
+      <div class="grid grid-cols-1 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_8rem_7rem_auto] md:items-end">
+        <div class="min-w-0">
+          <label for="combatant-name" class="mb-2 block text-label font-semibold text-muted">Name</label>
+          <input
+            forgeInput
+            id="combatant-name"
+            type="text"
+            placeholder="e.g. Goblin Warlord"
+            [ngModel]="newCombatantName"
+            (ngModelChange)="newCombatantNameChange.emit($event)"
+          />
+        </div>
+
+        <div class="min-w-0">
+          <label for="combatant-init" class="mb-2 block text-label font-semibold text-muted">Initiative</label>
+          <input
+            forgeInput
+            id="combatant-init"
+            type="number"
+            [ngModel]="newCombatantInit"
+            (ngModelChange)="newCombatantInitChange.emit($event)"
+          />
+        </div>
+
+        <div class="min-w-0">
+          <label for="combatant-hp" class="mb-2 block text-label font-semibold text-muted">HP</label>
+          <input
+            forgeInput
+            id="combatant-hp"
+            type="number"
+            [ngModel]="newCombatantHp"
+            (ngModelChange)="newCombatantHpChange.emit($event)"
+          />
+        </div>
+
+        <button
+          forgeButton
+          variant="secondary"
+          type="button"
+          class="w-full md:w-auto"
+          (click)="addCombatant.emit()"
+        >
+          + Add Monster
+        </button>
+      </div>
+    </section>
+
+    @if (combatants.length === 0) {
+      <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
+        No combatants yet. Import the party or add a monster to start the encounter.
+      </p>
+    } @else {
+      <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
+        <table class="min-w-full border-collapse text-left text-body">
+          <thead class="bg-tile text-micro uppercase text-muted">
+            <tr>
+              <th scope="col" class="px-3 py-2 font-semibold">Turn</th>
+              <th scope="col" class="px-3 py-2 font-semibold">Combatant</th>
+              <th scope="col" class="px-3 py-2 font-semibold">Initiative</th>
+              <th scope="col" class="px-3 py-2 font-semibold">HP</th>
+              <th scope="col" class="px-3 py-2 font-semibold">Actions &amp; Info</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-hairline">
+            <tr
+              *ngFor="let combatant of combatants; let index = index; trackBy: trackCombatant"
+              class="transition-colors"
+              [ngClass]="index === activeTurnIndex ? 'bg-accent/6' : 'hover:bg-tile'"
+            >
+              <td class="whitespace-nowrap px-3 py-2">
+                @if (index === activeTurnIndex) {
+                  <span class="flex items-center gap-1 font-semibold text-accent">
+                    <span aria-hidden="true">⚔️</span> Current
+                  </span>
+                } @else {
+                  <span class="text-muted">{{ index + 1 }}</span>
+                }
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex min-w-0 items-center gap-2">
+                  <img
+                    [src]="combatant.portrait || 'https://img.icons8.com/color/96/monster.png'"
+                    alt=""
+                    class="h-9 w-9 shrink-0 rounded-full border border-hairline object-cover"
+                  />
+                  <span class="min-w-0 truncate font-semibold text-ink">{{ combatant.name }}</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-ink">{{ combatant.initiative }}</td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <input
+                    forgeInput
+                    type="number"
+                    class="max-w-20 text-center"
+                    [attr.aria-label]="combatant.name + ' current hit points'"
+                    [(ngModel)]="combatant.hp"
+                  />
+                  <span class="whitespace-nowrap text-label text-muted">/ {{ combatant.max_hp }}</span>
+                </div>
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    (click)="openStatblock.emit(combatant)"
+                  >
+                    📜 Statblock
+                  </button>
+                  <button
+                    forgeButton
+                    variant="danger"
+                    size="sm"
+                    type="button"
+                    [attr.aria-label]="'Remove ' + combatant.name"
+                    (click)="removeCombatant.emit(index)"
+                  >
+                    ✕ Remove
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

@@ -1,11 +1,12 @@
 from backend.core.schemas import (
-    StatBlock,
-    CharacterSchema,
-    SpellList,
-    LevelUpAnalysisSchema,
     BuildValidationSchema,
+    CharacterSchema,
+    LevelUpAnalysisSchema,
+    SpellList,
+    StatBlock,
 )
-
+from backend.services.forge_service import process_character_update
+from backend.services.validation_service import deterministic_validate_build
 
 # --- StatBlock ---
 
@@ -151,9 +152,7 @@ def test_spell_list_defaults():
 
 def test_level_up_analysis_schema():
     data = {
-        "automatic_changes": [
-            {"name": "Extra Attack", "description": "Attack twice per action"}
-        ],
+        "automatic_changes": [{"name": "Extra Attack", "description": "Attack twice per action"}],
         "hp_increase": 8,
         "new_total_hp": 52,
         "choices_required": [],
@@ -189,6 +188,38 @@ def test_class_subclass_splitting():
     )
     assert char.char_class == "Ranger"
     assert char.subclass == "Horizon Walker"
+
+
+def test_subclass_cleared_below_level_three():
+    corrected = deterministic_validate_build(
+        {
+            "char_name": "Low Level Domain",
+            "char_class": "Cleric",
+            "char_level": 2,
+            "race": "Human",
+            "background": "Acolyte",
+            "subclass": "Life Domain",
+            "stats": StatBlock().model_dump(),
+        }
+    )
+
+    assert corrected["subclass"] is None
+
+
+def test_subclass_preserved_at_level_three_on_update():
+    updated = process_character_update(
+        {
+            "char_name": "Level Three Domain",
+            "char_class": "Cleric",
+            "char_level": 3,
+            "race": "Human",
+            "background": "Acolyte",
+            "subclass": "Life Domain",
+            "stats": StatBlock().model_dump(),
+        }
+    )
+
+    assert updated["subclass"] == "Life Domain"
 
 
 def test_spell_list_sanitization():

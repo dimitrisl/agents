@@ -1,9 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
 from io import BytesIO
+from unittest.mock import MagicMock, patch
 
-from backend.utils.pdf_importer import extract_text_and_fields_from_pdf
+import pytest
+
 from backend.services.rules_service import parse_character_from_text
+from backend.utils.pdf_importer import extract_text_and_fields_from_pdf
 
 
 def test_extract_text_and_fields_from_pdf():
@@ -41,9 +42,7 @@ def test_extract_text_and_fields_from_pdf():
         mock_pdfplumber_open.return_value.__enter__.return_value = mock_pdf_instance
 
         mock_plumber_page = MagicMock()
-        mock_plumber_page.extract_text.return_value = (
-            "Willow Whisperwind\nLevel 3 Ranger"
-        )
+        mock_plumber_page.extract_text.return_value = "Willow Whisperwind\nLevel 3 Ranger"
         mock_plumber_page.extract_tables.return_value = [
             [["Weapon", "Atk", "Dmg"], ["Shortbow", "+5", "1d6+3"]]
         ]
@@ -63,9 +62,7 @@ def test_extract_text_and_fields_from_pdf():
 def test_parse_character_from_text():
     sheet_text = "Name: Willow Whisperwind, Class: Ranger, Level: 3"
 
-    with patch(
-        "backend.services.rules_service.generate_ai_json"
-    ) as mock_generate_ai_json:
+    with patch("backend.services.rules_service.generate_ai_json") as mock_generate_ai_json:
         # Mock step 1 and step 2 AI calls
         mock_generate_ai_json.side_effect = [
             # Step 1 core identity response
@@ -90,9 +87,7 @@ def test_parse_character_from_text():
                 "armor_class": 15,
                 "speed": 30,
                 "proficiency_bonus": 2,
-                "weapons": [
-                    {"name": "Shortbow", "attack_bonus": "+5", "damage": "1d6+3"}
-                ],
+                "weapons": [{"name": "Shortbow", "attack_bonus": "+5", "damage": "1d6+3"}],
                 "equipment": [{"name": "Leather armor", "equipped": True}],
                 "spells": {
                     "cantrips": [],
@@ -119,9 +114,9 @@ def test_parse_character_from_text():
 def test_extract_real_pdf_ulad_bohr():
     import os
 
-    pdf_path = "Ulad Bohr.pdf"
+    pdf_path = "tests/fixtures/Ulad Bohr.pdf"
     if not os.path.exists(pdf_path):
-        pytest.skip("Ulad Bohr.pdf not found in root directory")
+        pytest.skip("tests/fixtures/Ulad Bohr.pdf not found")
 
     with open(pdf_path, "rb") as f:
         result = extract_text_and_fields_from_pdf(f)
@@ -133,3 +128,20 @@ def test_extract_real_pdf_ulad_bohr():
     assert "Favored Enemy" in result
     assert "Speak with Animals" in result
     assert "Planar Warrior" in result
+
+
+def test_extract_real_pdf_elara_sunwhisper():
+    import os
+
+    pdf_path = "tests/fixtures/elara.pdf"
+    if not os.path.exists(pdf_path):
+        pytest.skip("tests/fixtures/elara.pdf not found")
+
+    with open(pdf_path, "rb") as f:
+        result = extract_text_and_fields_from_pdf(f)
+
+    # Assert that Elara's core attributes are parsed without errors
+    assert "Elara Sunwhisper" in result
+    assert "Cleric" in result
+    assert "18" in result  # Her AC
+    assert "Mace" in result

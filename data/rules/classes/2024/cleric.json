@@ -6,12 +6,27 @@
         "Wisdom"
     ],
     "starting_proficiencies": {
-        "saving_throws": ["Wisdom", "Charisma"],
-        "armor": ["Light", "Medium", "Shields"],
-        "weapons": ["Simple"],
+        "saving_throws": [
+            "Wisdom",
+            "Charisma"
+        ],
+        "armor": [
+            "Light",
+            "Medium",
+            "Shields"
+        ],
+        "weapons": [
+            "Simple"
+        ],
         "skills": {
             "count": 2,
-            "options": ["History", "Insight", "Medicine", "Persuasion", "Religion"]
+            "options": [
+                "History",
+                "Insight",
+                "Medicine",
+                "Persuasion",
+                "Religion"
+            ]
         }
     },
     "progression": {
@@ -174,5 +189,7 @@
                 }
             ]
         }
-    }
+    },
+    "caster_type": "full",
+    "spellcasting_ability": "WIS"
 }

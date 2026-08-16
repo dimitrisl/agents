@@ -1,30 +1,26 @@
 import functools
-import uuid
 import logging
-from backend.core.ai_client import generate_ai_response, generate_ai_json
-from backend.services.rules_service import (
-    get_static_class_features,
+import uuid
+
+from backend.core.ai_client import generate_ai_json, generate_ai_response
+from backend.core.constants import (
+    EDITION_2014,
+    GENDERS,
 )
 from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
-    PLAYSTYLE_GUIDE_PROMPT,
     LEVEL_UP_ANALYSIS_PROMPT,
     MANUAL_CHARACTER_ENRICH_PROMPT,
+    PLAYSTYLE_GUIDE_PROMPT,
 )
-from backend.core.constants import (
-    EDITION_2014,
-    RACES_2014,
-    CLASSES_2014,
-    BACKGROUNDS_2014,
-    SPECIES_2024,
-    CLASSES_2024,
-    BACKGROUNDS_2024,
-    GENDERS,
-)
-
 from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
-from backend.services.mechanics_service import sync_character_stats
 from backend.repositories.rules_repository import RulesRepository
+from backend.services.mechanics_service import sync_character_stats
+from backend.services.rules_service import (
+    autofix_character_build,
+    get_static_class_features,
+)
+from backend.services.validation_service import deterministic_validate_build
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
 
@@ -51,19 +47,13 @@ def forge_character(
     auto_feats: bool = True,
 ) -> dict:
     """Generates a full D&D character using AI."""
-    if edition == EDITION_2014:
-        current_races = RACES_2014
-        current_classes = CLASSES_2014
-        current_backgrounds = BACKGROUNDS_2014
-    else:
-        current_races = SPECIES_2024
-        current_classes = CLASSES_2024
-        current_backgrounds = BACKGROUNDS_2024
+    repo = _get_rules_repo()
+    current_races = repo.get_available_races(edition)
+    current_classes = repo.get_available_classes(edition)
+    current_backgrounds = repo.get_available_backgrounds(edition)
 
     race_prompt = (
-        forge_race
-        if forge_race != "AI Choice"
-        else f"Choose one from: {', '.join(current_races)}"
+        forge_race if forge_race != "AI Choice" else f"Choose one from: {', '.join(current_races)}"
     )
     class_prompt = (
         forge_class
@@ -75,9 +65,7 @@ def forge_character(
         if forge_background != "AI Choice"
         else f"Choose one from: {', '.join(current_backgrounds)}"
     )
-    gender_prompt = (
-        gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
-    )
+    gender_prompt = gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
 
     name_instruction = (
         f"The character's name MUST be: {name}"
@@ -125,49 +113,77 @@ def forge_character(
     )
 
     result = generate_ai_json(prompt)
-    if result:
-        result["dnd_edition"] = edition
-        # Ensure char_id is present
-        if not result.get("char_id"):
-            result["char_id"] = str(uuid.uuid4())[:8]
+    if not result:
+        logger.warning("AI JSON generation returned None. Generating default fallback character.")
+        from backend.core.state_manager import get_default_character
 
-        if not auto_spells:
-            result["spells"] = {}
-            result["prepared_spells"] = []
-        if not auto_feats:
-            result["advancements"] = []
-            if "features_traits" in result and isinstance(
-                result["features_traits"], list
-            ):
-                result["features_traits"] = [
-                    f
-                    for f in result["features_traits"]
-                    if not (
-                        isinstance(f, dict)
-                        and f.get("name", "").lower().startswith("feat:")
-                    )
-                ]
-
-        # Synchronize derived stats (HP, AC, Proficiency, etc.)
-        class_data = _get_rules_repo().get_class_progression(
-            result.get("char_class"), edition
+        result = get_default_character()
+        result.update(
+            {
+                "char_name": name if name != "AI Choice" else "Forged Hero",
+                "gender": gender if gender != "AI Choice" else "Male",
+                "char_class": forge_class if forge_class != "AI Choice" else "",
+                "subclass": subclass if subclass and subclass != "AI Choice" else None,
+                "char_level": target_level,
+                "race": forge_race if forge_race != "AI Choice" else "Human",
+                "background": forge_background if forge_background != "AI Choice" else "Soldier",
+                "alignment": alignment if alignment != "AI Choice" else "True Neutral",
+                "concept": concept or "",
+                "dnd_edition": edition,
+            }
         )
-        result = sync_character_stats(result, class_data)
 
-        # Mandatory Schema & Build Validation
+    result["dnd_edition"] = edition
+    if not result.get("char_id"):
+        result["char_id"] = str(uuid.uuid4())[:8]
+
+    if not auto_spells:
+        result["spells"] = {}
+        result["prepared_spells"] = []
+    if not auto_feats:
+        result["advancements"] = []
+        if "features_traits" in result and isinstance(result["features_traits"], list):
+            result["features_traits"] = [
+                f
+                for f in result["features_traits"]
+                if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
+            ]
+
+    # Synchronize derived stats (HP, AC, Proficiency, etc.)
+    class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
+    result = sync_character_stats(result, class_data)
+
+    # D&D Rules Autofix & Deep Validation
+    try:
+        autofix_result = autofix_character_build(result)
+        result = autofix_result.get("character", result)
+    except Exception as e:
+        logger.error(f"Rule autofix failed during AI forge: {e}")
+
+    # Mandatory Schema & Build Validation
+    try:
+        validated = CharacterSchema.model_validate(result, strict=False)
+        return validated.model_dump()
+    except Exception as e:
+        logger.warning(
+            f"Forged character failed initial validation: {e}. Coercing schema defaults."
+        )
+        from backend.core.state_manager import get_default_character
+
+        fallback = get_default_character()
+        for k, v in result.items():
+            if v is not None:
+                try:
+                    fallback[k] = v
+                except Exception:
+                    pass
         try:
-            validated = CharacterSchema.model_validate(result, strict=False)
-            return validated.model_dump()
-        except Exception as e:
-            logger.warning(
-                f"Forged character failed initial validation: {e}. Coercing schema defaults."
-            )
-            from backend.core.state_manager import get_default_character
-
-            fallback = get_default_character()
-            fallback.update({k: v for k, v in result.items() if v is not None})
             return CharacterSchema.model_validate(fallback, strict=False).model_dump()
-    return None
+        except Exception as e2:
+            logger.error(f"Fallback validation failed: {e2}. Returning clean default character.")
+            return CharacterSchema.model_validate(
+                get_default_character(), strict=False
+            ).model_dump()
 
 
 def forge_character_manual(
@@ -253,15 +269,19 @@ def forge_character_manual(
             result["features_traits"] = [
                 f
                 for f in result["features_traits"]
-                if not (
-                    isinstance(f, dict)
-                    and f.get("name", "").lower().startswith("feat:")
-                )
+                if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
             ]
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
     result = sync_character_stats(result, class_data)
+
+    # D&D Rules Autofix & Deep Validation
+    try:
+        autofix_result = autofix_character_build(result)
+        result = autofix_result.get("character", result)
+    except Exception as e:
+        logger.error(f"Rule autofix failed during manual forge: {e}")
 
     # Mandatory Schema & Build Validation
     try:
@@ -334,18 +354,14 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     f"Found {len(static_features)} static features for {char_data.get('char_class')} level {target_level}"
                 )
                 # Ensure static features are in the automatic_changes
-                existing_names = [
-                    f.get("name") for f in result.get("automatic_changes", [])
-                ]
+                existing_names = [f.get("name") for f in result.get("automatic_changes", [])]
                 for sf in static_features:
                     if sf.get("name") not in existing_names:
                         result.setdefault("automatic_changes", []).append(sf)
         try:
             return LevelUpAnalysisSchema(**result).model_dump()
         except Exception as e:
-            logger.warning(
-                f"Level up analysis failed validation: {e}. Returning raw result."
-            )
+            logger.warning(f"Level up analysis failed validation: {e}. Returning raw result.")
             return result
     return None
 
@@ -416,6 +432,8 @@ def process_character_update(
                 current_list.pop(idx)
 
         updated_char["equipment"] = current_list
+
+    updated_char = deterministic_validate_build(updated_char)
 
     # 3. Synchronize derived stats
     class_data = _get_rules_repo().get_class_progression(

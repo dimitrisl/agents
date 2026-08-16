@@ -1,0 +1,339 @@
+<forge-page>
+  <app-player-dashboard-header
+    [activeCharacter]="charState.activeCharacter()"
+    [activeCharacterId]="charState.activeCharacter()?.char_id"
+    [characters]="charState.filteredCharacters()"
+    [editMode]="editMode"
+    [portraitUrl]="charState.activeCharacter() ? getPortraitUrl(charState.activeCharacter()) : ''"
+    (selectCharacter)="onSelectCharacter($event)"
+    (newHero)="goToForge()"
+    (editSheet)="openEditModal()"
+    (quickEdit)="toggleEditMode()"
+    (joinCampaign)="showJoinModal = true"
+  ></app-player-dashboard-header>
+
+  <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+        <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
+          Member of Campaign: <strong>{{ char.active_campaign }}</strong>
+        </div>
+
+        <app-character-overview-card
+          [char]="char"
+          [editMode]="editMode"
+          [edition]="char.dnd_edition || charState.dndEdition()"
+          [portraitUrl]="getPortraitUrl(char)"
+          [availableHitDice]="getAvailableHitDice()"
+          [classHitDieSize]="getClassHitDieSize()"
+          [passivePerception]="charState.passivePerception()"
+          [abilityEntries]="getStatsArray(char.stats)"
+          [getModifierString]="getModifierString.bind(this)"
+          (portrait)="showPortraitModal = true"
+          (hpDown)="adjustHp(-1)"
+          (hpUp)="adjustHp(1)"
+          (abilityCheck)="rollAbilityCheck($event)"
+          (savingThrow)="rollSavingThrow($event)"
+        ></app-character-overview-card>
+      </aside>
+
+      <section class="min-w-0">
+        <forge-card padding="none" [hoverable]="false">
+          <div class="flex min-h-0 flex-col">
+            <div class="flex flex-col gap-3 border-b border-hairline p-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
+              <app-character-tabs
+                class="min-w-0 flex-1"
+                [tabs]="sheetTabs"
+                [activeId]="sheetSubTab"
+                (activeIdChange)="selectSheetSubTab($event)"
+              ></app-character-tabs>
+
+              <app-roll-mode-selector
+                class="min-w-0 shrink-0"
+                [(rollMode)]="rollMode"
+              ></app-roll-mode-selector>
+            </div>
+
+            <div class="min-w-0 p-4">
+              <app-skills-panel
+                *ngIf="sheetSubTab === 'skills'"
+                [showProficientOnly]="showProficientOnly"
+                (showProficientOnlyChange)="onShowProficientOnlyChange($event)"
+                [openGroups]="openGroups"
+                [attributes]="skillAttributes"
+                [getSkillsByAttribute]="getSkillsByAttribute.bind(this)"
+                [getAttributeFullName]="getAttributeFullName.bind(this)"
+                [getAttributeModifier]="getAttributeModifier.bind(this)"
+                [isProficient]="isProficient.bind(this)"
+                [getSkillModString]="getSkillModString.bind(this)"
+                (toggleGroup)="toggleGroup($event)"
+                (rollAbility)="rollAbilityCheck($event)"
+                (rollSkill)="rollSkillCheck($event)"
+              ></app-skills-panel>
+
+              <app-combat-panel
+                *ngIf="sheetSubTab === 'combat'"
+                role="tabpanel"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [char]="char"
+                [editMode]="editMode"
+                [rollMode]="rollMode"
+                (addWeapon)="addWeapon()"
+                (deleteWeapon)="deleteWeapon($event)"
+                (toggleEquipped)="toggleEquipped($event)"
+                (addEquipment)="addEquipment()"
+                (deleteEquipment)="deleteEquipment($event)"
+                (save)="saveCurrentChar()"
+              ></app-combat-panel>
+
+              <app-spells-panel
+                *ngIf="sheetSubTab === 'spells'"
+                role="tabpanel"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [char]="char"
+                [getSpellSlotUsed]="getSpellSlotUsed.bind(this)"
+                [getSpellSlotMax]="getSpellSlotMax.bind(this)"
+                (useSpellSlot)="useSpellSlot($event)"
+                (restoreSpellSlot)="restoreSpellSlot($event)"
+              ></app-spells-panel>
+
+              <app-roleplay-panel
+                *ngIf="sheetSubTab === 'roleplay'"
+                role="tabpanel"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [char]="char"
+                [editMode]="editMode"
+                (save)="saveCurrentChar()"
+              ></app-roleplay-panel>
+            </div>
+
+            <app-action-dock
+              (shortRest)="openShortRestModal()"
+              (longRest)="triggerLongRest()"
+              (levelUp)="onLevelUp()"
+              (audit)="onValidateCharacter()"
+              (strategy)="onGenerateStrategy()"
+              (exportPdf)="onExportPdf()"
+            ></app-action-dock>
+          </div>
+        </forge-card>
+      </section>
+    </div>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <forge-empty-state
+      icon="D20"
+      title="No Heroes Found"
+      description="Your vault is empty. It is time to forge a new legend."
+    >
+      <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
+        Forge Your First Hero
+      </button>
+    </forge-empty-state>
+  </ng-template>
+
+  <app-pdf-preview-modal
+    [open]="!!pdfPreviewUrl"
+    [pdfPreviewUrl]="pdfPreviewUrl"
+    (closed)="closePdfPreview()"
+  ></app-pdf-preview-modal>
+
+  <app-validation-modal
+    [open]="showValidationModal"
+    (openChange)="showValidationModal = $event"
+    [characterName]="charState.activeCharacter()?.char_name"
+    [isValidating]="isValidating"
+    [validationResult]="validationResult"
+    [isAutoFixing]="isAutoFixing"
+    (applyAutoFix)="applyAutoFix()"
+  ></app-validation-modal>
+
+  <app-level-up-modal
+    [open]="showLevelUpModal && !!levelUpAnalysis"
+    (openChange)="showLevelUpModal = $event"
+    [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
+    [levelUpAnalysis]="levelUpAnalysis"
+    (applyLevelUp)="applyLevelUp()"
+  ></app-level-up-modal>
+
+  <app-short-rest-modal
+    [open]="showShortRestModal"
+    (openChange)="showShortRestModal = $event"
+    [classHitDieSize]="getClassHitDieSize()"
+    [conModifier]="getConModifier()"
+    [availableHitDice]="getAvailableHitDice()"
+    [characterLevel]="charState.activeCharacter()?.char_level"
+    [(shortRestDiceToSpend)]="shortRestDiceToSpend"
+    (executeShortRest)="executeShortRest()"
+  ></app-short-rest-modal>
+
+  <app-join-campaign-modal
+    [open]="showJoinModal"
+    (openChange)="showJoinModal = $event"
+    [(joinInviteCode)]="joinInviteCode"
+    (joinCampaign)="joinCampaign()"
+  ></app-join-campaign-modal>
+
+  <app-portrait-modal
+    [open]="showPortraitModal"
+    (openChange)="showPortraitModal = $event"
+    [(portraitPrompt)]="portraitPrompt"
+    (generateAiPortrait)="generateAiPortrait()"
+  ></app-portrait-modal>
+
+  <app-strategy-guide-modal
+    [open]="!!strategyGuideText"
+    [strategyGuideText]="strategyGuideText"
+    (closed)="strategyGuideText = null"
+  ></app-strategy-guide-modal>
+
+  <app-edit-sheet-modal
+    [open]="showEditModal"
+    (openChange)="showEditModal = $event"
+    [editChar]="charState.activeCharacter()"
+    (saveEditModal)="saveEditModal()"
+  ></app-edit-sheet-modal>
+
+  <ng-container *ngIf="charState.activeCharacter() as char">
+    <div *ngIf="char.active_campaign" class="whisper-dock">
+      <section
+        *ngIf="showWhisperInbox"
+        class="whisper-panel animated-fade"
+        aria-label="DM inbox"
+      >
+        <header class="whisper-panel-header">
+          <div class="whisper-heading min-w-0">
+            <span class="whisper-mark" aria-hidden="true">DM</span>
+            <div class="min-w-0">
+              <p class="text-micro font-semibold uppercase text-accent">DM Inbox</p>
+              <h2 class="truncate font-display text-title text-ink">{{ char.active_campaign }}</h2>
+            </div>
+          </div>
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            iconOnly
+            type="button"
+            aria-label="Close whisper inbox"
+            (click)="closeWhisperInbox()"
+          >
+            &times;
+          </button>
+        </header>
+
+        <div #whisperFeed class="whisper-list" role="log" aria-live="polite">
+          <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
+            Nothing yet. Whispers and roll requests from the DM appear here as they happen.
+          </div>
+
+          @for (entry of inboxFeed; track entry.key) {
+            @if (entry.kind === 'whisper') {
+              <article
+                class="whisper-message"
+                [class.broadcast]="entry.whisper.recipient === 'All'"
+                [class.own]="isOwnWhisper(entry.whisper)"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    {{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatWhisperTime(entry.whisper.timestamp) }}
+                  </time>
+                </div>
+                <p class="whisper-text">{{ entry.whisper.message }}</p>
+                <p class="message-status">
+                  💬 {{ isOwnWhisper(entry.whisper)
+                      ? 'Replied to ' + entry.whisper.recipient
+                      : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to you') }}
+                </p>
+              </article>
+            } @else {
+              <article
+                class="roll-request-message"
+                [class.pending]="entry.request.status === 'pending'"
+                [class.secret]="entry.request.is_secret"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    🎲 {{ entry.request.is_secret ? 'Secret' : 'DM' }} {{ entry.request.roll_type }}
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatRollRequestTime(entry.request.created_at) }}
+                  </time>
+                </div>
+                <p class="whisper-text">
+                  {{ entry.request.stat }}{{ entry.request.reason ? ' · ' + entry.request.reason : '' }}
+                </p>
+                <p *ngIf="entry.request.result" class="roll-request-result">
+                  Result: {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+                </p>
+                <div class="roll-request-actions">
+                  <span class="message-status">{{ entry.request.status || 'pending' }}</span>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    (click)="rollForRequest(entry.request)"
+                  >
+                    Roll
+                  </button>
+                </div>
+              </article>
+            }
+          }
+        </div>
+
+        <form class="whisper-reply" (ngSubmit)="sendWhisperReply()">
+          <label class="sr-only" for="whisper-reply-input">Reply to the DM</label>
+          <textarea
+            forgeTextarea
+            id="whisper-reply-input"
+            rows="2"
+            name="whisperReply"
+            placeholder="Answer the DM…"
+            [(ngModel)]="whisperReply"
+          ></textarea>
+          <div class="whisper-reply-actions">
+            <span class="text-micro text-muted">Private to the DM</span>
+            <button
+              forgeButton
+              variant="secondary"
+              tone="accent"
+              size="sm"
+              type="submit"
+              [disabled]="!whisperReply.trim() || isSendingWhisperReply"
+            >
+              {{ isSendingWhisperReply ? 'Sending…' : 'Reply' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <button
+        forgeButton
+        variant="secondary"
+        tone="accent"
+        size="lg"
+        iconOnly
+        type="button"
+        class="whisper-toggle"
+        [attr.aria-label]="
+          unreadMessages > 0
+            ? unreadMessages + ' new messages from the DM. Open inbox'
+            : (showWhisperInbox ? 'Close DM inbox' : 'Open DM inbox')
+        "
+        [attr.aria-expanded]="showWhisperInbox"
+        (click)="toggleWhisperInbox()"
+      >
+        💬
+        <span *ngIf="unreadMessages > 0" class="whisper-unread" aria-hidden="true">
+          {{ unreadMessages }}
+        </span>
+      </button>
+    </div>
+  </ng-container>
+</forge-page>

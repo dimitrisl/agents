@@ -118,8 +118,8 @@
         }
     ],
     "spells": {
-        "cantrips": ["Spells 1014", "Spells 1015", "Spells 1016", "Spells 1017", "Spells 1018", "Spells 1019", "Spells 1020", "Spells 1021", "Spells 1022"],
-        "level_1": ["Spells 1023", "Spells 1024", "Spells 1025", "Spells 1026", "Spells 1027", "Spells 1028", "Spells 1029", "Spells 1030", "Spells 1031", "Spells 1032", "Spells 1033"],
+        "cantrips": ["Spells 1014", "Spells 1016", "Spells 1017", "Spells 1018", "Spells 1019", "Spells 1020", "Spells 1021", "Spells 1022"],
+        "level_1": ["Spells 1015", "Spells 1023", "Spells 1024", "Spells 1025", "Spells 1026", "Spells 1027", "Spells 1028", "Spells 1029", "Spells 1030", "Spells 1031", "Spells 1032", "Spells 1033"],
         "level_2": ["Spells 1034", "Spells 1035", "Spells 1036", "Spells 1037", "Spells 1038", "Spells 1039", "Spells 1040", "Spells 1041", "Spells 1042", "Spells 1043", "Spells 1044", "Spells 1045", "Spells 1046"],
         "level_3": ["Spells 1047", "Spells 1048", "Spells 1049", "Spells 1050", "Spells 1051", "Spells 1052", "Spells 1053", "Spells 1054", "Spells 1055", "Spells 1056", "Spells 1057", "Spells 1058", "Spells 1059"],
         "level_4": ["Spells 1060", "Spells 1061", "Spells 1062", "Spells 1063", "Spells 1064", "Spells 1065", "Spells 1066", "Spells 1067", "Spells 1068", "Spells 1069", "Spells 1070", "Spells 1071", "Spells 1072"],
@@ -131,8 +131,19 @@
     },
     "spellcasting": {
         "class": "Spellcasting Class 2",
-        "ability": "Spellcasting Ability 2",
-        "dc": "Spell Save DC 2",
-        "bonus": "Spell Attack Bonus 2"
+        "ability": "SpellcastingAbility 2",
+        "dc": "SpellSaveDC  2",
+        "bonus": "SpellAtkBonus 2"
+    },
+    "slot_totals": {
+        "level_1": "SlotsTotal 19",
+        "level_2": "SlotsTotal 20",
+        "level_3": "SlotsTotal 21",
+        "level_4": "SlotsTotal 22",
+        "level_5": "SlotsTotal 23",
+        "level_6": "SlotsTotal 24",
+        "level_7": "SlotsTotal 25",
+        "level_8": "SlotsTotal 26",
+        "level_9": "SlotsTotal 27"
     }
 }

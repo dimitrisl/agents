@@ -8,25 +8,23 @@ from backend.services.dice_service import (
     rebuild_damage_formula,
     roll_dice,
 )
-
-from backend.services.stats_service import (
-    get_modifier,
-    calculate_proficiency_bonus,
-    calculate_hp,
-    calculate_ac,
-    calculate_passive_perception,
-    calculate_skills,
-    calculate_saving_throws,
-    calculate_spell_stats,
-    calculate_max_spell_slots,
-    calculate_weapon_stats,
-    sync_character_stats,
-)
-
 from backend.services.progression_service import (
+    check_progression_features,
     get_hit_die_for_class,
     get_level_up_vitals,
-    check_progression_features,
+)
+from backend.services.stats_service import (
+    calculate_ac,
+    calculate_hp,
+    calculate_max_spell_slots,
+    calculate_passive_perception,
+    calculate_proficiency_bonus,
+    calculate_saving_throws,
+    calculate_skills,
+    calculate_spell_stats,
+    calculate_weapon_stats,
+    get_modifier,
+    sync_character_stats,
 )
 
 __all__ = [

@@ -1,0 +1,150 @@
+name: Move issue to Done
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  move-to-done:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Move linked issues to Done
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+
+            // The status option we want to land on, in order of preference.
+            const doneOptionNames = ['Done', 'Ολοκληρώθηκε', 'Completed', 'Closed'];
+
+            // 1. Issues linked through "Closes #N" / the PR sidebar.
+            const { repository } = await github.graphql(
+              `query($owner: String!, $repo: String!, $pr: Int!) {
+                 repository(owner: $owner, name: $repo) {
+                   pullRequest(number: $pr) {
+                     closingIssuesReferences(first: 20) {
+                       nodes { number }
+                     }
+                   }
+                 }
+               }`,
+              { owner, repo, pr: pr.number }
+            );
+
+            const issueNumbers = new Set(
+              repository.pullRequest.closingIssuesReferences.nodes.map(n => n.number)
+            );
+
+            // 2. Fall back to the branch name produced by create-issue-branch.yml,
+            //    e.g. fix/10-subclass-editable-after-level-3 -> issue 10.
+            const branchMatch = pr.head.ref.match(/^[^/]+\/(\d+)-/);
+
+            if (branchMatch) {
+              issueNumbers.add(Number(branchMatch[1]));
+            }
+
+            if (issueNumbers.size === 0) {
+              core.notice(
+                `No linked issue found for PR #${pr.number}. ` +
+                'Use "Closes #N" in the description or the <prefix>/<number>-<slug> branch naming.'
+              );
+              return;
+            }
+
+            for (const issueNumber of issueNumbers) {
+              const { repository: issueRepo } = await github.graphql(
+                `query($owner: String!, $repo: String!, $issue: Int!) {
+                   repository(owner: $owner, name: $repo) {
+                     issue(number: $issue) {
+                       projectItems(first: 10) {
+                         nodes {
+                           id
+                           project {
+                             id
+                             title
+                             number
+                             field(name: "Status") {
+                               ... on ProjectV2SingleSelectField {
+                                 id
+                                 options { id name }
+                               }
+                             }
+                           }
+                         }
+                       }
+                     }
+                   }
+                 }`,
+                { owner, repo, issue: issueNumber }
+              );
+
+              const items = issueRepo.issue?.projectItems?.nodes ?? [];
+
+              if (items.length === 0) {
+                core.warning(`Issue #${issueNumber} is not on any project board. Skipping.`);
+                continue;
+              }
+
+              for (const item of items) {
+                const field = item.project.field;
+
+                if (!field) {
+                  core.warning(
+                    `Project "${item.project.title}" has no single-select "Status" field. Skipping.`
+                  );
+                  continue;
+                }
+
+                const doneOption = doneOptionNames
+                  .map(name =>
+                    field.options.find(
+                      option => option.name.toLowerCase() === name.toLowerCase()
+                    )
+                  )
+                  .find(Boolean);
+
+                if (!doneOption) {
+                  core.warning(
+                    `Project "${item.project.title}" has no Done-like status option ` +
+                    `(found: ${field.options.map(o => o.name).join(', ')}). Skipping.`
+                  );
+                  continue;
+                }
+
+                await github.graphql(
+                  `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+                     updateProjectV2ItemFieldValue(input: {
+                       projectId: $project,
+                       itemId: $item,
+                       fieldId: $field,
+                       value: { singleSelectOptionId: $option }
+                     }) {
+                       projectV2Item { id }
+                     }
+                   }`,
+                  {
+                    project: item.project.id,
+                    item: item.id,
+                    field: field.id,
+                    option: doneOption.id
+                  }
+                );
+
+                core.info(
+                  `Issue #${issueNumber} -> "${doneOption.name}" on project "${item.project.title}".`
+                );
+              }
+            }

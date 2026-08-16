@@ -1,6 +1,7 @@
-import streamlit as st
-import os
 import base64
+import os
+
+import streamlit as st
 
 
 def get_image_base64(path):
@@ -401,9 +402,7 @@ def render_character_header(
                 )
 
         with col_text:
-            st.markdown(
-                f"<h1 style='margin-bottom: 0;'>{name}</h1>", unsafe_allow_html=True
-            )
+            st.markdown(f"<h1 style='margin-bottom: 0;'>{name}</h1>", unsafe_allow_html=True)
             class_str = f"{char_class} ({subclass})" if subclass else char_class
             st.markdown(f"**Level {level} {race} {class_str}**")
             st.caption(f"{background} • {alignment}")

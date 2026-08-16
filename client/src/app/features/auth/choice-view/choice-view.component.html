@@ -1,0 +1,46 @@
+<forge-card class="text-center" [hoverable]="false" padding="lg">
+  <ng-container *ngTemplateOutlet="logoTemplate"></ng-container>
+
+  <h1 class="font-display text-display text-red">PHYREXIAN FORGE</h1>
+  <p class="mb-7 mt-1 text-body italic text-muted">
+    "All Will Be One &bull; 5e Legacy & 5.5e Edition"
+  </p>
+
+  <div class="flex flex-col gap-3">
+    <button
+      forgeButton
+      variant="primary"
+      size="lg"
+      class="flex-col"
+      (click)="chooseTutorial.emit()"
+    >
+      &#10024; I'm New Here!
+      <span class="text-label font-normal opacity-80">Start your first adventure tutorial</span>
+    </button>
+
+    <button
+      forgeButton
+      variant="secondary"
+      size="lg"
+      class="flex-col"
+      (click)="chooseAuth.emit()"
+    >
+      &#9876;&#65039; Seasoned Adventurer
+      <span class="text-label font-normal opacity-80">Enter the Forge with your credentials</span>
+    </button>
+  </div>
+
+  <section class="mt-8 border-t border-hairline pt-5">
+    <p class="mb-3 text-label font-semibold uppercase tracking-[0.08em] text-muted">
+      &#9889; Quick Access (Instant Demo)
+    </p>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('mitsos')">
+        &#127918; Demo DM (Mitsos)
+      </button>
+      <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('guest')">
+        &#128481;&#65039; Demo Adventurer
+      </button>
+    </div>
+  </section>
+</forge-card>

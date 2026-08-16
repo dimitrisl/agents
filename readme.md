@@ -10,7 +10,7 @@
 ### 🗡️ For the Player
 - **🧙‍♂️ Wizard-Themed Onboarding:** A beautiful, branching landing page with a sequential, animated "Wizard's Journey" tutorial to guide new adventurers.
 - **AI Character Forge:** Generate fully equipped, thematic heroes from a simple text concept.
-- **🖼️ Dynamic Portrait Generation:** Automatically generated, high-quality character portraits based on your hero's race, class, alignment, and backstory (powered by Pollinations.ai). Portraits can be updated at any time in Edit Mode via URL or file upload, synced to the cloud.
+- **🖼️ Dynamic Portrait Generation:** Automatically generated, high-quality character portraits based on your hero's race, class, alignment, and backstory (powered by Pollinations.ai). Portraits can be updated at any time in Edit Mode.
 - **🎲 Interactive Dice Roller:** Integrated dice mechanics with support for automated attack and damage rolls using your character's real-time modifiers.
 - **📖 AI Playstyle Guide:** On-demand generation of a comprehensive strategic guide (Combat & Roleplay) tailored to your specific build and level.
 - **Dual Edition Support (5.5e Ready):** Seamlessly toggle between **D&D 2014** and **2024 Revision (5.5e)** rulesets.
@@ -20,26 +20,27 @@
 ### 🏰 For the Dungeon Master
 - **DM Quick Forge:** Rapidly generate NPCs and monsters to populate your world.
 - **Campaign Workspace:** Track session logs, plot hooks, and active campaign developments with AI assistance.
-- **Party Tracking & Initiative:** Monitor the entire party's stats from a centralized dashboard and track combat turns with a built-in initiative system. Each combatant card supports live HP editing, status conditions, concentration tracking, a quick-roll popover, and a **🖼️ portrait editor** that syncs changes to MongoDB.
+- **Party Tracking & Initiative:** Monitor the entire party's stats from a centralized dashboard and track combat turns with a built-in initiative system.
+- **Real-Time WebSockets:** Whisper messages privately to players or request skill checks directly to their screens.
 - **Static Rules Engine:** Level-up features and class/feat lookups are powered by a rigorous, local JSON knowledge base (for both 2014 & 2024 rulesets) to guarantee perfectly accurate progression without AI hallucinations.
 
 ---
 
 ## 🎨 Aesthetics & UI
-- **Bio-mechanical Design:** High-contrast dark theme with a custom Phyrexian aesthetic.
-- **Segmented Control Navigation:** Modern, pill-shaped navigation for a faster, premium workflow.
-- **Custom AI Logo:** Iconic Cyber-D20 branding integrated with Phyrexian lore.
+- **Bio-mechanical Design:** High-contrast dark theme with a custom Phyrexian aesthetic using Angular and CSS custom properties.
+- **Responsive Architecture:** Fully responsive grid layouts accommodating mobile and desktop play styles.
+- **Real-Time Toasts:** Roll toasts pop up instantly using WebSocket subscriptions to keep the whole party engaged.
 
 ---
 
 ## 🛠️ Tech Stack
+- **Frontend:** [Angular 19](https://angular.dev/) (RxJS, Signals, Standalone Components)
+- **Backend:** [FastAPI](https://fastapi.tiangolo.com/) (Python 3.13)
 - **Dependency Management:** [Poetry](https://python-poetry.org/)
-- **Frontend:** [Streamlit](https://streamlit.io/) (Styled with Custom CSS & Segmented Controls)
 - **AI Engine:** [Google GenAI SDK](https://pypi.org/project/google-genai/) (Gemini Flash/Pro models)
 - **Image Generation:** [Pollinations.ai](https://pollinations.ai/)
 - **Data Architecture:** MongoDB Atlas (Characters & Campaigns), local JSON (Static Rulesets).
 - **PDF Engine:** `pypdf`, `reportlab`
-- **Quality Control:** `pre-commit`, `ruff`
 
 ---
 
@@ -47,41 +48,34 @@
 
 ```mermaid
 graph LR
-    %% Layer 1: UI
-    subgraph UI ["🖥️ USER INTERFACE"]
+    %% Layer 1: Client (Angular)
+    subgraph CLIENT ["🖥️ ANGULAR CLIENT"]
         direction TB
-        MAIN["<b>main.py</b><br/>Router & Entry"]
-        PD["<b>player_dashboard.py</b><br/>Player Hub"]
-        DM["<b>dm_workspace.py</b><br/>DM Tools"]
-        SV["<b>settings_view.py</b><br/>Preferences"]
+        APP["<b>App Module</b><br/>Routing & Guard"]
+        PD["<b>Player Component</b><br/>Player Hub"]
+        DM["<b>DM Component</b><br/>Campaign Workspace"]
+        WS_CLIENT["<b>WebSocket Service</b><br/>Real-Time Comms"]
     end
 
-    %% Layer 2: Core Logic
-    subgraph CORE ["🔧 CORE & STATE"]
+    %% Layer 2: API (FastAPI)
+    subgraph API ["⚡ FASTAPI SERVER"]
         direction TB
-        AI["<b>core.ai_client</b><br/>Gemini Bridge"]
-        STATE["<b>core.state_manager</b><br/>Session State"]
-        STORAGE["<b>core.storage</b><br/>Domain Facade"]
-        SCHEMAS["<b>core.schemas</b><br/>Data Models"]
-        PROMPTS["<b>core.prompts</b><br/>AI Templates"]
+        ROUTERS["<b>Routers</b><br/>REST Endpoints"]
+        WS_SERVER["<b>Connection Manager</b><br/>WebSockets"]
     end
 
     %% Layer 3: Services
-    subgraph SERVICES ["⚙️ SERVICES"]
+    subgraph SERVICES ["⚙️ PYTHON SERVICES"]
         direction TB
-        FORGE["<b>services.forge</b><br/>Character AI"]
-        MECH["<b>services.mechanics</b><br/>Stat Engine"]
-        RULES["<b>services.rules</b><br/>Rules Oracle"]
-        DMS["<b>services.dm_service</b><br/>Campaign AI"]
+        FORGE["<b>forge_service</b><br/>Character AI"]
+        VALIDATION["<b>validation_service</b><br/>Deterministic Rules"]
+        MECH["<b>stats_service</b><br/>Stat Engine"]
     end
 
     %% Layer 4: Infrastructure & Data
-    subgraph INFRA ["🛠️ UTILS & REPOS"]
+    subgraph INFRA ["🛠️ REPOSITORIES"]
         direction TB
-        REPOS["<b>repositories</b><br/>Persistence Logic"]
-        PDF["<b>utils.pdf_exporter</b><br/>PDF Gen"]
-        IMG["<b>utils.image_utils</b><br/>Art Gen"]
-        DICE["<b>utils.dice</b><br/>Dice Engine"]
+        RULES_REPO["<b>RulesRepository</b><br/>JSON Parser"]
         DB[("<b>MongoDB Atlas</b><br/>Cloud Database")]
     end
 
@@ -91,38 +85,15 @@ graph LR
         POLL["<b>Pollinations.ai</b><br/>Image API"]
     end
 
-    %% Routing
-    MAIN --> PD & DM & SV
-
-    %% UI to Services & Utils
-    PD --> FORGE & MECH & RULES
-    PD --> PDF & IMG & DICE
-    DM --> DMS & RULES
-
-    %% Cross-cutting Core
-    PD & DM --> STATE
-    STATE & SERVICES --> STORAGE
-    STORAGE --> REPOS
-    REPOS --> DB
-
-    %% AI Chain
-    SERVICES --> AI
-    AI --> GEMINI
-    IMG --> POLL
-
-    %% Styling
-    classDef ui fill:#2d1a1a,stroke:#ff4b4b,stroke-width:2px,color:#fff
-    classDef core fill:#1a2d2d,stroke:#53a8b6,stroke-width:2px,color:#fff
-    classDef service fill:#1a1a2d,stroke:#d4af37,stroke-width:2px,color:#fff
-    classDef infra fill:#1d1d1d,stroke:#888,stroke-width:1px,color:#ccc
-    classDef data fill:#2d1a2d,stroke:#e94560,stroke-width:2px,color:#fff
-    classDef ext fill:#111,stroke:#7b68ee,stroke-width:2px,color:#fff
-
-    class MAIN,PD,DM,SV ui
-    class AI,STATE,STORAGE,SCHEMAS,PROMPTS core
-    class FORGE,MECH,RULES,DMS service
-    class REPOS,PDF,IMG,DICE,DB infra
-    class GEMINI,POLL ext
+    %% Flow
+    APP --> PD & DM
+    PD & DM --> ROUTERS
+    PD & DM <--> WS_CLIENT
+    WS_CLIENT <--> WS_SERVER
+    ROUTERS --> FORGE & VALIDATION & MECH
+    FORGE --> GEMINI & POLL
+    VALIDATION & MECH --> RULES_REPO
+    ROUTERS --> DB
 ```
 
 ---
@@ -130,8 +101,8 @@ graph LR
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-- **Python 3.13+**
-- **Poetry**
+- **Python 3.13+** and **Poetry**
+- **Node.js 18+** and **npm**
 - **Google Gemini API Key** (Available at [Google AI Studio](https://aistudio.google.com/))
 - **MongoDB Atlas URI** (Add as `MONGO_URI` in `.env`)
 
@@ -139,21 +110,38 @@ graph LR
 ```bash
 git clone https://github.com/dimitrisl/agents.git
 cd agents
+
+# Install backend dependencies
 poetry install
+
+# Install frontend dependencies
+cd client
+npm install
+cd ..
 ```
 
 ### 3. Environment Setup
-Copy `.env_example` to `.env` and add your `GEMINI_API_KEY`.
+Copy `.env_example` to `.env` and add your `GEMINI_API_KEY` and `MONGO_URI`.
 
-### 4. Run
+### 4. Run the Application
+You can use the provided bash script which automatically starts both servers:
 ```bash
-poetry run streamlit run main.py
+./start.sh
 ```
+Alternatively, to run manually:
+```bash
+# Terminal 1: Backend
+poetry run uvicorn server.main:app --reload --port 8000
+
+# Terminal 2: Frontend
+cd client
+npm start
+```
+The application will be available at `http://localhost:4200/`.
 
 ---
 
 ## 🧪 Development
-- **Tests:** `poetry run pytest tests/ -v` — 141 tests across 16 test files
-- **Pre-commit Hooks:** `poetry run pre-commit install`
-- **Linting & Formatting:** `poetry run pre-commit run --all-files`
-- **Code Quality:** Refer to [code_review.md](code_review.md) for architectural recommendations and code review findings.
+- **Backend Tests:** `poetry run pytest tests/ -v`
+- **Frontend Tests:** `cd client && npm test`
+- **Quality Control:** Ensure all logic respects the deterministic static `data/rules` directory. No domain knowledge should be hard-coded into the python files.

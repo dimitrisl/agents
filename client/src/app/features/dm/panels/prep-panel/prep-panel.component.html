@@ -1,0 +1,70 @@
+<div class="flex min-w-0 flex-col">
+  <div class="flex flex-col gap-4 p-4">
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="dm-prep-heading"
+    >
+      <header class="flex flex-col gap-1 bg-tile px-4 py-3">
+        <h2
+          id="dm-prep-heading"
+          class="min-w-0 font-display text-title text-ink"
+        >
+          📜 AI Session Prep Assistant
+        </h2>
+        <p class="text-label text-muted">
+          Turn a recap and a few ideas into structured DM session notes.
+        </p>
+      </header>
+
+      <div class="flex flex-col gap-4 p-4">
+        <div class="min-w-0">
+          <label
+            for="prep-notes"
+            class="mb-2 block text-label font-semibold text-muted"
+          >
+            Campaign Recap &amp; DM Ideas
+          </label>
+          <textarea
+            forgeTextarea
+            id="prep-notes"
+            rows="5"
+            [ngModel]="prepNotes"
+            (ngModelChange)="prepNotesChange.emit($event)"
+            placeholder="Recap: The party defeated the goblin warlord... Ideas: Introduce a secretive cult next."
+          ></textarea>
+        </div>
+
+        <div *ngIf="prepResult" class="min-w-0 rounded-xl bg-tile p-4">
+          <p class="text-micro font-semibold uppercase text-muted">
+            Session Prep
+          </p>
+          <p class="mt-1 whitespace-pre-wrap text-body text-ink">
+            {{ prepResult }}
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer
+    class="sticky bottom-0 flex flex-col gap-3 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div class="min-w-0">
+      <p class="text-micro font-semibold uppercase text-muted">Session prep</p>
+      <p class="mt-1 text-label text-muted">
+        Generates a structured outline from your recap.
+      </p>
+    </div>
+
+    <button
+      forgeButton
+      variant="secondary"
+      tone="accent"
+      type="button"
+      class="w-full sm:w-auto"
+      (click)="generatePrep.emit()"
+    >
+      📜 Generate Session Prep
+    </button>
+  </footer>
+</div>

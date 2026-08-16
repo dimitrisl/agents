@@ -1,0 +1,10 @@
+<forge-shell [hasSidebar]="authService.isAuthenticated()" mobileTitle="Phyrexian Forge">
+  <app-navbar *ngIf="authService.isAuthenticated()" brand section="brand" />
+  <app-navbar *ngIf="authService.isAuthenticated()" nav section="nav" />
+  <app-navbar *ngIf="authService.isAuthenticated()" user section="user" />
+
+  <router-outlet />
+</forge-shell>
+
+<app-roll-toast />
+<app-command-palette />

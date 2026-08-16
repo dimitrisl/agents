@@ -1,0 +1,239 @@
+<forge-page>
+  <app-campaign-header
+    [(campaignName)]="campaignName"
+    [userCampaigns]="userCampaigns"
+    [inviteCode]="inviteCode"
+    (campaignSelected)="onCampaignSelect()"
+    (createCampaign)="showNewCampaignModal = true"
+    (generateInvite)="generateInviteCode()"
+    (sendWhisper)="showWhisperModal = true"
+  ></app-campaign-header>
+
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex flex-col">
+          <header class="border-b border-hairline p-4">
+            <p class="text-micro font-semibold uppercase text-muted">Session Board</p>
+            <h2 class="mt-1 truncate font-display text-title text-ink">{{ campaignName }}</h2>
+            <p class="mt-1 truncate text-label text-muted">
+              {{ inviteCode ? 'Invite code · ' + inviteCode : 'No invite code yet' }}
+            </p>
+          </header>
+
+          <div class="p-4">
+            <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
+              <div class="px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">Party</p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">{{ partyMembers.length }}</p>
+              </div>
+              <div class="border-l border-hairline px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">Avg Level</p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">{{ partyAverageLevel }}</p>
+              </div>
+              <div class="border-t border-hairline px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">In Combat</p>
+                <p class="mt-1 text-metric font-bold leading-none text-accent">{{ combatants.length }}</p>
+              </div>
+              <div class="border-l border-t border-hairline px-3 py-3 text-center">
+                <p class="text-micro font-semibold uppercase text-muted">Current Turn</p>
+                <p class="mt-1 truncate text-body font-semibold leading-tight text-ink">{{ currentTurnName }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-hairline">
+            <p class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted">Party Health</p>
+
+            <p *ngIf="partyMembers.length === 0" class="px-4 py-3 text-body text-muted">
+              No heroes in this campaign yet.
+            </p>
+
+            <ul class="divide-y divide-hairline/70">
+              <li
+                *ngFor="let member of partyMembers; trackBy: trackPartyMember"
+                class="flex min-h-11 items-center gap-3 px-4 py-2"
+              >
+                <img
+                  [src]="member.portrait || 'https://img.icons8.com/color/96/knight.png'"
+                  alt=""
+                  class="h-8 w-8 shrink-0 rounded-full border border-hairline object-cover"
+                />
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-body font-semibold text-ink">{{ member.name }}</p>
+                  <div
+                    class="mt-1 h-1 overflow-hidden rounded-full bg-tile"
+                    role="meter"
+                    [attr.aria-valuemin]="0"
+                    [attr.aria-valuemax]="member.hp_max"
+                    [attr.aria-valuenow]="member.hp_current"
+                    [attr.aria-label]="member.name + ' hit points'"
+                  >
+                    <div
+                      class="h-full rounded-full bg-accent transition-[width] duration-200"
+                      [style.width.%]="hpPercent(member)"
+                    ></div>
+                  </div>
+                </div>
+                <span class="shrink-0 text-label text-muted">{{ member.hp_current }}/{{ member.hp_max }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </forge-card>
+    </aside>
+
+    <section class="min-w-0">
+      <forge-card padding="none" [hoverable]="false">
+        <div class="flex min-h-0 flex-col">
+          <div class="border-b border-hairline p-4">
+            <forge-tabs
+              class="block min-w-0"
+              instanceId="dm-tabs"
+              variant="underline"
+              [tabs]="dmTabs"
+              [(activeId)]="activeTab"
+            ></forge-tabs>
+          </div>
+
+          <app-notes-panel
+            *ngIf="activeTab === 'notes'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-notes"
+            [(campaignNotes)]="campaignNotes"
+            (saveNotes)="saveCampaignNotes()"
+          ></app-notes-panel>
+
+          <app-party-panel
+            *ngIf="activeTab === 'party'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-party"
+            [campaignName]="campaignName"
+            [partyMembers]="partyMembers"
+            [availableConditions]="availableConditions"
+            (addMember)="openAddMemberModal()"
+            (issueRollRequest)="showRollModal = true"
+            (adjustHp)="adjustHp($event.member, $event.delta)"
+            (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
+            (toggleCondition)="toggleCondition($event.member, $event.condition)"
+            (privateRollRequest)="openSingleRollModal($event)"
+          ></app-party-panel>
+
+          <app-initiative-panel
+            *ngIf="activeTab === 'initiative'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-initiative"
+            [combatants]="combatants"
+            [activeTurnIndex]="activeTurnIndex"
+            [(newCombatantName)]="newCombatantName"
+            [(newCombatantInit)]="newCombatantInit"
+            [(newCombatantHp)]="newCombatantHp"
+            (importParty)="importPartyToInitiative()"
+            (rollAll)="rollAllInitiative()"
+            (advanceTurn)="nextTurn()"
+            (addCombatant)="addCombatant()"
+            (openStatblock)="openStatblock($event)"
+            (removeCombatant)="removeCombatant($event)"
+          ></app-initiative-panel>
+
+          <app-generators-panel
+            *ngIf="activeTab === 'generators'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-generators"
+            [(avgLevel)]="avgLevel"
+            [(location)]="location"
+            [encounterResult]="encounterResult"
+            [(npcConcept)]="npcConcept"
+            [npcResult]="npcResult"
+            (generateEncounter)="generateEncounter()"
+            (addEncounterMonsters)="addEncounterMonstersToInitiative()"
+            (generateNpc)="generateNpc()"
+          ></app-generators-panel>
+
+          <app-prep-panel
+            *ngIf="activeTab === 'prep'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-prep"
+            [(prepNotes)]="prepNotes"
+            [prepResult]="prepResult"
+            (generatePrep)="generatePrep()"
+          ></app-prep-panel>
+        </div>
+      </forge-card>
+    </section>
+  </div>
+
+  <app-dm-inbox
+    [open]="showDmInbox"
+    (openChange)="onDmInboxOpenChange($event)"
+    [campaignName]="campaignName"
+    [partyMembers]="partyMembers"
+    [whispers]="inboxWhispers"
+    [rollRequests]="inboxRollRequests"
+    [unreadCount]="unreadInboxMessages"
+    [(replyRecipient)]="inboxReplyRecipient"
+    [(replyMessage)]="inboxReplyMessage"
+    [isSendingReply]="isSendingInboxReply"
+    (sendReply)="sendInboxReply()"
+  ></app-dm-inbox>
+
+  <app-whisper-modal
+    [open]="showWhisperModal"
+    (openChange)="showWhisperModal = $event"
+    [partyMembers]="partyMembers"
+    [(whisperRecipient)]="whisperRecipient"
+    [(whisperMessage)]="whisperMessage"
+    (send)="sendWhisper()"
+  ></app-whisper-modal>
+
+  <app-roll-request-modal
+    [open]="showRollModal"
+    (openChange)="showRollModal = $event"
+    [partyMembers]="partyMembers"
+    [(rollTargetMember)]="rollTargetMember"
+    [(rollType)]="rollType"
+    [(rollStat)]="rollStat"
+    [(rollReason)]="rollReason"
+    [(isSecretRoll)]="isSecretRoll"
+    (requestRoll)="sendRollRequest()"
+  ></app-roll-request-modal>
+
+  <app-statblock-modal
+    [open]="!!selectedStatblockCombatant"
+    [combatant]="selectedStatblockCombatant"
+    (closed)="selectedStatblockCombatant = null"
+    (viewBeyond)="openBeyondUrl($event)"
+  ></app-statblock-modal>
+
+  <app-new-campaign-modal
+    [open]="showNewCampaignModal"
+    (openChange)="showNewCampaignModal = $event"
+    [(newCampaignTitle)]="newCampaignTitle"
+    [(newCampaignNotes)]="newCampaignNotes"
+    (createCampaign)="createNewCampaign()"
+  ></app-new-campaign-modal>
+
+  <app-add-member-modal
+    [open]="showAddMemberModal"
+    (openChange)="showAddMemberModal = $event"
+    [campaignName]="campaignName"
+    [(addMemberTab)]="addMemberTab"
+    [(selectedExistingCharId)]="selectedExistingCharId"
+    [filteredCharacters]="charState.filteredCharacters()"
+    [selectedHero]="getSelectedHero()"
+    [(newMemberName)]="newMemberName"
+    [(newMemberClass)]="newMemberClass"
+    [(newMemberLevel)]="newMemberLevel"
+    [(newMemberHp)]="newMemberHp"
+    [(newMemberAc)]="newMemberAc"
+    [inviteCode]="inviteCode"
+    (addExistingPartyMember)="addExistingPartyMember()"
+    (addPartyMember)="addPartyMember()"
+    (copyInviteCode)="copyInviteCode()"
+  ></app-add-member-modal>
+</forge-page>

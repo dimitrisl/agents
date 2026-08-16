@@ -1,20 +1,17 @@
 import functools
-import logging
 import json
+import logging
 import re
-import streamlit as st
-from backend.core.ai_client import generate_ai_response, generate_ai_json
+
+from backend.core.ai_client import generate_ai_json, generate_ai_response
+from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.prompts import (
-    RULES_ORACLE_PROMPT,
-    BUILD_VALIDATION_PROMPT,
     PDF_PARSING_STEP1_PROMPT,
     PDF_PARSING_STEP2_PROMPT,
-    FEAT_ANALYSIS_PROMPT,
     RULE_COMPARISON_PROMPT,
+    RULES_ORACLE_PROMPT,
 )
-from backend.core.constants import EDITION_2014, EDITION_2024
-
-from backend.core.schemas import CharacterSchema, BuildValidationSchema
+from backend.core.schemas import CharacterSchema
 from backend.repositories.rules_repository import RulesRepository
 from backend.utils.api_client import fetch_feat_from_api
 
@@ -26,7 +23,7 @@ def _get_rules_repo():
     return RulesRepository()
 
 
-@st.cache_data(show_spinner=False)
+@functools.lru_cache(maxsize=128)
 def query_rules(query: str, edition: str = EDITION_2014) -> str:
     """Uses AI to answer questions about D&D rules."""
     prompt = RULES_ORACLE_PROMPT.format(
@@ -36,55 +33,51 @@ def query_rules(query: str, edition: str = EDITION_2014) -> str:
     return generate_ai_response(prompt)
 
 
-@st.cache_data(show_spinner=False)
+@functools.lru_cache(maxsize=128)
 def compare_rules(query: str) -> str:
     """Uses AI to compare 2014 and 2024 rules."""
     prompt = RULE_COMPARISON_PROMPT.format(query=query)
     return generate_ai_response(prompt)
 
 
-def validate_character_build(char_data: dict) -> dict:
-    """Uses AI to validate a character's build."""
-    edition = char_data.get("dnd_edition", EDITION_2014)
-    # Ensure char_data matches schema before sending
-    validated_char = CharacterSchema(**char_data)
+def autofix_character_build(char_data: dict) -> dict:
+    """Validates character build against edition rules deterministically, applies corrections, and resynchronizes mechanics."""
+    from backend.services.stats_service import sync_character_stats
+    from backend.services.validation_service import deterministic_validate_build
 
-    from backend.core.constants import (
-        RACES_2014,
-        CLASSES_2014,
-        BACKGROUNDS_2014,
-        SUBCLASSES_2014,
-        SPECIES_2024,
-        CLASSES_2024,
-        BACKGROUNDS_2024,
-        SUBCLASSES_2024,
-    )
+    # 1. Deterministic Validation & Corrections
+    corrected_char = deterministic_validate_build(char_data)
 
-    if "2024" in edition:
-        allowed_races = SPECIES_2024
-        allowed_classes = CLASSES_2024
-        allowed_backgrounds = BACKGROUNDS_2024
-        allowed_subclasses = SUBCLASSES_2024.get(validated_char.char_class, [])
-    else:
-        allowed_races = RACES_2014
-        allowed_classes = CLASSES_2014
-        allowed_backgrounds = BACKGROUNDS_2014
-        allowed_subclasses = SUBCLASSES_2014.get(validated_char.char_class, [])
+    # We create a dummy validation result to keep compatibility with any frontend code expecting it
+    validation = {"is_valid": True, "issues": [], "suggestions": [], "corrections": {}}
 
-    prompt = BUILD_VALIDATION_PROMPT.format(
-        char_json=validated_char.model_dump_json(indent=2),
-        edition=edition,
-        allowed_races=", ".join(allowed_races),
-        allowed_classes=", ".join(allowed_classes),
-        allowed_backgrounds=", ".join(allowed_backgrounds),
-        allowed_subclasses=", ".join(allowed_subclasses)
-        if allowed_subclasses
-        else "None",
-    )
-    result = generate_ai_json(prompt)
-    if result:
-        return BuildValidationSchema(**result).model_dump()
-    return {"is_valid": True, "issues": [], "suggestions": []}
+    edition = corrected_char.get("dnd_edition", EDITION_2014)
+    # Check if character contains 2024 indicators (masteries, origin feats, etc.)
+    if (
+        "2024" in str(edition)
+        or corrected_char.get("weapon_masteries")
+        or any("origin feat" in str(f).lower() for f in corrected_char.get("features_traits", []))
+    ):
+        edition = "2024 Edition"
+        corrected_char["dnd_edition"] = edition
+
+    char_class = corrected_char.get("char_class", "")
+    level = corrected_char.get("char_level", 1)
+
+    # Edition 2024 Rule: Subclasses are gained exclusively at Level 3
+    if "2024" in edition and level < 3:
+        corrected_char["subclass"] = ""
+
+    # Re-sync derived stats using mechanics engine for the specific edition
+    class_data = _get_rules_repo().get_class_progression(char_class, edition)
+    synced_char = sync_character_stats(corrected_char, class_data)
+
+    try:
+        validated = CharacterSchema.model_validate(synced_char, strict=False)
+        return {"validation_result": validation, "character": validated.model_dump()}
+    except Exception as e:
+        logger.warning(f"Autofix validation failed: {e}")
+        return {"validation_result": validation, "character": synced_char}
 
 
 def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> dict:
@@ -92,7 +85,14 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
     Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure.
     Uses a 2-step chained process for maximum precision.
     """
-    logger.info("Starting Chained Character Parsing (Step 1: Core Stats)...")
+    if (
+        "2024" in sheet_text
+        or "mastery" in sheet_text.lower()
+        or "origin feat" in sheet_text.lower()
+    ):
+        edition = "2024 Edition"
+
+    logger.info(f"Starting Chained Character Parsing (Edition: {edition}, Step 1: Core Stats)...")
 
     # STEP 1: Core Statistics & Identity
     step1_prompt = PDF_PARSING_STEP1_PROMPT.format(
@@ -104,9 +104,7 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
         logger.error("Step 1 of chained parsing failed.")
         return None
 
-    logger.info(
-        f"Step 1 Complete (Name: {core_data.get('char_name')}). Starting Step 2..."
-    )
+    logger.info(f"Step 1 Complete (Name: {core_data.get('char_name')}). Starting Step 2...")
 
     # STEP 2: Combat, Equipment, Spells & Lore
     step2_prompt = PDF_PARSING_STEP2_PROMPT.format(
@@ -118,6 +116,13 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
 
     # Merge the results
     final_raw = {**core_data, **(combat_data or {})}
+    final_raw["dnd_edition"] = edition
+
+    # Synchronize derived stats according to edition rules
+    from backend.services.stats_service import sync_character_stats
+
+    class_data = _get_rules_repo().get_class_progression(final_raw.get("char_class", ""), edition)
+    final_raw = sync_character_stats(final_raw, class_data)
 
     try:
         # Validate against schema to ensure data integrity
@@ -202,10 +207,7 @@ def regex_parse_feat_attributes(description: str) -> dict:
     norm_desc = re.sub(r"[.,;:]", "", norm_desc)
 
     # 1. HP bonus (Tough)
-    if (
-        "hit point maximum increases by an amount equal to twice your level"
-        in norm_desc
-    ):
+    if "hit point maximum increases by an amount equal to twice your level" in norm_desc:
         mechanics["hp_bonus_per_level"] = 2
     elif "hit point maximum increases by 1 for every level" in norm_desc:
         mechanics["hp_bonus_per_level"] = 1
@@ -238,9 +240,7 @@ def regex_parse_feat_attributes(description: str) -> dict:
     return mechanics
 
 
-def get_static_class_features(
-    class_name: str, level: int, edition: str = EDITION_2014
-) -> list:
+def get_static_class_features(class_name: str, level: int, edition: str = EDITION_2014) -> list:
     """Fetches features from the knowledge base if available."""
     return _get_rules_repo().get_features_at_level(class_name, level, edition)
 
@@ -278,12 +278,13 @@ def analyze_feat(feat_name: str, edition: str = EDITION_2014) -> dict:
         mechanics = regex_parse_feat_attributes(description)
         return {"description": description, "source": api_data["source"], **mechanics}
 
-    # Full AI Fallback for Homebrew/Non-SRD (since it's not in the API)
-    # We still use the AI here because if it's not in the official SRD,
-    # we have no text to parse with regex!
-    prompt = FEAT_ANALYSIS_PROMPT.format(
-        feat_name=feat_name,
-        edition=edition,
-    )
-    result = generate_ai_json(prompt)
-    return result or {}
+    # No AI Fallback as per deterministic validation rule
+    # If a homebrew feat is not in the database, it must be added to the database.
+    return {
+        "description": "Unknown Feat. Please add it to the local rules database.",
+        "source": "Unknown",
+        "stat_bonus": {"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0},
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": False,
+        "stat_choice_options": [],
+    }

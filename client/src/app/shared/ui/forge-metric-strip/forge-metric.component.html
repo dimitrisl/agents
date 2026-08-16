@@ -1,0 +1,13 @@
+<div class="flex min-h-9 items-center gap-2 px-3 py-1.5">
+  @if (icon) {
+    <span class="text-body" aria-hidden="true">{{ icon }}</span>
+  }
+
+  <span class="text-label font-bold uppercase tracking-[0.04em] text-muted">
+    {{ label }}
+  </span>
+
+  <span class="text-metric font-extrabold text-accent">
+    {{ value }}
+  </span>
+</div>

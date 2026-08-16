@@ -1,0 +1,45 @@
+name: Phyrexian Forge Backend CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, feat/*, "feat/**" ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Run Pytest & Ruff Linter
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Run Ruff Linting Check
+        run: poetry run ruff check .
+
+      - name: Run Pytest Test Suite with Coverage
+        run: poetry run pytest --cov=backend --cov=server --cov-report=term-missing

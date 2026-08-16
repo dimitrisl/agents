@@ -1,8 +1,9 @@
 import copy
 import functools
-import math
 import logging
-from typing import Dict, Any, List
+import math
+from typing import Any, Dict, List
+
 from backend.services.dice_service import rebuild_damage_formula
 
 logger = logging.getLogger("DnDAssistant.StatsService")
@@ -12,6 +13,19 @@ logger = logging.getLogger("DnDAssistant.StatsService")
 def get_modifier(score: int) -> int:
     """Calculates the D&D ability modifier from a score."""
     return math.floor((score - 10) / 2)
+
+
+@functools.lru_cache(maxsize=2)
+def _get_known_cantrips_for_edition(edition: str) -> set:
+    from backend.repositories.rules_repository import RulesRepository
+
+    repo = RulesRepository()
+    spells = repo.get_all_spells(edition)
+    return {
+        s.get("name", "").strip().lower()
+        for s in spells
+        if str(s.get("level", "")).lower() in ["0", "cantrip"]
+    }
 
 
 def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -> int:
@@ -24,9 +38,7 @@ def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -
     return math.ceil(level / 4) + 1
 
 
-def calculate_hp(
-    class_hit_die: str, level: int, con_score: int, existing_hp: int = None
-) -> int:
+def calculate_hp(class_hit_die: str, level: int, con_score: int, existing_hp: int = None) -> int:
     """Calculates HP Max, preserving existing manual rolls if provided."""
     try:
         parts = str(class_hit_die).lower().split("d")
@@ -78,18 +90,14 @@ def calculate_ac(
         if "shield" in item_name:
             has_shield = True
 
-        item_data = next(
-            (i for i in all_items if i.get("name", "").lower() == item_name), None
-        )
+        item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
         except (ValueError, TypeError):
             val = 0
 
         if item_data:
-            if (item_data.get("type") or "").endswith(
-                "Armor"
-            ) or "ac_base" in item_data:
+            if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
                 has_armor = True
         else:
             if val >= 10:
@@ -136,9 +144,7 @@ def calculate_ac(
             continue
 
         item_name = (equip.get("name") or "").lower()
-        item_data = next(
-            (i for i in all_items if i.get("name", "").lower() == item_name), None
-        )
+        item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
 
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
@@ -146,9 +152,7 @@ def calculate_ac(
             val = 0
 
         if item_data:
-            if (item_data.get("type") or "").endswith(
-                "Armor"
-            ) or "ac_base" in item_data:
+            if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
                 item_base = val if val >= 10 else item_data.get("ac_base", 10)
                 base_ac = max(base_ac, item_base)
 
@@ -163,17 +167,9 @@ def calculate_ac(
         else:
             if val >= 10:
                 base_ac = max(base_ac, val)
-                if (
-                    "heavy" in item_name
-                    or "plate" in item_name
-                    or "chain mail" in item_name
-                ):
+                if "heavy" in item_name or "plate" in item_name or "chain mail" in item_name:
                     max_dex = min(max_dex, 0)
-                elif (
-                    "medium" in item_name
-                    or "scale" in item_name
-                    or "breastplate" in item_name
-                ):
+                elif "medium" in item_name or "scale" in item_name or "breastplate" in item_name:
                     max_dex = min(max_dex, 2)
             else:
                 bonus_ac += val
@@ -281,11 +277,12 @@ def calculate_spell_stats(
     }
 
 
-def calculate_max_spell_slots(char_class: str, level: int) -> Dict[str, int]:
-    """Calculates maximum spell slots per level based on class and level."""
+def calculate_max_spell_slots(
+    char_class: str, level: int, subclass: str = None, caster_type: str = None
+) -> Dict[str, int]:
+    """Calculates maximum spell slots per level based on class, level, subclass, and caster type."""
     char_class = (char_class or "").lower()
-    full_casters = {"bard", "cleric", "druid", "sorcerer", "wizard"}
-    half_casters = {"paladin", "ranger"}
+    subclass_lower = (subclass or "").lower()
 
     full_caster_slots = {
         1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -334,17 +331,30 @@ def calculate_max_spell_slots(char_class: str, level: int) -> Dict[str, int]:
     }
 
     slots = {}
-    if char_class in full_casters:
+    if caster_type == "full":
         caster_level = level
-    elif char_class in half_casters:
+    elif caster_type == "half":
         caster_level = (level + 1) // 2 if level >= 2 else 0
-    elif char_class == "artificer":
-        caster_level = (level + 1) // 2
-    elif char_class == "warlock":
+        if char_class == "artificer":
+            caster_level = (level + 1) // 2
+    elif caster_type == "pact" or char_class == "warlock":
         if level in warlock_slots:
             count, slot_lvl = warlock_slots[level]
             slots[f"level_{slot_lvl}"] = count
         return slots
+    elif (
+        "eldritch knight" in subclass_lower
+        or "arcane trickster" in subclass_lower
+        or (char_class in ["fighter", "rogue"] and level >= 3 and subclass_lower)
+    ):
+        # Third-caster progression (Eldritch Knight / Arcane Trickster)
+        # Level 3: 2 1st lvl slots (Caster Level 1 equivalent)
+        # Level 4-6: 3 1st lvl slots (Caster Level 2 equivalent)
+        # Level 7-9: 4 1st lvl slots, 2 2nd lvl slots (Caster Level 3 equivalent)
+        if level >= 3:
+            caster_level = max(1, math.floor((level + 1) / 3))
+        else:
+            caster_level = 0
     else:
         caster_level = 0
 
@@ -400,9 +410,7 @@ def calculate_weapon_stats(
     else:
         name = weapon.get("name", "").lower()
         is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
-        is_finesse = any(
-            word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
-        )
+        is_finesse = any(word in name for word in ["rapier", "dagger", "scimitar", "shortsword"])
 
         if is_ranged:
             mod = dex_mod
@@ -414,9 +422,7 @@ def calculate_weapon_stats(
     magic_bonus = int(weapon.get("magic_bonus", 0))
 
     attack_bonus = mod + proficiency_bonus + magic_bonus
-    weapon["attack_bonus"] = (
-        f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
-    )
+    weapon["attack_bonus"] = f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
 
     damage_raw = weapon.get("damage") or rebuild_damage_formula(
         weapon.get("damage_dice"), weapon.get("damage_bonus")
@@ -433,9 +439,7 @@ def calculate_weapon_stats(
 
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
         weapon["damage_bonus"] = f"+{total_dmg_mod}"
-        weapon["damage"] = rebuild_damage_formula(
-            weapon["damage_dice"], weapon["damage_bonus"]
-        )
+        weapon["damage"] = rebuild_damage_formula(weapon["damage_dice"], weapon["damage_bonus"])
 
     return weapon
 
@@ -466,10 +470,7 @@ def sync_character_stats(
             "CHA": getattr(stats_raw, "CHA", 10),
         }
 
-    if (
-        "saving_throw_values" not in char_data
-        or char_data["saving_throw_values"] is None
-    ):
+    if "saving_throw_values" not in char_data or char_data["saving_throw_values"] is None:
         char_data["saving_throw_values"] = {}
 
     level = char_data.get("char_level", 1)
@@ -524,9 +525,7 @@ def sync_character_stats(
             elif attr_key in ["SPD", "SPEED"]:
                 char_data["speed"] = char_data.get("speed", 30) + bonus_val
             elif attr_key in ["INIT", "INITIATIVE"]:
-                char_data["initiative_bonus"] = (
-                    char_data.get("initiative_bonus", 0) + bonus_val
-                )
+                char_data["initiative_bonus"] = char_data.get("initiative_bonus", 0) + bonus_val
             elif attr_key in ["ATK", "HIT", "ATTACK"]:
                 char_data["global_attack_bonus"] = (
                     char_data.get("global_attack_bonus", 0) + bonus_val
@@ -560,24 +559,31 @@ def sync_character_stats(
     char_data["proficiency_bonus"] = prof_bonus
 
     if not char_data.get("saving_throws"):
-        class_saves = {
-            "barbarian": ["STR", "CON"],
-            "bard": ["DEX", "CHA"],
-            "cleric": ["WIS", "CHA"],
-            "druid": ["INT", "WIS"],
-            "fighter": ["STR", "CON"],
-            "monk": ["STR", "DEX"],
-            "paladin": ["WIS", "CHA"],
-            "ranger": ["STR", "DEX"],
-            "rogue": ["DEX", "INT"],
-            "sorcerer": ["CON", "CHA"],
-            "warlock": ["WIS", "CHA"],
-            "wizard": ["INT", "WIS"],
-            "artificer": ["CON", "INT"],
-        }
-        char_class_lower = char_class.lower() if char_class else ""
-        if char_class_lower in class_saves:
-            char_data["saving_throws"] = class_saves[char_class_lower]
+        saving_throws = []
+        if class_data:
+            sp = class_data.get("starting_proficiencies", {})
+            raw_saves = sp.get("saving_throws", [])
+            abbr_map = {
+                "strength": "STR",
+                "dexterity": "DEX",
+                "constitution": "CON",
+                "intelligence": "INT",
+                "wisdom": "WIS",
+                "charisma": "CHA",
+                "str": "STR",
+                "dex": "DEX",
+                "con": "CON",
+                "int": "INT",
+                "wis": "WIS",
+                "cha": "CHA",
+            }
+            for s in raw_saves:
+                s_clean = str(s).strip().lower()
+                if s_clean in abbr_map:
+                    saving_throws.append(abbr_map[s_clean])
+
+        if saving_throws:
+            char_data["saving_throws"] = saving_throws
         elif class_data:
             raw_saves = class_data.get("primary_ability", [])
             clean_saves = []
@@ -673,17 +679,41 @@ def sync_character_stats(
         con_score=con_score,
     )
 
+    # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus
+    skill_profs = list(char_data.get("skill_proficiencies", []))
+    wis_mod = get_modifier(wis_score)
+    pass_perc = char_data.get("passive_perception", 10)
+
+    if pass_perc >= 10 + wis_mod + prof_bonus and "Perception" not in skill_profs:
+        skill_profs.append("Perception")
+
+    temp_skills = calculate_skills(
+        stats, prof_bonus, skill_profs, char_data.get("skill_expertise", [])
+    )
+    for skill_name, skill_val in temp_skills.items():
+        from backend.core.constants import SKILLS_BY_ABILITY
+
+        ability_for_skill = next(
+            (ab for ab, s_list in SKILLS_BY_ABILITY.items() if skill_name in s_list), None
+        )
+        if ability_for_skill:
+            ab_mod = get_modifier(stats.get(ability_for_skill, 10))
+            if skill_val >= ab_mod + prof_bonus and skill_name not in skill_profs:
+                skill_profs.append(skill_name)
+
+    char_data["skill_proficiencies"] = list(dict.fromkeys(skill_profs))
+
     char_data["passive_perception"] = calculate_passive_perception(
         wis_score,
         prof_bonus,
-        char_data.get("skill_proficiencies", []),
+        char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
     )
 
     char_data["skills"] = calculate_skills(
         stats,
         prof_bonus,
-        char_data.get("skill_proficiencies", []),
+        char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
     )
 
@@ -763,25 +793,119 @@ def sync_character_stats(
 
     char_data["weapons"] = updated_weapons
 
+    # Infer & Calculate Spellcasting Stats (DC & Attack Bonus)
     spell_ability = char_data.get("spell_ability")
+    if not spell_ability or spell_ability == "None":
+        if class_data and "spellcasting_ability" in class_data:
+            spell_ability = class_data.get("spellcasting_ability")
+        else:
+            class_lower = (char_class or "").lower()
+            subclass_lower = (char_data.get("subclass") or "").lower()
+            feats_str = str(char_data.get("features_traits", [])).lower()
+            if (
+                "eldritch knight" in subclass_lower
+                or "arcane trickster" in subclass_lower
+                or "eldritch knight" in feats_str
+                or "arcane trickster" in feats_str
+                or (
+                    class_lower == "fighter"
+                    and (char_data.get("spell_slots") or char_data.get("spells"))
+                )
+            ):
+                spell_ability = "INT"
+            elif (
+                char_data.get("spells")
+                or char_data.get("prepared_spells")
+                or char_data.get("spell_slots")
+            ):
+                mental_stats = {
+                    "INT": stats.get("INT", 10),
+                    "WIS": stats.get("WIS", 10),
+                    "CHA": stats.get("CHA", 10),
+                }
+                spell_ability = max(mental_stats, key=mental_stats.get)
+
     if spell_ability and spell_ability != "None":
+        char_data["spell_ability"] = spell_ability
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
         char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
         char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
 
-    max_slots = calculate_max_spell_slots(char_class, level)
-    if "spell_slots" not in char_data or not char_data["spell_slots"]:
-        char_data["spell_slots"] = {}
+    subclass = char_data.get("subclass")
+    if not subclass and char_class.lower() == "fighter" and char_data.get("spells"):
+        subclass = "Eldritch Knight"
+        char_data["subclass"] = subclass
 
+    caster_type = None
+    if class_data and "caster_type" in class_data:
+        caster_type = class_data.get("caster_type")
+
+    max_slots = calculate_max_spell_slots(
+        char_class, level, subclass=subclass, caster_type=caster_type
+    )
+
+    # Rebuild spell_slots cleanly according to class/level max slots rules
+    new_spell_slots = {}
     for slot_lvl, max_val in max_slots.items():
-        if slot_lvl not in char_data["spell_slots"]:
-            char_data["spell_slots"][slot_lvl] = {"max": max_val, "used": 0}
-        else:
-            char_data["spell_slots"][slot_lvl]["max"] = max_val
+        existing = (char_data.get("spell_slots") or {}).get(slot_lvl)
+        used_val = 0
+        if isinstance(existing, dict):
+            used_val = min(existing.get("used", 0), max_val)
+        elif isinstance(existing, int) and existing <= max_val:
+            used_val = existing
+        new_spell_slots[slot_lvl] = {"max": max_val, "used": used_val}
+    char_data["spell_slots"] = new_spell_slots
 
-    keys_to_remove = [k for k in char_data["spell_slots"] if k not in max_slots]
-    for k in keys_to_remove:
-        del char_data["spell_slots"][k]
+    # Enforce Spell Level Caps (Stops AI from hallucinating spells higher than allowed)
+    spells_dict = char_data.get("spells")
+    if isinstance(spells_dict, dict):
+        max_spell_level = 0
+        for i in range(1, 10):
+            if new_spell_slots.get(f"level_{i}", {}).get("max", 0) > 0:
+                max_spell_level = i
+        # Dynamically determine if the class progression grants high-level spells beyond basic slots (e.g., Mystic Arcanum)
+        if class_data and "progression" in class_data:
+            import re
+
+            for lvl_idx in range(1, level + 1):
+                lvl_data = class_data["progression"].get(str(lvl_idx), {})
+                for feature in lvl_data.get("features", []):
+                    f_name = feature.get("name", "")
+                    # Look for explicit spell level grants in feature names (e.g. "Mystic Arcanum (6th level)")
+                    match = re.search(r"\((\d)(?:st|nd|rd|th)\s+level\)", f_name, re.IGNORECASE)
+                    if match:
+                        max_spell_level = max(max_spell_level, int(match.group(1)))
+
+        # Allow innate/racial spells (up to level 3) for characters with few/no slots
+        max_spell_level = max(max_spell_level, min(3, math.ceil(level / 2)))
+
+        for i in range(max_spell_level + 1, 10):
+            lvl_key = f"level_{i}"
+            if spells_dict.get(lvl_key):
+                logger.info(
+                    f"Removing hallucinated {lvl_key} spells (max allowed for this build is {max_spell_level})"
+                )
+                spells_dict[lvl_key] = []
+
+        # Update prepared_spells as well to remove spells we just deleted
+        valid_spell_names = set(spells_dict.get("cantrips", []))
+        for i in range(1, max_spell_level + 1):
+            valid_spell_names.update(spells_dict.get(f"level_{i}", []))
+
+        if "prepared_spells" in char_data:
+            char_data["prepared_spells"] = [
+                ps for ps in char_data["prepared_spells"] if ps in valid_spell_names
+            ]
+
+    # Ensure Passive Perception and Skill Proficiencies alignment
+    skill_profs = char_data.get("skill_proficiencies") or []
+    normalized_profs = [str(s).strip().lower() for s in skill_profs]
+    wis_mod = math.floor((stats.get("WIS", 10) - 10) / 2)
+    passive_percep = char_data.get("passive_perception") or (10 + wis_mod)
+    if passive_percep >= 10 + wis_mod + prof_bonus:
+        if "perception" not in normalized_profs:
+            skill_profs.append("Perception")
+            char_data["skill_proficiencies"] = skill_profs
 
     if char_class.lower() == "rogue":
         sneak_attack_dice = (level + 1) // 2
@@ -799,5 +923,218 @@ def sync_character_stats(
                     ft["description"] = re.sub(
                         r"extra \d+d6 damage", f"extra {sneak_attack_str} damage", desc
                     )
+
+    # ----------------------------------------------------
+    # 2024 Edition Rules (5.5e) Enhancements: Masteries, Origin Feats, Fighter Features
+    # ----------------------------------------------------
+    is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
+
+    if is_2024:
+        # Filter out legacy 2014 background combat/roleplay traits
+        legacy_bg_features = {
+            "stand your ground",
+            "military rank",
+            "shelter of the faithful",
+            "rustic hospitality",
+            "criminal contact",
+            "guild membership",
+            "position of privilege",
+            "researcher",
+            "watcher's eye",
+            "by popular demand",
+            "false identity",
+        }
+        if char_data.get("features_traits"):
+            char_data["features_traits"] = [
+                f
+                for f in char_data["features_traits"]
+                if not (isinstance(f, dict) and (f.get("name") or "").lower() in legacy_bg_features)
+            ]
+
+        # A. Weapon Masteries (Fighter Lvl 1-3 = 3, Lvl 4+ = 4 masteries)
+        martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
+        if (char_class or "").lower() in martial_classes:
+            target_masteries_count = (
+                4
+                if (char_class or "").lower() == "fighter" and level >= 4
+                else (3 if level >= 4 else 2)
+            )
+            existing_masteries = list(char_data.get("weapon_masteries") or [])
+
+            # Prioritize masteries matching equipped weapons
+            equipped_weapon_masteries = []
+            for w in char_data.get("weapons", []):
+                if isinstance(w, dict):
+                    w_name = (w.get("name") or "").lower()
+                    if "longsword" in w_name and "Sap (Longsword)" not in equipped_weapon_masteries:
+                        equipped_weapon_masteries.append("Sap (Longsword)")
+                    elif (
+                        "crossbow" in w_name
+                        and "Slow (Light Crossbow)" not in equipped_weapon_masteries
+                    ):
+                        equipped_weapon_masteries.append("Slow (Light Crossbow)")
+                    elif (
+                        "greatsword" in w_name
+                        and "Graze (Greatsword)" not in equipped_weapon_masteries
+                    ):
+                        equipped_weapon_masteries.append("Graze (Greatsword)")
+                    elif (
+                        "warhammer" in w_name
+                        and "Topple (Warhammer)" not in equipped_weapon_masteries
+                    ):
+                        equipped_weapon_masteries.append("Topple (Warhammer)")
+
+            for m in equipped_weapon_masteries:
+                if m not in existing_masteries:
+                    existing_masteries.insert(0, m)
+
+            mastery_pool = [
+                "Sap (Longsword)",
+                "Slow (Light Crossbow)",
+                "Graze (Greatsword)",
+                "Nick (Dagger)",
+                "Topple (Warhammer)",
+                "Vex (Shortsword)",
+                "Push (Pike)",
+                "Cleave (Greataxe)",
+            ]
+            for m in mastery_pool:
+                if len(existing_masteries) >= target_masteries_count:
+                    break
+                if m not in existing_masteries:
+                    existing_masteries.append(m)
+
+            char_data["weapon_masteries"] = existing_masteries[:target_masteries_count]
+
+            for w in char_data.get("weapons", []):
+                if isinstance(w, dict):
+                    w_name = (w.get("name") or "").lower()
+                    props = w.get("properties") or ""
+                    if "mastery" not in props.lower():
+                        if "longsword" in w_name:
+                            w["properties"] = f"{props}, Mastery: Sap".strip(", ")
+                        elif "crossbow" in w_name:
+                            w["properties"] = f"{props}, Mastery: Slow".strip(", ")
+
+        # B. Background Origin Feat
+        bg = (char_data.get("background") or "").lower()
+        origin_feat_map = {
+            "guard": {
+                "name": "Origin Feat: Alert",
+                "description": "2024 Origin Feat: Add Proficiency Bonus (+3) to Initiative rolls and swap initiative with a willing ally.",
+            },
+            "soldier": {
+                "name": "Origin Feat: Savage Attacker",
+                "description": "2024 Origin Feat: Reroll weapon damage dice once per turn.",
+            },
+            "farmer": {
+                "name": "Origin Feat: Tough",
+                "description": "2024 Origin Feat: Gain +2 HP per level.",
+            },
+            "acolyte": {
+                "name": "Origin Feat: Magic Initiate (Cleric)",
+                "description": "2024 Origin Feat: Learn 2 Cleric cantrips and one 1st-level Cleric spell.",
+            },
+            "criminal": {
+                "name": "Origin Feat: Alert",
+                "description": "2024 Origin Feat: Add Proficiency Bonus to Initiative rolls.",
+            },
+            "guide": {
+                "name": "Origin Feat: Magic Initiate (Druid)",
+                "description": "2024 Origin Feat: Learn 2 Druid cantrips and one 1st-level Druid spell.",
+            },
+            "sage": {
+                "name": "Origin Feat: Magic Initiate (Wizard)",
+                "description": "2024 Origin Feat: Learn 2 Wizard cantrips and one 1st-level Wizard spell.",
+            },
+            "noble": {
+                "name": "Origin Feat: Skilled",
+                "description": "2024 Origin Feat: Gain proficiency in 3 skills of your choice.",
+            },
+            "sailor": {
+                "name": "Origin Feat: Tavern Brawler",
+                "description": "2024 Origin Feat: Re-roll 1s on unarmed strikes and shove as bonus action.",
+            },
+        }
+
+        has_origin_feat = any(
+            "origin feat" in f.get("name", "").lower()
+            or "alert" in f.get("name", "").lower()
+            or "savage attacker" in f.get("name", "").lower()
+            for f in char_data.get("features_traits", [])
+        )
+        if not has_origin_feat:
+            origin_info = origin_feat_map.get(bg, origin_feat_map["guard"])
+            char_data.setdefault("features_traits", []).append(origin_info)
+
+            if "alert" in origin_info["name"].lower():
+                char_data["initiative_modifier"] = get_modifier(dex_score) + prof_bonus
+
+        # C. 2024 Fighter Class Features (Tactical Mind & Tactical Shift)
+        if (char_class or "").lower() == "fighter":
+            ft_names = [f.get("name", "").lower() for f in char_data.get("features_traits", [])]
+            if level >= 2 and not any("tactical mind" in n for n in ft_names):
+                char_data.setdefault("features_traits", []).append(
+                    {
+                        "name": "Tactical Mind (2024)",
+                        "description": "When you fail an Ability Check, you can spend 1 use of Second Wind to roll 1d10 and add it to the check. If you still fail, the Second Wind use is not expended.",
+                    }
+                )
+            if level >= 5 and not any("tactical shift" in n for n in ft_names):
+                char_data.setdefault("features_traits", []).append(
+                    {
+                        "name": "Tactical Shift (2024)",
+                        "description": "As part of the Bonus Action you take to use Second Wind, you can move up to half your Speed without provoking Opportunity Attacks.",
+                    }
+                )
+
+        # D. Clean up miscategorized spells (move cantrips out of leveled slots)
+        spells_dict = char_data.get("spells")
+        if isinstance(spells_dict, dict):
+            cantrips = spells_dict.get("cantrips", [])
+            if not isinstance(cantrips, list):
+                cantrips = []
+
+            edition_val = char_data.get("dnd_edition") or "2014 Edition"
+            known_cantrips_lower = _get_known_cantrips_for_edition(edition_val)
+
+            # Defensive fallback in case the database has dirty data (e.g. Booming Blade as level 1)
+            undeniable_cantrips = {
+                "booming blade",
+                "green-flame blade",
+                "eldritch blast",
+                "fire bolt",
+                "mage hand",
+                "prestidigitation",
+                "minor illusion",
+                "ray of frost",
+                "shocking grasp",
+            }
+            known_cantrips_lower.update(undeniable_cantrips)
+
+            for lvl in [f"level_{i}" for i in range(1, 10)]:
+                lvl_spells = spells_dict.get(lvl, [])
+                if isinstance(lvl_spells, list):
+                    new_lvl_spells = []
+                    for spell in lvl_spells:
+                        spell_clean = str(spell).strip().lower()
+                        is_cantrip = spell_clean in known_cantrips_lower
+                        if not is_cantrip:
+                            for uc in undeniable_cantrips:
+                                if uc in spell_clean:
+                                    is_cantrip = True
+                                    break
+
+                        if is_cantrip:
+                            if spell not in cantrips:
+                                cantrips.append(spell)
+                        else:
+                            new_lvl_spells.append(spell)
+                    spells_dict[lvl] = new_lvl_spells
+
+            spells_dict["cantrips"] = list(dict.fromkeys(cantrips))  # remove duplicates
+
+        # E. (Removed) Eldritch Knight / Arcane Trickster Cantrip Limit
+        # This was flawed as it did not account for racial cantrips (e.g. High Elf) or feats (Magic Initiate)
 
     return char_data

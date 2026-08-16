@@ -1,5 +1,6 @@
-from backend.utils.dnd_math import calculate_ability_modifier
 import pytest
+
+from backend.utils.dnd_math import calculate_ability_modifier
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,140 @@
+<div class="inbox-dock">
+  <section *ngIf="open" class="inbox-panel animated-fade" aria-label="Table inbox">
+    <header class="inbox-panel-header">
+      <div class="inbox-heading min-w-0">
+        <span class="inbox-mark" aria-hidden="true">💬</span>
+        <div class="min-w-0">
+          <p class="text-micro font-semibold uppercase text-accent">Table Inbox</p>
+          <h2 class="truncate font-display text-title text-ink">{{ campaignName }}</h2>
+        </div>
+      </div>
+      <button
+        forgeButton
+        variant="ghost"
+        size="sm"
+        iconOnly
+        type="button"
+        aria-label="Close table inbox"
+        (click)="openChange.emit(false)"
+      >
+        &times;
+      </button>
+    </header>
+
+    <div #feedList class="inbox-list" role="log" aria-live="polite">
+      <div *ngIf="feed.length === 0" class="inbox-empty">
+        Nothing yet. Whispers and roll requests appear here as they happen.
+      </div>
+
+      @for (entry of feed; track entry.key) {
+        @if (entry.kind === 'whisper') {
+          <article
+            class="inbox-message"
+            [class.broadcast]="entry.whisper.recipient === 'All'"
+            [class.from-player]="!isFromDm(entry.whisper)"
+          >
+            <div class="inbox-meta">
+              <span class="message-kind">
+                {{ isFromDm(entry.whisper) ? 'You (DM)' : entry.whisper.sender }}
+              </span>
+              <time class="shrink-0 text-micro text-muted">
+                {{ formatTime(entry.whisper.timestamp) }}
+              </time>
+            </div>
+            <p class="inbox-text">{{ entry.whisper.message }}</p>
+            <p class="message-status">💬 {{ whisperDirection(entry.whisper) }}</p>
+          </article>
+        } @else {
+          <article
+            class="inbox-message"
+            [class.pending]="rollRequestStatus(entry.request) === 'pending'"
+            [class.resolved]="rollRequestStatus(entry.request) === 'resolved'"
+            [class.secret]="entry.request.is_secret"
+          >
+            <div class="inbox-meta">
+              <span class="message-kind">
+                🎲 {{ entry.request.char_name }} · {{ entry.request.roll_type }}
+                ({{ entry.request.stat }})
+              </span>
+              <time class="shrink-0 text-micro text-muted">
+                {{ formatTime(entry.request.created_at) }}
+              </time>
+            </div>
+            <p *ngIf="entry.request.reason" class="inbox-text">{{ entry.request.reason }}</p>
+            <p *ngIf="entry.request.result" class="inbox-result">
+              Rolled {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+            </p>
+            <div class="inbox-badges">
+              <forge-badge *ngIf="entry.request.is_secret" tone="accent">🔒 Secret</forge-badge>
+              <forge-badge [tone]="rollRequestTone(entry.request)">
+                {{ rollRequestLabel(entry.request) }}
+              </forge-badge>
+            </div>
+          </article>
+        }
+      }
+    </div>
+
+    <form class="inbox-reply" (ngSubmit)="sendReply.emit()">
+      <label class="flex flex-col gap-2 text-micro font-semibold uppercase text-muted">
+        Reply to
+        <select
+          forgeSelect
+          name="replyRecipient"
+          [ngModel]="replyRecipient"
+          (ngModelChange)="replyRecipientChange.emit($event)"
+        >
+          <option value="All">All Players</option>
+          <option *ngFor="let member of partyMembers" [value]="member.name">{{ member.name }}</option>
+        </select>
+      </label>
+
+      <label class="sr-only" for="dm-inbox-reply">Whisper message</label>
+      <textarea
+        forgeTextarea
+        id="dm-inbox-reply"
+        rows="2"
+        name="replyMessage"
+        placeholder="Whisper back…"
+        [ngModel]="replyMessage"
+        (ngModelChange)="replyMessageChange.emit($event)"
+      ></textarea>
+
+      <div class="inbox-reply-actions">
+        <span class="text-micro text-muted">
+          {{ replyRecipient === 'All' ? 'Everyone sees this' : 'Private to ' + replyRecipient }}
+        </span>
+        <button
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          type="submit"
+          [disabled]="!replyMessage.trim() || isSendingReply"
+        >
+          {{ isSendingReply ? 'Sending…' : 'Send' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <button
+    forgeButton
+    variant="secondary"
+    tone="accent"
+    size="lg"
+    iconOnly
+    type="button"
+    class="inbox-toggle"
+    [attr.aria-label]="
+      unreadCount > 0
+        ? unreadCount + ' new messages. Open table inbox'
+        : (open ? 'Close table inbox' : 'Open table inbox')
+    "
+    [attr.aria-expanded]="open"
+    (click)="toggle()"
+  >
+    💬
+    <span *ngIf="unreadCount > 0" class="inbox-unread" aria-hidden="true">{{ unreadCount }}</span>
+  </button>
+</div>

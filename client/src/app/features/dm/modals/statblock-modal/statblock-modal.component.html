@@ -1,0 +1,25 @@
+<forge-modal
+  [title]="'📜 Statblock: ' + (combatant?.name || '')"
+  [open]="open"
+  maxWidth="760px"
+  (openChange)="openChange.emit($event)"
+  (closed)="closed.emit()"
+>
+  <div *ngIf="combatant as selectedStatblockCombatant" class="flex flex-col gap-4">
+    <p class="text-body text-muted">
+      AC: {{ selectedStatblockCombatant.ac }} | HP: {{ selectedStatblockCombatant.max_hp }} | DEX:
+      {{ selectedStatblockCombatant.dex }}
+    </p>
+
+    <div class="rounded-lg border border-hairline bg-black/35 p-4 text-body text-ink">
+      <p>{{ selectedStatblockCombatant.statblock || 'Standard D&D 5e monster statblock.' }}</p>
+    </div>
+
+    <div class="flex justify-end gap-2">
+      <button forgeButton variant="secondary" type="button" (click)="viewBeyond.emit(selectedStatblockCombatant.name)">
+        🌐 View on D&D Beyond
+      </button>
+      <button forgeButton type="button" (click)="closed.emit()">Close</button>
+    </div>
+  </div>
+</forge-modal>

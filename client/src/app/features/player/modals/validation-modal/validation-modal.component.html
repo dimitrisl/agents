@@ -1,0 +1,47 @@
+<forge-modal [open]="open" (openChange)="openChange.emit($event)" title="🔍 Character Build & Rules Audit" maxWidth="820px">
+  <p class="mb-4 text-body-sm text-muted">
+    AI & Rules Engine validation for <strong class="text-ink">{{ characterName }}</strong>
+  </p>
+
+  <div *ngIf="isValidating" class="py-10 text-center">
+    <div class="mb-2 text-display">🔮</div>
+    <p class="font-semibold text-gold">Auditing character statistics, rules, and progression...</p>
+  </div>
+
+  <div *ngIf="!isValidating && validationResult" class="flex flex-col gap-4">
+    <div
+      class="rounded-lg border-l-4 p-3 text-body-sm font-extrabold"
+      [ngClass]="validationResult.is_valid
+        ? 'border-emerald bg-emerald/10 text-emerald'
+        : 'border-red bg-red/10 text-red'"
+    >
+      <span *ngIf="validationResult.is_valid">✅ HERO BUILD IS FULLY VALID (RULES-COMPLIANT)</span>
+      <span *ngIf="!validationResult.is_valid">⚠️ RULE INCONSISTENCIES OR ISSUES DETECTED</span>
+    </div>
+
+    <div *ngIf="validationResult.issues?.length > 0">
+      <h3 class="mb-2 font-display text-body font-bold text-red">⚠️ Detected Issues:</h3>
+      <ul class="list-disc space-y-2 pl-5 text-body-sm text-red">
+        <li *ngFor="let issue of validationResult.issues">{{ issue }}</li>
+      </ul>
+    </div>
+
+    <div *ngIf="validationResult.suggestions?.length > 0">
+      <h3 class="mb-2 font-display text-body font-bold text-gold">💡 Recommendations:</h3>
+      <ul class="list-disc space-y-2 pl-5 text-body-sm text-gold">
+        <li *ngFor="let suggestion of validationResult.suggestions">{{ suggestion }}</li>
+      </ul>
+    </div>
+
+    <div *ngIf="validationResult.is_valid && (!validationResult.issues || validationResult.issues.length === 0)" class="text-center text-body-sm text-muted">
+      All stats, proficiency bonuses, HP, AC, and feats match official D&D rules!
+    </div>
+  </div>
+
+  <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+    <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Close</button>
+    <button *ngIf="!isValidating" forgeButton variant="primary" type="button" [disabled]="isAutoFixing" (click)="applyAutoFix.emit()">
+      {{ isAutoFixing ? '⚙️ Fixing...' : '🔧 Auto-Fix & Synchronize Sheet' }}
+    </button>
+  </div>
+</forge-modal>

@@ -1,0 +1,57 @@
+<section class="py-3" aria-labelledby="ability-scores-heading">
+  <h3
+    id="ability-scores-heading"
+    class="text-micro font-semibold uppercase text-muted"
+  >
+    Ability Scores
+  </h3>
+  <div class="mt-2 grid grid-cols-3 gap-2">
+    <article
+      *ngFor="let entry of entries; trackBy: trackByStatKey"
+      class="flex min-h-32 flex-col rounded-xl bg-tile p-2 text-center"
+    >
+      <p class="text-micro font-semibold uppercase text-muted">
+        {{ entry.key }}
+      </p>
+      <div class="mt-1 flex-1">
+        <p
+          *ngIf="!editMode"
+          class="text-[1.25rem] font-bold leading-tight text-ink"
+        >
+          {{ entry.value }}
+        </p>
+        <input
+          *ngIf="editMode"
+          forgeInput
+          type="number"
+          class="mx-auto max-w-16 text-center"
+          [(ngModel)]="char.stats[entry.key]"
+          [attr.aria-label]="entry.key + ' score'"
+        />
+        <p class="mt-0.5 text-label font-semibold leading-none text-muted">
+          {{ getModifierString(char.stats[entry.key]) }}
+        </p>
+      </div>
+      <div
+        class="mt-2 grid grid-cols-2 divide-x divide-hairline/70 overflow-hidden rounded-lg bg-panel"
+      >
+        <button
+          class="inline-flex min-h-7 items-center justify-center gap-1 px-1 text-micro font-semibold text-muted transition-colors hover:bg-tile hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+          type="button"
+          (click)="abilityCheck.emit(entry.key)"
+        >
+          <span aria-hidden="true">⚄</span>
+          Check
+        </button>
+        <button
+          class="inline-flex min-h-7 items-center justify-center gap-1 px-1 text-micro font-semibold text-muted transition-colors hover:bg-tile hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+          type="button"
+          (click)="savingThrow.emit(entry.key)"
+        >
+          <span aria-hidden="true">☆</span>
+          Save
+        </button>
+      </div>
+    </article>
+  </div>
+</section>

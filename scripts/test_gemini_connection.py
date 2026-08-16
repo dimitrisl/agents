@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from google import genai
 
@@ -24,9 +25,7 @@ def test_connection():
         flash_models = [m.name for m in models if "flash" in m.name.lower()]
 
         if not flash_models:
-            print(
-                "❌ No Flash models found. Here are the models you do have access to:"
-            )
+            print("❌ No Flash models found. Here are the models you do have access to:")
             for m in models[:5]:
                 print(f" - {m.name}")
             return
@@ -46,9 +45,7 @@ def test_connection():
         print("\n✅ --- Response from Gemini ---")
         print(response.text.strip())
         print("------------------------------")
-        print(
-            f"\n🎉 Success! You are connected to the Gemini API using {model_to_use}."
-        )
+        print(f"\n🎉 Success! You are connected to the Gemini API using {model_to_use}.")
 
     except Exception as e:
         print(f"\n❌ Failed to connect to Gemini API. Error details:\n{e}")

@@ -195,5 +195,11 @@
                 }
             ]
         }
+    },
+    "starting_proficiencies": {
+        "saving_throws": [
+            "Strength",
+            "Constitution"
+        ]
     }
 }

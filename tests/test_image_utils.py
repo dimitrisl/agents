@@ -1,5 +1,7 @@
 import os
-from backend.utils.image_utils import save_custom_portrait, PORTRAIT_DIR
+
+from backend.utils.image_utils import PORTRAIT_DIR, save_custom_portrait
+from server.config import settings
 
 
 def test_save_custom_portrait():
@@ -14,7 +16,8 @@ def test_save_custom_portrait():
     image_bytes = b"fake_png_data"
     saved_path = save_custom_portrait(image_bytes, test_filename)
 
-    assert saved_path == test_filepath
+    expected_url = f"{settings.API_V1_STR}/portraits/{test_filename}"
+    assert saved_path == expected_url
     assert os.path.exists(test_filepath)
     with open(test_filepath, "rb") as f:
         assert f.read() == image_bytes

@@ -1,18 +1,20 @@
-import os
-import logging
-import requests
 import io
 import json
+import logging
+import os
+
+import requests
 from pypdf import PdfReader, PdfWriter, generic
-from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from backend.services.mechanics_service import get_modifier as calculate_modifier
+from reportlab.pdfgen import canvas
+
 from backend.core.constants import (
+    PDF_PORTRAIT_HEIGHT,
+    PDF_PORTRAIT_WIDTH,
     PDF_PORTRAIT_X,
     PDF_PORTRAIT_Y,
-    PDF_PORTRAIT_WIDTH,
-    PDF_PORTRAIT_HEIGHT,
 )
+from backend.services.mechanics_service import get_modifier as calculate_modifier
 
 logger = logging.getLogger("DnDAssistant.PDFExporter")
 
@@ -76,24 +78,24 @@ class PDFMappingProvider:
 
         # 4. Skills
         char_skills = char_data.get("skills", {})
-        skill_profs = char_data.get("skill_proficiencies", [])
-        skill_exps = char_data.get("skill_expertise", [])
+        skill_profs = [str(s).strip().lower() for s in char_data.get("skill_proficiencies", [])]
+        skill_exps = [str(s).strip().lower() for s in char_data.get("skill_expertise", [])]
 
-        logger.debug(
-            f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}"
-        )
+        logger.debug(f"Exporting skills. Proficiencies: {skill_profs}, Expertise: {skill_exps}")
 
+        skill_checks_map = {k.strip(): v for k, v in self.mapping.get("skill_checks", {}).items()}
         for skill_name, pdf_key in self.mapping.get("skills", {}).items():
-            if skill_name in char_skills:
+            clean_skill = skill_name.strip()
+            if clean_skill in char_skills:
+                field_data[pdf_key] = str(char_skills[clean_skill])
+            elif skill_name in char_skills:
                 field_data[pdf_key] = str(char_skills[skill_name])
 
-            check_pdf_key = self.mapping.get("skill_checks", {}).get(skill_name)
+            check_pdf_key = skill_checks_map.get(clean_skill)
             if check_pdf_key:
-                field_data[check_pdf_key] = (
-                    "Yes"
-                    if (skill_name in skill_profs or skill_name in skill_exps)
-                    else "/Off"
-                )
+                clean_name_lower = clean_skill.lower()
+                is_prof = clean_name_lower in skill_profs or clean_name_lower in skill_exps
+                field_data[check_pdf_key] = "Yes" if is_prof else "/Off"
 
         # 5. Saving Throws
         char_saves = char_data.get("saving_throws", [])
@@ -143,9 +145,21 @@ class PDFMappingProvider:
 
         if "Features and Traits" in blocks:
             feats = char_data.get("features_traits", [])
-            field_data[blocks["Features and Traits"]] = "\n".join(
-                [f"{f.get('name', '')}: {f.get('description', '')}" for f in feats]
-            )
+            ft_strings = []
+
+            # 2024 Weapon Masteries section
+            masteries = char_data.get("weapon_masteries", [])
+            if masteries:
+                ft_strings.append(f"WEAPON MASTERIES (2024): {', '.join(masteries)}")
+                ft_strings.append("")
+
+            for f in feats:
+                if isinstance(f, str):
+                    ft_strings.append(f)
+                elif isinstance(f, dict):
+                    ft_strings.append(f"{f.get('name', '')}: {f.get('description', '')}")
+
+            field_data[blocks["Features and Traits"]] = "\n".join(ft_strings)
 
         if "Proficiencies and Languages" in blocks:
             langs = char_data.get("languages", [])
@@ -158,7 +172,7 @@ class PDFMappingProvider:
 
             field_data[blocks["Proficiencies and Languages"]] = "\n".join(combined)
 
-        # 9. Spells
+        # 9. Spells & Slot Totals
         char_spells = char_data.get("spells", {})
         spell_mapping = self.mapping.get("spells", {})
         for lvl, pdf_keys in spell_mapping.items():
@@ -166,6 +180,20 @@ class PDFMappingProvider:
                 for i, spell in enumerate(char_spells[lvl]):
                     if i < len(pdf_keys):
                         field_data[pdf_keys[i]] = spell
+
+        slot_totals = self.mapping.get("slot_totals", {})
+        char_slots = char_data.get("spell_slots", {})
+        for lvl_key, pdf_field in slot_totals.items():
+            slot_info = char_slots.get(lvl_key)
+            if isinstance(slot_info, dict):
+                max_val = slot_info.get("max", 0)
+                used_val = slot_info.get("used", 0)
+                if max_val > 0:
+                    field_data[pdf_field] = str(max_val)
+                    rem_field = pdf_field.replace("SlotsTotal", "SlotsRemaining")
+                    field_data[rem_field] = str(max_val - used_val)
+            elif isinstance(slot_info, int) and slot_info > 0:
+                field_data[pdf_field] = str(slot_info)
 
         # 10. Spellcasting Stats
         char_class = char_data.get("char_class", "")
@@ -181,9 +209,7 @@ class PDFMappingProvider:
             "Warlock": "CHA",
             "Bard": "CHA",
         }
-        spell_stat = char_data.get(
-            "spell_ability", spell_ability_map.get(char_class, "INT")
-        )
+        spell_stat = char_data.get("spell_ability", spell_ability_map.get(char_class, "INT"))
         spell_mod = calculate_modifier(stats.get(spell_stat, 10))
 
         field_data[spellcasting["class"]] = char_class
@@ -258,21 +284,13 @@ def export_character_to_pdf(char_data: dict, template_path: str) -> bytes:
                 writer.root_object.update(
                     {
                         generic.NameObject("/AcroForm"): generic.DictionaryObject(
-                            {
-                                generic.NameObject(
-                                    "/NeedAppearances"
-                                ): generic.BooleanObject(True)
-                            }
+                            {generic.NameObject("/NeedAppearances"): generic.BooleanObject(True)}
                         )
                     }
                 )
             else:
                 writer.root_object["/AcroForm"].update(
-                    {
-                        generic.NameObject("/NeedAppearances"): generic.BooleanObject(
-                            True
-                        )
-                    }
+                    {generic.NameObject("/NeedAppearances"): generic.BooleanObject(True)}
                 )
         except Exception as e:
             logger.warning(f"Failed to set NeedAppearances: {e}")

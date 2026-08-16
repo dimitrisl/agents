@@ -1,7 +1,8 @@
-import os
 import json
 import logging
+import os
 from typing import Optional
+
 from backend.core.constants import EDITION_2014, EDITION_2024
 
 logger = logging.getLogger("DnDAssistant.RulesRepo")
@@ -19,6 +20,8 @@ _feats_cache: dict = {}
 _items_cache: list | None = None
 _spells_cache: dict = {}
 _features_level_cache: dict = {}
+_races_cache: dict = {}
+_backgrounds_cache: dict = {}
 
 
 def _load_json(filepath: str):
@@ -36,9 +39,7 @@ class RulesRepository:
         os.makedirs(os.path.join(RULES_DIR, "2014"), exist_ok=True)
         os.makedirs(os.path.join(RULES_DIR, "2024"), exist_ok=True)
 
-    def get_class_progression(
-        self, class_name: str, edition: str = EDITION_2014
-    ) -> Optional[dict]:
+    def get_class_progression(self, class_name: str, edition: str = EDITION_2014) -> Optional[dict]:
         """
         Loads the progression data for a specific class and edition.
         Results are cached in module-level dict to avoid instance-level memory leaks.
@@ -52,9 +53,7 @@ class RulesRepository:
         filepath = os.path.join(RULES_DIR, edition_dir, filename)
 
         if not os.path.exists(filepath):
-            logger.warning(
-                f"No progression data found for {class_name} ({edition}) at {filepath}"
-            )
+            logger.warning(f"No progression data found for {class_name} ({edition}) at {filepath}")
             _class_progression_cache[cache_key] = None
             return None
 
@@ -164,11 +163,17 @@ class RulesRepository:
         except Exception as e:
             logger.error(f"Failed to load spells from MongoDB: {e}")
 
-        # Fallback to local JSON files if DB returns nothing
-        if not spells:
-            filename = f"spells_{edition_val}.json"
-            filepath = os.path.join(DATA_DIR, "rules", filename)
-            spells = _load_json(filepath)
+        # Always load from local JSON files as baseline or fallback
+        filename = f"spells_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+        local_spells = _load_json(filepath)
+
+        # Merge DB spells, preferring DB versions if there are conflicts
+        db_spells_map = {s.get("name", "").lower(): s for s in spells}
+        for s in local_spells:
+            name_key = s.get("name", "").lower()
+            if name_key not in db_spells_map:
+                spells.append(s)
 
         _spells_cache[edition] = spells
         return spells
@@ -180,3 +185,41 @@ class RulesRepository:
         spells = self.get_all_spells(edition)
         query = query.lower()
         return [s for s in spells if query in s["name"].lower()]
+
+    def get_available_races(self, edition: str = EDITION_2014) -> list:
+        """
+        Loads all available races for the specified edition.
+        """
+        if edition in _races_cache:
+            return _races_cache[edition]
+
+        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        filename = f"races_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+
+        if not os.path.exists(filepath):
+            return []
+
+        data = _load_json(filepath)
+        races = [r.get("name") for r in data if "name" in r]
+        _races_cache[edition] = races
+        return races
+
+    def get_available_backgrounds(self, edition: str = EDITION_2014) -> list:
+        """
+        Loads all available backgrounds for the specified edition.
+        """
+        if edition in _backgrounds_cache:
+            return _backgrounds_cache[edition]
+
+        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        filename = f"backgrounds_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+
+        if not os.path.exists(filepath):
+            return []
+
+        data = _load_json(filepath)
+        backgrounds = [b.get("name") for b in data if "name" in b]
+        _backgrounds_cache[edition] = backgrounds
+        return backgrounds

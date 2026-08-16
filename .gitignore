@@ -2,9 +2,14 @@
 __pycache__/
 .env
 .ruff_cache
+.venv/
+.poetry-cache/
+.poetry-config/
+.poetry-data/
 .vscode/
 .temp_env/
 *.log
+client/ui-refactor/
 data/*
 !data/rules/
 app_debug.log
@@ -15,3 +20,12 @@ scratch/
 .pytest_cache/
 htmlcov/
 testenv/
+
+# Editor and AI configs
+.cursorrules
+GEMINI.md
+
+# Local dev scratch files
+lala.py
+config.json
+github_token.txt

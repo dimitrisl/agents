@@ -1,0 +1,225 @@
+<div class="flex min-w-0 flex-col">
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div class="min-w-0">
+        <h2 class="font-display text-title text-ink">👥 Active Party Roster</h2>
+        <p class="mt-1 text-label text-muted">
+          Health, conditions, passive perception and quick DM ability checks.
+        </p>
+      </div>
+
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="addMember.emit()">
+          ➕ Add Member
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          type="button"
+          (click)="issueRollRequest.emit()"
+        >
+          🎲 Issue Roll Request
+        </button>
+      </div>
+    </div>
+
+    <forge-empty-state
+      *ngIf="partyMembers.length === 0"
+      icon="🛡️"
+      title="No active hero characters"
+      [description]="'No active hero characters in ' + campaignName + ' yet.'"
+    >
+      <button forgeButton variant="secondary" tone="accent" type="button" (click)="addMember.emit()">
+        ➕ Add First Party Member
+      </button>
+    </forge-empty-state>
+
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <article
+        *ngFor="let member of partyMembers; trackBy: trackMember"
+        class="flex min-w-0 flex-col overflow-hidden rounded-xl bg-panel"
+      >
+        <header class="flex items-center gap-3 bg-tile px-4 py-3">
+          <img
+            [src]="member.portrait || 'https://img.icons8.com/color/96/knight.png'"
+            alt=""
+            class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
+          />
+          <div class="min-w-0 flex-1">
+            <h3 class="truncate font-display text-title text-ink">{{ member.name }}</h3>
+            <p class="truncate text-micro font-semibold uppercase text-muted">
+              Level {{ member.level }} {{ member.char_class }}
+            </p>
+          </div>
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            class="shrink-0"
+            [attr.aria-label]="'Private roll request for ' + member.name"
+            (click)="privateRollRequest.emit(member)"
+          >
+            🎲 Private Roll
+          </button>
+        </header>
+
+        <div class="flex min-w-0 flex-col gap-4 p-4">
+          <div class="min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-micro font-semibold uppercase text-muted">Hit Points</span>
+              <span class="text-label text-muted">{{ member.hp_current }} / {{ member.hp_max }}</span>
+            </div>
+
+            <div class="mt-2 flex min-w-0 items-center gap-2">
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                iconOnly
+                type="button"
+                [attr.aria-label]="'Decrease ' + member.name + ' hit points'"
+                (click)="adjustHp.emit({ member, delta: -1 })"
+              >
+                −
+              </button>
+              <input
+                forgeInput
+                type="number"
+                class="max-w-20 text-center"
+                [attr.aria-label]="member.name + ' current hit points'"
+                [(ngModel)]="member.hp_current"
+                min="0"
+                [max]="member.hp_max"
+              />
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                iconOnly
+                type="button"
+                [attr.aria-label]="'Increase ' + member.name + ' hit points'"
+                (click)="adjustHp.emit({ member, delta: 1 })"
+              >
+                +
+              </button>
+
+              <div
+                class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-tile"
+                role="meter"
+                [attr.aria-valuemin]="0"
+                [attr.aria-valuemax]="member.hp_max"
+                [attr.aria-valuenow]="member.hp_current"
+                [attr.aria-label]="member.name + ' hit point total'"
+              >
+                <div
+                  class="h-full rounded-full bg-accent transition-[width] duration-200"
+                  [style.width.%]="hpPercent(member)"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
+            <div class="px-3 py-3 text-center">
+              <p class="text-micro font-semibold uppercase text-muted">🛡️ AC</p>
+              <p class="mt-1 text-metric font-bold leading-none text-accent">{{ member.ac }}</p>
+            </div>
+            <div class="border-l border-hairline px-3 py-3 text-center">
+              <p class="text-micro font-semibold uppercase text-muted">👁️ Passive Perc.</p>
+              <p class="mt-1 text-metric font-bold leading-none text-accent">
+                {{ member.passive_perception }}
+              </p>
+            </div>
+          </div>
+
+          <div class="min-w-0">
+            <p class="mb-2 text-micro font-semibold uppercase text-muted">DM Quick Check</p>
+            <div class="grid grid-cols-6 gap-1">
+              <button
+                *ngFor="let stat of stats"
+                forgeButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                [attr.aria-label]="'Roll ' + stat + ' check for ' + member.name"
+                (click)="quickStatRoll.emit({ member, stat })"
+              >
+                {{ stat }}
+              </button>
+            </div>
+          </div>
+
+          <div class="min-w-0">
+            <button
+              type="button"
+              class="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl bg-tile px-3 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+              [attr.aria-expanded]="isConditionsOpen(member)"
+              [attr.aria-controls]="'conditions-' + memberKey(member)"
+              (click)="toggleConditions(member)"
+            >
+              <span class="min-w-0 text-micro font-semibold uppercase text-muted">Conditions</span>
+
+              <span class="flex min-w-0 items-center gap-2">
+                @if (member.conditions.length === 0) {
+                  <span class="truncate text-label text-muted">None active</span>
+                } @else {
+                  <forge-badge tone="danger">{{ member.conditions.length }} active</forge-badge>
+                }
+                <svg
+                  class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
+                  [class.rotate-180]="isConditionsOpen(member)"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 7.5L10 12.5L15 7.5"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+            </button>
+
+            <div [id]="'conditions-' + memberKey(member)" class="mt-2 flex min-w-0 flex-wrap gap-2">
+              @if (isConditionsOpen(member)) {
+                <forge-badge
+                  *ngFor="let condition of availableConditions"
+                  [tone]="conditionTone(member, condition)"
+                  [interactive]="true"
+                  role="switch"
+                  tabindex="0"
+                  [attr.aria-checked]="member.conditions.includes(condition)"
+                  (click)="toggleCondition.emit({ member, condition })"
+                  (keydown.enter)="toggleCondition.emit({ member, condition })"
+                  (keydown.space)="$event.preventDefault(); toggleCondition.emit({ member, condition })"
+                >
+                  {{ member.conditions.includes(condition) ? '● ' : '' }}{{ condition }}
+                </forge-badge>
+              } @else {
+                <forge-badge
+                  *ngFor="let condition of member.conditions"
+                  tone="danger"
+                  [interactive]="true"
+                  role="switch"
+                  tabindex="0"
+                  aria-checked="true"
+                  (click)="toggleCondition.emit({ member, condition })"
+                  (keydown.enter)="toggleCondition.emit({ member, condition })"
+                  (keydown.space)="$event.preventDefault(); toggleCondition.emit({ member, condition })"
+                >
+                  ● {{ condition }}
+                </forge-badge>
+              }
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</div>

@@ -233,5 +233,29 @@
         ],
         "size": "Medium",
         "speed": 30
+    },
+    {
+        "name": "Warforged",
+        "description": "Warforged are formed from a blend of organic and inorganic materials, built as soldiers to fight in the Last War.",
+        "traits": [
+            {
+                "name": "Constructed Resilience",
+                "description": "You have Advantage on saving throws against being Poisoned, and you have Resistance to Poison damage. You don't need to eat, drink, or breathe. You are immune to disease. You don't need to sleep, and magic can't put you to sleep."
+            },
+            {
+                "name": "Sentry's Rest",
+                "description": "When you take a Long Rest, you must spend at least 6 hours in an inactive, motionless state, rather than sleeping. In this state, you appear inert, but it doesn't render you unconscious, and you can see and hear as normal."
+            },
+            {
+                "name": "Integrated Protection",
+                "description": "Your body has built-in protective layers, which can be enhanced with armor. You gain a +1 bonus to Armor Class."
+            },
+            {
+                "name": "Specialized Design",
+                "description": "You gain proficiency in one skill of your choice and one tool of your choice."
+            }
+        ],
+        "size": "Medium",
+        "speed": 30
     }
 ]

@@ -1,9 +1,9 @@
 from backend.services.mechanics_service import (
-    get_modifier,
-    calculate_proficiency_bonus,
-    calculate_hp,
     calculate_ac,
+    calculate_hp,
+    calculate_proficiency_bonus,
     calculate_weapon_stats,
+    get_modifier,
     sync_character_stats,
 )
 

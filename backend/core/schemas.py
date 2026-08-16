@@ -1,5 +1,7 @@
 import re
-from typing import List, Dict, Optional, Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -31,6 +33,13 @@ class Weapon(BaseModel):
     magic_bonus: int = 0
     ability_modifier: Optional[str] = None  # Explicit scaling stat (e.g., 'STR', 'DEX')
     damage: Optional[str] = None  # Added for legacy support/internal formula storage
+
+    @field_validator("properties", "range", mode="before")
+    @classmethod
+    def convert_list_to_str(cls, v):
+        if isinstance(v, list):
+            return ", ".join(str(item) for item in v if item is not None)
+        return v
 
     @classmethod
     def normalize_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -211,6 +220,23 @@ class CharacterSchema(BaseModel):
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
 
+    @field_validator("spell_slots", mode="before")
+    @classmethod
+    def normalize_spell_slots(cls, v: Any) -> Dict[str, Dict[str, int]]:
+        if not isinstance(v, dict):
+            return {}
+        normalized = {}
+        for key, val in v.items():
+            if isinstance(val, dict):
+                max_val = int(val.get("max", 0))
+                used_val = int(val.get("used", 0))
+                normalized[key] = {"max": max_val, "used": used_val}
+            elif isinstance(val, (int, float)):
+                normalized[key] = {"max": int(val), "used": 0}
+            else:
+                normalized[key] = {"max": 0, "used": 0}
+        return normalized
+
     @field_validator("equipment", mode="before")
     @classmethod
     def convert_strings_to_items(cls, v):
@@ -223,9 +249,7 @@ class CharacterSchema(BaseModel):
     def convert_strings_to_features(cls, v):
         if isinstance(v, list):
             return [
-                {"name": item, "description": "Imported feature"}
-                if isinstance(item, str)
-                else item
+                {"name": item, "description": "Imported feature"} if isinstance(item, str) else item
                 for item in v
             ]
         return v
@@ -306,6 +330,20 @@ class LevelUpAnalysisSchema(BaseModel):
     choices_required: List[LevelUpChoice] = []
     updated_proficiency_bonus: Optional[int] = None
     updated_spell_slots: Optional[Dict[str, int]] = None
+    new_spells_known: List[str] = []
+
+    @property
+    def new_features(self) -> List[FeatureTrait]:
+        """Alias for automatic_changes — kept for frontend compatibility."""
+        return self.automatic_changes
+
+    def model_dump(self, **kwargs) -> dict:
+        data = super().model_dump(**kwargs)
+        # Inject new_features so the Angular frontend receives it directly.
+        data["new_features"] = [
+            f.model_dump() if hasattr(f, "model_dump") else f for f in self.automatic_changes
+        ]
+        return data
 
 
 class BuildValidationSchema(BaseModel):
@@ -330,3 +368,68 @@ class WhisperSchema(BaseModel):
     recipient: str
     message: str
     timestamp: str
+
+
+# ==========================================
+# API Response Schemas
+# ==========================================
+class SuccessResponseSchema(BaseModel):
+    success: bool
+    message: str
+
+
+class NpcResponse(BaseModel):
+    npc_markdown: str
+
+
+class RiddleResponse(BaseModel):
+    riddle_markdown: str
+
+
+class SessionPrepResponse(BaseModel):
+    session_markdown: str
+
+
+class PlaystyleGuideResponse(BaseModel):
+    guide_markdown: str
+
+
+class PortraitResponse(BaseModel):
+    success: bool
+    portrait_url: str
+
+
+class InviteCodeResponse(BaseModel):
+    invite_code: str
+
+
+class RulesQueryResponse(BaseModel):
+    answer_markdown: str
+
+
+class RulesCompareResponse(BaseModel):
+    comparison_markdown: str
+
+
+class RulesValidationResult(BaseModel):
+    is_valid: bool
+    issues: List[str]
+    suggestions: List[str]
+    corrections: Dict[str, Any]
+
+
+class RulesValidationResponse(BaseModel):
+    validation_result: RulesValidationResult
+
+
+class RulesAutofixResponse(BaseModel):
+    validation_result: Optional[RulesValidationResult] = None
+    character: Dict[str, Any]
+
+
+class CampaignMemberSchema(BaseModel):
+    campaign_id: str
+    user_id: str
+    role: str  # "dm" or "player"
+    character_id: Optional[str] = None
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

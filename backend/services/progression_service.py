@@ -1,6 +1,6 @@
 import functools
-import math
 import logging
+import math
 from typing import List
 
 logger = logging.getLogger("DnDAssistant.ProgressionService")
@@ -59,9 +59,7 @@ def get_level_up_vitals(
 
         repo = RulesRepository()
         feat_library = repo.get_all_feats(edition)
-        feat_lookup = (
-            {f["name"].lower(): f for f in feat_library} if feat_library else {}
-        )
+        feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
         for f in features:
             if isinstance(f, dict):
                 feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
@@ -106,9 +104,7 @@ def check_progression_features(
     if progression:
         level_data = progression.get("progression", {}).get(str(target_level), {})
         level_features = level_data.get("features", [])
-        is_asi_level = any(
-            "Ability Score Improvement" in f.get("name", "") for f in level_features
-        )
+        is_asi_level = any("Ability Score Improvement" in f.get("name", "") for f in level_features)
 
     return {
         "is_asi_level": is_asi_level,

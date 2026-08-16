@@ -11,47 +11,6 @@ Question: {query}
 
 Answer (be helpful, use markdown for formatting):
 """
-
-BUILD_VALIDATION_PROMPT = """
-You are an expert Dungeon Master and Rules Arbiter for Dungeons & Dragons.
-Your task is to validate a character sheet to ensure it complies with the official rules.
-
-Character Data:
-{char_json}
-
-Validate the following aspects based on their edition ({edition}):
-1. Are the Ability Scores possible? (e.g., standard array/point buy + racial bonuses, no score above 20 unless a specific feature allows it).
-2. Is the Max HP reasonable for their class, level, and CON modifier?
-3. Is the Proficiency Bonus correct for their level?
-4. Do they have too many or too few features/traits for their level and class?
-5. Are their spell slots correct for their class and level?
-6. Is the playstyle_guide correct and consistent with their current level and features?
-7. Do they have all required level-up advancements (e.g., level 4 feat/ASI)?
-8. Are the character's core identity fields (race, class, subclass, and background) valid for their edition?
-- Valid Races/Species for this edition: {allowed_races}
-- Valid Classes for this edition: {allowed_classes}
-- Valid Backgrounds for this edition: {allowed_backgrounds}
-- Valid Subclasses for this class: {allowed_subclasses}
-
-If you find discrepancies, you MUST specify the corrected values in the "corrections" dictionary so they can be applied automatically to the character sheet.
-You can correct ANY field in the CharacterSchema by providing it in the "corrections" dictionary:
-- "background", "race", "char_class", "subclass"
-- "proficiency_bonus", "hp_max", "armor_class", "speed", "passive_perception", "spell_save_dc", "spell_attack_bonus", "initiative_modifier"
-- "stats": dictionary of ability scores (STR, DEX, CON, INT, WIS, CHA)
-- "prepared_spells": list of strings (fill/update with appropriate spells for their level if currently empty or wrong)
-- "features_traits": list of feature objects (name, description, source). If a feature's description is wrong or outdated, provide the corrected list of features.
-- "advancements": list of advancement objects (level, type, name, description) representing feats or ASIs. If missing, generate and add them.
-- "playstyle_guide": string. If it refers to an outdated level or is incorrect, rewrite it completely to align with the character's current level and features.
-
-Return a JSON object with the following structure exactly:
-{{
-    "is_valid": true,
-    "issues": [],
-    "suggestions": [],
-    "corrections": {{}}
-}}
-"""
-
 # --- Character Forge ---
 CHARACTER_FORGE_PROMPT = """
 Create a fully fleshed out level {target_level} D&D {edition} character.
@@ -288,28 +247,6 @@ Return JSON:
 }}
 """
 
-
-# --- Feat Analysis ---
-FEAT_ANALYSIS_PROMPT = """
-Analyze the mechanical effects of the D&D {edition} feat: "{feat_name}".
-
-Extract the following technical details as a JSON object:
-{{
-    "description": "The full, official text of the feat.",
-    "stat_bonus": {{"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0}},
-    "hp_bonus_per_level": 0,
-    "hp_bonus_flat": 0,
-    "ac_bonus": 0,
-    "speed_bonus": 0,
-    "has_stat_choice": true,
-    "stat_choice_options": ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
-}}
-
-Note:
-- If the feat gives a +1 to ANY stat of choice, set has_stat_choice to true and list all options.
-- If it gives a +1 to a specific stat (e.g. STR), set stat_bonus STR to 1 and has_stat_choice to false.
-- For the 'Tough' feat, hp_bonus_per_level should be 2.
-"""
 
 RULE_COMPARISON_PROMPT = """
 You are the 'Phyrexian Sage', a grand master of D&D evolution.
