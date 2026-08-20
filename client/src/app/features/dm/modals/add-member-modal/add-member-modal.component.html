@@ -114,19 +114,26 @@
       <p class="mb-2 text-body text-muted">
         Invite players to join <strong>{{ campaignName }}</strong> from their Player Dashboard:
       </p>
-      <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-[1.6rem] font-extrabold tracking-[0.25em] text-gold">
-        {{ inviteCode || '4D0705' }}
-      </div>
-      <div>
-        <button forgeButton variant="secondary" size="sm" type="button" (click)="copyInviteCode.emit()">
-          📋 Copy Invite Code
-        </button>
-      </div>
-      <ol class="mt-3 list-inside list-decimal space-y-1 text-left text-label leading-relaxed text-muted">
-        <li>Players log into their account on the web app.</li>
-        <li>Navigate to <strong>Player Dashboard</strong> and click <strong>🔑 Join Campaign</strong>.</li>
-        <li>Enter invite code <strong class="text-gold">{{ inviteCode || '4D0705' }}</strong> to join this realm.</li>
-      </ol>
+      @if (inviteCode) {
+        <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-[1.6rem] font-extrabold tracking-[0.25em] text-gold">
+          {{ inviteCode }}
+        </div>
+        <div>
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="copyInviteCode.emit()">
+            📋 Copy Invite Code
+          </button>
+        </div>
+        <ol class="mt-3 list-inside list-decimal space-y-1 text-left text-label leading-relaxed text-muted">
+          <li>Players log into their account on the web app.</li>
+          <li>Navigate to <strong>Player Dashboard</strong> and click <strong>🔑 Join Campaign</strong>.</li>
+          <li>Enter invite code <strong class="text-gold">{{ inviteCode }}</strong> to join this realm.</li>
+        </ol>
+      } @else {
+        <p class="text-body text-muted">
+          This campaign has no invite code yet. Forge one from the
+          <strong>🔑 Invite Code</strong> button in the campaign header, then share it here.
+        </p>
+      }
     </div>
 
     <div class="flex flex-wrap justify-end gap-2">
@@ -143,7 +150,13 @@
       <button *ngIf="addMemberTab === 'custom'" forgeButton type="button" (click)="addPartyMember.emit()">
         Add Custom Hero
       </button>
-      <button *ngIf="addMemberTab === 'invite'" forgeButton type="button" (click)="copyInviteCode.emit()">
+      <button
+        *ngIf="addMemberTab === 'invite'"
+        forgeButton
+        type="button"
+        [disabled]="!inviteCode"
+        (click)="copyInviteCode.emit()"
+      >
         Copy Code & Close
       </button>
     </div>

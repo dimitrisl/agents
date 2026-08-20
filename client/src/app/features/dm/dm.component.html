@@ -1,4 +1,31 @@
 <forge-page>
+  @if (campaignsStatus === 'loading') {
+    <forge-empty-state
+      icon="⏳"
+      title="Opening the Workspace"
+      description="Fetching your campaigns…"
+    ></forge-empty-state>
+  } @else if (campaignsStatus === 'error') {
+    <forge-empty-state
+      icon="⚠️"
+      title="Campaigns Could Not Be Loaded"
+      description="The server did not answer. Nothing is shown rather than something that is not real — reading the list changed nothing, so retry when you are ready."
+    >
+      <button forgeButton variant="primary" type="button" (click)="loadCampaigns()">
+        Try Again
+      </button>
+    </forge-empty-state>
+  } @else if (userCampaigns.length === 0) {
+    <forge-empty-state
+      icon="🏰"
+      title="No Campaigns Yet"
+      description="Forge your first campaign to open the DM workspace."
+    >
+      <button forgeButton variant="primary" type="button" (click)="showNewCampaignModal = true">
+        Forge a Campaign
+      </button>
+    </forge-empty-state>
+  } @else {
   <app-campaign-header
     [(campaignName)]="campaignName"
     [userCampaigns]="userCampaigns"
@@ -45,9 +72,20 @@
           <div class="border-t border-hairline">
             <p class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted">Party Health</p>
 
-            <p *ngIf="partyMembers.length === 0" class="px-4 py-3 text-body text-muted">
-              No heroes in this campaign yet.
-            </p>
+            @if (partyStatus === 'loading') {
+              <p class="px-4 py-3 text-body text-muted">Loading the roster…</p>
+            } @else if (partyStatus === 'error') {
+              <div class="flex flex-col items-start gap-2 px-4 py-3">
+                <p class="text-body text-muted">
+                  ⚠️ The roster could not be loaded, so this list is not the real party.
+                </p>
+                <button forgeButton variant="secondary" size="sm" type="button" (click)="loadParty()">
+                  Retry
+                </button>
+              </div>
+            } @else if (partyMembers.length === 0) {
+              <p class="px-4 py-3 text-body text-muted">No heroes in this campaign yet.</p>
+            }
 
             <ul class="divide-y divide-hairline/70">
               <li
@@ -181,6 +219,7 @@
     [isSendingReply]="isSendingInboxReply"
     (sendReply)="sendInboxReply()"
   ></app-dm-inbox>
+  }
 
   <app-whisper-modal
     [open]="showWhisperModal"
