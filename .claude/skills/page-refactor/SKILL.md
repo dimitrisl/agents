@@ -74,10 +74,11 @@ children (see `features/dm/`).
 
 ```bash
 cd client && npm run build
+cd client && npm test
 ```
 
-**There is no test framework** — no `test` script, no Karma, no Jasmine, no specs. The build
-is the only automated gate. Never claim tests pass.
+`npm test` runs Jest, but the suite is nearly empty and a page refactor is presentation-only —
+it will not catch a styling regression. Never claim tests pass without running them.
 
 Then walk `design-contract.md` §7 explicitly, item by item:
 
