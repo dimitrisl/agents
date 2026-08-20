@@ -18,7 +18,7 @@ import { DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
-import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import { CampaignMessages, RollRequest, Whisper, campaignUrl } from '../../core/models/campaign.model';
 import { buildInboxFeed, type InboxEntry } from '../../core/models/campaign-inbox';
 import {
   ForgeButtonDirective,
@@ -605,9 +605,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     this.http
-      .get<CampaignMessages>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
-      )
+      .get<CampaignMessages>(campaignUrl(campaignName, 'messages'))
       .subscribe({
         next: (messages) => {
           const char = this.charState.activeCharacter();
@@ -679,14 +677,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.isSendingWhisperReply = true;
     this.http
-      .post<{ whisper: Whisper }>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(char.active_campaign)}/whisper`,
-        {
-          sender: char.char_name,
-          recipient: 'DM',
-          message,
-        }
-      )
+      .post<{ whisper: Whisper }>(campaignUrl(char.active_campaign, 'whisper'), {
+        sender: char.char_name,
+        recipient: 'DM',
+        message,
+      })
       .subscribe({
         next: (res) => {
           this.isSendingWhisperReply = false;
@@ -759,7 +754,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char?.active_campaign || !request.id) return;
 
     this.http
-      .post(`${environment.apiBaseUrl}/campaigns/${char.active_campaign}/roll-request/${request.id}/result`, {
+      .post(campaignUrl(char.active_campaign, `roll-request/${request.id}/result`), {
         total: roll.total,
         expression: roll.expression,
         raw: roll.raw,
