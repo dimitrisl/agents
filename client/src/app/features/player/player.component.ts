@@ -250,6 +250,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           // Execute the roll automatically (or we could open a modal, but auto-rolling is faster)
           this.rollForRequest(req);
         }
+      } else if (msg.type === 'party_update') {
+        this.applyDmPartyUpdate(msg['payload'], char);
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
         if (!this.isWhisperForCharacter(whisper, char.char_name)) return;
@@ -270,6 +272,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.wsSub.unsubscribe();
     }
     this.openedSub?.unsubscribe();
+  }
+
+  /**
+   * The DM tracked a hit or a condition at the table. The sheet is already
+   * written server-side, so this only catches the open page up — saving from
+   * here would race the DM with a stale copy of the hero.
+   */
+  private applyDmPartyUpdate(payload: any, char: CharacterSchema) {
+    if (!payload || payload.char_id !== char.char_id) return;
+
+    const previousHp = char.hp_current ?? char.hp_max;
+    if (typeof payload.hp_current === 'number') char.hp_current = payload.hp_current;
+    if (Array.isArray(payload.conditions)) char.conditions = [...payload.conditions];
+
+    const hp = char.hp_current ?? char.hp_max;
+    if (hp !== previousHp) {
+      const delta = hp - previousHp;
+      const verb = delta < 0 ? `took ${Math.abs(delta)} damage` : `healed ${delta}`;
+      this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${char.hp_max}.`);
+    }
   }
 
   /** A chat thread is only useful if it lands on the newest message. */

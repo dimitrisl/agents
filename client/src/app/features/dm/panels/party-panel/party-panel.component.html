@@ -86,11 +86,13 @@
                 −
               </button>
               <input
+                #memberHp
                 forgeInput
                 type="number"
                 class="max-w-20 text-center"
                 [attr.aria-label]="member.name + ' current hit points'"
-                [(ngModel)]="member.hp_current"
+                [value]="member.hp_current"
+                (change)="onHpInput(member, memberHp)"
                 min="0"
                 [max]="member.hp_max"
               />

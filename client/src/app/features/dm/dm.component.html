@@ -65,6 +65,7 @@
               <div class="border-l border-t border-hairline px-3 py-3 text-center">
                 <p class="text-micro font-semibold uppercase text-muted">Current Turn</p>
                 <p class="mt-1 truncate text-body font-semibold leading-tight text-ink">{{ currentTurnName }}</p>
+                <p class="mt-1 truncate text-micro uppercase text-muted">{{ roundLabel }}</p>
               </div>
             </div>
           </div>
@@ -154,6 +155,7 @@
             (addMember)="openAddMemberModal()"
             (issueRollRequest)="showRollModal = true"
             (adjustHp)="adjustHp($event.member, $event.delta)"
+            (setHp)="setPartyHp($event.member, $event.hp)"
             (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
             (toggleCondition)="toggleCondition($event.member, $event.condition)"
             (privateRollRequest)="openSingleRollModal($event)"
@@ -166,15 +168,25 @@
             aria-labelledby="dm-tabs-tab-initiative"
             [combatants]="combatants"
             [activeCombatantId]="activeCombatantId"
+            [round]="round"
+            [availableConditions]="availableConditions"
             [(newCombatantName)]="newCombatantName"
             [(newCombatantInit)]="newCombatantInit"
             [(newCombatantHp)]="newCombatantHp"
             (importParty)="importPartyToInitiative()"
             (rollAll)="rollAllInitiative()"
             (advanceTurn)="nextTurn()"
+            (rewindTurn)="previousTurn()"
+            (endCombat)="endCombat()"
             (addCombatant)="addCombatant()"
             (openStatblock)="openStatblock($event)"
             (removeCombatant)="removeCombatant($event)"
+            (hpChange)="setCombatantHp($event.combatant, $event.hp)"
+            (applyCondition)="
+              applyCombatantCondition($event.combatant, $event.condition, $event.rounds)
+            "
+            (removeCondition)="removeCombatantCondition($event.combatant, $event.condition)"
+            (setDeathSave)="setDeathSave($event.combatant, $event.kind, $event.value)"
           ></app-initiative-panel>
 
           <app-generators-panel

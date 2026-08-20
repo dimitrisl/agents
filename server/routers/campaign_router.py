@@ -54,6 +54,25 @@ class RollRequestResultSchema(BaseModel):
     modifier: int = 0
 
 
+class PartyMemberStateRequest(BaseModel):
+    """
+    A partial update: only the fields the DM actually changed are sent, so a
+    hit-point edit never overwrites conditions set a moment earlier from the
+    other tab.
+    """
+
+    hp_current: Optional[int] = None
+    conditions: Optional[List[str]] = None
+
+
+class PartyMemberStateResponse(SuccessResponseSchema):
+    char_id: str
+    char_name: str
+    hp_current: int
+    hp_max: int
+    conditions: List[str]
+
+
 class WhisperResponse(SuccessResponseSchema):
     whisper: Dict[str, Any]
 
@@ -161,6 +180,78 @@ async def get_campaign_party(
         char.pop("_id", None)
         party_members.append(char)
     return party_members
+
+
+@router.patch("/{name}/party/{char_id}/state", response_model=PartyMemberStateResponse)
+async def update_party_member_state(
+    name: str,
+    char_id: str,
+    payload: PartyMemberStateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """
+    Persists the hit points and conditions the DM is tracking at the table.
+
+    Until now these lived only in the DM's browser: the player saw nothing, the
+    database learned nothing, and a refresh threw the session's damage away. The
+    character document already carried both fields — nobody was writing them.
+    """
+    char = await db["characters"].find_one({"char_id": char_id})
+    if not char:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+
+    # Membership in *this* campaign is what authorizes the write. Being a DM
+    # somewhere is not a licence to edit a hero sitting at another table.
+    if char.get("active_campaign") != name:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="That character is not part of this campaign.",
+        )
+
+    updates: Dict[str, Any] = {}
+
+    if payload.hp_current is not None:
+        hp_max = char.get("hp_max") or 0
+        # A hero cannot be dropped below dead or healed past their own maximum.
+        updates["hp_current"] = max(0, min(hp_max, payload.hp_current))
+
+    if payload.conditions is not None:
+        # Deduplicated, order preserved: the tracker sends what is on screen and
+        # the same condition twice is a client bug, not a stacking rule.
+        seen = set()
+        cleaned = []
+        for condition in payload.conditions:
+            label = condition.strip()
+            if label and label.lower() not in seen:
+                seen.add(label.lower())
+                cleaned.append(label)
+        updates["conditions"] = cleaned
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Nothing to update."
+        )
+
+    # Only the touched fields are written. A blind $set of the whole document
+    # would race with the character sheet the player has open.
+    await db["characters"].update_one({"char_id": char_id}, {"$set": updates})
+
+    state = {
+        "char_id": char_id,
+        "char_name": char.get("char_name", "Unknown"),
+        "hp_current": updates.get("hp_current", char.get("hp_current") or 0),
+        "hp_max": char.get("hp_max") or 0,
+        "conditions": updates.get("conditions", char.get("conditions", [])),
+    }
+
+    from server.routers.websocket_router import manager
+
+    # Untargeted on purpose: every hero at the table can see who is bloodied.
+    await manager.broadcast(name, {"type": "party_update", "payload": state})
+
+    return {"success": True, "message": f"Updated {state['char_name']}.", **state}
 
 
 @router.post("/join", response_model=Dict[str, Any])
