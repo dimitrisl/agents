@@ -2,7 +2,14 @@
   class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
 >
   <div class="min-w-0 lg:max-w-105">
-    <p class="text-micro font-semibold uppercase text-accent">DM Workspace</p>
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
+      <p class="text-micro font-semibold uppercase text-accent">DM Workspace</p>
+      <!-- Which ruleset the generators answer in — a 2024 table used to be handed
+           2014 content with nothing on screen saying so. -->
+      @if (editionShort) {
+        <forge-badge tone="accent">{{ editionShort }} Rules</forge-badge>
+      }
+    </div>
     <h1 class="mt-1 truncate font-display text-[2rem] leading-tight text-ink">
       {{ campaignName }}
     </h1>

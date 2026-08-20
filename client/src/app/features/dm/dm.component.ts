@@ -16,6 +16,7 @@ import {
   campaignUrl,
 } from '../../core/models/campaign.model';
 import {
+  EncounterDifficulty,
   EncounterResponse,
   NpcResponse,
   SessionPrepResponse,
@@ -120,6 +121,8 @@ export class DmComponent implements OnInit, OnDestroy {
   campaignName = '';
   campaignNotes = '';
   inviteCode = '';
+  /** The ruleset this campaign was forged under. Empty until one is selected. */
+  campaignEdition = '';
 
   /**
    * Load outcomes are rendered, never papered over: a DM who cannot tell a failed
@@ -163,9 +166,27 @@ export class DmComponent implements OnInit, OnDestroy {
   rollReason = 'Dragon Breath Fire Save';
   isSecretRoll = false;
 
-  avgLevel = 5;
+  /**
+   * Only set when the DM types a level by hand. Left null, the generator follows
+   * the roster — see the `avgLevel` accessor below.
+   */
+  private avgLevelOverride: number | null = null;
   location = 'Crypt';
+  encounterDifficulty: EncounterDifficulty = 'Medium';
   encounterResult: EncounterResponse | null = null;
+
+  /**
+   * The level the encounter is balanced for: the party's real average unless the
+   * DM overrode it. Held as a getter rather than a field that gets "synced" on
+   * party load — the field version started at 5 and quietly stayed there.
+   */
+  get avgLevel(): number {
+    return this.avgLevelOverride ?? (this.partyAverageLevel || 1);
+  }
+
+  set avgLevel(value: number) {
+    this.avgLevelOverride = Number.isFinite(value) ? value : null;
+  }
 
   npcConcept = 'Shady underworld broker';
   npcResult = '';
@@ -448,6 +469,21 @@ export class DmComponent implements OnInit, OnDestroy {
 
   // --- Session board (presentation only, derived from the live workspace state) ---
 
+  /**
+   * The ruleset every DM tool resolves against: the campaign's own, falling back
+   * to the edition toggle for a campaign saved before the field existed. Nothing
+   * here may be a string literal — a 2024 table used to get 2014 content with no
+   * sign that it had happened.
+   */
+  get activeEdition(): string {
+    return this.campaignEdition || this.charState.dndEdition();
+  }
+
+  /** `2014` / `2024`, for the badge that tells the DM which one is live. */
+  get editionShort(): string {
+    return this.activeEdition.includes('2024') ? '2024' : '2014';
+  }
+
   get partyAverageLevel(): number {
     if (this.partyMembers.length === 0) return 0;
     const total = this.partyMembers.reduce((sum, member) => sum + (member.level || 0), 0);
@@ -515,8 +551,10 @@ export class DmComponent implements OnInit, OnDestroy {
     this.campaignName = '';
     this.campaignNotes = '';
     this.inviteCode = '';
+    this.campaignEdition = '';
     this.partyMembers = [];
     this.partyStatus = 'ready';
+    this.avgLevelOverride = null;
     this.rollTargetMember = '';
     this.combatants = [];
     this.activeCombatantId = null;
@@ -537,11 +575,17 @@ export class DmComponent implements OnInit, OnDestroy {
     // No code yet — the DM forges one from the header button when they need it.
     this.inviteCode = selected?.invite_code || '';
     this.campaignNotes = selected?.notes || '';
+    // Blank for a campaign forged before the field existed; the toggle covers it.
+    this.campaignEdition = selected?.dnd_edition || '';
 
     // Before anything async: an encounter left running in this campaign is put
     // straight back on the table, so the fight is on screen while the roster is
     // still in flight rather than flashing empty first.
     this.restoreEncounter(this.campaignName);
+
+    // A level typed for the previous table says nothing about this one, so the
+    // generator goes back to following the roster.
+    this.avgLevelOverride = null;
 
     // role=dm means the server routes every whisper and roll result here, even
     // the private ones addressed to a single hero.
@@ -702,7 +746,8 @@ export class DmComponent implements OnInit, OnDestroy {
       campaign_name: this.newCampaignTitle.trim(),
       notes: this.newCampaignNotes,
       party: [],
-      dnd_edition: '2014 Edition'
+      // A campaign is forged under whichever ruleset the DM is playing right now.
+      dnd_edition: this.charState.dndEdition()
     };
 
     this.isCreatingCampaign = true;
@@ -1288,13 +1333,26 @@ export class DmComponent implements OnInit, OnDestroy {
     window.open(`https://www.dndbeyond.com/monsters/${slug}`, '_blank');
   }
 
+  /**
+   * Balanced against the table that is actually sitting there. Sending the old
+   * fixed `party_size: 4` / level 5 handed a party of six level-12 heroes a fight
+   * meant for four level-5 ones.
+   */
   generateEncounter() {
+    if (this.partyMembers.length === 0) {
+      this.rollToast.showMessage(
+        '⚠️ NO PARTY',
+        'Add at least one hero to the roster — an encounter cannot be balanced for an empty table.'
+      );
+      return;
+    }
+
     this.http.post<EncounterResponse>(`${environment.apiBaseUrl}/dm/encounter`, {
-      party_size: 4,
+      party_size: this.partyMembers.length,
       avg_level: this.avgLevel,
       location: this.location,
-      edition: '2014 Edition',
-      difficulty: 'Medium'
+      edition: this.activeEdition,
+      difficulty: this.encounterDifficulty
     }).subscribe((res) => {
       this.encounterResult = res;
     });
@@ -1308,14 +1366,17 @@ export class DmComponent implements OnInit, OnDestroy {
       const qty = m.quantity || 1;
       for (let i = 0; i < qty; i++) {
         const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
-        const dexMod = Math.floor((m.dex - 10) / 2);
+        // A generated statblock can come back without a usable DEX; average it
+        // rather than sorting the creature into the order at NaN.
+        const dex = Number.isFinite(m.dex) ? m.dex : 10;
+        const dexMod = Math.floor((dex - 10) / 2);
         added.push(this.buildCombatant({
           name: monsterName,
           initiative: 10 + dexMod,
           hp: m.hp,
           max_hp: m.hp,
           ac: m.ac,
-          dex: m.dex,
+          dex,
           is_player: false,
           statblock: m.statblock_summary
         }));
@@ -1330,7 +1391,7 @@ export class DmComponent implements OnInit, OnDestroy {
   generateNpc() {
     this.http.post<NpcResponse>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
-      edition: '2014 Edition'
+      edition: this.activeEdition
     }).subscribe((res) => {
       this.npcResult = res.npc_markdown;
     });
