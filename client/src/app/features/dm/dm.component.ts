@@ -8,7 +8,13 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
-import { Campaign, CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import {
+  Campaign,
+  CampaignMessages,
+  RollRequest,
+  Whisper,
+  campaignUrl,
+} from '../../core/models/campaign.model';
 import {
   EncounterResponse,
   NpcResponse,
@@ -259,14 +265,11 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.isSendingInboxReply = true;
     this.http
-      .post<{ whisper: Whisper }>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whisper`,
-        {
-          sender: 'DM',
-          recipient: this.inboxReplyRecipient,
-          message,
-        }
-      )
+      .post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
+        sender: 'DM',
+        recipient: this.inboxReplyRecipient,
+        message,
+      })
       .subscribe({
         next: (res) => {
           this.isSendingInboxReply = false;
@@ -290,9 +293,7 @@ export class DmComponent implements OnInit, OnDestroy {
    */
   private loadCampaignMessages(campaignName: string, isCatchUp = false) {
     this.http
-      .get<CampaignMessages>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
-      )
+      .get<CampaignMessages>(campaignUrl(campaignName, 'messages'))
       .subscribe({
         next: (messages) => {
           if (campaignName !== this.campaignName) return;
@@ -502,7 +503,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.partyStatus = 'loading';
     this.http
-      .get<any[]>(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/party`)
+      .get<any[]>(campaignUrl(this.campaignName, 'party'))
       .subscribe({
         next: (chars) => {
           this.partyMembers = (chars || []).map((char) => ({
@@ -669,7 +670,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   saveCampaignNotes() {
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/notes`, {
+    this.http.post(campaignUrl(this.campaignName, 'notes'), {
       notes: this.campaignNotes
     }).subscribe({
       next: () => this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved to database.'),
@@ -682,10 +683,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   generateInviteCode() {
     this.http
-      .post<{ invite_code: string }>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/invite-code`,
-        {}
-      )
+      .post<{ invite_code: string }>(campaignUrl(this.campaignName, 'invite-code'), {})
       .subscribe({
         next: (res) => {
           this.inviteCode = res.invite_code;
@@ -740,7 +738,7 @@ export class DmComponent implements OnInit, OnDestroy {
       ? `${this.rollTargetMember.toLowerCase()}_${target.char_id}.json`
       : `${this.rollTargetMember.toLowerCase()}.json`;
 
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/roll-request`, {
+    this.http.post(campaignUrl(this.campaignName, 'roll-request'), {
       char_filename: charFilename,
       char_name: this.rollTargetMember,
       roll_type: this.rollType,
@@ -901,14 +899,11 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   sendWhisper() {
-    this.http.post<{ whisper: Whisper }>(
-      `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whisper`,
-      {
-        sender: 'DM',
-        recipient: this.whisperRecipient,
-        message: this.whisperMessage
-      }
-    ).subscribe({
+    this.http.post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
+      sender: 'DM',
+      recipient: this.whisperRecipient,
+      message: this.whisperMessage
+    }).subscribe({
       next: (res) => {
         this.showWhisperModal = false;
         this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
