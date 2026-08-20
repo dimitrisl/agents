@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, shareReplay, tap } from 'rxjs';
 import { CharacterSchema } from '../models/character.model';
+import { abilityModifier, proficiencyBonus } from '../rules';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -30,18 +31,18 @@ export class CharacterStateService {
     const stats = this.activeCharacter()?.stats;
     if (!stats) return { STR: 0, DEX: 0, CON: 0, INT: 0, WIS: 0, CHA: 0 };
     return {
-      STR: Math.floor((stats.STR - 10) / 2),
-      DEX: Math.floor((stats.DEX - 10) / 2),
-      CON: Math.floor((stats.CON - 10) / 2),
-      INT: Math.floor((stats.INT - 10) / 2),
-      WIS: Math.floor((stats.WIS - 10) / 2),
-      CHA: Math.floor((stats.CHA - 10) / 2),
+      STR: abilityModifier(stats.STR),
+      DEX: abilityModifier(stats.DEX),
+      CON: abilityModifier(stats.CON),
+      INT: abilityModifier(stats.INT),
+      WIS: abilityModifier(stats.WIS),
+      CHA: abilityModifier(stats.CHA),
     };
   });
 
   readonly passivePerception = computed(() => {
     const wisMod = this.abilityModifiers().WIS;
-    const profBonus = this.activeCharacter()?.proficiency_bonus || 2;
+    const profBonus = proficiencyBonus(this.activeCharacter());
     const isProf = this.activeCharacter()?.skill_proficiencies?.includes('Perception');
     return 10 + wisMod + (isProf ? profBonus : 0);
   });
