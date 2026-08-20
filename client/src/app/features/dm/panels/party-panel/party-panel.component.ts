@@ -33,6 +33,7 @@ export class PartyPanelComponent {
   @Output() addMember = new EventEmitter<void>();
   @Output() issueRollRequest = new EventEmitter<void>();
   @Output() adjustHp = new EventEmitter<{ member: PartyMember; delta: number }>();
+  @Output() setHp = new EventEmitter<{ member: PartyMember; hp: number }>();
   @Output() quickStatRoll = new EventEmitter<{ member: PartyMember; stat: string }>();
   @Output() toggleCondition = new EventEmitter<{ member: PartyMember; condition: string }>();
   @Output() privateRollRequest = new EventEmitter<PartyMember>();
@@ -47,6 +48,21 @@ export class PartyPanelComponent {
 
   trackMember(_index: number, member: PartyMember): string {
     return member.char_id || member.name;
+  }
+
+  /**
+   * Committed on blur, clamped, and written back to the element — the field
+   * used to mutate the member object straight through `ngModel`, which left the
+   * roster holding a number nothing else in the workspace agreed with.
+   */
+  onHpInput(member: PartyMember, input: HTMLInputElement): void {
+    const typed = input.valueAsNumber;
+    const hp = Number.isFinite(typed)
+      ? Math.max(0, Math.min(member.hp_max, Math.round(typed)))
+      : member.hp_current;
+
+    input.value = `${hp}`;
+    this.setHp.emit({ member, hp });
   }
 
   hpPercent(member: PartyMember): number {

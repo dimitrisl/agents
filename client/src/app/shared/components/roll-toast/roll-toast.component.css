@@ -20,7 +20,15 @@
   align-items: flex-end;
   background: transparent;
   justify-content: flex-end;
-  padding: 2rem;
+  /* Matches the card's own `100vw - 2rem` ceiling, so the narrowest phone still
+     has room for it instead of pushing the page sideways. */
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .roll-toast-overlay.message-only {
+    padding: 1.5rem;
+  }
 }
 
 .roll-toast-card {
@@ -37,9 +45,40 @@
   position: relative;
 }
 
+/*
+ * A plain message is a notification, not a verdict. It borrows none of the roll
+ * card's ceremony — no 2px accent border, no glow, no gold — because a line like
+ * "Party imported" arriving with the weight of a critical hit teaches the DM to
+ * ignore the thing that matters. Identity is carried by a 3px accent rail, the
+ * same indicator the sidebar's active link uses.
+ */
 .message-only .roll-toast-card {
-  max-width: 420px;
-  min-width: min(320px, calc(100vw - 2rem));
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  max-width: 26rem;
+  min-width: min(20rem, calc(100vw - 2rem));
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+}
+
+.message-only .roll-toast-card::after {
+  background: var(--theme-accent);
+  border-radius: 0 2px 2px 0;
+  content: '';
+  inset: 0.75rem auto 0.75rem 0;
+  position: absolute;
+  width: 3px;
+}
+
+.message-only .toast-header {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.message-only .toast-message {
+  padding-top: 0.25rem;
 }
 
 .roll-toast-card.nat-20 {
@@ -559,6 +598,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .roll-toast-overlay.animated-fade,
   .roll-toast-card.nat-20,
   .roll-toast-card.nat-1,
   .roll-toast-card.nat-20::before,

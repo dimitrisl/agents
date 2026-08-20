@@ -4,6 +4,7 @@
       class="roll-toast-card"
       [class.nat-20]="roll.isNat20 && diceSettled()"
       [class.nat-1]="roll.isNat1 && diceSettled()"
+      [attr.role]="roll.message ? 'status' : null"
     >
       @if ((roll.isNat20 || roll.isNat1) && diceSettled()) {
         <div class="critical-aura" aria-hidden="true">
@@ -14,7 +15,12 @@
       }
 
       <div class="toast-header">
-        <span class="font-display text-body font-bold tracking-[0.04em] text-gold">{{ displayTitle(roll.title) }}</span>
+        <span
+          class="min-w-0 font-display text-body font-bold tracking-[0.04em]"
+          [class.text-gold]="!roll.message"
+          [class.text-ink]="roll.message"
+          >{{ displayTitle(roll.title) }}</span
+        >
         <button
           forgeButton
           variant="ghost"
@@ -28,8 +34,8 @@
       </div>
 
       @if (roll.message) {
-        <div class="py-1">
-          <p class="m-0 text-body text-ink">{{ roll.message }}</p>
+        <div class="toast-message">
+          <p class="m-0 min-w-0 text-body text-muted">{{ roll.message }}</p>
         </div>
       }
 

@@ -20,6 +20,11 @@ import {
   NpcResponse,
   SessionPrepResponse,
 } from '../../core/models/dm-tools.model';
+import {
+  CombatantCondition,
+  InitiativeCombatant,
+} from '../../core/models/initiative.model';
+import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
   ForgeButtonDirective,
@@ -58,18 +63,21 @@ export interface PartyMember {
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 
-export interface InitiativeCombatant {
-  id: string;
-  name: string;
-  initiative: number;
-  hp: number;
-  max_hp: number;
-  ac: number;
-  dex: number;
-  is_player: boolean;
-  portrait?: string;
-  statblock?: string;
+/** What the DM may write back to a hero's sheet from the workspace. */
+interface PartyStateChanges {
+  hp_current?: number;
+  conditions?: string[];
 }
+
+interface PartyStatePayload extends PartyStateChanges {
+  char_id?: string;
+}
+
+/**
+ * Long enough that holding a hit-point button is one write, short enough that
+ * the player sees the hit while it still means something.
+ */
+const PARTY_STATE_DEBOUNCE_MS = 400;
 
 @Component({
   selector: 'app-dm',
@@ -182,6 +190,12 @@ export class DmComponent implements OnInit, OnDestroy {
    * silently starts pointing at a different creature.
    */
   activeCombatantId: string | null = null;
+  /**
+   * 0 means the encounter has not started — the first Next Turn opens round 1.
+   * It climbs only when the order wraps back to the top, which is the one
+   * moment D&D calls a new round.
+   */
+  round = 0;
 
   newCombatantName = '';
   newCombatantInit = 10;
@@ -196,7 +210,8 @@ export class DmComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     public charState: CharacterStateService,
     private wsService: WebSocketService,
-    private auth: AuthService
+    private auth: AuthService,
+    private encounterStorage: EncounterStorageService
   ) {}
 
   // The campaign whose party/socket is currently live, so re-picking the same
@@ -204,6 +219,17 @@ export class DmComponent implements OnInit, OnDestroy {
   private activeWorkspace: string | null = null;
   private wsSub: Subscription | null = null;
   private openedSub: Subscription | null = null;
+
+  /**
+   * Whether the tracker currently holds a real fight for this campaign. The
+   * party fetch used to seed it unconditionally; doing that over a restored
+   * encounter would wipe it moments after it reappeared.
+   */
+  private hasLiveEncounter = false;
+
+  /** Coalesced writes back to the heroes' sheets, keyed by character. */
+  private pendingPartyState = new Map<string, PartyStateChanges>();
+  private partyStateTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   ngOnInit() {
     this.loadCampaigns();
@@ -234,6 +260,8 @@ export class DmComponent implements OnInit, OnDestroy {
           `🎲 ROLL RESULT: ${payload.char_name}`,
           `${payload.roll_type} (${payload.stat}) = ${result.total}`
         );
+      } else if (msg.type === 'party_update') {
+        this.applyPartyUpdate(payload);
       } else if (msg.type === 'whisper') {
         const isOwnWhisper = payload.sender === 'DM';
         this.addInboxWhisper(payload, !isOwnWhisper);
@@ -247,6 +275,11 @@ export class DmComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
+
+    // A hit recorded a moment before leaving the page still has to land.
+    for (const timer of this.partyStateTimers.values()) clearTimeout(timer);
+    this.partyStateTimers.clear();
+    for (const charId of [...this.pendingPartyState.keys()]) this.flushPartyState(charId);
   }
 
   // --- Live table inbox ---
@@ -408,6 +441,10 @@ export class DmComponent implements OnInit, OnDestroy {
     return this.combatants.find((c) => c.id === this.activeCombatantId)?.name || '—';
   }
 
+  get roundLabel(): string {
+    return this.round > 0 ? `Round ${this.round}` : 'Not started';
+  }
+
   hpPercent(member: PartyMember): number {
     if (!member.hp_max) return 0;
     return Math.max(0, Math.min(100, (member.hp_current / member.hp_max) * 100));
@@ -466,6 +503,8 @@ export class DmComponent implements OnInit, OnDestroy {
     this.rollTargetMember = '';
     this.combatants = [];
     this.activeCombatantId = null;
+    this.round = 0;
+    this.hasLiveEncounter = false;
     this.inboxWhispers = [];
     this.inboxRollRequests = [];
     this.unreadInboxMessages = 0;
@@ -481,6 +520,11 @@ export class DmComponent implements OnInit, OnDestroy {
     // No code yet — the DM forges one from the header button when they need it.
     this.inviteCode = selected?.invite_code || '';
     this.campaignNotes = selected?.notes || '';
+
+    // Before anything async: an encounter left running in this campaign is put
+    // straight back on the table, so the fight is on screen while the roster is
+    // still in flight rather than flashing empty first.
+    this.restoreEncounter(this.campaignName);
 
     // role=dm means the server routes every whisper and roll result here, even
     // the private ones addressed to a single hero.
@@ -515,14 +559,16 @@ export class DmComponent implements OnInit, OnDestroy {
             hp_max: char.hp_max ?? 10,
             ac: char.armor_class ?? 10,
             passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
-            conditions: [],
+            // The sheet has carried conditions all along; the workspace used to
+            // throw them away and start every session from a clean hero.
+            conditions: char.conditions || [],
             stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
             portrait: char.char_portrait
           }));
           this.campaignParties[this.campaignName] = [...this.partyMembers];
           this.partyStatus = 'ready';
           this.rollTargetMember = this.partyMembers[0]?.name || '';
-          this.importPartyToInitiative(true);
+          this.seedInitiativeFromParty();
         },
         error: (err) => {
           if (this.handleAuthFailure(err)) return;
@@ -530,7 +576,7 @@ export class DmComponent implements OnInit, OnDestroy {
           this.partyMembers = [];
           this.partyStatus = 'error';
           this.rollTargetMember = '';
-          this.importPartyToInitiative(true);
+          this.seedInitiativeFromParty();
         }
       });
   }
@@ -697,14 +743,122 @@ export class DmComponent implements OnInit, OnDestroy {
       });
   }
 
+  // --- One hero, one state ---
+  //
+  // Hit points and conditions for a hero are owned by the `PartyMember`. The
+  // initiative row for that hero is a view of it, never a second copy: both
+  // tabs used to hold their own numbers and drift apart in the middle of a
+  // fight, with the DM left to guess which one was true.
+
   adjustHp(member: PartyMember, delta: number) {
-    member.hp_current = Math.max(0, Math.min(member.hp_max, member.hp_current + delta));
+    this.setPartyHp(member, member.hp_current + delta);
+  }
+
+  setPartyHp(member: PartyMember, hp: number) {
+    const clamped = Math.max(0, Math.min(member.hp_max, Math.round(hp) || 0));
+    if (clamped === member.hp_current) return;
+
+    member.hp_current = clamped;
+    this.projectMemberOntoCombatants(member);
+    this.pushPartyState(member, { hp_current: clamped });
   }
 
   toggleCondition(member: PartyMember, cond: string) {
     const idx = member.conditions.indexOf(cond);
-    if (idx >= 0) member.conditions.splice(idx, 1);
-    else member.conditions.push(cond);
+    if (idx >= 0) {
+      member.conditions = member.conditions.filter((c) => c !== cond);
+      this.dropConditionFromCombatants(member, cond);
+    } else {
+      member.conditions = [...member.conditions, cond];
+      // Set from the roster, so it has no combat timer — it lasts until lifted.
+      this.addConditionToCombatants(member, cond, null);
+    }
+
+    this.pushPartyState(member, { conditions: member.conditions });
+  }
+
+  /** The party member behind an initiative row, when the row is a hero. */
+  private memberFor(combatant: InitiativeCombatant): PartyMember | undefined {
+    if (!combatant.is_player) return undefined;
+    return this.partyMembers.find((m) =>
+      combatant.char_id ? m.char_id === combatant.char_id : m.name === combatant.name
+    );
+  }
+
+  private combatantsFor(member: PartyMember): InitiativeCombatant[] {
+    return this.combatants.filter(
+      (c) => c.is_player && (c.char_id ? c.char_id === member.char_id : c.name === member.name)
+    );
+  }
+
+  /** Pushes the member's hit points onto its initiative row. */
+  private projectMemberOntoCombatants(member: PartyMember) {
+    const linked = new Set(this.combatantsFor(member).map((c) => c.id));
+    if (linked.size === 0) return;
+
+    this.combatants = this.combatants.map((c) =>
+      linked.has(c.id) ? { ...c, hp: member.hp_current, max_hp: member.hp_max } : c
+    );
+    this.persistEncounter();
+  }
+
+  private addConditionToCombatants(
+    member: PartyMember,
+    condition: string,
+    expiresAtRound: number | null
+  ) {
+    const linked = new Set(this.combatantsFor(member).map((c) => c.id));
+    if (linked.size === 0) return;
+
+    this.combatants = this.combatants.map((c) =>
+      linked.has(c.id)
+        ? {
+            ...c,
+            conditions: [
+              ...c.conditions.filter((existing) => existing.name !== condition),
+              { name: condition, expiresAtRound },
+            ],
+          }
+        : c
+    );
+    this.persistEncounter();
+  }
+
+  private dropConditionFromCombatants(member: PartyMember, condition: string) {
+    const linked = new Set(this.combatantsFor(member).map((c) => c.id));
+    if (linked.size === 0) return;
+
+    this.combatants = this.combatants.map((c) =>
+      linked.has(c.id)
+        ? { ...c, conditions: c.conditions.filter((existing) => existing.name !== condition) }
+        : c
+    );
+    this.persistEncounter();
+  }
+
+  /**
+   * A condition whose timer ran out is a real event, not just something the
+   * tracker stops drawing: the roster has to lose it too, and so does the
+   * database. Walking the round back re-adds it, which is why the expiry is
+   * kept rather than deleted.
+   */
+  private reconcileLapsedConditions() {
+    for (const member of this.partyMembers) {
+      const combatant = this.combatantsFor(member)[0];
+      if (!combatant) continue;
+
+      const active = combatant.conditions
+        .filter((c) => c.expiresAtRound === null || c.expiresAtRound > this.round)
+        .map((c) => c.name);
+
+      const unchanged =
+        active.length === member.conditions.length &&
+        active.every((name) => member.conditions.includes(name));
+      if (unchanged) continue;
+
+      member.conditions = active;
+      this.pushPartyState(member, { conditions: active });
+    }
   }
 
   quickDmStatRoll(member: PartyMember, stat: string) {
@@ -755,19 +909,24 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * The party fetch's own call into the tracker. It seeds a fresh table, but
+   * never touches a fight that came back from storage — the restored encounter
+   * already holds those heroes, with the HP and conditions they earned.
+   */
+  private seedInitiativeFromParty() {
+    if (this.hasLiveEncounter) return;
+    this.importPartyToInitiative(true);
+  }
+
   importPartyToInitiative(silent = false) {
-    if (silent) {
-      // Remove old campaign player combatants
-      this.combatants = this.combatants.filter((c) => !c.is_player);
-      // A campaign switch is a new table: the previous encounter's turn is void.
-      this.activeCombatantId = null;
-    }
-    this.partyMembers.forEach((p) => {
-      if (!this.combatants.some((c) => c.name === p.name)) {
+    const additions = this.partyMembers
+      .filter((p) => !this.combatants.some((c) => c.name === p.name))
+      .map((p) => {
         const dexVal = p.stats?.['DEX'] || 10;
         const dexMod = Math.floor((dexVal - 10) / 2);
-        this.combatants.push({
-          id: Math.random().toString(36).substring(2, 9),
+        return this.buildCombatant({
+          char_id: p.char_id,
           name: p.name,
           initiative: 10 + dexMod,
           hp: p.hp_current,
@@ -775,11 +934,14 @@ export class DmComponent implements OnInit, OnDestroy {
           ac: p.ac,
           dex: dexVal,
           is_player: true,
-          portrait: p.portrait
+          portrait: p.portrait,
+          conditions: p.conditions.map((name) => ({ name, expiresAtRound: null })),
         });
-      }
-    });
-    this.sortCombatants();
+      });
+
+    this.combatants = this.sortCombatants([...this.combatants, ...additions]);
+    this.persistEncounter();
+
     if (!silent) {
       this.rollToast.showMessage('👥 PARTY IMPORTED', 'Imported active party members into Initiative Tracker.');
     }
@@ -787,8 +949,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   addCombatant() {
     if (!this.newCombatantName) return;
-    this.combatants.push({
-      id: Math.random().toString(36).substring(2, 9),
+
+    const added = this.buildCombatant({
       name: this.newCombatantName,
       initiative: this.newCombatantInit,
       hp: this.newCombatantHp,
@@ -797,41 +959,304 @@ export class DmComponent implements OnInit, OnDestroy {
       dex: 10,
       is_player: false,
     });
-    this.sortCombatants();
+
+    this.combatants = this.sortCombatants([...this.combatants, added]);
     this.newCombatantName = '';
+    this.persistEncounter();
   }
 
   removeCombatant(idx: number) {
-    const [removed] = this.combatants.splice(idx, 1);
-    if (!removed || removed.id !== this.activeCombatantId) return;
+    const removed = this.combatants[idx];
+    if (!removed) return;
 
-    // The active combatant left the fight, so the turn passes to whoever slid
-    // into its slot — or wraps to the top of the order if it was the last one.
-    this.activeCombatantId = this.combatants[idx]?.id ?? this.combatants[0]?.id ?? null;
+    this.combatants = this.combatants.filter((_, index) => index !== idx);
+
+    if (removed.id === this.activeCombatantId) {
+      // The active combatant left the fight, so the turn passes to whoever slid
+      // into its slot — or wraps to the top of the order if it was the last one.
+      this.activeCombatantId = this.combatants[idx]?.id ?? this.combatants[0]?.id ?? null;
+    }
+
+    // An emptied table is no longer a fight in progress.
+    if (this.combatants.length === 0) this.round = 0;
+    this.persistEncounter();
   }
 
   rollAllInitiative() {
-    this.combatants.forEach((c) => {
+    const rolled = this.combatants.map((c) => {
       const dexMod = Math.floor((c.dex - 10) / 2);
-      c.initiative = this.dice.rollD20(dexMod).total;
+      return { ...c, initiative: this.dice.rollD20(dexMod).total };
     });
-    this.sortCombatants();
+
+    this.combatants = this.sortCombatants(rolled);
+    this.persistEncounter();
     this.rollToast.showMessage('🎲 INITIATIVE ROLLED', 'Rolled initiative for all active combatants!');
   }
 
-  sortCombatants() {
-    this.combatants.sort((a, b) => b.initiative - a.initiative);
+  /** Highest initiative first. Returns a new array — OnPush children need one. */
+  private sortCombatants(combatants: InitiativeCombatant[]): InitiativeCombatant[] {
+    return [...combatants].sort((a, b) => b.initiative - a.initiative);
   }
+
+  private buildCombatant(
+    seed: Omit<InitiativeCombatant, 'id' | 'conditions'> & { conditions?: CombatantCondition[] }
+  ): InitiativeCombatant {
+    return {
+      ...seed,
+      id: Math.random().toString(36).substring(2, 9),
+      conditions: seed.conditions ?? [],
+    };
+  }
+
+  // --- The round engine ---
 
   nextTurn() {
     if (this.combatants.length === 0) {
       this.activeCombatantId = null;
+      this.round = 0;
+      this.persistEncounter();
       return;
     }
 
-    // No active turn yet (-1) advances to the top of the order.
+    // No active turn yet (-1) advances to the top of the order, which is also
+    // what opens round 1.
     const current = this.combatants.findIndex((c) => c.id === this.activeCombatantId);
-    this.activeCombatantId = this.combatants[(current + 1) % this.combatants.length].id;
+    const next = (current + 1) % this.combatants.length;
+
+    // Wrapping to the top is the only thing that makes a new round.
+    if (next === 0) this.round += 1;
+
+    this.activeCombatantId = this.combatants[next].id;
+    this.persistEncounter();
+    this.reconcileLapsedConditions();
+  }
+
+  previousTurn() {
+    // Nothing has happened yet — there is no turn to take back.
+    if (this.combatants.length === 0 || this.round === 0) return;
+
+    const current = this.combatants.findIndex((c) => c.id === this.activeCombatantId);
+    if (current < 0) return;
+
+    if (current === 0) {
+      // Stepping off the top of the order walks the round counter back with it.
+      // Round 1 is the floor: before it, combat had not begun.
+      if (this.round <= 1) {
+        this.activeCombatantId = null;
+        this.round = 0;
+        this.persistEncounter();
+        this.reconcileLapsedConditions();
+        return;
+      }
+      this.round -= 1;
+    }
+
+    const previous = (current - 1 + this.combatants.length) % this.combatants.length;
+    this.activeCombatantId = this.combatants[previous].id;
+    this.persistEncounter();
+    this.reconcileLapsedConditions();
+  }
+
+  endCombat() {
+    this.combatants = [];
+    this.activeCombatantId = null;
+    this.round = 0;
+    this.hasLiveEncounter = false;
+    this.encounterStorage.clear(this.campaignName);
+    this.rollToast.showMessage('⏹️ COMBAT ENDED', 'The encounter was cleared. Initiative starts fresh.');
+  }
+
+  // --- Conditions, hit points and death saves ---
+
+  /** `rounds` of 0 means "until the DM lifts it". */
+  applyCombatantCondition(combatant: InitiativeCombatant, condition: string, rounds: number) {
+    // Durations are anchored to the round they expire on, not counted down, so
+    // Previous Turn restores a lapsed condition instead of losing it. Combat
+    // that has not started yet is treated as round 1 for the arithmetic.
+    const startRound = Math.max(1, this.round);
+    const expiresAtRound = rounds > 0 ? startRound + rounds : null;
+
+    this.updateCombatant(combatant.id, (c) => ({
+      ...c,
+      conditions: [
+        ...c.conditions.filter((existing) => existing.name !== condition),
+        { name: condition, expiresAtRound },
+      ],
+    }));
+
+    // A hero's conditions belong to the roster and the database as well.
+    const member = this.memberFor(combatant);
+    if (member && !member.conditions.includes(condition)) {
+      member.conditions = [...member.conditions, condition];
+      this.pushPartyState(member, { conditions: member.conditions });
+    }
+  }
+
+  removeCombatantCondition(combatant: InitiativeCombatant, condition: string) {
+    this.updateCombatant(combatant.id, (c) => ({
+      ...c,
+      conditions: c.conditions.filter((existing) => existing.name !== condition),
+    }));
+
+    const member = this.memberFor(combatant);
+    if (member && member.conditions.includes(condition)) {
+      member.conditions = member.conditions.filter((c) => c !== condition);
+      this.pushPartyState(member, { conditions: member.conditions });
+    }
+  }
+
+  setCombatantHp(combatant: InitiativeCombatant, hp: number) {
+    // A hero is edited through the roster, so the party tab, the tracker and
+    // the player's own sheet all move together.
+    const member = this.memberFor(combatant);
+    if (member) {
+      this.setPartyHp(member, hp);
+      this.clearDeathSavesIfStanding(combatant.id, member.hp_current);
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(combatant.max_hp, Math.round(hp) || 0));
+    this.updateCombatant(combatant.id, (c) => ({ ...c, hp: clamped }));
+    this.clearDeathSavesIfStanding(combatant.id, clamped);
+  }
+
+  private clearDeathSavesIfStanding(combatantId: string, hp: number) {
+    if (hp <= 0) return;
+    // Back on their feet: the tally that was counting them out is void.
+    this.updateCombatant(combatantId, (c) => {
+      const next = { ...c };
+      delete next.deathSaves;
+      return next;
+    });
+  }
+
+  /**
+   * The DM records what the player rolled. Clicking the dot that is already the
+   * last one lit clears it, so a mis-click costs one click, not a life.
+   */
+  setDeathSave(combatant: InitiativeCombatant, kind: 'successes' | 'failures', value: number) {
+    this.updateCombatant(combatant.id, (c) => {
+      const saves = c.deathSaves ?? { successes: 0, failures: 0 };
+      const next = saves[kind] === value ? value - 1 : value;
+      return { ...c, deathSaves: { ...saves, [kind]: Math.max(0, Math.min(3, next)) } };
+    });
+  }
+
+  private updateCombatant(
+    id: string,
+    change: (combatant: InitiativeCombatant) => InitiativeCombatant
+  ) {
+    this.combatants = this.combatants.map((c) => (c.id === id ? change(c) : c));
+    this.persistEncounter();
+  }
+
+  // --- Party state persistence ---
+
+  /**
+   * Writes a hero's tracked state back to their sheet, so the player sees it and
+   * a refresh does not throw the session's damage away.
+   *
+   * Coalesced per character: holding the − button is one intent, not eleven
+   * requests. A member the DM invented by hand has no sheet to write to, so it
+   * stays local and says nothing.
+   */
+  private pushPartyState(member: PartyMember, changes: PartyStateChanges) {
+    if (!member.char_id || !this.campaignName) return;
+
+    const charId = member.char_id;
+    const pending = { ...(this.pendingPartyState.get(charId) ?? {}), ...changes };
+    this.pendingPartyState.set(charId, pending);
+
+    const timer = this.partyStateTimers.get(charId);
+    if (timer) clearTimeout(timer);
+
+    this.partyStateTimers.set(
+      charId,
+      setTimeout(() => this.flushPartyState(charId), PARTY_STATE_DEBOUNCE_MS)
+    );
+  }
+
+  private flushPartyState(charId: string) {
+    const changes = this.pendingPartyState.get(charId);
+    this.pendingPartyState.delete(charId);
+    this.partyStateTimers.delete(charId);
+    if (!changes || !this.campaignName) return;
+
+    const campaignName = this.campaignName;
+    this.http
+      .patch(`${campaignUrl(campaignName, 'party')}/${encodeURIComponent(charId)}/state`, changes)
+      .subscribe({
+        error: (err) => {
+          if (this.handleAuthFailure(err)) return;
+          // The table keeps playing on what is on screen, but the DM is told the
+          // sheet did not take it — silence here is how a session's damage
+          // quietly fails to reach the player.
+          const member = this.partyMembers.find((m) => m.char_id === charId);
+          this.rollToast.showMessage(
+            '⚠️ NOT SAVED',
+            `${member?.name || 'That hero'}'s state stayed in this browser — the server refused it.`
+          );
+        },
+      });
+  }
+
+  /**
+   * The server's echo of a party change — including this DM's own writes. A
+   * character with a write still in flight is skipped: the echo is older than
+   * what the DM is doing right now.
+   */
+  private applyPartyUpdate(payload: PartyStatePayload) {
+    if (!payload?.char_id || this.pendingPartyState.has(payload.char_id)) return;
+
+    const member = this.partyMembers.find((m) => m.char_id === payload.char_id);
+    if (!member) return;
+
+    if (typeof payload.hp_current === 'number') member.hp_current = payload.hp_current;
+    if (Array.isArray(payload.conditions)) member.conditions = [...payload.conditions];
+
+    this.projectMemberOntoCombatants(member);
+  }
+
+  // --- Encounter persistence ---
+
+  /**
+   * Browser-local, per campaign. The API has no encounter document, so this is
+   * what a refresh can hold on to — it does not follow the DM to another
+   * machine, and the players never see it.
+   */
+  private persistEncounter() {
+    if (!this.campaignName) return;
+
+    this.hasLiveEncounter = this.combatants.length > 0;
+    if (!this.hasLiveEncounter) {
+      this.encounterStorage.clear(this.campaignName);
+      return;
+    }
+
+    this.encounterStorage.save(this.campaignName, {
+      round: this.round,
+      activeCombatantId: this.activeCombatantId,
+      combatants: this.combatants,
+    });
+  }
+
+  private restoreEncounter(campaignName: string) {
+    const saved = this.encounterStorage.load(campaignName);
+
+    if (saved && saved.combatants.length > 0) {
+      this.combatants = this.sortCombatants(saved.combatants);
+      this.activeCombatantId = saved.activeCombatantId;
+      this.round = saved.round;
+      this.hasLiveEncounter = true;
+      return;
+    }
+
+    // Encounters belong to one campaign each, so nothing carries over from the
+    // table we just left — not the monsters, and not whose turn it was.
+    this.combatants = [];
+    this.activeCombatantId = null;
+    this.round = 0;
+    this.hasLiveEncounter = false;
   }
 
   openStatblock(c: InitiativeCombatant) {
@@ -858,13 +1283,13 @@ export class DmComponent implements OnInit, OnDestroy {
   addEncounterMonstersToInitiative() {
     if (!this.encounterResult || !this.encounterResult.monsters) return;
 
+    const added: InitiativeCombatant[] = [];
     this.encounterResult.monsters.forEach((m) => {
       const qty = m.quantity || 1;
       for (let i = 0; i < qty; i++) {
         const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
         const dexMod = Math.floor((m.dex - 10) / 2);
-        this.combatants.push({
-          id: Math.random().toString(36).substring(2, 9),
+        added.push(this.buildCombatant({
           name: monsterName,
           initiative: 10 + dexMod,
           hp: m.hp,
@@ -873,10 +1298,12 @@ export class DmComponent implements OnInit, OnDestroy {
           dex: m.dex,
           is_player: false,
           statblock: m.statblock_summary
-        });
+        }));
       }
     });
-    this.sortCombatants();
+
+    this.combatants = this.sortCombatants([...this.combatants, ...added]);
+    this.persistEncounter();
     this.rollToast.showMessage('⚔️ MONSTERS ADDED', `Added ${this.encounterResult.monsters.length} monster groups to the Initiative Tracker.`);
   }
 

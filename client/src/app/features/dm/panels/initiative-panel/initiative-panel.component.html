@@ -15,18 +15,61 @@
         <button forgeButton variant="secondary" size="sm" type="button" (click)="rollAll.emit()">
           🎲 Roll All
         </button>
+      </div>
+    </div>
+
+    <section
+      class="flex flex-col gap-3 rounded-xl bg-panel p-4 sm:flex-row sm:items-center sm:justify-between"
+      aria-labelledby="dm-round-heading"
+    >
+      <div class="flex min-w-0 flex-wrap items-center gap-3">
+        <h3 id="dm-round-heading" class="sr-only">Round and turn order</h3>
+        <forge-badge [tone]="hasStarted ? 'accent' : 'muted'" size="md">
+          {{ roundLabel }}
+        </forge-badge>
+        <p class="min-w-0 truncate text-label text-muted" aria-live="polite">
+          @if (hasStarted) {
+            Current turn · <span class="font-semibold text-ink">{{ currentTurnName }}</span>
+          } @else {
+            Press Next Turn to open round 1.
+          }
+        </p>
+      </div>
+
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="!hasStarted"
+          (click)="rewindTurn.emit()"
+        >
+          ⬅️ Previous Turn
+        </button>
         <button
           forgeButton
           variant="secondary"
           tone="accent"
           size="sm"
           type="button"
+          [disabled]="combatants.length === 0"
           (click)="advanceTurn.emit()"
         >
           Next Turn ➡️
         </button>
+        <button
+          forgeButton
+          variant="danger"
+          size="sm"
+          type="button"
+          [disabled]="combatants.length === 0"
+          (click)="showEndCombatConfirm = true"
+        >
+          ⏹️ End Combat
+        </button>
       </div>
-    </div>
+    </section>
 
     <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-add-combatant-heading">
       <header class="bg-tile px-4 py-3">
@@ -81,9 +124,11 @@
     </section>
 
     @if (combatants.length === 0) {
-      <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
-        No combatants yet. Import the party or add a monster to start the encounter.
-      </p>
+      <forge-empty-state
+        icon="⚔️"
+        title="No combatants yet"
+        description="Import the party or add a monster to start the encounter."
+      ></forge-empty-state>
     } @else {
       <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
         <table class="min-w-full border-collapse text-left text-body">
@@ -97,70 +142,242 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-hairline">
-            <tr
-              *ngFor="let combatant of combatants; let index = index; trackBy: trackCombatant"
-              class="transition-colors"
-              [ngClass]="combatant.id === activeCombatantId ? 'bg-accent/6' : 'hover:bg-tile'"
-            >
-              <td class="whitespace-nowrap px-3 py-2">
-                @if (combatant.id === activeCombatantId) {
-                  <span class="flex items-center gap-1 font-semibold text-accent">
-                    <span aria-hidden="true">⚔️</span> Current
-                  </span>
-                } @else {
-                  <span class="text-muted">{{ index + 1 }}</span>
-                }
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex min-w-0 items-center gap-2">
-                  <img
-                    [src]="combatant.portrait || 'https://img.icons8.com/color/96/monster.png'"
-                    alt=""
-                    class="h-9 w-9 shrink-0 rounded-full border border-hairline object-cover"
-                  />
-                  <span class="min-w-0 truncate font-semibold text-ink">{{ combatant.name }}</span>
-                </div>
-              </td>
-              <td class="px-3 py-2 text-ink">{{ combatant.initiative }}</td>
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <input
-                    forgeInput
-                    type="number"
-                    class="max-w-20 text-center"
-                    [attr.aria-label]="combatant.name + ' current hit points'"
-                    [(ngModel)]="combatant.hp"
-                  />
-                  <span class="whitespace-nowrap text-label text-muted">/ {{ combatant.max_hp }}</span>
-                </div>
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    forgeButton
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    (click)="openStatblock.emit(combatant)"
-                  >
-                    📜 Statblock
-                  </button>
-                  <button
-                    forgeButton
-                    variant="danger"
-                    size="sm"
-                    type="button"
-                    [attr.aria-label]="'Remove ' + combatant.name"
-                    (click)="removeCombatant.emit(index)"
-                  >
-                    ✕ Remove
-                  </button>
-                </div>
-              </td>
-            </tr>
+            @for (combatant of combatants; track trackCombatant($index, combatant); let index = $index) {
+              <tr
+                class="transition-colors"
+                [ngClass]="combatant.id === activeCombatantId ? 'bg-accent/6' : 'hover:bg-tile'"
+              >
+                <td class="whitespace-nowrap px-3 py-2 align-top">
+                  @if (combatant.id === activeCombatantId) {
+                    <span class="flex items-center gap-1 font-semibold text-accent">
+                      <span aria-hidden="true">⚔️</span> Current
+                    </span>
+                  } @else {
+                    <span class="text-muted">{{ index + 1 }}</span>
+                  }
+                </td>
+                <td class="px-3 py-2 align-top">
+                  <div class="flex min-w-0 items-center gap-2">
+                    <img
+                      [src]="combatant.portrait || 'https://img.icons8.com/color/96/monster.png'"
+                      alt=""
+                      class="h-9 w-9 shrink-0 rounded-full border border-hairline object-cover"
+                    />
+                    <span class="min-w-0 truncate font-semibold text-ink">{{ combatant.name }}</span>
+                  </div>
+
+                  @if (activeConditions(combatant).length > 0) {
+                    <div class="mt-2 flex min-w-0 flex-wrap gap-1">
+                      @for (condition of activeConditions(combatant); track trackCondition($index, condition)) {
+                        <forge-badge
+                          tone="danger"
+                          [interactive]="true"
+                          role="button"
+                          tabindex="0"
+                          [attr.aria-label]="
+                            'Remove ' + condition.name + ' from ' + combatant.name
+                          "
+                          (click)="removeCondition.emit({ combatant, condition: condition.name })"
+                          (keydown.enter)="removeCondition.emit({ combatant, condition: condition.name })"
+                          (keydown.space)="
+                            $event.preventDefault();
+                            removeCondition.emit({ combatant, condition: condition.name })
+                          "
+                        >
+                          ● {{ condition.name }} · {{ conditionLabel(condition) }}
+                        </forge-badge>
+                      }
+                    </div>
+                  }
+                </td>
+                <td class="px-3 py-2 align-top text-ink">{{ combatant.initiative }}</td>
+                <td class="px-3 py-2 align-top">
+                  <div class="flex items-center gap-2">
+                    <input
+                      #hpInput
+                      forgeInput
+                      type="number"
+                      min="0"
+                      [max]="combatant.max_hp"
+                      class="max-w-20 text-center"
+                      [attr.aria-label]="combatant.name + ' current hit points'"
+                      [value]="combatant.hp"
+                      (change)="onHpInput(combatant, hpInput)"
+                    />
+                    <span class="whitespace-nowrap text-label text-muted">/ {{ combatant.max_hp }}</span>
+                  </div>
+
+                  @if (showsDeathSaves(combatant)) {
+                    <div class="mt-2 flex flex-col gap-1">
+                      <p class="text-micro font-semibold uppercase text-muted">Death Saves</p>
+
+                      <div class="flex items-center gap-2">
+                        <span class="w-14 shrink-0 text-label text-muted">Success</span>
+                        <div class="flex gap-1">
+                          @for (slot of deathSaveSlots; track slot) {
+                            <button
+                              type="button"
+                              class="h-8 w-8 rounded-full border text-label leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                              [ngClass]="
+                                deathSaveCount(combatant, 'successes') >= slot
+                                  ? 'border-emerald/40 bg-emerald/15 text-emerald'
+                                  : 'border-hairline bg-tile text-muted hover:bg-surface-hover'
+                              "
+                              [attr.aria-pressed]="deathSaveCount(combatant, 'successes') >= slot"
+                              [attr.aria-label]="
+                                'Death save success ' + slot + ' for ' + combatant.name
+                              "
+                              (click)="setDeathSave.emit({ combatant, kind: 'successes', value: slot })"
+                            >
+                              ✓
+                            </button>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-2">
+                        <span class="w-14 shrink-0 text-label text-muted">Failure</span>
+                        <div class="flex gap-1">
+                          @for (slot of deathSaveSlots; track slot) {
+                            <button
+                              type="button"
+                              class="h-8 w-8 rounded-full border text-label leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                              [ngClass]="
+                                deathSaveCount(combatant, 'failures') >= slot
+                                  ? 'border-red/40 bg-red/15 text-red'
+                                  : 'border-hairline bg-tile text-muted hover:bg-surface-hover'
+                              "
+                              [attr.aria-pressed]="deathSaveCount(combatant, 'failures') >= slot"
+                              [attr.aria-label]="
+                                'Death save failure ' + slot + ' for ' + combatant.name
+                              "
+                              (click)="setDeathSave.emit({ combatant, kind: 'failures', value: slot })"
+                            >
+                              ✕
+                            </button>
+                          }
+                        </div>
+                      </div>
+
+                      @if (deathSaveOutcome(combatant) === 'stable') {
+                        <forge-badge tone="success" class="self-start">💚 Stable</forge-badge>
+                      } @else if (deathSaveOutcome(combatant) === 'dead') {
+                        <forge-badge tone="danger" class="self-start">💀 Dead</forge-badge>
+                      }
+                    </div>
+                  }
+                </td>
+                <td class="px-3 py-2 align-top">
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      forgeButton
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      [attr.aria-expanded]="isConditionsOpen(combatant)"
+                      [attr.aria-controls]="'combatant-conditions-' + combatant.id"
+                      (click)="toggleConditions(combatant)"
+                    >
+                      🩸 Conditions
+                    </button>
+                    <button
+                      forgeButton
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      (click)="openStatblock.emit(combatant)"
+                    >
+                      📜 Statblock
+                    </button>
+                    <button
+                      forgeButton
+                      variant="danger"
+                      size="sm"
+                      type="button"
+                      [attr.aria-label]="'Remove ' + combatant.name"
+                      (click)="removeCombatant.emit(index)"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              @if (isConditionsOpen(combatant)) {
+                <tr [id]="'combatant-conditions-' + combatant.id" class="bg-tile">
+                  <td colspan="5" class="px-3 py-3">
+                    <div class="flex flex-col gap-3">
+                      <div class="flex flex-wrap items-end gap-3">
+                        <div class="min-w-0">
+                          <label
+                            [attr.for]="'condition-rounds-' + combatant.id"
+                            class="mb-2 block text-label font-semibold text-muted"
+                          >
+                            Duration in rounds — 0 lasts until removed
+                          </label>
+                          <input
+                            forgeInput
+                            [id]="'condition-rounds-' + combatant.id"
+                            type="number"
+                            min="0"
+                            class="max-w-24 text-center"
+                            [(ngModel)]="conditionRounds"
+                          />
+                        </div>
+                        <p class="min-w-0 flex-1 text-label text-muted">
+                          Applying a condition to <span class="text-ink">{{ combatant.name }}</span>.
+                          The countdown falls as rounds pass and clears itself when it runs out.
+                        </p>
+                      </div>
+
+                      <div class="flex min-w-0 flex-wrap gap-2">
+                        @for (condition of availableConditions; track condition) {
+                          <forge-badge
+                            [tone]="hasCondition(combatant, condition) ? 'danger' : 'muted'"
+                            [interactive]="true"
+                            role="switch"
+                            tabindex="0"
+                            [attr.aria-checked]="hasCondition(combatant, condition)"
+                            (click)="onConditionToggle(combatant, condition)"
+                            (keydown.enter)="onConditionToggle(combatant, condition)"
+                            (keydown.space)="$event.preventDefault(); onConditionToggle(combatant, condition)"
+                          >
+                            {{ hasCondition(combatant, condition) ? '● ' : '' }}{{ condition }}
+                          </forge-badge>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
           </tbody>
         </table>
       </div>
     }
   </div>
 </div>
+
+<forge-modal
+  title="⏹️ End this combat?"
+  [open]="showEndCombatConfirm"
+  maxWidth="440px"
+  (openChange)="showEndCombatConfirm = $event"
+>
+  <div class="flex flex-col gap-4">
+    <p class="text-body text-muted">
+      Every combatant, their hit points, conditions and death saves are cleared, and the round
+      counter goes back to zero. The saved encounter for this campaign is deleted — this cannot
+      be undone.
+    </p>
+
+    <div class="flex justify-end gap-2">
+      <button forgeButton variant="secondary" type="button" (click)="showEndCombatConfirm = false">
+        Keep Fighting
+      </button>
+      <button forgeButton variant="danger" type="button" (click)="confirmEndCombat()">
+        End Combat
+      </button>
+    </div>
+  </div>
+</forge-modal>
