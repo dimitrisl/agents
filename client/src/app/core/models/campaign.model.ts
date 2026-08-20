@@ -1,4 +1,5 @@
 import { environment } from '../../../environments/environment';
+import type { RollMode } from '../services/dice.service';
 
 /**
  * Builds an API URL for one campaign. The campaign name is the primary key and
@@ -18,6 +19,25 @@ export function campaignUrl(campaignName: string, path = ''): string {
   return path ? `${base}/${path}` : base;
 }
 
+/**
+ * `pending` → the player has been asked and has not answered yet.
+ * `resolved` → they rolled. `missed` → they let the prompt lapse.
+ * `cancelled` → the DM superseded it with a newer request for the same hero.
+ */
+export type RollRequestStatus = 'pending' | 'resolved' | 'missed' | 'cancelled';
+
+export interface RollRequestResult {
+  total: number;
+  expression: string;
+  raw: number;
+  rolls: number[];
+  modifier: number;
+  /** How the player chose to throw it. Absent on results rolled before #26. */
+  mode?: RollMode;
+  /** The part of `modifier` the player added by hand, not read off the sheet. */
+  situational_bonus?: number;
+}
+
 export interface RollRequest {
   id?: string;
   char_filename: string;
@@ -25,15 +45,15 @@ export interface RollRequest {
   roll_type: string;
   stat: string;
   reason?: string;
-  status?: string;
-  result?: {
-    total: number;
-    expression: string;
-    raw: number;
-    rolls: number[];
-    modifier: number;
-  } | null;
+  status?: RollRequestStatus;
+  result?: RollRequestResult | null;
+  /**
+   * A secret roll is thrown server-side against the hero's sheet and never reaches
+   * them — not over the socket, and not in their replayed history either.
+   */
   is_secret?: boolean;
+  /** `dm` on a secret roll; absent or `player` when the hero rolled it themselves. */
+  rolled_by?: 'dm' | 'player';
   created_at?: string;
 }
 

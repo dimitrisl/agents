@@ -12,16 +12,6 @@
         <button forgeButton variant="secondary" size="sm" type="button" (click)="addMember.emit()">
           ➕ Add Member
         </button>
-        <button
-          forgeButton
-          variant="secondary"
-          tone="accent"
-          size="sm"
-          type="button"
-          (click)="issueRollRequest.emit()"
-        >
-          🎲 Issue Roll Request
-        </button>
       </div>
     </div>
 
@@ -59,10 +49,10 @@
             size="sm"
             type="button"
             class="shrink-0"
-            [attr.aria-label]="'Private roll request for ' + member.name"
+            [attr.aria-label]="'Request a roll from ' + member.name"
             (click)="privateRollRequest.emit(member)"
           >
-            🎲 Private Roll
+            🎲 Request Roll
           </button>
         </header>
 

@@ -252,13 +252,30 @@ export class DmComponent implements OnInit, OnDestroy {
         this.cancelSupersededRollRequests(payload);
         this.upsertRollRequest(payload, false);
       } else if (msg.type === 'roll_result') {
+        // A missed request comes down this same channel with no result on it — the
+        // player never rolled. It still has to reach the board, or the request sits
+        // there as "waiting" for the rest of the session.
+        if (payload.status === 'missed') {
+          this.upsertRollRequest(payload, true);
+          this.rollToast.showMessage(
+            `⌛ NO ANSWER: ${payload.char_name}`,
+            `${payload.roll_type} (${payload.stat}) went unanswered.`
+          );
+          return;
+        }
+
         const result = payload.result;
         if (!result) return;
 
         this.upsertRollRequest(payload, true);
+        // The mode belongs in the headline: a 24 rolled with advantage and a 24
+        // rolled straight are different facts at the table.
+        const mode = result.mode && result.mode !== 'normal' ? ` (${result.mode})` : '';
+        const secret = payload.rolled_by === 'dm';
         this.rollToast.showMessage(
-          `🎲 ROLL RESULT: ${payload.char_name}`,
-          `${payload.roll_type} (${payload.stat}) = ${result.total}`
+          `${secret ? '🔒 SECRET ROLL' : '🎲 ROLL RESULT'}: ${payload.char_name}`,
+          `${payload.roll_type} (${payload.stat}) = ${result.total}${mode}` +
+            (secret ? ' — the player was not asked.' : '')
         );
       } else if (msg.type === 'party_update') {
         this.applyPartyUpdate(payload);
@@ -901,8 +918,11 @@ export class DmComponent implements OnInit, OnDestroy {
       is_secret: this.isSecretRoll
     }).subscribe({
       next: () => {
-        const secTag = this.isSecretRoll ? ' 🔒 [SECRET]' : '';
-        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}${secTag}.`);
+        // A secret roll is already thrown by the time this returns, and its result
+        // arrives on the socket a moment later — announcing it as "sent" here would
+        // both be wrong and step on that toast.
+        if (this.isSecretRoll) return;
+        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}.`);
       },
       error: () =>
         this.rollToast.showMessage('⚠️ REQUEST NOT SENT', `Could not reach ${this.rollTargetMember}.`)

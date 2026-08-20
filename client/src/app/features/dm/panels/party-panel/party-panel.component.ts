@@ -31,7 +31,6 @@ export class PartyPanelComponent {
   @Input() availableConditions: string[] = [];
 
   @Output() addMember = new EventEmitter<void>();
-  @Output() issueRollRequest = new EventEmitter<void>();
   @Output() adjustHp = new EventEmitter<{ member: PartyMember; delta: number }>();
   @Output() setHp = new EventEmitter<{ member: PartyMember; hp: number }>();
   @Output() quickStatRoll = new EventEmitter<{ member: PartyMember; stat: string }>();

@@ -14,12 +14,18 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
-import { DiceService, RollMode } from '../../core/services/dice.service';
+import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
 import { CampaignMessages, RollRequest, Whisper, campaignUrl } from '../../core/models/campaign.model';
 import { buildInboxFeed, type InboxEntry } from '../../core/models/campaign-inbox';
+import {
+  ROLL_PROMPT_TIMEOUT_SECONDS,
+  dropStalePrompts,
+  isAwaitingPlayer,
+  shouldPrompt,
+} from '../../core/models/roll-prompt';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
@@ -42,6 +48,7 @@ import { ValidationModalComponent } from './modals/validation-modal/validation-m
 import { LevelUpModalComponent } from './modals/level-up-modal/level-up-modal.component';
 import { ShortRestModalComponent } from './modals/short-rest-modal/short-rest-modal.component';
 import { JoinCampaignModalComponent } from './modals/join-campaign-modal/join-campaign-modal.component';
+import { RollRequestModalComponent } from './modals/roll-request-modal/roll-request-modal.component';
 import { PortraitModalComponent } from './modals/portrait-modal/portrait-modal.component';
 import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strategy-guide-modal.component';
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
@@ -50,6 +57,16 @@ import { environment } from '../../../environments/environment';
 export interface SkillDefinition {
   name: string;
   ability: 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
+}
+
+/** What the DM's `roll_type` + `stat` pair actually means on this hero's sheet. */
+interface RollTarget {
+  /** Toast heading, e.g. `🎲 PERCEPTION CHECK`. */
+  title: string;
+  /** Prose for the prompt, e.g. `Perception check`. */
+  label: string;
+  /** The modifier read off the sheet, before anything the player adds. */
+  modifier: number;
 }
 
 @Component({
@@ -77,6 +94,7 @@ export interface SkillDefinition {
     LevelUpModalComponent,
     ShortRestModalComponent,
     JoinCampaignModalComponent,
+    RollRequestModalComponent,
     PortraitModalComponent,
     StrategyGuideModalComponent,
     EditSheetModalComponent,
@@ -172,6 +190,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private pendingFeedScroll = false;
   private resolvedRollRequestIds = new Set<string>();
 
+  // --- DM roll requests (#26) ---
+  // The DM's request is a question, not an order to the dice: it opens a prompt and
+  // waits. Requests that arrive while one is open queue behind it, so a reconnect
+  // that replays four missed requests asks four times instead of rolling four times.
+  activeRollPrompt: RollRequest | null = null;
+  promptRollMode: RollMode = 'normal';
+  promptSituationalBonus = 0;
+  promptSecondsRemaining = 0;
+  private rollPromptQueue: RollRequest[] = [];
+  private promptTimer: ReturnType<typeof setInterval> | null = null;
+
   // The HP steppers fire once per click; only the value the user settles on is
   // worth a round trip, so writes are collapsed into a single trailing save.
   private readonly hpSave$ = new Subject<CharacterSchema>();
@@ -216,6 +245,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.whisperReply = '';
         this.showWhisperInbox = false;
         this.loadedCampaignMessageKey = null;
+        this.clearRollPrompts();
         this.rebuildInboxFeed();
       }
     });
@@ -242,13 +272,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // Check if this request is for the active character
         if (this.isRollRequestForCharacter(req, char)) {
           this.addRollRequest(req, true);
-          const secText = req.is_secret ? '🔒 SECRET' : 'DM';
-          const title = `⚠️ ${secText} ROLL REQUESTED`;
-          const details = `The DM has requested a ${req.roll_type} (${req.stat}) check!\nReason: ${req.reason}`;
-          this.rollToast.showMessage(title, details);
-
-          // Execute the roll automatically (or we could open a modal, but auto-rolling is faster)
-          this.rollForRequest(req);
+          // The prompt itself is the notification — a toast on top of a modal that
+          // says the same thing is just noise. Queued requests do get one, because
+          // those are the ones the player cannot see yet.
+          this.enqueueRollPrompt(req);
         }
       } else if (msg.type === 'party_update') {
         this.applyDmPartyUpdate(msg['payload'], char);
@@ -272,6 +299,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.wsSub.unsubscribe();
     }
     this.openedSub?.unsubscribe();
+    this.clearPromptCountdown();
   }
 
   /**
@@ -505,9 +533,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return mod >= 0 ? `+${mod}` : `${mod}`;
   }
 
-  /** Rolls a d20 in the sheet's current mode and pushes the result to the toast. */
-  private showD20Roll(title: string, modifier: number) {
-    const roll = this.dice.rollD20(modifier, this.rollMode);
+  /**
+   * Rolls a d20 and pushes the result to the toast. The mode defaults to the sheet's
+   * own selector, which is what every button on the sheet wants; a DM roll request
+   * passes the mode the player picked in the prompt instead.
+   */
+  private showD20Roll(title: string, modifier: number, mode: RollMode = this.rollMode) {
+    const roll = this.dice.rollD20(modifier, mode);
 
     this.rollToast.showRoll({
       title: `${title}${this.dice.modeLabel(roll.mode)}`,
@@ -547,31 +579,223 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, mod + (isSaveProf ? profBonus : 0));
   }
 
-  executeRollRequest(rollType: string, stat: string) {
+  /**
+   * Reads the DM's `roll_type` + `stat` off this hero's sheet without throwing
+   * anything. The prompt needs the modifier to show the player what they are about
+   * to roll, and the roll itself needs the same number — so it is worked out once.
+   */
+  private resolveRollTarget(rollType: string, stat: string): RollTarget | null {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.stats) return null;
+
+    const abilityModifier = (ability: string) =>
+      Math.floor(((char.stats?.[ability] || 10) - 10) / 2);
+
     const normalizedType = rollType.toLowerCase().replace(/[\s-]+/g, '_');
 
     if (normalizedType === 'save' || normalizedType === 'saving_throw' || normalizedType === 'savingthrow') {
-      return this.rollSavingThrow(stat);
-    } else if (normalizedType === 'skill' || normalizedType === 'skill_check') {
-      const skill = this.allSkills.find(s => s.name.toLowerCase() === stat.toLowerCase());
-      if (skill) return this.rollSkillCheck(skill);
-      return this.rollAbilityCheck(stat);
-    } else {
-      return this.rollAbilityCheck(stat);
+      const isSaveProf = char.saving_throws?.includes(stat);
+      const profBonus = char.proficiency_bonus || 2;
+      return {
+        title: `🛡️ ${stat} SAVING THROW`,
+        label: `${stat} saving throw`,
+        modifier: abilityModifier(stat) + (isSaveProf ? profBonus : 0),
+      };
     }
+
+    if (normalizedType === 'skill' || normalizedType === 'skill_check') {
+      const skill = this.allSkills.find((s) => s.name.toLowerCase() === stat.toLowerCase());
+      // An unknown skill name falls through to a plain ability check, the same way
+      // it always has — the DM may have typed a stat where a skill was expected.
+      if (skill) {
+        return {
+          title: `🎲 ${skill.name.toUpperCase()} CHECK`,
+          label: `${skill.name} check`,
+          modifier: this.getSkillModifier(skill),
+        };
+      }
+    }
+
+    return {
+      title: `🎲 ${stat} CHECK`,
+      label: `${stat} check`,
+      modifier: abilityModifier(stat),
+    };
   }
 
-  rollForRequest(request: RollRequest): void {
+  private executeRollRequest(
+    rollType: string,
+    stat: string,
+    mode: RollMode,
+    situationalBonus: number
+  ): DiceRoll | undefined {
+    const target = this.resolveRollTarget(rollType, stat);
+    if (!target) return undefined;
+
+    return this.showD20Roll(target.title, target.modifier + situationalBonus, mode);
+  }
+
+  private rollForRequest(
+    request: RollRequest,
+    mode: RollMode,
+    situationalBonus: number
+  ): void {
     if (request.id && this.resolvedRollRequestIds.has(request.id)) return;
 
-    const roll = this.executeRollRequest(request.roll_type, request.stat);
+    const roll = this.executeRollRequest(request.roll_type, request.stat, mode, situationalBonus);
     if (!roll) return;
 
     if (request.id) {
       this.resolvedRollRequestIds.add(request.id);
     }
-    this.markRollRequestResolved(request, roll);
-    this.submitRollRequestResult(request, roll);
+    this.markRollRequestResolved(request, roll, situationalBonus);
+    this.submitRollRequestResult(request, roll, situationalBonus);
+  }
+
+  // --- The roll request prompt (#26) ---
+
+  get queuedRollPromptCount(): number {
+    return this.rollPromptQueue.length;
+  }
+
+  /** `Perception check` — what the open prompt is asking for, in the sheet's words. */
+  get activeRollPromptLabel(): string {
+    return this.activeRollPromptTarget?.label ?? '';
+  }
+
+  get activeRollPromptModifier(): number {
+    return this.activeRollPromptTarget?.modifier ?? 0;
+  }
+
+  private get activeRollPromptTarget(): RollTarget | null {
+    const request = this.activeRollPrompt;
+    return request ? this.resolveRollTarget(request.roll_type, request.stat) : null;
+  }
+
+  /**
+   * The one gate every incoming request passes through. Catch-up replays the whole
+   * thread on each reconnect, so this is what stops a flaky socket from asking the
+   * same question five times.
+   */
+  private enqueueRollPrompt(request: RollRequest): void {
+    const promptable = shouldPrompt(request, {
+      answeredIds: this.resolvedRollRequestIds,
+      queued: this.rollPromptQueue,
+      active: this.activeRollPrompt,
+    });
+    if (!promptable) return;
+
+    if (this.activeRollPrompt) {
+      this.rollPromptQueue = [...this.rollPromptQueue, request];
+      this.rollToast.showMessage(
+        '🎲 ANOTHER ROLL QUEUED',
+        `The DM also wants a ${request.roll_type} (${request.stat}). You will be asked next.`
+      );
+      return;
+    }
+
+    this.startRollPrompt(request);
+  }
+
+  /**
+   * The inbox's own Roll button. Unlike `enqueueRollPrompt` this deliberately
+   * ignores the request's status, so a roll the player let lapse can still be
+   * answered — missing one is a slip, not a locked door.
+   */
+  openRollPrompt(request: RollRequest): void {
+    if (request.id && this.resolvedRollRequestIds.has(request.id)) return;
+    if (this.activeRollPrompt?.id === request.id) return;
+
+    if (this.activeRollPrompt) {
+      // Never swap the question out from under a player mid-decision.
+      if (!this.rollPromptQueue.some((queued) => queued.id === request.id)) {
+        this.rollPromptQueue = [...this.rollPromptQueue, request];
+      }
+      return;
+    }
+
+    this.rollPromptQueue = this.rollPromptQueue.filter((queued) => queued.id !== request.id);
+    this.startRollPrompt(request);
+  }
+
+  confirmRollPrompt(): void {
+    const request = this.activeRollPrompt;
+    if (!request) return;
+
+    this.rollForRequest(request, this.promptRollMode, this.promptSituationalBonus);
+    this.finishRollPrompt();
+  }
+
+  /** The Skip button, a dismissed dialog, and the countdown reaching zero all land here. */
+  dismissRollPrompt(): void {
+    const request = this.activeRollPrompt;
+    if (!request) return;
+
+    this.markRollRequestMissed(request);
+    this.finishRollPrompt();
+  }
+
+  /**
+   * `forge-modal` emits `openChange(false)` for a programmatic close too, so this
+   * only counts as a dismissal while a prompt is genuinely still open — otherwise
+   * confirming a roll would immediately mark the request it just answered as missed.
+   */
+  onRollPromptOpenChange(open: boolean): void {
+    if (!open && this.activeRollPrompt) {
+      this.dismissRollPrompt();
+    }
+  }
+
+  private startRollPrompt(request: RollRequest): void {
+    this.activeRollPrompt = request;
+    // Every request starts from a clean slate: advantage on the last roll says
+    // nothing about this one.
+    this.promptRollMode = 'normal';
+    this.promptSituationalBonus = 0;
+    this.promptSecondsRemaining = ROLL_PROMPT_TIMEOUT_SECONDS;
+    this.startPromptCountdown();
+  }
+
+  private finishRollPrompt(): void {
+    this.clearPromptCountdown();
+    this.activeRollPrompt = null;
+
+    const [next, ...rest] = this.rollPromptQueue;
+    if (!next) return;
+
+    this.rollPromptQueue = rest;
+    this.startRollPrompt(next);
+  }
+
+  private startPromptCountdown(): void {
+    this.clearPromptCountdown();
+    this.promptTimer = setInterval(() => {
+      this.promptSecondsRemaining -= 1;
+      if (this.promptSecondsRemaining > 0) return;
+
+      const request = this.activeRollPrompt;
+      this.dismissRollPrompt();
+      if (request) {
+        this.rollToast.showMessage(
+          '⌛ ROLL MISSED',
+          `You did not answer the DM's ${request.roll_type} (${request.stat}) in time. You can still roll it from the inbox.`
+        );
+      }
+    }, 1000);
+  }
+
+  private clearPromptCountdown(): void {
+    if (this.promptTimer === null) return;
+    clearInterval(this.promptTimer);
+    this.promptTimer = null;
+  }
+
+  /** Leaving the campaign takes its unanswered questions with it. */
+  private clearRollPrompts(): void {
+    this.clearPromptCountdown();
+    this.activeRollPrompt = null;
+    this.rollPromptQueue = [];
+    this.promptSecondsRemaining = 0;
   }
 
   toggleWhisperInbox(): void {
@@ -676,10 +900,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     if (!existing) {
       this.addRollRequest(request, true);
-      // Missed while offline — roll it now so the DM still gets an answer.
-      if ((request.status || 'pending') === 'pending') {
-        this.rollForRequest(request);
-      }
+      // Asked while offline. It goes in the queue to be answered deliberately —
+      // rolling it here would decide the player's advantage for them, on a roll
+      // they have not even read yet (#26).
+      this.enqueueRollPrompt(request);
       return;
     }
 
@@ -688,6 +912,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         item.id === request.id ? request : item
       );
       this.rebuildInboxFeed();
+    }
+
+    // The DM moved on — superseding a request cancels it server-side. A prompt still
+    // waiting on it is a question about a moment that has passed.
+    this.rollPromptQueue = dropStalePrompts(this.rollPromptQueue, request);
+    if (this.activeRollPrompt?.id === request.id && !isAwaitingPlayer(request)) {
+      this.finishRollPrompt();
     }
   }
 
@@ -750,7 +981,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
-  private markRollRequestResolved(request: RollRequest, roll: any): void {
+  private markRollRequestResolved(
+    request: RollRequest,
+    roll: DiceRoll,
+    situationalBonus: number
+  ): void {
     if (!request.id) return;
 
     this.rollRequestHistory = this.rollRequestHistory.map((item) =>
@@ -764,6 +999,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
               raw: roll.raw,
               rolls: roll.rolls,
               modifier: roll.modifier,
+              mode: roll.mode,
+              situational_bonus: situationalBonus,
             },
           }
         : item
@@ -771,7 +1008,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.rebuildInboxFeed();
   }
 
-  private submitRollRequestResult(request: RollRequest, roll: any): void {
+  /**
+   * The DM is told how the roll was made, not just what it came to: a 24 on
+   * advantage and a 24 on a straight d20 are different facts at the table.
+   */
+  private submitRollRequestResult(
+    request: RollRequest,
+    roll: DiceRoll,
+    situationalBonus: number
+  ): void {
     const char = this.charState.activeCharacter();
     if (!char?.active_campaign || !request.id) return;
 
@@ -782,6 +1027,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         raw: roll.raw,
         rolls: roll.rolls,
         modifier: roll.modifier,
+        // `roll.mode` is the mode the dice service actually applied, which is not
+        // always the one asked for — advantage is meaningless on anything but a d20.
+        mode: roll.mode,
+        situational_bonus: situationalBonus,
       })
       .subscribe({
         error: () =>
@@ -790,6 +1039,27 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
             'The roll completed locally, but the DM did not receive the result.'
           ),
       });
+  }
+
+  /** Local status first, then the DM's board — the player should not wait on a POST. */
+  private markRollRequestMissed(request: RollRequest): void {
+    if (!request.id) return;
+
+    this.rollRequestHistory = this.rollRequestHistory.map((item) =>
+      item.id === request.id ? { ...item, status: 'missed' } : item
+    );
+    this.rebuildInboxFeed();
+
+    const char = this.charState.activeCharacter();
+    if (!char?.active_campaign) return;
+
+    this.http
+      .post(campaignUrl(char.active_campaign, `roll-request/${request.id}/miss`), {})
+      // Deliberately quiet: the player already knows they skipped it, and a failure
+      // toast about a roll they chose not to make is noise. The cost of a lost POST
+      // is that the DM's board keeps showing "waiting", which is what it showed
+      // before this feature existed.
+      .subscribe({ error: () => undefined });
   }
 
   /** Both sides of this hero's thread with the DM, plus table-wide announcements. */
