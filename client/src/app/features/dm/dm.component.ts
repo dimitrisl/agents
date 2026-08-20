@@ -1,13 +1,14 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
-import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import { Campaign, CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
 import {
   EncounterResponse,
   NpcResponse,
@@ -15,7 +16,9 @@ import {
 } from '../../core/models/dm-tools.model';
 import { environment } from '../../../environments/environment';
 import {
+  ForgeButtonDirective,
   ForgeCardComponent,
+  ForgeEmptyStateComponent,
   ForgePageComponent,
   ForgeTab,
   ForgeTabsComponent,
@@ -47,6 +50,8 @@ export interface PartyMember {
   portrait?: string;
 }
 
+type LoadStatus = 'loading' | 'ready' | 'error';
+
 export interface InitiativeCombatant {
   id: string;
   name: string;
@@ -66,7 +71,9 @@ export interface InitiativeCombatant {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeButtonDirective,
     ForgeCardComponent,
+    ForgeEmptyStateComponent,
     ForgePageComponent,
     ForgeTabsComponent,
     CampaignHeaderComponent,
@@ -95,10 +102,18 @@ export class DmComponent implements OnInit, OnDestroy {
     { id: 'prep', label: '📜 Session Prep' },
   ];
 
-  userCampaigns: any[] = [];
-  campaignName = 'The Obsidian Citadel';
-  campaignNotes = 'Chapter 3: The heroes enter the Sunless Citadel in search of the lost Gulthias Tree...';
+  userCampaigns: Campaign[] = [];
+  campaignName = '';
+  campaignNotes = '';
   inviteCode = '';
+
+  /**
+   * Load outcomes are rendered, never papered over: a DM who cannot tell a failed
+   * request from an empty table will hand out an invite code nobody can use.
+   */
+  campaignsStatus: LoadStatus = 'loading';
+  partyStatus: LoadStatus = 'ready';
+  isCreatingCampaign = false;
 
   showWhisperModal = false;
   showRollModal = false;
@@ -128,7 +143,7 @@ export class DmComponent implements OnInit, OnDestroy {
   inboxReplyMessage = '';
   isSendingInboxReply = false;
 
-  rollTargetMember = 'Valeros';
+  rollTargetMember = '';
   rollType = 'saving_throw';
   rollStat = 'DEX';
   rollReason = 'Dragon Breath Fire Save';
@@ -146,24 +161,12 @@ export class DmComponent implements OnInit, OnDestroy {
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
-  // Unique campaign party rosters
-  campaignParties: { [campaignName: string]: PartyMember[] } = {
-    'The Obsidian Citadel': [
-      { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'], stats: { STR: 18, DEX: 12, CON: 15, INT: 10, WIS: 14, CHA: 16 } },
-      { name: 'Ezren', char_class: 'Wizard', level: 5, hp_current: 28, hp_max: 28, ac: 13, passive_perception: 12, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 18, WIS: 13, CHA: 10 } },
-      { name: 'Merisiel', char_class: 'Rogue', level: 5, hp_current: 35, hp_max: 35, ac: 16, passive_perception: 16, conditions: [], stats: { STR: 12, DEX: 18, CON: 14, INT: 12, WIS: 14, CHA: 12 } },
-    ],
-    'Curse of Strahd': [
-      { name: 'Ismark Kolyanovich', char_class: 'Fighter', level: 4, hp_current: 38, hp_max: 38, ac: 17, passive_perception: 12, conditions: [], stats: { STR: 16, DEX: 12, CON: 14, INT: 10, WIS: 11, CHA: 14 } },
-      { name: 'Ireena Kolyana', char_class: 'Cleric', level: 3, hp_current: 24, hp_max: 24, ac: 15, passive_perception: 13, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 12, WIS: 16, CHA: 15 } },
-      { name: 'Rudolph van Richten', char_class: 'Ranger', level: 8, hp_current: 58, hp_max: 58, ac: 16, passive_perception: 18, conditions: [], stats: { STR: 11, DEX: 16, CON: 13, INT: 16, WIS: 18, CHA: 14 } },
-    ],
-    'Phyrexia Awakens': [
-      { name: 'Elspeth Tirel', char_class: 'Paladin', level: 7, hp_current: 64, hp_max: 64, ac: 20, passive_perception: 15, conditions: [], stats: { STR: 18, DEX: 12, CON: 16, INT: 11, WIS: 14, CHA: 18 } },
-      { name: 'Karn', char_class: 'Barbarian', level: 8, hp_current: 85, hp_max: 85, ac: 18, passive_perception: 13, conditions: [], stats: { STR: 20, DEX: 14, CON: 18, INT: 14, WIS: 12, CHA: 10 } },
-      { name: 'Teferi', char_class: 'Wizard', level: 7, hp_current: 42, hp_max: 42, ac: 14, passive_perception: 17, conditions: [], stats: { STR: 9, DEX: 14, CON: 14, INT: 20, WIS: 16, CHA: 13 } },
-    ]
-  };
+  /**
+   * Rosters the DM edited locally this session, keyed by campaign. Only ever
+   * written from a successful fetch or a deliberate add — a failed fetch leaves
+   * the party empty rather than resurrecting a stale roster as if it were live.
+   */
+  campaignParties: { [campaignName: string]: PartyMember[] } = {};
 
   partyMembers: PartyMember[] = [];
   combatants: InitiativeCombatant[] = [];
@@ -186,7 +189,8 @@ export class DmComponent implements OnInit, OnDestroy {
     private dice: DiceService,
     private http: HttpClient,
     public charState: CharacterStateService,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private auth: AuthService
   ) {}
 
   // The campaign whose party/socket is currently live, so re-picking the same
@@ -413,38 +417,69 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   loadCampaigns() {
-    this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
+    this.campaignsStatus = 'loading';
+    this.http.get<Campaign[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
       next: (camps) => {
         this.userCampaigns = camps || [];
-        if (this.userCampaigns.length > 0 && !this.userCampaigns.some((c) => c.campaign_name === this.campaignName)) {
+        this.campaignsStatus = 'ready';
+
+        if (this.userCampaigns.length === 0) {
+          this.clearWorkspace();
+          return;
+        }
+
+        if (!this.userCampaigns.some((c) => c.campaign_name === this.campaignName)) {
           this.campaignName = this.userCampaigns[0].campaign_name;
         }
         this.onCampaignSelect();
       },
-      error: () => {
-        this.userCampaigns = [
-          { campaign_name: 'The Obsidian Citadel', invite_code: '4D0705', notes: 'Chapter 3: The heroes enter the Sunless Citadel...' },
-          { campaign_name: 'Curse of Strahd', invite_code: 'BAROV1', notes: 'Chapter 1: Mist creeps into Castle Ravenloft...' },
-          { campaign_name: 'Phyrexia Awakens', invite_code: 'PHY001', notes: 'Chapter 1: The glistened oil spreads...' }
-        ];
-        this.onCampaignSelect();
+      error: (err) => {
+        if (this.handleAuthFailure(err)) return;
+        this.userCampaigns = [];
+        this.campaignsStatus = 'error';
+        this.clearWorkspace();
       }
     });
   }
 
+  /**
+   * An expired session is not a workspace error — it is a login. Anything else
+   * has to surface as a visible failure the DM can retry.
+   */
+  private handleAuthFailure(error: unknown): boolean {
+    if (error instanceof HttpErrorResponse && error.status === 401) {
+      this.auth.logout();
+      return true;
+    }
+    return false;
+  }
+
+  /** Drops every trace of the previous campaign so nothing lingers on screen. */
+  private clearWorkspace() {
+    this.activeWorkspace = null;
+    this.campaignName = '';
+    this.campaignNotes = '';
+    this.inviteCode = '';
+    this.partyMembers = [];
+    this.partyStatus = 'ready';
+    this.rollTargetMember = '';
+    this.combatants = [];
+    this.activeCombatantId = null;
+    this.inboxWhispers = [];
+    this.inboxRollRequests = [];
+    this.unreadInboxMessages = 0;
+    this.showDmInbox = false;
+  }
+
   onCampaignSelect() {
-    if (this.activeWorkspace === this.campaignName) return;
+    if (!this.campaignName || this.activeWorkspace === this.campaignName) return;
     const isFirstLoad = this.activeWorkspace === null;
     this.activeWorkspace = this.campaignName;
 
     const selected = this.userCampaigns.find((c) => c.campaign_name === this.campaignName);
-    if (selected) {
-      this.inviteCode = selected.invite_code || '';
-      if (selected.notes) this.campaignNotes = selected.notes;
-    } else {
-      // No code yet — the DM forges one from the header button when they need it.
-      this.inviteCode = '';
-    }
+    // No code yet — the DM forges one from the header button when they need it.
+    this.inviteCode = selected?.invite_code || '';
+    this.campaignNotes = selected?.notes || '';
 
     // role=dm means the server routes every whisper and roll result here, even
     // the private ones addressed to a single hero.
@@ -454,45 +489,49 @@ export class DmComponent implements OnInit, OnDestroy {
     this.inboxReplyMessage = '';
     this.inboxReplyRecipient = 'All';
     this.loadCampaignMessages(this.campaignName);
-
-    this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/party`).subscribe({
-      next: (chars) => {
-        this.partyMembers = chars.map(char => ({
-          char_id: char.char_id,
-          name: char.char_name || 'Unknown',
-          char_class: char.char_class || 'Unknown',
-          level: char.char_level || 1,
-          hp_current: char.hp_current ?? char.hp_max ?? 10,
-          hp_max: char.hp_max ?? 10,
-          ac: char.armor_class ?? 10,
-          passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
-          conditions: [],
-          stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-          portrait: char.char_portrait
-        }));
-        this.campaignParties[this.campaignName] = [...this.partyMembers];
-
-        if (this.partyMembers.length > 0) {
-          this.rollTargetMember = this.partyMembers[0].name;
-        }
-        this.importPartyToInitiative(true);
-      },
-      error: () => {
-        if (this.campaignParties[this.campaignName]) {
-          this.partyMembers = [...this.campaignParties[this.campaignName]];
-        } else {
-          this.partyMembers = [];
-        }
-        if (this.partyMembers.length > 0) {
-          this.rollTargetMember = this.partyMembers[0].name;
-        }
-        this.importPartyToInitiative(true);
-      }
-    });
+    this.loadParty();
 
     if (!isFirstLoad) {
       this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}".`);
     }
+  }
+
+  /** Also the retry target for the party error state, hence its own method. */
+  loadParty() {
+    if (!this.campaignName) return;
+
+    this.partyStatus = 'loading';
+    this.http
+      .get<any[]>(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/party`)
+      .subscribe({
+        next: (chars) => {
+          this.partyMembers = (chars || []).map((char) => ({
+            char_id: char.char_id,
+            name: char.char_name || 'Unknown',
+            char_class: char.char_class || 'Unknown',
+            level: char.char_level || 1,
+            hp_current: char.hp_current ?? char.hp_max ?? 10,
+            hp_max: char.hp_max ?? 10,
+            ac: char.armor_class ?? 10,
+            passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
+            conditions: [],
+            stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+            portrait: char.char_portrait
+          }));
+          this.campaignParties[this.campaignName] = [...this.partyMembers];
+          this.partyStatus = 'ready';
+          this.rollTargetMember = this.partyMembers[0]?.name || '';
+          this.importPartyToInitiative(true);
+        },
+        error: (err) => {
+          if (this.handleAuthFailure(err)) return;
+          // The roster is unknown, not empty — say so instead of inventing heroes.
+          this.partyMembers = [];
+          this.partyStatus = 'error';
+          this.rollTargetMember = '';
+          this.importPartyToInitiative(true);
+        }
+      });
   }
 
   getSelectedHero() {
@@ -534,9 +573,15 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   copyInviteCode() {
-    const code = this.inviteCode || '4D0705';
-    navigator.clipboard.writeText(code);
-    this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
+    // A placeholder code copied to the clipboard is worse than none: the players
+    // it is handed to simply cannot join.
+    if (!this.inviteCode) {
+      this.rollToast.showMessage('⚠️ NO INVITE CODE', 'Forge an invite code for this campaign first.');
+      return;
+    }
+
+    navigator.clipboard.writeText(this.inviteCode);
+    this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${this.inviteCode}" copied to clipboard! Share with players.`);
     this.showAddMemberModal = false;
   }
 
@@ -567,50 +612,70 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   createNewCampaign() {
-    if (!this.newCampaignTitle.trim()) return;
-    const newCamp = {
+    if (!this.newCampaignTitle.trim() || this.isCreatingCampaign) return;
+    const newCamp: Campaign = {
       campaign_name: this.newCampaignTitle.trim(),
       notes: this.newCampaignNotes,
       party: [],
       dnd_edition: '2014 Edition'
     };
 
-    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/`, newCamp).subscribe({
+    this.isCreatingCampaign = true;
+    this.http.post<Campaign>(`${environment.apiBaseUrl}/campaigns/`, newCamp).subscribe({
       next: (res) => {
+        this.isCreatingCampaign = false;
         this.userCampaigns.push(res);
+        this.campaignsStatus = 'ready';
         this.campaignName = res.campaign_name;
-        this.campaignNotes = res.notes || '';
         this.showNewCampaignModal = false;
         this.newCampaignTitle = '';
         this.newCampaignNotes = '';
+        this.onCampaignSelect();
         this.generateInviteCode();
         this.rollToast.showMessage('🏰 CAMPAIGN CREATED', `Successfully forged campaign: ${res.campaign_name}`);
       },
-      error: () => {
-        // Local state fallback
-        this.userCampaigns.push(newCamp);
-        this.campaignName = newCamp.campaign_name;
-        this.showNewCampaignModal = false;
-        this.newCampaignTitle = '';
-        this.newCampaignNotes = '';
-        this.rollToast.showMessage('🏰 CAMPAIGN CREATED', `Created campaign locally: ${newCamp.campaign_name}`);
+      error: (err) => {
+        this.isCreatingCampaign = false;
+        if (this.handleAuthFailure(err)) return;
+        // The modal stays open with the title intact: nothing was created, so the
+        // DM gets to retry instead of being told a lie and handed a dead campaign.
+        this.rollToast.showMessage(
+          '⚠️ CAMPAIGN NOT CREATED',
+          `The server refused to forge "${newCamp.campaign_name}". Nothing was saved — try again.`
+        );
       }
     });
   }
 
   saveCampaignNotes() {
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/notes`, {
+    this.http.post(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/notes`, {
       notes: this.campaignNotes
     }).subscribe({
       next: () => this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved to database.'),
-      error: () => this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign notes.')
+      error: (err) => {
+        if (this.handleAuthFailure(err)) return;
+        this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign notes.');
+      }
     });
   }
 
   generateInviteCode() {
-    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/invite-code`, {}).subscribe((res) => {
-      this.inviteCode = res.invite_code;
-    });
+    this.http
+      .post<{ invite_code: string }>(
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/invite-code`,
+        {}
+      )
+      .subscribe({
+        next: (res) => {
+          this.inviteCode = res.invite_code;
+          const selected = this.userCampaigns.find((c) => c.campaign_name === this.campaignName);
+          if (selected) selected.invite_code = res.invite_code;
+        },
+        error: (err) => {
+          if (this.handleAuthFailure(err)) return;
+          this.rollToast.showMessage('⚠️ NO INVITE CODE', 'The server could not forge an invite code.');
+        }
+      });
   }
 
   adjustHp(member: PartyMember, delta: number) {

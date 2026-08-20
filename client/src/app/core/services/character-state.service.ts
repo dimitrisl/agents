@@ -15,38 +15,6 @@ export class CharacterStateService {
   readonly activeCharacter = signal<CharacterSchema | null>(null);
   readonly dndEdition = signal<string>('2014 Edition');
 
-  // Default Fallback Hero if DB is empty
-  private readonly defaultHero: CharacterSchema = {
-    char_id: 'default_paladin',
-    char_name: 'Sir Valeros',
-    char_portrait: 'https://image.pollinations.ai/prompt/sir%20valeros%20dnd%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true',
-    char_class: 'Paladin',
-    subclass: 'Oath of Devotion',
-    char_level: 5,
-    race: 'Human',
-    background: 'Soldier',
-    alignment: 'Lawful Good',
-    backstory: 'A valiant paladin who swore an oath of devotion to protect the innocent.',
-    armor_class: 18,
-    hp_max: 44,
-    hp_current: 44,
-    speed: 30,
-    proficiency_bonus: 3,
-    stats: { STR: 18, DEX: 12, CON: 15, INT: 10, WIS: 14, CHA: 16 },
-    saving_throws: ['WIS', 'CHA'],
-    skill_proficiencies: ['Athletics', 'Intimidation', 'Persuasion'],
-    weapons: [
-      { name: 'Longsword', attack_bonus: '+7', damage_dice: '1d8+4 slashing' }
-    ],
-    equipment: [
-      { name: 'Chain mail', equipped: true },
-      { name: 'Shield', equipped: true }
-    ],
-    features_traits: [
-      { name: 'Divine Smite', description: 'Expend a spell slot to deal radiant damage.' }
-    ]
-  };
-
   // Computed Modifiers
   readonly filteredCharacters = computed(() => {
     const activeEd = this.dndEdition();
