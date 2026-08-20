@@ -195,6 +195,22 @@
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
 
+  <app-roll-request-modal
+    [open]="!!activeRollPrompt"
+    [request]="activeRollPrompt"
+    [modifierLabel]="activeRollPromptLabel"
+    [baseModifier]="activeRollPromptModifier"
+    [rollMode]="promptRollMode"
+    [situationalBonus]="promptSituationalBonus"
+    [secondsRemaining]="promptSecondsRemaining"
+    [queuedCount]="queuedRollPromptCount"
+    (rollModeChange)="promptRollMode = $event"
+    (situationalBonusChange)="promptSituationalBonus = $event"
+    (confirm)="confirmRollPrompt()"
+    (dismiss)="dismissRollPrompt()"
+    (openChange)="onRollPromptOpenChange($event)"
+  ></app-roll-request-modal>
+
   <ng-container *ngIf="charState.activeCharacter() as char">
     <div *ngIf="char.active_campaign" class="whisper-dock">
       <section
@@ -269,17 +285,21 @@
                 </p>
                 <p *ngIf="entry.request.result" class="roll-request-result">
                   Result: {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+                  <span *ngIf="entry.request.result.mode && entry.request.result.mode !== 'normal'">
+                    · {{ entry.request.result.mode === 'advantage' ? '▲ Advantage' : '▼ Disadvantage' }}
+                  </span>
                 </p>
                 <div class="roll-request-actions">
                   <span class="message-status">{{ entry.request.status || 'pending' }}</span>
                   <button
+                    *ngIf="entry.request.status !== 'resolved' && entry.request.status !== 'cancelled'"
                     forgeButton
                     variant="secondary"
                     size="sm"
                     type="button"
-                    (click)="rollForRequest(entry.request)"
+                    (click)="openRollPrompt(entry.request)"
                   >
-                    Roll
+                    {{ entry.request.status === 'missed' ? 'Roll it now' : 'Roll' }}
                   </button>
                 </div>
               </article>

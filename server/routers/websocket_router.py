@@ -73,12 +73,18 @@ class ConnectionManager:
         campaign_id: str,
         message: dict,
         characters: Optional[Iterable[str]] = None,
+        dm_only: bool = False,
     ):
         """Fan a message out to a campaign room.
 
         `characters` restricts delivery to the named heroes. DM sockets always
         receive everything — the DM is the one running the table — while a socket
         that never announced a character only sees untargeted traffic.
+
+        `dm_only` is the one exception to "the DM sees everything": it means no
+        player socket may see this at all. A secret roll is the DM's own knowledge,
+        so it must never travel down the hero's connection to be filtered away in
+        their browser — that is not secrecy, that is a view-source away.
         """
         campaign_id = unquote(campaign_id)
         connections = self.active_connections.get(campaign_id)
@@ -91,6 +97,8 @@ class ConnectionManager:
 
         dead_connections: List[CampaignConnection] = []
         for connection in list(connections):
+            if dm_only and not connection.is_dm:
+                continue
             if targets is not None and not (connection.is_dm or connection.is_character(targets)):
                 continue
             try:

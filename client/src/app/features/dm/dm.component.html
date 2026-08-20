@@ -153,7 +153,6 @@
             [partyMembers]="partyMembers"
             [availableConditions]="availableConditions"
             (addMember)="openAddMemberModal()"
-            (issueRollRequest)="showRollModal = true"
             (adjustHp)="adjustHp($event.member, $event.delta)"
             (setHp)="setPartyHp($event.member, $event.hp)"
             (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"

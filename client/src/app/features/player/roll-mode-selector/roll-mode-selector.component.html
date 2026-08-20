@@ -1,13 +1,13 @@
 <div class="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
   <span class="shrink-0 text-micro font-semibold uppercase text-muted" aria-hidden="true">
-    Roll mode
+    {{ label }}
   </span>
 
   <fieldset
     class="grid w-full min-w-0 grid-cols-3 rounded-full border border-hairline bg-panel p-1 sm:w-auto sm:min-w-77.5"
     title="Applies to ability checks, saving throws, skill checks, and weapon attacks."
   >
-    <legend class="sr-only">Roll advantage mode</legend>
+    <legend class="sr-only">{{ label }} — advantage or disadvantage</legend>
 
     <label
       class="flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-label transition-colors focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep"
@@ -16,7 +16,7 @@
         : 'text-muted hover:text-ink'"
       title="Roll one d20."
     >
-      <input class="sr-only" type="radio" name="rollMode" value="normal" [ngModel]="rollMode" (ngModelChange)="rollModeChange.emit($event)" />
+      <input class="sr-only" type="radio" [name]="name" value="normal" [ngModel]="rollMode" (ngModelChange)="rollModeChange.emit($event)" />
       @if (rollMode === 'normal') {
         <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>
       }
@@ -30,7 +30,7 @@
         : 'text-muted hover:text-ink'"
       title="Roll two d20s and use the higher result."
     >
-      <input class="sr-only" type="radio" name="rollMode" value="advantage" [ngModel]="rollMode" (ngModelChange)="rollModeChange.emit($event)" />
+      <input class="sr-only" type="radio" [name]="name" value="advantage" [ngModel]="rollMode" (ngModelChange)="rollModeChange.emit($event)" />
       @if (rollMode === 'advantage') {
         <span class="text-micro" aria-hidden="true">▲</span>
       }
@@ -44,7 +44,7 @@
         : 'text-muted hover:text-ink'"
       title="Roll two d20s and use the lower result."
     >
-      <input class="sr-only" type="radio" name="rollMode" value="disadvantage" [ngModel]="rollMode" (ngModelChange)="rollModeChange.emit($event)" />
+      <input class="sr-only" type="radio" [name]="name" value="disadvantage" [ngModel]="rollMode" (ngModelChange)="rollModeChange.emit($event)" />
       @if (rollMode === 'disadvantage') {
         <span class="text-micro" aria-hidden="true">▼</span>
       }

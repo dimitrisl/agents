@@ -1,4 +1,5 @@
 import datetime
+import re
 import secrets
 import uuid
 from typing import Any, Dict, List, Optional
@@ -8,6 +9,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema
+from backend.services.dice_service import roll_dice
+from backend.services.stats_service import calculate_skills, get_modifier
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
@@ -52,6 +55,11 @@ class RollRequestResultSchema(BaseModel):
     raw: int
     rolls: List[int] = []
     modifier: int = 0
+    # How the player chose to throw it, and what they added on top of the sheet's
+    # own modifier. Both default to the pre-#26 behaviour so a client that does not
+    # send them still resolves a request the same way it always did.
+    mode: str = "normal"
+    situational_bonus: int = 0
 
 
 class PartyMemberStateRequest(BaseModel):
@@ -85,6 +93,92 @@ class CampaignMessagesResponse(BaseModel):
 
 class RollRequestResponse(SuccessResponseSchema):
     request: Dict[str, Any]
+
+
+_SAVE_TYPES = {"save", "saving_throw", "savingthrow"}
+_SKILL_TYPES = {"skill", "skill_check"}
+
+
+async def _find_campaign_character(
+    db: AsyncIOMotorDatabase, name: str, char_filename: str, char_name: str
+) -> Optional[dict]:
+    """
+    The sheet behind a roll request. The filename carries the id (`lyra_abc123.json`),
+    which is the reliable handle; the name is the fallback for a hero the DM typed in
+    by hand rather than one that joined from the vault.
+    """
+    char_id = (char_filename or "").replace(".json", "").split("_")[-1]
+    if char_id:
+        char = await db["characters"].find_one({"char_id": char_id})
+        if char:
+            return char
+
+    return await db["characters"].find_one({"char_name": char_name, "active_campaign": name})
+
+
+def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
+    """
+    What the hero would add to this roll. Mirrors `resolveRollTarget()` in the
+    player's client so a secret roll and an open one of the same check are worked
+    out the same way — a hidden roll that quietly uses different arithmetic would
+    be worse than no hidden roll at all.
+    """
+    stats = char.get("stats") or {}
+    prof_bonus = char.get("proficiency_bonus") or 2
+    normalized = re.sub(r"[\s-]+", "_", (roll_type or "").lower())
+
+    if normalized in _SAVE_TYPES:
+        proficient = stat in (char.get("saving_throws") or [])
+        return get_modifier(stats.get(stat, 10)) + (prof_bonus if proficient else 0)
+
+    if normalized in _SKILL_TYPES:
+        skills = calculate_skills(
+            stats,
+            prof_bonus,
+            char.get("skill_proficiencies") or [],
+            char.get("skill_expertise") or [],
+        )
+        if stat in skills:
+            return skills[stat]
+
+    return get_modifier(stats.get(stat, 10))
+
+
+def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str, Any]:
+    """
+    The DM rolls on the hero's behalf and the hero is never told. This is what a
+    secret roll means at a real table: the player must not learn that they failed
+    the Perception check, and being asked to roll it is already telling them.
+
+    A hero with no sheet on file still gets a roll — a flat d20 — rather than
+    blocking the DM mid-scene.
+    """
+    modifier = _sheet_modifier(char, roll_type, stat) if char else 0
+    outcome = roll_dice(f"1d20{modifier:+d}")
+    raw = outcome["raw_result"]
+
+    return {
+        "total": outcome["total"],
+        # Same shape the player's client sends, so both read alike on the board.
+        "expression": f"1d20 ({raw}) {modifier:+d}",
+        "raw": raw,
+        "rolls": outcome["rolls"],
+        "modifier": modifier,
+        "mode": "normal",
+        "situational_bonus": 0,
+    }
+
+
+def _visible_roll_requests(camp: dict, is_dm: bool) -> List[Dict[str, Any]]:
+    """
+    History as this member is allowed to see it. Secret rolls are the DM's own
+    knowledge: the socket never sends them to a player, so replaying them here
+    would hand back exactly what was withheld the moment the hero reconnects.
+    """
+    requests = camp.get("roll_requests", [])
+    if is_dm:
+        return requests
+    return [request for request in requests if not request.get("is_secret")]
 
 
 async def _ensure_dm_access(name: str, current_user: dict, db: AsyncIOMotorDatabase):
@@ -373,6 +467,7 @@ async def add_roll_request(
             }
         )
 
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     req_id = str(uuid.uuid4())
     new_req = {
         "id": req_id,
@@ -384,8 +479,31 @@ async def add_roll_request(
         "status": "pending",
         "result": None,
         "is_secret": req_in.is_secret,
-        "created_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "created_at": now,
     }
+
+    from server.routers.websocket_router import manager
+
+    if req_in.is_secret:
+        # A secret roll is never asked of the player: it is thrown here, against
+        # their sheet, and only the DM is told. Nothing about it reaches the hero's
+        # socket, and `/messages` withholds it from them on reconnect too.
+        char = await _find_campaign_character(db, name, req_in.char_filename, req_in.char_name)
+        new_req["result"] = _roll_in_secret(char, req_in.roll_type, req_in.stat)
+        new_req["status"] = "resolved"
+        new_req["rolled_by"] = "dm"
+        new_req["resolved_at"] = now
+
+        await db["campaigns"].update_one(
+            {"campaign_name": name}, {"$push": {"roll_requests": new_req}}
+        )
+        await manager.broadcast(name, {"type": "roll_result", "payload": new_req}, dm_only=True)
+
+        return {
+            "success": True,
+            "message": f"Secret roll made for {req_in.char_name}",
+            "request": new_req,
+        }
 
     await db["campaigns"].update_many(
         {"campaign_name": name},
@@ -394,8 +512,6 @@ async def add_roll_request(
     )
 
     await db["campaigns"].update_one({"campaign_name": name}, {"$push": {"roll_requests": new_req}})
-
-    from server.routers.websocket_router import manager
 
     await manager.broadcast(
         name, {"type": "roll_request", "payload": new_req}, characters=[req_in.char_name]
@@ -458,6 +574,60 @@ async def resolve_roll_request(
     return {"success": True, "message": "Roll request resolved"}
 
 
+@router.post("/{name}/roll-request/{request_id}/miss", response_model=SuccessResponseSchema)
+async def miss_roll_request(
+    name: str,
+    request_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
+):
+    """
+    The player was asked to roll and never answered. Without this the request sits
+    on the DM's board as "waiting" forever, which is indistinguishable from a player
+    who is still thinking about it.
+
+    The update is filtered on `status: "pending"`, so a result that lands in the same
+    instant wins and the miss becomes a no-op — a real roll is never overwritten.
+    """
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    target = None
+    for request in camp.get("roll_requests", []):
+        if request.get("id") == request_id:
+            target = request
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Roll request not found")
+
+    missed_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    outcome = await db["campaigns"].update_one(
+        {
+            "campaign_name": name,
+            "roll_requests": {"$elemMatch": {"id": request_id, "status": "pending"}},
+        },
+        {"$set": {"roll_requests.$.status": "missed", "roll_requests.$.missed_at": missed_at}},
+    )
+
+    if outcome.modified_count == 0:
+        return {"success": True, "message": "Roll request was already answered"}
+
+    target["status"] = "missed"
+    target["missed_at"] = missed_at
+
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(
+        name, {"type": "roll_result", "payload": target}, characters=[target.get("char_name")]
+    )
+
+    return {"success": True, "message": "Roll request marked as missed"}
+
+
 @router.get("/{name}/messages", response_model=CampaignMessagesResponse)
 async def get_campaign_messages(
     name: str,
@@ -472,7 +642,7 @@ async def get_campaign_messages(
     return {
         "campaign_name": camp["campaign_name"],
         "whispers": camp.get("whispers", []),
-        "roll_requests": camp.get("roll_requests", []),
+        "roll_requests": _visible_roll_requests(camp, member.get("role") == "dm"),
     }
 
 

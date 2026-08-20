@@ -111,17 +111,56 @@ export class DmInboxComponent implements OnChanges, AfterViewChecked {
   }
 
   /** Status colour is paired with an icon and a word — never colour alone. */
-  rollRequestTone(request: RollRequest): 'accent' | 'success' | 'muted' {
+  rollRequestTone(request: RollRequest): 'accent' | 'success' | 'muted' | 'gold' {
     const status = this.rollRequestStatus(request);
     if (status === 'resolved') return 'success';
     if (status === 'pending') return 'accent';
+    // A missed roll is not the same as one the DM withdrew: someone was asked and
+    // never answered, and that is worth reading differently from a cancellation.
+    if (status === 'missed') return 'gold';
     return 'muted';
   }
 
   rollRequestLabel(request: RollRequest): string {
     const status = this.rollRequestStatus(request);
+    // A secret roll was never asked of anyone, so "answered" would misdescribe it.
+    if (request.rolled_by === 'dm') return '🔒 You rolled it';
     if (status === 'resolved') return '✓ Answered';
     if (status === 'pending') return '⏳ Waiting';
+    if (status === 'missed') return '⌛ No answer';
     return `✕ ${status}`;
+  }
+
+  /**
+   * `ability_check` + `WIS` reads as `WIS ability check`. The raw enum on its own
+   * line was what forced the old layout to truncate the hero's name.
+   */
+  rollAsk(request: RollRequest): string {
+    const type = (request.roll_type || '').toLowerCase().replace(/[\s-]+/g, '_');
+    const stat = request.stat;
+
+    if (type === 'save' || type === 'saving_throw' || type === 'savingthrow') {
+      return `${stat} saving throw`;
+    }
+    if (type === 'attack_roll') return `${stat} attack roll`;
+    if (type === 'skill' || type === 'skill_check') return `${stat} check`;
+    return `${stat} ability check`;
+  }
+
+  /**
+   * How the player chose to throw it. Blank on a straight roll, and on anything
+   * rolled before the client started reporting the mode at all.
+   */
+  rollModeLabel(request: RollRequest): string {
+    const mode = request.result?.mode;
+    if (!mode || mode === 'normal') return '';
+    return mode === 'advantage' ? '▲ Advantage' : '▼ Disadvantage';
+  }
+
+  /** The part of the total the player added by hand, if any. */
+  situationalBonusLabel(request: RollRequest): string {
+    const bonus = request.result?.situational_bonus;
+    if (!bonus) return '';
+    return `${bonus > 0 ? '+' : ''}${bonus} situational`;
   }
 }

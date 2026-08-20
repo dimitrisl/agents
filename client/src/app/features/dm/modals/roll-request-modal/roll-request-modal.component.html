@@ -1,35 +1,57 @@
 <forge-modal
-  title="🎲 Issue Private Roll Request"
+  title="🎲 Request a Roll"
   [open]="open"
   (openChange)="openChange.emit($event)"
   (closed)="closed.emit()"
 >
   <div class="flex flex-col gap-4">
-    <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+    <label
+      class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
+    >
       Target Member:
-      <select forgeSelect [ngModel]="rollTargetMember" (ngModelChange)="rollTargetMemberChange.emit($event)">
-        <option *ngFor="let member of partyMembers" [value]="member.name">{{ member.name }}</option>
+      <select
+        forgeSelect
+        [ngModel]="rollTargetMember"
+        (ngModelChange)="rollTargetMemberChange.emit($event)"
+      >
+        <option *ngFor="let member of partyMembers" [value]="member.name">
+          {{ member.name }}
+        </option>
       </select>
     </label>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+      <label
+        class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
+      >
         Roll Type:
-        <select forgeSelect [ngModel]="rollType" (ngModelChange)="rollTypeChange.emit($event)">
+        <select
+          forgeSelect
+          [ngModel]="rollType"
+          (ngModelChange)="rollTypeChange.emit($event)"
+        >
           <option value="ability_check">Ability Check</option>
           <option value="saving_throw">Saving Throw</option>
           <option value="attack_roll">Attack Roll</option>
         </select>
       </label>
-      <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+      <label
+        class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
+      >
         Stat:
-        <select forgeSelect [ngModel]="rollStat" (ngModelChange)="rollStatChange.emit($event)">
+        <select
+          forgeSelect
+          [ngModel]="rollStat"
+          (ngModelChange)="rollStatChange.emit($event)"
+        >
           <option *ngFor="let stat of stats" [value]="stat">{{ stat }}</option>
         </select>
       </label>
     </div>
 
-    <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+    <label
+      class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
+    >
       Reason / Context:
       <input
         forgeInput
@@ -40,20 +62,38 @@
       />
     </label>
 
-    <label for="dm-secret-roll" class="flex cursor-pointer items-center gap-2 rounded-lg text-body text-gold focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep">
-      <input
-        id="dm-secret-roll"
-        type="checkbox"
-        class="h-4 w-4 accent-[var(--color-accent)] focus-visible:outline-none"
-        [ngModel]="isSecretRoll"
-        (ngModelChange)="isSecretRollChange.emit($event)"
-      />
-      🔒 Secret Roll (Hide result from player)
-    </label>
+    <div class="flex flex-col gap-1">
+      <label
+        for="dm-secret-roll"
+        class="flex cursor-pointer items-center gap-2 rounded-lg text-body text-gold focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep"
+      >
+        <input
+          id="dm-secret-roll"
+          type="checkbox"
+          class="h-4 w-4 accent-(--color-accent) focus-visible:outline-none"
+          [ngModel]="isSecretRoll"
+          (ngModelChange)="isSecretRollChange.emit($event)"
+        />
+        🔒 Mark as a secret roll
+      </label>
+      <p class="text-micro text-muted">
+        Flags the request as secret at both ends. The player still rolls it and sees the
+        result — nothing is hidden from them.
+      </p>
+    </div>
 
     <div class="flex justify-end gap-2">
-      <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-      <button forgeButton type="button" (click)="requestRoll.emit()">Request Roll</button>
+      <button
+        forgeButton
+        variant="secondary"
+        type="button"
+        (click)="openChange.emit(false)"
+      >
+        Cancel
+      </button>
+      <button forgeButton type="button" (click)="requestRoll.emit()">
+        Request Roll
+      </button>
     </div>
   </div>
 </forge-modal>
