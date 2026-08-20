@@ -21,7 +21,7 @@ import type { InitiativeCombatant } from '../../dm.component';
 })
 export class InitiativePanelComponent {
   @Input() combatants: InitiativeCombatant[] = [];
-  @Input() activeTurnIndex = 0;
+  @Input() activeCombatantId: string | null = null;
   @Input() newCombatantName = '';
   @Input() newCombatantInit = 10;
   @Input() newCombatantHp = 20;

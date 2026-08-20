@@ -167,7 +167,12 @@ export class DmComponent implements OnInit, OnDestroy {
 
   partyMembers: PartyMember[] = [];
   combatants: InitiativeCombatant[] = [];
-  activeTurnIndex = 0;
+  /**
+   * The combatant whose turn it is, held by id — never by index. The list is
+   * re-sorted on every initiative roll and spliced on every removal, so an index
+   * silently starts pointing at a different creature.
+   */
+  activeCombatantId: string | null = null;
 
   newCombatantName = '';
   newCombatantInit = 10;
@@ -395,7 +400,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   get currentTurnName(): string {
-    return this.combatants[this.activeTurnIndex]?.name || '—';
+    return this.combatants.find((c) => c.id === this.activeCombatantId)?.name || '—';
   }
 
   hpPercent(member: PartyMember): number {
@@ -670,6 +675,8 @@ export class DmComponent implements OnInit, OnDestroy {
     if (silent) {
       // Remove old campaign player combatants
       this.combatants = this.combatants.filter((c) => !c.is_player);
+      // A campaign switch is a new table: the previous encounter's turn is void.
+      this.activeCombatantId = null;
     }
     this.partyMembers.forEach((p) => {
       if (!this.combatants.some((c) => c.name === p.name)) {
@@ -711,7 +718,12 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   removeCombatant(idx: number) {
-    this.combatants.splice(idx, 1);
+    const [removed] = this.combatants.splice(idx, 1);
+    if (!removed || removed.id !== this.activeCombatantId) return;
+
+    // The active combatant left the fight, so the turn passes to whoever slid
+    // into its slot — or wraps to the top of the order if it was the last one.
+    this.activeCombatantId = this.combatants[idx]?.id ?? this.combatants[0]?.id ?? null;
   }
 
   rollAllInitiative() {
@@ -728,8 +740,14 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   nextTurn() {
-    if (this.combatants.length === 0) return;
-    this.activeTurnIndex = (this.activeTurnIndex + 1) % this.combatants.length;
+    if (this.combatants.length === 0) {
+      this.activeCombatantId = null;
+      return;
+    }
+
+    // No active turn yet (-1) advances to the top of the order.
+    const current = this.combatants.findIndex((c) => c.id === this.activeCombatantId);
+    this.activeCombatantId = this.combatants[(current + 1) % this.combatants.length].id;
   }
 
   openStatblock(c: InitiativeCombatant) {
