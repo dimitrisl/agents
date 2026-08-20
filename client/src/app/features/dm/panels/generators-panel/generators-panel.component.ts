@@ -5,6 +5,7 @@ import {
   ForgeButtonDirective,
   ForgeInputDirective,
 } from '../../../../shared/ui';
+import { EncounterResponse } from '../../../../core/models/dm-tools.model';
 
 @Component({
   selector: 'app-generators-panel',
@@ -21,7 +22,7 @@ import {
 export class GeneratorsPanelComponent {
   @Input() avgLevel = 5;
   @Input() location = '';
-  @Input() encounterResult: any = null;
+  @Input() encounterResult: EncounterResponse | null = null;
   @Input() npcConcept = '';
   @Input() npcResult = '';
 

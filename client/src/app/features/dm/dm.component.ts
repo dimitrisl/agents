@@ -8,6 +8,11 @@ import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import {
+  EncounterResponse,
+  NpcResponse,
+  SessionPrepResponse,
+} from '../../core/models/dm-tools.model';
 import { environment } from '../../../environments/environment';
 import {
   ForgeCardComponent,
@@ -131,7 +136,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   avgLevel = 5;
   location = 'Crypt';
-  encounterResult: any = null;
+  encounterResult: EncounterResponse | null = null;
 
   npcConcept = 'Shady underworld broker';
   npcResult = '';
@@ -737,7 +742,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   generateEncounter() {
-    this.http.post(`${environment.apiBaseUrl}/dm/encounter`, {
+    this.http.post<EncounterResponse>(`${environment.apiBaseUrl}/dm/encounter`, {
       party_size: 4,
       avg_level: this.avgLevel,
       location: this.location,
@@ -751,7 +756,7 @@ export class DmComponent implements OnInit, OnDestroy {
   addEncounterMonstersToInitiative() {
     if (!this.encounterResult || !this.encounterResult.monsters) return;
 
-    this.encounterResult.monsters.forEach((m: any) => {
+    this.encounterResult.monsters.forEach((m) => {
       const qty = m.quantity || 1;
       for (let i = 0; i < qty; i++) {
         const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
@@ -774,7 +779,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   generateNpc() {
-    this.http.post<any>(`${environment.apiBaseUrl}/dm/npc`, {
+    this.http.post<NpcResponse>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
       edition: '2014 Edition'
     }).subscribe((res) => {
@@ -783,11 +788,11 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   generatePrep() {
-    this.http.post<any>(`${environment.apiBaseUrl}/dm/session-prep`, {
+    this.http.post<SessionPrepResponse>(`${environment.apiBaseUrl}/dm/session-prep`, {
       campaign_notes: this.prepNotes,
       party_info: this.partyMembers.map(m => m.name).join(', ')
     }).subscribe((res) => {
-      this.prepResult = res.prep_markdown;
+      this.prepResult = res.session_markdown;
     });
   }
 
