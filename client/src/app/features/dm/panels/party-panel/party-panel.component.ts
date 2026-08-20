@@ -7,7 +7,7 @@ import {
   ForgeEmptyStateComponent,
   ForgeInputDirective,
 } from '../../../../shared/ui';
-import type { PartyMember } from '../../dm.component';
+import type { PartyMember } from '../../../../core/models/party.model';
 
 @Component({
   selector: 'app-party-panel',

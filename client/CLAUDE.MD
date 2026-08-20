@@ -83,9 +83,10 @@ Follow what is already here. Do not modernise code you were not asked to touch.
   you are already editing. Never open a sweeping migration PR.
 - **Signals live in services** (`auth.service`, `character-state.service`). Components use
   plain fields. Do not convert existing components to signals as a side quest.
-- **Shared interfaces belong in `core/models/`.** `dm.component.ts` currently exports
-  `PartyMember` and `InitiativeCombatant` and four files import them from there — that is
-  known debt, do not copy the pattern.
+- **Shared interfaces belong in `core/models/`.** A component never exports a type its
+  panels and modals import — `PartyMember` (`core/models/party.model.ts`) and
+  `InitiativeCombatant` (`core/models/initiative.model.ts`) both used to live in
+  `dm.component.ts`. Do not reintroduce the pattern.
 - **`encodeURIComponent()` every campaign name** placed in a URL. Campaign names contain
   spaces and are used as path segments; several existing calls forget this.
 - **Import the UI kit from the barrel:** `from '../../shared/ui'`, never deep paths.

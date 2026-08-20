@@ -20,7 +20,14 @@
 
     <div class="flex justify-end gap-2">
       <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Close</button>
-      <button forgeButton type="button" (click)="send.emit()">Send Whisper</button>
+      <button
+        forgeButton
+        type="button"
+        [disabled]="!whisperMessage.trim()"
+        (click)="send.emit()"
+      >
+        Send Whisper
+      </button>
     </div>
   </div>
 </forge-modal>
