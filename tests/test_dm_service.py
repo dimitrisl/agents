@@ -1,6 +1,9 @@
 import pytest
+from pydantic import ValidationError
 
+from backend.core.schemas import EncounterSchema
 from backend.services.dm_service import create_manual_npc
+from server.routers.dm_router import EncounterRequest
 
 
 def test_create_manual_npc_valid():
@@ -42,6 +45,49 @@ def test_create_manual_npc_valid():
     assert npc["backstory"] == "A large scary wolf."
     assert npc["dnd_edition"] == "2024 Revision"
     assert npc["is_npc"] is True
+
+
+def test_encounter_request_takes_the_real_party():
+    payload = EncounterRequest(party_size=6, avg_level=12, difficulty="Deadly")
+
+    assert payload.party_size == 6
+    assert payload.avg_level == 12
+    assert payload.difficulty == "Deadly"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("party_size", 0),
+        ("avg_level", 0),
+        ("avg_level", 25),
+        ("difficulty", "Impossible"),
+    ],
+)
+def test_encounter_request_rejects_an_unbalanceable_party(field, value):
+    """An encounter for zero heroes reads as a real one — it must not be generated."""
+    with pytest.raises(ValidationError):
+        EncounterRequest(**{field: value})
+
+
+def test_encounter_keeps_a_monster_that_came_back_without_dex():
+    """A null DEX used to void the whole encounter, and initiative rolled on None."""
+    encounter = EncounterSchema(
+        encounter_text="Ghouls stir in the crypt.",
+        monsters=[
+            {
+                "name": "Ghoul",
+                "hp": 22,
+                "ac": 12,
+                "dex": None,
+                "quantity": None,
+                "statblock_summary": "...",
+            }
+        ],
+    )
+
+    assert encounter.monsters[0].dex == 10
+    assert encounter.monsters[0].quantity == 1
 
 
 def test_create_manual_npc_missing_name():

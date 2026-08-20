@@ -21,7 +21,26 @@
       </header>
 
       <div class="flex flex-col gap-4 p-4">
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-[8rem_minmax(0,1fr)_auto] md:items-end">
+        <!-- Exactly what the request will carry, so a mis-balanced fight is visible
+             before it is generated rather than after. -->
+        @if (partySize > 0) {
+          <p class="text-label text-muted">
+            Balanced for
+            <span class="font-semibold text-ink">{{ partySize }}</span>
+            {{ partySize === 1 ? 'hero' : 'heroes' }} at average level
+            <span class="font-semibold text-ink">{{ avgLevel }}</span
+            >.
+          </p>
+        } @else {
+          <p class="text-label text-red">
+            No heroes on the roster yet — add one from the Party tab before generating an
+            encounter.
+          </p>
+        }
+
+        <div
+          class="grid grid-cols-1 gap-3 md:grid-cols-[8rem_9rem_minmax(0,1fr)_auto] md:items-end"
+        >
           <div class="min-w-0">
             <label for="encounter-level" class="mb-2 block text-label font-semibold text-muted">
               Avg Level
@@ -33,6 +52,25 @@
               [ngModel]="avgLevel"
               (ngModelChange)="avgLevelChange.emit($event)"
             />
+          </div>
+
+          <div class="min-w-0">
+            <label
+              for="encounter-difficulty"
+              class="mb-2 block text-label font-semibold text-muted"
+            >
+              Difficulty
+            </label>
+            <select
+              forgeSelect
+              id="encounter-difficulty"
+              [ngModel]="difficulty"
+              (ngModelChange)="difficultyChange.emit($event)"
+            >
+              @for (level of difficulties; track level) {
+                <option [value]="level">{{ level }}</option>
+              }
+            </select>
           </div>
 
           <div class="min-w-0">
@@ -55,40 +93,49 @@
             tone="accent"
             type="button"
             class="w-full md:w-auto"
+            [disabled]="partySize === 0"
             (click)="generateEncounter.emit()"
           >
             Generate Encounter
           </button>
         </div>
 
-        <div *ngIf="encounterResult" class="flex min-w-0 flex-col gap-3 rounded-xl bg-tile p-4">
-          <div class="min-w-0">
-            <p class="text-micro font-semibold uppercase text-muted">Encounter</p>
-            <p class="mt-1 whitespace-pre-wrap text-body text-ink">
-              {{ encounterResult.encounter_text }}
-            </p>
-          </div>
+        @if (encounterResult) {
+          <div class="flex min-w-0 flex-col gap-3 rounded-xl bg-tile p-4">
+            <div class="min-w-0">
+              <p class="text-micro font-semibold uppercase text-muted">Encounter</p>
+              <p class="mt-1 whitespace-pre-wrap text-body text-ink">
+                {{ encounterResult.encounter_text }}
+              </p>
+            </div>
 
-          <div *ngIf="encounterResult.monsters.length" class="flex min-w-0 flex-col gap-2">
-            <p class="text-micro font-semibold uppercase text-muted">Found Monsters</p>
-            <ul class="flex flex-col gap-1">
-              <li *ngFor="let monster of encounterResult.monsters" class="text-body text-muted">
-                <span class="font-semibold text-ink">{{ monster.quantity }}× {{ monster.name }}</span>
-                — HP {{ monster.hp }} · AC {{ monster.ac }}
-              </li>
-            </ul>
-            <button
-              forgeButton
-              variant="secondary"
-              size="sm"
-              type="button"
-              class="self-start"
-              (click)="addEncounterMonsters.emit()"
-            >
-              ➕ Add to Initiative
-            </button>
+            @if (encounterResult.monsters.length) {
+              <div class="flex min-w-0 flex-col gap-2">
+                <p class="text-micro font-semibold uppercase text-muted">Found Monsters</p>
+                <ul class="flex flex-col gap-1">
+                  @for (monster of encounterResult.monsters; track monster.name) {
+                    <li class="text-body text-muted">
+                      <span class="font-semibold text-ink"
+                        >{{ monster.quantity }}× {{ monster.name }}</span
+                      >
+                      — HP {{ monster.hp }} · AC {{ monster.ac }}
+                    </li>
+                  }
+                </ul>
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  class="self-start"
+                  (click)="addEncounterMonsters.emit()"
+                >
+                  ➕ Add to Initiative
+                </button>
+              </div>
+            }
           </div>
-        </div>
+        }
       </div>
     </section>
 
@@ -131,10 +178,12 @@
           </button>
         </div>
 
-        <div *ngIf="npcResult" class="min-w-0 rounded-xl bg-tile p-4">
-          <p class="text-micro font-semibold uppercase text-muted">Result</p>
-          <p class="mt-1 whitespace-pre-wrap text-body text-ink">{{ npcResult }}</p>
-        </div>
+        @if (npcResult) {
+          <div class="min-w-0 rounded-xl bg-tile p-4">
+            <p class="text-micro font-semibold uppercase text-muted">Result</p>
+            <p class="mt-1 whitespace-pre-wrap text-body text-ink">{{ npcResult }}</p>
+          </div>
+        }
       </div>
     </section>
   </div>

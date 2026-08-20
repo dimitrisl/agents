@@ -1,5 +1,7 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core.schemas import (
     EncounterSchema,
@@ -19,11 +21,14 @@ router = APIRouter(prefix="/dm", tags=["DM Tools"])
 
 
 class EncounterRequest(BaseModel):
-    party_size: int = 4
-    avg_level: int = 5
+    # Bounded rather than free-form: these go straight into the prompt, and a
+    # party of 0 (or a difficulty the model has never heard of) only ever
+    # produces a nonsense encounter that looks legitimate.
+    party_size: int = Field(4, ge=1, le=20)
+    avg_level: int = Field(5, ge=1, le=20)
     location: str = "Dungeon"
     edition: str = "2014 Edition"
-    difficulty: str = "Medium"
+    difficulty: Literal["Easy", "Medium", "Hard", "Deadly"] = "Medium"
 
 
 class NpcRequest(BaseModel):

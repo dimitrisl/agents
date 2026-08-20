@@ -7,6 +7,7 @@ import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { InitiativeCombatant } from '../../core/models/initiative.model';
+import { EncounterMonster } from '../../core/models/dm-tools.model';
 
 /**
  * The turn engine is exercised on the component instance directly — the fixture
@@ -469,5 +470,128 @@ describe('DmComponent — initiative rounds', () => {
 
       http.expectNone((r) => r.method === 'PATCH');
     });
+  });
+});
+
+/**
+ * The generator used to post `party_size: 4`, `difficulty: 'Medium'` and a level
+ * that started at 5 and never moved — a party of six level-12 heroes was handed
+ * a fight balanced for four level-5 ones.
+ */
+describe('DmComponent — encounter generator', () => {
+  let component: DmComponent;
+  let http: HttpTestingController;
+
+  function hero(name: string, level: number): PartyMember {
+    return {
+      char_id: name,
+      name,
+      char_class: 'Fighter',
+      level,
+      hp_current: 20,
+      hp_max: 20,
+      ac: 15,
+      passive_perception: 10,
+      conditions: [],
+    };
+  }
+
+  beforeEach(() => {
+    const wsStub: Partial<WebSocketService> = {
+      messages$: new Subject<WsMessage>(),
+      opened$: new Subject<string>(),
+      connect: () => undefined,
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: wsStub },
+      ],
+    });
+
+    localStorage.clear();
+    http = TestBed.inject(HttpTestingController);
+    component = makeComponent();
+    component.campaignName = 'Curse of Strahd';
+  });
+
+  afterEach(() => {
+    http.verify();
+    localStorage.clear();
+  });
+
+  it('balances the request against the party actually at the table', () => {
+    component.partyMembers = [hero('Ezren', 12), hero('Valeros', 12), hero('Merisiel', 11)];
+    component.location = 'Sunken Cathedral';
+    component.encounterDifficulty = 'Deadly';
+
+    component.generateEncounter();
+
+    const req = http.expectOne((r) => r.url.includes('/dm/encounter'));
+    expect(req.request.body).toEqual({
+      party_size: 3,
+      avg_level: 12,
+      location: 'Sunken Cathedral',
+      edition: '2014 Edition',
+      difficulty: 'Deadly',
+    });
+    req.flush({ encounter_text: 'Ghouls', monsters: [] });
+  });
+
+  it('lets the DM overrule the average level', () => {
+    component.partyMembers = [hero('Ezren', 3), hero('Valeros', 3)];
+    expect(component.avgLevel).toBe(3);
+
+    component.avgLevel = 9;
+
+    component.generateEncounter();
+
+    const req = http.expectOne((r) => r.url.includes('/dm/encounter'));
+    expect(req.request.body.avg_level).toBe(9);
+    req.flush({ encounter_text: 'Wights', monsters: [] });
+  });
+
+  it('drops a level typed for the previous table when the campaign changes', () => {
+    component.partyMembers = [hero('Ezren', 3)];
+    component.avgLevel = 9;
+
+    component.onCampaignSelect();
+    http.expectOne((r) => r.url.includes('/messages')).flush({
+      campaign_name: 'Curse of Strahd',
+      whispers: [],
+      roll_requests: [],
+    });
+    http
+      .expectOne((r) => r.url.includes('/party'))
+      .flush([{ char_id: 'e1', char_name: 'Ezren', char_level: 4, hp_current: 22, hp_max: 22 }]);
+
+    expect(component.avgLevel).toBe(4);
+  });
+
+  it('says so instead of quietly asking for a fight for nobody', () => {
+    const toast = jest.spyOn(TestBed.inject(RollToastService), 'showMessage');
+    component.partyMembers = [];
+
+    component.generateEncounter();
+
+    http.expectNone((r) => r.url.includes('/dm/encounter'));
+    expect(toast).toHaveBeenCalledWith('⚠️ NO PARTY', expect.stringContaining('roster'));
+  });
+
+  it('gives a monster with no DEX an average initiative rather than NaN', () => {
+    component.encounterResult = {
+      encounter_text: 'Something lurks',
+      monsters: [
+        { name: 'Ghoul', hp: 22, ac: 12, quantity: 1, statblock_summary: '' } as EncounterMonster,
+      ],
+    };
+
+    component.addEncounterMonstersToInitiative();
+
+    expect(component.combatants[0].initiative).toBe(10);
+    expect(component.combatants[0].dex).toBe(10);
   });
 });

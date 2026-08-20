@@ -6,6 +6,20 @@
  * is what let `prep_markdown` (a field that never existed) reach production.
  */
 
+/**
+ * `POST /dm/encounter` → `EncounterRequest.difficulty`. The backend accepts these
+ * four words and nothing else, so the picker and the request share one type.
+ */
+export type EncounterDifficulty = 'Easy' | 'Medium' | 'Hard' | 'Deadly';
+
+/** Ordered easiest → hardest, which is the order the picker shows them in. */
+export const ENCOUNTER_DIFFICULTIES: readonly EncounterDifficulty[] = [
+  'Easy',
+  'Medium',
+  'Hard',
+  'Deadly',
+];
+
 /** `POST /dm/encounter` → `EncounterSchema.monsters[]` */
 export interface EncounterMonster {
   name: string;

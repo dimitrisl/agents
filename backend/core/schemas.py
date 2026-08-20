@@ -310,6 +310,18 @@ class MonsterEncounter(BaseModel):
     quantity: int = 1
     statblock_summary: str
 
+    @field_validator("dex", "quantity", mode="before")
+    @classmethod
+    def default_missing_number(cls, v, info):
+        """
+        A generated statblock sometimes comes back with `"dex": null`. Without
+        this the whole encounter fails validation and the caller falls back to
+        the raw model output, which then rolls initiative on `None`.
+        """
+        if v is None or v == "":
+            return 10 if info.field_name == "dex" else 1
+        return v
+
 
 class EncounterSchema(BaseModel):
     encounter_text: str
