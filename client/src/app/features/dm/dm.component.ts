@@ -580,9 +580,30 @@ export class DmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    navigator.clipboard.writeText(this.inviteCode);
-    this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${this.inviteCode}" copied to clipboard! Share with players.`);
-    this.showAddMemberModal = false;
+    // The clipboard is allowed to say no — denied permission, or an insecure
+    // context where the API is not even there. Announcing success regardless
+    // sends the DM off to paste a code that was never copied, so the toast and
+    // the modal closing both wait for the write to actually land.
+    const code = this.inviteCode;
+    if (!navigator.clipboard) {
+      this.showClipboardFailure(code);
+      return;
+    }
+
+    navigator.clipboard.writeText(code).then(
+      () => {
+        this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
+        this.showAddMemberModal = false;
+      },
+      () => this.showClipboardFailure(code)
+    );
+  }
+
+  private showClipboardFailure(code: string) {
+    this.rollToast.showMessage(
+      '⚠️ COPY FAILED',
+      `The clipboard refused the write. Share this invite code by hand: ${code}`
+    );
   }
 
   addPartyMember() {
