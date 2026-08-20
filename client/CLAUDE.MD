@@ -33,14 +33,22 @@ user decide. Do not work around it with client-side hacks.
 
 ```bash
 cd client
-npm start        # ng serve — proxies /api and /ws to http://localhost:8000 (src/proxy.conf.json)
-npm run build    # production build
+npm start          # ng serve — proxies /api and /ws to http://localhost:8000 (src/proxy.conf.json)
+npm run build      # production build
+npm test           # Jest + jest-preset-angular (Node + jsdom, no browser)
+npm run test:watch # the same suite in watch mode
+npm run test:cov   # with coverage → client/coverage/ (git-ignored)
 ```
 
-> ⚠️ **There is no test framework in this project.** No `test` script, no Karma, no Jasmine,
-> no spec files. `npm run build` is the only automated gate that exists.
-> Never claim tests pass. Verify with a successful build plus the acceptance checks in
-> `design-contract.md` §7.
+Specs live next to the code they cover as `*.spec.ts`. Config: `jest.config.js`,
+`src/setup-jest.ts` (zone-based TestBed env), `tsconfig.spec.json` — which inherits the
+project's `strict`, `noPropertyAccessFromIndexSignature` and `strictTemplates`. **Never loosen
+those to make a test compile.**
+
+> ⚠️ **The suite is new and nearly empty** — one smoke spec, no coverage thresholds, no CI
+> wiring yet. `npm test` passing means the harness works, not that a feature is covered.
+> Both gates apply: `npm run build` **and** `npm test`. For visual work, neither replaces the
+> acceptance checks in `design-contract.md` §7. Never claim a test passed without running it.
 
 ---
 
