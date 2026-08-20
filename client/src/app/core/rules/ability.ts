@@ -42,6 +42,18 @@ export function proficiencyBonus(char: CharacterSchema | null | undefined): numb
   return char?.proficiency_bonus || 2;
 }
 
+/**
+ * The proficiency bonus a character of this level is entitled to: +2 from level
+ * 1, then +1 every four levels — +3 at 5, +4 at 9, +5 at 13, +6 at 17.
+ *
+ * The sheet stores the bonus rather than deriving it, so this is what a level-up
+ * has to write back. It never did, which left every hero who crossed level 5
+ * rolling a stale +2 on every proficient skill, save and attack.
+ */
+export function proficiencyBonusForLevel(level: number): number {
+  return Math.floor((Math.max(1, level) - 1) / 4) + 2;
+}
+
 export function isSaveProficient(
   char: CharacterSchema | null | undefined,
   ability: string

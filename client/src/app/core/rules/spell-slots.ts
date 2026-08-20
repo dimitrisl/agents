@@ -2,15 +2,6 @@ import { CharacterSchema } from '../models/character.model';
 
 export type SpellSlots = NonNullable<CharacterSchema['spell_slots']>;
 
-/**
- * The sheet's fallback when a slot level is spent that it has never recorded.
- *
- * This is what the code has always done, and it is almost certainly wrong — four
- * slots is not a rule, it is a guess. Pinned here rather than fixed, because this
- * extraction may not change what the rules compute (see the follow-up issue).
- */
-export const ASSUMED_SPELL_SLOT_MAX = 4;
-
 /** How the sheet keys its slots: level 3 is `level_3`. */
 export function spellSlotKey(level: number): string {
   return `level_${level}`;
@@ -35,13 +26,16 @@ export function hasSpellSlotLevel(
 /**
  * Spends one slot at `level` and returns the whole record, rebuilt.
  *
- * Spending can never push `used` past `max`; a level the sheet has not recorded
- * is created at {@link ASSUMED_SPELL_SLOT_MAX}.
+ * Spending can never push `used` past `max`, and a level the sheet does not
+ * record is a no-op: you cannot spend a slot you do not have. The old code
+ * invented such a level with four slots — four being a guess, not a rule — which
+ * handed a level 1 wizard four 9th-level slots the moment anything asked for one.
  */
 export function spendSpellSlot(slots: SpellSlots | undefined, level: number): SpellSlots {
   const key = spellSlotKey(level);
   const next: SpellSlots = { ...(slots ?? {}) };
-  const slot = next[key] ?? { max: ASSUMED_SPELL_SLOT_MAX, used: 0 };
+  const slot = next[key];
+  if (!slot) return next;
 
   next[key] = { ...slot, used: Math.min(slot.max, slot.used + 1) };
   return next;

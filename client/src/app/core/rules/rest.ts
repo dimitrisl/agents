@@ -12,29 +12,20 @@ import { currentHp } from './hit-points';
  */
 
 /**
- * The player sheet's own class → hit die table.
- *
- * It matches on a substring, so `Eldritch Knight Fighter` still finds its d10.
- * That is deliberately *not* the same lookup as {@link hitDieSize}: the exact
- * table in `class-combat.data` would give that same fighter a d8. Both are
- * preserved as-is here; reconciling them is a rules change, not a refactor.
- */
-export function classHitDieSize(charClass: string | undefined): number {
-  const c = (charClass || '').toLowerCase();
-  if (c.includes('barbarian')) return 12;
-  if (c.includes('fighter') || c.includes('paladin') || c.includes('ranger')) return 10;
-  if (c.includes('sorcerer') || c.includes('wizard')) return 6;
-  return 8; // Bard, Cleric, Druid, Monk, Rogue, Warlock
-}
-
-/**
  * The die a sheet actually spends: its own `hit_dice` entry wins, and the class
- * default only fills the gap. A malformed string (`"five"`, `"3"`, `""`) has no
+ * table only fills the gap. A malformed string (`"five"`, `"3"`, `""`) has no
  * `dN` in it and falls back the same way a missing one does.
+ *
+ * This is the *only* class → die lookup now. The player sheet used to carry a
+ * second one that ignored `hit_dice` entirely, so a wizard whose sheet said d10
+ * was told to roll a d10 by the action dock and then quietly handed a d6 by the
+ * short rest.
  */
-export function hitDieSize(char: Pick<CharacterSchema, 'hit_dice' | 'char_class'>): number {
-  const parsed = /d(\d+)/i.exec(char.hit_dice || '');
-  return parsed ? parseInt(parsed[1], 10) : hitDieSidesFor(char.char_class);
+export function hitDieSize(
+  char: Pick<CharacterSchema, 'hit_dice' | 'char_class'> | null | undefined
+): number {
+  const parsed = /d(\d+)/i.exec(char?.hit_dice || '');
+  return parsed ? parseInt(parsed[1], 10) : hitDieSidesFor(char?.char_class);
 }
 
 export function conModifier(char: CharacterSchema | null | undefined): number {
@@ -72,15 +63,17 @@ export function planShortRest(
 
   return {
     diceSpent,
-    dieSize: classHitDieSize(char?.char_class),
+    dieSize: hitDieSize(char),
     conModifier: conMod,
     conBonus: conMod * diceSpent,
   };
 }
 
 export interface ShortRestOutcome {
-  /** Never negative — see below. */
-  healed: number;
+  /** What the dice came to, floored at 0. This is the number the roll display shows. */
+  rolled: number;
+  /** What the hero actually got — never more than the gap to `hp_max`. */
+  hpGained: number;
   hpBefore: number;
   hpAfter: number;
   hitDiceUsed: number;
@@ -94,19 +87,24 @@ export interface ShortRestOutcome {
  * `rollTotal` already carries {@link ShortRestPlan.conBonus}, so a CON 6 hero
  * spending one die can hand a negative number in. A rest is never a wound: the
  * heal floors at 0, and healing can never carry past `hp_max`.
+ *
+ * `rolled` and `hpGained` are separate on purpose. A hero at 40/44 who rolls a
+ * 24 rolled a 24 and gained 4, and the sheet used to report the 24 as HP healed.
  */
 export function resolveShortRest(
   char: CharacterSchema,
   plan: ShortRestPlan,
   rollTotal: number
 ): ShortRestOutcome {
-  const healed = Math.max(0, rollTotal);
+  const rolled = Math.max(0, rollTotal);
   const hpBefore = currentHp(char);
+  const hpAfter = Math.min(char.hp_max, hpBefore + rolled);
 
   return {
-    healed,
+    rolled,
+    hpGained: hpAfter - hpBefore,
     hpBefore,
-    hpAfter: Math.min(char.hp_max, hpBefore + healed),
+    hpAfter,
     hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
     restoresPactSlots: (char.char_class || '').toLowerCase().includes('warlock'),
   };

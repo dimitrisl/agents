@@ -33,11 +33,11 @@ import {
   abilityModifierOf,
   adjustedHp,
   availableHitDice,
-  classHitDieSize,
   conModifier,
   findSkill,
   formatModifier,
   hasSpellSlotLevel,
+  hitDieSize,
   isProficientIn,
   levelUp,
   planShortRest,
@@ -398,7 +398,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getClassHitDieSize(): number {
-    return classHitDieSize(this.charState.activeCharacter()?.char_class);
+    return hitDieSize(this.charState.activeCharacter());
   }
 
   getConModifier(): number {
@@ -444,8 +444,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       rolls: roll.rolls,
       sides: dieSize,
       modifier: conBonus,
-      total: rest.healed,
-      message: `Healed for +${rest.healed} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
+      // The roll display shows what the dice came to; the message shows what the
+      // hero actually got, which is less whenever the rest hits `hp_max`.
+      total: rest.rolled,
+      message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
     });
   }
 
@@ -474,7 +476,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   useSpellSlot(lvl: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    // A slot the sheet does not record cannot be spent, and a save that changes
+    // nothing is still a round trip.
+    if (!char || !hasSpellSlotLevel(char, lvl)) return;
+
     char.spell_slots = spendSpellSlot(char.spell_slots, lvl);
     this.saveCurrentChar();
   }
@@ -1245,6 +1250,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     const advanced = levelUp(char, this.levelUpAnalysis);
     char.char_level = advanced.char_level;
+    char.proficiency_bonus = advanced.proficiency_bonus;
     char.hp_max = advanced.hp_max;
     char.hp_current = advanced.hp_current;
     // Left alone when the analysis brought nothing, rather than blanked to `[]`.

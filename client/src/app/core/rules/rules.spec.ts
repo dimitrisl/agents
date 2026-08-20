@@ -1,14 +1,12 @@
 import { CharacterSchema } from '../models/character.model';
 import {
   ALL_SKILLS,
-  ASSUMED_SPELL_SLOT_MAX,
   SkillDefinition,
   abilityModifier,
   abilityModifierOf,
   abilityScore,
   adjustedHp,
   availableHitDice,
-  classHitDieSize,
   clampHp,
   conModifier,
   currentHp,
@@ -21,6 +19,7 @@ import {
   levelUp,
   planShortRest,
   proficiencyBonus,
+  proficiencyBonusForLevel,
   regainSpellSlot,
   resolveLongRest,
   resolveShortRest,
@@ -40,10 +39,8 @@ import {
  * ask what a +3 was. It is the one part of the sheet where a wrong answer is
  * visible to the player, so it is now plain functions and these are plain tests.
  *
- * The extraction was behaviour-preserving. Where a rule looks wrong — a level-up
- * that never recalculates the proficiency bonus, a spell slot level invented at
- * four — the test pins what the code does today and says so. Fixing those is a
- * separate change.
+ * The extraction itself was behaviour-preserving. The four rules bugs it exposed
+ * are then fixed on top, and each fix says here what the old answer was.
  */
 function hero(overrides: Partial<CharacterSchema> = {}): CharacterSchema {
   return {
@@ -127,6 +124,28 @@ describe('ability rules', () => {
       expect(proficiencyBonus(unwritten)).toBe(2);
       expect(proficiencyBonus(hero({ proficiency_bonus: 0 }))).toBe(2);
       expect(proficiencyBonus(null)).toBe(2);
+    });
+  });
+
+  describe('proficiencyBonusForLevel', () => {
+    it.each([
+      [1, 2],
+      [4, 2],
+      [5, 3],
+      [8, 3],
+      [9, 4],
+      [12, 4],
+      [13, 5],
+      [16, 5],
+      [17, 6],
+      [20, 6],
+    ])('level %i is a +%i', (level, expected) => {
+      expect(proficiencyBonusForLevel(level)).toBe(expected);
+    });
+
+    it('treats a levelless sheet as level 1 rather than going below +2', () => {
+      expect(proficiencyBonusForLevel(0)).toBe(2);
+      expect(proficiencyBonusForLevel(-3)).toBe(2);
     });
   });
 
@@ -238,7 +257,13 @@ describe('skill rules', () => {
 // --------------------------------------------------------------------------- //
 
 describe('hit dice', () => {
-  describe('classHitDieSize — the player sheet lookup', () => {
+  /**
+   * There used to be two class → die lookups that disagreed: the player sheet
+   * matched substrings, the class-combat table matched exactly. A wizard whose
+   * sheet said `1d10` was shown "1d10+2" by the action dock and then handed a d6
+   * by the short rest. This is now the only lookup.
+   */
+  describe('hitDieSize', () => {
     it.each([
       ['Barbarian', 12],
       ['Fighter', 10],
@@ -248,25 +273,12 @@ describe('hit dice', () => {
       ['Wizard', 6],
       ['Rogue', 8],
       ['Warlock', 8],
-      ['', 8],
-    ])('gives a %s a d%i', (charClass, expected) => {
-      expect(classHitDieSize(charClass)).toBe(expected);
+      ['Artificer', 8],
+    ])('gives a %s a d%i', (char_class, expected) => {
+      expect(hitDieSize({ char_class })).toBe(expected);
     });
 
-    it('matches on a substring, so a subclass still finds its die', () => {
-      expect(classHitDieSize('Eldritch Knight Fighter')).toBe(10);
-      expect(classHitDieSize('barbarian (totem warrior)')).toBe(12);
-    });
-
-    it('falls back to a d8 for a class it does not know', () => {
-      expect(classHitDieSize(undefined)).toBe(8);
-      expect(classHitDieSize('Blood Hunter')).toBe(8);
-    });
-  });
-
-  describe('hitDieSize — the sheet-first lookup', () => {
-    it('lets the sheet outrank the class default', () => {
-      // A Wizard whose sheet says d10 spends a d10.
+    it('lets the sheet outrank the class table', () => {
       expect(hitDieSize({ char_class: 'Wizard', hit_dice: '5d10' })).toBe(10);
       expect(hitDieSize({ char_class: 'Wizard', hit_dice: 'd12' })).toBe(12);
     });
@@ -278,19 +290,21 @@ describe('hit dice', () => {
       expect(hitDieSize({ char_class: 'Barbarian' })).toBe(12);
     });
 
-    it('falls back to a d8 for a class the exact table does not list', () => {
-      expect(hitDieSize({ char_class: 'Blood Hunter' })).toBe(8);
+    it('finds the class inside a free-text subclass string', () => {
+      // `char_class` is a free-text field; this is what heroes actually hold.
+      expect(hitDieSize({ char_class: 'Eldritch Knight Fighter' })).toBe(10);
+      expect(hitDieSize({ char_class: 'Barbarian (Totem Warrior)' })).toBe(12);
+      expect(hitDieSize({ char_class: 'Arcane Trickster Rogue' })).toBe(8);
     });
 
-    /**
-     * The two lookups genuinely disagree, and both are preserved as they were.
-     * `classHitDieSize` matches substrings; the exact table behind `hitDieSize`
-     * does not, so a subclass string it has never seen drops to a d8. Reconciling
-     * them changes what the sheet computes, which #44 explicitly may not do.
-     */
-    it('differs from the player sheet lookup on a subclass string', () => {
-      expect(classHitDieSize('Eldritch Knight Fighter')).toBe(10);
-      expect(hitDieSize({ char_class: 'Eldritch Knight Fighter' })).toBe(8);
+    it('resolves a multiclass string to the first class in table order', () => {
+      expect(hitDieSize({ char_class: 'Fighter/Wizard' })).toBe(10);
+    });
+
+    it('falls back to a d8 for no class at all, or one it does not know', () => {
+      expect(hitDieSize({ char_class: '' })).toBe(8);
+      expect(hitDieSize({ char_class: 'Blood Hunter' })).toBe(8);
+      expect(hitDieSize(null)).toBe(8);
     });
   });
 
@@ -357,7 +371,8 @@ describe('short rest', () => {
       const rest = resolveShortRest(char, plan, 15);
 
       expect(rest).toEqual({
-        healed: 15,
+        rolled: 15,
+        hpGained: 15,
         hpBefore: 20,
         hpAfter: 35,
         hitDiceUsed: 3,
@@ -384,7 +399,8 @@ describe('short rest', () => {
       const frail = hero({ hp_max: 20, hp_current: 10, stats: { ...hero().stats, CON: 6 } });
       const rest = resolveShortRest(frail, { ...plan, conModifier: -2, conBonus: -4 }, -1);
 
-      expect(rest.healed).toBe(0);
+      expect(rest.rolled).toBe(0);
+      expect(rest.hpGained).toBe(0);
       expect(rest.hpAfter).toBe(10);
     });
 
@@ -402,15 +418,24 @@ describe('short rest', () => {
     });
 
     /**
-     * Pinned, not endorsed: `healed` is the number that was rolled, not the HP the
-     * hero actually gained. At 40/44 a rolled 20 reports "+20" while granting 4.
-     * The toast has always said this; changing it is a rules change.
+     * The sheet used to report the rolled total as HP healed: at 40/44 a rolled
+     * 20 announced "Healed for +20 HP! (40 ➡️ 44)", which is four points of
+     * healing described as twenty. The two numbers are separate now — the roll
+     * display shows `rolled`, the message shows `hpGained`.
      */
-    it('reports the rolled total even when most of it is wasted', () => {
+    it('separates what was rolled from what the hero actually got', () => {
       const rest = resolveShortRest(hero({ hp_max: 44, hp_current: 40 }), plan, 20);
 
-      expect(rest.healed).toBe(20);
-      expect(rest.hpAfter - rest.hpBefore).toBe(4);
+      expect(rest.rolled).toBe(20);
+      expect(rest.hpGained).toBe(4);
+      expect(rest.hpAfter - rest.hpBefore).toBe(rest.hpGained);
+    });
+
+    it('gains nothing at full health', () => {
+      const rest = resolveShortRest(hero({ hp_max: 44, hp_current: 44 }), plan, 12);
+
+      expect(rest.rolled).toBe(12);
+      expect(rest.hpGained).toBe(0);
     });
   });
 });
@@ -508,19 +533,14 @@ describe('spell slots', () => {
     });
 
     /**
-     * Pinned, not endorsed: spending at a level the sheet has never recorded
-     * invents it with four slots. Four is not a rule, it is a guess that has been
-     * in the component since it was written.
+     * The old code invented an unrecorded level with four slots — four being a
+     * guess, not a rule — so anything that asked to spend a 9th-level slot handed
+     * a level 1 wizard four of them.
      */
-    it('invents an unrecorded level rather than ignoring the click', () => {
-      expect(spendSpellSlot(slots(), 5)['level_5']).toEqual({
-        max: ASSUMED_SPELL_SLOT_MAX,
-        used: 1,
-      });
-      expect(spendSpellSlot(undefined, 1)['level_1']).toEqual({
-        max: ASSUMED_SPELL_SLOT_MAX,
-        used: 1,
-      });
+    it('is a no-op for a level the sheet does not have', () => {
+      expect(spendSpellSlot(slots(), 5)).toEqual(slots());
+      expect(spendSpellSlot(slots(), 5)['level_5']).toBeUndefined();
+      expect(spendSpellSlot(undefined, 1)).toEqual({});
     });
   });
 
@@ -621,23 +641,30 @@ describe('level up', () => {
   });
 
   it('does not touch the sheet it was given', () => {
-    const char = hero({ char_level: 5, hp_max: 44 });
+    const char = hero({ char_level: 4, hp_max: 44, proficiency_bonus: 2 });
     levelUp(char, analysis);
 
-    expect(char.char_level).toBe(5);
+    expect(char.char_level).toBe(4);
     expect(char.hp_max).toBe(44);
+    expect(char.proficiency_bonus).toBe(2);
   });
 
   /**
-   * A real rules bug, pinned rather than fixed here: the proficiency bonus is
-   * never recalculated, so a hero crossing level 5 keeps a stale +2 on every
-   * proficient skill, save and attack. Tracked separately — #44 is a
-   * behaviour-preserving extraction.
+   * The level-up used to leave `proficiency_bonus` exactly as it found it, so a
+   * hero crossing level 5 kept a stale +2 on every proficient skill, save and
+   * attack until someone edited the sheet by hand.
    */
-  it('does not recalculate the proficiency bonus (known bug)', () => {
-    const advanced = levelUp(hero({ char_level: 4, proficiency_bonus: 2 }), analysis);
+  it('recalculates the proficiency bonus from the new level', () => {
+    expect(levelUp(hero({ char_level: 4, proficiency_bonus: 2 }), analysis)).toMatchObject({
+      char_level: 5,
+      proficiency_bonus: 3,
+    });
+  });
 
-    expect(advanced.char_level).toBe(5);
-    expect(advanced).not.toHaveProperty('proficiency_bonus');
+  it('leaves the bonus alone on a level that does not cross a threshold', () => {
+    expect(levelUp(hero({ char_level: 5, proficiency_bonus: 3 }), analysis)).toMatchObject({
+      char_level: 6,
+      proficiency_bonus: 3,
+    });
   });
 });
