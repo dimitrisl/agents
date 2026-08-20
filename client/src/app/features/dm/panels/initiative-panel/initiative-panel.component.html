@@ -100,10 +100,10 @@
             <tr
               *ngFor="let combatant of combatants; let index = index; trackBy: trackCombatant"
               class="transition-colors"
-              [ngClass]="index === activeTurnIndex ? 'bg-accent/6' : 'hover:bg-tile'"
+              [ngClass]="combatant.id === activeCombatantId ? 'bg-accent/6' : 'hover:bg-tile'"
             >
               <td class="whitespace-nowrap px-3 py-2">
-                @if (index === activeTurnIndex) {
+                @if (combatant.id === activeCombatantId) {
                   <span class="flex items-center gap-1 font-semibold text-accent">
                     <span aria-hidden="true">⚔️</span> Current
                   </span>
