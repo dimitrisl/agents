@@ -23,7 +23,7 @@ import {
   formatInboxTime,
   type InboxEntry,
 } from '../../../core/models/campaign-inbox';
-import type { PartyMember } from '../dm.component';
+import type { PartyMember } from '../../../core/models/party.model';
 
 /**
  * The DM's live end of the table chatter: whispers in both directions and roll

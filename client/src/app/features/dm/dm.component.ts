@@ -25,6 +25,7 @@ import {
   CombatantCondition,
   InitiativeCombatant,
 } from '../../core/models/initiative.model';
+import { PartyMember, passivePerception } from '../../core/models/party.model';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
@@ -47,20 +48,6 @@ import { StatblockModalComponent } from './modals/statblock-modal/statblock-moda
 import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campaign-modal.component';
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
-
-export interface PartyMember {
-  char_id?: string;
-  name: string;
-  char_class: string;
-  level: number;
-  hp_current: number;
-  hp_max: number;
-  ac: number;
-  passive_perception: number;
-  conditions: string[];
-  stats?: { [key: string]: number };
-  portrait?: string;
-}
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 
@@ -313,6 +300,12 @@ export class DmComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
+
+    // Unsubscribing only stops this page from listening; the socket itself stays
+    // up, and the service holds exactly one. Left open, the server goes on
+    // routing every whisper and secret roll to a `role=dm` channel nobody is
+    // reading — including the ones it would otherwise have kept private.
+    this.wsService.disconnect();
 
     // A hit recorded a moment before leaving the page still has to land.
     for (const timer of this.partyStateTimers.values()) clearTimeout(timer);
@@ -619,7 +612,7 @@ export class DmComponent implements OnInit, OnDestroy {
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
             ac: char.armor_class ?? 10,
-            passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
+            passive_perception: passivePerception(char.stats),
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
             conditions: char.conditions || [],
@@ -659,7 +652,7 @@ export class DmComponent implements OnInit, OnDestroy {
       hp_current: char.hp_current ?? char.hp_max,
       hp_max: char.hp_max,
       ac: char.armor_class,
-      passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
+      passive_perception: passivePerception(char.stats),
       conditions: [],
       stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
       portrait: char.char_portrait
@@ -716,6 +709,10 @@ export class DmComponent implements OnInit, OnDestroy {
 
   addPartyMember() {
     if (!this.newMemberName.trim()) return;
+    // The form asks for no ability scores, so a hand-typed member gets this
+    // stand-in block — and their Passive Perception is read off it rather than
+    // written out by hand, which is how the two came to disagree.
+    const stats = { STR: 14, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 };
     const member: PartyMember = {
       name: this.newMemberName.trim(),
       char_class: this.newMemberClass || 'Fighter',
@@ -723,9 +720,9 @@ export class DmComponent implements OnInit, OnDestroy {
       hp_current: this.newMemberHp || 40,
       hp_max: this.newMemberHp || 40,
       ac: this.newMemberAc || 16,
-      passive_perception: 10 + Math.floor(((12) - 10) / 2),
+      passive_perception: passivePerception(stats),
       conditions: [],
-      stats: { STR: 14, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 }
+      stats
     };
 
     this.partyMembers.push(member);
@@ -1407,10 +1404,16 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   sendWhisper() {
+    // The same guard the inbox reply has always had: an empty whisper is a
+    // notification with nothing in it, delivered to a player who then has to ask
+    // what the DM meant.
+    const message = this.whisperMessage.trim();
+    if (!message) return;
+
     this.http.post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
       sender: 'DM',
       recipient: this.whisperRecipient,
-      message: this.whisperMessage
+      message
     }).subscribe({
       next: (res) => {
         this.showWhisperModal = false;

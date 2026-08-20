@@ -1,12 +1,13 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Subject } from 'rxjs';
-import { DmComponent, PartyMember } from './dm.component';
+import { DmComponent } from './dm.component';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { InitiativeCombatant } from '../../core/models/initiative.model';
+import { PartyMember } from '../../core/models/party.model';
 import { EncounterMonster } from '../../core/models/dm-tools.model';
 import { CharacterStateService } from '../../core/services/character-state.service';
 
@@ -59,6 +60,7 @@ describe('DmComponent — initiative rounds', () => {
       messages$: new Subject<WsMessage>(),
       opened$: new Subject<string>(),
       connect: () => undefined,
+      disconnect: () => undefined,
     };
 
     TestBed.configureTestingModule({
@@ -502,6 +504,7 @@ describe('DmComponent — encounter generator', () => {
       messages$: new Subject<WsMessage>(),
       opened$: new Subject<string>(),
       connect: () => undefined,
+      disconnect: () => undefined,
     };
 
     TestBed.configureTestingModule({
@@ -654,5 +657,83 @@ describe('DmComponent — encounter generator', () => {
 
     expect(component.combatants[0].initiative).toBe(10);
     expect(component.combatants[0].dex).toBe(10);
+  });
+});
+
+describe('DmComponent — workspace teardown and whispers', () => {
+  let fixture: ComponentFixture<DmComponent>;
+  let component: DmComponent;
+  let http: HttpTestingController;
+  let ws: Partial<WebSocketService>;
+
+  beforeEach(() => {
+    ws = {
+      messages$: new Subject<WsMessage>(),
+      opened$: new Subject<string>(),
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: ws },
+      ],
+    });
+
+    localStorage.clear();
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(DmComponent);
+    component = fixture.componentInstance;
+    component.campaignName = 'Curse of Strahd';
+  });
+
+  afterEach(() => {
+    http.verify();
+    localStorage.clear();
+  });
+
+  it('closes the DM channel when the workspace is left', () => {
+    fixture.destroy();
+
+    // Unsubscribing is not enough: the service holds one socket, and a live
+    // role=dm channel keeps drawing every whisper and secret roll.
+    expect(ws.disconnect).toHaveBeenCalled();
+  });
+
+  it('does not send an empty whisper', () => {
+    component.showWhisperModal = true;
+    component.whisperMessage = '   \n  ';
+
+    component.sendWhisper();
+
+    http.expectNone((r) => r.url.includes('/whisper'));
+    // Nothing was sent, so the modal stays open rather than closing on a
+    // "delivered" toast for a whisper that never left the browser.
+    expect(component.showWhisperModal).toBe(true);
+  });
+
+  it('sends the trimmed whisper', () => {
+    component.whisperMessage = '  The door is a mimic.  ';
+
+    component.sendWhisper();
+
+    const req = http.expectOne((r) => r.url.includes('/whisper'));
+    expect(req.request.body.message).toBe('The door is a mimic.');
+    req.flush({ whisper: { sender: 'DM', recipient: 'All', message: 'The door is a mimic.' } });
+  });
+
+  it('reads passive perception off the hero rather than a fixed 11', () => {
+    component.loadParty();
+
+    http.expectOne((r) => r.url.includes('/party')).flush([
+      { char_id: 'e1', char_name: 'Ezren', stats: { WIS: 18 } },
+      { char_id: 'v1', char_name: 'Valeros', stats: { WIS: 8 } },
+      { char_id: 'm1', char_name: 'Merisiel' },
+    ]);
+
+    expect(component.partyMembers.map((m) => m.passive_perception)).toEqual([14, 9, 10]);
   });
 });
