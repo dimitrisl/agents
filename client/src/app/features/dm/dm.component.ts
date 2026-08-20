@@ -121,6 +121,8 @@ export class DmComponent implements OnInit, OnDestroy {
   campaignName = '';
   campaignNotes = '';
   inviteCode = '';
+  /** The ruleset this campaign was forged under. Empty until one is selected. */
+  campaignEdition = '';
 
   /**
    * Load outcomes are rendered, never papered over: a DM who cannot tell a failed
@@ -467,6 +469,21 @@ export class DmComponent implements OnInit, OnDestroy {
 
   // --- Session board (presentation only, derived from the live workspace state) ---
 
+  /**
+   * The ruleset every DM tool resolves against: the campaign's own, falling back
+   * to the edition toggle for a campaign saved before the field existed. Nothing
+   * here may be a string literal — a 2024 table used to get 2014 content with no
+   * sign that it had happened.
+   */
+  get activeEdition(): string {
+    return this.campaignEdition || this.charState.dndEdition();
+  }
+
+  /** `2014` / `2024`, for the badge that tells the DM which one is live. */
+  get editionShort(): string {
+    return this.activeEdition.includes('2024') ? '2024' : '2014';
+  }
+
   get partyAverageLevel(): number {
     if (this.partyMembers.length === 0) return 0;
     const total = this.partyMembers.reduce((sum, member) => sum + (member.level || 0), 0);
@@ -534,6 +551,7 @@ export class DmComponent implements OnInit, OnDestroy {
     this.campaignName = '';
     this.campaignNotes = '';
     this.inviteCode = '';
+    this.campaignEdition = '';
     this.partyMembers = [];
     this.partyStatus = 'ready';
     this.avgLevelOverride = null;
@@ -557,6 +575,8 @@ export class DmComponent implements OnInit, OnDestroy {
     // No code yet — the DM forges one from the header button when they need it.
     this.inviteCode = selected?.invite_code || '';
     this.campaignNotes = selected?.notes || '';
+    // Blank for a campaign forged before the field existed; the toggle covers it.
+    this.campaignEdition = selected?.dnd_edition || '';
 
     // Before anything async: an encounter left running in this campaign is put
     // straight back on the table, so the fight is on screen while the roster is
@@ -726,7 +746,8 @@ export class DmComponent implements OnInit, OnDestroy {
       campaign_name: this.newCampaignTitle.trim(),
       notes: this.newCampaignNotes,
       party: [],
-      dnd_edition: '2014 Edition'
+      // A campaign is forged under whichever ruleset the DM is playing right now.
+      dnd_edition: this.charState.dndEdition()
     };
 
     this.isCreatingCampaign = true;
@@ -1330,7 +1351,7 @@ export class DmComponent implements OnInit, OnDestroy {
       party_size: this.partyMembers.length,
       avg_level: this.avgLevel,
       location: this.location,
-      edition: '2014 Edition',
+      edition: this.activeEdition,
       difficulty: this.encounterDifficulty
     }).subscribe((res) => {
       this.encounterResult = res;
@@ -1370,7 +1391,7 @@ export class DmComponent implements OnInit, OnDestroy {
   generateNpc() {
     this.http.post<NpcResponse>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
-      edition: '2014 Edition'
+      edition: this.activeEdition
     }).subscribe((res) => {
       this.npcResult = res.npc_markdown;
     });

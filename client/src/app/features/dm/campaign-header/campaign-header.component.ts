@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeSelectDirective,
 } from '../../../shared/ui';
@@ -12,6 +13,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeSelectDirective,
   ],
@@ -22,6 +24,8 @@ export class CampaignHeaderComponent {
   @Input({ required: true }) campaignName!: string;
   @Input() userCampaigns: Array<{ campaign_name: string }> = [];
   @Input() inviteCode = '';
+  /** `2014` / `2024` — the ruleset the DM tools are resolving against. */
+  @Input() editionShort = '';
 
   @Output() campaignNameChange = new EventEmitter<string>();
   @Output() campaignSelected = new EventEmitter<void>();

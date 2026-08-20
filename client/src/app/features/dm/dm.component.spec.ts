@@ -8,6 +8,7 @@ import { WebSocketService, WsMessage } from '../../core/services/websocket.servi
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { InitiativeCombatant } from '../../core/models/initiative.model';
 import { EncounterMonster } from '../../core/models/dm-tools.model';
+import { CharacterStateService } from '../../core/services/character-state.service';
 
 /**
  * The turn engine is exercised on the component instance directly — the fixture
@@ -16,6 +17,20 @@ import { EncounterMonster } from '../../core/models/dm-tools.model';
  */
 function makeComponent(): DmComponent {
   return TestBed.createComponent(DmComponent).componentInstance;
+}
+
+function hero(name: string, level: number): PartyMember {
+  return {
+    char_id: name,
+    name,
+    char_class: 'Fighter',
+    level,
+    hp_current: 20,
+    hp_max: 20,
+    ac: 15,
+    passive_perception: 10,
+    conditions: [],
+  };
 }
 
 function combatant(id: string, initiative: number, overrides: Partial<InitiativeCombatant> = {}) {
@@ -482,20 +497,6 @@ describe('DmComponent — encounter generator', () => {
   let component: DmComponent;
   let http: HttpTestingController;
 
-  function hero(name: string, level: number): PartyMember {
-    return {
-      char_id: name,
-      name,
-      char_class: 'Fighter',
-      level,
-      hp_current: 20,
-      hp_max: 20,
-      ac: 15,
-      passive_perception: 10,
-      conditions: [],
-    };
-  }
-
   beforeEach(() => {
     const wsStub: Partial<WebSocketService> = {
       messages$: new Subject<WsMessage>(),
@@ -579,6 +580,66 @@ describe('DmComponent — encounter generator', () => {
 
     http.expectNone((r) => r.url.includes('/dm/encounter'));
     expect(toast).toHaveBeenCalledWith('⚠️ NO PARTY', expect.stringContaining('roster'));
+  });
+
+  it('resolves the encounter against the ruleset the campaign is played under', () => {
+    component.userCampaigns = [
+      { campaign_name: 'Curse of Strahd', dnd_edition: '2024 Revision (5.5e)' },
+    ];
+    component.onCampaignSelect();
+    http.expectOne((r) => r.url.includes('/messages')).flush({
+      campaign_name: 'Curse of Strahd',
+      whispers: [],
+      roll_requests: [],
+    });
+    http.expectOne((r) => r.url.includes('/party')).flush([]);
+    component.partyMembers = [hero('Ezren', 5)];
+
+    component.generateEncounter();
+
+    const encounter = http.expectOne((r) => r.url.includes('/dm/encounter'));
+    expect(encounter.request.body.edition).toBe('2024 Revision (5.5e)');
+    encounter.flush({ encounter_text: 'Ghouls', monsters: [] });
+
+    component.generateNpc();
+
+    const npc = http.expectOne((r) => r.url.includes('/dm/npc'));
+    expect(npc.request.body.edition).toBe('2024 Revision (5.5e)');
+    npc.flush({ npc_markdown: 'A broker' });
+
+    expect(component.editionShort).toBe('2024');
+  });
+
+  it('falls back to the edition toggle for a campaign saved before the field existed', () => {
+    TestBed.inject(CharacterStateService).dndEdition.set('2024 Revision (5.5e)');
+    component.userCampaigns = [{ campaign_name: 'Curse of Strahd' }];
+    component.onCampaignSelect();
+    http.expectOne((r) => r.url.includes('/messages')).flush({
+      campaign_name: 'Curse of Strahd',
+      whispers: [],
+      roll_requests: [],
+    });
+    http.expectOne((r) => r.url.includes('/party')).flush([]);
+    component.partyMembers = [hero('Ezren', 5)];
+
+    component.generateEncounter();
+
+    const req = http.expectOne((r) => r.url.includes('/dm/encounter'));
+    expect(req.request.body.edition).toBe('2024 Revision (5.5e)');
+    req.flush({ encounter_text: 'Ghouls', monsters: [] });
+  });
+
+  it('forges a new campaign under the ruleset the DM is playing', () => {
+    TestBed.inject(CharacterStateService).dndEdition.set('2024 Revision (5.5e)');
+    component.newCampaignTitle = 'Phyrexia Awakens';
+
+    component.createNewCampaign();
+
+    const req = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('/campaigns/'));
+    expect(req.request.body.dnd_edition).toBe('2024 Revision (5.5e)');
+    // Answering it would pull the whole workspace load in behind it; the body is
+    // the contract under test.
+    req.flush({ campaign_name: 'Phyrexia Awakens' }, { status: 500, statusText: 'Server Error' });
   });
 
   it('gives a monster with no DEX an average initiative rather than NaN', () => {
