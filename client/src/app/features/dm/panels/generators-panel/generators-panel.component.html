@@ -69,7 +69,7 @@
             </p>
           </div>
 
-          <div *ngIf="encounterResult.monsters?.length" class="flex min-w-0 flex-col gap-2">
+          <div *ngIf="encounterResult.monsters.length" class="flex min-w-0 flex-col gap-2">
             <p class="text-micro font-semibold uppercase text-muted">Found Monsters</p>
             <ul class="flex flex-col gap-1">
               <li *ngFor="let monster of encounterResult.monsters" class="text-body text-muted">
