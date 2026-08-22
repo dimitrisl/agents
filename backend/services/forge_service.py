@@ -14,6 +14,7 @@ from backend.core.prompts import (
     PLAYSTYLE_GUIDE_PROMPT,
 )
 from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
+from backend.core.state_manager import get_default_character
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
 from backend.services.rules_service import (
@@ -115,8 +116,6 @@ def forge_character(
     result = generate_ai_json(prompt)
     if not result:
         logger.warning("AI JSON generation returned None. Generating default fallback character.")
-        from backend.core.state_manager import get_default_character
-
         result = get_default_character()
         result.update(
             {
@@ -168,7 +167,6 @@ def forge_character(
         logger.warning(
             f"Forged character failed initial validation: {e}. Coercing schema defaults."
         )
-        from backend.core.state_manager import get_default_character
 
         fallback = get_default_character()
         for k, v in result.items():
@@ -291,7 +289,6 @@ def forge_character_manual(
         logger.warning(
             f"Manual character failed initial validation: {e}. Coercing schema defaults."
         )
-        from backend.core.state_manager import get_default_character
 
         fallback = get_default_character()
         fallback.update({k: v for k, v in result.items() if v is not None})

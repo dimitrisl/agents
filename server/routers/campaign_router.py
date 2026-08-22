@@ -2,7 +2,7 @@ import datetime
 import re
 import secrets
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -21,12 +21,20 @@ router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 class CampaignSchema(BaseModel):
     campaign_name: str
     owner_id: Optional[str] = None
-    notes: Optional[str] = ""
+    notes: str = ""
     party: List[str] = []
-    dnd_edition: Optional[str] = "2014 Edition"
+    dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
     roll_requests: List[Dict[str, Any]] = []
     whispers: List[Dict[str, Any]] = []
+
+
+class PlayerCampaignSchema(BaseModel):
+    campaign_name: str
+    owner_id: Optional[str] = None
+    party: List[str] = []
+    dnd_edition: Optional[str] = None
+    invite_code: Optional[str] = None
 
 
 class JoinCampaignRequest(BaseModel):
@@ -179,23 +187,31 @@ def _visible_roll_requests(camp: dict, is_dm: bool) -> List[Dict[str, Any]]:
         return requests
     return [request for request in requests if not request.get("is_secret")]
 
+
 # _ensure_dm_access removed as per #ticket
 
 
-@router.get("/", response_model=List[CampaignSchema])
+@router.get("/", response_model=List[Union[CampaignSchema, PlayerCampaignSchema]])
 async def list_campaigns(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    members = db["campaign_members"].find({"user_id": current_user["id"]})
-    campaign_names = []
-    async for member in members:
-        campaign_names.append(member["campaign_id"])
+    members_cursor = db["campaign_members"].find({"user_id": current_user["id"]})
+    user_roles = {}
+    async for member in members_cursor:
+        user_roles[member["campaign_id"]] = member.get("role", "player")
 
-    cursor = db["campaigns"].find({"campaign_name": {"$in": campaign_names}})
+    if not user_roles:
+        return []
+
+    cursor = db["campaigns"].find({"campaign_name": {"$in": list(user_roles.keys())}})
     campaigns = []
     async for doc in cursor:
         doc.pop("_id", None)
-        campaigns.append(CampaignSchema(**doc))
+        role = user_roles.get(doc["campaign_name"], "player")
+        if role == "dm":
+            campaigns.append(CampaignSchema(**doc))
+        else:
+            campaigns.append(PlayerCampaignSchema(**doc))
     return campaigns
 
 
@@ -302,9 +318,7 @@ async def update_party_member_state(
         updates["conditions"] = cleaned
 
     if not updates:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Nothing to update."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nothing to update.")
 
     # Only the touched fields are written. A blind $set of the whole document
     # would race with the character sheet the player has open.
@@ -580,14 +594,13 @@ async def get_campaign_messages(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     whispers = camp.get("whispers", [])
-    roll_requests = camp.get("roll_requests", [])
 
     if member.get("role") == "player":
         char_name = None
         if member.get("character_id"):
             char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
             if char_doc:
-                char_name = char_doc.get("name")
+                char_name = char_doc.get("char_name")
 
         filtered_whispers = []
         for w in whispers:
@@ -623,7 +636,7 @@ async def send_whisper(
         if member.get("character_id"):
             char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
             sender_name = (
-                char_doc.get("name") if char_doc else current_user.get("username", "Player")
+                char_doc.get("char_name") if char_doc else current_user.get("username", "Player")
             )
         else:
             sender_name = current_user.get("username", "Player")

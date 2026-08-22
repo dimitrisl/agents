@@ -12,6 +12,7 @@ from backend.core.prompts import (
     RULES_ORACLE_PROMPT,
 )
 from backend.core.schemas import CharacterSchema
+from backend.core.state_manager import get_default_character
 from backend.repositories.rules_repository import RulesRepository
 from backend.utils.api_client import fetch_feat_from_api
 
@@ -171,7 +172,6 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
             logger.error(
                 f"Fallback validation failed: {fallback_err}. Returning default character."
             )
-            from backend.core.state_manager import get_default_character
 
             default_char = get_default_character()
             # Overlay simple fields
