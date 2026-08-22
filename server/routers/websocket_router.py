@@ -119,7 +119,6 @@ async def campaign_websocket_endpoint(
     websocket: WebSocket,
     campaign_id: str,
     token: str = Query(...),
-    role: str = Query("player"),
     character: Optional[str] = Query(None),
 ):
     try:
