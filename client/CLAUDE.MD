@@ -58,7 +58,8 @@ those to make a test compile.**
 src/app/
 ├─ core/
 │  ├─ services/     auth · character-state · websocket · dice · roll-toast · class-combat
-│  └─ models/       character · campaign · campaign-inbox · user
+│  ├─ models/       character · campaign · campaign-inbox · user
+│  └─ rules/        the sheet's maths as plain functions — no Angular, import from the barrel
 ├─ shared/
 │  ├─ ui/           the forge-* kit — import from the barrel: shared/ui
 │  └─ components/   roll-toast, command palette, etc.

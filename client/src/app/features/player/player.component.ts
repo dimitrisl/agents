@@ -27,6 +27,32 @@ import {
   shouldPrompt,
 } from '../../core/models/roll-prompt';
 import {
+  ALL_SKILLS,
+  SkillDefinition,
+  abilityModifier,
+  abilityModifierOf,
+  adjustedHp,
+  availableHitDice,
+  conModifier,
+  findSkill,
+  formatModifier,
+  hasSpellSlotLevel,
+  hitDieSize,
+  isProficientIn,
+  levelUp,
+  planShortRest,
+  regainSpellSlot,
+  resolveLongRest,
+  resolveShortRest,
+  restoreAllSpellSlots,
+  savingThrowModifier,
+  skillModifier,
+  skillModifierString,
+  spellSlotMax,
+  spellSlotUsed,
+  spendSpellSlot,
+} from '../../core/rules';
+import {
   ForgeButtonDirective,
   ForgeCardComponent,
   ForgeEmptyStateComponent,
@@ -54,10 +80,9 @@ import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strat
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
 import { environment } from '../../../environments/environment';
 
-export interface SkillDefinition {
-  name: string;
-  ability: 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
-}
+// The panels and modals under `features/player/` still import this from here.
+// It lives in `core/rules` now, next to the maths that consumes it.
+export type { SkillDefinition } from '../../core/rules';
 
 /** What the DM's `roll_type` + `stat` pair actually means on this hero's sheet. */
 interface RollTarget {
@@ -154,26 +179,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // so switching it back off returns the sheet to the user's own layout.
   private openGroupsBeforeFilter: { [key: string]: boolean } | null = null;
 
-  allSkills: SkillDefinition[] = [
-    { name: 'Athletics', ability: 'STR' },
-    { name: 'Acrobatics', ability: 'DEX' },
-    { name: 'Sleight of Hand', ability: 'DEX' },
-    { name: 'Stealth', ability: 'DEX' },
-    { name: 'Arcana', ability: 'INT' },
-    { name: 'History', ability: 'INT' },
-    { name: 'Investigation', ability: 'INT' },
-    { name: 'Nature', ability: 'INT' },
-    { name: 'Religion', ability: 'INT' },
-    { name: 'Animal Handling', ability: 'WIS' },
-    { name: 'Insight', ability: 'WIS' },
-    { name: 'Medicine', ability: 'WIS' },
-    { name: 'Perception', ability: 'WIS' },
-    { name: 'Survival', ability: 'WIS' },
-    { name: 'Deception', ability: 'CHA' },
-    { name: 'Intimidation', ability: 'CHA' },
-    { name: 'Performance', ability: 'CHA' },
-    { name: 'Persuasion', ability: 'CHA' },
-  ];
+  allSkills: SkillDefinition[] = [...ALL_SKILLS];
 
   private wsSub: Subscription | null = null;
   private openedSub: Subscription | null = null;
@@ -384,9 +390,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getAttributeModifier(attr: string): string {
-    const char = this.charState.activeCharacter();
-    const value = char?.stats?.[attr] || 10;
-    return this.getModifierString(value);
+    return formatModifier(abilityModifierOf(this.charState.activeCharacter(), attr));
   }
 
   goToForge() {
@@ -394,26 +398,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getClassHitDieSize(): number {
-    const char = this.charState.activeCharacter();
-    const c = (char?.char_class || '').toLowerCase();
-    if (c.includes('barbarian')) return 12;
-    if (c.includes('fighter') || c.includes('paladin') || c.includes('ranger')) return 10;
-    if (c.includes('sorcerer') || c.includes('wizard')) return 6;
-    return 8; // Bard, Cleric, Druid, Monk, Rogue, Warlock
+    return hitDieSize(this.charState.activeCharacter());
   }
 
   getConModifier(): number {
-    const char = this.charState.activeCharacter();
-    const conVal = char?.stats?.['CON'] || 10;
-    return Math.floor((conVal - 10) / 2);
+    return conModifier(this.charState.activeCharacter());
   }
 
   getAvailableHitDice(): number {
-    const char = this.charState.activeCharacter();
-    if (!char) return 0;
-    const total = char.char_level || 1;
-    const used = char.hit_dice_used || 0;
-    return Math.max(0, total - used);
+    return availableHitDice(this.charState.activeCharacter());
   }
 
   openShortRestModal() {
@@ -424,113 +417,93 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   executeShortRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const available = this.getAvailableHitDice();
-    if (available <= 0) return;
 
-    const count = Math.min(available, Math.max(1, this.shortRestDiceToSpend));
-    const dieSize = this.getClassHitDieSize();
-    const conMod = this.getConModifier();
+    const plan = planShortRest(char, this.shortRestDiceToSpend);
+    if (!plan) return;
 
-    const conBonus = conMod * count;
-    const roll = this.dice.roll({ numDice: count, sides: dieSize, modifier: conBonus });
-    const totalHealed = Math.max(0, roll.total);
+    const { diceSpent, dieSize, conBonus } = plan;
+    const roll = this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus });
+    const rest = resolveShortRest(char, plan, roll.total);
 
-    const oldHp = char.hp_current ?? char.hp_max;
-    const newHp = Math.min(char.hp_max, oldHp + totalHealed);
+    char.hp_current = rest.hpAfter;
+    char.hit_dice_used = rest.hitDiceUsed;
 
-    char.hp_current = newHp;
-    char.hit_dice_used = (char.hit_dice_used || 0) + count;
-
-    if (char.char_class.toLowerCase().includes('warlock') && char.spell_slots) {
-      Object.keys(char.spell_slots).forEach((key) => {
-        if (char.spell_slots) char.spell_slots[key].used = 0;
-      });
+    if (rest.restoresPactSlots && char.spell_slots) {
+      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
     }
 
     this.saveCurrentChar();
     this.showShortRestModal = false;
 
     this.rollToast.showRoll({
-      title: `⛺ SHORT REST HEAL (${count}d${dieSize})`,
+      title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
       // Every hit die is worth showing here, so this spells them out rather than
       // using the service's summed form.
-      expression: `${count}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+      expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
       raw: roll.raw,
       rolls: roll.rolls,
       sides: dieSize,
       modifier: conBonus,
-      total: totalHealed,
-      message: `Healed for +${totalHealed} HP! (${oldHp} ➡️ ${newHp})`
+      // The roll display shows what the dice came to; the message shows what the
+      // hero actually got, which is less whenever the rest hits `hp_max`.
+      total: rest.rolled,
+      message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
     });
   }
 
   triggerLongRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    char.hp_current = char.hp_max;
 
-    const totalHd = char.char_level || 1;
-    const currentUsed = char.hit_dice_used || 0;
-    const recoverCount = Math.floor(totalHd / 2) || 1;
-    char.hit_dice_used = Math.max(0, currentUsed - recoverCount);
+    const rest = resolveLongRest(char);
+    char.hp_current = rest.hpCurrent;
+    char.hit_dice_used = rest.hitDiceUsed;
 
     if (char.spell_slots) {
-      Object.keys(char.spell_slots).forEach((key) => {
-        if (char.spell_slots) char.spell_slots[key].used = 0;
-      });
+      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
     }
     this.saveCurrentChar();
-    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${recoverCount} Hit Dice restored for ${char.char_name}.`);
+    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${rest.hitDiceRecovered} Hit Dice restored for ${char.char_name}.`);
   }
 
   getSpellSlotMax(lvl: number): number {
-    const char = this.charState.activeCharacter();
-    return char?.spell_slots?.[`level_${lvl}`]?.max || 0;
+    return spellSlotMax(this.charState.activeCharacter(), lvl);
   }
 
   getSpellSlotUsed(lvl: number): number {
-    const char = this.charState.activeCharacter();
-    return char?.spell_slots?.[`level_${lvl}`]?.used || 0;
+    return spellSlotUsed(this.charState.activeCharacter(), lvl);
   }
 
   useSpellSlot(lvl: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
-    if (!char.spell_slots) char.spell_slots = {};
-    const key = `level_${lvl}`;
-    if (!char.spell_slots[key]) char.spell_slots[key] = { max: 4, used: 0 };
-    char.spell_slots[key].used = Math.min(char.spell_slots[key].max, char.spell_slots[key].used + 1);
+    // A slot the sheet does not record cannot be spent, and a save that changes
+    // nothing is still a round trip.
+    if (!char || !hasSpellSlotLevel(char, lvl)) return;
+
+    char.spell_slots = spendSpellSlot(char.spell_slots, lvl);
     this.saveCurrentChar();
   }
 
   restoreSpellSlot(lvl: number) {
     const char = this.charState.activeCharacter();
-    if (!char || !char.spell_slots) return;
-    const key = `level_${lvl}`;
-    if (char.spell_slots[key]) {
-      char.spell_slots[key].used = Math.max(0, char.spell_slots[key].used - 1);
-      this.saveCurrentChar();
-    }
+    // A level the sheet has never recorded has nothing to give back, and a
+    // pointless save is still a round trip.
+    if (!char || !hasSpellSlotLevel(char, lvl)) return;
+
+    char.spell_slots = regainSpellSlot(char.spell_slots, lvl);
+    this.saveCurrentChar();
   }
 
   isProficient(skillName: string): boolean {
-    const char = this.charState.activeCharacter();
-    return char?.skill_proficiencies?.includes(skillName) || false;
+    return isProficientIn(this.charState.activeCharacter(), skillName);
   }
 
   getSkillModifier(skill: SkillDefinition): number {
-    const char = this.charState.activeCharacter();
-    if (!char || !char.stats) return 0;
-    const statVal = char.stats[skill.ability] || 10;
-    const statMod = Math.floor((statVal - 10) / 2);
-    const profBonus = char.proficiency_bonus || 2;
-    const isProf = this.isProficient(skill.name);
-    return statMod + (isProf ? profBonus : 0);
+    return skillModifier(this.charState.activeCharacter(), skill);
   }
 
   getSkillModString(skill: SkillDefinition): string {
-    const mod = this.getSkillModifier(skill);
-    return mod >= 0 ? `+${mod}` : `${mod}`;
+    return skillModifierString(this.charState.activeCharacter(), skill);
   }
 
   /**
@@ -562,21 +535,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   rollAbilityCheck(stat: string) {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
-    const val = char.stats[stat] || 10;
-    const mod = Math.floor((val - 10) / 2);
 
-    return this.showD20Roll(`🎲 ${stat} CHECK`, mod);
+    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat));
   }
 
   rollSavingThrow(stat: string) {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
-    const val = char.stats[stat] || 10;
-    const mod = Math.floor((val - 10) / 2);
-    const isSaveProf = char.saving_throws?.includes(stat);
-    const profBonus = char.proficiency_bonus || 2;
 
-    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, mod + (isSaveProf ? profBonus : 0));
+    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, savingThrowModifier(char, stat));
   }
 
   /**
@@ -588,23 +555,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return null;
 
-    const abilityModifier = (ability: string) =>
-      Math.floor(((char.stats?.[ability] || 10) - 10) / 2);
-
     const normalizedType = rollType.toLowerCase().replace(/[\s-]+/g, '_');
 
     if (normalizedType === 'save' || normalizedType === 'saving_throw' || normalizedType === 'savingthrow') {
-      const isSaveProf = char.saving_throws?.includes(stat);
-      const profBonus = char.proficiency_bonus || 2;
       return {
         title: `🛡️ ${stat} SAVING THROW`,
         label: `${stat} saving throw`,
-        modifier: abilityModifier(stat) + (isSaveProf ? profBonus : 0),
+        modifier: savingThrowModifier(char, stat),
       };
     }
 
     if (normalizedType === 'skill' || normalizedType === 'skill_check') {
-      const skill = this.allSkills.find((s) => s.name.toLowerCase() === stat.toLowerCase());
+      const skill = findSkill(this.allSkills, stat);
       // An unknown skill name falls through to a plain ability check, the same way
       // it always has — the DM may have typed a stat where a skill was expected.
       if (skill) {
@@ -619,7 +581,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return {
       title: `🎲 ${stat} CHECK`,
       label: `${stat} check`,
-      modifier: abilityModifier(stat),
+      modifier: abilityModifierOf(char, stat),
     };
   }
 
@@ -1199,9 +1161,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   adjustHp(delta: number) {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const current = char.hp_current ?? char.hp_max;
-    const updatedHp = Math.max(0, Math.min(char.hp_max, current + delta));
-    const updated = { ...char, hp_current: updatedHp };
+    const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
       this.hpSave$.next(updated);
@@ -1288,15 +1248,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !this.levelUpAnalysis) return;
 
-    // Apply basic stat changes
-    char.char_level = (char.char_level || 1) + 1;
-    char.hp_max = this.levelUpAnalysis.new_total_hp;
-    char.hp_current = char.hp_max;
-
-    // Apply new features
-    if (this.levelUpAnalysis.new_features) {
-      if (!char.features_traits) char.features_traits = [];
-      char.features_traits = [...char.features_traits, ...this.levelUpAnalysis.new_features];
+    const advanced = levelUp(char, this.levelUpAnalysis);
+    char.char_level = advanced.char_level;
+    char.proficiency_bonus = advanced.proficiency_bonus;
+    char.hp_max = advanced.hp_max;
+    char.hp_current = advanced.hp_current;
+    // Left alone when the analysis brought nothing, rather than blanked to `[]`.
+    if (advanced.features_traits) {
+      char.features_traits = advanced.features_traits;
     }
 
     // Save back to API
@@ -1406,7 +1365,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getModifierString(val: number): string {
-    const mod = Math.floor((val - 10) / 2);
-    return mod >= 0 ? `+${mod}` : `${mod}`;
+    return formatModifier(abilityModifier(val));
   }
 }
