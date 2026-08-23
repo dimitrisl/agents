@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 
 class StatBlock(BaseModel):
@@ -344,18 +344,11 @@ class LevelUpAnalysisSchema(BaseModel):
     updated_spell_slots: Optional[Dict[str, int]] = None
     new_spells_known: List[str] = []
 
+    @computed_field
     @property
     def new_features(self) -> List[FeatureTrait]:
         """Alias for automatic_changes — kept for frontend compatibility."""
         return self.automatic_changes
-
-    def model_dump(self, **kwargs) -> dict:
-        data = super().model_dump(**kwargs)
-        # Inject new_features so the Angular frontend receives it directly.
-        data["new_features"] = [
-            f.model_dump() if hasattr(f, "model_dump") else f for f in self.automatic_changes
-        ]
-        return data
 
 
 class BuildValidationSchema(BaseModel):
