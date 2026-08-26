@@ -201,7 +201,7 @@ class RulesRepository:
             return []
 
         data = _load_json(filepath)
-        races = [r.get("name") for r in data if "name" in r]
+        races = [r for r in data if "name" in r]
         _races_cache[edition] = races
         return races
 
@@ -220,6 +220,6 @@ class RulesRepository:
             return []
 
         data = _load_json(filepath)
-        backgrounds = [b.get("name") for b in data if "name" in b]
+        backgrounds = [b for b in data if "name" in b]
         _backgrounds_cache[edition] = backgrounds
         return backgrounds

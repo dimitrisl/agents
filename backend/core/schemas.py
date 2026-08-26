@@ -438,3 +438,35 @@ class CampaignMemberSchema(BaseModel):
     role: str  # "dm" or "player"
     character_id: Optional[str] = None
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RaceSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    model_config = {"extra": "allow"}
+
+
+class BackgroundSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    model_config = {"extra": "allow"}
+
+
+class FeatSchema(BaseModel):
+    name: str
+    description: str
+    model_config = {"extra": "allow"}
+
+
+class SpellSchema(BaseModel):
+    name: str
+    level: int
+    school: str
+    description: str
+    model_config = {"extra": "allow"}
+
+
+class ItemSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    model_config = {"extra": "allow"}

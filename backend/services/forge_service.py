@@ -54,7 +54,9 @@ def forge_character(
     current_backgrounds = repo.get_available_backgrounds(edition)
 
     race_prompt = (
-        forge_race if forge_race != "AI Choice" else f"Choose one from: {', '.join(current_races)}"
+        forge_race
+        if forge_race != "AI Choice"
+        else f"Choose one from: {', '.join([r['name'] for r in current_races])}"
     )
     class_prompt = (
         forge_class
@@ -64,7 +66,7 @@ def forge_character(
     bg_prompt = (
         forge_background
         if forge_background != "AI Choice"
-        else f"Choose one from: {', '.join(current_backgrounds)}"
+        else f"Choose one from: {', '.join([b['name'] for b in current_backgrounds])}"
     )
     gender_prompt = gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
 

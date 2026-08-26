@@ -1,15 +1,20 @@
 import functools
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from backend.core.constants import EDITION_2014
+from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.schemas import (
+    BackgroundSchema,
+    FeatSchema,
+    ItemSchema,
+    RaceSchema,
     RulesAutofixResponse,
     RulesCompareResponse,
     RulesQueryResponse,
     RulesValidationResponse,
+    SpellSchema,
 )
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.rules_service import (
@@ -19,6 +24,19 @@ from backend.services.rules_service import (
 )
 from backend.services.validation_service import deterministic_validate_build
 from server.dependencies.auth import get_current_user
+
+
+def parse_edition(
+    edition: str = Query(EDITION_2014, description="D&D Edition (2014 or 2024)"),
+) -> str:
+    if edition in ["2014", EDITION_2014]:
+        return EDITION_2014
+    if edition in ["2024", EDITION_2024]:
+        return EDITION_2024
+    raise HTTPException(
+        status_code=400, detail=f"Unknown edition: {edition}. Use '2014' or '2024'."
+    )
+
 
 router = APIRouter(prefix="/rules", tags=["Rules & Oracle"])
 
@@ -80,19 +98,19 @@ def get_rules_repo():
     return RulesRepository()
 
 
-@router.get("/classes")
+@router.get("/classes", response_model=List[str])
 async def get_classes(
-    edition: str = Query(EDITION_2014, description="D&D Edition (2014 or 2024)"),
+    edition: str = Depends(parse_edition),
     current_user: dict = Depends(get_current_user),
 ):
     repo = get_rules_repo()
     return repo.get_available_classes(edition)
 
 
-@router.get("/classes/{class_name}")
+@router.get("/classes/{class_name}", response_model=Dict[str, Any])
 async def get_class_details(
     class_name: str,
-    edition: str = Query(EDITION_2014),
+    edition: str = Depends(parse_edition),
     current_user: dict = Depends(get_current_user),
 ):
     repo = get_rules_repo()
@@ -102,33 +120,54 @@ async def get_class_details(
     return data
 
 
-@router.get("/feats")
+@router.get("/feats", response_model=List[FeatSchema])
 async def get_feats(
-    edition: str = Query(EDITION_2014), current_user: dict = Depends(get_current_user)
+    edition: str = Depends(parse_edition), current_user: dict = Depends(get_current_user)
 ):
     repo = get_rules_repo()
     return repo.get_all_feats(edition)
 
 
-@router.get("/spells")
+@router.get("/spells", response_model=List[SpellSchema])
 async def get_spells(
-    edition: str = Query(EDITION_2014), current_user: dict = Depends(get_current_user)
+    search: Optional[str] = Query(None, description="Search term for spell name"),
+    level: Optional[int] = Query(None, description="Filter by spell level"),
+    char_class: Optional[str] = Query(None, description="Filter by class name"),
+    edition: str = Depends(parse_edition),
+    current_user: dict = Depends(get_current_user),
 ):
     repo = get_rules_repo()
-    return repo.get_all_spells(edition)
+    if search:
+        spells = repo.search_spells(search, edition)
+    else:
+        spells = repo.get_all_spells(edition)
+
+    if level is not None:
+        spells = [s for s in spells if s.get("level") == level]
+    if char_class:
+        cls_lower = char_class.lower()
+        spells = [s for s in spells if cls_lower in [c.lower() for c in s.get("classes", [])]]
+
+    return spells
 
 
-@router.get("/races")
+@router.get("/races", response_model=List[RaceSchema])
 async def get_races(
-    edition: str = Query(EDITION_2014), current_user: dict = Depends(get_current_user)
+    edition: str = Depends(parse_edition), current_user: dict = Depends(get_current_user)
 ):
     repo = get_rules_repo()
     return repo.get_available_races(edition)
 
 
-@router.get("/backgrounds")
+@router.get("/backgrounds", response_model=List[BackgroundSchema])
 async def get_backgrounds(
-    edition: str = Query(EDITION_2014), current_user: dict = Depends(get_current_user)
+    edition: str = Depends(parse_edition), current_user: dict = Depends(get_current_user)
 ):
     repo = get_rules_repo()
     return repo.get_available_backgrounds(edition)
+
+
+@router.get("/items", response_model=List[ItemSchema])
+async def get_items(current_user: dict = Depends(get_current_user)):
+    repo = get_rules_repo()
+    return repo.get_all_items()
