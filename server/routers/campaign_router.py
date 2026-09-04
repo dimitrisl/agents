@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema
+from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema, EncounterStateSchema
 from backend.services.dice_service import roll_dice
 from backend.services.stats_service import calculate_skills, get_modifier
 from server.db_async import get_database
@@ -25,8 +25,6 @@ class CampaignSchema(BaseModel):
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
-    roll_requests: List[Dict[str, Any]] = []
-    whispers: List[Dict[str, Any]] = []
 
 
 class PlayerCampaignSchema(BaseModel):
@@ -176,13 +174,12 @@ def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str
     }
 
 
-def _visible_roll_requests(camp: dict, is_dm: bool) -> List[Dict[str, Any]]:
+def _visible_roll_requests(requests: List[Dict[str, Any]], is_dm: bool) -> List[Dict[str, Any]]:
     """
     History as this member is allowed to see it. Secret rolls are the DM's own
     knowledge: the socket never sends them to a player, so replaying them here
     would hand back exactly what was withheld the moment the hero reconnects.
     """
-    requests = camp.get("roll_requests", [])
     if is_dm:
         return requests
     return [request for request in requests if not request.get("is_secret")]
@@ -232,8 +229,6 @@ async def save_campaign(
             raise HTTPException(status_code=403, detail="Not authorized to edit this campaign")
 
         camp_dict["owner_id"] = existing.get("owner_id") or current_user["id"]
-        camp_dict["whispers"] = existing.get("whispers", [])
-        camp_dict["roll_requests"] = existing.get("roll_requests", [])
         camp_dict["party"] = existing.get("party", [])
         if "invite_code" in existing:
             camp_dict["invite_code"] = existing["invite_code"]
@@ -425,6 +420,7 @@ async def add_roll_request(
     req_id = str(uuid.uuid4())
     new_req = {
         "id": req_id,
+        "campaign_name": name,
         "char_filename": req_in.char_filename,
         "char_name": req_in.char_name,
         "roll_type": req_in.roll_type,
@@ -448,9 +444,8 @@ async def add_roll_request(
         new_req["rolled_by"] = "dm"
         new_req["resolved_at"] = now
 
-        await db["campaigns"].update_one(
-            {"campaign_name": name}, {"$push": {"roll_requests": new_req}}
-        )
+        db_req = new_req.copy()
+        await db["campaign_roll_requests"].insert_one(db_req)
         await manager.broadcast(name, {"type": "roll_result", "payload": new_req}, dm_only=True)
 
         return {
@@ -459,13 +454,13 @@ async def add_roll_request(
             "request": new_req,
         }
 
-    await db["campaigns"].update_many(
-        {"campaign_name": name},
-        {"$set": {"roll_requests.$[elem].status": "cancelled"}},
-        array_filters=[{"elem.char_filename": req_in.char_filename, "elem.status": "pending"}],
+    await db["campaign_roll_requests"].update_many(
+        {"campaign_name": name, "char_filename": req_in.char_filename, "status": "pending"},
+        {"$set": {"status": "cancelled"}},
     )
 
-    await db["campaigns"].update_one({"campaign_name": name}, {"$push": {"roll_requests": new_req}})
+    db_req = new_req.copy()
+    await db["campaign_roll_requests"].insert_one(db_req)
 
     await manager.broadcast(
         name, {"type": "roll_request", "payload": new_req}, characters=[req_in.char_name]
@@ -491,26 +486,20 @@ async def resolve_roll_request(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    requests = camp.get("roll_requests", [])
-    target = None
-    for request in requests:
-        if request.get("id") == request_id:
-            target = request
-            break
-
+    target = await db["campaign_roll_requests"].find_one({"campaign_name": name, "id": request_id})
     if not target:
         raise HTTPException(status_code=404, detail="Roll request not found")
 
     result = result_in.model_dump()
     resolved_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    await db["campaigns"].update_one(
-        {"campaign_name": name, "roll_requests.id": request_id},
+    await db["campaign_roll_requests"].update_one(
+        {"_id": target["_id"]},
         {
             "$set": {
-                "roll_requests.$.status": "resolved",
-                "roll_requests.$.result": result,
-                "roll_requests.$.resolved_at": resolved_at,
+                "status": "resolved",
+                "result": result,
+                "resolved_at": resolved_at,
             }
         },
     )
@@ -518,6 +507,7 @@ async def resolve_roll_request(
     target["status"] = "resolved"
     target["result"] = result
     target["resolved_at"] = resolved_at
+    target.pop("_id", None)
 
     from server.routers.websocket_router import manager
 
@@ -548,23 +538,15 @@ async def miss_roll_request(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    target = None
-    for request in camp.get("roll_requests", []):
-        if request.get("id") == request_id:
-            target = request
-            break
-
+    target = await db["campaign_roll_requests"].find_one({"campaign_name": name, "id": request_id})
     if not target:
         raise HTTPException(status_code=404, detail="Roll request not found")
 
     missed_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    outcome = await db["campaigns"].update_one(
-        {
-            "campaign_name": name,
-            "roll_requests": {"$elemMatch": {"id": request_id, "status": "pending"}},
-        },
-        {"$set": {"roll_requests.$.status": "missed", "roll_requests.$.missed_at": missed_at}},
+    outcome = await db["campaign_roll_requests"].update_one(
+        {"_id": target["_id"], "status": "pending"},
+        {"$set": {"status": "missed", "missed_at": missed_at}},
     )
 
     if outcome.modified_count == 0:
@@ -572,6 +554,7 @@ async def miss_roll_request(
 
     target["status"] = "missed"
     target["missed_at"] = missed_at
+    target.pop("_id", None)
 
     from server.routers.websocket_router import manager
 
@@ -593,7 +576,13 @@ async def get_campaign_messages(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    whispers = camp.get("whispers", [])
+    cursor_w = db["campaign_whispers"].find({"campaign_name": name})
+    all_whispers = []
+    async for w in cursor_w:
+        w.pop("_id", None)
+        all_whispers.append(w)
+
+    whispers = all_whispers
 
     if member.get("role") == "player":
         char_name = None
@@ -612,10 +601,16 @@ async def get_campaign_messages(
                 filtered_whispers.append(w)
         whispers = filtered_whispers
 
+    cursor_r = db["campaign_roll_requests"].find({"campaign_name": name})
+    roll_requests = []
+    async for r in cursor_r:
+        r.pop("_id", None)
+        roll_requests.append(r)
+
     return {
         "campaign_name": camp["campaign_name"],
         "whispers": whispers,
-        "roll_requests": _visible_roll_requests(camp, member.get("role") == "dm"),
+        "roll_requests": _visible_roll_requests(roll_requests, member.get("role") == "dm"),
     }
 
 
@@ -643,13 +638,15 @@ async def send_whisper(
 
     new_whisper = {
         "id": str(uuid.uuid4()),
+        "campaign_name": name,
         "sender": sender_name,
         "recipient": payload.recipient,
         "message": payload.message,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    await db["campaigns"].update_one({"campaign_name": name}, {"$push": {"whispers": new_whisper}})
+    db_whisper = new_whisper.copy()
+    await db["campaign_whispers"].insert_one(db_whisper)
 
     from server.routers.websocket_router import manager
 
@@ -684,3 +681,76 @@ async def save_campaign_notes(
 
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"notes": payload.notes}})
     return {"success": True, "message": "Notes saved successfully"}
+
+
+@router.get("/{name}/encounter", response_model=Optional[EncounterStateSchema])
+async def get_encounter_state(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    encounter = await db["campaign_encounters"].find_one({"campaign_name": name})
+    if not encounter:
+        return None
+
+    encounter.pop("_id", None)
+    return encounter
+
+
+@router.post("/{name}/encounter", response_model=SuccessResponseSchema)
+async def update_encounter_state(
+    name: str,
+    payload: EncounterStateSchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    enc_dict = payload.model_dump()
+    enc_dict["campaign_name"] = name
+
+    await db["campaign_encounters"].update_one(
+        {"campaign_name": name}, {"$set": enc_dict}, upsert=True
+    )
+
+    from server.routers.websocket_router import manager
+    
+    # Broadcast the new state to all members so their tracker syncs immediately
+    await manager.broadcast(
+        name,
+        {"type": "encounter_update", "payload": enc_dict}
+    )
+
+    return {"success": True, "message": "Encounter state updated"}
+
+
+@router.delete("/{name}/encounter", response_model=SuccessResponseSchema)
+async def clear_encounter_state(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    await db["campaign_encounters"].delete_one({"campaign_name": name})
+
+    from server.routers.websocket_router import manager
+
+    # Broadcast null to signal combat end
+    await manager.broadcast(
+        name,
+        {"type": "encounter_update", "payload": None}
+    )
+
+    return {"success": True, "message": "Encounter state cleared"}
