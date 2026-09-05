@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from backend.core.schemas import InviteCodeResponse, SuccessResponseSchema, EncounterStateSchema
+from backend.core.schemas import EncounterStateSchema, InviteCodeResponse, SuccessResponseSchema
 from backend.services.dice_service import roll_dice
 from backend.services.stats_service import calculate_skills, get_modifier
 from server.db_async import get_database
@@ -37,6 +37,10 @@ class PlayerCampaignSchema(BaseModel):
 
 class JoinCampaignRequest(BaseModel):
     invite_code: str
+    char_filename: str
+
+
+class AddMemberRequest(BaseModel):
     char_filename: str
 
 
@@ -261,6 +265,11 @@ async def get_campaign_party(
     party_members = []
     async for char in cursor:
         char.pop("_id", None)
+        owner_id = char.get("owner_id")
+        if owner_id:
+            user = await db["users"].find_one({"id": owner_id})
+            if user:
+                char["owner_username"] = user.get("username")
         party_members.append(char)
     return party_members
 
@@ -383,6 +392,40 @@ async def join_campaign_by_code(
         "campaign_name": camp["campaign_name"],
         "error": None,
     }
+
+
+@router.post("/{name}/party/members", response_model=SuccessResponseSchema)
+async def add_party_member(
+    name: str,
+    payload: AddMemberRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    char_id = payload.char_filename.replace(".json", "").split("_")[-1]
+
+    char = await db["characters"].find_one({"char_id": char_id})
+    if not char or char.get("owner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
+
+    await db["campaigns"].update_one(
+        {"campaign_name": name}, {"$addToSet": {"party": payload.char_filename}}
+    )
+
+    await db["characters"].update_one(
+        {"char_id": char_id},
+        {"$set": {"active_campaign": name}},
+    )
+
+    # Note: Since the DM is adding their own character, they are already a member (role='dm').
+    # We do not overwrite their role or character_id in campaign_members here,
+    # as the DM can control multiple characters or NPCs if they wish.
+
+    return {"success": True, "message": "Member added successfully."}
 
 
 @router.post("/{name}/invite-code", response_model=InviteCodeResponse)
@@ -722,12 +765,9 @@ async def update_encounter_state(
     )
 
     from server.routers.websocket_router import manager
-    
+
     # Broadcast the new state to all members so their tracker syncs immediately
-    await manager.broadcast(
-        name,
-        {"type": "encounter_update", "payload": enc_dict}
-    )
+    await manager.broadcast(name, {"type": "encounter_update", "payload": enc_dict})
 
     return {"success": True, "message": "Encounter state updated"}
 
@@ -748,9 +788,93 @@ async def clear_encounter_state(
     from server.routers.websocket_router import manager
 
     # Broadcast null to signal combat end
-    await manager.broadcast(
-        name,
-        {"type": "encounter_update", "payload": None}
-    )
+    await manager.broadcast(name, {"type": "encounter_update", "payload": None})
 
     return {"success": True, "message": "Encounter state cleared"}
+
+
+@router.delete("/{name}", response_model=SuccessResponseSchema)
+async def delete_campaign(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    if camp.get("owner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the DM can delete the campaign.")
+
+    # 1. Delete campaign document
+    await db["campaigns"].delete_one({"campaign_name": name})
+
+    # 2. Delete all related documents across collections
+    await db["campaign_members"].delete_many({"campaign_id": name})
+    await db["campaign_whispers"].delete_many({"campaign_name": name})
+    await db["campaign_roll_requests"].delete_many({"campaign_name": name})
+    await db["campaign_encounters"].delete_many({"campaign_name": name})
+
+    # 3. Unset active_campaign for all characters currently in this campaign
+    await db["characters"].update_many(
+        {"active_campaign": name}, {"$unset": {"active_campaign": ""}}
+    )
+
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(name, {"type": "campaign_deleted"})
+
+    return {"success": True, "message": "Campaign deleted successfully."}
+
+
+@router.delete("/{name}/party/{char_id}", response_model=SuccessResponseSchema)
+async def remove_party_member(
+    name: str,
+    char_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    char = await db["characters"].find_one({"char_id": char_id})
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    char_filename = f"{char.get('char_name', '').lower().replace(' ', '_')}_{char_id}.json"
+
+    # In case the filename format is not exactly that, we can also search the party array
+    # for the filename that ends with char_id.json
+    actual_filename = None
+    for filename in camp.get("party", []):
+        if filename.endswith(f"_{char_id}.json") or filename == f"{char_id}.json":
+            actual_filename = filename
+            break
+
+    if not actual_filename:
+        actual_filename = char_filename  # fallback
+
+    # 1. Remove from campaign's party array
+    await db["campaigns"].update_one({"campaign_name": name}, {"$pull": {"party": actual_filename}})
+
+    # 2. Remove active_campaign from character
+    await db["characters"].update_one({"char_id": char_id}, {"$unset": {"active_campaign": ""}})
+
+    # 3. If owner is a player, remove their campaign_members record
+    owner_id = char.get("owner_id")
+    if owner_id:
+        member_doc = await db["campaign_members"].find_one(
+            {"campaign_id": name, "user_id": owner_id}
+        )
+        if member_doc and member_doc.get("role") != "dm":
+            await db["campaign_members"].delete_one({"_id": member_doc["_id"]})
+
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(
+        name, {"type": "party_update", "payload": {"action": "removed", "char_id": char_id}}
+    )
+
+    return {"success": True, "message": "Member removed successfully."}

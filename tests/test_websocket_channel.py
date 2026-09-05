@@ -82,10 +82,22 @@ def socket_url(role: str, character: Optional[str] = None) -> str:
     return url + (f"&character={character}" if character else "")
 
 
+def wait_for_message(socket, msg_type=None, msg_id=None):
+    while True:
+        msg = socket.receive_json()
+        if msg.get("type") in ("presence_sync", "presence_update"):
+            continue
+        if msg_type and msg.get("type") != msg_type:
+            continue
+        if msg_id and msg.get("id") != msg_id:
+            continue
+        return msg
+
+
 def assert_silent(socket, who: str):
     """A socket is silent when the next frame it sees is its own pong."""
     socket.send_json({"type": "ping"})
-    received = socket.receive_json()
+    received = wait_for_message(socket)
     assert received == {"type": "pong"}, f"{who} received traffic it should not see: {received}"
 
 
@@ -115,8 +127,8 @@ def test_private_whisper_reaches_only_recipient_and_dm(channel):
             json={"message": {"type": "whisper", "id": "w1"}, "characters": ["Valeros", "DM"]},
         )
 
-        assert valeros.receive_json()["id"] == "w1"
-        assert dm.receive_json()["id"] == "w1"
+        assert wait_for_message(valeros)["id"] == "w1"
+        assert wait_for_message(dm)["id"] == "w1"
         assert_silent(ezren, "Ezren")
 
 
@@ -130,15 +142,15 @@ def test_roll_request_and_result_reach_the_hero_and_the_dm(channel):
             "/publish",
             json={"message": {"type": "roll_request", "id": "r1"}, "characters": ["Valeros"]},
         )
-        assert valeros.receive_json()["id"] == "r1"
-        assert dm.receive_json()["id"] == "r1"
+        assert wait_for_message(valeros)["id"] == "r1"
+        assert wait_for_message(dm)["id"] == "r1"
 
         channel.post(
             "/publish",
             json={"message": {"type": "roll_result", "id": "r1"}, "characters": ["Valeros"]},
         )
-        assert valeros.receive_json()["id"] == "r1"
-        assert dm.receive_json()["id"] == "r1"
+        assert wait_for_message(valeros)["id"] == "r1"
+        assert wait_for_message(dm)["id"] == "r1"
 
         assert_silent(ezren, "Ezren")
 
@@ -152,7 +164,7 @@ def test_table_wide_whisper_reaches_everyone(channel):
         channel.post("/publish", json={"message": {"type": "whisper", "id": "all"}})
 
         for who, socket in (("dm", dm), ("valeros", valeros), ("ezren", ezren)):
-            assert socket.receive_json()["id"] == "all", who
+            assert wait_for_message(socket)["id"] == "all", who
 
 
 def test_character_matching_ignores_case_and_padding(channel):
@@ -161,7 +173,7 @@ def test_character_matching_ignores_case_and_padding(channel):
             "/publish",
             json={"message": {"type": "whisper", "id": "w2"}, "characters": ["  valeros "]},
         )
-        assert valeros.receive_json()["id"] == "w2"
+        assert wait_for_message(valeros)["id"] == "w2"
 
 
 def test_disconnect_empties_the_room(channel):
