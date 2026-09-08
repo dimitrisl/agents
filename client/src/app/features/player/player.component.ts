@@ -1119,6 +1119,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  onDeleteHero() {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.char_id) return;
+
+    if (confirm(`Are you sure you want to permanently delete ${char.char_name}? This action cannot be undone.`)) {
+      this.charState.deleteCharacter(char.char_id).subscribe({
+        next: () => {
+          this.rollToast.showMessage('🗑️ HERO DELETED', `${char.char_name} has been permanently deleted.`);
+        },
+        error: (err) => {
+          console.error('Failed to delete character', err);
+          this.rollToast.showMessage('❌ ERROR', 'Failed to delete character.');
+        }
+      });
+    }
+  }
+
   saveCurrentChar(showToast = false) {
     const char = this.charState.activeCharacter();
     if (!char) return;
