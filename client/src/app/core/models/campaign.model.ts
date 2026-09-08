@@ -68,12 +68,14 @@ export interface Whisper {
 /** Replayed history for one campaign channel — `GET /campaigns/{name}/messages`. */
 export interface CampaignMessages {
   campaign_name: string;
+  role?: string;
   whispers: Whisper[];
   roll_requests: RollRequest[];
 }
 
 export interface Campaign {
   campaign_name: string;
+  role?: string;
   owner_id?: string;
   notes?: string;
   party: string[];

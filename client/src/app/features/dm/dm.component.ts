@@ -523,7 +523,8 @@ export class DmComponent implements OnInit, OnDestroy {
     this.campaignsStatus = 'loading';
     this.http.get<Campaign[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
       next: (camps) => {
-        this.userCampaigns = camps || [];
+        // Only keep campaigns where the user has the DM role
+        this.userCampaigns = (camps || []).filter((c) => c.role === 'dm');
         this.campaignsStatus = 'ready';
 
         if (this.userCampaigns.length === 0) {
@@ -1248,7 +1249,7 @@ export class DmComponent implements OnInit, OnDestroy {
     if (!subject) {
       subject = new Subject<void>();
       this.partyStateSubjects.set(charId, subject);
-      
+
       const campaignName = this.campaignName;
       subject.pipe(
         debounceTime(PARTY_STATE_DEBOUNCE_MS),
@@ -1256,7 +1257,7 @@ export class DmComponent implements OnInit, OnDestroy {
           const mergedChanges = this.pendingPartyState.get(charId);
           this.pendingPartyState.delete(charId);
           if (!mergedChanges || !this.campaignName) return EMPTY;
-          
+
           return this.http.patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
             catchError((err) => {
               if (this.handleAuthFailure(err)) return EMPTY;
@@ -1271,7 +1272,7 @@ export class DmComponent implements OnInit, OnDestroy {
         })
       ).subscribe();
     }
-    
+
     subject.next();
   }
 
@@ -1502,5 +1503,3 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 }
-
-
