@@ -192,7 +192,7 @@
   <app-edit-sheet-modal
     [open]="showEditModal"
     (openChange)="showEditModal = $event"
-    [editChar]="charState.activeCharacter()"
+    [editChar]="editDraftChar"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
 

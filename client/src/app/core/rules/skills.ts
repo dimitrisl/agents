@@ -37,8 +37,15 @@ export function isProficientIn(
   return char?.skill_proficiencies?.includes(skillName) || false;
 }
 
+export function hasExpertiseIn(
+  char: CharacterSchema | null | undefined,
+  skillName: string
+): boolean {
+  return char?.skill_expertise?.includes(skillName) || false;
+}
+
 /**
- * Ability modifier, plus the proficiency bonus when the hero is trained in it.
+ * Ability modifier, plus the proficiency bonus (or double for expertise) when the hero is trained in it.
  *
  * A sheet with no stat block scores 0 flat: the old code bailed before it ever
  * read the proficiency list, and adding a lone `+3` beside a blank ability would
@@ -50,10 +57,16 @@ export function skillModifier(
 ): number {
   if (!char?.stats) return 0;
 
-  return (
-    abilityModifier(abilityScore(char, skill.ability)) +
-    (isProficientIn(char, skill.name) ? proficiencyBonus(char) : 0)
-  );
+  const profBonus = proficiencyBonus(char);
+  let bonus = 0;
+  
+  if (hasExpertiseIn(char, skill.name)) {
+    bonus = profBonus * 2;
+  } else if (isProficientIn(char, skill.name)) {
+    bonus = profBonus;
+  }
+
+  return abilityModifier(abilityScore(char, skill.ability)) + bonus;
 }
 
 export function skillModifierString(
