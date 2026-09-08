@@ -10,6 +10,7 @@
     (editSheet)="openEditModal()"
     (quickEdit)="toggleEditMode()"
     (joinCampaign)="showJoinModal = true"
+    (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
