@@ -98,14 +98,21 @@ class ConnectionManager:
 
             # Broadcast offline status
             if disconnecting_char:
-                # Need to use await
-                await self.broadcast(
-                    campaign_id,
-                    {
-                        "type": "presence_update",
-                        "payload": {"character": disconnecting_char, "status": "offline"},
-                    },
+                # Check if the character still has another active connection (e.g., multi-tab)
+                is_still_online = any(
+                    conn.character == disconnecting_char
+                    for conn in self.active_connections.get(campaign_id, [])
                 )
+
+                if not is_still_online:
+                    # Need to use await
+                    await self.broadcast(
+                        campaign_id,
+                        {
+                            "type": "presence_update",
+                            "payload": {"character": disconnecting_char, "status": "offline"},
+                        },
+                    )
 
         logger.info(f"WebSocket client disconnected from campaign channel '{campaign_id}'")
 

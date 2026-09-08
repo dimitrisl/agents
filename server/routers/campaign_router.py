@@ -869,7 +869,16 @@ async def remove_party_member(
             {"campaign_id": name, "user_id": owner_id}
         )
         if member_doc and member_doc.get("role") != "dm":
-            await db["campaign_members"].delete_one({"_id": member_doc["_id"]})
+            # Check if this user has any other active characters in this campaign
+            other_active_chars = await db["characters"].count_documents(
+                {
+                    "owner_id": owner_id,
+                    "active_campaign": name,
+                }
+            )
+
+            if other_active_chars == 0:
+                await db["campaign_members"].delete_one({"_id": member_doc["_id"]})
 
     from server.routers.websocket_router import manager
 
