@@ -47,10 +47,10 @@ def autofix_character_build(char_data: dict) -> dict:
     from backend.services.validation_service import deterministic_validate_build
 
     # 1. Deterministic Validation & Corrections
-    corrected_char = deterministic_validate_build(char_data)
+    corrected_char, issues = deterministic_validate_build(char_data)
 
     # We create a dummy validation result to keep compatibility with any frontend code expecting it
-    validation = {"is_valid": True, "issues": [], "suggestions": [], "corrections": {}}
+    validation = {"is_valid": len(issues) == 0, "issues": issues, "suggestions": [], "corrections": {}}
 
     edition = corrected_char.get("dnd_edition", EDITION_2014)
     # Check if character contains 2024 indicators (masteries, origin feats, etc.)

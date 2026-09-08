@@ -136,7 +136,7 @@ def test_rules_router(mocker):
         )
         mocker.patch(
             "server.routers.rules_router.deterministic_validate_build",
-            return_value={"valid": True, "errors": []},
+            return_value=({"valid": True, "errors": []}, []),
         )
 
         # 1. Oracle query

@@ -432,7 +432,7 @@ def process_character_update(
 
         updated_char["equipment"] = current_list
 
-    updated_char = deterministic_validate_build(updated_char)
+    updated_char, _ = deterministic_validate_build(updated_char)
 
     # 3. Synchronize derived stats
     class_data = _get_rules_repo().get_class_progression(
