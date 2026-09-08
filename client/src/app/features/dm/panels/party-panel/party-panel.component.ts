@@ -36,6 +36,7 @@ export class PartyPanelComponent {
   @Output() quickStatRoll = new EventEmitter<{ member: PartyMember; stat: string }>();
   @Output() toggleCondition = new EventEmitter<{ member: PartyMember; condition: string }>();
   @Output() privateRollRequest = new EventEmitter<PartyMember>();
+  @Output() removeMember = new EventEmitter<PartyMember>();
 
   conditionTone(member: PartyMember, condition: string): 'danger' | 'muted' {
     return member.conditions.includes(condition) ? 'danger' : 'muted';

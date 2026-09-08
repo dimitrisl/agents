@@ -38,7 +38,10 @@
             class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
           />
           <div class="min-w-0 flex-1">
-            <h3 class="truncate font-display text-title text-ink">{{ member.name }}</h3>
+            <h3 class="truncate font-display text-title text-ink">
+              {{ member.isOnline ? '🟢' : '⚪' }} {{ member.name }}
+              <span *ngIf="member.owner_username" class="text-muted text-sm font-normal">({{ member.owner_username }})</span>
+            </h3>
             <p class="truncate text-micro font-semibold uppercase text-muted">
               Level {{ member.level }} {{ member.char_class }}
             </p>
@@ -53,6 +56,17 @@
             (click)="privateRollRequest.emit(member)"
           >
             🎲 Request Roll
+          </button>
+          <button
+            forgeButton
+            variant="danger"
+            size="sm"
+            type="button"
+            class="shrink-0"
+            [attr.aria-label]="'Remove ' + member.name + ' from campaign'"
+            (click)="removeMember.emit(member)"
+          >
+            Kick
           </button>
         </header>
 

@@ -19,6 +19,8 @@ export interface PartyMember {
   conditions: string[];
   stats?: { [key: string]: number };
   portrait?: string;
+  owner_username?: string;
+  isOnline?: boolean;
 }
 
 /**
