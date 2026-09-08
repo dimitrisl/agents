@@ -74,11 +74,12 @@ async def compare_rule_editions(
 async def validate_rules(
     payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
 ):
-    corrected = deterministic_validate_build(payload.character)
+    corrected, issues = deterministic_validate_build(payload.character)
+    is_valid = len(issues) == 0
     return {
         "validation_result": {
-            "is_valid": True,
-            "issues": [],
+            "is_valid": is_valid,
+            "issues": issues,
             "suggestions": [],
             "corrections": corrected,
         }

@@ -191,7 +191,7 @@ def test_class_subclass_splitting():
 
 
 def test_subclass_cleared_below_level_three():
-    corrected = deterministic_validate_build(
+    corrected, issues = deterministic_validate_build(
         {
             "char_name": "Low Level Domain",
             "char_class": "Cleric",
@@ -204,6 +204,7 @@ def test_subclass_cleared_below_level_three():
     )
 
     assert corrected["subclass"] is None
+    assert len(issues) > 0
 
 
 def test_subclass_preserved_at_level_three_on_update():
