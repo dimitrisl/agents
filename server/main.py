@@ -64,8 +64,11 @@ app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 
 # Mount portrait images directory
-os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
-app.mount(f"{settings.API_V1_STR}/portraits", StaticFiles(directory=os.path.join("data", "portraits")), name="portraits")
+app.mount(
+    f"{settings.API_V1_STR}/portraits",
+    StaticFiles(directory=os.path.join("data", "portraits")),
+    name="portraits",
+)
 
 
 @app.get("/")
