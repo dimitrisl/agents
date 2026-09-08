@@ -21,6 +21,7 @@ router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 class CampaignSchema(BaseModel):
     campaign_name: str
     owner_id: Optional[str] = None
+    role: str = "dm"
     notes: str = ""
     party: List[str] = []
     dnd_edition: Optional[str] = None
@@ -30,6 +31,7 @@ class CampaignSchema(BaseModel):
 class PlayerCampaignSchema(BaseModel):
     campaign_name: str
     owner_id: Optional[str] = None
+    role: str = "player"
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
@@ -798,13 +800,11 @@ async def delete_campaign(
     name: str,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
 ):
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
-
-    if camp.get("owner_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Only the DM can delete the campaign.")
 
     # 1. Delete campaign document
     await db["campaigns"].delete_one({"campaign_name": name})
