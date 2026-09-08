@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
@@ -222,7 +223,7 @@ export class DmComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     public charState: CharacterStateService,
     private wsService: WebSocketService,
-    private auth: AuthService,
+    private auth: AuthService, private router: Router,
     private encounterStorage: EncounterStorageService
   ) {}
 
@@ -549,9 +550,16 @@ export class DmComponent implements OnInit, OnDestroy {
    * has to surface as a visible failure the DM can retry.
    */
   private handleAuthFailure(error: unknown): boolean {
-    if (error instanceof HttpErrorResponse && error.status === 401) {
-      this.auth.logout();
-      return true;
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        this.auth.logout();
+        return true;
+      }
+      if (error.status === 403) {
+        this.rollToast.showMessage('🚫 FORBIDDEN', 'You do not have DM permissions for this action or campaign.');
+        this.router.navigate(['/']);
+        return true;
+      }
     }
     return false;
   }
