@@ -154,6 +154,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showLevelUpModal = false;
   showValidationModal = false;
   showWhisperInbox = false;
+  editDraftChar: CharacterSchema | null = null;
   isValidating = false;
   isAutoFixing = false;
   validationResult: any = null;
@@ -1104,12 +1105,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   openEditModal() {
-    this.showEditModal = true;
+    const char = this.charState.activeCharacter();
+    if (char) {
+      this.editDraftChar = JSON.parse(JSON.stringify(char));
+      this.showEditModal = true;
+    }
   }
 
   saveEditModal() {
-    this.showEditModal = false;
-    this.saveCurrentChar(true);
+    if (this.editDraftChar) {
+      this.charState.activeCharacter.set(JSON.parse(JSON.stringify(this.editDraftChar)));
+      this.showEditModal = false;
+      this.saveCurrentChar(true);
+      this.editDraftChar = null;
+    }
   }
 
   toggleEditMode() {
