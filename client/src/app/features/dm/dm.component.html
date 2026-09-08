@@ -35,6 +35,7 @@
     (createCampaign)="showNewCampaignModal = true"
     (generateInvite)="generateInviteCode()"
     (sendWhisper)="showWhisperModal = true"
+    (deleteCampaign)="deleteCampaign()"
   ></app-campaign-header>
 
   <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
@@ -159,6 +160,7 @@
             (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
             (toggleCondition)="toggleCondition($event.member, $event.condition)"
             (privateRollRequest)="openSingleRollModal($event)"
+            (removeMember)="removePartyMember($event)"
           ></app-party-panel>
 
           <app-initiative-panel
@@ -214,6 +216,9 @@
             [(prepNotes)]="prepNotes"
             [prepResult]="prepResult"
             (generatePrep)="generatePrep()"
+            [(riddleTheme)]="riddleTheme"
+            [riddleResult]="riddleResult"
+            (generateRiddle)="generateRiddle()"
           ></app-prep-panel>
         </div>
       </forge-card>

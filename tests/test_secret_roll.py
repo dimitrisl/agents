@@ -79,11 +79,88 @@ def table(monkeypatch):
         side_effect=lambda q: {"role": state["role"]} if state["role"] else None
     )
 
-    app.dependency_overrides[get_database] = lambda: {
+    class AsyncIterator:
+        def __init__(self, items):
+            self.items = list(items)
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.items:
+                raise StopAsyncIteration
+            return self.items.pop(0)
+
+    class MockCollection:
+        def __init__(self, state_dict, key):
+            self.state = state_dict
+            self.key = key
+
+        def _get_data(self):
+            campaign = self.state.get("campaign", {})
+            raw_list = campaign.get(self.key, [])
+            data = []
+            for d in raw_list:
+                # Inject campaign_name if missing, so it behaves like the real collection
+                if "campaign_name" not in d:
+                    d["campaign_name"] = campaign.get("campaign_name", "The Obsidian Citadel")
+                if "_id" not in d:
+                    d["_id"] = f"mock_{d.get('id', 'new')}"
+                data.append(d)
+            return data
+
+        async def find_one(self, query):
+            for item in self._get_data():
+                match = True
+                for k, v in query.items():
+                    if item.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    return item
+            return None
+
+        def find(self, query):
+            results = []
+            for item in self._get_data():
+                match = True
+                for k, v in query.items():
+                    if item.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    results.append(item.copy())
+            return AsyncIterator(results)
+
+        async def insert_one(self, doc):
+            # Tests don't usually assert on inserted docs directly via this mock,
+            # but if they do, we'll just ignore it or append it
+            return MagicMock(inserted_id="mock_id")
+
+        async def update_one(self, query, update, upsert=False):
+            doc = await self.find_one(query)
+            if doc:
+                return MagicMock(modified_count=self.state.get("modified", 1))
+            return MagicMock(modified_count=0)
+
+        async def update_many(self, query, update):
+            return MagicMock(modified_count=self.state.get("modified", 1))
+
+        async def delete_one(self, query):
+            return MagicMock(deleted_count=1)
+
+    whispers = MockCollection(state, "whispers")
+    roll_requests = MockCollection(state, "roll_requests")
+
+    db_dict = {
         "campaigns": campaigns,
         "campaign_members": members,
         "characters": characters,
+        "campaign_whispers": whispers,
+        "campaign_roll_requests": roll_requests,
     }
+    app.dependency_overrides[get_database] = lambda: db_dict
+
     app.dependency_overrides[get_current_user] = lambda: {"id": "dm_1", "username": "dm"}
 
     yield {

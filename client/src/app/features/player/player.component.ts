@@ -1,4 +1,4 @@
-﻿import {
+import {
   AfterViewChecked,
   Component,
   ElementRef,
@@ -284,7 +284,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.enqueueRollPrompt(req);
         }
       } else if (msg.type === 'party_update') {
-        this.applyDmPartyUpdate(msg['payload'], char);
+        const payload = msg['payload'];
+        if (payload && payload.action === 'removed' && payload.char_id === char.char_id) {
+          this.charState.loadCharacters().subscribe(() => {
+            this.router.navigate(['/']);
+          });
+          return;
+        }
+        this.applyDmPartyUpdate(payload, char);
+      } else if (msg.type === 'campaign_deleted') {
+        this.charState.loadCharacters().subscribe(() => {
+          this.router.navigate(['/']);
+        });
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
         if (!this.isWhisperForCharacter(whisper, char.char_name)) return;

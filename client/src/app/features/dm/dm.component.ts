@@ -2,11 +2,14 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
+import { Subject, EMPTY } from 'rxjs';
+import { debounceTime, catchError, switchMap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import {
   Campaign,
@@ -180,6 +183,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   prepNotes = '';
   prepResult = '';
+  riddleTheme = '';
+  riddleResult = '';
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
@@ -218,7 +223,7 @@ export class DmComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     public charState: CharacterStateService,
     private wsService: WebSocketService,
-    private auth: AuthService,
+    private auth: AuthService, private router: Router,
     private encounterStorage: EncounterStorageService
   ) {}
 
@@ -235,9 +240,10 @@ export class DmComponent implements OnInit, OnDestroy {
    */
   private hasLiveEncounter = false;
 
-  /** Coalesced writes back to the heroes' sheets, keyed by character. */
   private pendingPartyState = new Map<string, PartyStateChanges>();
-  private partyStateTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private partyStateSubjects = new Map<string, Subject<void>>();
+
+  onlineCharacters = new Set<string>();
 
   ngOnInit() {
     this.loadCampaigns();
@@ -254,7 +260,20 @@ export class DmComponent implements OnInit, OnDestroy {
       const payload = msg['payload'];
       if (!payload) return;
 
-      if (msg.type === 'roll_request') {
+      if (msg.type === 'presence_sync') {
+        this.onlineCharacters = new Set(payload as string[]);
+        this.partyMembers.forEach(m => m.isOnline = this.onlineCharacters.has(m.name));
+      } else if (msg.type === 'presence_update') {
+        if (payload.status === 'online') {
+          this.onlineCharacters.add(payload.character);
+        } else {
+          this.onlineCharacters.delete(payload.character);
+        }
+        const member = this.partyMembers.find(m => m.name === payload.character);
+        if (member) {
+          member.isOnline = payload.status === 'online';
+        }
+      } else if (msg.type === 'roll_request') {
         // Echo of what this DM (or a co-DM) just asked for — it belongs on the
         // board immediately so the answer has somewhere to land.
         this.cancelSupersededRollRequests(payload);
@@ -307,10 +326,10 @@ export class DmComponent implements OnInit, OnDestroy {
     // reading — including the ones it would otherwise have kept private.
     this.wsService.disconnect();
 
-    // A hit recorded a moment before leaving the page still has to land.
-    for (const timer of this.partyStateTimers.values()) clearTimeout(timer);
-    this.partyStateTimers.clear();
-    for (const charId of [...this.pendingPartyState.keys()]) this.flushPartyState(charId);
+    for (const sub of this.partyStateSubjects.values()) {
+      sub.complete();
+    }
+    this.partyStateSubjects.clear();
   }
 
   // --- Live table inbox ---
@@ -531,9 +550,16 @@ export class DmComponent implements OnInit, OnDestroy {
    * has to surface as a visible failure the DM can retry.
    */
   private handleAuthFailure(error: unknown): boolean {
-    if (error instanceof HttpErrorResponse && error.status === 401) {
-      this.auth.logout();
-      return true;
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        this.auth.logout();
+        return true;
+      }
+      if (error.status === 403) {
+        this.rollToast.showMessage('🚫 FORBIDDEN', 'You do not have DM permissions for this action or campaign.');
+        this.router.navigate(['/']);
+        return true;
+      }
     }
     return false;
   }
@@ -617,7 +643,9 @@ export class DmComponent implements OnInit, OnDestroy {
             // throw them away and start every session from a clean hero.
             conditions: char.conditions || [],
             stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-            portrait: char.char_portrait
+            portrait: char.char_portrait,
+            owner_username: char.owner_username,
+            isOnline: this.onlineCharacters.has(char.char_name || '')
           }));
           this.campaignParties[this.campaignName] = [...this.partyMembers];
           this.partyStatus = 'ready';
@@ -642,35 +670,22 @@ export class DmComponent implements OnInit, OnDestroy {
 
   addExistingPartyMember() {
     const char = this.getSelectedHero();
-    if (!char) return;
+    if (!char || !char.char_id) return;
 
-    const member: PartyMember = {
-      char_id: char.char_id,
-      name: char.char_name,
-      char_class: char.char_class,
-      level: char.char_level,
-      hp_current: char.hp_current ?? char.hp_max,
-      hp_max: char.hp_max,
-      ac: char.armor_class,
-      passive_perception: passivePerception(char.stats),
-      conditions: [],
-      stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-      portrait: char.char_portrait
-    };
+    const charFilename = `${char.char_name.toLowerCase().replace(/\s+/g, '_')}_${char.char_id}.json`;
 
-    if (!this.partyMembers.some((m) => m.name === member.name)) {
-      this.partyMembers.push(member);
-      if (!this.campaignParties[this.campaignName]) {
-        this.campaignParties[this.campaignName] = [];
+    this.http.post(campaignUrl(this.campaignName, 'party/members'), { char_filename: charFilename }).subscribe({
+      next: () => {
+        this.rollToast.showMessage('✅ MEMBER ADDED', `${char.char_name} has joined the campaign.`);
+        this.loadParty();
+        this.showAddMemberModal = false;
+      },
+      error: (err) => {
+        if (!this.handleAuthFailure(err)) {
+          this.rollToast.showMessage('❌ ERROR', 'Failed to add member to the campaign.');
+        }
       }
-      this.campaignParties[this.campaignName] = [...this.partyMembers];
-      this.importPartyToInitiative();
-      this.rollToast.showMessage('👤 HERO ENLISTED', `Added ${member.name} (${member.char_class}) to ${this.campaignName} party roster.`);
-    } else {
-      this.rollToast.showMessage('⚠️ ALREADY IN PARTY', `${member.name} is already in the active party roster.`);
-    }
-    this.showAddMemberModal = false;
-    this.selectedExistingCharId = '';
+    });
   }
 
   copyInviteCode() {
@@ -1229,36 +1244,54 @@ export class DmComponent implements OnInit, OnDestroy {
     const pending = { ...(this.pendingPartyState.get(charId) ?? {}), ...changes };
     this.pendingPartyState.set(charId, pending);
 
-    const timer = this.partyStateTimers.get(charId);
-    if (timer) clearTimeout(timer);
-
-    this.partyStateTimers.set(
-      charId,
-      setTimeout(() => this.flushPartyState(charId), PARTY_STATE_DEBOUNCE_MS)
-    );
+    let subject = this.partyStateSubjects.get(charId);
+    if (!subject) {
+      subject = new Subject<void>();
+      this.partyStateSubjects.set(charId, subject);
+      
+      const campaignName = this.campaignName;
+      subject.pipe(
+        debounceTime(PARTY_STATE_DEBOUNCE_MS),
+        switchMap(() => {
+          const mergedChanges = this.pendingPartyState.get(charId);
+          this.pendingPartyState.delete(charId);
+          if (!mergedChanges || !this.campaignName) return EMPTY;
+          
+          return this.http.patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
+            catchError((err) => {
+              if (this.handleAuthFailure(err)) return EMPTY;
+              const errorMember = this.partyMembers.find((m) => m.char_id === charId);
+              this.rollToast.showMessage(
+                '⚠️ NOT SAVED',
+                `${errorMember?.name || 'That hero'}'s state stayed in this browser — the server refused it.`
+              );
+              return EMPTY;
+            })
+          );
+        })
+      ).subscribe();
+    }
+    
+    subject.next();
   }
 
   private flushPartyState(charId: string) {
+    // Left for ngOnDestroy to do immediate flush if needed
     const changes = this.pendingPartyState.get(charId);
     this.pendingPartyState.delete(charId);
-    this.partyStateTimers.delete(charId);
     if (!changes || !this.campaignName) return;
 
-    const campaignName = this.campaignName;
     this.http
-      .patch(`${campaignUrl(campaignName, 'party')}/${encodeURIComponent(charId)}/state`, changes)
+      .patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, changes)
       .subscribe({
         error: (err) => {
           if (this.handleAuthFailure(err)) return;
-          // The table keeps playing on what is on screen, but the DM is told the
-          // sheet did not take it — silence here is how a session's damage
-          // quietly fails to reach the player.
           const member = this.partyMembers.find((m) => m.char_id === charId);
           this.rollToast.showMessage(
             '⚠️ NOT SAVED',
             `${member?.name || 'That hero'}'s state stayed in this browser — the server refused it.`
           );
-        },
+        }
       });
   }
 
@@ -1403,6 +1436,15 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 
+  generateRiddle() {
+    this.http.post<any>(`${environment.apiBaseUrl}/dm/riddle`, {
+      location: this.riddleTheme,
+      edition: this.campaignEdition || '5e'
+    }).subscribe((res) => {
+      this.riddleResult = res.riddle_markdown;
+    });
+  }
+
   sendWhisper() {
     // The same guard the inbox reply has always had: an empty whisper is a
     // notification with nothing in it, delivered to a player who then has to ask
@@ -1427,4 +1469,38 @@ export class DmComponent implements OnInit, OnDestroy {
         this.rollToast.showMessage('⚠️ WHISPER NOT SENT', 'The whisper did not reach the table.')
     });
   }
+
+  removePartyMember(member: PartyMember) {
+    if (!this.campaignName || !member.char_id) return;
+    if (!confirm(`Are you sure you want to remove ${member.name} from the campaign?`)) return;
+
+    this.http.delete(campaignUrl(this.campaignName, `party/${member.char_id}`)).subscribe({
+      next: () => {
+        this.rollToast.showMessage('👋 MEMBER REMOVED', `${member.name} has been removed from the campaign.`);
+        this.loadParty();
+      },
+      error: (err) => {
+        this.handleAuthFailure(err);
+        this.rollToast.showMessage('❌ ERROR', 'Failed to remove member.');
+      }
+    });
+  }
+
+  deleteCampaign() {
+    if (!this.campaignName) return;
+    if (!confirm(`Are you sure you want to permanently delete the campaign "${this.campaignName}"? This action cannot be undone.`)) return;
+
+    this.http.delete(`${environment.apiBaseUrl}/campaigns/${this.campaignName}`).subscribe({
+      next: () => {
+        this.rollToast.showMessage('🗑️ CAMPAIGN DELETED', `Campaign "${this.campaignName}" has been deleted.`);
+        this.loadCampaigns(); // Will reload campaigns and switch to the first available or clear workspace
+      },
+      error: (err) => {
+        this.handleAuthFailure(err);
+        this.rollToast.showMessage('❌ ERROR', 'Failed to delete campaign.');
+      }
+    });
+  }
 }
+
+

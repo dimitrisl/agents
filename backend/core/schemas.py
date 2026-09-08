@@ -440,6 +440,38 @@ class CampaignMemberSchema(BaseModel):
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class CombatantConditionSchema(BaseModel):
+    name: str
+    expiresAtRound: Optional[int] = None
+
+
+class DeathSavesSchema(BaseModel):
+    successes: int = 0
+    failures: int = 0
+
+
+class InitiativeCombatantSchema(BaseModel):
+    id: str
+    char_id: Optional[str] = None
+    name: str
+    initiative: int
+    hp: int
+    max_hp: int
+    ac: int
+    dex: int
+    is_player: bool
+    portrait: Optional[str] = None
+    statblock: Optional[str] = None
+    conditions: List[CombatantConditionSchema] = []
+    deathSaves: Optional[DeathSavesSchema] = None
+
+
+class EncounterStateSchema(BaseModel):
+    round: int = 0
+    activeCombatantId: Optional[str] = None
+    combatants: List[InitiativeCombatantSchema] = []
+
+
 class RaceSchema(BaseModel):
     name: str
     description: Optional[str] = None

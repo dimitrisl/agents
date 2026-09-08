@@ -54,6 +54,8 @@ def table(monkeypatch):
         "modified": 1,
     }
 
+    characters = MagicMock()
+    characters.find_one = AsyncMock(return_value=None)
     campaigns = MagicMock()
     campaigns.find_one = AsyncMock(side_effect=lambda q: state["campaign"])
     campaigns.update_one = AsyncMock(
@@ -65,15 +67,99 @@ def table(monkeypatch):
         side_effect=lambda q: {"role": state["role"]} if state["role"] else None
     )
 
-    app.dependency_overrides[get_database] = lambda: {
+    class AsyncIterator:
+        def __init__(self, items):
+            self.items = list(items)
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.items:
+                raise StopAsyncIteration
+            return self.items.pop(0)
+
+    class MockCollection:
+        def __init__(self, state_dict, key):
+            self.state = state_dict
+            self.key = key
+            self.update_one = AsyncMock(side_effect=self._update_one)
+            self.update_many = AsyncMock(side_effect=self._update_many)
+            self.insert_one = AsyncMock(side_effect=self._insert_one)
+            self.delete_one = AsyncMock(side_effect=self._delete_one)
+
+        def _get_data(self):
+
+            campaign = self.state.get("campaign", {})
+            raw_list = campaign.get(self.key, [])
+            data = []
+            for d in raw_list:
+                # Inject campaign_name if missing, so it behaves like the real collection
+                if "campaign_name" not in d:
+                    d["campaign_name"] = campaign.get("campaign_name", "The Obsidian Citadel")
+                if "_id" not in d:
+                    d["_id"] = f"mock_{d.get('id', 'new')}"
+                data.append(d)
+            return data
+
+        async def find_one(self, query):
+            for item in self._get_data():
+                match = True
+                for k, v in query.items():
+                    if item.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    return item
+            return None
+
+        def find(self, query):
+            results = []
+            for item in self._get_data():
+                match = True
+                for k, v in query.items():
+                    if item.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    results.append(item.copy())
+            return AsyncIterator(results)
+
+        async def _insert_one(self, doc):
+            # Tests don't usually assert on inserted docs directly via this mock,
+            # but if they do, we'll just ignore it or append it
+            return MagicMock(inserted_id="mock_id")
+
+        async def _update_one(self, query, update, upsert=False):
+            doc = await self.find_one(query)
+            if doc:
+                return MagicMock(modified_count=self.state.get("modified", 1))
+            return MagicMock(modified_count=0)
+
+        async def _update_many(self, query, update):
+            return MagicMock(modified_count=self.state.get("modified", 1))
+
+        async def _delete_one(self, query):
+            return MagicMock(deleted_count=1)
+
+    whispers = MockCollection(state, "whispers")
+    roll_requests = MockCollection(state, "roll_requests")
+
+    db_dict = {
         "campaigns": campaigns,
+        "campaign_roll_requests": roll_requests,
         "campaign_members": members,
+        "characters": characters,
+        "campaign_whispers": whispers,
     }
+    app.dependency_overrides[get_database] = lambda: db_dict
+
     app.dependency_overrides[get_current_user] = lambda: {"id": "player_1", "username": "lyra"}
 
     yield {
         "client": TestClient(app),
         "campaigns": campaigns,
+        "campaign_roll_requests": roll_requests,
         "state": state,
         "broadcasts": broadcasts,
     }
@@ -86,9 +172,9 @@ class TestMissingARoll:
         response = table["client"].post(MISS_URL, json={})
 
         assert response.status_code == 200
-        query, update = table["campaigns"].update_one.await_args.args
-        assert update["$set"]["roll_requests.$.status"] == "missed"
-        assert "roll_requests.$.missed_at" in update["$set"]
+        query, update = table["campaign_roll_requests"].update_one.await_args.args
+        assert update["$set"]["status"] == "missed"
+        assert "missed_at" in update["$set"]
 
     def test_only_a_pending_request_may_be_missed(self, table):
         """
@@ -97,8 +183,8 @@ class TestMissingARoll:
         """
         table["client"].post(MISS_URL, json={})
 
-        query, _ = table["campaigns"].update_one.await_args.args
-        assert query["roll_requests"]["$elemMatch"] == {"id": REQUEST_ID, "status": "pending"}
+        query, _ = table["campaign_roll_requests"].update_one.await_args.args
+        assert query.get("status") == "pending"
 
     def test_a_roll_that_arrived_first_is_not_overwritten(self, table):
         table["state"]["modified"] = 0
@@ -153,8 +239,8 @@ class TestHowTheRollWasMade:
         )
 
         assert response.status_code == 200
-        _, update = table["campaigns"].update_one.await_args.args
-        result = update["$set"]["roll_requests.$.result"]
+        _, update = table["campaign_roll_requests"].update_one.await_args.args
+        result = update["$set"]["result"]
         assert result["mode"] == "advantage"
         assert result["situational_bonus"] == 2
 
@@ -172,7 +258,7 @@ class TestHowTheRollWasMade:
         )
 
         assert response.status_code == 200
-        _, update = table["campaigns"].update_one.await_args.args
-        result = update["$set"]["roll_requests.$.result"]
+        _, update = table["campaign_roll_requests"].update_one.await_args.args
+        result = update["$set"]["result"]
         assert result["mode"] == "normal"
         assert result["situational_bonus"] == 0

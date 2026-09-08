@@ -32,4 +32,5 @@ export class CampaignHeaderComponent {
   @Output() createCampaign = new EventEmitter<void>();
   @Output() generateInvite = new EventEmitter<void>();
   @Output() sendWhisper = new EventEmitter<void>();
+  @Output() deleteCampaign = new EventEmitter<void>();
 }
