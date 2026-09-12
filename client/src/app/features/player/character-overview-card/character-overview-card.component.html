@@ -49,6 +49,30 @@
       (deathSaveChange)="deathSaveChange.emit($event)"
     ></app-hit-points-control>
 
+    <!-- Conditions & Concentration -->
+    <section class="py-3" *ngIf="!editMode">
+      <div class="flex flex-wrap gap-2 items-center">
+        <button
+          type="button"
+          class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+          aria-label="Manage conditions and concentration"
+          (click)="manageConditions.emit()"
+        >
+          <forge-badge [interactive]="true" tone="muted">
+            <span aria-hidden="true">⚡</span> Status
+          </forge-badge>
+        </button>
+
+        <forge-badge *ngIf="char.concentrating_on" tone="gold">
+          <span aria-hidden="true" class="mr-1">🧠</span> {{ char.concentrating_on }}
+        </forge-badge>
+
+        <forge-badge *ngFor="let cond of char.conditions" tone="danger">
+          {{ cond }}
+        </forge-badge>
+      </div>
+    </section>
+
     <app-combat-stat-grid
       [armorClass]="char.armor_class"
       [proficiencyBonus]="char.proficiency_bonus"

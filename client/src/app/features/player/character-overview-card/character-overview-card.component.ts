@@ -43,6 +43,7 @@ export class CharacterOverviewCardComponent {
   @Output() tempDown = new EventEmitter<void>();
   @Output() tempUp = new EventEmitter<void>();
   @Output() deathSaveChange = new EventEmitter<{ type: 'successes' | 'failures'; value: number }>();
+  @Output() manageConditions = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
 

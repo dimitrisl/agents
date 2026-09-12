@@ -38,6 +38,7 @@
           (deathSaveChange)="setDeathSave($event.type, $event.value)"
           (abilityCheck)="rollAbilityCheck($event)"
           (savingThrow)="rollSavingThrow($event)"
+          (manageConditions)="openConditionsModal()"
         ></app-character-overview-card>
       </aside>
 
@@ -198,6 +199,14 @@
     [editChar]="editDraftChar"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
+
+  <app-conditions-modal
+    [open]="showConditionsModal"
+    [initialConditions]="charState.activeCharacter()?.conditions"
+    [initialConcentration]="charState.activeCharacter()?.concentrating_on"
+    (closed)="showConditionsModal = false"
+    (save)="saveConditions($event)"
+  ></app-conditions-modal>
 
   <app-roll-request-modal
     [open]="!!activeRollPrompt"
