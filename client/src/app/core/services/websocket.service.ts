@@ -16,7 +16,6 @@ export interface WsMessage {
  * whisper for one hero never reaches the rest of the table.
  */
 export interface WsIdentity {
-  role: 'dm' | 'player';
   character?: string;
 }
 
@@ -98,8 +97,7 @@ export class WebSocketService {
       : '';
     const fullUrl =
       `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}` +
-      `?token=${encodeURIComponent(token)}` +
-      `&role=${encodeURIComponent(identity.role)}${character}`;
+      `?token=${encodeURIComponent(token)}${character}`;
 
     const socket = new WebSocket(fullUrl);
     this.socket = socket;
@@ -165,7 +163,6 @@ export class WebSocketService {
 
   private isSameIdentity(identity: WsIdentity): boolean {
     return (
-      this.currentIdentity?.role === identity.role &&
       (this.currentIdentity?.character || '') === (identity.character || '')
     );
   }

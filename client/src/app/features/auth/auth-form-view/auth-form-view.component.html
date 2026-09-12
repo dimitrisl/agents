@@ -1,17 +1,24 @@
 <forge-card class="text-center" [hoverable]="false" padding="lg">
   <ng-container *ngTemplateOutlet="logoTemplate"></ng-container>
 
-  <h2 class="mb-6 font-display text-title text-accent">
+  <h2 class="mb-6 flex items-center justify-center gap-2 font-display text-title text-accent">
     @if (isRegister) {
-      &#127381; Create Account
+      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+      </svg>
+      Create Account
     } @else {
-      &#128273; Seasoned Adventurer Login
+      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+      </svg>
+      Seasoned Adventurer
     }
   </h2>
 
   <div class="mb-4 text-left">
-    <label class="mb-2 block text-label font-bold uppercase text-muted">Username:</label>
+    <label for="auth-username" class="mb-2 block text-micro font-bold uppercase text-muted">Username:</label>
     <input
+      id="auth-username"
       forgeInput
       type="text"
       [ngModel]="username"
@@ -20,8 +27,9 @@
   </div>
 
   <div class="mb-4 text-left">
-    <label class="mb-2 block text-label font-bold uppercase text-muted">Password:</label>
+    <label for="auth-password" class="mb-2 block text-micro font-bold uppercase text-muted">Password:</label>
     <input
+      id="auth-password"
       forgeInput
       type="password"
       [ngModel]="password"
@@ -31,7 +39,7 @@
   </div>
 
   @if (error) {
-    <div class="mb-4 text-body text-red">&#10060; {{ error }}</div>
+    <div class="mb-4 text-body text-danger">{{ error }}</div>
   }
 
   <div class="mt-6 flex flex-col gap-3">
@@ -44,21 +52,10 @@
     </button>
   </div>
 
-  <section class="mt-6 border-t border-hairline pt-5">
-    <p class="mb-3 text-label font-semibold uppercase tracking-[0.08em] text-muted">
-      &#9889; Instant Demo Access
-    </p>
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('mitsos')">
-        &#127918; DM Mitsos Demo
-      </button>
-      <button forgeButton variant="secondary" size="md" (click)="quickDemo.emit('guest')">
-        &#128481;&#65039; Adventurer Demo
-      </button>
-    </div>
-  </section>
-
   <button class="mt-4" forgeButton variant="ghost" size="md" fullWidth (click)="back.emit()">
-    &#11013;&#65039; Back to Choice
+    <svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+    Back to Choice
   </button>
 </forge-card>

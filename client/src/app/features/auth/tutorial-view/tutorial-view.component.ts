@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { ForgeButtonDirective, ForgeCardComponent } from '../../../shared/ui';
 
 const ACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-accent shadow-[0_0_10px_var(--theme-accent)] transition-all';
-const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-white/20 transition-all';
+const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
 
 @Component({
   selector: 'app-tutorial-view',

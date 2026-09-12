@@ -609,7 +609,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
     // role=dm means the server routes every whisper and roll result here, even
     // the private ones addressed to a single hero.
-    this.wsService.connect(this.campaignName, { role: 'dm' });
+    this.wsService.connect(this.campaignName, {});
 
     this.showDmInbox = false;
     this.inboxReplyMessage = '';

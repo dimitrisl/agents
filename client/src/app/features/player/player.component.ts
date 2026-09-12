@@ -125,7 +125,7 @@ interface RollTarget {
     EditSheetModalComponent,
   ],
   templateUrl: './player.component.html',
-  styleUrl: './player.component.css', 
+  styleUrl: './player.component.css',
 })
 export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
@@ -240,7 +240,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // The character rides along on the handshake so the server can route
         // private whispers and roll requests to this hero alone.
         this.wsService.connect(char.active_campaign, {
-          role: 'player',
           character: char.char_name,
         });
         this.loadCampaignMessageHistory(char.active_campaign, char.char_name);
