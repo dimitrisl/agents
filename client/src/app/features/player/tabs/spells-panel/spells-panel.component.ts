@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CharacterSchema, FeatureTrait } from '../../../../core/models/character.model';
-import { ForgeBadgeComponent, ForgeButtonDirective } from '../../../../shared/ui';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent } from '../../../../shared/ui';
 
 @Component({
   selector: 'app-spells-panel',
   standalone: true,
-  imports: [CommonModule, ForgeBadgeComponent, ForgeButtonDirective],
+  imports: [CommonModule, ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent],
   templateUrl: './spells-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -73,5 +73,34 @@ export class SpellsPanelComponent {
       return;
     }
     this.features.forEach((_feature, index) => this.expandedFeatures.add(index));
+  }
+
+  get spellGroups(): { label: string; level: number; spells: string[] }[] {
+    const groups: { label: string; level: number; spells: string[] }[] = [];
+    const spells = this.char.spells;
+    if (!spells) return groups;
+
+    if (spells.cantrips && spells.cantrips.length > 0) {
+      groups.push({ label: 'Cantrips', level: 0, spells: spells.cantrips });
+    }
+
+    const levelKeys: (keyof typeof spells)[] = [
+      'level_1', 'level_2', 'level_3', 'level_4', 'level_5',
+      'level_6', 'level_7', 'level_8', 'level_9'
+    ];
+
+    levelKeys.forEach((key, index) => {
+      const levelSpells = spells[key];
+      if (Array.isArray(levelSpells) && levelSpells.length > 0) {
+        groups.push({ label: `Level ${index + 1}`, level: index + 1, spells: levelSpells });
+      }
+    });
+
+    return groups;
+  }
+
+  isPrepared(spellName: string): boolean {
+    if (!this.char.prepared_spells) return false;
+    return this.char.prepared_spells.includes(spellName);
   }
 }
