@@ -130,12 +130,17 @@
   <ng-template #emptyState>
     <forge-empty-state
       icon="D20"
-      title="No Heroes Found"
-      description="Your vault is empty. It is time to forge a new legend."
+      [title]="charState.characters().length > 0 ? 'No Heroes for ' + charState.dndEdition() : 'No Heroes Found'"
+      [description]="charState.characters().length > 0 ? 'You have heroes in the other edition. Switch the edition filter in the header to see them, or forge a new hero.' : 'Your vault is empty. It is time to forge a new legend.'"
     >
-      <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
-        Forge Your First Hero
-      </button>
+      <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
+        <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
+          {{ charState.characters().length > 0 ? 'Forge New Hero' : 'Forge Your First Hero' }}
+        </button>
+        <button *ngIf="charState.characters().length > 0" forgeButton variant="secondary" size="lg" type="button" (click)="charState.toggleEdition()">
+          Switch Edition
+        </button>
+      </div>
     </forge-empty-state>
   </ng-template>
 
