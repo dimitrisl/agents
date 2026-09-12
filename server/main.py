@@ -30,6 +30,7 @@ logger = logging.getLogger("PhyrexianForge.Server")
 async def lifespan(app: FastAPI):
     # Startup: Connect to MongoDB async
     logger.info("Initializing Phyrexian Forge FastAPI Backend Server...")
+    os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
     await connect_to_mongo()
     yield
     # Shutdown: Close connection
@@ -63,8 +64,11 @@ app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 
 # Mount portrait images directory
-os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
-app.mount(f"{settings.API_V1_STR}/portraits", StaticFiles(directory=os.path.join("data", "portraits")), name="portraits")
+app.mount(
+    f"{settings.API_V1_STR}/portraits",
+    StaticFiles(directory=os.path.join("data", "portraits")),
+    name="portraits",
+)
 
 
 @app.get("/")

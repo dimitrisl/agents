@@ -15,3 +15,5 @@ export * from './forge-stat-box/forge-stat-box.component';
 export * from './forge-tabs/forge-tabs.component';
 export * from './forge-toggle/forge-toggle.component';
 export * from './forge-toolbar/forge-toolbar.component';
+export * from './forge-auth-shell/forge-auth-shell.component';
+export * from './forge-list-row/forge-list-row.component';

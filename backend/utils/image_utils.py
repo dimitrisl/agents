@@ -30,7 +30,7 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
     base_url_path = f"{settings.API_V1_STR}/portraits/"
 
     if not force and existing_portrait and existing_portrait.startswith(base_url_path):
-        filename = existing_portrait.replace(base_url_path, "")
+        filename = os.path.basename(existing_portrait)
         local_path = os.path.join(PORTRAIT_DIR, filename)
         if os.path.exists(local_path):
             return existing_portrait

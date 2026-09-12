@@ -12,6 +12,7 @@ from backend.core.prompts import (
     RULES_ORACLE_PROMPT,
 )
 from backend.core.schemas import CharacterSchema
+from backend.core.state_manager import get_default_character
 from backend.repositories.rules_repository import RulesRepository
 from backend.utils.api_client import fetch_feat_from_api
 
@@ -46,10 +47,10 @@ def autofix_character_build(char_data: dict) -> dict:
     from backend.services.validation_service import deterministic_validate_build
 
     # 1. Deterministic Validation & Corrections
-    corrected_char = deterministic_validate_build(char_data)
+    corrected_char, issues = deterministic_validate_build(char_data)
 
     # We create a dummy validation result to keep compatibility with any frontend code expecting it
-    validation = {"is_valid": True, "issues": [], "suggestions": [], "corrections": {}}
+    validation = {"is_valid": len(issues) == 0, "issues": issues, "suggestions": [], "corrections": {}}
 
     edition = corrected_char.get("dnd_edition", EDITION_2014)
     # Check if character contains 2024 indicators (masteries, origin feats, etc.)
@@ -171,7 +172,6 @@ def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> d
             logger.error(
                 f"Fallback validation failed: {fallback_err}. Returning default character."
             )
-            from backend.core.state_manager import get_default_character
 
             default_char = get_default_character()
             # Overlay simple fields

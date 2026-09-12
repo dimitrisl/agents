@@ -46,13 +46,14 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
     return proficiencies
 
 
-def deterministic_validate_build(char_data: Dict[str, Any]) -> Dict[str, Any]:
+def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, Any], list[str]]:
     """
     Applies deterministic rules validation to the character.
-    Returns the corrected character data.
+    Returns the corrected character data and a list of identified issues.
     """
     corrected_char = copy.deepcopy(char_data)
     repo = RulesRepository()
+    issues = []
 
     char_class = corrected_char.get("char_class", "")
     edition = corrected_char.get("dnd_edition", "2014 Edition")
@@ -91,9 +92,9 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> Dict[str, Any]:
 
                 if req_prof:
                     if req_prof not in armor_profs and "all armor" not in armor_profs:
-                        logger.warning(
-                            f"Character lacks proficiency for {item_name} ({req_prof}). Unequipping."
-                        )
+                        issue_msg = f"Character lacks proficiency for {item_name} ({req_prof}). Unequipping."
+                        logger.warning(issue_msg)
+                        issues.append(issue_msg)
                         equip["equipped"] = False
 
     # 3. Weapon Proficiency Validation (Basic)
@@ -109,21 +110,19 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> Dict[str, Any]:
     subclass = corrected_char.get("subclass")
     level = corrected_char.get("char_level", 1)
     if subclass and level < SUBCLASS_MIN_LEVEL:
-        logger.warning(
-            f"Character is level {level} but subclass '{subclass}' requires level "
-            f"{SUBCLASS_MIN_LEVEL}. Clearing subclass."
-        )
+        issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {SUBCLASS_MIN_LEVEL}. Clearing subclass."
+        logger.warning(issue_msg)
+        issues.append(issue_msg)
         corrected_char["subclass"] = None
     elif subclass and class_data:
         subclass_min_level = _get_subclass_min_level(class_data)
         if subclass_min_level and level < subclass_min_level:
-            logger.warning(
-                f"Character is level {level} but subclass '{subclass}' requires level "
-                f"{subclass_min_level} for class '{char_class}'. Clearing subclass."
-            )
+            issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {subclass_min_level} for class '{char_class}'. Clearing subclass."
+            logger.warning(issue_msg)
+            issues.append(issue_msg)
             corrected_char["subclass"] = None
 
-    return corrected_char
+    return corrected_char, issues
 
 
 # Keywords that identify the "choose your subclass" feature in progression JSON.

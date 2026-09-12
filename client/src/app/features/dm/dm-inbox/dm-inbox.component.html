@@ -46,28 +46,39 @@
           </article>
         } @else {
           <article
-            class="inbox-message"
+            class="inbox-message inbox-roll"
             [class.pending]="rollRequestStatus(entry.request) === 'pending'"
             [class.resolved]="rollRequestStatus(entry.request) === 'resolved'"
             [class.secret]="entry.request.is_secret"
           >
             <div class="inbox-meta">
               <span class="message-kind">
-                🎲 {{ entry.request.char_name }} · {{ entry.request.roll_type }}
-                ({{ entry.request.stat }})
+                {{ entry.request.is_secret ? '🔒' : '🎲' }} {{ entry.request.char_name }}
               </span>
               <time class="shrink-0 text-micro text-muted">
                 {{ formatTime(entry.request.created_at) }}
               </time>
             </div>
+
+            <!-- The ask, on its own line, so a long hero name never eats it. -->
+            <p class="roll-ask">{{ rollAsk(entry.request) }}</p>
             <p *ngIf="entry.request.reason" class="inbox-text">{{ entry.request.reason }}</p>
-            <p *ngIf="entry.request.result" class="inbox-result">
-              Rolled {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+
+            <!-- The number is what the DM came here for: it leads, the arithmetic follows. -->
+            <p *ngIf="entry.request.result as result" class="inbox-result">
+              <span class="roll-total">{{ result.total }}</span>
+              <span class="roll-expression">{{ result.expression }}</span>
             </p>
+
             <div class="inbox-badges">
-              <forge-badge *ngIf="entry.request.is_secret" tone="accent">🔒 Secret</forge-badge>
               <forge-badge [tone]="rollRequestTone(entry.request)">
                 {{ rollRequestLabel(entry.request) }}
+              </forge-badge>
+              <forge-badge *ngIf="rollModeLabel(entry.request) as mode" tone="gold">
+                {{ mode }}
+              </forge-badge>
+              <forge-badge *ngIf="situationalBonusLabel(entry.request) as bonus" tone="muted">
+                {{ bonus }}
               </forge-badge>
             </div>
           </article>

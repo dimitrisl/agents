@@ -138,8 +138,10 @@ this.items.push(next);                    // ❌ silently stale
 
 ```bash
 cd client && npm run build
+cd client && npm test          # Jest + jest-preset-angular, specs are `*.spec.ts` beside the code
 ```
 
-**There is no test framework in this project** — no `test` script, no Karma, no Jasmine, no
-spec files. The build is the only automated gate. Never report that tests pass. For visual
-work, confirm against `design-contract.md` §7 and check both editions.
+Both are gates. **The suite is nearly empty** — a smoke spec, no thresholds, no CI wiring — so
+a green `npm test` says the harness works, not that your change is covered. Never report that
+tests pass without having run them. For visual work neither gate applies: confirm against
+`design-contract.md` §7 and check both editions.

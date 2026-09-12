@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ForgeButtonDirective, ForgeModalComponent } from '../../../../shared/ui';
-import type { InitiativeCombatant } from '../../dm.component';
+import type { InitiativeCombatant } from '../../../../core/models/initiative.model';
 
 @Component({
   selector: 'app-statblock-modal',

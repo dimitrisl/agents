@@ -95,6 +95,15 @@
       >
         🔑 Join Campaign
       </button>
+      <button
+        *ngIf="activeCharacter"
+        forgeButton
+        variant="danger"
+        type="button"
+        (click)="deleteHero.emit()"
+      >
+        🗑️ Delete
+      </button>
     </div>
   </div>
 </header>

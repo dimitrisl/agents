@@ -33,14 +33,22 @@ user decide. Do not work around it with client-side hacks.
 
 ```bash
 cd client
-npm start        # ng serve — proxies /api and /ws to http://localhost:8000 (src/proxy.conf.json)
-npm run build    # production build
+npm start          # ng serve — proxies /api and /ws to http://localhost:8000 (src/proxy.conf.json)
+npm run build      # production build
+npm test           # Jest + jest-preset-angular (Node + jsdom, no browser)
+npm run test:watch # the same suite in watch mode
+npm run test:cov   # with coverage → client/coverage/ (git-ignored)
 ```
 
-> ⚠️ **There is no test framework in this project.** No `test` script, no Karma, no Jasmine,
-> no spec files. `npm run build` is the only automated gate that exists.
-> Never claim tests pass. Verify with a successful build plus the acceptance checks in
-> `design-contract.md` §7.
+Specs live next to the code they cover as `*.spec.ts`. Config: `jest.config.js`,
+`src/setup-jest.ts` (zone-based TestBed env), `tsconfig.spec.json` — which inherits the
+project's `strict`, `noPropertyAccessFromIndexSignature` and `strictTemplates`. **Never loosen
+those to make a test compile.**
+
+> ⚠️ **The suite is new and nearly empty** — one smoke spec, no coverage thresholds, no CI
+> wiring yet. `npm test` passing means the harness works, not that a feature is covered.
+> Both gates apply: `npm run build` **and** `npm test`. For visual work, neither replaces the
+> acceptance checks in `design-contract.md` §7. Never claim a test passed without running it.
 
 ---
 
@@ -50,7 +58,8 @@ npm run build    # production build
 src/app/
 ├─ core/
 │  ├─ services/     auth · character-state · websocket · dice · roll-toast · class-combat
-│  └─ models/       character · campaign · campaign-inbox · user
+│  ├─ models/       character · campaign · campaign-inbox · user
+│  └─ rules/        the sheet's maths as plain functions — no Angular, import from the barrel
 ├─ shared/
 │  ├─ ui/           the forge-* kit — import from the barrel: shared/ui
 │  └─ components/   roll-toast, command palette, etc.
@@ -75,9 +84,10 @@ Follow what is already here. Do not modernise code you were not asked to touch.
   you are already editing. Never open a sweeping migration PR.
 - **Signals live in services** (`auth.service`, `character-state.service`). Components use
   plain fields. Do not convert existing components to signals as a side quest.
-- **Shared interfaces belong in `core/models/`.** `dm.component.ts` currently exports
-  `PartyMember` and `InitiativeCombatant` and four files import them from there — that is
-  known debt, do not copy the pattern.
+- **Shared interfaces belong in `core/models/`.** A component never exports a type its
+  panels and modals import — `PartyMember` (`core/models/party.model.ts`) and
+  `InitiativeCombatant` (`core/models/initiative.model.ts`) both used to live in
+  `dm.component.ts`. Do not reintroduce the pattern.
 - **`encodeURIComponent()` every campaign name** placed in a URL. Campaign names contain
   spaces and are used as path segments; several existing calls forget this.
 - **Import the UI kit from the barrel:** `from '../../shared/ui'`, never deep paths.

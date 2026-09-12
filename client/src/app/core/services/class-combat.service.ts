@@ -7,10 +7,10 @@ import {
   cantripTierFor,
   critThresholdFor,
   extraCritDiceFor,
-  hitDieSidesFor,
   isCaster,
   resolveClassActions,
 } from '../data/class-combat.data';
+import { abilityModifier, hitDieSize, proficiencyBonus } from '../rules';
 
 export type { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
 
@@ -28,7 +28,7 @@ export type { ClassCombatAction, CombatProfile } from '../data/class-combat.data
 export class ClassCombatService {
   buildContext(char: CharacterSchema): CombatContext {
     const stats = char.stats ?? { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 };
-    const modifier = (score: number) => Math.floor(((score ?? 10) - 10) / 2);
+    const modifier = (score: number) => abilityModifier(score ?? 10);
 
     return {
       charClass: char.char_class || '',
@@ -43,7 +43,7 @@ export class ClassCombatService {
         WIS: modifier(stats.WIS),
         CHA: modifier(stats.CHA),
       },
-      profBonus: char.proficiency_bonus || 2,
+      profBonus: proficiencyBonus(char),
     };
   }
 
@@ -70,7 +70,7 @@ export class ClassCombatService {
    */
   private universalActions(char: CharacterSchema, ctx: CombatContext): ClassCombatAction[] {
     const actions: ClassCombatAction[] = [];
-    const sides = this.hitDieSides(char);
+    const sides = hitDieSize(char);
     const conMod = ctx.mods.CON;
 
     actions.push({
@@ -99,11 +99,5 @@ export class ClassCombatService {
     }
 
     return actions;
-  }
-
-  /** The sheet's own hit die wins; the class default only fills a gap. */
-  private hitDieSides(char: CharacterSchema): number {
-    const parsed = /d(\d+)/i.exec(char.hit_dice || '');
-    return parsed ? parseInt(parsed[1], 10) : hitDieSidesFor(char.char_class);
   }
 }

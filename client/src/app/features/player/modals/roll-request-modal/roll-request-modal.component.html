@@ -1,0 +1,85 @@
+<forge-modal
+  [open]="open"
+  (openChange)="openChange.emit($event)"
+  [title]="request?.is_secret ? '🔒 Secret roll requested' : '🎲 The DM asks for a roll'"
+>
+  @if (request) {
+    <div class="flex flex-wrap items-center gap-2">
+      <forge-badge tone="accent">{{ request.roll_type }}</forge-badge>
+      @if (request.is_secret) {
+        <forge-badge tone="gold">🔒 Secret</forge-badge>
+      }
+      @if (queuedCount > 0) {
+        <forge-badge tone="muted">+{{ queuedCount }} more waiting</forge-badge>
+      }
+    </div>
+
+    <p class="mt-3 font-display text-title text-ink">{{ modifierLabel || request.stat }}</p>
+
+    @if (request.reason) {
+      <p class="mt-1 text-body-sm text-muted">“{{ request.reason }}”</p>
+    }
+
+    <div class="mt-4 flex flex-col gap-3 rounded-lg border border-hairline bg-black/20 p-3">
+      <app-roll-mode-selector
+        name="rollRequestMode"
+        label="How you roll"
+        [rollMode]="rollMode"
+        (rollModeChange)="rollModeChange.emit($event)"
+      ></app-roll-mode-selector>
+
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-0">
+          <label
+            for="roll-request-bonus"
+            class="mb-1 block text-label font-semibold text-muted"
+          >
+            Situational bonus
+          </label>
+          <input
+            forgeInput
+            id="roll-request-bonus"
+            type="number"
+            name="situationalBonus"
+            class="w-28"
+            [ngModel]="situationalBonus"
+            (ngModelChange)="onSituationalBonusInput($event)"
+          />
+        </div>
+
+        <p class="text-body-sm text-muted">
+          Sheet {{ baseModifier >= 0 ? '+' + baseModifier : baseModifier }} · rolling
+          <strong class="text-ink">1d20 {{ totalModifierString }}</strong>
+        </p>
+      </div>
+
+      <p class="text-micro text-muted">
+        A bless, a guidance die, a feature the sheet does not track — add it here so the
+        DM sees the number you actually rolled.
+      </p>
+    </div>
+
+    <p
+      class="mt-4 text-body-sm"
+      [class.text-muted]="!isRunningOut"
+      [class.text-red]="isRunningOut"
+      role="status"
+      aria-live="polite"
+    >
+      @if (secondsRemaining > 0) {
+        ⏳ {{ secondsRemaining }}s to answer — after that the DM is told you missed it.
+      } @else {
+        ⏳ Time is up.
+      }
+    </p>
+
+    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button forgeButton variant="secondary" type="button" (click)="dismiss.emit()">
+        Skip this roll
+      </button>
+      <button forgeButton variant="primary" type="button" (click)="confirm.emit()">
+        🎲 Roll 1d20 {{ totalModifierString }}
+      </button>
+    </div>
+  }
+</forge-modal>

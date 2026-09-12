@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
   ForgeTextareaDirective,
+  ForgeInputDirective,
 } from '../../../../shared/ui';
 
 @Component({
@@ -14,6 +15,7 @@ import {
     FormsModule,
     ForgeButtonDirective,
     ForgeTextareaDirective,
+    ForgeInputDirective,
   ],
   templateUrl: './prep-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,7 +23,11 @@ import {
 export class PrepPanelComponent {
   @Input() prepNotes = '';
   @Input() prepResult = '';
+  @Input() riddleTheme = '';
+  @Input() riddleResult = '';
 
   @Output() prepNotesChange = new EventEmitter<string>();
   @Output() generatePrep = new EventEmitter<void>();
+  @Output() riddleThemeChange = new EventEmitter<string>();
+  @Output() generateRiddle = new EventEmitter<void>();
 }

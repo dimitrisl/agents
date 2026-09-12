@@ -6,16 +6,18 @@ import { DmComponent } from './features/dm/dm.component';
 import { RulesComponent } from './features/rules/rules.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { AdminComponent } from './features/admin/admin.component';
+import { CampaignPickerComponent } from './features/campaigns/campaign-picker.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  { path: 'campaigns', component: CampaignPickerComponent, canActivate: [authGuard] },
   { path: 'player', component: PlayerComponent, canActivate: [authGuard] },
   { path: 'forge', component: ForgeComponent, canActivate: [authGuard] },
   { path: 'dm', component: DmComponent, canActivate: [authGuard] },
   { path: 'rules', component: RulesComponent, canActivate: [authGuard] },
   { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
   { path: 'admin', component: AdminComponent, canActivate: [authGuard] },
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: '', redirectTo: '/campaigns', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' },
 ];

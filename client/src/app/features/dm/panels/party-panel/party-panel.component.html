@@ -12,16 +12,6 @@
         <button forgeButton variant="secondary" size="sm" type="button" (click)="addMember.emit()">
           ➕ Add Member
         </button>
-        <button
-          forgeButton
-          variant="secondary"
-          tone="accent"
-          size="sm"
-          type="button"
-          (click)="issueRollRequest.emit()"
-        >
-          🎲 Issue Roll Request
-        </button>
       </div>
     </div>
 
@@ -48,7 +38,10 @@
             class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
           />
           <div class="min-w-0 flex-1">
-            <h3 class="truncate font-display text-title text-ink">{{ member.name }}</h3>
+            <h3 class="truncate font-display text-title text-ink">
+              {{ member.isOnline ? '🟢' : '⚪' }} {{ member.name }}
+              <span *ngIf="member.owner_username" class="text-muted text-sm font-normal">({{ member.owner_username }})</span>
+            </h3>
             <p class="truncate text-micro font-semibold uppercase text-muted">
               Level {{ member.level }} {{ member.char_class }}
             </p>
@@ -59,10 +52,21 @@
             size="sm"
             type="button"
             class="shrink-0"
-            [attr.aria-label]="'Private roll request for ' + member.name"
+            [attr.aria-label]="'Request a roll from ' + member.name"
             (click)="privateRollRequest.emit(member)"
           >
-            🎲 Private Roll
+            🎲 Request Roll
+          </button>
+          <button
+            forgeButton
+            variant="danger"
+            size="sm"
+            type="button"
+            class="shrink-0"
+            [attr.aria-label]="'Remove ' + member.name + ' from campaign'"
+            (click)="removeMember.emit(member)"
+          >
+            Kick
           </button>
         </header>
 
@@ -86,11 +90,13 @@
                 −
               </button>
               <input
+                #memberHp
                 forgeInput
                 type="number"
                 class="max-w-20 text-center"
                 [attr.aria-label]="member.name + ' current hit points'"
-                [(ngModel)]="member.hp_current"
+                [value]="member.hp_current"
+                (change)="onHpInput(member, memberHp)"
                 min="0"
                 [max]="member.hp_max"
               />

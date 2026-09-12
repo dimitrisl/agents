@@ -23,6 +23,7 @@ export class PlayerDashboardHeaderComponent {
   @Output() editSheet = new EventEmitter<void>();
   @Output() quickEdit = new EventEmitter<void>();
   @Output() joinCampaign = new EventEmitter<void>();
+  @Output() deleteHero = new EventEmitter<void>();
 
   get levelClassLine(): string {
     const char = this.activeCharacter;

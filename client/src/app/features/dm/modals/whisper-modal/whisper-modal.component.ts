@@ -7,7 +7,7 @@ import {
   ForgeSelectDirective,
   ForgeTextareaDirective,
 } from '../../../../shared/ui';
-import type { PartyMember } from '../../dm.component';
+import type { PartyMember } from '../../../../core/models/party.model';
 
 @Component({
   selector: 'app-whisper-modal',

@@ -56,16 +56,64 @@ class ConnectionManager:
             f"WebSocket client connected to campaign channel '{campaign_id}' "
             f"(role={role}, character={character or '-'})"
         )
+
+        # Send presence_sync to the new connection
+        online_chars = [
+            conn.character for conn in self.active_connections[campaign_id] if conn.character
+        ]
+        # Remove duplicates if a user has multiple tabs
+        online_chars = list(set(online_chars))
+        try:
+            await websocket.send_json({"type": "presence_sync", "payload": online_chars})
+        except Exception:
+            pass
+
+        # Broadcast online status to others
+        if character:
+            await self.broadcast(
+                campaign_id,
+                {
+                    "type": "presence_update",
+                    "payload": {"character": character, "status": "online"},
+                },
+            )
+
         return connection
 
-    def disconnect(self, campaign_id: str, websocket: WebSocket):
+    async def disconnect(self, campaign_id: str, websocket: WebSocket):
         connections = self.active_connections.get(campaign_id)
         if connections is not None:
+            # Find the character of the disconnecting socket
+            disconnecting_char = None
+            for conn in connections:
+                if conn.websocket is websocket:
+                    disconnecting_char = conn.character
+                    break
+
             self.active_connections[campaign_id] = [
                 conn for conn in connections if conn.websocket is not websocket
             ]
             if not self.active_connections[campaign_id]:
                 del self.active_connections[campaign_id]
+
+            # Broadcast offline status
+            if disconnecting_char:
+                # Check if the character still has another active connection (e.g., multi-tab)
+                is_still_online = any(
+                    conn.character == disconnecting_char
+                    for conn in self.active_connections.get(campaign_id, [])
+                )
+
+                if not is_still_online:
+                    # Need to use await
+                    await self.broadcast(
+                        campaign_id,
+                        {
+                            "type": "presence_update",
+                            "payload": {"character": disconnecting_char, "status": "offline"},
+                        },
+                    )
+
         logger.info(f"WebSocket client disconnected from campaign channel '{campaign_id}'")
 
     async def broadcast(
@@ -73,12 +121,18 @@ class ConnectionManager:
         campaign_id: str,
         message: dict,
         characters: Optional[Iterable[str]] = None,
+        dm_only: bool = False,
     ):
         """Fan a message out to a campaign room.
 
         `characters` restricts delivery to the named heroes. DM sockets always
         receive everything — the DM is the one running the table — while a socket
         that never announced a character only sees untargeted traffic.
+
+        `dm_only` is the one exception to "the DM sees everything": it means no
+        player socket may see this at all. A secret roll is the DM's own knowledge,
+        so it must never travel down the hero's connection to be filtered away in
+        their browser — that is not secrecy, that is a view-source away.
         """
         campaign_id = unquote(campaign_id)
         connections = self.active_connections.get(campaign_id)
@@ -91,6 +145,8 @@ class ConnectionManager:
 
         dead_connections: List[CampaignConnection] = []
         for connection in list(connections):
+            if dm_only and not connection.is_dm:
+                continue
             if targets is not None and not (connection.is_dm or connection.is_character(targets)):
                 continue
             try:
@@ -100,7 +156,7 @@ class ConnectionManager:
                 dead_connections.append(connection)
 
         for connection in dead_connections:
-            self.disconnect(campaign_id, connection.websocket)
+            await self.disconnect(campaign_id, connection.websocket)
 
 
 manager = ConnectionManager()
@@ -135,7 +191,22 @@ async def campaign_websocket_endpoint(
     # Use the role from the database, completely ignoring the `role` Query param
     db_role = member.get("role", "player")
 
-    await manager.connect(decoded_id, websocket, role=db_role, character=character)
+    # Verify character ownership and campaign membership if provided
+    verified_character = None
+    if character:
+        char_doc = await db["characters"].find_one(
+            {"char_name": character, "owner_id": user.get("id"), "active_campaign": decoded_id}
+        )
+        if char_doc:
+            verified_character = character
+        else:
+            logger.warning(
+                f"User {user.get('id')} attempted to spoof character '{character}' in campaign {decoded_id}"
+            )
+            # We don't reject the connection, we just ignore the spoofed character
+            # so they connect as a generic player/DM.
+
+    await manager.connect(decoded_id, websocket, role=db_role, character=verified_character)
     try:
         while True:
             data = await websocket.receive_text()
@@ -157,4 +228,4 @@ async def campaign_websocket_endpoint(
     except WebSocketDisconnect:
         pass  # Expected client disconnection
     finally:
-        manager.disconnect(decoded_id, websocket)
+        await manager.disconnect(decoded_id, websocket)

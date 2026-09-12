@@ -125,8 +125,24 @@ const HIT_DICE: Record<string, number> = {
   wizard: 6,
 };
 
-export const hitDieSidesFor = (charClass: string): number =>
-  HIT_DICE[(charClass || '').toLowerCase().trim()] ?? 8;
+/**
+ * The die a class rolls for hit points.
+ *
+ * An exact name wins. Failing that it looks for a known class *inside* the
+ * string, because `char_class` is a free-text field on a character sheet and
+ * routinely holds `Eldritch Knight Fighter` or `Barbarian (Totem Warrior)`. A
+ * multiclass string resolves to the first class in table order.
+ */
+export const hitDieSidesFor = (charClass: string | undefined): number => {
+  const name = (charClass || '').toLowerCase().trim();
+  if (!name) return 8;
+
+  const exact = HIT_DICE[name];
+  if (exact) return exact;
+
+  const matched = Object.keys(HIT_DICE).find((known) => name.includes(known));
+  return matched ? HIT_DICE[matched] : 8;
+};
 
 export const isCaster = (charClass: string): boolean =>
   CASTER_CLASSES.has((charClass || '').toLowerCase().trim());

@@ -1,4 +1,4 @@
-﻿import {
+import {
   AfterViewChecked,
   Component,
   ElementRef,
@@ -14,12 +14,44 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
-import { DiceService, RollMode } from '../../core/services/dice.service';
+import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
-import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import { CampaignMessages, RollRequest, Whisper, campaignUrl } from '../../core/models/campaign.model';
 import { buildInboxFeed, type InboxEntry } from '../../core/models/campaign-inbox';
+import {
+  ROLL_PROMPT_TIMEOUT_SECONDS,
+  dropStalePrompts,
+  isAwaitingPlayer,
+  shouldPrompt,
+} from '../../core/models/roll-prompt';
+import {
+  ALL_SKILLS,
+  SkillDefinition,
+  abilityModifier,
+  abilityModifierOf,
+  adjustedHp,
+  availableHitDice,
+  conModifier,
+  findSkill,
+  formatModifier,
+  hasSpellSlotLevel,
+  hitDieSize,
+  isProficientIn,
+  levelUp,
+  planShortRest,
+  regainSpellSlot,
+  resolveLongRest,
+  resolveShortRest,
+  restoreAllSpellSlots,
+  savingThrowModifier,
+  skillModifier,
+  skillModifierString,
+  spellSlotMax,
+  spellSlotUsed,
+  spendSpellSlot,
+} from '../../core/rules';
 import {
   ForgeButtonDirective,
   ForgeCardComponent,
@@ -42,14 +74,24 @@ import { ValidationModalComponent } from './modals/validation-modal/validation-m
 import { LevelUpModalComponent } from './modals/level-up-modal/level-up-modal.component';
 import { ShortRestModalComponent } from './modals/short-rest-modal/short-rest-modal.component';
 import { JoinCampaignModalComponent } from './modals/join-campaign-modal/join-campaign-modal.component';
+import { RollRequestModalComponent } from './modals/roll-request-modal/roll-request-modal.component';
 import { PortraitModalComponent } from './modals/portrait-modal/portrait-modal.component';
 import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strategy-guide-modal.component';
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
 import { environment } from '../../../environments/environment';
 
-export interface SkillDefinition {
-  name: string;
-  ability: 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
+// The panels and modals under `features/player/` still import this from here.
+// It lives in `core/rules` now, next to the maths that consumes it.
+export type { SkillDefinition } from '../../core/rules';
+
+/** What the DM's `roll_type` + `stat` pair actually means on this hero's sheet. */
+interface RollTarget {
+  /** Toast heading, e.g. `🎲 PERCEPTION CHECK`. */
+  title: string;
+  /** Prose for the prompt, e.g. `Perception check`. */
+  label: string;
+  /** The modifier read off the sheet, before anything the player adds. */
+  modifier: number;
 }
 
 @Component({
@@ -77,12 +119,13 @@ export interface SkillDefinition {
     LevelUpModalComponent,
     ShortRestModalComponent,
     JoinCampaignModalComponent,
+    RollRequestModalComponent,
     PortraitModalComponent,
     StrategyGuideModalComponent,
     EditSheetModalComponent,
   ],
   templateUrl: './player.component.html',
-  styleUrl: './player.component.css', 
+  styleUrl: './player.component.css',
 })
 export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
@@ -111,6 +154,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showLevelUpModal = false;
   showValidationModal = false;
   showWhisperInbox = false;
+  editDraftChar: CharacterSchema | null = null;
   isValidating = false;
   isAutoFixing = false;
   validationResult: any = null;
@@ -136,26 +180,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // so switching it back off returns the sheet to the user's own layout.
   private openGroupsBeforeFilter: { [key: string]: boolean } | null = null;
 
-  allSkills: SkillDefinition[] = [
-    { name: 'Athletics', ability: 'STR' },
-    { name: 'Acrobatics', ability: 'DEX' },
-    { name: 'Sleight of Hand', ability: 'DEX' },
-    { name: 'Stealth', ability: 'DEX' },
-    { name: 'Arcana', ability: 'INT' },
-    { name: 'History', ability: 'INT' },
-    { name: 'Investigation', ability: 'INT' },
-    { name: 'Nature', ability: 'INT' },
-    { name: 'Religion', ability: 'INT' },
-    { name: 'Animal Handling', ability: 'WIS' },
-    { name: 'Insight', ability: 'WIS' },
-    { name: 'Medicine', ability: 'WIS' },
-    { name: 'Perception', ability: 'WIS' },
-    { name: 'Survival', ability: 'WIS' },
-    { name: 'Deception', ability: 'CHA' },
-    { name: 'Intimidation', ability: 'CHA' },
-    { name: 'Performance', ability: 'CHA' },
-    { name: 'Persuasion', ability: 'CHA' },
-  ];
+  allSkills: SkillDefinition[] = [...ALL_SKILLS];
 
   private wsSub: Subscription | null = null;
   private openedSub: Subscription | null = null;
@@ -171,6 +196,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private loadedCampaignMessageKey: string | null = null;
   private pendingFeedScroll = false;
   private resolvedRollRequestIds = new Set<string>();
+
+  // --- DM roll requests (#26) ---
+  // The DM's request is a question, not an order to the dice: it opens a prompt and
+  // waits. Requests that arrive while one is open queue behind it, so a reconnect
+  // that replays four missed requests asks four times instead of rolling four times.
+  activeRollPrompt: RollRequest | null = null;
+  promptRollMode: RollMode = 'normal';
+  promptSituationalBonus = 0;
+  promptSecondsRemaining = 0;
+  private rollPromptQueue: RollRequest[] = [];
+  private promptTimer: ReturnType<typeof setInterval> | null = null;
 
   // The HP steppers fire once per click; only the value the user settles on is
   // worth a round trip, so writes are collapsed into a single trailing save.
@@ -204,7 +240,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // The character rides along on the handshake so the server can route
         // private whispers and roll requests to this hero alone.
         this.wsService.connect(char.active_campaign, {
-          role: 'player',
           character: char.char_name,
         });
         this.loadCampaignMessageHistory(char.active_campaign, char.char_name);
@@ -216,6 +251,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.whisperReply = '';
         this.showWhisperInbox = false;
         this.loadedCampaignMessageKey = null;
+        this.clearRollPrompts();
         this.rebuildInboxFeed();
       }
     });
@@ -242,14 +278,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // Check if this request is for the active character
         if (this.isRollRequestForCharacter(req, char)) {
           this.addRollRequest(req, true);
-          const secText = req.is_secret ? '🔒 SECRET' : 'DM';
-          const title = `⚠️ ${secText} ROLL REQUESTED`;
-          const details = `The DM has requested a ${req.roll_type} (${req.stat}) check!\nReason: ${req.reason}`;
-          this.rollToast.showMessage(title, details);
-
-          // Execute the roll automatically (or we could open a modal, but auto-rolling is faster)
-          this.rollForRequest(req);
+          // The prompt itself is the notification — a toast on top of a modal that
+          // says the same thing is just noise. Queued requests do get one, because
+          // those are the ones the player cannot see yet.
+          this.enqueueRollPrompt(req);
         }
+      } else if (msg.type === 'party_update') {
+        const payload = msg['payload'];
+        if (payload && payload.action === 'removed' && payload.char_id === char.char_id) {
+          this.charState.loadCharacters().subscribe(() => {
+            this.router.navigate(['/']);
+          });
+          return;
+        }
+        this.applyDmPartyUpdate(payload, char);
+      } else if (msg.type === 'campaign_deleted') {
+        this.charState.loadCharacters().subscribe(() => {
+          this.router.navigate(['/']);
+        });
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
         if (!this.isWhisperForCharacter(whisper, char.char_name)) return;
@@ -270,6 +316,27 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.wsSub.unsubscribe();
     }
     this.openedSub?.unsubscribe();
+    this.clearPromptCountdown();
+  }
+
+  /**
+   * The DM tracked a hit or a condition at the table. The sheet is already
+   * written server-side, so this only catches the open page up — saving from
+   * here would race the DM with a stale copy of the hero.
+   */
+  private applyDmPartyUpdate(payload: any, char: CharacterSchema) {
+    if (!payload || payload.char_id !== char.char_id) return;
+
+    const previousHp = char.hp_current ?? char.hp_max;
+    if (typeof payload.hp_current === 'number') char.hp_current = payload.hp_current;
+    if (Array.isArray(payload.conditions)) char.conditions = [...payload.conditions];
+
+    const hp = char.hp_current ?? char.hp_max;
+    if (hp !== previousHp) {
+      const delta = hp - previousHp;
+      const verb = delta < 0 ? `took ${Math.abs(delta)} damage` : `healed ${delta}`;
+      this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${char.hp_max}.`);
+    }
   }
 
   /** A chat thread is only useful if it lands on the newest message. */
@@ -334,9 +401,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getAttributeModifier(attr: string): string {
-    const char = this.charState.activeCharacter();
-    const value = char?.stats?.[attr] || 10;
-    return this.getModifierString(value);
+    return formatModifier(abilityModifierOf(this.charState.activeCharacter(), attr));
   }
 
   goToForge() {
@@ -344,26 +409,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getClassHitDieSize(): number {
-    const char = this.charState.activeCharacter();
-    const c = (char?.char_class || '').toLowerCase();
-    if (c.includes('barbarian')) return 12;
-    if (c.includes('fighter') || c.includes('paladin') || c.includes('ranger')) return 10;
-    if (c.includes('sorcerer') || c.includes('wizard')) return 6;
-    return 8; // Bard, Cleric, Druid, Monk, Rogue, Warlock
+    return hitDieSize(this.charState.activeCharacter());
   }
 
   getConModifier(): number {
-    const char = this.charState.activeCharacter();
-    const conVal = char?.stats?.['CON'] || 10;
-    return Math.floor((conVal - 10) / 2);
+    return conModifier(this.charState.activeCharacter());
   }
 
   getAvailableHitDice(): number {
-    const char = this.charState.activeCharacter();
-    if (!char) return 0;
-    const total = char.char_level || 1;
-    const used = char.hit_dice_used || 0;
-    return Math.max(0, total - used);
+    return availableHitDice(this.charState.activeCharacter());
   }
 
   openShortRestModal() {
@@ -374,118 +428,102 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   executeShortRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const available = this.getAvailableHitDice();
-    if (available <= 0) return;
 
-    const count = Math.min(available, Math.max(1, this.shortRestDiceToSpend));
-    const dieSize = this.getClassHitDieSize();
-    const conMod = this.getConModifier();
+    const plan = planShortRest(char, this.shortRestDiceToSpend);
+    if (!plan) return;
 
-    const conBonus = conMod * count;
-    const roll = this.dice.roll({ numDice: count, sides: dieSize, modifier: conBonus });
-    const totalHealed = Math.max(0, roll.total);
+    const { diceSpent, dieSize, conBonus } = plan;
+    const roll = this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus });
+    const rest = resolveShortRest(char, plan, roll.total);
 
-    const oldHp = char.hp_current ?? char.hp_max;
-    const newHp = Math.min(char.hp_max, oldHp + totalHealed);
+    char.hp_current = rest.hpAfter;
+    char.hit_dice_used = rest.hitDiceUsed;
 
-    char.hp_current = newHp;
-    char.hit_dice_used = (char.hit_dice_used || 0) + count;
-
-    if (char.char_class.toLowerCase().includes('warlock') && char.spell_slots) {
-      Object.keys(char.spell_slots).forEach((key) => {
-        if (char.spell_slots) char.spell_slots[key].used = 0;
-      });
+    if (rest.restoresPactSlots && char.spell_slots) {
+      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
     }
 
     this.saveCurrentChar();
     this.showShortRestModal = false;
 
     this.rollToast.showRoll({
-      title: `⛺ SHORT REST HEAL (${count}d${dieSize})`,
+      title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
       // Every hit die is worth showing here, so this spells them out rather than
       // using the service's summed form.
-      expression: `${count}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+      expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
       raw: roll.raw,
       rolls: roll.rolls,
       sides: dieSize,
       modifier: conBonus,
-      total: totalHealed,
-      message: `Healed for +${totalHealed} HP! (${oldHp} ➡️ ${newHp})`
+      // The roll display shows what the dice came to; the message shows what the
+      // hero actually got, which is less whenever the rest hits `hp_max`.
+      total: rest.rolled,
+      message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
     });
   }
 
   triggerLongRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    char.hp_current = char.hp_max;
 
-    const totalHd = char.char_level || 1;
-    const currentUsed = char.hit_dice_used || 0;
-    const recoverCount = Math.floor(totalHd / 2) || 1;
-    char.hit_dice_used = Math.max(0, currentUsed - recoverCount);
+    const rest = resolveLongRest(char);
+    char.hp_current = rest.hpCurrent;
+    char.hit_dice_used = rest.hitDiceUsed;
 
     if (char.spell_slots) {
-      Object.keys(char.spell_slots).forEach((key) => {
-        if (char.spell_slots) char.spell_slots[key].used = 0;
-      });
+      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
     }
     this.saveCurrentChar();
-    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${recoverCount} Hit Dice restored for ${char.char_name}.`);
+    this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${rest.hitDiceRecovered} Hit Dice restored for ${char.char_name}.`);
   }
 
   getSpellSlotMax(lvl: number): number {
-    const char = this.charState.activeCharacter();
-    return char?.spell_slots?.[`level_${lvl}`]?.max || 0;
+    return spellSlotMax(this.charState.activeCharacter(), lvl);
   }
 
   getSpellSlotUsed(lvl: number): number {
-    const char = this.charState.activeCharacter();
-    return char?.spell_slots?.[`level_${lvl}`]?.used || 0;
+    return spellSlotUsed(this.charState.activeCharacter(), lvl);
   }
 
   useSpellSlot(lvl: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
-    if (!char.spell_slots) char.spell_slots = {};
-    const key = `level_${lvl}`;
-    if (!char.spell_slots[key]) char.spell_slots[key] = { max: 4, used: 0 };
-    char.spell_slots[key].used = Math.min(char.spell_slots[key].max, char.spell_slots[key].used + 1);
+    // A slot the sheet does not record cannot be spent, and a save that changes
+    // nothing is still a round trip.
+    if (!char || !hasSpellSlotLevel(char, lvl)) return;
+
+    char.spell_slots = spendSpellSlot(char.spell_slots, lvl);
     this.saveCurrentChar();
   }
 
   restoreSpellSlot(lvl: number) {
     const char = this.charState.activeCharacter();
-    if (!char || !char.spell_slots) return;
-    const key = `level_${lvl}`;
-    if (char.spell_slots[key]) {
-      char.spell_slots[key].used = Math.max(0, char.spell_slots[key].used - 1);
-      this.saveCurrentChar();
-    }
+    // A level the sheet has never recorded has nothing to give back, and a
+    // pointless save is still a round trip.
+    if (!char || !hasSpellSlotLevel(char, lvl)) return;
+
+    char.spell_slots = regainSpellSlot(char.spell_slots, lvl);
+    this.saveCurrentChar();
   }
 
   isProficient(skillName: string): boolean {
-    const char = this.charState.activeCharacter();
-    return char?.skill_proficiencies?.includes(skillName) || false;
+    return isProficientIn(this.charState.activeCharacter(), skillName);
   }
 
   getSkillModifier(skill: SkillDefinition): number {
-    const char = this.charState.activeCharacter();
-    if (!char || !char.stats) return 0;
-    const statVal = char.stats[skill.ability] || 10;
-    const statMod = Math.floor((statVal - 10) / 2);
-    const profBonus = char.proficiency_bonus || 2;
-    const isProf = this.isProficient(skill.name);
-    return statMod + (isProf ? profBonus : 0);
+    return skillModifier(this.charState.activeCharacter(), skill);
   }
 
   getSkillModString(skill: SkillDefinition): string {
-    const mod = this.getSkillModifier(skill);
-    return mod >= 0 ? `+${mod}` : `${mod}`;
+    return skillModifierString(this.charState.activeCharacter(), skill);
   }
 
-  /** Rolls a d20 in the sheet's current mode and pushes the result to the toast. */
-  private showD20Roll(title: string, modifier: number) {
-    const roll = this.dice.rollD20(modifier, this.rollMode);
+  /**
+   * Rolls a d20 and pushes the result to the toast. The mode defaults to the sheet's
+   * own selector, which is what every button on the sheet wants; a DM roll request
+   * passes the mode the player picked in the prompt instead.
+   */
+  private showD20Roll(title: string, modifier: number, mode: RollMode = this.rollMode) {
+    const roll = this.dice.rollD20(modifier, mode);
 
     this.rollToast.showRoll({
       title: `${title}${this.dice.modeLabel(roll.mode)}`,
@@ -508,48 +546,229 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   rollAbilityCheck(stat: string) {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
-    const val = char.stats[stat] || 10;
-    const mod = Math.floor((val - 10) / 2);
 
-    return this.showD20Roll(`🎲 ${stat} CHECK`, mod);
+    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat));
   }
 
   rollSavingThrow(stat: string) {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
-    const val = char.stats[stat] || 10;
-    const mod = Math.floor((val - 10) / 2);
-    const isSaveProf = char.saving_throws?.includes(stat);
-    const profBonus = char.proficiency_bonus || 2;
 
-    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, mod + (isSaveProf ? profBonus : 0));
+    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, savingThrowModifier(char, stat));
   }
 
-  executeRollRequest(rollType: string, stat: string) {
+  /**
+   * Reads the DM's `roll_type` + `stat` off this hero's sheet without throwing
+   * anything. The prompt needs the modifier to show the player what they are about
+   * to roll, and the roll itself needs the same number — so it is worked out once.
+   */
+  private resolveRollTarget(rollType: string, stat: string): RollTarget | null {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.stats) return null;
+
     const normalizedType = rollType.toLowerCase().replace(/[\s-]+/g, '_');
 
     if (normalizedType === 'save' || normalizedType === 'saving_throw' || normalizedType === 'savingthrow') {
-      return this.rollSavingThrow(stat);
-    } else if (normalizedType === 'skill' || normalizedType === 'skill_check') {
-      const skill = this.allSkills.find(s => s.name.toLowerCase() === stat.toLowerCase());
-      if (skill) return this.rollSkillCheck(skill);
-      return this.rollAbilityCheck(stat);
-    } else {
-      return this.rollAbilityCheck(stat);
+      return {
+        title: `🛡️ ${stat} SAVING THROW`,
+        label: `${stat} saving throw`,
+        modifier: savingThrowModifier(char, stat),
+      };
     }
+
+    if (normalizedType === 'skill' || normalizedType === 'skill_check') {
+      const skill = findSkill(this.allSkills, stat);
+      // An unknown skill name falls through to a plain ability check, the same way
+      // it always has — the DM may have typed a stat where a skill was expected.
+      if (skill) {
+        return {
+          title: `🎲 ${skill.name.toUpperCase()} CHECK`,
+          label: `${skill.name} check`,
+          modifier: this.getSkillModifier(skill),
+        };
+      }
+    }
+
+    return {
+      title: `🎲 ${stat} CHECK`,
+      label: `${stat} check`,
+      modifier: abilityModifierOf(char, stat),
+    };
   }
 
-  rollForRequest(request: RollRequest): void {
+  private executeRollRequest(
+    rollType: string,
+    stat: string,
+    mode: RollMode,
+    situationalBonus: number
+  ): DiceRoll | undefined {
+    const target = this.resolveRollTarget(rollType, stat);
+    if (!target) return undefined;
+
+    return this.showD20Roll(target.title, target.modifier + situationalBonus, mode);
+  }
+
+  private rollForRequest(
+    request: RollRequest,
+    mode: RollMode,
+    situationalBonus: number
+  ): void {
     if (request.id && this.resolvedRollRequestIds.has(request.id)) return;
 
-    const roll = this.executeRollRequest(request.roll_type, request.stat);
+    const roll = this.executeRollRequest(request.roll_type, request.stat, mode, situationalBonus);
     if (!roll) return;
 
     if (request.id) {
       this.resolvedRollRequestIds.add(request.id);
     }
-    this.markRollRequestResolved(request, roll);
-    this.submitRollRequestResult(request, roll);
+    this.markRollRequestResolved(request, roll, situationalBonus);
+    this.submitRollRequestResult(request, roll, situationalBonus);
+  }
+
+  // --- The roll request prompt (#26) ---
+
+  get queuedRollPromptCount(): number {
+    return this.rollPromptQueue.length;
+  }
+
+  /** `Perception check` — what the open prompt is asking for, in the sheet's words. */
+  get activeRollPromptLabel(): string {
+    return this.activeRollPromptTarget?.label ?? '';
+  }
+
+  get activeRollPromptModifier(): number {
+    return this.activeRollPromptTarget?.modifier ?? 0;
+  }
+
+  private get activeRollPromptTarget(): RollTarget | null {
+    const request = this.activeRollPrompt;
+    return request ? this.resolveRollTarget(request.roll_type, request.stat) : null;
+  }
+
+  /**
+   * The one gate every incoming request passes through. Catch-up replays the whole
+   * thread on each reconnect, so this is what stops a flaky socket from asking the
+   * same question five times.
+   */
+  private enqueueRollPrompt(request: RollRequest): void {
+    const promptable = shouldPrompt(request, {
+      answeredIds: this.resolvedRollRequestIds,
+      queued: this.rollPromptQueue,
+      active: this.activeRollPrompt,
+    });
+    if (!promptable) return;
+
+    if (this.activeRollPrompt) {
+      this.rollPromptQueue = [...this.rollPromptQueue, request];
+      this.rollToast.showMessage(
+        '🎲 ANOTHER ROLL QUEUED',
+        `The DM also wants a ${request.roll_type} (${request.stat}). You will be asked next.`
+      );
+      return;
+    }
+
+    this.startRollPrompt(request);
+  }
+
+  /**
+   * The inbox's own Roll button. Unlike `enqueueRollPrompt` this deliberately
+   * ignores the request's status, so a roll the player let lapse can still be
+   * answered — missing one is a slip, not a locked door.
+   */
+  openRollPrompt(request: RollRequest): void {
+    if (request.id && this.resolvedRollRequestIds.has(request.id)) return;
+    if (this.activeRollPrompt?.id === request.id) return;
+
+    if (this.activeRollPrompt) {
+      // Never swap the question out from under a player mid-decision.
+      if (!this.rollPromptQueue.some((queued) => queued.id === request.id)) {
+        this.rollPromptQueue = [...this.rollPromptQueue, request];
+      }
+      return;
+    }
+
+    this.rollPromptQueue = this.rollPromptQueue.filter((queued) => queued.id !== request.id);
+    this.startRollPrompt(request);
+  }
+
+  confirmRollPrompt(): void {
+    const request = this.activeRollPrompt;
+    if (!request) return;
+
+    this.rollForRequest(request, this.promptRollMode, this.promptSituationalBonus);
+    this.finishRollPrompt();
+  }
+
+  /** The Skip button, a dismissed dialog, and the countdown reaching zero all land here. */
+  dismissRollPrompt(): void {
+    const request = this.activeRollPrompt;
+    if (!request) return;
+
+    this.markRollRequestMissed(request);
+    this.finishRollPrompt();
+  }
+
+  /**
+   * `forge-modal` emits `openChange(false)` for a programmatic close too, so this
+   * only counts as a dismissal while a prompt is genuinely still open — otherwise
+   * confirming a roll would immediately mark the request it just answered as missed.
+   */
+  onRollPromptOpenChange(open: boolean): void {
+    if (!open && this.activeRollPrompt) {
+      this.dismissRollPrompt();
+    }
+  }
+
+  private startRollPrompt(request: RollRequest): void {
+    this.activeRollPrompt = request;
+    // Every request starts from a clean slate: advantage on the last roll says
+    // nothing about this one.
+    this.promptRollMode = 'normal';
+    this.promptSituationalBonus = 0;
+    this.promptSecondsRemaining = ROLL_PROMPT_TIMEOUT_SECONDS;
+    this.startPromptCountdown();
+  }
+
+  private finishRollPrompt(): void {
+    this.clearPromptCountdown();
+    this.activeRollPrompt = null;
+
+    const [next, ...rest] = this.rollPromptQueue;
+    if (!next) return;
+
+    this.rollPromptQueue = rest;
+    this.startRollPrompt(next);
+  }
+
+  private startPromptCountdown(): void {
+    this.clearPromptCountdown();
+    this.promptTimer = setInterval(() => {
+      this.promptSecondsRemaining -= 1;
+      if (this.promptSecondsRemaining > 0) return;
+
+      const request = this.activeRollPrompt;
+      this.dismissRollPrompt();
+      if (request) {
+        this.rollToast.showMessage(
+          '⌛ ROLL MISSED',
+          `You did not answer the DM's ${request.roll_type} (${request.stat}) in time. You can still roll it from the inbox.`
+        );
+      }
+    }, 1000);
+  }
+
+  private clearPromptCountdown(): void {
+    if (this.promptTimer === null) return;
+    clearInterval(this.promptTimer);
+    this.promptTimer = null;
+  }
+
+  /** Leaving the campaign takes its unanswered questions with it. */
+  private clearRollPrompts(): void {
+    this.clearPromptCountdown();
+    this.activeRollPrompt = null;
+    this.rollPromptQueue = [];
+    this.promptSecondsRemaining = 0;
   }
 
   toggleWhisperInbox(): void {
@@ -605,9 +824,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     this.http
-      .get<CampaignMessages>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
-      )
+      .get<CampaignMessages>(campaignUrl(campaignName, 'messages'))
       .subscribe({
         next: (messages) => {
           const char = this.charState.activeCharacter();
@@ -656,10 +873,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     if (!existing) {
       this.addRollRequest(request, true);
-      // Missed while offline — roll it now so the DM still gets an answer.
-      if ((request.status || 'pending') === 'pending') {
-        this.rollForRequest(request);
-      }
+      // Asked while offline. It goes in the queue to be answered deliberately —
+      // rolling it here would decide the player's advantage for them, on a roll
+      // they have not even read yet (#26).
+      this.enqueueRollPrompt(request);
       return;
     }
 
@@ -668,6 +885,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         item.id === request.id ? request : item
       );
       this.rebuildInboxFeed();
+    }
+
+    // The DM moved on — superseding a request cancels it server-side. A prompt still
+    // waiting on it is a question about a moment that has passed.
+    this.rollPromptQueue = dropStalePrompts(this.rollPromptQueue, request);
+    if (this.activeRollPrompt?.id === request.id && !isAwaitingPlayer(request)) {
+      this.finishRollPrompt();
     }
   }
 
@@ -679,14 +903,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.isSendingWhisperReply = true;
     this.http
-      .post<{ whisper: Whisper }>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(char.active_campaign)}/whisper`,
-        {
-          sender: char.char_name,
-          recipient: 'DM',
-          message,
-        }
-      )
+      .post<{ whisper: Whisper }>(campaignUrl(char.active_campaign, 'whisper'), {
+        sender: char.char_name,
+        recipient: 'DM',
+        message,
+      })
       .subscribe({
         next: (res) => {
           this.isSendingWhisperReply = false;
@@ -733,7 +954,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
-  private markRollRequestResolved(request: RollRequest, roll: any): void {
+  private markRollRequestResolved(
+    request: RollRequest,
+    roll: DiceRoll,
+    situationalBonus: number
+  ): void {
     if (!request.id) return;
 
     this.rollRequestHistory = this.rollRequestHistory.map((item) =>
@@ -747,6 +972,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
               raw: roll.raw,
               rolls: roll.rolls,
               modifier: roll.modifier,
+              mode: roll.mode,
+              situational_bonus: situationalBonus,
             },
           }
         : item
@@ -754,17 +981,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.rebuildInboxFeed();
   }
 
-  private submitRollRequestResult(request: RollRequest, roll: any): void {
+  /**
+   * The DM is told how the roll was made, not just what it came to: a 24 on
+   * advantage and a 24 on a straight d20 are different facts at the table.
+   */
+  private submitRollRequestResult(
+    request: RollRequest,
+    roll: DiceRoll,
+    situationalBonus: number
+  ): void {
     const char = this.charState.activeCharacter();
     if (!char?.active_campaign || !request.id) return;
 
     this.http
-      .post(`${environment.apiBaseUrl}/campaigns/${char.active_campaign}/roll-request/${request.id}/result`, {
+      .post(campaignUrl(char.active_campaign, `roll-request/${request.id}/result`), {
         total: roll.total,
         expression: roll.expression,
         raw: roll.raw,
         rolls: roll.rolls,
         modifier: roll.modifier,
+        // `roll.mode` is the mode the dice service actually applied, which is not
+        // always the one asked for — advantage is meaningless on anything but a d20.
+        mode: roll.mode,
+        situational_bonus: situationalBonus,
       })
       .subscribe({
         error: () =>
@@ -773,6 +1012,27 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
             'The roll completed locally, but the DM did not receive the result.'
           ),
       });
+  }
+
+  /** Local status first, then the DM's board — the player should not wait on a POST. */
+  private markRollRequestMissed(request: RollRequest): void {
+    if (!request.id) return;
+
+    this.rollRequestHistory = this.rollRequestHistory.map((item) =>
+      item.id === request.id ? { ...item, status: 'missed' } : item
+    );
+    this.rebuildInboxFeed();
+
+    const char = this.charState.activeCharacter();
+    if (!char?.active_campaign) return;
+
+    this.http
+      .post(campaignUrl(char.active_campaign, `roll-request/${request.id}/miss`), {})
+      // Deliberately quiet: the player already knows they skipped it, and a failure
+      // toast about a roll they chose not to make is noise. The cost of a lost POST
+      // is that the DM's board keeps showing "waiting", which is what it showed
+      // before this feature existed.
+      .subscribe({ error: () => undefined });
   }
 
   /** Both sides of this hero's thread with the DM, plus table-wide announcements. */
@@ -844,18 +1104,43 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   openEditModal() {
-    this.showEditModal = true;
+    const char = this.charState.activeCharacter();
+    if (char) {
+      this.editDraftChar = JSON.parse(JSON.stringify(char));
+      this.showEditModal = true;
+    }
   }
 
   saveEditModal() {
-    this.showEditModal = false;
-    this.saveCurrentChar(true);
+    if (this.editDraftChar) {
+      this.charState.activeCharacter.set(JSON.parse(JSON.stringify(this.editDraftChar)));
+      this.showEditModal = false;
+      this.saveCurrentChar(true);
+      this.editDraftChar = null;
+    }
   }
 
   toggleEditMode() {
     this.editMode = !this.editMode;
     if (!this.editMode) {
       this.saveCurrentChar(true);
+    }
+  }
+
+  onDeleteHero() {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.char_id) return;
+
+    if (confirm(`Are you sure you want to permanently delete ${char.char_name}? This action cannot be undone.`)) {
+      this.charState.deleteCharacter(char.char_id).subscribe({
+        next: () => {
+          this.rollToast.showMessage('🗑️ HERO DELETED', `${char.char_name} has been permanently deleted.`);
+        },
+        error: (err) => {
+          console.error('Failed to delete character', err);
+          this.rollToast.showMessage('❌ ERROR', 'Failed to delete character.');
+        }
+      });
     }
   }
 
@@ -912,9 +1197,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   adjustHp(delta: number) {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const current = char.hp_current ?? char.hp_max;
-    const updatedHp = Math.max(0, Math.min(char.hp_max, current + delta));
-    const updated = { ...char, hp_current: updatedHp };
+    const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
       this.hpSave$.next(updated);
@@ -1001,15 +1284,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !this.levelUpAnalysis) return;
 
-    // Apply basic stat changes
-    char.char_level = (char.char_level || 1) + 1;
-    char.hp_max = this.levelUpAnalysis.new_total_hp;
-    char.hp_current = char.hp_max;
-
-    // Apply new features
-    if (this.levelUpAnalysis.new_features) {
-      if (!char.features_traits) char.features_traits = [];
-      char.features_traits = [...char.features_traits, ...this.levelUpAnalysis.new_features];
+    const advanced = levelUp(char, this.levelUpAnalysis);
+    char.char_level = advanced.char_level;
+    char.proficiency_bonus = advanced.proficiency_bonus;
+    char.hp_max = advanced.hp_max;
+    char.hp_current = advanced.hp_current;
+    // Left alone when the analysis brought nothing, rather than blanked to `[]`.
+    if (advanced.features_traits) {
+      char.features_traits = advanced.features_traits;
     }
 
     // Save back to API
@@ -1119,7 +1401,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getModifierString(val: number): string {
-    const mod = Math.floor((val - 10) / 2);
-    return mod >= 0 ? `+${mod}` : `${mod}`;
+    return formatModifier(abilityModifier(val));
   }
 }

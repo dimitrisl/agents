@@ -14,5 +14,16 @@ export type { RollMode };
 })
 export class RollModeSelectorComponent {
   @Input() rollMode: RollMode = 'normal';
+
+  /**
+   * Radio groups are scoped by `name` across the whole document, not by component.
+   * A second selector rendered at the same time — the roll-request prompt over the
+   * sheet — must pass its own name, or picking a mode in one silently clears the other.
+   */
+  @Input() name = 'rollMode';
+
+  /** The caption beside the control — the prompt words it differently. */
+  @Input() label = 'Roll mode';
+
   @Output() rollModeChange = new EventEmitter<RollMode>();
 }

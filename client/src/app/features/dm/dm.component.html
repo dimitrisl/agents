@@ -1,12 +1,41 @@
 <forge-page>
+  @if (campaignsStatus === 'loading') {
+    <forge-empty-state
+      icon="⏳"
+      title="Opening the Workspace"
+      description="Fetching your campaigns…"
+    ></forge-empty-state>
+  } @else if (campaignsStatus === 'error') {
+    <forge-empty-state
+      icon="⚠️"
+      title="Campaigns Could Not Be Loaded"
+      description="The server did not answer. Nothing is shown rather than something that is not real — reading the list changed nothing, so retry when you are ready."
+    >
+      <button forgeButton variant="primary" type="button" (click)="loadCampaigns()">
+        Try Again
+      </button>
+    </forge-empty-state>
+  } @else if (userCampaigns.length === 0) {
+    <forge-empty-state
+      icon="🏰"
+      title="No Campaigns Yet"
+      description="Forge your first campaign to open the DM workspace."
+    >
+      <button forgeButton variant="primary" type="button" (click)="showNewCampaignModal = true">
+        Forge a Campaign
+      </button>
+    </forge-empty-state>
+  } @else {
   <app-campaign-header
     [(campaignName)]="campaignName"
     [userCampaigns]="userCampaigns"
     [inviteCode]="inviteCode"
+    [editionShort]="editionShort"
     (campaignSelected)="onCampaignSelect()"
     (createCampaign)="showNewCampaignModal = true"
     (generateInvite)="generateInviteCode()"
     (sendWhisper)="showWhisperModal = true"
+    (deleteCampaign)="deleteCampaign()"
   ></app-campaign-header>
 
   <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
@@ -38,6 +67,7 @@
               <div class="border-l border-t border-hairline px-3 py-3 text-center">
                 <p class="text-micro font-semibold uppercase text-muted">Current Turn</p>
                 <p class="mt-1 truncate text-body font-semibold leading-tight text-ink">{{ currentTurnName }}</p>
+                <p class="mt-1 truncate text-micro uppercase text-muted">{{ roundLabel }}</p>
               </div>
             </div>
           </div>
@@ -45,9 +75,20 @@
           <div class="border-t border-hairline">
             <p class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted">Party Health</p>
 
-            <p *ngIf="partyMembers.length === 0" class="px-4 py-3 text-body text-muted">
-              No heroes in this campaign yet.
-            </p>
+            @if (partyStatus === 'loading') {
+              <p class="px-4 py-3 text-body text-muted">Loading the roster…</p>
+            } @else if (partyStatus === 'error') {
+              <div class="flex flex-col items-start gap-2 px-4 py-3">
+                <p class="text-body text-muted">
+                  ⚠️ The roster could not be loaded, so this list is not the real party.
+                </p>
+                <button forgeButton variant="secondary" size="sm" type="button" (click)="loadParty()">
+                  Retry
+                </button>
+              </div>
+            } @else if (partyMembers.length === 0) {
+              <p class="px-4 py-3 text-body text-muted">No heroes in this campaign yet.</p>
+            }
 
             <ul class="divide-y divide-hairline/70">
               <li
@@ -114,11 +155,12 @@
             [partyMembers]="partyMembers"
             [availableConditions]="availableConditions"
             (addMember)="openAddMemberModal()"
-            (issueRollRequest)="showRollModal = true"
             (adjustHp)="adjustHp($event.member, $event.delta)"
+            (setHp)="setPartyHp($event.member, $event.hp)"
             (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
             (toggleCondition)="toggleCondition($event.member, $event.condition)"
             (privateRollRequest)="openSingleRollModal($event)"
+            (removeMember)="removePartyMember($event)"
           ></app-party-panel>
 
           <app-initiative-panel
@@ -127,16 +169,26 @@
             role="tabpanel"
             aria-labelledby="dm-tabs-tab-initiative"
             [combatants]="combatants"
-            [activeTurnIndex]="activeTurnIndex"
+            [activeCombatantId]="activeCombatantId"
+            [round]="round"
+            [availableConditions]="availableConditions"
             [(newCombatantName)]="newCombatantName"
             [(newCombatantInit)]="newCombatantInit"
             [(newCombatantHp)]="newCombatantHp"
             (importParty)="importPartyToInitiative()"
             (rollAll)="rollAllInitiative()"
             (advanceTurn)="nextTurn()"
+            (rewindTurn)="previousTurn()"
+            (endCombat)="endCombat()"
             (addCombatant)="addCombatant()"
             (openStatblock)="openStatblock($event)"
             (removeCombatant)="removeCombatant($event)"
+            (hpChange)="setCombatantHp($event.combatant, $event.hp)"
+            (applyCondition)="
+              applyCombatantCondition($event.combatant, $event.condition, $event.rounds)
+            "
+            (removeCondition)="removeCombatantCondition($event.combatant, $event.condition)"
+            (setDeathSave)="setDeathSave($event.combatant, $event.kind, $event.value)"
           ></app-initiative-panel>
 
           <app-generators-panel
@@ -144,7 +196,9 @@
             class="block min-w-0"
             role="tabpanel"
             aria-labelledby="dm-tabs-tab-generators"
+            [partySize]="partyMembers.length"
             [(avgLevel)]="avgLevel"
+            [(difficulty)]="encounterDifficulty"
             [(location)]="location"
             [encounterResult]="encounterResult"
             [(npcConcept)]="npcConcept"
@@ -162,6 +216,9 @@
             [(prepNotes)]="prepNotes"
             [prepResult]="prepResult"
             (generatePrep)="generatePrep()"
+            [(riddleTheme)]="riddleTheme"
+            [riddleResult]="riddleResult"
+            (generateRiddle)="generateRiddle()"
           ></app-prep-panel>
         </div>
       </forge-card>
@@ -181,6 +238,7 @@
     [isSendingReply]="isSendingInboxReply"
     (sendReply)="sendInboxReply()"
   ></app-dm-inbox>
+  }
 
   <app-whisper-modal
     [open]="showWhisperModal"

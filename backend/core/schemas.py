@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 
 class StatBlock(BaseModel):
@@ -310,6 +310,18 @@ class MonsterEncounter(BaseModel):
     quantity: int = 1
     statblock_summary: str
 
+    @field_validator("dex", "quantity", mode="before")
+    @classmethod
+    def default_missing_number(cls, v, info):
+        """
+        A generated statblock sometimes comes back with `"dex": null`. Without
+        this the whole encounter fails validation and the caller falls back to
+        the raw model output, which then rolls initiative on `None`.
+        """
+        if v is None or v == "":
+            return 10 if info.field_name == "dex" else 1
+        return v
+
 
 class EncounterSchema(BaseModel):
     encounter_text: str
@@ -332,18 +344,11 @@ class LevelUpAnalysisSchema(BaseModel):
     updated_spell_slots: Optional[Dict[str, int]] = None
     new_spells_known: List[str] = []
 
+    @computed_field
     @property
     def new_features(self) -> List[FeatureTrait]:
         """Alias for automatic_changes — kept for frontend compatibility."""
         return self.automatic_changes
-
-    def model_dump(self, **kwargs) -> dict:
-        data = super().model_dump(**kwargs)
-        # Inject new_features so the Angular frontend receives it directly.
-        data["new_features"] = [
-            f.model_dump() if hasattr(f, "model_dump") else f for f in self.automatic_changes
-        ]
-        return data
 
 
 class BuildValidationSchema(BaseModel):
@@ -433,3 +438,67 @@ class CampaignMemberSchema(BaseModel):
     role: str  # "dm" or "player"
     character_id: Optional[str] = None
     joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CombatantConditionSchema(BaseModel):
+    name: str
+    expiresAtRound: Optional[int] = None
+
+
+class DeathSavesSchema(BaseModel):
+    successes: int = 0
+    failures: int = 0
+
+
+class InitiativeCombatantSchema(BaseModel):
+    id: str
+    char_id: Optional[str] = None
+    name: str
+    initiative: int
+    hp: int
+    max_hp: int
+    ac: int
+    dex: int
+    is_player: bool
+    portrait: Optional[str] = None
+    statblock: Optional[str] = None
+    conditions: List[CombatantConditionSchema] = []
+    deathSaves: Optional[DeathSavesSchema] = None
+
+
+class EncounterStateSchema(BaseModel):
+    round: int = 0
+    activeCombatantId: Optional[str] = None
+    combatants: List[InitiativeCombatantSchema] = []
+
+
+class RaceSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    model_config = {"extra": "allow"}
+
+
+class BackgroundSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    model_config = {"extra": "allow"}
+
+
+class FeatSchema(BaseModel):
+    name: str
+    description: str
+    model_config = {"extra": "allow"}
+
+
+class SpellSchema(BaseModel):
+    name: str
+    level: int
+    school: str
+    description: str
+    model_config = {"extra": "allow"}
+
+
+class ItemSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+    model_config = {"extra": "allow"}

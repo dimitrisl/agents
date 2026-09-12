@@ -1,16 +1,40 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
+import { Subject, EMPTY } from 'rxjs';
+import { debounceTime, catchError, switchMap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
-import { CampaignMessages, RollRequest, Whisper } from '../../core/models/campaign.model';
+import {
+  Campaign,
+  CampaignMessages,
+  RollRequest,
+  Whisper,
+  campaignUrl,
+} from '../../core/models/campaign.model';
+import {
+  EncounterDifficulty,
+  EncounterResponse,
+  NpcResponse,
+  SessionPrepResponse,
+} from '../../core/models/dm-tools.model';
+import {
+  CombatantCondition,
+  InitiativeCombatant,
+} from '../../core/models/initiative.model';
+import { PartyMember, passivePerception } from '../../core/models/party.model';
+import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
+  ForgeButtonDirective,
   ForgeCardComponent,
+  ForgeEmptyStateComponent,
   ForgePageComponent,
   ForgeTab,
   ForgeTabsComponent,
@@ -28,32 +52,23 @@ import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campa
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
 
-export interface PartyMember {
-  char_id?: string;
-  name: string;
-  char_class: string;
-  level: number;
-  hp_current: number;
-  hp_max: number;
-  ac: number;
-  passive_perception: number;
-  conditions: string[];
-  stats?: { [key: string]: number };
-  portrait?: string;
+type LoadStatus = 'loading' | 'ready' | 'error';
+
+/** What the DM may write back to a hero's sheet from the workspace. */
+interface PartyStateChanges {
+  hp_current?: number;
+  conditions?: string[];
 }
 
-export interface InitiativeCombatant {
-  id: string;
-  name: string;
-  initiative: number;
-  hp: number;
-  max_hp: number;
-  ac: number;
-  dex: number;
-  is_player: boolean;
-  portrait?: string;
-  statblock?: string;
+interface PartyStatePayload extends PartyStateChanges {
+  char_id?: string;
 }
+
+/**
+ * Long enough that holding a hit-point button is one write, short enough that
+ * the player sees the hit while it still means something.
+ */
+const PARTY_STATE_DEBOUNCE_MS = 400;
 
 @Component({
   selector: 'app-dm',
@@ -61,7 +76,9 @@ export interface InitiativeCombatant {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeButtonDirective,
     ForgeCardComponent,
+    ForgeEmptyStateComponent,
     ForgePageComponent,
     ForgeTabsComponent,
     CampaignHeaderComponent,
@@ -90,10 +107,20 @@ export class DmComponent implements OnInit, OnDestroy {
     { id: 'prep', label: '📜 Session Prep' },
   ];
 
-  userCampaigns: any[] = [];
-  campaignName = 'The Obsidian Citadel';
-  campaignNotes = 'Chapter 3: The heroes enter the Sunless Citadel in search of the lost Gulthias Tree...';
+  userCampaigns: Campaign[] = [];
+  campaignName = '';
+  campaignNotes = '';
   inviteCode = '';
+  /** The ruleset this campaign was forged under. Empty until one is selected. */
+  campaignEdition = '';
+
+  /**
+   * Load outcomes are rendered, never papered over: a DM who cannot tell a failed
+   * request from an empty table will hand out an invite code nobody can use.
+   */
+  campaignsStatus: LoadStatus = 'loading';
+  partyStatus: LoadStatus = 'ready';
+  isCreatingCampaign = false;
 
   showWhisperModal = false;
   showRollModal = false;
@@ -123,46 +150,65 @@ export class DmComponent implements OnInit, OnDestroy {
   inboxReplyMessage = '';
   isSendingInboxReply = false;
 
-  rollTargetMember = 'Valeros';
+  rollTargetMember = '';
   rollType = 'saving_throw';
   rollStat = 'DEX';
   rollReason = 'Dragon Breath Fire Save';
   isSecretRoll = false;
 
-  avgLevel = 5;
+  /**
+   * Only set when the DM types a level by hand. Left null, the generator follows
+   * the roster — see the `avgLevel` accessor below.
+   */
+  private avgLevelOverride: number | null = null;
   location = 'Crypt';
-  encounterResult: any = null;
+  encounterDifficulty: EncounterDifficulty = 'Medium';
+  encounterResult: EncounterResponse | null = null;
+
+  /**
+   * The level the encounter is balanced for: the party's real average unless the
+   * DM overrode it. Held as a getter rather than a field that gets "synced" on
+   * party load — the field version started at 5 and quietly stayed there.
+   */
+  get avgLevel(): number {
+    return this.avgLevelOverride ?? (this.partyAverageLevel || 1);
+  }
+
+  set avgLevel(value: number) {
+    this.avgLevelOverride = Number.isFinite(value) ? value : null;
+  }
 
   npcConcept = 'Shady underworld broker';
   npcResult = '';
 
   prepNotes = '';
   prepResult = '';
+  riddleTheme = '';
+  riddleResult = '';
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
-  // Unique campaign party rosters
-  campaignParties: { [campaignName: string]: PartyMember[] } = {
-    'The Obsidian Citadel': [
-      { name: 'Valeros', char_class: 'Paladin', level: 5, hp_current: 44, hp_max: 44, ac: 18, passive_perception: 14, conditions: ['Concentrating'], stats: { STR: 18, DEX: 12, CON: 15, INT: 10, WIS: 14, CHA: 16 } },
-      { name: 'Ezren', char_class: 'Wizard', level: 5, hp_current: 28, hp_max: 28, ac: 13, passive_perception: 12, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 18, WIS: 13, CHA: 10 } },
-      { name: 'Merisiel', char_class: 'Rogue', level: 5, hp_current: 35, hp_max: 35, ac: 16, passive_perception: 16, conditions: [], stats: { STR: 12, DEX: 18, CON: 14, INT: 12, WIS: 14, CHA: 12 } },
-    ],
-    'Curse of Strahd': [
-      { name: 'Ismark Kolyanovich', char_class: 'Fighter', level: 4, hp_current: 38, hp_max: 38, ac: 17, passive_perception: 12, conditions: [], stats: { STR: 16, DEX: 12, CON: 14, INT: 10, WIS: 11, CHA: 14 } },
-      { name: 'Ireena Kolyana', char_class: 'Cleric', level: 3, hp_current: 24, hp_max: 24, ac: 15, passive_perception: 13, conditions: [], stats: { STR: 10, DEX: 14, CON: 12, INT: 12, WIS: 16, CHA: 15 } },
-      { name: 'Rudolph van Richten', char_class: 'Ranger', level: 8, hp_current: 58, hp_max: 58, ac: 16, passive_perception: 18, conditions: [], stats: { STR: 11, DEX: 16, CON: 13, INT: 16, WIS: 18, CHA: 14 } },
-    ],
-    'Phyrexia Awakens': [
-      { name: 'Elspeth Tirel', char_class: 'Paladin', level: 7, hp_current: 64, hp_max: 64, ac: 20, passive_perception: 15, conditions: [], stats: { STR: 18, DEX: 12, CON: 16, INT: 11, WIS: 14, CHA: 18 } },
-      { name: 'Karn', char_class: 'Barbarian', level: 8, hp_current: 85, hp_max: 85, ac: 18, passive_perception: 13, conditions: [], stats: { STR: 20, DEX: 14, CON: 18, INT: 14, WIS: 12, CHA: 10 } },
-      { name: 'Teferi', char_class: 'Wizard', level: 7, hp_current: 42, hp_max: 42, ac: 14, passive_perception: 17, conditions: [], stats: { STR: 9, DEX: 14, CON: 14, INT: 20, WIS: 16, CHA: 13 } },
-    ]
-  };
+  /**
+   * Rosters the DM edited locally this session, keyed by campaign. Only ever
+   * written from a successful fetch or a deliberate add — a failed fetch leaves
+   * the party empty rather than resurrecting a stale roster as if it were live.
+   */
+  campaignParties: { [campaignName: string]: PartyMember[] } = {};
 
   partyMembers: PartyMember[] = [];
   combatants: InitiativeCombatant[] = [];
-  activeTurnIndex = 0;
+  /**
+   * The combatant whose turn it is, held by id — never by index. The list is
+   * re-sorted on every initiative roll and spliced on every removal, so an index
+   * silently starts pointing at a different creature.
+   */
+  activeCombatantId: string | null = null;
+  /**
+   * 0 means the encounter has not started — the first Next Turn opens round 1.
+   * It climbs only when the order wraps back to the top, which is the one
+   * moment D&D calls a new round.
+   */
+  round = 0;
 
   newCombatantName = '';
   newCombatantInit = 10;
@@ -176,7 +222,9 @@ export class DmComponent implements OnInit, OnDestroy {
     private dice: DiceService,
     private http: HttpClient,
     public charState: CharacterStateService,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private auth: AuthService, private router: Router,
+    private encounterStorage: EncounterStorageService
   ) {}
 
   // The campaign whose party/socket is currently live, so re-picking the same
@@ -184,6 +232,18 @@ export class DmComponent implements OnInit, OnDestroy {
   private activeWorkspace: string | null = null;
   private wsSub: Subscription | null = null;
   private openedSub: Subscription | null = null;
+
+  /**
+   * Whether the tracker currently holds a real fight for this campaign. The
+   * party fetch used to seed it unconditionally; doing that over a restored
+   * encounter would wipe it moments after it reappeared.
+   */
+  private hasLiveEncounter = false;
+
+  private pendingPartyState = new Map<string, PartyStateChanges>();
+  private partyStateSubjects = new Map<string, Subject<void>>();
+
+  onlineCharacters = new Set<string>();
 
   ngOnInit() {
     this.loadCampaigns();
@@ -200,20 +260,52 @@ export class DmComponent implements OnInit, OnDestroy {
       const payload = msg['payload'];
       if (!payload) return;
 
-      if (msg.type === 'roll_request') {
+      if (msg.type === 'presence_sync') {
+        this.onlineCharacters = new Set(payload as string[]);
+        this.partyMembers.forEach(m => m.isOnline = this.onlineCharacters.has(m.name));
+      } else if (msg.type === 'presence_update') {
+        if (payload.status === 'online') {
+          this.onlineCharacters.add(payload.character);
+        } else {
+          this.onlineCharacters.delete(payload.character);
+        }
+        const member = this.partyMembers.find(m => m.name === payload.character);
+        if (member) {
+          member.isOnline = payload.status === 'online';
+        }
+      } else if (msg.type === 'roll_request') {
         // Echo of what this DM (or a co-DM) just asked for — it belongs on the
         // board immediately so the answer has somewhere to land.
         this.cancelSupersededRollRequests(payload);
         this.upsertRollRequest(payload, false);
       } else if (msg.type === 'roll_result') {
+        // A missed request comes down this same channel with no result on it — the
+        // player never rolled. It still has to reach the board, or the request sits
+        // there as "waiting" for the rest of the session.
+        if (payload.status === 'missed') {
+          this.upsertRollRequest(payload, true);
+          this.rollToast.showMessage(
+            `⌛ NO ANSWER: ${payload.char_name}`,
+            `${payload.roll_type} (${payload.stat}) went unanswered.`
+          );
+          return;
+        }
+
         const result = payload.result;
         if (!result) return;
 
         this.upsertRollRequest(payload, true);
+        // The mode belongs in the headline: a 24 rolled with advantage and a 24
+        // rolled straight are different facts at the table.
+        const mode = result.mode && result.mode !== 'normal' ? ` (${result.mode})` : '';
+        const secret = payload.rolled_by === 'dm';
         this.rollToast.showMessage(
-          `🎲 ROLL RESULT: ${payload.char_name}`,
-          `${payload.roll_type} (${payload.stat}) = ${result.total}`
+          `${secret ? '🔒 SECRET ROLL' : '🎲 ROLL RESULT'}: ${payload.char_name}`,
+          `${payload.roll_type} (${payload.stat}) = ${result.total}${mode}` +
+            (secret ? ' — the player was not asked.' : '')
         );
+      } else if (msg.type === 'party_update') {
+        this.applyPartyUpdate(payload);
       } else if (msg.type === 'whisper') {
         const isOwnWhisper = payload.sender === 'DM';
         this.addInboxWhisper(payload, !isOwnWhisper);
@@ -227,6 +319,17 @@ export class DmComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
+
+    // Unsubscribing only stops this page from listening; the socket itself stays
+    // up, and the service holds exactly one. Left open, the server goes on
+    // routing every whisper and secret roll to a `role=dm` channel nobody is
+    // reading — including the ones it would otherwise have kept private.
+    this.wsService.disconnect();
+
+    for (const sub of this.partyStateSubjects.values()) {
+      sub.complete();
+    }
+    this.partyStateSubjects.clear();
   }
 
   // --- Live table inbox ---
@@ -245,14 +348,11 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.isSendingInboxReply = true;
     this.http
-      .post<{ whisper: Whisper }>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whisper`,
-        {
-          sender: 'DM',
-          recipient: this.inboxReplyRecipient,
-          message,
-        }
-      )
+      .post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
+        sender: 'DM',
+        recipient: this.inboxReplyRecipient,
+        message,
+      })
       .subscribe({
         next: (res) => {
           this.isSendingInboxReply = false;
@@ -276,9 +376,7 @@ export class DmComponent implements OnInit, OnDestroy {
    */
   private loadCampaignMessages(campaignName: string, isCatchUp = false) {
     this.http
-      .get<CampaignMessages>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/messages`
-      )
+      .get<CampaignMessages>(campaignUrl(campaignName, 'messages'))
       .subscribe({
         next: (messages) => {
           if (campaignName !== this.campaignName) return;
@@ -383,6 +481,21 @@ export class DmComponent implements OnInit, OnDestroy {
 
   // --- Session board (presentation only, derived from the live workspace state) ---
 
+  /**
+   * The ruleset every DM tool resolves against: the campaign's own, falling back
+   * to the edition toggle for a campaign saved before the field existed. Nothing
+   * here may be a string literal — a 2024 table used to get 2014 content with no
+   * sign that it had happened.
+   */
+  get activeEdition(): string {
+    return this.campaignEdition || this.charState.dndEdition();
+  }
+
+  /** `2014` / `2024`, for the badge that tells the DM which one is live. */
+  get editionShort(): string {
+    return this.activeEdition.includes('2024') ? '2024' : '2014';
+  }
+
   get partyAverageLevel(): number {
     if (this.partyMembers.length === 0) return 0;
     const total = this.partyMembers.reduce((sum, member) => sum + (member.level || 0), 0);
@@ -390,7 +503,11 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   get currentTurnName(): string {
-    return this.combatants[this.activeTurnIndex]?.name || '—';
+    return this.combatants.find((c) => c.id === this.activeCombatantId)?.name || '—';
+  }
+
+  get roundLabel(): string {
+    return this.round > 0 ? `Round ${this.round}` : 'Not started';
   }
 
   hpPercent(member: PartyMember): number {
@@ -403,86 +520,148 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   loadCampaigns() {
-    this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
+    this.campaignsStatus = 'loading';
+    this.http.get<Campaign[]>(`${environment.apiBaseUrl}/campaigns/`).subscribe({
       next: (camps) => {
-        this.userCampaigns = camps || [];
-        if (this.userCampaigns.length > 0 && !this.userCampaigns.some((c) => c.campaign_name === this.campaignName)) {
+        // Only keep campaigns where the user has the DM role
+        this.userCampaigns = (camps || []).filter((c) => c.role === 'dm');
+        this.campaignsStatus = 'ready';
+
+        if (this.userCampaigns.length === 0) {
+          this.clearWorkspace();
+          return;
+        }
+
+        if (!this.userCampaigns.some((c) => c.campaign_name === this.campaignName)) {
           this.campaignName = this.userCampaigns[0].campaign_name;
         }
         this.onCampaignSelect();
       },
-      error: () => {
-        this.userCampaigns = [
-          { campaign_name: 'The Obsidian Citadel', invite_code: '4D0705', notes: 'Chapter 3: The heroes enter the Sunless Citadel...' },
-          { campaign_name: 'Curse of Strahd', invite_code: 'BAROV1', notes: 'Chapter 1: Mist creeps into Castle Ravenloft...' },
-          { campaign_name: 'Phyrexia Awakens', invite_code: 'PHY001', notes: 'Chapter 1: The glistened oil spreads...' }
-        ];
-        this.onCampaignSelect();
+      error: (err) => {
+        if (this.handleAuthFailure(err)) return;
+        this.userCampaigns = [];
+        this.campaignsStatus = 'error';
+        this.clearWorkspace();
       }
     });
   }
 
+  /**
+   * An expired session is not a workspace error — it is a login. Anything else
+   * has to surface as a visible failure the DM can retry.
+   */
+  private handleAuthFailure(error: unknown): boolean {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401) {
+        this.auth.logout();
+        return true;
+      }
+      if (error.status === 403) {
+        this.rollToast.showMessage('🚫 FORBIDDEN', 'You do not have DM permissions for this action or campaign.');
+        this.router.navigate(['/']);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Drops every trace of the previous campaign so nothing lingers on screen. */
+  private clearWorkspace() {
+    this.activeWorkspace = null;
+    this.campaignName = '';
+    this.campaignNotes = '';
+    this.inviteCode = '';
+    this.campaignEdition = '';
+    this.partyMembers = [];
+    this.partyStatus = 'ready';
+    this.avgLevelOverride = null;
+    this.rollTargetMember = '';
+    this.combatants = [];
+    this.activeCombatantId = null;
+    this.round = 0;
+    this.hasLiveEncounter = false;
+    this.inboxWhispers = [];
+    this.inboxRollRequests = [];
+    this.unreadInboxMessages = 0;
+    this.showDmInbox = false;
+  }
+
   onCampaignSelect() {
-    if (this.activeWorkspace === this.campaignName) return;
+    if (!this.campaignName || this.activeWorkspace === this.campaignName) return;
     const isFirstLoad = this.activeWorkspace === null;
     this.activeWorkspace = this.campaignName;
 
     const selected = this.userCampaigns.find((c) => c.campaign_name === this.campaignName);
-    if (selected) {
-      this.inviteCode = selected.invite_code || '';
-      if (selected.notes) this.campaignNotes = selected.notes;
-    } else {
-      // No code yet — the DM forges one from the header button when they need it.
-      this.inviteCode = '';
-    }
+    // No code yet — the DM forges one from the header button when they need it.
+    this.inviteCode = selected?.invite_code || '';
+    this.campaignNotes = selected?.notes || '';
+    // Blank for a campaign forged before the field existed; the toggle covers it.
+    this.campaignEdition = selected?.dnd_edition || '';
+
+    // Before anything async: an encounter left running in this campaign is put
+    // straight back on the table, so the fight is on screen while the roster is
+    // still in flight rather than flashing empty first.
+    this.restoreEncounter(this.campaignName);
+
+    // A level typed for the previous table says nothing about this one, so the
+    // generator goes back to following the roster.
+    this.avgLevelOverride = null;
 
     // role=dm means the server routes every whisper and roll result here, even
     // the private ones addressed to a single hero.
-    this.wsService.connect(this.campaignName, { role: 'dm' });
+    this.wsService.connect(this.campaignName, {});
 
     this.showDmInbox = false;
     this.inboxReplyMessage = '';
     this.inboxReplyRecipient = 'All';
     this.loadCampaignMessages(this.campaignName);
-
-    this.http.get<any[]>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/party`).subscribe({
-      next: (chars) => {
-        this.partyMembers = chars.map(char => ({
-          char_id: char.char_id,
-          name: char.char_name || 'Unknown',
-          char_class: char.char_class || 'Unknown',
-          level: char.char_level || 1,
-          hp_current: char.hp_current ?? char.hp_max ?? 10,
-          hp_max: char.hp_max ?? 10,
-          ac: char.armor_class ?? 10,
-          passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
-          conditions: [],
-          stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-          portrait: char.char_portrait
-        }));
-        this.campaignParties[this.campaignName] = [...this.partyMembers];
-
-        if (this.partyMembers.length > 0) {
-          this.rollTargetMember = this.partyMembers[0].name;
-        }
-        this.importPartyToInitiative(true);
-      },
-      error: () => {
-        if (this.campaignParties[this.campaignName]) {
-          this.partyMembers = [...this.campaignParties[this.campaignName]];
-        } else {
-          this.partyMembers = [];
-        }
-        if (this.partyMembers.length > 0) {
-          this.rollTargetMember = this.partyMembers[0].name;
-        }
-        this.importPartyToInitiative(true);
-      }
-    });
+    this.loadParty();
 
     if (!isFirstLoad) {
       this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}".`);
     }
+  }
+
+  /** Also the retry target for the party error state, hence its own method. */
+  loadParty() {
+    if (!this.campaignName) return;
+
+    this.partyStatus = 'loading';
+    this.http
+      .get<any[]>(campaignUrl(this.campaignName, 'party'))
+      .subscribe({
+        next: (chars) => {
+          this.partyMembers = (chars || []).map((char) => ({
+            char_id: char.char_id,
+            name: char.char_name || 'Unknown',
+            char_class: char.char_class || 'Unknown',
+            level: char.char_level || 1,
+            hp_current: char.hp_current ?? char.hp_max ?? 10,
+            hp_max: char.hp_max ?? 10,
+            ac: char.armor_class ?? 10,
+            passive_perception: passivePerception(char.stats),
+            // The sheet has carried conditions all along; the workspace used to
+            // throw them away and start every session from a clean hero.
+            conditions: char.conditions || [],
+            stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+            portrait: char.char_portrait,
+            owner_username: char.owner_username,
+            isOnline: this.onlineCharacters.has(char.char_name || '')
+          }));
+          this.campaignParties[this.campaignName] = [...this.partyMembers];
+          this.partyStatus = 'ready';
+          this.rollTargetMember = this.partyMembers[0]?.name || '';
+          this.seedInitiativeFromParty();
+        },
+        error: (err) => {
+          if (this.handleAuthFailure(err)) return;
+          // The roster is unknown, not empty — say so instead of inventing heroes.
+          this.partyMembers = [];
+          this.partyStatus = 'error';
+          this.rollTargetMember = '';
+          this.seedInitiativeFromParty();
+        }
+      });
   }
 
   getSelectedHero() {
@@ -492,46 +671,64 @@ export class DmComponent implements OnInit, OnDestroy {
 
   addExistingPartyMember() {
     const char = this.getSelectedHero();
-    if (!char) return;
+    if (!char || !char.char_id) return;
 
-    const member: PartyMember = {
-      char_id: char.char_id,
-      name: char.char_name,
-      char_class: char.char_class,
-      level: char.char_level,
-      hp_current: char.hp_current ?? char.hp_max,
-      hp_max: char.hp_max,
-      ac: char.armor_class,
-      passive_perception: 10 + Math.floor(((char.stats?.WIS || 10) - 10) / 2),
-      conditions: [],
-      stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-      portrait: char.char_portrait
-    };
+    const charFilename = `${char.char_name.toLowerCase().replace(/\s+/g, '_')}_${char.char_id}.json`;
 
-    if (!this.partyMembers.some((m) => m.name === member.name)) {
-      this.partyMembers.push(member);
-      if (!this.campaignParties[this.campaignName]) {
-        this.campaignParties[this.campaignName] = [];
+    this.http.post(campaignUrl(this.campaignName, 'party/members'), { char_filename: charFilename }).subscribe({
+      next: () => {
+        this.rollToast.showMessage('✅ MEMBER ADDED', `${char.char_name} has joined the campaign.`);
+        this.loadParty();
+        this.showAddMemberModal = false;
+      },
+      error: (err) => {
+        if (!this.handleAuthFailure(err)) {
+          this.rollToast.showMessage('❌ ERROR', 'Failed to add member to the campaign.');
+        }
       }
-      this.campaignParties[this.campaignName] = [...this.partyMembers];
-      this.importPartyToInitiative();
-      this.rollToast.showMessage('👤 HERO ENLISTED', `Added ${member.name} (${member.char_class}) to ${this.campaignName} party roster.`);
-    } else {
-      this.rollToast.showMessage('⚠️ ALREADY IN PARTY', `${member.name} is already in the active party roster.`);
-    }
-    this.showAddMemberModal = false;
-    this.selectedExistingCharId = '';
+    });
   }
 
   copyInviteCode() {
-    const code = this.inviteCode || '4D0705';
-    navigator.clipboard.writeText(code);
-    this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
-    this.showAddMemberModal = false;
+    // A placeholder code copied to the clipboard is worse than none: the players
+    // it is handed to simply cannot join.
+    if (!this.inviteCode) {
+      this.rollToast.showMessage('⚠️ NO INVITE CODE', 'Forge an invite code for this campaign first.');
+      return;
+    }
+
+    // The clipboard is allowed to say no — denied permission, or an insecure
+    // context where the API is not even there. Announcing success regardless
+    // sends the DM off to paste a code that was never copied, so the toast and
+    // the modal closing both wait for the write to actually land.
+    const code = this.inviteCode;
+    if (!navigator.clipboard) {
+      this.showClipboardFailure(code);
+      return;
+    }
+
+    navigator.clipboard.writeText(code).then(
+      () => {
+        this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
+        this.showAddMemberModal = false;
+      },
+      () => this.showClipboardFailure(code)
+    );
+  }
+
+  private showClipboardFailure(code: string) {
+    this.rollToast.showMessage(
+      '⚠️ COPY FAILED',
+      `The clipboard refused the write. Share this invite code by hand: ${code}`
+    );
   }
 
   addPartyMember() {
     if (!this.newMemberName.trim()) return;
+    // The form asks for no ability scores, so a hand-typed member gets this
+    // stand-in block — and their Passive Perception is read off it rather than
+    // written out by hand, which is how the two came to disagree.
+    const stats = { STR: 14, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 };
     const member: PartyMember = {
       name: this.newMemberName.trim(),
       char_class: this.newMemberClass || 'Fighter',
@@ -539,9 +736,9 @@ export class DmComponent implements OnInit, OnDestroy {
       hp_current: this.newMemberHp || 40,
       hp_max: this.newMemberHp || 40,
       ac: this.newMemberAc || 16,
-      passive_perception: 10 + Math.floor(((12) - 10) / 2),
+      passive_perception: passivePerception(stats),
       conditions: [],
-      stats: { STR: 14, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 }
+      stats
     };
 
     this.partyMembers.push(member);
@@ -557,60 +754,186 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   createNewCampaign() {
-    if (!this.newCampaignTitle.trim()) return;
-    const newCamp = {
+    if (!this.newCampaignTitle.trim() || this.isCreatingCampaign) return;
+    const newCamp: Campaign = {
       campaign_name: this.newCampaignTitle.trim(),
       notes: this.newCampaignNotes,
       party: [],
-      dnd_edition: '2014 Edition'
+      // A campaign is forged under whichever ruleset the DM is playing right now.
+      dnd_edition: this.charState.dndEdition()
     };
 
-    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/`, newCamp).subscribe({
+    this.isCreatingCampaign = true;
+    this.http.post<Campaign>(`${environment.apiBaseUrl}/campaigns/`, newCamp).subscribe({
       next: (res) => {
+        this.isCreatingCampaign = false;
         this.userCampaigns.push(res);
+        this.campaignsStatus = 'ready';
         this.campaignName = res.campaign_name;
-        this.campaignNotes = res.notes || '';
         this.showNewCampaignModal = false;
         this.newCampaignTitle = '';
         this.newCampaignNotes = '';
+        this.onCampaignSelect();
         this.generateInviteCode();
         this.rollToast.showMessage('🏰 CAMPAIGN CREATED', `Successfully forged campaign: ${res.campaign_name}`);
       },
-      error: () => {
-        // Local state fallback
-        this.userCampaigns.push(newCamp);
-        this.campaignName = newCamp.campaign_name;
-        this.showNewCampaignModal = false;
-        this.newCampaignTitle = '';
-        this.newCampaignNotes = '';
-        this.rollToast.showMessage('🏰 CAMPAIGN CREATED', `Created campaign locally: ${newCamp.campaign_name}`);
+      error: (err) => {
+        this.isCreatingCampaign = false;
+        if (this.handleAuthFailure(err)) return;
+        // The modal stays open with the title intact: nothing was created, so the
+        // DM gets to retry instead of being told a lie and handed a dead campaign.
+        this.rollToast.showMessage(
+          '⚠️ CAMPAIGN NOT CREATED',
+          `The server refused to forge "${newCamp.campaign_name}". Nothing was saved — try again.`
+        );
       }
     });
   }
 
   saveCampaignNotes() {
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/notes`, {
+    this.http.post(campaignUrl(this.campaignName, 'notes'), {
       notes: this.campaignNotes
     }).subscribe({
       next: () => this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved to database.'),
-      error: () => this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign notes.')
+      error: (err) => {
+        if (this.handleAuthFailure(err)) return;
+        this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign notes.');
+      }
     });
   }
 
   generateInviteCode() {
-    this.http.post<any>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/invite-code`, {}).subscribe((res) => {
-      this.inviteCode = res.invite_code;
-    });
+    this.http
+      .post<{ invite_code: string }>(campaignUrl(this.campaignName, 'invite-code'), {})
+      .subscribe({
+        next: (res) => {
+          this.inviteCode = res.invite_code;
+          const selected = this.userCampaigns.find((c) => c.campaign_name === this.campaignName);
+          if (selected) selected.invite_code = res.invite_code;
+        },
+        error: (err) => {
+          if (this.handleAuthFailure(err)) return;
+          this.rollToast.showMessage('⚠️ NO INVITE CODE', 'The server could not forge an invite code.');
+        }
+      });
   }
 
+  // --- One hero, one state ---
+  //
+  // Hit points and conditions for a hero are owned by the `PartyMember`. The
+  // initiative row for that hero is a view of it, never a second copy: both
+  // tabs used to hold their own numbers and drift apart in the middle of a
+  // fight, with the DM left to guess which one was true.
+
   adjustHp(member: PartyMember, delta: number) {
-    member.hp_current = Math.max(0, Math.min(member.hp_max, member.hp_current + delta));
+    this.setPartyHp(member, member.hp_current + delta);
+  }
+
+  setPartyHp(member: PartyMember, hp: number) {
+    const clamped = Math.max(0, Math.min(member.hp_max, Math.round(hp) || 0));
+    if (clamped === member.hp_current) return;
+
+    member.hp_current = clamped;
+    this.projectMemberOntoCombatants(member);
+    this.pushPartyState(member, { hp_current: clamped });
   }
 
   toggleCondition(member: PartyMember, cond: string) {
     const idx = member.conditions.indexOf(cond);
-    if (idx >= 0) member.conditions.splice(idx, 1);
-    else member.conditions.push(cond);
+    if (idx >= 0) {
+      member.conditions = member.conditions.filter((c) => c !== cond);
+      this.dropConditionFromCombatants(member, cond);
+    } else {
+      member.conditions = [...member.conditions, cond];
+      // Set from the roster, so it has no combat timer — it lasts until lifted.
+      this.addConditionToCombatants(member, cond, null);
+    }
+
+    this.pushPartyState(member, { conditions: member.conditions });
+  }
+
+  /** The party member behind an initiative row, when the row is a hero. */
+  private memberFor(combatant: InitiativeCombatant): PartyMember | undefined {
+    if (!combatant.is_player) return undefined;
+    return this.partyMembers.find((m) =>
+      combatant.char_id ? m.char_id === combatant.char_id : m.name === combatant.name
+    );
+  }
+
+  private combatantsFor(member: PartyMember): InitiativeCombatant[] {
+    return this.combatants.filter(
+      (c) => c.is_player && (c.char_id ? c.char_id === member.char_id : c.name === member.name)
+    );
+  }
+
+  /** Pushes the member's hit points onto its initiative row. */
+  private projectMemberOntoCombatants(member: PartyMember) {
+    const linked = new Set(this.combatantsFor(member).map((c) => c.id));
+    if (linked.size === 0) return;
+
+    this.combatants = this.combatants.map((c) =>
+      linked.has(c.id) ? { ...c, hp: member.hp_current, max_hp: member.hp_max } : c
+    );
+    this.persistEncounter();
+  }
+
+  private addConditionToCombatants(
+    member: PartyMember,
+    condition: string,
+    expiresAtRound: number | null
+  ) {
+    const linked = new Set(this.combatantsFor(member).map((c) => c.id));
+    if (linked.size === 0) return;
+
+    this.combatants = this.combatants.map((c) =>
+      linked.has(c.id)
+        ? {
+            ...c,
+            conditions: [
+              ...c.conditions.filter((existing) => existing.name !== condition),
+              { name: condition, expiresAtRound },
+            ],
+          }
+        : c
+    );
+    this.persistEncounter();
+  }
+
+  private dropConditionFromCombatants(member: PartyMember, condition: string) {
+    const linked = new Set(this.combatantsFor(member).map((c) => c.id));
+    if (linked.size === 0) return;
+
+    this.combatants = this.combatants.map((c) =>
+      linked.has(c.id)
+        ? { ...c, conditions: c.conditions.filter((existing) => existing.name !== condition) }
+        : c
+    );
+    this.persistEncounter();
+  }
+
+  /**
+   * A condition whose timer ran out is a real event, not just something the
+   * tracker stops drawing: the roster has to lose it too, and so does the
+   * database. Walking the round back re-adds it, which is why the expiry is
+   * kept rather than deleted.
+   */
+  private reconcileLapsedConditions() {
+    for (const member of this.partyMembers) {
+      const combatant = this.combatantsFor(member)[0];
+      if (!combatant) continue;
+
+      const active = combatant.conditions
+        .filter((c) => c.expiresAtRound === null || c.expiresAtRound > this.round)
+        .map((c) => c.name);
+
+      const unchanged =
+        active.length === member.conditions.length &&
+        active.every((name) => member.conditions.includes(name));
+      if (unchanged) continue;
+
+      member.conditions = active;
+      this.pushPartyState(member, { conditions: active });
+    }
   }
 
   quickDmStatRoll(member: PartyMember, stat: string) {
@@ -644,7 +967,7 @@ export class DmComponent implements OnInit, OnDestroy {
       ? `${this.rollTargetMember.toLowerCase()}_${target.char_id}.json`
       : `${this.rollTargetMember.toLowerCase()}.json`;
 
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/roll-request`, {
+    this.http.post(campaignUrl(this.campaignName, 'roll-request'), {
       char_filename: charFilename,
       char_name: this.rollTargetMember,
       roll_type: this.rollType,
@@ -653,25 +976,35 @@ export class DmComponent implements OnInit, OnDestroy {
       is_secret: this.isSecretRoll
     }).subscribe({
       next: () => {
-        const secTag = this.isSecretRoll ? ' 🔒 [SECRET]' : '';
-        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}${secTag}.`);
+        // A secret roll is already thrown by the time this returns, and its result
+        // arrives on the socket a moment later — announcing it as "sent" here would
+        // both be wrong and step on that toast.
+        if (this.isSecretRoll) return;
+        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}.`);
       },
       error: () =>
         this.rollToast.showMessage('⚠️ REQUEST NOT SENT', `Could not reach ${this.rollTargetMember}.`)
     });
   }
 
+  /**
+   * The party fetch's own call into the tracker. It seeds a fresh table, but
+   * never touches a fight that came back from storage — the restored encounter
+   * already holds those heroes, with the HP and conditions they earned.
+   */
+  private seedInitiativeFromParty() {
+    if (this.hasLiveEncounter) return;
+    this.importPartyToInitiative(true);
+  }
+
   importPartyToInitiative(silent = false) {
-    if (silent) {
-      // Remove old campaign player combatants
-      this.combatants = this.combatants.filter((c) => !c.is_player);
-    }
-    this.partyMembers.forEach((p) => {
-      if (!this.combatants.some((c) => c.name === p.name)) {
+    const additions = this.partyMembers
+      .filter((p) => !this.combatants.some((c) => c.name === p.name))
+      .map((p) => {
         const dexVal = p.stats?.['DEX'] || 10;
         const dexMod = Math.floor((dexVal - 10) / 2);
-        this.combatants.push({
-          id: Math.random().toString(36).substring(2, 9),
+        return this.buildCombatant({
+          char_id: p.char_id,
           name: p.name,
           initiative: 10 + dexMod,
           hp: p.hp_current,
@@ -679,11 +1012,14 @@ export class DmComponent implements OnInit, OnDestroy {
           ac: p.ac,
           dex: dexVal,
           is_player: true,
-          portrait: p.portrait
+          portrait: p.portrait,
+          conditions: p.conditions.map((name) => ({ name, expiresAtRound: null })),
         });
-      }
-    });
-    this.sortCombatants();
+      });
+
+    this.combatants = this.sortCombatants([...this.combatants, ...additions]);
+    this.persistEncounter();
+
     if (!silent) {
       this.rollToast.showMessage('👥 PARTY IMPORTED', 'Imported active party members into Initiative Tracker.');
     }
@@ -691,8 +1027,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   addCombatant() {
     if (!this.newCombatantName) return;
-    this.combatants.push({
-      id: Math.random().toString(36).substring(2, 9),
+
+    const added = this.buildCombatant({
       name: this.newCombatantName,
       initiative: this.newCombatantInit,
       hp: this.newCombatantHp,
@@ -701,30 +1037,322 @@ export class DmComponent implements OnInit, OnDestroy {
       dex: 10,
       is_player: false,
     });
-    this.sortCombatants();
+
+    this.combatants = this.sortCombatants([...this.combatants, added]);
     this.newCombatantName = '';
+    this.persistEncounter();
   }
 
   removeCombatant(idx: number) {
-    this.combatants.splice(idx, 1);
+    const removed = this.combatants[idx];
+    if (!removed) return;
+
+    this.combatants = this.combatants.filter((_, index) => index !== idx);
+
+    if (removed.id === this.activeCombatantId) {
+      // The active combatant left the fight, so the turn passes to whoever slid
+      // into its slot — or wraps to the top of the order if it was the last one.
+      this.activeCombatantId = this.combatants[idx]?.id ?? this.combatants[0]?.id ?? null;
+    }
+
+    // An emptied table is no longer a fight in progress.
+    if (this.combatants.length === 0) this.round = 0;
+    this.persistEncounter();
   }
 
   rollAllInitiative() {
-    this.combatants.forEach((c) => {
+    const rolled = this.combatants.map((c) => {
       const dexMod = Math.floor((c.dex - 10) / 2);
-      c.initiative = this.dice.rollD20(dexMod).total;
+      return { ...c, initiative: this.dice.rollD20(dexMod).total };
     });
-    this.sortCombatants();
+
+    this.combatants = this.sortCombatants(rolled);
+    this.persistEncounter();
     this.rollToast.showMessage('🎲 INITIATIVE ROLLED', 'Rolled initiative for all active combatants!');
   }
 
-  sortCombatants() {
-    this.combatants.sort((a, b) => b.initiative - a.initiative);
+  /** Highest initiative first. Returns a new array — OnPush children need one. */
+  private sortCombatants(combatants: InitiativeCombatant[]): InitiativeCombatant[] {
+    return [...combatants].sort((a, b) => b.initiative - a.initiative);
   }
 
+  private buildCombatant(
+    seed: Omit<InitiativeCombatant, 'id' | 'conditions'> & { conditions?: CombatantCondition[] }
+  ): InitiativeCombatant {
+    return {
+      ...seed,
+      id: Math.random().toString(36).substring(2, 9),
+      conditions: seed.conditions ?? [],
+    };
+  }
+
+  // --- The round engine ---
+
   nextTurn() {
-    if (this.combatants.length === 0) return;
-    this.activeTurnIndex = (this.activeTurnIndex + 1) % this.combatants.length;
+    if (this.combatants.length === 0) {
+      this.activeCombatantId = null;
+      this.round = 0;
+      this.persistEncounter();
+      return;
+    }
+
+    // No active turn yet (-1) advances to the top of the order, which is also
+    // what opens round 1.
+    const current = this.combatants.findIndex((c) => c.id === this.activeCombatantId);
+    const next = (current + 1) % this.combatants.length;
+
+    // Wrapping to the top is the only thing that makes a new round.
+    if (next === 0) this.round += 1;
+
+    this.activeCombatantId = this.combatants[next].id;
+    this.persistEncounter();
+    this.reconcileLapsedConditions();
+  }
+
+  previousTurn() {
+    // Nothing has happened yet — there is no turn to take back.
+    if (this.combatants.length === 0 || this.round === 0) return;
+
+    const current = this.combatants.findIndex((c) => c.id === this.activeCombatantId);
+    if (current < 0) return;
+
+    if (current === 0) {
+      // Stepping off the top of the order walks the round counter back with it.
+      // Round 1 is the floor: before it, combat had not begun.
+      if (this.round <= 1) {
+        this.activeCombatantId = null;
+        this.round = 0;
+        this.persistEncounter();
+        this.reconcileLapsedConditions();
+        return;
+      }
+      this.round -= 1;
+    }
+
+    const previous = (current - 1 + this.combatants.length) % this.combatants.length;
+    this.activeCombatantId = this.combatants[previous].id;
+    this.persistEncounter();
+    this.reconcileLapsedConditions();
+  }
+
+  endCombat() {
+    this.combatants = [];
+    this.activeCombatantId = null;
+    this.round = 0;
+    this.hasLiveEncounter = false;
+    this.encounterStorage.clear(this.campaignName);
+    this.rollToast.showMessage('⏹️ COMBAT ENDED', 'The encounter was cleared. Initiative starts fresh.');
+  }
+
+  // --- Conditions, hit points and death saves ---
+
+  /** `rounds` of 0 means "until the DM lifts it". */
+  applyCombatantCondition(combatant: InitiativeCombatant, condition: string, rounds: number) {
+    // Durations are anchored to the round they expire on, not counted down, so
+    // Previous Turn restores a lapsed condition instead of losing it. Combat
+    // that has not started yet is treated as round 1 for the arithmetic.
+    const startRound = Math.max(1, this.round);
+    const expiresAtRound = rounds > 0 ? startRound + rounds : null;
+
+    this.updateCombatant(combatant.id, (c) => ({
+      ...c,
+      conditions: [
+        ...c.conditions.filter((existing) => existing.name !== condition),
+        { name: condition, expiresAtRound },
+      ],
+    }));
+
+    // A hero's conditions belong to the roster and the database as well.
+    const member = this.memberFor(combatant);
+    if (member && !member.conditions.includes(condition)) {
+      member.conditions = [...member.conditions, condition];
+      this.pushPartyState(member, { conditions: member.conditions });
+    }
+  }
+
+  removeCombatantCondition(combatant: InitiativeCombatant, condition: string) {
+    this.updateCombatant(combatant.id, (c) => ({
+      ...c,
+      conditions: c.conditions.filter((existing) => existing.name !== condition),
+    }));
+
+    const member = this.memberFor(combatant);
+    if (member && member.conditions.includes(condition)) {
+      member.conditions = member.conditions.filter((c) => c !== condition);
+      this.pushPartyState(member, { conditions: member.conditions });
+    }
+  }
+
+  setCombatantHp(combatant: InitiativeCombatant, hp: number) {
+    // A hero is edited through the roster, so the party tab, the tracker and
+    // the player's own sheet all move together.
+    const member = this.memberFor(combatant);
+    if (member) {
+      this.setPartyHp(member, hp);
+      this.clearDeathSavesIfStanding(combatant.id, member.hp_current);
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(combatant.max_hp, Math.round(hp) || 0));
+    this.updateCombatant(combatant.id, (c) => ({ ...c, hp: clamped }));
+    this.clearDeathSavesIfStanding(combatant.id, clamped);
+  }
+
+  private clearDeathSavesIfStanding(combatantId: string, hp: number) {
+    if (hp <= 0) return;
+    // Back on their feet: the tally that was counting them out is void.
+    this.updateCombatant(combatantId, (c) => {
+      const next = { ...c };
+      delete next.deathSaves;
+      return next;
+    });
+  }
+
+  /**
+   * The DM records what the player rolled. Clicking the dot that is already the
+   * last one lit clears it, so a mis-click costs one click, not a life.
+   */
+  setDeathSave(combatant: InitiativeCombatant, kind: 'successes' | 'failures', value: number) {
+    this.updateCombatant(combatant.id, (c) => {
+      const saves = c.deathSaves ?? { successes: 0, failures: 0 };
+      const next = saves[kind] === value ? value - 1 : value;
+      return { ...c, deathSaves: { ...saves, [kind]: Math.max(0, Math.min(3, next)) } };
+    });
+  }
+
+  private updateCombatant(
+    id: string,
+    change: (combatant: InitiativeCombatant) => InitiativeCombatant
+  ) {
+    this.combatants = this.combatants.map((c) => (c.id === id ? change(c) : c));
+    this.persistEncounter();
+  }
+
+  // --- Party state persistence ---
+
+  /**
+   * Writes a hero's tracked state back to their sheet, so the player sees it and
+   * a refresh does not throw the session's damage away.
+   *
+   * Coalesced per character: holding the − button is one intent, not eleven
+   * requests. A member the DM invented by hand has no sheet to write to, so it
+   * stays local and says nothing.
+   */
+  private pushPartyState(member: PartyMember, changes: PartyStateChanges) {
+    if (!member.char_id || !this.campaignName) return;
+
+    const charId = member.char_id;
+    const pending = { ...(this.pendingPartyState.get(charId) ?? {}), ...changes };
+    this.pendingPartyState.set(charId, pending);
+
+    let subject = this.partyStateSubjects.get(charId);
+    if (!subject) {
+      subject = new Subject<void>();
+      this.partyStateSubjects.set(charId, subject);
+
+      const campaignName = this.campaignName;
+      subject.pipe(
+        debounceTime(PARTY_STATE_DEBOUNCE_MS),
+        switchMap(() => {
+          const mergedChanges = this.pendingPartyState.get(charId);
+          this.pendingPartyState.delete(charId);
+          if (!mergedChanges || !this.campaignName) return EMPTY;
+
+          return this.http.patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
+            catchError((err) => {
+              if (this.handleAuthFailure(err)) return EMPTY;
+              const errorMember = this.partyMembers.find((m) => m.char_id === charId);
+              this.rollToast.showMessage(
+                '⚠️ NOT SAVED',
+                `${errorMember?.name || 'That hero'}'s state stayed in this browser — the server refused it.`
+              );
+              return EMPTY;
+            })
+          );
+        })
+      ).subscribe();
+    }
+
+    subject.next();
+  }
+
+  private flushPartyState(charId: string) {
+    // Left for ngOnDestroy to do immediate flush if needed
+    const changes = this.pendingPartyState.get(charId);
+    this.pendingPartyState.delete(charId);
+    if (!changes || !this.campaignName) return;
+
+    this.http
+      .patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, changes)
+      .subscribe({
+        error: (err) => {
+          if (this.handleAuthFailure(err)) return;
+          const member = this.partyMembers.find((m) => m.char_id === charId);
+          this.rollToast.showMessage(
+            '⚠️ NOT SAVED',
+            `${member?.name || 'That hero'}'s state stayed in this browser — the server refused it.`
+          );
+        }
+      });
+  }
+
+  /**
+   * The server's echo of a party change — including this DM's own writes. A
+   * character with a write still in flight is skipped: the echo is older than
+   * what the DM is doing right now.
+   */
+  private applyPartyUpdate(payload: PartyStatePayload) {
+    if (!payload?.char_id || this.pendingPartyState.has(payload.char_id)) return;
+
+    const member = this.partyMembers.find((m) => m.char_id === payload.char_id);
+    if (!member) return;
+
+    if (typeof payload.hp_current === 'number') member.hp_current = payload.hp_current;
+    if (Array.isArray(payload.conditions)) member.conditions = [...payload.conditions];
+
+    this.projectMemberOntoCombatants(member);
+  }
+
+  // --- Encounter persistence ---
+
+  /**
+   * Browser-local, per campaign. The API has no encounter document, so this is
+   * what a refresh can hold on to — it does not follow the DM to another
+   * machine, and the players never see it.
+   */
+  private persistEncounter() {
+    if (!this.campaignName) return;
+
+    this.hasLiveEncounter = this.combatants.length > 0;
+    if (!this.hasLiveEncounter) {
+      this.encounterStorage.clear(this.campaignName);
+      return;
+    }
+
+    this.encounterStorage.save(this.campaignName, {
+      round: this.round,
+      activeCombatantId: this.activeCombatantId,
+      combatants: this.combatants,
+    });
+  }
+
+  private restoreEncounter(campaignName: string) {
+    const saved = this.encounterStorage.load(campaignName);
+
+    if (saved && saved.combatants.length > 0) {
+      this.combatants = this.sortCombatants(saved.combatants);
+      this.activeCombatantId = saved.activeCombatantId;
+      this.round = saved.round;
+      this.hasLiveEncounter = true;
+      return;
+    }
+
+    // Encounters belong to one campaign each, so nothing carries over from the
+    // table we just left — not the monsters, and not whose turn it was.
+    this.combatants = [];
+    this.activeCombatantId = null;
+    this.round = 0;
+    this.hasLiveEncounter = false;
   }
 
   openStatblock(c: InitiativeCombatant) {
@@ -736,13 +1364,26 @@ export class DmComponent implements OnInit, OnDestroy {
     window.open(`https://www.dndbeyond.com/monsters/${slug}`, '_blank');
   }
 
+  /**
+   * Balanced against the table that is actually sitting there. Sending the old
+   * fixed `party_size: 4` / level 5 handed a party of six level-12 heroes a fight
+   * meant for four level-5 ones.
+   */
   generateEncounter() {
-    this.http.post(`${environment.apiBaseUrl}/dm/encounter`, {
-      party_size: 4,
+    if (this.partyMembers.length === 0) {
+      this.rollToast.showMessage(
+        '⚠️ NO PARTY',
+        'Add at least one hero to the roster — an encounter cannot be balanced for an empty table.'
+      );
+      return;
+    }
+
+    this.http.post<EncounterResponse>(`${environment.apiBaseUrl}/dm/encounter`, {
+      party_size: this.partyMembers.length,
       avg_level: this.avgLevel,
       location: this.location,
-      edition: '2014 Edition',
-      difficulty: 'Medium'
+      edition: this.activeEdition,
+      difficulty: this.encounterDifficulty
     }).subscribe((res) => {
       this.encounterResult = res;
     });
@@ -751,55 +1392,72 @@ export class DmComponent implements OnInit, OnDestroy {
   addEncounterMonstersToInitiative() {
     if (!this.encounterResult || !this.encounterResult.monsters) return;
 
-    this.encounterResult.monsters.forEach((m: any) => {
+    const added: InitiativeCombatant[] = [];
+    this.encounterResult.monsters.forEach((m) => {
       const qty = m.quantity || 1;
       for (let i = 0; i < qty; i++) {
         const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
-        const dexMod = Math.floor((m.dex - 10) / 2);
-        this.combatants.push({
-          id: Math.random().toString(36).substring(2, 9),
+        // A generated statblock can come back without a usable DEX; average it
+        // rather than sorting the creature into the order at NaN.
+        const dex = Number.isFinite(m.dex) ? m.dex : 10;
+        const dexMod = Math.floor((dex - 10) / 2);
+        added.push(this.buildCombatant({
           name: monsterName,
           initiative: 10 + dexMod,
           hp: m.hp,
           max_hp: m.hp,
           ac: m.ac,
-          dex: m.dex,
+          dex,
           is_player: false,
           statblock: m.statblock_summary
-        });
+        }));
       }
     });
-    this.sortCombatants();
+
+    this.combatants = this.sortCombatants([...this.combatants, ...added]);
+    this.persistEncounter();
     this.rollToast.showMessage('⚔️ MONSTERS ADDED', `Added ${this.encounterResult.monsters.length} monster groups to the Initiative Tracker.`);
   }
 
   generateNpc() {
-    this.http.post<any>(`${environment.apiBaseUrl}/dm/npc`, {
+    this.http.post<NpcResponse>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
-      edition: '2014 Edition'
+      edition: this.activeEdition
     }).subscribe((res) => {
       this.npcResult = res.npc_markdown;
     });
   }
 
   generatePrep() {
-    this.http.post<any>(`${environment.apiBaseUrl}/dm/session-prep`, {
+    this.http.post<SessionPrepResponse>(`${environment.apiBaseUrl}/dm/session-prep`, {
       campaign_notes: this.prepNotes,
       party_info: this.partyMembers.map(m => m.name).join(', ')
     }).subscribe((res) => {
-      this.prepResult = res.prep_markdown;
+      this.prepResult = res.session_markdown;
+    });
+  }
+
+  generateRiddle() {
+    this.http.post<any>(`${environment.apiBaseUrl}/dm/riddle`, {
+      location: this.riddleTheme,
+      edition: this.campaignEdition || '5e'
+    }).subscribe((res) => {
+      this.riddleResult = res.riddle_markdown;
     });
   }
 
   sendWhisper() {
-    this.http.post<{ whisper: Whisper }>(
-      `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whisper`,
-      {
-        sender: 'DM',
-        recipient: this.whisperRecipient,
-        message: this.whisperMessage
-      }
-    ).subscribe({
+    // The same guard the inbox reply has always had: an empty whisper is a
+    // notification with nothing in it, delivered to a player who then has to ask
+    // what the DM meant.
+    const message = this.whisperMessage.trim();
+    if (!message) return;
+
+    this.http.post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
+      sender: 'DM',
+      recipient: this.whisperRecipient,
+      message
+    }).subscribe({
       next: (res) => {
         this.showWhisperModal = false;
         this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
@@ -810,6 +1468,38 @@ export class DmComponent implements OnInit, OnDestroy {
       },
       error: () =>
         this.rollToast.showMessage('⚠️ WHISPER NOT SENT', 'The whisper did not reach the table.')
+    });
+  }
+
+  removePartyMember(member: PartyMember) {
+    if (!this.campaignName || !member.char_id) return;
+    if (!confirm(`Are you sure you want to remove ${member.name} from the campaign?`)) return;
+
+    this.http.delete(campaignUrl(this.campaignName, `party/${member.char_id}`)).subscribe({
+      next: () => {
+        this.rollToast.showMessage('👋 MEMBER REMOVED', `${member.name} has been removed from the campaign.`);
+        this.loadParty();
+      },
+      error: (err) => {
+        this.handleAuthFailure(err);
+        this.rollToast.showMessage('❌ ERROR', 'Failed to remove member.');
+      }
+    });
+  }
+
+  deleteCampaign() {
+    if (!this.campaignName) return;
+    if (!confirm(`Are you sure you want to permanently delete the campaign "${this.campaignName}"? This action cannot be undone.`)) return;
+
+    this.http.delete(`${environment.apiBaseUrl}/campaigns/${this.campaignName}`).subscribe({
+      next: () => {
+        this.rollToast.showMessage('🗑️ CAMPAIGN DELETED', `Campaign "${this.campaignName}" has been deleted.`);
+        this.loadCampaigns(); // Will reload campaigns and switch to the first available or clear workspace
+      },
+      error: (err) => {
+        this.handleAuthFailure(err);
+        this.rollToast.showMessage('❌ ERROR', 'Failed to delete campaign.');
+      }
     });
   }
 }

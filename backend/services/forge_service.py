@@ -14,6 +14,7 @@ from backend.core.prompts import (
     PLAYSTYLE_GUIDE_PROMPT,
 )
 from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
+from backend.core.state_manager import get_default_character
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
 from backend.services.rules_service import (
@@ -53,7 +54,9 @@ def forge_character(
     current_backgrounds = repo.get_available_backgrounds(edition)
 
     race_prompt = (
-        forge_race if forge_race != "AI Choice" else f"Choose one from: {', '.join(current_races)}"
+        forge_race
+        if forge_race != "AI Choice"
+        else f"Choose one from: {', '.join([r['name'] for r in current_races])}"
     )
     class_prompt = (
         forge_class
@@ -63,7 +66,7 @@ def forge_character(
     bg_prompt = (
         forge_background
         if forge_background != "AI Choice"
-        else f"Choose one from: {', '.join(current_backgrounds)}"
+        else f"Choose one from: {', '.join([b['name'] for b in current_backgrounds])}"
     )
     gender_prompt = gender if gender != "AI Choice" else f"Choose from: {', '.join(GENDERS)}"
 
@@ -115,8 +118,6 @@ def forge_character(
     result = generate_ai_json(prompt)
     if not result:
         logger.warning("AI JSON generation returned None. Generating default fallback character.")
-        from backend.core.state_manager import get_default_character
-
         result = get_default_character()
         result.update(
             {
@@ -168,7 +169,6 @@ def forge_character(
         logger.warning(
             f"Forged character failed initial validation: {e}. Coercing schema defaults."
         )
-        from backend.core.state_manager import get_default_character
 
         fallback = get_default_character()
         for k, v in result.items():
@@ -291,7 +291,6 @@ def forge_character_manual(
         logger.warning(
             f"Manual character failed initial validation: {e}. Coercing schema defaults."
         )
-        from backend.core.state_manager import get_default_character
 
         fallback = get_default_character()
         fallback.update({k: v for k, v in result.items() if v is not None})
@@ -433,7 +432,7 @@ def process_character_update(
 
         updated_char["equipment"] = current_list
 
-    updated_char = deterministic_validate_build(updated_char)
+    updated_char, _ = deterministic_validate_build(updated_char)
 
     # 3. Synchronize derived stats
     class_data = _get_rules_repo().get_class_progression(
