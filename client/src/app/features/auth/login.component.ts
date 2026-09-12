@@ -4,11 +4,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { ChoiceViewComponent } from './choice-view/choice-view.component';
 import { TutorialViewComponent } from './tutorial-view/tutorial-view.component';
 import { AuthFormViewComponent } from './auth-form-view/auth-form-view.component';
+import { ForgeAuthShellComponent } from '../../shared/ui/forge-auth-shell/forge-auth-shell.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ChoiceViewComponent, TutorialViewComponent, AuthFormViewComponent],
+  imports: [ChoiceViewComponent, TutorialViewComponent, AuthFormViewComponent, ForgeAuthShellComponent],
   templateUrl: './login.component.html',
 })
 export class LoginComponent {
@@ -22,13 +23,6 @@ export class LoginComponent {
   error = '';
 
   constructor(private authService: AuthService, private router: Router) {}
-
-  onQuickDemo(type: string) {
-    this.authService.demoLogin(type).subscribe({
-      next: () => this.router.navigate(['/player']),
-      error: (err) => (this.error = 'Demo login failed.')
-    });
-  }
 
   onSubmit() {
     if (!this.username || !this.password) {
@@ -54,7 +48,7 @@ export class LoginComponent {
   private login() {
     this.authService.login({ username: this.username, password: this.password }).subscribe({
       next: () => {
-        this.router.navigate(['/player']);
+        this.router.navigate(['/campaigns']);
       },
       error: (err) => {
         this.error = err.error?.detail || 'Invalid username or password.';

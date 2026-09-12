@@ -1,7 +1,7 @@
 <ng-template #forgeLogo>
   <div class="mb-4 flex justify-center">
     <svg
-      class="h-24 w-24"
+      class="h-24 w-24 text-accent"
       viewBox="0 0 100 100"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
@@ -10,32 +10,31 @@
         cx="50"
         cy="50"
         r="42"
-        stroke="#ff4b4b"
+        stroke="currentColor"
         stroke-width="5"
         fill="none"
-        class="drop-shadow-[0_0_10px_rgba(255,75,75,0.5)]"
+        style="filter: drop-shadow(0 0 10px color-mix(in srgb, var(--theme-accent) 50%, transparent))"
       />
       <polygon
         points="50,15 85,35 85,75 50,90 15,75 15,35"
-        stroke="#ff4b4b"
+        stroke="currentColor"
         stroke-width="3"
-        fill="rgba(255, 75, 75, 0.1)"
+        fill="color-mix(in srgb, var(--theme-accent) 10%, transparent)"
       />
-      <line x1="50" y1="15" x2="50" y2="90" stroke="#ff4b4b" stroke-width="3" />
-      <line x1="15" y1="35" x2="85" y2="75" stroke="#ff4b4b" stroke-width="2" />
-      <line x1="15" y1="75" x2="85" y2="35" stroke="#ff4b4b" stroke-width="2" />
+      <line x1="50" y1="15" x2="50" y2="90" stroke="currentColor" stroke-width="3" />
+      <line x1="15" y1="35" x2="85" y2="75" stroke="currentColor" stroke-width="2" />
+      <line x1="15" y1="75" x2="85" y2="35" stroke="currentColor" stroke-width="2" />
     </svg>
   </div>
 </ng-template>
 
-<main class="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6">
+<forge-auth-shell>
   @switch (mode) {
     @case ('choice') {
       <app-choice-view
         [logoTemplate]="forgeLogo"
         (chooseTutorial)="mode = 'tutorial'"
         (chooseAuth)="mode = 'auth'"
-        (quickDemo)="onQuickDemo($event)"
       />
     }
 
@@ -60,8 +59,7 @@
         (submitAuth)="onSubmit()"
         (toggleMode)="isRegister = !isRegister"
         (back)="mode = 'choice'"
-        (quickDemo)="onQuickDemo($event)"
       />
     }
   }
-</main>
+</forge-auth-shell>

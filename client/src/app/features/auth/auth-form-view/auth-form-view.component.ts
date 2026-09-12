@@ -24,5 +24,4 @@ export class AuthFormViewComponent {
   @Output() submitAuth = new EventEmitter<void>();
   @Output() toggleMode = new EventEmitter<void>();
   @Output() back = new EventEmitter<void>();
-  @Output() quickDemo = new EventEmitter<'mitsos' | 'guest'>();
 }
