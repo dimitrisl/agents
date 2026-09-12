@@ -113,6 +113,7 @@
             </div>
 
             <app-action-dock
+              [isGeneratingStrategy]="isGeneratingStrategy"
               (shortRest)="openShortRestModal()"
               (longRest)="triggerLongRest()"
               (levelUp)="onLevelUp()"

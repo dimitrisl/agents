@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output, Input } from '@angular/core';
 import { ForgeButtonDirective } from '../../../shared/ui';
 
 @Component({
@@ -9,6 +9,7 @@ import { ForgeButtonDirective } from '../../../shared/ui';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ActionDockComponent {
+  @Input() isGeneratingStrategy = false;
   @Output() shortRest = new EventEmitter<void>();
   @Output() longRest = new EventEmitter<void>();
   @Output() levelUp = new EventEmitter<void>();
