@@ -1204,6 +1204,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  adjustTempHp(delta: number) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const newTemp = Math.max(0, (char.hp_temp || 0) + delta);
+    const updated = { ...char, hp_temp: newTemp };
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.hpSave$.next(updated);
+    }
+  }
+
+  setDeathSave(type: 'successes' | 'failures', value: number) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const updated = { ...char };
+    updated.death_saves = updated.death_saves || { successes: 0, failures: 0 };
+    updated.death_saves[type] = Math.max(0, Math.min(3, value));
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.hpSave$.next(updated);
+    }
+  }
+
   addWeapon() {
     const char = this.charState.activeCharacter();
     if (!char) return;

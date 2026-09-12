@@ -40,8 +40,13 @@
     <app-hit-points-control
       [current]="char.hp_current ?? char.hp_max"
       [max]="char.hp_max"
+      [temp]="char.hp_temp ?? 0"
+      [deathSaves]="char.death_saves"
       (hpDown)="hpDown.emit()"
       (hpUp)="hpUp.emit()"
+      (tempDown)="tempDown.emit()"
+      (tempUp)="tempUp.emit()"
+      (deathSaveChange)="deathSaveChange.emit($event)"
     ></app-hit-points-control>
 
     <app-combat-stat-grid

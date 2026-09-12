@@ -74,6 +74,8 @@ export interface CharacterSchema {
   armor_class: number;
   hp_max: number;
   hp_current?: number;
+  hp_temp?: number;
+  death_saves?: { successes: number; failures: number };
   hit_dice_used?: number;
   speed: number;
   proficiency_bonus: number;

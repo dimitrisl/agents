@@ -33,6 +33,9 @@
           (portrait)="showPortraitModal = true"
           (hpDown)="adjustHp(-1)"
           (hpUp)="adjustHp(1)"
+          (tempDown)="adjustTempHp(-1)"
+          (tempUp)="adjustTempHp(1)"
+          (deathSaveChange)="setDeathSave($event.type, $event.value)"
           (abilityCheck)="rollAbilityCheck($event)"
           (savingThrow)="rollSavingThrow($event)"
         ></app-character-overview-card>
