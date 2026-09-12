@@ -40,6 +40,9 @@ export class CharacterOverviewCardComponent {
   @Output() portrait = new EventEmitter<void>();
   @Output() hpDown = new EventEmitter<void>();
   @Output() hpUp = new EventEmitter<void>();
+  @Output() tempDown = new EventEmitter<void>();
+  @Output() tempUp = new EventEmitter<void>();
+  @Output() deathSaveChange = new EventEmitter<{ type: 'successes' | 'failures'; value: number }>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
 

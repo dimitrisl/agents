@@ -168,6 +168,11 @@ class SpellList(BaseModel):
         return cleaned
 
 
+class DeathSavesSchema(BaseModel):
+    successes: int = 0
+    failures: int = 0
+
+
 class CharacterSchema(BaseModel):
     char_id: Optional[str] = None
     owner_id: Optional[str] = None
@@ -184,6 +189,8 @@ class CharacterSchema(BaseModel):
     armor_class: int = 10
     hp_max: int = 10
     hp_current: Optional[int] = None
+    hp_temp: int = 0
+    death_saves: DeathSavesSchema = Field(default_factory=DeathSavesSchema)
     hit_dice_used: int = 0
     speed: int = 30
     proficiency_bonus: int = 2
@@ -443,11 +450,6 @@ class CampaignMemberSchema(BaseModel):
 class CombatantConditionSchema(BaseModel):
     name: str
     expiresAtRound: Optional[int] = None
-
-
-class DeathSavesSchema(BaseModel):
-    successes: int = 0
-    failures: int = 0
 
 
 class InitiativeCombatantSchema(BaseModel):

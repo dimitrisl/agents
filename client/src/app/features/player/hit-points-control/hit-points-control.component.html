@@ -3,8 +3,9 @@
     id="hit-points-heading"
     class="text-micro font-semibold uppercase text-muted text-center"
   >
-    Hit Points
+    {{ current === 0 ? 'Unconscious' : 'Hit Points' }}
   </p>
+
   <div class="mt-2 flex items-center justify-center gap-4">
     <button
       forgeButton
@@ -17,16 +18,34 @@
     >
       −
     </button>
-    <div class="min-w-0 text-center leading-none">
-      <span
-        class="text-metric font-extrabold text-accent px-2"
-        aria-hidden="true"
-        >♥</span
-      >
-      <span class="sr-only">Current hit points</span>
-      <span class="text-[2rem] font-extrabold text-ink">{{ current }}</span>
-      <span class="px-1 text-title font-semibold text-muted">/</span>
-      <span class="text-title font-semibold text-muted">{{ max }}</span>
+    <div class="min-w-0 text-center leading-none flex flex-col items-center">
+      <div>
+        <span
+          class="text-metric font-extrabold px-2"
+          [ngClass]="current === 0 ? 'text-red-500' : 'text-accent'"
+          aria-hidden="true"
+          >♥</span
+        >
+        <span class="sr-only">Current hit points</span>
+        <span class="text-[2rem] font-extrabold text-ink" [ngClass]="{'text-red-500': current === 0}">{{ current }}</span>
+        <span class="px-1 text-title font-semibold text-muted">/</span>
+        <span class="text-title font-semibold text-muted">{{ max }}</span>
+      </div>
+
+      <!-- Temp HP inline -->
+      <div class="flex items-center gap-2 mt-1" *ngIf="temp > 0 || current > 0">
+        <button
+          class="text-muted hover:text-ink w-4 h-4 flex items-center justify-center rounded bg-panel"
+          (click)="tempDown.emit()"
+          aria-label="Decrease temp HP"
+        >−</button>
+        <span class="text-body-sm font-semibold text-gold">{{ temp }} Temp</span>
+        <button
+          class="text-muted hover:text-ink w-4 h-4 flex items-center justify-center rounded bg-panel"
+          (click)="tempUp.emit()"
+          aria-label="Increase temp HP"
+        >+</button>
+      </div>
     </div>
     <button
       forgeButton
@@ -40,7 +59,10 @@
       +
     </button>
   </div>
+
+  <!-- Normal HP Bar -->
   <div
+    *ngIf="current > 0"
     class="mt-3 h-1 overflow-hidden rounded-full bg-tile"
     role="meter"
     [attr.aria-valuemin]="0"
@@ -52,5 +74,44 @@
       class="h-full rounded-full bg-accent transition-[width] duration-200"
       [style.width.%]="percentage"
     ></div>
+  </div>
+
+  <!-- Death Saves UI -->
+  <div *ngIf="current === 0" class="mt-4 p-3 bg-red-900/10 border border-red-500/20 rounded-xl">
+    <p class="text-micro font-bold text-center text-red-400 mb-2 uppercase tracking-wider">Death Saves</p>
+    <div class="flex flex-col gap-2">
+      <!-- Successes -->
+      <div class="flex items-center justify-between">
+        <span class="text-body-sm font-semibold text-ink">Successes</span>
+        <div class="flex gap-2">
+          <button *ngFor="let i of deathSaveArray"
+            class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
+            [ngClass]="(deathSaves?.successes || 0) >= i ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted hover:border-emerald-500'"
+            (click)="toggleDeathSave('successes', i)"
+            aria-label="Toggle death save success"
+          >
+            <svg *ngIf="(deathSaves?.successes || 0) >= i" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <!-- Failures -->
+      <div class="flex items-center justify-between">
+        <span class="text-body-sm font-semibold text-ink">Failures</span>
+        <div class="flex gap-2">
+          <button *ngFor="let i of deathSaveArray"
+            class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
+            [ngClass]="(deathSaves?.failures || 0) >= i ? 'bg-red-500 border-red-500 text-white' : 'border-muted hover:border-red-500'"
+            (click)="toggleDeathSave('failures', i)"
+            aria-label="Toggle death save failure"
+          >
+            <svg *ngIf="(deathSaves?.failures || 0) >= i" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
