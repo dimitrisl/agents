@@ -1,0 +1,85 @@
+<forge-modal [title]="spellName" (close)="closeModal()" class="w-full max-w-2xl">
+  <!-- Header Badges -->
+  <div class="flex items-center gap-2 mb-4" *ngIf="spellData() as data">
+    <forge-badge tone="accent" *ngIf="isPrepared">Prepared</forge-badge>
+    <forge-badge *ngIf="data.level === 0">Cantrip</forge-badge>
+    <forge-badge *ngIf="data.level > 0">Level {{ data.level }}</forge-badge>
+    <forge-badge *ngIf="data.school">{{ data.school | titlecase }}</forge-badge>
+    <forge-badge *ngIf="data.concentration" tone="gold">Concentration</forge-badge>
+    <forge-badge *ngIf="data.ritual" tone="accent">Ritual</forge-badge>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading()" class="flex flex-col items-center justify-center py-12">
+    <div class="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent"></div>
+    <p class="mt-4 text-body text-muted">Reading spellbook...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error()" class="rounded-lg bg-red-900/20 border border-red-500/30 p-4 text-center">
+    <p class="text-body text-red-400">{{ error() }}</p>
+  </div>
+
+  <!-- Spell Data -->
+  <div *ngIf="spellData() as data" class="flex flex-col gap-6">
+
+    <!-- Meta info grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-tile rounded-xl p-4 border border-hairline">
+      <div>
+        <h4 class="text-micro font-semibold uppercase text-muted mb-1">Casting Time</h4>
+        <p class="text-body text-ink font-medium">{{ data.castingTime || '—' }}</p>
+      </div>
+      <div>
+        <h4 class="text-micro font-semibold uppercase text-muted mb-1">Range</h4>
+        <p class="text-body text-ink font-medium">{{ data.range || '—' }}</p>
+      </div>
+      <div>
+        <h4 class="text-micro font-semibold uppercase text-muted mb-1">Components</h4>
+        <p class="text-body text-ink font-medium uppercase">{{ data.components?.join(', ') || '—' }}</p>
+      </div>
+      <div>
+        <h4 class="text-micro font-semibold uppercase text-muted mb-1">Duration</h4>
+        <p class="text-body text-ink font-medium">{{ data.duration || '—' }}</p>
+      </div>
+    </div>
+
+    <!-- Smart Rolls Section (Only shows if rolls detected) -->
+    <div *ngIf="hasSpellAttack() || damageDiceFound().length > 0" class="flex flex-col gap-2">
+      <h4 class="text-micro font-semibold uppercase text-muted">Quick Rolls</h4>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          *ngIf="hasSpellAttack()"
+          forgeButton
+          variant="primary"
+          (click)="rollAttack()"
+        >
+          🎲 Roll Attack
+        </button>
+
+        <button
+          *ngFor="let dice of damageDiceFound()"
+          forgeButton
+          variant="secondary"
+          (click)="rollDice(dice)"
+        >
+          🎲 Roll {{ dice }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="prose prose-invert max-w-none">
+      <p class="whitespace-pre-wrap text-body text-muted leading-relaxed">{{ data.description }}</p>
+
+      <div *ngIf="data.higherLevelSlot" class="mt-4 pt-4 border-t border-hairline">
+        <h4 class="text-body font-bold text-ink mb-2">At Higher Levels</h4>
+        <p class="whitespace-pre-wrap text-body text-muted">{{ data.higherLevelSlot }}</p>
+      </div>
+
+      <div *ngIf="data.material" class="mt-4 pt-4 border-t border-hairline">
+        <h4 class="text-body font-bold text-ink mb-2">Materials</h4>
+        <p class="whitespace-pre-wrap text-body text-muted">{{ data.material }}</p>
+      </div>
+    </div>
+  </div>
+</forge-modal>

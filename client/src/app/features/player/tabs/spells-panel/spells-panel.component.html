@@ -101,7 +101,7 @@
         <h4 class="text-micro font-semibold uppercase text-muted px-2">{{ group.label }}</h4>
         <div class="flex flex-col gap-1">
           <div *ngFor="let spell of group.spells" class="rounded-lg overflow-hidden">
-            <forge-list-row [title]="spell">
+            <forge-list-row [title]="spell" (click)="selectedSpell.set(spell)">
               <ng-container trailing *ngIf="isPrepared(spell)">
                 <forge-badge tone="accent" size="sm">Prepared</forge-badge>
               </ng-container>
@@ -111,6 +111,14 @@
       </div>
     </div>
   </section>
+
+  <!-- Spell Detail Modal -->
+  <app-spell-detail-modal
+    *ngIf="selectedSpell()"
+    [spellName]="selectedSpell()!"
+    [isPrepared]="isPrepared(selectedSpell()!)"
+    (close)="selectedSpell.set(null)"
+  ></app-spell-detail-modal>
 
   <section class="flex flex-col gap-3" aria-labelledby="features-heading">
     <div class="flex items-center justify-between gap-3">
