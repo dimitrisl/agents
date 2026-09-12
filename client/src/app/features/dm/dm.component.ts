@@ -245,6 +245,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   onlineCharacters = new Set<string>();
 
+  private campaignInitialLoad = new Set<string>();
+
   ngOnInit() {
     this.loadCampaigns();
 
@@ -252,7 +254,9 @@ export class DmComponent implements OnInit, OnDestroy {
     // and nobody ever has to reload the page to catch up.
     this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
       if (campaignName === this.campaignName) {
-        this.loadCampaignMessages(campaignName, true);
+        const isCatchUp = this.campaignInitialLoad.has(campaignName);
+        this.campaignInitialLoad.add(campaignName);
+        this.loadCampaignMessages(campaignName, isCatchUp);
       }
     });
 
@@ -614,7 +618,6 @@ export class DmComponent implements OnInit, OnDestroy {
     this.showDmInbox = false;
     this.inboxReplyMessage = '';
     this.inboxReplyRecipient = 'All';
-    this.loadCampaignMessages(this.campaignName);
     this.loadParty();
 
     if (!isFirstLoad) {
