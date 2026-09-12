@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap } from 'rxjs';
+import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap, tap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
@@ -210,7 +210,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   // The HP steppers fire once per click; only the value the user settles on is
   // worth a round trip, so writes are collapsed into a single trailing save.
-  private readonly hpSave$ = new Subject<CharacterSchema>();
+  private readonly hpSave$ = new Subject<{ char: CharacterSchema; version: number }>();
+  private localSaveVersion = 0;
 
   constructor(
     public charState: CharacterStateService,
@@ -223,12 +224,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.hpSave$
       .pipe(
         debounceTime(700),
-        // switchMap aborts a still-flying save, so a stale response can never
-        // overwrite the HP the user just clicked to.
-        switchMap((char) =>
-          this.charState
-            .updateCharacter(char.char_id!, char)
-            .pipe(catchError(() => EMPTY))
+        switchMap(({ char, version }) =>
+          this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id!}`, char)
+            .pipe(
+              tap(updated => {
+                // ONLY apply the backend response if no newer local edits have occurred
+                // during the 700ms debounce + network delay.
+                if (this.localSaveVersion === version) {
+                  this.charState.activeCharacter.set(updated);
+                  // also update the cache silently
+                  const list = this.charState.characters();
+                  const idx = list.findIndex(c => c.char_id === updated.char_id);
+                  if (idx >= 0) {
+                    this.charState.characters.set(list.map((c, i) => i === idx ? updated : c));
+                  }
+                }
+              }),
+              catchError(() => EMPTY)
+            )
         ),
         takeUntilDestroyed()
       )
@@ -1200,7 +1213,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
-      this.hpSave$.next(updated);
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
   }
 
@@ -1211,19 +1225,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const updated = { ...char, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
-      this.hpSave$.next(updated);
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
   }
 
   setDeathSave(type: 'successes' | 'failures', value: number) {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const updated = { ...char };
-    updated.death_saves = updated.death_saves || { successes: 0, failures: 0 };
+    const updated = {
+      ...char,
+      death_saves: { ...(char.death_saves || { successes: 0, failures: 0 }) }
+    };
     updated.death_saves[type] = Math.max(0, Math.min(3, value));
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
-      this.hpSave$.next(updated);
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
   }
 
