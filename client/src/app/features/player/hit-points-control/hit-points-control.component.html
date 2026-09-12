@@ -6,7 +6,7 @@
     {{ current === 0 ? 'Unconscious' : 'Hit Points' }}
   </p>
 
-  <div class="mt-2 flex items-center justify-center gap-4">
+  <div class="mt-2 flex items-center justify-center gap-6">
     <button
       forgeButton
       variant="secondary"
@@ -18,10 +18,11 @@
     >
       −
     </button>
-    <div class="min-w-0 text-center leading-none flex flex-col items-center">
-      <div>
+
+    <div class="flex flex-col items-center min-w-[120px]">
+      <div class="flex items-baseline justify-center relative">
         <span
-          class="text-metric font-extrabold px-2"
+          class="text-metric font-extrabold absolute -left-6 top-1"
           [ngClass]="current === 0 ? 'text-red-500' : 'text-accent'"
           aria-hidden="true"
           >♥</span
@@ -47,6 +48,7 @@
         >+</button>
       </div>
     </div>
+
     <button
       forgeButton
       variant="secondary"
@@ -77,12 +79,12 @@
   </div>
 
   <!-- Death Saves UI -->
-  <div *ngIf="current === 0" class="mt-4 p-3 bg-red-900/10 border border-red-500/20 rounded-xl">
-    <p class="text-micro font-bold text-center text-red-400 mb-2 uppercase tracking-wider">Death Saves</p>
-    <div class="flex flex-col gap-2">
+  <div *ngIf="current === 0" class="mt-4 flex flex-col items-center">
+    <p class="text-micro font-bold text-red-400 mb-2 uppercase tracking-wider">Death Saves</p>
+    <div class="flex items-center gap-6 bg-red-900/10 border border-red-500/20 rounded-xl px-5 py-3">
       <!-- Successes -->
-      <div class="flex items-center justify-between">
-        <span class="text-body-sm font-semibold text-ink">Successes</span>
+      <div class="flex flex-col items-center gap-2">
+        <span class="text-micro font-semibold text-ink uppercase">Successes</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
             class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
@@ -96,9 +98,13 @@
           </button>
         </div>
       </div>
+
+      <!-- Divider -->
+      <div class="w-px h-10 bg-red-500/20"></div>
+
       <!-- Failures -->
-      <div class="flex items-center justify-between">
-        <span class="text-body-sm font-semibold text-ink">Failures</span>
+      <div class="flex flex-col items-center gap-2">
+        <span class="text-micro font-semibold text-ink uppercase">Failures</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
             class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
