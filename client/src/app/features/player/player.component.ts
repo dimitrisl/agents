@@ -1411,11 +1411,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  isGeneratingStrategy = false;
+
   onGenerateStrategy() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe((res) => {
-      this.strategyGuideText = res.guide_markdown;
+    this.isGeneratingStrategy = true;
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe({
+      next: (res) => {
+        this.isGeneratingStrategy = false;
+        this.strategyGuideText = res.guide_markdown;
+      },
+      error: () => {
+        this.isGeneratingStrategy = false;
+        this.rollToast.showMessage('⚠️ GENERATION FAILED', 'Failed to generate playstyle guide.');
+      }
     });
   }
 
