@@ -1,4 +1,4 @@
-<forge-modal [title]="spellName" (close)="closeModal()" class="w-full max-w-2xl">
+<forge-modal [open]="true" [title]="spellName" (closed)="closeModal()" class="w-full max-w-2xl">
   <!-- Header Badges -->
   <div class="flex items-center gap-2 mb-4" *ngIf="spellData() as data">
     <forge-badge tone="accent" *ngIf="isPrepared">Prepared</forge-badge>
