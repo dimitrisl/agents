@@ -1,12 +1,13 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CharacterSchema, FeatureTrait } from '../../../../core/models/character.model';
 import { ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent } from '../../../../shared/ui';
+import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell-detail-modal.component';
 
 @Component({
   selector: 'app-spells-panel',
   standalone: true,
-  imports: [CommonModule, ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent],
+  imports: [CommonModule, ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent, SpellDetailModalComponent],
   templateUrl: './spells-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -22,6 +23,7 @@ export class SpellsPanelComponent {
   @Output() restoreSpellSlot = new EventEmitter<number>();
 
   readonly spellLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  selectedSpell = signal<string | null>(null);
 
   private readonly expandedFeatures = new Set<number>();
 
