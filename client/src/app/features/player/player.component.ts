@@ -258,7 +258,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.wsService.connect(char.active_campaign, {
           character: char.char_name,
         });
-        this.loadCampaignMessageHistory(char.active_campaign, char.char_name);
       } else {
         this.wsService.disconnect();
         this.whisperHistory = [];
@@ -273,6 +272,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  private campaignInitialLoad = new Set<string>();
+
   ngOnInit() {
     this.charState.ensureLoaded().subscribe();
 
@@ -281,7 +282,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
       const char = this.charState.activeCharacter();
       if (char?.active_campaign === campaignName) {
-        this.loadCampaignMessageHistory(campaignName, char.char_name, true);
+        const cacheKey = `${campaignName}::${char.char_name}`;
+        const isCatchUp = this.campaignInitialLoad.has(cacheKey);
+        this.campaignInitialLoad.add(cacheKey);
+        this.loadCampaignMessageHistory(campaignName, char.char_name, isCatchUp);
       }
     });
 
@@ -862,6 +866,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
             );
             this.unreadMessages = 0;
             this.rebuildInboxFeed();
+
+            for (const req of this.rollRequestHistory) {
+              if (req.status === 'pending') {
+                this.enqueueRollPrompt(req);
+              }
+            }
             return;
           }
 
@@ -1104,7 +1114,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         char.active_campaign = res.campaign_name;
         this.saveCurrentChar();
         this.loadedCampaignMessageKey = null;
-        this.loadCampaignMessageHistory(res.campaign_name, char.char_name);
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
       error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')
