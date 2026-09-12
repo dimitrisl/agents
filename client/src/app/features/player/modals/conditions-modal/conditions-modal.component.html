@@ -1,0 +1,52 @@
+<forge-modal [open]="open" [title]="'Conditions & Concentration'" (closed)="closed.emit()">
+  <div class="space-y-6">
+    <section>
+      <h3 class="text-body-sm font-semibold uppercase text-muted mb-2">Concentration</h3>
+      <input
+        forgeInput
+        type="text"
+        class="w-full"
+        placeholder="e.g. Haste, Bless, or leave empty..."
+        [(ngModel)]="concentratingOn"
+      />
+      <p class="text-micro text-muted mt-1">What spell or effect is your character currently focusing on?</p>
+    </section>
+
+    <section>
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-body-sm font-semibold uppercase text-muted">Active Conditions</h3>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <button
+          *ngFor="let cond of availableConditions"
+          type="button"
+          class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+          [attr.aria-pressed]="selectedConditions.has(cond)"
+          (click)="toggleCondition(cond)"
+        >
+          <forge-badge
+            [interactive]="true"
+            [tone]="selectedConditions.has(cond) ? 'danger' : 'muted'"
+            class="w-full justify-center"
+          >
+            {{ cond }}
+            <span *ngIf="selectedConditions.has(cond)" aria-hidden="true" class="ml-1">✓</span>
+          </forge-badge>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="mt-6 flex gap-3">
+    <button forgeButton variant="ghost" type="button" (click)="clearAll()">
+      Clear All
+    </button>
+    <div class="flex-1"></div>
+    <button forgeButton variant="secondary" type="button" (click)="closed.emit()">
+      Cancel
+    </button>
+    <button forgeButton variant="primary" type="button" (click)="saveAndClose()">
+      Save Changes
+    </button>
+  </div>
+</forge-modal>

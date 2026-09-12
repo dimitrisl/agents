@@ -78,6 +78,7 @@ import { RollRequestModalComponent } from './modals/roll-request-modal/roll-requ
 import { PortraitModalComponent } from './modals/portrait-modal/portrait-modal.component';
 import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strategy-guide-modal.component';
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
+import { ConditionsModalComponent } from './modals/conditions-modal/conditions-modal.component';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -123,6 +124,7 @@ interface RollTarget {
     PortraitModalComponent,
     StrategyGuideModalComponent,
     EditSheetModalComponent,
+    ConditionsModalComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -147,6 +149,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
   editMode = false;
   showEditModal = false;
+  showConditionsModal = false;
   showPortraitModal = false;
   showJoinModal = false;
   showShortRestModal = false;
@@ -1114,6 +1117,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!success) {
       this.rollToast.showMessage('⚠️ EDITION MISMATCH', 'You can only select characters matching the active edition mode!');
     }
+  }
+
+  openConditionsModal() {
+    this.showConditionsModal = true;
+  }
+
+  saveConditions(data: { conditions: string[], concentratingOn: string }) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const updated = {
+      ...char,
+      conditions: data.conditions,
+      concentrating_on: data.concentratingOn
+    };
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+    this.showConditionsModal = false;
   }
 
   openEditModal() {
