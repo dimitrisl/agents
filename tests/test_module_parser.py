@@ -7,25 +7,19 @@ from backend.services.module_parser_service import ModuleParserService
 
 @pytest.fixture
 def mock_gemini_client():
-    with patch("backend.services.module_parser_service.genai.Client") as MockClient:
-        # Mock the client instance
-        mock_instance = MagicMock()
-        MockClient.return_value = mock_instance
+    with patch("backend.services.module_parser_service.get_llm_provider") as mock_get_provider:
+        mock_provider = MagicMock()
+        mock_get_provider.return_value = mock_provider
 
         # Mock file upload
-        mock_file = MagicMock()
-        mock_file.uri = "https://example.com/mock_file"
-        mock_file.name = "files/mock123"
-        mock_instance.files.upload.return_value = mock_file
+        mock_provider.upload_file.return_value = "files/mock123"
 
         # Mock generation response
-        mock_response = MagicMock()
-        mock_response.text = (
-            '[{"name": "Klarg", "role": "Boss", "ac": 16, "hp": 27, "page_number_for_art": 12}]'
-        )
-        mock_instance.models.generate_content.return_value = mock_response
+        mock_provider.generate_json_from_files.return_value = [
+            {"name": "Klarg", "role": "Boss", "ac": 16, "hp": 27, "page_number_for_art": 12}
+        ]
 
-        yield mock_instance
+        yield mock_provider
 
 
 @pytest.fixture
@@ -38,10 +32,8 @@ def parser_service(mock_gemini_client):
 
 def test_upload_pdf_to_gemini(parser_service, mock_gemini_client):
     result = parser_service.upload_pdf_to_gemini("dummy/path.pdf")
-    mock_gemini_client.files.upload.assert_called_once_with(
-        file="dummy/path.pdf", config={"mime_type": "application/pdf"}
-    )
-    assert result.name == "files/mock123"
+    mock_gemini_client.upload_file.assert_called_once_with(file_path="dummy/path.pdf")
+    assert result == "files/mock123"
 
 
 def test_extract_npcs(parser_service, mock_gemini_client):

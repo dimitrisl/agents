@@ -120,6 +120,14 @@
               </li>
             </ul>
           </div>
+
+          <app-homebrew-panel
+            *ngIf="activeTab === 'homebrew'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-homebrew"
+            [campaignName]="campaignName"
+          ></app-homebrew-panel>
         </div>
       </forge-card>
     </aside>
@@ -220,6 +228,14 @@
             [riddleResult]="riddleResult"
             (generateRiddle)="generateRiddle()"
           ></app-prep-panel>
+
+          <app-homebrew-panel
+            *ngIf="activeTab === 'homebrew'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-homebrew"
+            [campaignName]="campaignName"
+          ></app-homebrew-panel>
         </div>
       </forge-card>
     </section>

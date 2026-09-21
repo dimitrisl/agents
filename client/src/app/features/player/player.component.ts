@@ -80,6 +80,7 @@ import { PortraitModalComponent } from './modals/portrait-modal/portrait-modal.c
 import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strategy-guide-modal.component';
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
 import { ConditionsModalComponent } from './modals/conditions-modal/conditions-modal.component';
+import { PlayerHomebrewModalComponent } from './modals/player-homebrew-modal/player-homebrew-modal.component';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -126,6 +127,7 @@ interface RollTarget {
     StrategyGuideModalComponent,
     EditSheetModalComponent,
     ConditionsModalComponent,
+    PlayerHomebrewModalComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -153,6 +155,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showConditionsModal = false;
   showPortraitModal = false;
   showJoinModal = false;
+  showHomebrewModal = false;
   showShortRestModal = false;
   showProficientOnly = false;
   showLevelUpModal = false;

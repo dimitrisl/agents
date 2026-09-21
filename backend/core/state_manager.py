@@ -5,5 +5,5 @@ def get_default_character() -> dict:
         "char_class": "Fighter",
         "race": "Human",
         "background": "Soldier",
-        "stats": {"STR": 15, "DEX": 14, "CON": 13, "INT": 12, "WIS": 10, "CHA": 8}
+        "stats": {"STR": 15, "DEX": 14, "CON": 13, "INT": 12, "WIS": 10, "CHA": 8},
     }
