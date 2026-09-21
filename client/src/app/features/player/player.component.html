@@ -247,6 +247,20 @@
   ></app-roll-request-modal>
 
   <ng-container *ngIf="charState.activeCharacter() as char">
+    <div *ngIf="char.active_campaign" class="whisper-dock">
+      <section
+        *ngIf="showWhisperInbox"
+        class="whisper-panel animated-fade"
+        aria-label="DM inbox"
+      >
+        <header class="whisper-panel-header">
+          <div class="whisper-heading min-w-0">
+            <span class="whisper-mark" aria-hidden="true">DM</span>
+            <div class="min-w-0">
+              <p class="text-micro font-semibold uppercase text-accent">DM Inbox</p>
+              <h2 class="truncate font-display text-title text-ink">{{ char.active_campaign }}</h2>
+            </div>
+          </div>
           <button
             forgeButton
             variant="ghost"
@@ -381,7 +395,7 @@
   <app-player-homebrew-modal
     *ngIf="showHomebrewModal && charState.activeCharacter()?.active_campaign"
     [campaignName]="charState.activeCharacter()!.active_campaign!"
-    [charId]="charState.activeCharacter()!.char_id"
+    [charId]="charState.activeCharacter()!.char_id!"
     (closeModal)="showHomebrewModal = false"
   ></app-player-homebrew-modal>
 

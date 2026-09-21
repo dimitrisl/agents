@@ -8,7 +8,7 @@ import {
   ClassCombatAction,
   CombatContext,
   CombatProfile,
-  cantripTierFor,
+
   critThresholdFor,
   extraCritDiceFor,
   isCaster,
@@ -16,7 +16,9 @@ import {
 } from '../data/class-combat.data';
 import { abilityModifier, hitDieSize, proficiencyBonus } from '../rules';
 
-export { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
+export function cantripTierFor(level: number): number { return level >= 17 ? 4 : level >= 11 ? 3 : level >= 5 ? 2 : 1; }
+
+export type { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
 
 /**
  * Turns a character sheet into the dice that character actually rolls in combat.

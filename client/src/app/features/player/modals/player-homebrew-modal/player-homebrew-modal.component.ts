@@ -35,10 +35,10 @@ import { RollToastService } from '../../../../core/services/roll-toast.service';
             <p class="text-sm text-muted mt-2 mb-4 flex-1">{{ item['description'] || 'No description provided.' }}</p>
             <button
               (click)="equipItem(item._id!)"
-              class="w-full mt-auto py-2 rounded font-bold transition-colors"
-              [class.bg-gold]="true"
-              [class.text-surface]="true"
-              [class.hover:bg-gold/90]="true"
+              class="w-full mt-auto py-2 rounded font-bold transition-colors bg-gold text-surface hover:bg-gold/90"
+
+
+
               [disabled]="isEquipping"
             >
               Add to Character
