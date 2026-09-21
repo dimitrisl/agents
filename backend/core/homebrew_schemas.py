@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -33,7 +33,10 @@ class HomebrewFeature(HomebrewBase, FeatureTrait):
 
 
 # Discriminated union for generic parsing
-HomebrewEntity = Union[HomebrewWeapon, HomebrewItem, HomebrewSpell, HomebrewFeat, HomebrewFeature]
+HomebrewEntity = Annotated[
+    Union[HomebrewWeapon, HomebrewItem, HomebrewSpell, HomebrewFeat, HomebrewFeature],
+    Field(discriminator="homebrew_type"),
+]
 
 
 class HomebrewCreateRequest(BaseModel):

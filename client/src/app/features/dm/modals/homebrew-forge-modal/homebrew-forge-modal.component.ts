@@ -1,7 +1,8 @@
 import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HomebrewService } from '../../../../core/services/homebrew.service';
+import { HomebrewService, HomebrewItem } from '../../../../core/services/homebrew.service';
+import { RollToastService } from '../../../../core/services/roll-toast.service';
 
 @Component({
   selector: 'app-homebrew-forge-modal',
@@ -15,6 +16,7 @@ export class HomebrewForgeModalComponent {
   @Output() closeModal = new EventEmitter<void>();
 
   homebrewService = inject(HomebrewService);
+  rollToast = inject(RollToastService);
 
   step = 1;
   selectedType: 'weapon' | 'spell' | 'feat' = 'weapon';
@@ -24,7 +26,7 @@ export class HomebrewForgeModalComponent {
   isForging = false;
 
   // Manual Form State
-  formData: any = {
+  formData: Partial<HomebrewItem> = {
     name: '',
     description: '',
     damage_dice: '',
@@ -49,7 +51,7 @@ export class HomebrewForgeModalComponent {
       },
       error: () => {
         this.isForging = false;
-        alert('Failed to forge item. Check prompt or try again.');
+        this.rollToast.showMessage('❌ FORGE FAILED', 'Failed to forge item. Check prompt or try again.');
       }
     });
   }
@@ -58,8 +60,9 @@ export class HomebrewForgeModalComponent {
     if (!this.campaignName) return;
     const finalData = { ...this.formData, homebrew_type: this.selectedType };
     this.homebrewService.saveHomebrew(this.campaignName, finalData).subscribe({
-      next: () => this.closeModal.emit(),
-      error: () => alert('Failed to save homebrew item.')
+      next: () => this.rollToast.showMessage('✅ ITEM SAVED', 'Homebrew item saved successfully.');
+        this.closeModal.emit(),
+      error: () => this.rollToast.showMessage('❌ SAVE FAILED', 'Failed to save homebrew item.');
     });
   }
 }

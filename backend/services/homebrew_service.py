@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
@@ -54,8 +55,13 @@ class HomebrewService:
         if "_id" in update_data:
             del update_data["_id"]
 
+        try:
+            obj_id = ObjectId(item_id)
+        except InvalidId:
+            return False
+
         result = await db["homebrew_content"].update_one(
-            {"_id": ObjectId(item_id), "campaign_id": campaign_id}, {"$set": update_data}
+            {"_id": obj_id, "campaign_id": campaign_id}, {"$set": update_data}
         )
         return result.modified_count > 0
 
@@ -63,8 +69,13 @@ class HomebrewService:
         self, db: AsyncIOMotorDatabase, item_id: str, campaign_id: str
     ) -> bool:
         """Deletes a homebrew item, ensuring it belongs to the campaign."""
+        try:
+            obj_id = ObjectId(item_id)
+        except InvalidId:
+            return False
+
         result = await db["homebrew_content"].delete_one(
-            {"_id": ObjectId(item_id), "campaign_id": campaign_id}
+            {"_id": obj_id, "campaign_id": campaign_id}
         )
         return result.deleted_count > 0
 

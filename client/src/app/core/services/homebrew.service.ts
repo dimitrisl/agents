@@ -17,7 +17,7 @@ export interface HomebrewItem {
 })
 export class HomebrewService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/campaigns`;
+  private apiUrl = `${environment.apiBaseUrl}/campaigns`;
 
   private itemsSubject = new BehaviorSubject<HomebrewItem[]>([]);
   public items$ = this.itemsSubject.asObservable();
@@ -32,7 +32,7 @@ export class HomebrewService {
     return this.http.post(`${this.apiUrl}/${campaignName}/homebrew/forge`, { prompt, type });
   }
 
-  saveHomebrew(campaignName: string, item: any): Observable<any> {
+  saveHomebrew(campaignName: string, item: Partial<HomebrewItem>): Observable<any> {
     return this.http.post(`${this.apiUrl}/${campaignName}/homebrew`, { type: item.homebrew_type, data: item }).pipe(
       tap(() => this.loadHomebrew(campaignName).subscribe())
     );

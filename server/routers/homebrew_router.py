@@ -2,9 +2,11 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import TypeAdapter, ValidationError
 
 from backend.core.homebrew_schemas import (
     HomebrewCreateRequest,
+    HomebrewEntity,
     HomebrewExportResponse,
     HomebrewImportRequest,
 )
@@ -60,9 +62,19 @@ async def create_homebrew(
     if not payload.data:
         raise HTTPException(status_code=400, detail="Data payload is required to save homebrew.")
 
-    # Optional: We could validate payload.data against the schema using schema_map from service
-    # For now, assume payload.data is pre-validated by the client guided form
-    item_id = await homebrew_service.create_homebrew(db, name, current_user["id"], payload.data)
+    payload.data["campaign_id"] = name
+    payload.data["creator_dm_id"] = current_user["id"]
+    if "homebrew_type" not in payload.data:
+        payload.data["homebrew_type"] = payload.type
+
+    try:
+        validated_item = TypeAdapter(HomebrewEntity).validate_python(payload.data)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=f"Validation error: {e.errors()}")
+
+    item_id = await homebrew_service.create_homebrew(
+        db, name, current_user["id"], validated_item.model_dump(by_alias=True, exclude_none=True)
+    )
     return {"success": True, "id": item_id, "message": "Homebrew created successfully"}
 
 
@@ -101,6 +113,17 @@ async def import_homebrew(
 ):
     count = 0
     for item in payload.items:
-        await homebrew_service.create_homebrew(db, name, current_user["id"], item)
-        count += 1
+        item["campaign_id"] = name
+        item["creator_dm_id"] = current_user["id"]
+        try:
+            validated_item = TypeAdapter(HomebrewEntity).validate_python(item)
+            await homebrew_service.create_homebrew(
+                db,
+                name,
+                current_user["id"],
+                validated_item.model_dump(by_alias=True, exclude_none=True),
+            )
+            count += 1
+        except ValidationError:
+            continue  # Skip invalid items
     return {"success": True, "message": f"Imported {count} items successfully."}

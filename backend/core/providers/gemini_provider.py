@@ -1,9 +1,10 @@
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from google import genai
+from pydantic import BaseModel
 
 from backend.core.config_loader import load_config
 from backend.core.providers.llm_provider import LLMProvider
@@ -81,7 +82,11 @@ class GeminiProvider(LLMProvider):
             return f"❌ Failed to generate response: {error_msg}"
 
     def generate_json(
-        self, prompt: str, temperature: Optional[float] = None
+        self,
+        prompt: str,
+        schema: Optional[Type[BaseModel]] = None,
+        system_instruction: Optional[str] = None,
+        temperature: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         if not self.client:
             return None
@@ -97,13 +102,20 @@ class GeminiProvider(LLMProvider):
             )
             model = self._get_model()
 
+            if system_instruction:
+                full_prompt = f"{system_instruction}\n\n{full_prompt}"
+
+            config_kwargs = {
+                "response_mime_type": "application/json",
+                "temperature": temperature,
+            }
+            if schema:
+                config_kwargs["response_schema"] = schema
+
             response = self.client.models.generate_content(
                 model=model,
                 contents=full_prompt,
-                config=genai.types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=temperature,
-                ),
+                config=genai.types.GenerateContentConfig(**config_kwargs),
             )
 
             if not response or not response.text:

@@ -21,7 +21,7 @@ export class CharacterStateService {
   readonly filteredCharacters = computed(() => {
     const activeEd = this.dndEdition();
     const is2024Mode = activeEd.includes('2024');
-    return this.characters().filter(c => {
+    return this.characters().filter((c: any) => {
       const charEd = c.dnd_edition || '2014 Edition';
       const charIs2024 = charEd.includes('2024');
       return is2024Mode ? charIs2024 : !charIs2024;
@@ -92,7 +92,7 @@ export class CharacterStateService {
             if (is2024 !== charIs2024) {
               this.activeCharacter.set(available.length > 0 ? available[0] : null);
             } else {
-              const exists = chars?.find(c => c.char_id === currentActive.char_id);
+              const exists = chars?.find((c: any) => c.char_id === currentActive.char_id);
               if (!exists && currentActive.char_id !== 'default_paladin') {
                 this.characters.set([currentActive, ...(chars || [])]);
               }
@@ -127,7 +127,7 @@ export class CharacterStateService {
   }
 
   selectCharacter(id: string): boolean {
-    const target = this.characters().find(c => c.char_id === id);
+    const target = this.characters().find((c: any) => c.char_id === id);
     if (!target) return false;
 
     const charEd = target.dnd_edition || '2014 Edition';

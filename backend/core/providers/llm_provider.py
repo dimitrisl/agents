@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
+
+from pydantic import BaseModel
 
 
 class LLMProvider(ABC):
@@ -18,7 +20,11 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def generate_json(
-        self, prompt: str, temperature: Optional[float] = None
+        self,
+        prompt: str,
+        schema: Optional[Type[BaseModel]] = None,
+        system_instruction: Optional[str] = None,
+        temperature: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Generates a structured JSON response from a prompt.
