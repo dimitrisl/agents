@@ -572,8 +572,7 @@ afterEach(() => {
 
 
     http
-      .match((r) => r.url.includes('/party')).forEach((r)
-       => r.flush([{ char_id: 'e1', char_name: 'Ezren', char_level: 4, hp_current: 22, hp_max: 22 }]));
+      .match((r) => r.url.includes('/party')).forEach((r) => r.flush([{ char_id: 'e1', char_name: 'Ezren', char_level: 4, hp_current: 22, hp_max: 22 }]));
 
     expect(component.avgLevel).toBe(4);
   });
@@ -590,7 +589,7 @@ afterEach(() => {
 
   it('resolves the encounter against the ruleset the campaign is played under', () => {
     component.userCampaigns = [
-      { campaign_name: 'Curse of Strahd', dnd_edition: '2024 Revision (5.5e)' },
+      { campaign_name: 'Curse of Strahd', dnd_edition: '2024 Revision (5.5e)', party: [] },
     ];
     component.onCampaignSelect();
 
@@ -622,7 +621,7 @@ afterEach(() => {
 
   it('falls back to the edition toggle for a campaign saved before the field existed', () => {
     TestBed.inject(CharacterStateService).dndEdition.set('2024 Revision (5.5e)');
-    component.userCampaigns = [{ campaign_name: 'Curse of Strahd' }];
+    component.userCampaigns = [{ campaign_name: 'Curse of Strahd', party: [] }];
     component.onCampaignSelect();
 
 

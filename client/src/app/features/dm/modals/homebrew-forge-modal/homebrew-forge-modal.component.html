@@ -58,11 +58,11 @@
           <ng-container *ngIf="selectedType === 'weapon'">
             <div>
               <label class="text-xs font-bold text-muted uppercase">Damage Dice</label>
-              <input [(ngModel)]="formData.damage_dice" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="1d8">
+              <input [(ngModel)]="formData['damage_dice']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="1d8">
             </div>
             <div>
               <label class="text-xs font-bold text-muted uppercase">Attack Bonus</label>
-              <input [(ngModel)]="formData.attack_bonus" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="+0">
+              <input [(ngModel)]="formData['attack_bonus']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="+0">
             </div>
           </ng-container>
 
@@ -70,18 +70,18 @@
           <ng-container *ngIf="selectedType === 'spell'">
             <div>
               <label class="text-xs font-bold text-muted uppercase">Level</label>
-              <input [(ngModel)]="formData.level" type="number" class="w-full bg-surface border border-hairline rounded p-2 text-ink">
+              <input [(ngModel)]="formData['level']" type="number" class="w-full bg-surface border border-hairline rounded p-2 text-ink">
             </div>
             <div>
               <label class="text-xs font-bold text-muted uppercase">School</label>
-              <input [(ngModel)]="formData.school" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Evocation">
+              <input [(ngModel)]="formData['school']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Evocation">
             </div>
           </ng-container>
 
           <!-- SHARED FIELDS -->
           <div class="col-span-2">
             <label class="text-xs font-bold text-muted uppercase">Description & Mechanics</label>
-            <textarea [(ngModel)]="formData.description" rows="4" class="w-full bg-surface border border-hairline rounded p-2 text-ink"></textarea>
+            <textarea [(ngModel)]="formData['description']" rows="4" class="w-full bg-surface border border-hairline rounded p-2 text-ink"></textarea>
           </div>
         </div>
 
