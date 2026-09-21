@@ -1,0 +1,30 @@
+<div class="p-4 space-y-4">
+  <div class="flex justify-between items-center">
+    <h2 class="text-xl font-bold text-ink">Campaign Homebrew</h2>
+    <div class="flex gap-2">
+      <button class="bg-surface text-ink px-3 py-1 rounded border border-hairline hover:bg-tile" (click)="homebrewService.exportHomebrew(campaignName!).subscribe()">Export</button>
+      <button class="bg-accent text-white px-3 py-1 rounded hover:bg-accent/90" (click)="showForgeModal = true">+ Create Homebrew</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div *ngFor="let item of items$ | async" class="border border-hairline rounded p-3 bg-surface shadow-sm relative">
+      <div class="absolute top-2 right-2">
+        <button class="text-danger hover:text-danger/80" (click)="deleteItem(item._id!)">Delete</button>
+      </div>
+      <div class="text-xs font-semibold text-accent uppercase tracking-wider mb-1">{{ item.homebrew_type }}</div>
+      <h3 class="font-bold text-lg text-ink">{{ item.name }}</h3>
+      <p class="text-sm text-muted mt-2 line-clamp-3">{{ item['description'] || 'No description provided.' }}</p>
+    </div>
+
+    <div *ngIf="(items$ | async)?.length === 0" class="col-span-full py-8 text-center text-muted italic border border-dashed border-hairline rounded">
+      No homebrew content in this campaign yet.
+    </div>
+  </div>
+
+  <app-homebrew-forge-modal
+    *ngIf="showForgeModal"
+    [campaignName]="campaignName"
+    (closeModal)="showForgeModal = false"
+  ></app-homebrew-forge-modal>
+</div>

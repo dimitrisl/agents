@@ -1,0 +1,97 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+  <div class="w-full max-w-2xl bg-surface border border-hairline rounded shadow-xl flex flex-col max-h-[90vh]">
+    <!-- Header -->
+    <div class="flex items-center justify-between p-4 border-b border-hairline">
+      <h2 class="text-xl font-bold text-ink flex items-center gap-2">
+        <span class="text-accent">🔥</span> AI Homebrew Forge
+      </h2>
+      <button class="text-muted hover:text-ink" (click)="closeModal.emit()">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="p-6 overflow-y-auto">
+
+      <!-- STEP 1 -->
+      <div *ngIf="step === 1" class="space-y-4">
+        <h3 class="font-semibold text-lg">Step 1: What are you creating?</h3>
+        <div class="flex gap-4">
+          <label class="flex-1 border border-hairline rounded p-4 text-center cursor-pointer hover:border-accent" [class.bg-accent]="selectedType === 'weapon'" [class.text-white]="selectedType === 'weapon'">
+            <input type="radio" name="type" value="weapon" [(ngModel)]="selectedType" class="hidden">
+            <div class="font-bold text-lg">Weapon</div>
+          </label>
+          <label class="flex-1 border border-hairline rounded p-4 text-center cursor-pointer hover:border-accent" [class.bg-accent]="selectedType === 'spell'" [class.text-white]="selectedType === 'spell'">
+            <input type="radio" name="type" value="spell" [(ngModel)]="selectedType" class="hidden">
+            <div class="font-bold text-lg">Spell</div>
+          </label>
+          <label class="flex-1 border border-hairline rounded p-4 text-center cursor-pointer hover:border-accent" [class.bg-accent]="selectedType === 'feat'" [class.text-white]="selectedType === 'feat'">
+            <input type="radio" name="type" value="feat" [(ngModel)]="selectedType" class="hidden">
+            <div class="font-bold text-lg">Feat</div>
+          </label>
+        </div>
+        <div class="flex justify-end mt-4">
+          <button class="bg-ink text-surface px-4 py-2 rounded" (click)="nextStep()">Continue</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div *ngIf="step === 2" class="space-y-6">
+
+        <!-- AI Assist Block -->
+        <div class="bg-tile border border-hairline rounded p-4 space-y-3">
+          <label class="font-semibold text-sm">AI Assist: Describe what you want</label>
+          <div class="flex gap-2">
+            <textarea [(ngModel)]="aiPrompt" rows="2" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="e.g. A cursed dagger that heals the user but poisons them on a 1..."></textarea>
+            <button class="bg-accent text-white px-4 rounded whitespace-nowrap" (click)="forgeWithAI()" [disabled]="isForging">
+              {{ isForging ? 'Forging...' : 'Auto-Fill' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Strict Guided Form -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="text-xs font-bold text-muted uppercase">Name</label>
+            <input [(ngModel)]="formData.name" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink">
+          </div>
+
+          <!-- WEAPON FIELDS -->
+          <ng-container *ngIf="selectedType === 'weapon'">
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Damage Dice</label>
+              <input [(ngModel)]="formData.damage_dice" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="1d8">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Attack Bonus</label>
+              <input [(ngModel)]="formData.attack_bonus" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="+0">
+            </div>
+          </ng-container>
+
+          <!-- SPELL FIELDS -->
+          <ng-container *ngIf="selectedType === 'spell'">
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Level</label>
+              <input [(ngModel)]="formData.level" type="number" class="w-full bg-surface border border-hairline rounded p-2 text-ink">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">School</label>
+              <input [(ngModel)]="formData.school" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Evocation">
+            </div>
+          </ng-container>
+
+          <!-- SHARED FIELDS -->
+          <div class="col-span-2">
+            <label class="text-xs font-bold text-muted uppercase">Description & Mechanics</label>
+            <textarea [(ngModel)]="formData.description" rows="4" class="w-full bg-surface border border-hairline rounded p-2 text-ink"></textarea>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div *ngIf="step === 2" class="p-4 border-t border-hairline flex justify-between bg-tile rounded-b">
+      <button class="text-muted hover:text-ink px-4 py-2" (click)="step = 1">Back</button>
+      <button class="bg-accent text-white px-6 py-2 rounded font-bold hover:bg-accent/90" (click)="save()">Save Homebrew</button>
+    </div>
+  </div>
+</div>

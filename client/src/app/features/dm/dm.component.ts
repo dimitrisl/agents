@@ -44,6 +44,7 @@ import { NotesPanelComponent } from './panels/notes-panel/notes-panel.component'
 import { PartyPanelComponent } from './panels/party-panel/party-panel.component';
 import { InitiativePanelComponent } from './panels/initiative-panel/initiative-panel.component';
 import { GeneratorsPanelComponent } from './panels/generators-panel/generators-panel.component';
+import { HomebrewPanelComponent } from './panels/homebrew-panel/homebrew-panel.component';
 import { PrepPanelComponent } from './panels/prep-panel/prep-panel.component';
 import { WhisperModalComponent } from './modals/whisper-modal/whisper-modal.component';
 import { RollRequestModalComponent } from './modals/roll-request-modal/roll-request-modal.component';
@@ -87,6 +88,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     InitiativePanelComponent,
     GeneratorsPanelComponent,
     PrepPanelComponent,
+    HomebrewPanelComponent,
     WhisperModalComponent,
     RollRequestModalComponent,
     StatblockModalComponent,
