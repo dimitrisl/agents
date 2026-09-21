@@ -74,3 +74,8 @@ An AI tool inspired by the "Return of the Lazy Dungeon Master" methodology.
 * **Lightweight VTT Zone Combat:** A basic grid or abstract zone map where the DM can drag-and-drop player portraits (since they are already uploaded) without needing external tools like Roll20.
 * **Offline-First Resilience:** Moving from purely server-state WebSockets to a local-first architecture (e.g., IndexedDB via RxDB). Ensures the character sheets and combat tracker survive intermittent Wi-Fi drops at the physical game table.
 * **OAuth2 Integration:** Discord login support, allowing players to join campaigns directly via Discord identity, reducing friction and linking to the most common D&D community platform.
+
+---
+
+## 4. Player Experience & Mobile
+* **Mobile-First Player Dashboard:** A fully responsive, mobile-optimized view for the Player Dashboard. Many players prefer bringing just their phones to the physical table rather than a laptop. The UI should collapse elegantly (e.g., swipeable tabs for Stats, Inventory, Spells) so players can roll dice, manage HP, and receive DM whispers natively from their mobile browsers.
