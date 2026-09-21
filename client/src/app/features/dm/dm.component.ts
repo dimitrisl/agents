@@ -100,13 +100,14 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   styleUrl: './dm.component.css',
 })
 export class DmComponent implements OnInit, OnDestroy {
-  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' = 'party';
+  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' | 'homebrew' = 'party';
   readonly dmTabs: ForgeTab[] = [
     { id: 'notes', label: '📝 Campaign Notes' },
     { id: 'party', label: '👥 Live Party Tracker' },
     { id: 'initiative', label: '⚔️ Initiative Tracker' },
     { id: 'generators', label: '🎲 AI Generators' },
     { id: 'prep', label: '📜 Session Prep' },
+    { id: 'homebrew', label: '🔥 Homebrew Forge' },
   ];
 
   userCampaigns: Campaign[] = [];
