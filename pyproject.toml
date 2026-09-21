@@ -33,7 +33,8 @@ dependencies = [
 
 
 [tool.poetry]
-package-mode = false
+packages = [{include = "server"}, {include = "backend"}]
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -60,3 +61,7 @@ target-version = "py313"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
+
+[tool.poetry.scripts]
+start = "server.main:main"
+test = "pytest:main"
