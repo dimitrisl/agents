@@ -48,6 +48,11 @@ An AI tool inspired by the "Return of the Lazy Dungeon Master" methodology.
 * **Feature:** The AI evaluates the Party's current equipment and identifies weaknesses (e.g., "The Paladin hasn't upgraded their armor since level 3").
 * **Output:** Auto-generates thematic, balanced Homebrew magic items that perfectly fill the party's gaps and injects them into the current dungeon's loot pool.
 
+### 🎙️ Session Transcription & Auto-Journaling
+* **Feature:** DMs who record their sessions (audio) can upload the MP3/WAV file directly to the workspace.
+* **Process:** Using Gemini 1.5's native multimodal audio understanding (or Whisper), the system transcribes the session.
+* **Output:** Automatically generates a formatted **Session Log** for the Campaign Chronicle, extracts new NPCs met, loot acquired, and locations visited, saving the DM hours of post-session note-taking.
+
 ---
 
 ## 3. Future Enhancements & Resilience
