@@ -1,0 +1,51 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "dev", "main" ]
+  pull_request:
+    branches: [ "dev", "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 2.1.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}-v2
+
+    - name: Install dependencies
+      run: poetry install --no-interaction
+
+    - name: Run Ruff (Lint)
+      run: poetry run ruff check .
+
+    - name: Run Ruff (Format Check)
+      run: poetry run ruff format --check .
+
+    - name: Run Pytest
+      run: |
+        mkdir -p data/portraits
+        poetry run pip install pytest pytest-mock mongomock pytest-cov
+        poetry run pytest tests/ -v
+      env:
+        GEMINI_API_KEY: "dummy_key_for_tests"
