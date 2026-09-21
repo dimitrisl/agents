@@ -236,5 +236,45 @@
                 }
             ]
         }
+    },
+    "scaling": {
+        "rage_damage": {
+            "name": "Rage Damage",
+            "kind": "rider",
+            "hint": "While Raging, on Strength-based melee attacks.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "+2"
+                },
+                {
+                    "level": 9,
+                    "notation": "+3"
+                },
+                {
+                    "level": 16,
+                    "notation": "+4"
+                }
+            ]
+        },
+        "brutal_strike": {
+            "name": "Brutal Strike",
+            "kind": "rider",
+            "hint": "On a Reckless Attack, forgo Advantage to add this and one debuff effect.",
+            "steps": [
+                {
+                    "level": 9,
+                    "notation": "1d10"
+                },
+                {
+                    "level": 13,
+                    "notation": "2d10"
+                },
+                {
+                    "level": 17,
+                    "notation": "3d10"
+                }
+            ]
+        }
     }
 }

@@ -367,6 +367,20 @@ def calculate_max_spell_slots(
     return slots
 
 
+def get_base_weapon(name: str, all_weapons: list) -> dict:
+    import re
+
+    name = (name or "").lower()
+    weapon_data = next((w for w in all_weapons if w.get("name", "").lower() == name), None)
+    if not weapon_data:
+        sorted_weapons = sorted(all_weapons, key=lambda x: len(x.get("name", "")), reverse=True)
+        for w in sorted_weapons:
+            w_name = w.get("name", "").lower()
+            if w_name and re.search(rf"\b{re.escape(w_name)}\b", name):
+                return w
+    return weapon_data
+
+
 def calculate_weapon_stats(
     weapon: Dict[str, Any], stats: Dict[str, int], proficiency_bonus: int
 ) -> Dict[str, Any]:
@@ -408,9 +422,24 @@ def calculate_weapon_stats(
         else:
             mod = str_mod
     else:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+        all_weapons = repo.get_all_weapons()
         name = weapon.get("name", "").lower()
-        is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
-        is_finesse = any(word in name for word in ["rapier", "dagger", "scimitar", "shortsword"])
+
+        weapon_data = get_base_weapon(name, all_weapons)
+
+        if weapon_data:
+            category = (weapon_data.get("category") or "").lower()
+            props = [p.lower() for p in weapon_data.get("properties", [])]
+            is_ranged = "ranged" in category
+            is_finesse = any("finesse" in p for p in props)
+        else:
+            is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
+            is_finesse = any(
+                word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
+            )
 
         if is_ranged:
             mod = dex_mod
@@ -960,49 +989,44 @@ def sync_character_stats(
                 else (3 if level >= 4 else 2)
             )
             existing_masteries = list(char_data.get("weapon_masteries") or [])
+            all_weapons = repo.get_all_weapons()
 
             # Prioritize masteries matching equipped weapons
             equipped_weapon_masteries = []
             for w in char_data.get("weapons", []):
                 if isinstance(w, dict):
                     w_name = (w.get("name") or "").lower()
-                    if "longsword" in w_name and "Sap (Longsword)" not in equipped_weapon_masteries:
-                        equipped_weapon_masteries.append("Sap (Longsword)")
-                    elif (
-                        "crossbow" in w_name
-                        and "Slow (Light Crossbow)" not in equipped_weapon_masteries
-                    ):
-                        equipped_weapon_masteries.append("Slow (Light Crossbow)")
-                    elif (
-                        "greatsword" in w_name
-                        and "Graze (Greatsword)" not in equipped_weapon_masteries
-                    ):
-                        equipped_weapon_masteries.append("Graze (Greatsword)")
-                    elif (
-                        "warhammer" in w_name
-                        and "Topple (Warhammer)" not in equipped_weapon_masteries
-                    ):
-                        equipped_weapon_masteries.append("Topple (Warhammer)")
+                    w_data = get_base_weapon(w_name, all_weapons)
+                    if w_data and "mastery" in w_data:
+                        m_string = f"{w_data['mastery']} ({w_data['name']})"
+                        if m_string not in equipped_weapon_masteries:
+                            equipped_weapon_masteries.append(m_string)
 
             for m in equipped_weapon_masteries:
                 if m not in existing_masteries:
                     existing_masteries.insert(0, m)
 
-            mastery_pool = [
-                "Sap (Longsword)",
-                "Slow (Light Crossbow)",
-                "Graze (Greatsword)",
-                "Nick (Dagger)",
-                "Topple (Warhammer)",
-                "Vex (Shortsword)",
-                "Push (Pike)",
-                "Cleave (Greataxe)",
+            # Popular defaults to ensure we have a good pool of different masteries
+            default_weapon_names = [
+                "Longsword",
+                "Light Crossbow",
+                "Greatsword",
+                "Dagger",
+                "Warhammer",
+                "Shortsword",
+                "Pike",
+                "Greataxe",
             ]
-            for m in mastery_pool:
-                if len(existing_masteries) >= target_masteries_count:
-                    break
-                if m not in existing_masteries:
-                    existing_masteries.append(m)
+            for def_name in default_weapon_names:
+                w_data = next(
+                    (x for x in all_weapons if x.get("name", "").lower() == def_name.lower()), None
+                )
+                if w_data and "mastery" in w_data:
+                    m_string = f"{w_data['mastery']} ({w_data['name']})"
+                    if len(existing_masteries) >= target_masteries_count:
+                        break
+                    if m_string not in existing_masteries:
+                        existing_masteries.append(m_string)
 
             char_data["weapon_masteries"] = existing_masteries[:target_masteries_count]
 
@@ -1011,10 +1035,9 @@ def sync_character_stats(
                     w_name = (w.get("name") or "").lower()
                     props = w.get("properties") or ""
                     if "mastery" not in props.lower():
-                        if "longsword" in w_name:
-                            w["properties"] = f"{props}, Mastery: Sap".strip(", ")
-                        elif "crossbow" in w_name:
-                            w["properties"] = f"{props}, Mastery: Slow".strip(", ")
+                        w_data = get_base_weapon(w_name, all_weapons)
+                        if w_data and "mastery" in w_data:
+                            w["properties"] = f"{props}, Mastery: {w_data['mastery']}".strip(", ")
 
         # B. Background Origin Feat
         bg = (char_data.get("background") or "").lower()

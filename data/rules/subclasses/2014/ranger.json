@@ -1,0 +1,22 @@
+{
+    "class_name": "Ranger",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Hunter": {
+            "name": "Hunter",
+            "scaling": {
+                "colossus_slayer": {
+                    "name": "Colossus Slayer",
+                    "kind": "rider",
+                    "hint": "Once per turn, against a creature already below its hit point maximum.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

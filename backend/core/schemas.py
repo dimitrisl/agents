@@ -227,6 +227,12 @@ class CharacterSchema(BaseModel):
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
 
+    @computed_field
+    @property
+    def total_hp_max(self) -> int:
+        con_mod = (self.stats.CON - 10) // 2
+        return self.hp_max + (con_mod * self.char_level)
+
     @field_validator("spell_slots", mode="before")
     @classmethod
     def normalize_spell_slots(cls, v: Any) -> Dict[str, Dict[str, int]]:
@@ -368,7 +374,7 @@ class BuildValidationSchema(BaseModel):
     is_valid: bool
     issues: List[str] = Field(default_factory=list)
     suggestions: List[str] = Field(default_factory=list)
-    corrections: Optional[Dict[str, Any]] = {}
+    corrections: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class UserSchema(BaseModel):

@@ -239,5 +239,23 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "WIS"
+    "spellcasting_ability": "WIS",
+    "scaling": {
+        "divine_strike": {
+            "name": "Divine Strike",
+            "kind": "rider",
+            "damage_type": null,
+            "hint": "Once per turn on a weapon hit. Damage type follows your domain.",
+            "steps": [
+                {
+                    "level": 8,
+                    "notation": "1d8"
+                },
+                {
+                    "level": 14,
+                    "notation": "2d8"
+                }
+            ]
+        }
+    }
 }

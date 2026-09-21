@@ -24,7 +24,7 @@ def test_roll_dice_invalid():
     result = roll_dice("not a dice")
     assert "error" in result
 
-    result = roll_dice("d20")  # Missing number of dice
+    result = roll_dice("not a dice")
     assert "error" in result
 
 

@@ -197,5 +197,43 @@
         }
     },
     "caster_type": "pact",
-    "spellcasting_ability": "CHA"
+    "spellcasting_ability": "CHA",
+    "scaling": {
+        "eldritch_blast": {
+            "name": "Eldritch Blast",
+            "kind": "attack",
+            "damage_type": "force",
+            "hint": "Each beam is a separate attack roll. Agonizing Blast adds CHA to every beam.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1 beam (1d10)"
+                },
+                {
+                    "level": 5,
+                    "notation": "2 beams (1d10)"
+                },
+                {
+                    "level": 11,
+                    "notation": "3 beams (1d10)"
+                },
+                {
+                    "level": 17,
+                    "notation": "4 beams (1d10)"
+                }
+            ]
+        },
+        "hex": {
+            "name": "Hex",
+            "kind": "rider",
+            "damage_type": "necrotic",
+            "hint": "Extra damage on every hit against the hexed creature.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1d6"
+                }
+            ]
+        }
+    }
 }

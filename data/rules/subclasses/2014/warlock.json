@@ -1,0 +1,43 @@
+{
+    "class_name": "Warlock",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "The Hexblade": {
+            "name": "The Hexblade",
+            "scaling": {
+                "hexblades_curse": {
+                    "name": "Hexblade's Curse",
+                    "kind": "rider",
+                    "hint": "Bonus to damage rolls against the cursed target.",
+                    "steps": [
+                        {
+                            "level": 1,
+                            "notation": "proficiency bonus"
+                        }
+                    ]
+                }
+            }
+        },
+        "The Fathomless": {
+            "name": "The Fathomless",
+            "scaling": {
+                "tentacle_of_the_deeps": {
+                    "name": "Tentacle of the Deeps",
+                    "kind": "attack",
+                    "damage_type": "cold",
+                    "hint": "Bonus action melee spell attack, reduces target speed by 10ft.",
+                    "steps": [
+                        {
+                            "level": 1,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

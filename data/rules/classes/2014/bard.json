@@ -250,5 +250,53 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "CHA"
+    "spellcasting_ability": "CHA",
+    "scaling": {
+        "bardic_inspiration": {
+            "name": "Bardic Inspiration",
+            "kind": "utility",
+            "hint": "The ally adds this to one ability check, attack roll or saving throw.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1d6"
+                },
+                {
+                    "level": 5,
+                    "notation": "1d8"
+                },
+                {
+                    "level": 10,
+                    "notation": "1d10"
+                },
+                {
+                    "level": 15,
+                    "notation": "1d12"
+                }
+            ]
+        },
+        "song_of_rest": {
+            "name": "Song of Rest",
+            "kind": "heal",
+            "hint": "Each ally who spends Hit Dice on a short rest regains this much extra.",
+            "steps": [
+                {
+                    "level": 2,
+                    "notation": "1d6"
+                },
+                {
+                    "level": 9,
+                    "notation": "1d8"
+                },
+                {
+                    "level": 13,
+                    "notation": "1d10"
+                },
+                {
+                    "level": 17,
+                    "notation": "1d12"
+                }
+            ]
+        }
+    }
 }

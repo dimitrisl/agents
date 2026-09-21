@@ -206,5 +206,22 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "WIS"
+    "spellcasting_ability": "WIS",
+    "scaling": {
+        "primal_strike": {
+            "name": "Primal Strike",
+            "kind": "rider",
+            "hint": "Elemental Fury option \u2014 once per turn. Cold, Fire, Lightning or Thunder.",
+            "steps": [
+                {
+                    "level": 7,
+                    "notation": "1d8"
+                },
+                {
+                    "level": 15,
+                    "notation": "2d8"
+                }
+            ]
+        }
+    }
 }
