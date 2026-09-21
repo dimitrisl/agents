@@ -2,7 +2,8 @@
   <div class="flex justify-between items-center">
     <h2 class="text-xl font-bold text-ink">Campaign Homebrew</h2>
     <div class="flex gap-2">
-      <button class="bg-surface text-ink px-3 py-1 rounded border border-hairline hover:bg-tile" (click)="homebrewService.exportHomebrew(campaignName!).subscribe()">Export</button>
+      <button class="bg-surface text-ink px-3 py-1 rounded border border-hairline hover:bg-tile" (click)="homebrewService.exportHomebrewPdf(campaignName!)">Export PDF</button>
+      <button class="bg-surface text-ink px-3 py-1 rounded border border-hairline hover:bg-tile" (click)="homebrewService.exportHomebrew(campaignName!).subscribe()">Export JSON</button>
       <button class="bg-accent text-white px-3 py-1 rounded hover:bg-accent/90" (click)="showForgeModal = true">+ Create Homebrew</button>
     </div>
   </div>

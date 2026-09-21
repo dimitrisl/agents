@@ -70,9 +70,7 @@ def convert_to_vtt_format(char_dict: dict) -> dict:
                 "biography": {"value": char_dict.get("backstory", "")},
             },
             "skills": skills_data,
-            "traits": {
-                "languages": {"custom": "; ".join(char_dict.get("languages", []))}
-            },
+            "traits": {"languages": {"custom": "; ".join(char_dict.get("languages", []))}},
         },
         "items": [],
     }
@@ -100,14 +98,10 @@ def convert_to_vtt_format(char_dict: dict) -> dict:
     for item in char_dict.get("equipment", []):
         vtt_char["items"].append(
             {
-                "name": item.get("name", "Unknown Item")
-                if isinstance(item, dict)
-                else item,
+                "name": item.get("name", "Unknown Item") if isinstance(item, dict) else item,
                 "type": "equipment",
                 "system": {
-                    "equipped": item.get("equipped", False)
-                    if isinstance(item, dict)
-                    else True
+                    "equipped": item.get("equipped", False) if isinstance(item, dict) else True
                 },
             }
         )
@@ -121,9 +115,7 @@ def convert_to_vtt_format(char_dict: dict) -> dict:
                 "type": "feat",
                 "system": {
                     "description": {
-                        "value": feature.get("description", "")
-                        if isinstance(feature, dict)
-                        else ""
+                        "value": feature.get("description", "") if isinstance(feature, dict) else ""
                     }
                 },
             }

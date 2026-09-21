@@ -27,9 +27,7 @@ def roll_dice(dice_str: str):
         "rolls": rolls,
         "modifier": modifier,
         "total": total,
-        "result_text": f"{rolls} + {modifier} = {total}"
-        if modifier != 0
-        else f"{rolls} = {total}",
+        "result_text": f"{rolls} + {modifier} = {total}" if modifier != 0 else f"{rolls} = {total}",
     }
 
 

@@ -153,6 +153,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showConditionsModal = false;
   showPortraitModal = false;
   showJoinModal = false;
+  showHomebrewModal = false;
   showShortRestModal = false;
   showProficientOnly = false;
   showLevelUpModal = false;
@@ -1113,6 +1114,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }).subscribe({
       next: (res) => {
         this.showJoinModal = false;
+  showHomebrewModal = false;
         char.active_campaign = res.campaign_name;
         this.saveCurrentChar();
         this.loadedCampaignMessageKey = null;

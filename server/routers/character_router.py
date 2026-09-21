@@ -20,11 +20,15 @@ from pydantic import BaseModel
 
 from backend.core.schemas import CharacterSchema, SuccessResponseSchema
 from backend.services.forge_service import process_character_update
+from backend.services.homebrew_service import HomebrewService
 from backend.services.rules_service import parse_character_from_text
 from backend.utils.pdf_exporter import export_character_to_pdf
 from backend.utils.pdf_importer import extract_text_and_fields_from_pdf
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
+
+homebrew_service = HomebrewService()
+
 
 router = APIRouter(prefix="/characters", tags=["Characters"])
 logger = logging.getLogger("PhyrexianForge.CharacterRouter")
@@ -143,6 +147,63 @@ async def update_character(
     _pending_updates[char_id] = (char_dict, time.monotonic())
 
     return CharacterSchema.model_validate(char_dict, strict=False)
+
+
+@router.post("/{char_id}/homebrew/{item_id}", response_model=CharacterSchema)
+async def add_homebrew_to_character(
+    char_id: str,
+    item_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    char_doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
+    if not char_doc:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    campaign_id = char_doc.get("active_campaign")
+    if not campaign_id:
+        raise HTTPException(status_code=400, detail="Character is not in an active campaign")
+
+    item_doc = await homebrew_service.get_homebrew_item(db, item_id, campaign_id)
+    if not item_doc:
+        raise HTTPException(status_code=404, detail="Homebrew item not found in this campaign")
+
+    # Add to character based on type
+    htype = item_doc.get("homebrew_type")
+
+    # Use CharacterSchema to structure
+    char = CharacterSchema(**char_doc)
+
+    if htype == "weapon":
+        char.weapons.append(item_doc)
+    elif htype == "item":
+        char.equipment.append(item_doc)
+    elif htype == "spell":
+        # Add to known spells based on level? Or just a generic list?
+        # For now, put it in equipment to at least show it, or features.
+        # Actually spells go to the spellbook, but `spell_list` is complex.
+        # Let's add it to prepared_spells and spell lists.
+        level = item_doc.get("level", 0)
+        lvl_key = "cantrips" if level == 0 else f"level_{level}"
+        if hasattr(char.spells, lvl_key):
+            getattr(char.spells, lvl_key).append(item_doc.get("name"))
+        char.prepared_spells.append(item_doc.get("name"))
+    elif htype == "feat":
+        item_doc["source"] = "Homebrew"
+        item_doc["name"] = item_doc.get("name", "Unknown Feat")
+        item_doc["description"] = item_doc.get("description", "")
+        char.features_traits.append(item_doc)
+    elif htype == "feature":
+        item_doc["source"] = "Homebrew"
+        item_doc["name"] = item_doc.get("name", "Unknown Feature")
+        item_doc["description"] = item_doc.get("description", "")
+        char.features_traits.append(item_doc)
+
+    # Process updates (handles stats, max hp, etc.)
+    char_dict = char.model_dump(by_alias=True)
+    updated_char = await process_character_update(db, char_id, char_dict)
+
+    return updated_char
 
 
 @router.delete("/{char_id}", response_model=SuccessResponseSchema)

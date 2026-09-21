@@ -48,6 +48,10 @@ export class HomebrewService {
     return this.http.get(`${this.apiUrl}/${campaignName}/homebrew/export`);
   }
 
+  exportHomebrewPdf(campaignName: string) {
+    window.open(`${this.apiUrl}/${campaignName}/homebrew/export/pdf`, '_blank');
+  }
+
   importHomebrew(campaignName: string, items: any[]): Observable<any> {
     return this.http.post(`${this.apiUrl}/${campaignName}/homebrew/import`, { items }).pipe(
       tap(() => this.loadHomebrew(campaignName).subscribe())

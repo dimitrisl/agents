@@ -48,6 +48,20 @@ class HomebrewService:
             items.append(doc)
         return items
 
+    async def get_homebrew_item(
+        self, db: AsyncIOMotorDatabase, item_id: str, campaign_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieves a single homebrew item by ID."""
+        try:
+            obj_id = ObjectId(item_id)
+        except InvalidId:
+            return None
+
+        doc = await db["homebrew_content"].find_one({"_id": obj_id, "campaign_id": campaign_id})
+        if doc:
+            doc["_id"] = str(doc["_id"])
+        return doc
+
     async def update_homebrew(
         self, db: AsyncIOMotorDatabase, item_id: str, campaign_id: str, update_data: Dict[str, Any]
     ) -> bool:
