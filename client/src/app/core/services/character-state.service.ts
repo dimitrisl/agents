@@ -42,10 +42,7 @@ export class CharacterStateService {
   });
 
   readonly passivePerception = computed(() => {
-    const wisMod = this.abilityModifiers().WIS;
-    const profBonus = proficiencyBonus(this.activeCharacter());
-    const isProf = this.activeCharacter()?.skill_proficiencies?.includes('Perception');
-    return 10 + wisMod + (isProf ? profBonus : 0);
+    return this.activeCharacter()?.passive_perception ?? 10;
   });
 
   // The vault is fetched once per session; mutations patch the local list from

@@ -1482,7 +1482,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/characters/import-pdf`, formData).subscribe({
       next: (imported) => {
-        this.charState.saveCharacter(imported).subscribe();
+        this.charState.loadCharacters().subscribe();
         this.rollToast.showMessage('📥 PDF IMPORTED', `Successfully imported ${imported.char_name}!`);
       },
       error: () => this.rollToast.showMessage('⚠️ IMPORT FAILED', 'Failed to import PDF character sheet.')

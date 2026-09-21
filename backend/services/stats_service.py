@@ -711,9 +711,13 @@ def sync_character_stats(
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus
     skill_profs = list(char_data.get("skill_proficiencies", []))
     wis_mod = get_modifier(wis_score)
-    pass_perc = char_data.get("passive_perception", 10)
+    pass_perc = char_data.get("passive_perception")
 
-    if pass_perc >= 10 + wis_mod + prof_bonus and "Perception" not in skill_profs:
+    if (
+        pass_perc is not None
+        and pass_perc >= 10 + wis_mod + prof_bonus
+        and "Perception" not in skill_profs
+    ):
         skill_profs.append("Perception")
 
     temp_skills = calculate_skills(
@@ -930,8 +934,8 @@ def sync_character_stats(
     skill_profs = char_data.get("skill_proficiencies") or []
     normalized_profs = [str(s).strip().lower() for s in skill_profs]
     wis_mod = math.floor((stats.get("WIS", 10) - 10) / 2)
-    passive_percep = char_data.get("passive_perception") or (10 + wis_mod)
-    if passive_percep >= 10 + wis_mod + prof_bonus:
+    passive_percep = char_data.get("passive_perception")
+    if passive_percep is not None and passive_percep >= 10 + wis_mod + prof_bonus:
         if "perception" not in normalized_profs:
             skill_profs.append("Perception")
             char_data["skill_proficiencies"] = skill_profs
