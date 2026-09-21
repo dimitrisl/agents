@@ -43,8 +43,12 @@
 ## 6. Frontend UI / UX (Angular)
 Ο DM χρειάζεται ένα εύχρηστο γραφικό περιβάλλον για να αλληλεπιδρά με το σύστημα.
 - [ ] **Homebrew Management Dashboard:** Ένα tab στο DM Workspace (ή ένα κεντρικό Modal) όπου θα φαίνονται όλα τα υπάρχοντα custom αντικείμενα του campaign.
-- [ ] **AI Forge Popup/Modal:** Μία ειδική φόρμα (dialog/modal) που θα ανοίγει όταν ο DM πατάει "Create Homebrew".
-  - Θα περιέχει ένα text area για το φυσικό κείμενο / prompt (π.χ. "Φτιάξε ένα σπαθί φωτιάς").
-  - Θα δείχνει ένα loading/forging animation κατά την κλήση στο backend.
-  - Θα επιστρέφει το αποτέλεσμα (τα stats του αντικειμένου) σε preview mode, επιτρέποντας στον DM να κάνει manual edits πριν το αποθηκεύσει τελικά στη βάση.
+- [ ] **Strict Guided Wizard (Modal/Popup):** Η δημιουργία ΔΕΝ θα βασίζεται απλά σε ένα ελεύθερο κείμενο. Θα είναι απολύτως καθοδηγούμενη (Guided Form) για να εγγυάται ότι το αποτέλεσμα είναι 100% machine-readable και ακριβές:
+  - **Βήμα 1 (Κατηγορία):** Επιλογή τύπου Homebrew (Weapon, Spell, Feat/Feature, Item).
+  - **Βήμα 2 (Dynamic Form):** Εμφάνιση αυστηρής φόρμας ανάλογα με την κατηγορία:
+    - *Για Weapons:* Dropdowns για ζάρια damage (π.χ. 1d8), damage type (Slashing, Fire), Weapon Properties (Finesse, Heavy).
+    - *Για Feats:* Πεδία για bonus σε attributes (π.χ. +1 STR), προαπαιτούμενα (Prerequisites), και ξεκάθαρα combat mechanics.
+    - *Για Spells:* Spell Level, Casting Time, Range, Components, Duration.
+  - **AI Assistant Integration:** Η φόρμα θα έχει επιλογή "Auto-Fill with AI". Ο DM μπορεί να γράψει "Φτιάξε μου ένα σπαθί που καίει", και το AI θα συμπληρώνει *αυτόματα* τα αυστηρά πεδία της φόρμας.
+  - **Τελικός Έλεγχος:** Ο DM βλέπει τη φόρμα συμπληρωμένη (είτε με το χέρι είτε από το AI), διορθώνει ό,τι θέλει, και όταν πατάει Save, το JSON που φεύγει στο backend είναι απόλυτα δομημένο και validate-αρισμένο.
 - [ ] **Import/Export UI:** Κουμπιά μέσα στο dashboard για το Import (paste JSON / file upload) και Export (download JSON / copy to clipboard).
