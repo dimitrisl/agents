@@ -247,11 +247,6 @@
   ></app-roll-request-modal>
 
   <ng-container *ngIf="charState.activeCharacter() as char">
-    <div *ngIf="char.active_campaign" class="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
-          <span>Member of Campaign: <strong>{{ char.active_campaign }}</strong></span>
-          <button (click)="showHomebrewModal = true" class="ml-auto bg-gold text-surface px-3 py-1 rounded text-xs font-bold hover:bg-gold/90 transition-colors">Browse Homebrew</button>
-        </div>
-          </div>
           <button
             forgeButton
             variant="ghost"
