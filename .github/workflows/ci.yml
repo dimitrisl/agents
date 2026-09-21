@@ -34,7 +34,7 @@ jobs:
         key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
 
     - name: Install dependencies
-      run: poetry sync --all-groups --no-interaction
+      run: poetry install --no-interaction
 
     - name: Run Ruff (Lint)
       run: poetry run ruff check .
