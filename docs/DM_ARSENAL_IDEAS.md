@@ -53,10 +53,24 @@ An AI tool inspired by the "Return of the Lazy Dungeon Master" methodology.
 * **Process:** Using Gemini 1.5's native multimodal audio understanding (or Whisper), the system transcribes the session.
 * **Output:** Automatically generates a formatted **Session Log** for the Campaign Chronicle, extracts new NPCs met, loot acquired, and locations visited, saving the DM hours of post-session note-taking.
 
+### 🎭 Villain Simulator (Roleplay Sandbox)
+* **Feature:** A dedicated chatbot interface where the DM inputs the Big Bad Evil Guy's (BBEG) motives and secrets.
+* **Process:** The AI takes on the persona of the *Players*, asking unpredictable questions. The DM roleplays the villain to test out dialogue, find holes in their plot, and get "warmed up" before the real session.
+
+### 🌩️ The "Vibe Shift" (WebSocket Environment Control)
+* **Feature:** Because players are connected via WebSockets, the DM acts as the ultimate director.
+* **Process:** The DM clicks an environment preset (e.g., "Dragon Lair" or "Tavern").
+* **Output:** Instantly changes the CSS theme (colors/backgrounds) on all connected Player clients and triggers ambient background music/SFX on their browsers.
+
+### ⏳ Downtime & Economy Manager
+* **Feature:** A tracker that calculates downtime activities between adventures.
+* **Process:** Players declare what they are doing (e.g., crafting, running a business, researching). The system crunches the D&D economy math, calculates days passed, gold earned/lost, and outputs the result, removing all accounting from the DM's plate.
+
 ---
 
 ## 3. Future Enhancements & Resilience
 
+* **UI Integration for Rules Oracle:** The backend already has `ask_rules_oracle` implemented in `rules_router.py`. Future work involves exposing this as an elegant "Rules Lawyer" chat box inside the DM Dashboard so the DM can resolve disputes instantly mid-combat.
 * **Lightweight VTT Zone Combat:** A basic grid or abstract zone map where the DM can drag-and-drop player portraits (since they are already uploaded) without needing external tools like Roll20.
 * **Offline-First Resilience:** Moving from purely server-state WebSockets to a local-first architecture (e.g., IndexedDB via RxDB). Ensures the character sheets and combat tracker survive intermittent Wi-Fi drops at the physical game table.
 * **OAuth2 Integration:** Discord login support, allowing players to join campaigns directly via Discord identity, reducing friction and linking to the most common D&D community platform.
