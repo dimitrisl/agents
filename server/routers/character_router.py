@@ -1,8 +1,6 @@
-import asyncio
 import io
 import logging
 import os
-import time
 from typing import List, Optional
 
 from fastapi import (
@@ -14,7 +12,7 @@ from fastapi import (
     status,
 )
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
@@ -32,18 +30,6 @@ homebrew_service = HomebrewService()
 
 router = APIRouter(prefix="/characters", tags=["Characters"])
 logger = logging.getLogger("PhyrexianForge.CharacterRouter")
-
-# Debounce registry: char_id -> (char_dict, timestamp)
-_pending_updates: dict[str, tuple[dict, float]] = {}
-_PENDING_TTL_SECONDS = 30.0
-
-
-def _cleanup_stale_pending():
-    """Remove entries older than TTL to prevent unbounded memory growth."""
-    now = time.monotonic()
-    stale = [k for k, (_, ts) in _pending_updates.items() if now - ts > _PENDING_TTL_SECONDS]
-    for k in stale:
-        del _pending_updates[k]
 
 
 class UnreadableCharacterSchema(BaseModel):
@@ -126,25 +112,10 @@ async def update_character(
     char_dict["char_id"] = char_id
     char_dict["owner_id"] = current_user["id"]
 
-    # Register this exact dict object as the latest pending update
-    _cleanup_stale_pending()
-    _pending_updates[char_id] = (char_dict, time.monotonic())
-
-    # Debounce window: wait briefly to allow subsequent keystrokes/requests to supersede this one
-    await asyncio.sleep(0.4)
-
-    # If this request's payload was superseded by a newer one, abort processing
-    # and return the LATEST unprocessed payload to prevent the frontend cursor from jumping back.
-    if _pending_updates.get(char_id) is not None and _pending_updates[char_id][0] is not char_dict:
-        return CharacterSchema.model_validate(_pending_updates[char_id][0], strict=False)
-
     # Re-calculate and sync stats using threadpool to prevent blocking the async event loop
     char_dict = await run_in_threadpool(process_character_update, char_dict)
 
     await db["characters"].update_one({"char_id": char_id}, {"$set": char_dict})
-
-    # Update the pending registry with the PROCESSED dict so straggler requests return the correctly synced stats
-    _pending_updates[char_id] = (char_dict, time.monotonic())
 
     return CharacterSchema.model_validate(char_dict, strict=False)
 
@@ -227,7 +198,7 @@ async def delete_character(
     return {"success": True, "message": f"Character {char_id} deleted."}
 
 
-@router.post("/{char_id}/export-pdf", response_class=FileResponse)
+@router.post("/{char_id}/export-pdf", response_class=StreamingResponse)
 async def export_pdf(
     char_id: str,
     current_user: dict = Depends(get_current_user),
@@ -258,7 +229,11 @@ async def export_pdf(
 
 
 @router.post("/import-pdf", response_model=CharacterSchema)
-async def import_pdf(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def import_pdf(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -281,6 +256,17 @@ async def import_pdf(file: UploadFile = File(...), current_user: dict = Depends(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Could not parse character data from PDF text.",
         )
+
     parsed_char["owner_id"] = current_user["id"]
+
+    # Assign a new unique char_id for imported characters if they don't have one
+    import uuid
+
+    if not parsed_char.get("char_id"):
+        parsed_char["char_id"] = str(uuid.uuid4())
+
     parsed_char = process_character_update(parsed_char)
+    await db["characters"].update_one(
+        {"char_id": parsed_char["char_id"]}, {"$set": parsed_char}, upsert=True
+    )
     return CharacterSchema.model_validate(parsed_char, strict=False)
