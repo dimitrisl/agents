@@ -39,3 +39,12 @@
 3. Υλοποίηση του **Auth Guard** (`verify_dm_access`).
 4. Σύνδεση με το **LLMProvider** για το AI Generation.
 5. Στήσιμο του **Export/Import** logic.
+
+## 6. Frontend UI / UX (Angular)
+Ο DM χρειάζεται ένα εύχρηστο γραφικό περιβάλλον για να αλληλεπιδρά με το σύστημα.
+- [ ] **Homebrew Management Dashboard:** Ένα tab στο DM Workspace (ή ένα κεντρικό Modal) όπου θα φαίνονται όλα τα υπάρχοντα custom αντικείμενα του campaign.
+- [ ] **AI Forge Popup/Modal:** Μία ειδική φόρμα (dialog/modal) που θα ανοίγει όταν ο DM πατάει "Create Homebrew".
+  - Θα περιέχει ένα text area για το φυσικό κείμενο / prompt (π.χ. "Φτιάξε ένα σπαθί φωτιάς").
+  - Θα δείχνει ένα loading/forging animation κατά την κλήση στο backend.
+  - Θα επιστρέφει το αποτέλεσμα (τα stats του αντικειμένου) σε preview mode, επιτρέποντας στον DM να κάνει manual edits πριν το αποθηκεύσει τελικά στη βάση.
+- [ ] **Import/Export UI:** Κουμπιά μέσα στο dashboard για το Import (paste JSON / file upload) και Export (download JSON / copy to clipboard).
