@@ -42,10 +42,8 @@
       [max]="char.hp_max"
       [temp]="char.hp_temp ?? 0"
       [deathSaves]="char.death_saves"
-      (hpDown)="hpDown.emit()"
-      (hpUp)="hpUp.emit()"
-      (tempDown)="tempDown.emit()"
-      (tempUp)="tempUp.emit()"
+      (hpChange)="hpChange.emit($event)"
+      (tempChange)="tempChange.emit($event)"
       (deathSaveChange)="deathSaveChange.emit($event)"
     ></app-hit-points-control>
 

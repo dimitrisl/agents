@@ -2,7 +2,7 @@ import datetime
 import re
 import secrets
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 class CampaignSchema(BaseModel):
     campaign_name: str
     owner_id: Optional[str] = None
-    role: str = "dm"
+    role: Literal["dm"] = "dm"
     notes: str = ""
     party: List[str] = []
     dnd_edition: Optional[str] = None
@@ -31,7 +31,7 @@ class CampaignSchema(BaseModel):
 class PlayerCampaignSchema(BaseModel):
     campaign_name: str
     owner_id: Optional[str] = None
-    role: str = "player"
+    role: Literal["player"] = "player"
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
@@ -194,7 +194,7 @@ def _visible_roll_requests(requests: List[Dict[str, Any]], is_dm: bool) -> List[
 # _ensure_dm_access removed as per #ticket
 
 
-@router.get("/", response_model=List[Union[CampaignSchema, PlayerCampaignSchema]])
+@router.get("/", response_model=List[Any])
 async def list_campaigns(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
 ):
@@ -211,10 +211,11 @@ async def list_campaigns(
     async for doc in cursor:
         doc.pop("_id", None)
         role = user_roles.get(doc["campaign_name"], "player")
+        doc["role"] = role
         if role == "dm":
-            campaigns.append(CampaignSchema(**doc))
+            campaigns.append(CampaignSchema(**doc).model_dump())
         else:
-            campaigns.append(PlayerCampaignSchema(**doc))
+            campaigns.append(PlayerCampaignSchema(**doc).model_dump())
     return campaigns
 
 
@@ -367,7 +368,7 @@ async def join_campaign_by_code(
     )
 
     await db["characters"].update_one(
-        {"char_id": char_id},
+        {"char_id": char_id, "owner_id": current_user["id"]},
         {"$set": {"active_campaign": camp["campaign_name"]}},
     )
 
@@ -419,7 +420,7 @@ async def add_party_member(
     )
 
     await db["characters"].update_one(
-        {"char_id": char_id},
+        {"char_id": char_id, "owner_id": current_user["id"]},
         {"$set": {"active_campaign": name}},
     )
 

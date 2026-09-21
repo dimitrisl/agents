@@ -3,7 +3,7 @@ import io
 import logging
 import os
 import time
-from typing import List
+from typing import List, Optional
 
 from fastapi import (
     APIRouter,
@@ -16,6 +16,7 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel
 
 from backend.core.schemas import CharacterSchema, SuccessResponseSchema
 from backend.services.forge_service import process_character_update
@@ -41,20 +42,38 @@ def _cleanup_stale_pending():
         del _pending_updates[k]
 
 
-@router.get("", response_model=List[CharacterSchema])
+class UnreadableCharacterSchema(BaseModel):
+    char_id: Optional[str] = None
+    char_name: Optional[str] = None
+    reason: str
+
+
+class CharacterListResponse(BaseModel):
+    characters: List[CharacterSchema]
+    unreadable: List[UnreadableCharacterSchema]
+
+
+@router.get("", response_model=CharacterListResponse)
 async def list_characters(
     current_user: dict = Depends(get_current_user), db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     cursor = db["characters"].find({"owner_id": current_user["id"]})
     characters = []
+    unreadable = []
     async for doc in cursor:
         doc.pop("_id", None)
         try:
             characters.append(CharacterSchema.model_validate(doc, strict=False))
         except Exception as e:
             logger.warning("Skipping legacy character %s: %s", doc.get("char_name", "Unknown"), e)
-            pass
-    return characters
+            unreadable.append(
+                UnreadableCharacterSchema(
+                    char_id=doc.get("char_id"),
+                    char_name=doc.get("char_name", "Unknown"),
+                    reason=str(e),
+                )
+            )
+    return CharacterListResponse(characters=characters, unreadable=unreadable)
 
 
 @router.post("", response_model=CharacterSchema, status_code=status.HTTP_201_CREATED)

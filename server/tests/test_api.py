@@ -103,8 +103,8 @@ def test_character_routes(mocker):
         response = client.get("/api/v1/characters/")
         assert response.status_code == 200
         chars = response.json()
-        assert len(chars) == 1
-        assert chars[0]["char_name"] == "Test Paladin"
+        assert len(chars["characters"]) == 1
+        assert chars["characters"][0]["char_name"] == "Test Paladin"
 
         # 2. Get single character
         response = client.get("/api/v1/characters/test_123")

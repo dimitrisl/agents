@@ -112,3 +112,28 @@ export interface CharacterSchema {
   dnd_edition?: string;
   active_campaign?: string;
 }
+
+export interface LevelUpChoice {
+  type: string;
+  label: string;
+  options: string[];
+  ai_recommendation?: string;
+  reasoning?: string;
+}
+
+export interface LevelUpAnalysis {
+  automatic_changes: FeatureTrait[];
+  hp_increase: number;
+  new_total_hp: number;
+  choices_required: LevelUpChoice[];
+  updated_proficiency_bonus?: number;
+  updated_spell_slots?: Record<string, number>;
+  new_spells_known?: string[];
+  new_features?: FeatureTrait[]; // Alias
+}
+
+export interface LevelUpApplyRequest {
+  character_id: string;
+  analysis: LevelUpAnalysis;
+  user_choices?: Record<string, any>;
+}

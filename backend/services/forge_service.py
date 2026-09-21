@@ -9,17 +9,15 @@ from backend.core.constants import (
 )
 from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
-    LEVEL_UP_ANALYSIS_PROMPT,
     MANUAL_CHARACTER_ENRICH_PROMPT,
     PLAYSTYLE_GUIDE_PROMPT,
 )
-from backend.core.schemas import CharacterSchema, LevelUpAnalysisSchema
+from backend.core.schemas import CharacterSchema
 from backend.core.state_manager import get_default_character
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
 from backend.services.rules_service import (
     autofix_character_build,
-    get_static_class_features,
 )
 from backend.services.validation_service import deterministic_validate_build
 
@@ -314,55 +312,196 @@ def generate_playstyle_guide(char_data: dict) -> str:
 
 
 def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
-    """Uses AI to determine changes, incorporating any manual user choices."""
+    """Determines level up changes deterministically without an LLM call."""
+    import math
+
+    from backend.repositories.rules_repository import RulesRepository
+    from backend.services.progression_service import get_level_up_vitals
+
     current_level = char_data.get("char_level", 1)
     target_level = current_level + 1
     edition = char_data.get("dnd_edition", EDITION_2014)
+    char_class = char_data.get("char_class", "Fighter")
 
-    choice_context = ""
-    if user_choices:
-        choice_context = [
-            "\nUser has already made the following manual choices for this level up:\n",
-        ]
-        for k, v in user_choices.items():
-            choice_context.append(f"- {k}: {v}\n")
-        choice_context = "\n".join(choice_context)
+    rules_repo = RulesRepository()
+    static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
 
-    prompt = LEVEL_UP_ANALYSIS_PROMPT.format(
-        edition=edition,
-        current_level=current_level,
-        target_level=target_level,
-        char_class=char_data.get("char_class"),
-        subclass=char_data.get("subclass", "None"),
-        race=char_data.get("race"),
-        stats=char_data.get("stats"),
-    )
-    if choice_context:
-        prompt += choice_context
-        prompt += "\nPlease fill in all OTHER automatic class features and spell slots, ignoring the choices already made above unless they trigger additional features."
-    static_features_readiness = True
-    result = generate_ai_json(prompt)
-    if result:
-        if static_features_readiness:
-            # MERGE: Check static knowledge base for features
-            static_features = get_static_class_features(
-                char_data.get("char_class"), target_level, edition
-            )
-            if static_features:
-                logger.info(
-                    f"Found {len(static_features)} static features for {char_data.get('char_class')} level {target_level}"
+    try:
+        vitals = get_level_up_vitals(
+            char_class=char_class,
+            current_level=current_level,
+            con_score=char_data.get("stats", {}).get("CON", 10),
+            edition=edition,
+            features=char_data.get("features_traits", []),
+        )
+        hp_increase = vitals.get("average_hp_gain", 0)
+    except Exception:
+        hp_increase = 6
+
+    updated_pb = math.ceil(target_level / 4) + 1
+
+    choices = []
+
+    # 1. Subclass
+    current_subclass = char_data.get("subclass")
+    if not current_subclass:
+        subclasses = rules_repo.get_subclasses(char_class, edition)
+        if subclasses:
+            subclass_level = 3
+            if edition == EDITION_2014:
+                if char_class in ["Cleric", "Sorcerer", "Warlock"]:
+                    subclass_level = 1
+                elif char_class in ["Wizard", "Druid"]:
+                    subclass_level = 2
+
+            if target_level == subclass_level:
+                choices.append(
+                    {
+                        "type": "subclass",
+                        "label": f"Choose your {char_class} Subclass",
+                        "options": subclasses,
+                        "ai_recommendation": f"Any of these official subclasses will work perfectly for your {char_class}.",
+                    }
                 )
-                # Ensure static features are in the automatic_changes
-                existing_names = [f.get("name") for f in result.get("automatic_changes", [])]
-                for sf in static_features:
-                    if sf.get("name") not in existing_names:
-                        result.setdefault("automatic_changes", []).append(sf)
-        try:
-            return LevelUpAnalysisSchema(**result).model_dump()
-        except Exception as e:
-            logger.warning(f"Level up analysis failed validation: {e}. Returning raw result.")
-            return result
-    return None
+
+    # 2. ASI/Feat
+    if target_level in [4, 8, 12, 16, 19]:
+        choices.append(
+            {
+                "type": "feat",
+                "label": "Choose a Feat or Ability Score Improvement",
+                "options": ["+2 to one Stat", "+1 to two Stats"]
+                + [f["name"] for f in rules_repo.get_all_feats(edition)],
+                "ai_recommendation": "A standard ASI/Feat level. Pick what suits your build best.",
+            }
+        )
+
+    # 3. Spells (Simplified generic spell choice for casters)
+    spellcasters = [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Warlock",
+        "Wizard",
+        "Artificer",
+    ]
+    if char_class in spellcasters:
+        spells = sorted([s["name"] for s in rules_repo.get_all_spells(edition)])
+
+        # Bard Magical Secrets overrides
+        if char_class == "Bard" and target_level in [10, 14, 18]:
+            choices.append(
+                {
+                    "type": "spell_secret_1",
+                    "label": "Magical Secrets: Choose 1st Spell (Any Class)",
+                    "options": spells,
+                    "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
+                }
+            )
+            choices.append(
+                {
+                    "type": "spell_secret_2",
+                    "label": "Magical Secrets: Choose 2nd Spell (Any Class)",
+                    "options": spells,
+                    "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
+                }
+            )
+        elif char_class == "Bard" and target_level == 6 and current_subclass == "College of Lore":
+            choices.append(
+                {
+                    "type": "spell_secret_1",
+                    "label": "Additional Magical Secrets: Choose 1st Spell (Any Class)",
+                    "options": spells,
+                    "ai_recommendation": "Lore Bards get Magical Secrets early!",
+                }
+            )
+            choices.append(
+                {
+                    "type": "spell_secret_2",
+                    "label": "Additional Magical Secrets: Choose 2nd Spell (Any Class)",
+                    "options": spells,
+                    "ai_recommendation": "Lore Bards get Magical Secrets early!",
+                }
+            )
+        else:
+            choices.append(
+                {
+                    "type": "spell",
+                    "label": f"Learn/Prepare a {char_class} Spell",
+                    "options": spells,
+                    "ai_recommendation": "Explore the official spell list.",
+                }
+            )
+
+    # 4. Expertise
+    skills = [
+        "Acrobatics",
+        "Animal Handling",
+        "Arcana",
+        "Athletics",
+        "Deception",
+        "History",
+        "Insight",
+        "Intimidation",
+        "Investigation",
+        "Medicine",
+        "Nature",
+        "Perception",
+        "Performance",
+        "Persuasion",
+        "Religion",
+        "Sleight of Hand",
+        "Stealth",
+        "Survival",
+    ]
+    if char_class == "Bard" and target_level in [3, 10]:
+        choices.append(
+            {
+                "type": "expertise_1",
+                "label": "Choose 1st skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick a skill you are already proficient in.",
+            }
+        )
+        choices.append(
+            {
+                "type": "expertise_2",
+                "label": "Choose 2nd skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick another skill for Expertise.",
+            }
+        )
+    elif char_class == "Rogue" and target_level in [1, 6]:
+        choices.append(
+            {
+                "type": "expertise_1",
+                "label": "Choose 1st skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick a skill you are already proficient in.",
+            }
+        )
+        choices.append(
+            {
+                "type": "expertise_2",
+                "label": "Choose 2nd skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick another skill for Expertise.",
+            }
+        )
+
+    return {
+        "automatic_changes": static_features,
+        "hp_increase": hp_increase,
+        "new_total_hp": char_data.get("hp_max", 0) + hp_increase,
+        "choices_required": choices,
+        "updated_proficiency_bonus": updated_pb,
+        "updated_spell_slots": {},
+        "new_spells_known": [],
+        "new_features": static_features,
+    }
 
 
 def process_character_update(

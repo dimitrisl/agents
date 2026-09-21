@@ -17,6 +17,20 @@ db = Database()
 async def connect_to_mongo():
     logger.info("Connecting to MongoDB Atlas async via Motor...")
     db.client = AsyncIOMotorClient(settings.MONGO_URI)
+
+    # Initialize indexes for campaign collections
+    database = db.client[settings.DATABASE_NAME]
+    try:
+        import pymongo
+
+        await database["campaign_whispers"].create_index([("campaign_name", pymongo.ASCENDING)])
+        await database["campaign_roll_requests"].create_index(
+            [("campaign_name", pymongo.ASCENDING)]
+        )
+        logger.info("Ensured indexes for campaign_whispers and campaign_roll_requests")
+    except Exception as e:
+        logger.error(f"Failed to create indexes: {e}")
+
     logger.info("Async MongoDB connection initialized.")
 
 

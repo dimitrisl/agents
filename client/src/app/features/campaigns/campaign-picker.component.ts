@@ -60,9 +60,22 @@ export class CampaignPickerComponent implements OnInit {
     }
   }
 
-  onCampaignJoined() {
-    this.showJoinModal.set(false);
-    this.fetchCampaigns();
+  inviteCode = signal('');
+
+  onJoinCampaign() {
+    if (!this.inviteCode()) return;
+    this.loading.set(true);
+    this.http.post(`${environment.apiBaseUrl}/campaigns/join`, { invite_code: this.inviteCode() })
+      .subscribe({
+        next: () => {
+          this.showJoinModal.set(false);
+          this.fetchCampaigns();
+        },
+        error: () => {
+          this.loading.set(false);
+          // could show an error toast here
+        }
+      });
   }
 
   logout() {

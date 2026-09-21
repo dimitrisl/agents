@@ -118,7 +118,7 @@ Return a JSON object with the following structure:
         {{
             "type": "subclass|feat|spell|infusion|invocation|other",
             "label": "Give a clear title for this choice",
-            "options": ["Option 1", "Option 2"],
+            "options": ["Valid Option A", "Valid Option B", "Valid Option C"], // MUST contain ALL individual valid options for this choice (e.g. "Lore", "Valor", "Swords" - DO NOT return a single string with commas).
             "ai_recommendation": "Explain WHY this is the best choice for this specific build."
         }}
     ],
@@ -133,7 +133,10 @@ STRICT CLASS RULES:
 - ARTIFICER: If Level 2, 6, 10, 14, they gain NEW Infusion options. List them in choices or features.
 - WARLOCK: If Level 2, 5, 7, 9, 12, 15, 18, they gain NEW Eldritch Invocations.
 - FIGHTER: Gain extra ASI/Feats at levels 4, 6, 8, 12, 14, 16, 19.
-- SPELLCASTERS: If they learn new spells (e.g. Sorcerer, Bard, Ranger), include them in choices_required.
+- SPELLCASTERS: If they learn new spells (e.g. Sorcerer, Bard, Ranger), include them in choices_required. THE OPTIONS LIST MUST contain individual spell names as strings.
+- EXPERTISE/SKILLS: If the character gains expertise or skills, the options list MUST contain all valid individual skill names.
+- SUBCLASS: If the character reaches the subclass level, the options list MUST contain all official subclasses for that class.
+- MULTIPLE CHOICES: If a feature requires picking multiple things (e.g. choose 2 skills for Expertise, or learn 2 Spells), you MUST create separate choice objects in the choices_required array (e.g. one for "expertise_1", one for "expertise_2"). Each choice must only ask for 1 thing.
 
 Ruleset specific notes:
 - If 2024 Edition, remember that Subclasses are now ALWAYS chosen at Level 3.
