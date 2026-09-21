@@ -15,6 +15,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap, tap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { HomebrewService } from '../../core/services/homebrew.service';
 import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
@@ -227,7 +228,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private homebrewService: HomebrewService
   ) {
     this.hpSave$
       .pipe(
@@ -321,6 +323,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.charState.loadCharacters().subscribe(() => {
           this.router.navigate(['/']);
         });
+      } else if (msg.type === 'homebrew_created') {
+        if (char.active_campaign) {
+          this.homebrewService.loadHomebrew(char.active_campaign).subscribe();
+        }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
         if (!this.isWhisperForCharacter(whisper, char.char_name)) return;

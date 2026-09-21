@@ -60,9 +60,11 @@ export class HomebrewForgeModalComponent {
     if (!this.campaignName) return;
     const finalData = { ...this.formData, homebrew_type: this.selectedType };
     this.homebrewService.saveHomebrew(this.campaignName, finalData).subscribe({
-      next: () => this.rollToast.showMessage('✅ ITEM SAVED', 'Homebrew item saved successfully.');
-        this.closeModal.emit(),
-      error: () => this.rollToast.showMessage('❌ SAVE FAILED', 'Failed to save homebrew item.');
+      next: () => {
+        this.rollToast.showMessage('✅ ITEM SAVED', 'Homebrew item saved successfully.');
+        this.closeModal.emit();
+      },
+      error: () => this.rollToast.showMessage('❌ SAVE FAILED', 'Failed to save homebrew item.')
     });
   }
 }
