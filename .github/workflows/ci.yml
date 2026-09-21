@@ -44,6 +44,7 @@ jobs:
 
     - name: Run Pytest
       run: |
+        mkdir -p data/portraits
         poetry run pip install pytest pytest-mock mongomock pytest-cov
         poetry run pytest tests/ -v
       env:
