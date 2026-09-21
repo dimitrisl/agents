@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from backend.core.schemas import (
     CharacterSchema,
     LevelUpAnalysisSchema,
+    LevelUpApplyRequest,
     PlaystyleGuideResponse,
     PortraitResponse,
 )
@@ -178,3 +179,135 @@ async def generate_ai_portrait(
         )
 
     return {"success": bool(portrait_url), "portrait_url": portrait_url or ""}
+
+
+@router.post("/level-up-apply", response_model=CharacterSchema)
+async def apply_level_up(
+    payload: LevelUpApplyRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    char_doc = await db["characters"].find_one(
+        {"char_id": payload.character_id, "owner_id": current_user["id"]}
+    )
+    if not char_doc:
+        raise HTTPException(status_code=404, detail="Character not found or access denied")
+
+    # Increment level
+    char_doc["char_level"] = char_doc.get("char_level", 1) + 1
+
+    # Update HP
+    char_doc["hp_max"] = payload.analysis.new_total_hp
+    char_doc["hp_current"] = payload.analysis.new_total_hp  # heal on level up
+
+    # Append automatic features
+    existing_features = {
+        f.get("name") for f in char_doc.get("features_traits", []) if isinstance(f, dict)
+    }
+    for feature in payload.analysis.automatic_changes:
+        if feature.name not in existing_features:
+            char_doc.setdefault("features_traits", []).append(feature.model_dump())
+            existing_features.add(feature.name)
+
+    # Process user choices (Subclass, etc)
+    if payload.user_choices:
+        for choice_key, choice_val in payload.user_choices.items():
+            if (
+                not choice_val
+                or choice_key == "custom_hp_increase"
+                or "_stat1_" in choice_key
+                or "_stat2_" in choice_key
+            ):
+                continue
+
+            # choice_key is now something like "subclass_0", "spell_1", "other_2"
+            base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
+
+            if base_type == "subclass":
+                char_doc["subclass"] = choice_val
+                continue
+
+            # Check the type of choice from the analysis to know how to apply it
+            choice_type = base_type
+            choice_label = choice_key
+
+            # Extract index if present to get the exact label
+            if "_" in choice_key:
+                try:
+                    idx = int(choice_key.rsplit("_", 1)[1])
+                    if idx < len(payload.analysis.choices_required):
+                        req = payload.analysis.choices_required[idx]
+                        choice_label = req.label
+                except ValueError:
+                    pass
+
+            if choice_type == "spell" or "spell" in choice_label.lower():
+                from backend.repositories.rules_repository import RulesRepository
+
+                rules_repo = RulesRepository()
+                edition = char_doc.get("dnd_edition", "2014 Edition")
+                all_spells = rules_repo.get_all_spells(edition)
+
+                spell_level = next(
+                    (s.get("level") for s in all_spells if s.get("name") == choice_val), None
+                )
+                spells_dict = char_doc.setdefault("spells", {})
+
+                target_list = None
+                if spell_level == 0 or spell_level is None:
+                    target_list = spells_dict.setdefault("cantrips", [])
+                else:
+                    target_list = spells_dict.setdefault(f"level_{spell_level}", [])
+
+                if choice_val not in target_list:
+                    target_list.append(choice_val)
+            elif choice_type == "feat" or "feat" in choice_label.lower():
+                if choice_val == "+2 to one Stat":
+                    # Reconstruct the stat keys (e.g. feat_stat1_0)
+                    parts = choice_key.rsplit("_", 1)
+                    idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
+                    base = parts[0] if len(parts) > 1 else choice_key
+                    stat1_key = f"{base}_stat1{idx_suffix}"
+
+                    stat1 = payload.user_choices.get(stat1_key)
+                    if stat1 and stat1 in char_doc.get("stats", {}):
+                        char_doc["stats"][stat1] += 2
+                elif choice_val == "+1 to two Stats":
+                    parts = choice_key.rsplit("_", 1)
+                    idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
+                    base = parts[0] if len(parts) > 1 else choice_key
+                    stat1_key = f"{base}_stat1{idx_suffix}"
+                    stat2_key = f"{base}_stat2{idx_suffix}"
+
+                    stat1 = payload.user_choices.get(stat1_key)
+                    stat2 = payload.user_choices.get(stat2_key)
+                    if stat1 and stat1 in char_doc.get("stats", {}):
+                        char_doc["stats"][stat1] += 1
+                    if stat2 and stat2 in char_doc.get("stats", {}):
+                        char_doc["stats"][stat2] += 1
+                else:
+                    char_doc.setdefault("features_traits", []).append(
+                        {"name": choice_val, "description": "Selected via Level Up."}
+                    )
+            elif "expertise" in choice_label.lower():
+                char_doc.setdefault("skill_expertise", []).append(choice_val)
+            elif "skill" in choice_label.lower() or "proficiency" in choice_label.lower():
+                char_doc.setdefault("skill_proficiencies", []).append(choice_val)
+            else:
+                # Fallback: just add it as a feature
+                char_doc.setdefault("features_traits", []).append(
+                    {"name": choice_val, "description": f"Selected for {choice_label}"}
+                )
+
+    # Sync stats deterministically
+    from backend.services.mechanics_service import sync_character_stats
+
+    synced_char = sync_character_stats(char_doc)
+
+    # Ensure nested _id is not updated
+    if "_id" in synced_char:
+        del synced_char["_id"]
+
+    await db["characters"].update_one({"char_id": payload.character_id}, {"$set": synced_char})
+
+    return CharacterSchema.model_validate(synced_char, strict=False)

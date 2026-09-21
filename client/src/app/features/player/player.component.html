@@ -13,6 +13,18 @@
     (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
+  <div class="unreadable-alert" *ngIf="charState.unreadableCharacters().length > 0" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255, 50, 50, 0.1); border: 1px solid rgba(255, 50, 50, 0.4); border-radius: 8px; display: flex; gap: 1rem; align-items: center;">
+    <i class="fas fa-exclamation-triangle" style="color: #ff5555; font-size: 1.5rem;"></i>
+    <div>
+      <h3 style="color: #ff5555; margin-bottom: 0.2rem; font-size: 1rem; font-weight: 600;">
+        {{ charState.unreadableCharacters().length }} hero{{ charState.unreadableCharacters().length > 1 ? 'es' : '' }} could not be loaded
+      </h3>
+      <p style="opacity: 0.8; font-size: 0.9rem; margin: 0;">
+        Some characters in your vault failed validation. This usually happens if they were manually edited in the database or created with an older format.
+      </p>
+    </div>
+  </div>
+
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
@@ -128,6 +140,7 @@
   </ng-container>
 
   <ng-template #emptyState>
+
     <forge-empty-state
       icon="D20"
       [title]="charState.characters().length > 0 ? 'No Heroes for ' + charState.dndEdition() : 'No Heroes Found'"
@@ -163,8 +176,9 @@
   <app-level-up-modal
     [open]="showLevelUpModal && !!levelUpAnalysis"
     (openChange)="showLevelUpModal = $event"
+    [character]="charState.activeCharacter()"
     [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
-    [levelUpAnalysis]="levelUpAnalysis"
+    [levelUpAnalysis]="levelUpAnalysis" [(userChoices)]="levelUpUserChoices"
     (applyLevelUp)="applyLevelUp()"
   ></app-level-up-modal>
 
@@ -194,9 +208,10 @@
   ></app-portrait-modal>
 
   <app-strategy-guide-modal
-    [open]="!!strategyGuideText"
+    [open]="isGeneratingStrategy || !!strategyGuideText"
+    [isGenerating]="isGeneratingStrategy"
     [strategyGuideText]="strategyGuideText"
-    (closed)="strategyGuideText = null"
+    (closed)="strategyGuideText = null; isGeneratingStrategy = false"
   ></app-strategy-guide-modal>
 
   <app-edit-sheet-modal

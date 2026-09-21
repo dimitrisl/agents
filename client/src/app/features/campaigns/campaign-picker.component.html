@@ -94,7 +94,10 @@
 
 @if (showJoinModal()) {
   <app-join-campaign-modal
-    (close)="showJoinModal.set(false)"
-    (joined)="onCampaignJoined()"
+    [open]="true"
+    [joinInviteCode]="inviteCode()"
+    (joinInviteCodeChange)="inviteCode.set($event)"
+    (openChange)="showJoinModal.set($event)"
+    (joinCampaign)="onJoinCampaign()"
   />
 }

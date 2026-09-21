@@ -92,7 +92,7 @@ describe('PlayerComponent — DM roll requests', () => {
   function sendRequest(req: RollRequest): void {
     component.ngOnInit();
     // `ngOnInit` loads the vault; that fetch is not what these tests are about.
-    http.expectOne((r) => r.url.endsWith('/characters')).flush([HERO]);
+    http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
     messages$.next({ type: 'roll_request', payload: req } as WsMessage);
   }
 
@@ -203,7 +203,7 @@ describe('PlayerComponent — DM roll requests', () => {
      */
     it('queues what was missed instead of rolling it', () => {
       component.ngOnInit();
-      http.expectOne((r) => r.url.endsWith('/characters')).flush([HERO]);
+      http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
 
       opened$.next('Curse of Strahd');
       http.expectOne((r) => r.url.includes('/messages')).flush({
@@ -222,7 +222,7 @@ describe('PlayerComponent — DM roll requests', () => {
 
     it('does not re-ask a request that was already answered', () => {
       component.ngOnInit();
-      http.expectOne((r) => r.url.endsWith('/characters')).flush([HERO]);
+      http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
 
       opened$.next('Curse of Strahd');
       http.expectOne((r) => r.url.includes('/messages')).flush({

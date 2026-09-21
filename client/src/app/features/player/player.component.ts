@@ -1,3 +1,4 @@
+import { LevelUpAnalysis, LevelUpApplyRequest, LevelUpChoice } from '../../core/models/character.model';
 import {
   AfterViewChecked,
   Component,
@@ -161,7 +162,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   isValidating = false;
   isAutoFixing = false;
   validationResult: any = null;
-  levelUpAnalysis: any = null;
+  levelUpAnalysis: LevelUpAnalysis | null = null;
+  levelUpUserChoices: Record<string, any> = {};
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
@@ -1357,23 +1359,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !this.levelUpAnalysis) return;
 
-    const advanced = levelUp(char, this.levelUpAnalysis);
-    char.char_level = advanced.char_level;
-    char.proficiency_bonus = advanced.proficiency_bonus;
-    char.hp_max = advanced.hp_max;
-    char.hp_current = advanced.hp_current;
-    // Left alone when the analysis brought nothing, rather than blanked to `[]`.
-    if (advanced.features_traits) {
-      char.features_traits = advanced.features_traits;
-    }
+    const payload: LevelUpApplyRequest = {
+      character_id: char.char_id!,
+      analysis: this.levelUpAnalysis,
+      user_choices: this.levelUpUserChoices
+    };
 
-    // Save back to API
-    this.charState.updateCharacter(char.char_id!, char)
+    this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/level-up-apply`, payload)
       .subscribe({
-        next: () => {
+        next: (syncedChar) => {
+          this.charState.activeCharacter.set(syncedChar);
+          // Assuming upsertCharacter is a public method or the state relies on a refresh:
+          // Just refreshing the character list is safer.
+          this.charState.loadCharacters();
           this.showLevelUpModal = false;
           this.levelUpAnalysis = null;
-          this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `Successfully leveled up to ${char.char_level}!`);
+          this.levelUpUserChoices = {};
+          this.rollToast.showMessage(`⚡ LEVEL UP: ${syncedChar.char_name}`, `Successfully leveled up to ${syncedChar.char_level}!`);
         },
         error: () => this.rollToast.showMessage('⚠️ LEVEL UP FAILED', 'Failed to save leveled up character.')
       });

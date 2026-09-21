@@ -358,6 +358,12 @@ class LevelUpAnalysisSchema(BaseModel):
         return self.automatic_changes
 
 
+class LevelUpApplyRequest(BaseModel):
+    character_id: str
+    analysis: LevelUpAnalysisSchema
+    user_choices: Optional[Dict[str, Any]] = None
+
+
 class BuildValidationSchema(BaseModel):
     is_valid: bool
     issues: List[str] = []

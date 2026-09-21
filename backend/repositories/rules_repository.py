@@ -205,6 +205,14 @@ class RulesRepository:
         _races_cache[edition] = races
         return races
 
+    def get_subclasses(self, class_name: str, edition: str = EDITION_2014) -> list:
+        filepath = os.path.join(DATA_DIR, "rules", "subclasses.json")
+        if not os.path.exists(filepath):
+            return []
+        data = _load_json(filepath)
+        edition_data = data.get(edition, data.get(EDITION_2014, {}))
+        return edition_data.get(class_name, [])
+
     def get_available_backgrounds(self, edition: str = EDITION_2014) -> list:
         """
         Loads all available backgrounds for the specified edition.

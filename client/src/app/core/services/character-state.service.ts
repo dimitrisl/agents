@@ -13,6 +13,7 @@ export class CharacterStateService {
 
   // Signals
   readonly characters = signal<CharacterSchema[]>([]);
+  readonly unreadableCharacters = signal<any[]>([]);
   readonly activeCharacter = signal<CharacterSchema | null>(null);
   readonly dndEdition = signal<string>('2014 Edition');
 
@@ -50,7 +51,7 @@ export class CharacterStateService {
   // The vault is fetched once per session; mutations patch the local list from
   // their own response instead of triggering another round trip.
   private loaded = false;
-  private inFlight$: Observable<CharacterSchema[]> | null = null;
+  private inFlight$: Observable<any> | null = null;
 
   constructor(private http: HttpClient) {}
 
@@ -58,7 +59,7 @@ export class CharacterStateService {
    * Returns the vault, fetching it only the first time. Concurrent callers share
    * the same in-flight request, so navigating between features costs nothing.
    */
-  ensureLoaded(): Observable<CharacterSchema[]> {
+  ensureLoaded(): Observable<any> {
     if (this.loaded) {
       return of(this.characters());
     }
@@ -69,13 +70,15 @@ export class CharacterStateService {
   }
 
   /** Forces a fresh fetch, bypassing the cache. */
-  loadCharacters(): Observable<CharacterSchema[]> {
-    return this.http.get<CharacterSchema[]>(this.API_URL).pipe(
+  loadCharacters(): Observable<any> {
+    return this.http.get<any>(this.API_URL).pipe(
       tap({
-        next: (chars) => {
+        next: (resp) => {
           this.loaded = true;
           this.inFlight$ = null;
-          this.characters.set(chars || []);
+          const chars = resp.characters || [];
+          this.unreadableCharacters.set(resp.unreadable || []);
+          this.characters.set(chars);
           const available = this.filteredCharacters();
           const currentActive = this.activeCharacter();
 

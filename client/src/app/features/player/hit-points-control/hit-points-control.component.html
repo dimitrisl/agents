@@ -7,17 +7,25 @@
   </p>
 
   <div class="mt-2 flex items-center justify-center gap-6">
-    <button
-      forgeButton
-      variant="secondary"
-      size="md"
-      iconOnly
-      type="button"
-      aria-label="Decrease hit points"
-      (click)="hpDown.emit()"
-    >
-      −
-    </button>
+    <div class="flex flex-col gap-2">
+      <button
+        forgeButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        aria-label="Decrease hit points"
+        (click)="applyHpChange(-1)"
+      >
+        Damage
+      </button>
+      <button
+        class="text-micro font-semibold uppercase text-muted hover:text-gold transition-colors"
+        (click)="applyTempHpChange(1)"
+        aria-label="Add temp HP"
+      >
+        +Temp
+      </button>
+    </div>
 
     <div class="flex flex-col items-center min-w-[120px]">
       <div class="flex items-baseline justify-center relative">
@@ -33,33 +41,41 @@
         <span class="text-title font-semibold text-muted">{{ max }}</span>
       </div>
 
+      <input
+        type="number"
+        class="mt-2 w-16 bg-surface border border-hairline rounded text-center text-body-sm font-semibold text-ink placeholder:text-muted/50"
+        placeholder="1"
+        min="1"
+        [(ngModel)]="modifierAmount"
+        aria-label="Amount to heal or damage"
+      />
+
       <!-- Temp HP inline -->
-      <div class="flex items-center gap-2 mt-1" *ngIf="temp > 0 || current > 0">
-        <button
-          class="text-muted hover:text-ink w-4 h-4 flex items-center justify-center rounded bg-panel"
-          (click)="tempDown.emit()"
-          aria-label="Decrease temp HP"
-        >−</button>
+      <div class="flex items-center gap-2 mt-2" *ngIf="temp > 0">
         <span class="text-body-sm font-semibold text-gold">{{ temp }} Temp</span>
-        <button
-          class="text-muted hover:text-ink w-4 h-4 flex items-center justify-center rounded bg-panel"
-          (click)="tempUp.emit()"
-          aria-label="Increase temp HP"
-        >+</button>
       </div>
     </div>
 
-    <button
-      forgeButton
-      variant="secondary"
-      size="md"
-      iconOnly
-      type="button"
-      aria-label="Increase hit points"
-      (click)="hpUp.emit()"
-    >
-      +
-    </button>
+    <div class="flex flex-col gap-2">
+      <button
+        forgeButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        aria-label="Increase hit points"
+        (click)="applyHpChange(1)"
+      >
+        Heal
+      </button>
+      <button
+        *ngIf="temp > 0"
+        class="text-micro font-semibold uppercase text-muted hover:text-danger transition-colors"
+        (click)="applyTempHpChange(-1)"
+        aria-label="Remove temp HP"
+      >
+        -Temp
+      </button>
+    </div>
   </div>
 
   <!-- Normal HP Bar -->
