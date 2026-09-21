@@ -1,3 +1,4 @@
+import { Subscription } from 'rxjs';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -49,7 +50,7 @@ const EMPTY_PROFILE: CombatProfile = {
     class: 'block',
   },
 })
-export class CombatPanelComponent implements OnChanges {
+export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() editMode = false;
   @Input() rollMode: RollMode = 'normal';
@@ -64,7 +65,9 @@ export class CombatPanelComponent implements OnChanges {
   private readonly dice = inject(DiceService);
   private readonly rollToast = inject(RollToastService);
   private readonly classCombat = inject(ClassCombatService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
+  private profileSub?: Subscription;
   profile: CombatProfile = EMPTY_PROFILE;
   riders: ClassCombatAction[] = [];
 
@@ -76,13 +79,32 @@ export class CombatPanelComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['char']) return;
 
-    this.profile = this.char ? this.classCombat.getProfile(this.char) : EMPTY_PROFILE;
-    this.riders = this.classCombat.ridersOf(this.profile);
+    if (this.profileSub) {
+      this.profileSub.unsubscribe();
+    }
 
-    // A rider from the previous character must not linger on the new one.
-    const known = new Set(this.riders.map((rider) => rider.id));
-    for (const id of [...this.activeRiderIds]) {
-      if (!known.has(id)) this.activeRiderIds.delete(id);
+    if (!this.char) {
+      this.profile = EMPTY_PROFILE;
+      this.riders = [];
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.profileSub = this.classCombat.getProfile(this.char).subscribe(profile => {
+      this.profile = profile;
+      this.riders = this.classCombat.ridersOf(this.profile);
+
+      const known = new Set(this.riders.map((rider) => rider.id));
+      for (const id of Array.from(this.activeRiderIds)) {
+        if (!known.has(id)) this.activeRiderIds.delete(id);
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.profileSub) {
+      this.profileSub.unsubscribe();
     }
   }
 

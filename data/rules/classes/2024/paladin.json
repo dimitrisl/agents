@@ -226,5 +226,44 @@
         }
     },
     "caster_type": "half",
-    "spellcasting_ability": "CHA"
+    "spellcasting_ability": "CHA",
+    "scaling": {
+        "divine_smite": {
+            "name": "Divine Smite",
+            "kind": "rider",
+            "damage_type": "radiant",
+            "hint": "2d8 for a 1st-level slot, +1d8 per level above that, max 5d8. +1d8 against Undead and Fiends.",
+            "steps": [
+                {
+                    "level": 2,
+                    "notation": "2d8"
+                }
+            ],
+            "options": "spell_slots"
+        },
+        "improved_divine_smite": {
+            "name": "Radiant Strikes",
+            "kind": "rider",
+            "damage_type": "radiant",
+            "hint": "Every melee weapon hit carries this, on top of any Divine Smite.",
+            "steps": [
+                {
+                    "level": 11,
+                    "notation": "1d8"
+                }
+            ]
+        },
+        "lay_on_hands": {
+            "name": "Lay on Hands",
+            "kind": "utility",
+            "rollable": false,
+            "hint": "Healing pool, refreshed on a Long Rest. 5 points cures one disease or poison.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "pool"
+                }
+            ]
+        }
+    }
 }

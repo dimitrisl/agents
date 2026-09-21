@@ -251,5 +251,41 @@
                 }
             ]
         }
+    },
+    "scaling": {
+        "martial_arts": {
+            "name": "Martial Arts Die",
+            "kind": "attack",
+            "hint": "Unarmed strikes and Monk weapons. Use DEX in place of STR.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1d4"
+                },
+                {
+                    "level": 5,
+                    "notation": "1d6"
+                },
+                {
+                    "level": 11,
+                    "notation": "1d8"
+                },
+                {
+                    "level": 17,
+                    "notation": "1d10"
+                }
+            ]
+        },
+        "deflect": {
+            "name": "Deflect Missiles",
+            "kind": "defense",
+            "hint": "Reaction. Reduces the damage taken by this much.",
+            "steps": [
+                {
+                    "level": 3,
+                    "notation": "1d10"
+                }
+            ]
+        }
     }
 }

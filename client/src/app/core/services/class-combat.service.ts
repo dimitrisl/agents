@@ -1,4 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 import { CharacterSchema } from '../models/character.model';
 import {
   ClassCombatAction,
@@ -8,11 +12,11 @@ import {
   critThresholdFor,
   extraCritDiceFor,
   isCaster,
-  resolveClassActions,
+
 } from '../data/class-combat.data';
 import { abilityModifier, hitDieSize, proficiencyBonus } from '../rules';
 
-export type { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
+export { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
 
 /**
  * Turns a character sheet into the dice that character actually rolls in combat.
@@ -44,18 +48,54 @@ export class ClassCombatService {
         CHA: modifier(stats.CHA),
       },
       profBonus: proficiencyBonus(char),
-    };
+    }
   }
 
-  getProfile(char: CharacterSchema): CombatProfile {
+  private readonly http = inject(HttpClient);
+
+  getProfile(char: CharacterSchema): Observable<CombatProfile> {
     const ctx = this.buildContext(char);
 
-    return {
-      actions: [...resolveClassActions(ctx), ...this.universalActions(char, ctx)],
-      extraCritDice: extraCritDiceFor(ctx),
-      critThreshold: critThresholdFor(ctx),
-      cantripTier: cantripTierFor(ctx.level),
-    };
+    if (!ctx.charClass) {
+        return of({
+            actions: this.universalActions(char, ctx),
+            extraCritDice: extraCritDiceFor(ctx),
+            critThreshold: critThresholdFor(ctx),
+            cantripTier: cantripTierFor(ctx.level),
+        });
+    }
+
+    const edParam = ctx.is2024 ? '2024 Edition' : '2014 Edition';
+    let url = `${environment.apiBaseUrl}/rules/classes/${ctx.charClass.toLowerCase()}/scaling?level=${ctx.level}&edition=${encodeURIComponent(edParam)}`;
+    if (ctx.subclass) {
+        url += `&subclass=${encodeURIComponent(ctx.subclass)}`;
+    }
+
+    return this.http.get<any[]>(url).pipe(
+      map(apiActions => {
+        // Add icons based on the data if needed, or source
+        const mappedActions = apiActions.map(a => ({
+          ...a,
+          icon: a.icon || '⚔️',
+          source: a.source || `${ctx.charClass} ${ctx.level}`
+        }));
+
+        return {
+          actions: [...mappedActions, ...this.universalActions(char, ctx)],
+          extraCritDice: extraCritDiceFor(ctx),
+          critThreshold: critThresholdFor(ctx),
+          cantripTier: cantripTierFor(ctx.level),
+        }
+      }),
+      catchError(() => {
+        return of({
+          actions: this.universalActions(char, ctx),
+          extraCritDice: extraCritDiceFor(ctx),
+          critThreshold: critThresholdFor(ctx),
+          cantripTier: cantripTierFor(ctx.level),
+        });
+      })
+    );
   }
 
   /** The riders a damage roll can stack, in the order they should be offered. */

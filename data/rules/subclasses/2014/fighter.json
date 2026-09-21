@@ -1,0 +1,51 @@
+{
+    "class_name": "Fighter",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Champion": {
+            "name": "Champion",
+            "scaling": {
+                "improved_critical": {
+                    "name": "Improved Critical",
+                    "kind": "utility",
+                    "rollable": false,
+                    "hint": "Widened crit range \u2014 the Attack button already flags these as crits.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "crit on 19\u201320"
+                        },
+                        {
+                            "level": 15,
+                            "notation": "crit on 18\u201320"
+                        }
+                    ]
+                }
+            }
+        },
+        "Battle Master": {
+            "name": "Battle Master",
+            "scaling": {
+                "superiority_dice": {
+                    "name": "Superiority Die",
+                    "kind": "rider",
+                    "hint": "Spend one on a maneuver. Pool of 4, rising to 5 at 7th and 6 at 15th.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 18,
+                            "notation": "1d12"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

@@ -201,5 +201,18 @@
             "Strength",
             "Constitution"
         ]
+    },
+    "scaling": {
+        "second_wind": {
+            "name": "Second Wind",
+            "kind": "heal",
+            "hint": "Bonus Action. Regain hit points, then take a rest to get it back.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1d10"
+                }
+            ]
+        }
     }
 }

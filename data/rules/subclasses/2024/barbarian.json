@@ -1,0 +1,22 @@
+{
+    "class_name": "Barbarian",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Path of the Berserker": {
+            "name": "Path of the Berserker",
+            "scaling": {
+                "frenzy": {
+                    "name": "Frenzy",
+                    "kind": "rider",
+                    "hint": "Extra damage on the first hit of your turn while raging.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

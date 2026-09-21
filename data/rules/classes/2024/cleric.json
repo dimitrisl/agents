@@ -191,5 +191,23 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "WIS"
+    "spellcasting_ability": "WIS",
+    "scaling": {
+        "divine_strike": {
+            "name": "Blessed Strikes",
+            "kind": "rider",
+            "damage_type": "radiant",
+            "hint": "Once per turn on a weapon hit. Radiant or Necrotic.",
+            "steps": [
+                {
+                    "level": 7,
+                    "notation": "1d8"
+                },
+                {
+                    "level": 14,
+                    "notation": "2d8"
+                }
+            ]
+        }
+    }
 }

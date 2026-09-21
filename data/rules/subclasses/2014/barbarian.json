@@ -1,0 +1,52 @@
+{
+    "class_name": "Barbarian",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Path of the Zealot": {
+            "name": "Path of the Zealot",
+            "scaling": {
+                "divine_fury": {
+                    "name": "Divine Fury",
+                    "kind": "rider",
+                    "damage_type": "radiant or necrotic",
+                    "hint": "While raging, the first creature you hit on each of your turns takes extra damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6 + (level/2)"
+                        }
+                    ]
+                }
+            }
+        },
+        "Path of the Storm Herald": {
+            "name": "Path of the Storm Herald",
+            "scaling": {
+                "sea_aura": {
+                    "name": "Storm Aura (Sea)",
+                    "kind": "attack",
+                    "damage_type": "lightning",
+                    "hint": "Bonus action to strike one creature within 10 ft.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 15,
+                            "notation": "3d6"
+                        },
+                        {
+                            "level": 20,
+                            "notation": "4d6"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
