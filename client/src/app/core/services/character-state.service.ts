@@ -159,6 +159,15 @@ export class CharacterStateService {
     );
   }
 
+  addHomebrewToCharacter(charId: string, itemId: string): Observable<CharacterSchema> {
+    return this.http.post<CharacterSchema>(`${this.API_URL}/${charId}/homebrew/${itemId}`, {}).pipe(
+      tap((updated) => {
+        this.activeCharacter.set(updated);
+        this.upsertCharacter(updated);
+      })
+    );
+  }
+
   deleteCharacter(id: string): Observable<any> {
     return this.http.delete(`${this.API_URL}/${id}`).pipe(
       tap(() => {

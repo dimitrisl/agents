@@ -304,7 +304,7 @@ describe('DmComponent — initiative rounds', () => {
     it('carries no combatant across a campaign switch', () => {
       const http = TestBed.inject(HttpTestingController);
       component.onCampaignSelect();
-      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([]);
+      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([]));
 
       // A monster added under the first campaign must not follow the DM to the
       // next one — nor end up saved under its name.
@@ -317,7 +317,7 @@ describe('DmComponent — initiative rounds', () => {
       expect(component.combatants).toEqual([]);
       expect(component.round).toBe(0);
 
-      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([]);
+      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([]));
       expect(storage.load('Phyrexia Awakens')).toBeNull();
       expect(storage.load('Curse of Strahd')?.combatants.map((c) => c.name)).toEqual(['Strahd']);
     });
@@ -349,7 +349,7 @@ describe('DmComponent — initiative rounds', () => {
       component.onCampaignSelect();
       // The inbox fetch is not what these tests are about, but it has to be
       // answered for `verify()` to mean "no stray writes".
-      http.match((req) => req.url.includes('/messages')).forEach((req) => req.flush({ campaign_name: 'Curse of Strahd', whispers: [], roll_requests: [] });
+      http.match((req) => req.url.includes('/messages')).forEach((req) => req.flush({ campaign_name: 'Curse of Strahd', whispers: [], roll_requests: [] }));
       http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([
         {
           char_id: 'lyra1',
@@ -359,7 +359,7 @@ describe('DmComponent — initiative rounds', () => {
           armor_class: 13,
           conditions: ['Invisible'],
         },
-      ]);
+      ]));
       hero = component.partyMembers[0];
     });
 
@@ -744,7 +744,7 @@ afterEach(() => {
       { char_id: 'e1', char_name: 'Ezren', stats: { WIS: 18 } },
       { char_id: 'v1', char_name: 'Valeros', stats: { WIS: 8 } },
       { char_id: 'm1', char_name: 'Merisiel' },
-    ]);
+    ]));
 
     expect(component.partyMembers.map((m) => m.passive_perception)).toEqual([14, 9, 10]);
   });

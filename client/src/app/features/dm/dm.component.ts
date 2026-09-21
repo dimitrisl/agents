@@ -11,6 +11,7 @@ import { Subscription } from 'rxjs';
 import { Subject, EMPTY } from 'rxjs';
 import { debounceTime, catchError, switchMap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
+import { HomebrewService } from '../../core/services/homebrew.service';
 import {
   Campaign,
   CampaignMessages,
@@ -227,7 +228,8 @@ export class DmComponent implements OnInit, OnDestroy {
     public charState: CharacterStateService,
     private wsService: WebSocketService,
     private auth: AuthService, private router: Router,
-    private encounterStorage: EncounterStorageService
+    private encounterStorage: EncounterStorageService,
+    private homebrewService: HomebrewService
   ) {}
 
   // The campaign whose party/socket is currently live, so re-picking the same
@@ -285,6 +287,10 @@ export class DmComponent implements OnInit, OnDestroy {
         // board immediately so the answer has somewhere to land.
         this.cancelSupersededRollRequests(payload);
         this.upsertRollRequest(payload, false);
+      } else if (msg.type === 'homebrew_created') {
+        if (this.campaignName) {
+          this.homebrewService.loadHomebrew(this.campaignName).subscribe();
+        }
       } else if (msg.type === 'roll_result') {
         // A missed request comes down this same channel with no result on it — the
         // player never rolled. It still has to reach the board, or the request sits
