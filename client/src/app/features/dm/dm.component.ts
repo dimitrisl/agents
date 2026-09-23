@@ -29,7 +29,7 @@ import {
   CombatantCondition,
   InitiativeCombatant,
 } from '../../core/models/initiative.model';
-import { PartyMember, passivePerception } from '../../core/models/party.model';
+import { PartyMember } from '../../core/models/party.model';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
@@ -651,7 +651,7 @@ export class DmComponent implements OnInit, OnDestroy {
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
             ac: char.armor_class ?? 10,
-            passive_perception: passivePerception(char.stats),
+            passive_perception: char.passive_perception ?? 10,
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
             conditions: char.conditions || [],
@@ -748,7 +748,7 @@ export class DmComponent implements OnInit, OnDestroy {
       hp_current: this.newMemberHp || 40,
       hp_max: this.newMemberHp || 40,
       ac: this.newMemberAc || 16,
-      passive_perception: passivePerception(stats),
+      passive_perception: 10,
       conditions: [],
       stats
     };
