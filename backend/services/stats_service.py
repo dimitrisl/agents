@@ -65,12 +65,20 @@ def calculate_ac(
     features: List[Dict[str, Any]] = None,
     wis_score: int = None,
     con_score: int = None,
+    homebrew_content: List[Dict[str, Any]] = None,
 ) -> int:
     """Calculates AC based on DEX and equipped items from KB."""
     from backend.repositories.rules_repository import RulesRepository
 
     _rules_repo = RulesRepository()
     all_items = _rules_repo.get_all_items()
+    if homebrew_content:
+        # Merge homebrew items (assuming they have similar schema)
+        all_items = all_items + [
+            item
+            for item in homebrew_content
+            if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
+        ]
 
     dex_mod = get_modifier(dex_score)
     base_ac = 10
@@ -382,7 +390,10 @@ def get_base_weapon(name: str, all_weapons: list) -> dict:
 
 
 def calculate_weapon_stats(
-    weapon: Dict[str, Any], stats: Dict[str, int], proficiency_bonus: int
+    weapon: Dict[str, Any],
+    stats: Dict[str, int],
+    proficiency_bonus: int,
+    homebrew_content: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
@@ -426,6 +437,10 @@ def calculate_weapon_stats(
 
         repo = RulesRepository()
         all_weapons = repo.get_all_weapons()
+        if homebrew_content:
+            all_weapons = all_weapons + [
+                w for w in homebrew_content if w.get("homebrew_type") == "weapon"
+            ]
         name = weapon.get("name", "").lower()
 
         weapon_data = get_base_weapon(name, all_weapons)
@@ -477,6 +492,7 @@ def sync_character_stats(
     char_data: Dict[str, Any],
     class_data: Dict[str, Any] = None,
     weapon_deltas: Dict[str, Any] = None,
+    homebrew_content: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Synchronizes all derived character stats."""
     from backend.repositories.rules_repository import RulesRepository
@@ -571,6 +587,12 @@ def sync_character_stats(
 
         item_name = equip.get("name", "").lower()
         all_items = repo.get_all_items()
+        if homebrew_content:
+            all_items = all_items + [
+                item
+                for item in homebrew_content
+                if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
+            ]
         item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
 
         if item_data and "stat_set" in item_data:
@@ -672,6 +694,10 @@ def sync_character_stats(
     features = char_data.get("features_traits", [])
 
     feat_library = repo.get_all_feats(edition)
+    if homebrew_content:
+        feat_library = feat_library + [
+            f for f in homebrew_content if f.get("homebrew_type") in ("feat", "feature")
+        ]
     feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
 
     for f in features:
@@ -706,6 +732,7 @@ def sync_character_stats(
         char_data.get("features_traits", []),
         wis_score=wis_score,
         con_score=con_score,
+        homebrew_content=homebrew_content,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus
@@ -800,7 +827,7 @@ def sync_character_stats(
                     w_dict.get("damage_dice"), w_dict.get("damage_bonus")
                 )
 
-        updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
+        updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus, homebrew_content))
 
     if weapon_deltas and "deleted_rows" in weapon_deltas:
         deleted_indices = sorted(weapon_deltas["deleted_rows"], reverse=True)
@@ -821,7 +848,7 @@ def sync_character_stats(
                 "range": new_w_data.get("range", ""),
                 "is_custom": new_w_data.get("is_custom", False),
             }
-            new_w = calculate_weapon_stats(new_w, stats, prof_bonus)
+            new_w = calculate_weapon_stats(new_w, stats, prof_bonus, homebrew_content)
             updated_weapons.append(new_w)
 
     char_data["weapons"] = updated_weapons
@@ -994,6 +1021,10 @@ def sync_character_stats(
             )
             existing_masteries = list(char_data.get("weapon_masteries") or [])
             all_weapons = repo.get_all_weapons()
+            if homebrew_content:
+                all_weapons = all_weapons + [
+                    w for w in homebrew_content if w.get("homebrew_type") == "weapon"
+                ]
 
             # Prioritize masteries matching equipped weapons
             equipped_weapon_masteries = []

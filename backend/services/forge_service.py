@@ -509,6 +509,7 @@ def process_character_update(
     stat_updates: dict = None,
     equipment_deltas: dict = None,
     weapon_deltas: dict = None,
+    homebrew_content: list = None,
 ) -> dict:
     """
     Processes character updates (stats and equipment) and returns synchronized character data.
@@ -577,4 +578,4 @@ def process_character_update(
     class_data = _get_rules_repo().get_class_progression(
         updated_char.get("char_class"), updated_char.get("dnd_edition")
     )
-    return sync_character_stats(updated_char, class_data, weapon_deltas)
+    return sync_character_stats(updated_char, class_data, weapon_deltas, homebrew_content)
