@@ -1,0 +1,23 @@
+{
+    "class_name": "Monk",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Way of Mercy": {
+            "name": "Way of Mercy",
+            "scaling": {
+                "hand_of_harm": {
+                    "name": "Hand of Harm",
+                    "kind": "rider",
+                    "damage_type": "necrotic",
+                    "hint": "When you hit with an unarmed strike, spend 1 ki point to deal extra necrotic damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1 martial arts die"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

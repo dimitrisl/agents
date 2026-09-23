@@ -225,5 +225,47 @@
                 }
             ]
         }
+    },
+    "scaling": {
+        "rage_damage": {
+            "name": "Rage Damage",
+            "kind": "rider",
+            "hint": "While Raging, on Strength-based melee attacks.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "+2"
+                },
+                {
+                    "level": 9,
+                    "notation": "+3"
+                },
+                {
+                    "level": 16,
+                    "notation": "+4"
+                }
+            ]
+        },
+        "brutal_critical": {
+            "name": "Brutal Critical",
+            "kind": "utility",
+            "rollable": false,
+            "hint": "Extra weapon damage dice on a melee crit.",
+            "extraCritDice": true,
+            "steps": [
+                {
+                    "level": 9,
+                    "notation": "+1 weapon die"
+                },
+                {
+                    "level": 13,
+                    "notation": "+2 weapon dice"
+                },
+                {
+                    "level": 17,
+                    "notation": "+3 weapon dice"
+                }
+            ]
+        }
     }
 }

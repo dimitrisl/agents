@@ -1,12 +1,11 @@
-import json
 import logging
 import os
 import re
 from typing import Any, Dict, List
 
 import pdfplumber
-from google import genai
-from google.genai import types
+
+from backend.core.providers.factory import get_llm_provider
 
 logger = logging.getLogger("DnDAssistant.ModuleParser")
 
@@ -17,29 +16,19 @@ os.makedirs(MODULE_PICS_DIR, exist_ok=True)
 
 class ModuleParserService:
     def __init__(self):
-        self.api_key = os.environ.get("GEMINI_API_KEY")
-        if not self.api_key:
-            logger.warning("GEMINI_API_KEY not found. Module Parser disabled.")
-            self.client = None
-        else:
-            self.client = genai.Client(api_key=self.api_key)
+        self.provider = get_llm_provider()
 
     def upload_pdf_to_gemini(self, pdf_path: str):
-        """Uploads a PDF module to Gemini File API and returns the file object."""
-        if not self.client:
-            raise ValueError("Gemini Client not initialized.")
+        """Uploads a PDF module to AI Provider File API and returns the file ID."""
+        if not self.provider:
+            raise ValueError("LLM Provider not initialized.")
 
-        logger.info(f"Uploading {pdf_path} to Gemini...")
-        # Upload the file
-        uploaded_file = self.client.files.upload(
-            file=pdf_path, config={"mime_type": "application/pdf"}
-        )
-        logger.info(f"Uploaded successfully. URI: {uploaded_file.uri}")
-        return uploaded_file
+        logger.info(f"Uploading {pdf_path} to AI Provider...")
+        return self.provider.upload_file(file_path=pdf_path)
 
     def extract_npcs(self, uploaded_file) -> List[Dict[str, Any]]:
         """Asks Gemini to extract all NPCs and their page numbers."""
-        if not self.client:
+        if not self.provider:
             return []
 
         prompt = """
@@ -76,18 +65,11 @@ class ModuleParserService:
         """
 
         try:
-            # We must use gemini-1.5-pro or flash for large context and files
-            response = self.client.models.generate_content(
-                model="gemini-2.5-pro",
-                contents=[uploaded_file, prompt],
-                config=types.GenerateContentConfig(
-                    temperature=0.0, response_mime_type="application/json"
-                ),
+            file_ids = [uploaded_file.name if hasattr(uploaded_file, "name") else uploaded_file]
+            npcs = self.provider.generate_json_from_files(
+                file_ids=file_ids, prompt=prompt, temperature=0.0
             )
-
-            # The response text should be valid JSON
-            npcs = json.loads(response.text)
-            return npcs
+            return npcs if npcs else []
         except Exception as e:
             logger.error(f"Failed to extract NPCs: {e}")
             return []

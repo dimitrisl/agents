@@ -230,5 +230,18 @@
         }
     },
     "caster_type": "half",
-    "spellcasting_ability": "WIS"
+    "spellcasting_ability": "WIS",
+    "scaling": {
+        "hunters_mark": {
+            "name": "Hunter's Mark",
+            "kind": "rider",
+            "hint": "Extra damage on every hit against the marked creature.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1d6"
+                }
+            ]
+        }
+    }
 }

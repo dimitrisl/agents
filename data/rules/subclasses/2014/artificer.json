@@ -1,0 +1,27 @@
+{
+    "class_name": "Artificer",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Battle Smith": {
+            "name": "Battle Smith",
+            "scaling": {
+                "arcane_jolt": {
+                    "name": "Arcane Jolt",
+                    "kind": "rider",
+                    "damage_type": "force",
+                    "hint": "Once per turn, on a magic weapon hit or your Steel Defender. Can heal instead.",
+                    "steps": [
+                        {
+                            "level": 9,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 15,
+                            "notation": "4d6"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

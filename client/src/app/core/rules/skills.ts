@@ -59,7 +59,7 @@ export function skillModifier(
 
   const profBonus = proficiencyBonus(char);
   let bonus = 0;
-  
+
   if (hasExpertiseIn(char, skill.name)) {
     bonus = profBonus * 2;
   } else if (isProficientIn(char, skill.name)) {

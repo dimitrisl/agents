@@ -1,8 +1,15 @@
 <forge-modal [open]="open" (closed)="closed.emit()" title="📖 AI Strategic Playstyle Guide" maxWidth="820px">
-  <div class="max-h-[60vh] overflow-y-auto rounded-lg border border-hairline bg-black/20 p-4">
+  <div *ngIf="!isGenerating && strategyGuideText" class="max-h-[60vh] overflow-y-auto rounded-lg border border-hairline bg-black/20 p-4">
     <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">{{ strategyGuideText }}</p>
   </div>
-  <div class="mt-5 flex justify-end">
+
+  <div *ngIf="isGenerating" class="flex flex-col items-center justify-center p-8 text-center space-y-4">
+    <div class="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+    <p class="text-body font-semibold text-muted">Consulting the ancient tomes...</p>
+    <p class="text-body-sm text-muted/70">The AI is analyzing your stats, features, and spells to generate a playstyle guide.</p>
+  </div>
+
+  <div class="mt-5 flex justify-end" *ngIf="!isGenerating">
     <button forgeButton variant="primary" type="button" (click)="closed.emit()">Close</button>
   </div>
 </forge-modal>

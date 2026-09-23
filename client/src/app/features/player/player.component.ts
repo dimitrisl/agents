@@ -1,3 +1,4 @@
+import { LevelUpAnalysis, LevelUpApplyRequest, LevelUpChoice } from '../../core/models/character.model';
 import {
   AfterViewChecked,
   Component,
@@ -12,8 +13,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap } from 'rxjs';
+import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap, tap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { HomebrewService } from '../../core/services/homebrew.service';
 import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
@@ -78,6 +80,8 @@ import { RollRequestModalComponent } from './modals/roll-request-modal/roll-requ
 import { PortraitModalComponent } from './modals/portrait-modal/portrait-modal.component';
 import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strategy-guide-modal.component';
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
+import { ConditionsModalComponent } from './modals/conditions-modal/conditions-modal.component';
+import { PlayerHomebrewModalComponent } from './modals/player-homebrew-modal/player-homebrew-modal.component';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -123,6 +127,8 @@ interface RollTarget {
     PortraitModalComponent,
     StrategyGuideModalComponent,
     EditSheetModalComponent,
+    ConditionsModalComponent,
+    PlayerHomebrewModalComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -147,8 +153,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
   editMode = false;
   showEditModal = false;
+  showConditionsModal = false;
   showPortraitModal = false;
   showJoinModal = false;
+  showHomebrewModal = false;
   showShortRestModal = false;
   showProficientOnly = false;
   showLevelUpModal = false;
@@ -158,7 +166,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   isValidating = false;
   isAutoFixing = false;
   validationResult: any = null;
-  levelUpAnalysis: any = null;
+  levelUpAnalysis: LevelUpAnalysis | null = null;
+  levelUpUserChoices: Record<string, any> = {};
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
@@ -210,7 +219,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   // The HP steppers fire once per click; only the value the user settles on is
   // worth a round trip, so writes are collapsed into a single trailing save.
-  private readonly hpSave$ = new Subject<CharacterSchema>();
+  private readonly hpSave$ = new Subject<{ char: CharacterSchema; version: number }>();
+  private localSaveVersion = 0;
 
   constructor(
     public charState: CharacterStateService,
@@ -218,17 +228,30 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private homebrewService: HomebrewService
   ) {
     this.hpSave$
       .pipe(
         debounceTime(700),
-        // switchMap aborts a still-flying save, so a stale response can never
-        // overwrite the HP the user just clicked to.
-        switchMap((char) =>
-          this.charState
-            .updateCharacter(char.char_id!, char)
-            .pipe(catchError(() => EMPTY))
+        switchMap(({ char, version }) =>
+          this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id!}`, char)
+            .pipe(
+              tap(updated => {
+                // ONLY apply the backend response if no newer local edits have occurred
+                // during the 700ms debounce + network delay.
+                if (this.localSaveVersion === version) {
+                  this.charState.activeCharacter.set(updated);
+                  // also update the cache silently
+                  const list = this.charState.characters();
+                  const idx = list.findIndex(c => c.char_id === updated.char_id);
+                  if (idx >= 0) {
+                    this.charState.characters.set(list.map((c, i) => i === idx ? updated : c));
+                  }
+                }
+              }),
+              catchError(() => EMPTY)
+            )
         ),
         takeUntilDestroyed()
       )
@@ -242,7 +265,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.wsService.connect(char.active_campaign, {
           character: char.char_name,
         });
-        this.loadCampaignMessageHistory(char.active_campaign, char.char_name);
       } else {
         this.wsService.disconnect();
         this.whisperHistory = [];
@@ -257,6 +279,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  private campaignInitialLoad = new Set<string>();
+
   ngOnInit() {
     this.charState.ensureLoaded().subscribe();
 
@@ -265,7 +289,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
       const char = this.charState.activeCharacter();
       if (char?.active_campaign === campaignName) {
-        this.loadCampaignMessageHistory(campaignName, char.char_name, true);
+        const cacheKey = `${campaignName}::${char.char_name}`;
+        const isCatchUp = this.campaignInitialLoad.has(cacheKey);
+        this.campaignInitialLoad.add(cacheKey);
+        this.loadCampaignMessageHistory(campaignName, char.char_name, isCatchUp);
       }
     });
 
@@ -296,6 +323,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.charState.loadCharacters().subscribe(() => {
           this.router.navigate(['/']);
         });
+      } else if (msg.type === 'homebrew_created') {
+        if (char.active_campaign) {
+          this.homebrewService.loadHomebrew(char.active_campaign).subscribe();
+        }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
         if (!this.isWhisperForCharacter(whisper, char.char_name)) return;
@@ -846,6 +877,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
             );
             this.unreadMessages = 0;
             this.rebuildInboxFeed();
+
+            for (const req of this.rollRequestHistory) {
+              if (req.status === 'pending') {
+                this.enqueueRollPrompt(req);
+              }
+            }
             return;
           }
 
@@ -1088,7 +1125,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         char.active_campaign = res.campaign_name;
         this.saveCurrentChar();
         this.loadedCampaignMessageKey = null;
-        this.loadCampaignMessageHistory(res.campaign_name, char.char_name);
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
       error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')
@@ -1101,6 +1137,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!success) {
       this.rollToast.showMessage('⚠️ EDITION MISMATCH', 'You can only select characters matching the active edition mode!');
     }
+  }
+
+  openConditionsModal() {
+    this.showConditionsModal = true;
+  }
+
+  saveConditions(data: { conditions: string[], concentratingOn: string }) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const updated = {
+      ...char,
+      conditions: data.conditions,
+      concentrating_on: data.concentratingOn
+    };
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+    this.showConditionsModal = false;
   }
 
   openEditModal() {
@@ -1200,7 +1256,35 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
-      this.hpSave$.next(updated);
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+  }
+
+  adjustTempHp(delta: number) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const newTemp = Math.max(0, (char.hp_temp || 0) + delta);
+    const updated = { ...char, hp_temp: newTemp };
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+  }
+
+  setDeathSave(type: 'successes' | 'failures', value: number) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const updated = {
+      ...char,
+      death_saves: { ...(char.death_saves || { successes: 0, failures: 0 }) }
+    };
+    updated.death_saves[type] = Math.max(0, Math.min(3, value));
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
   }
 
@@ -1284,23 +1368,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !this.levelUpAnalysis) return;
 
-    const advanced = levelUp(char, this.levelUpAnalysis);
-    char.char_level = advanced.char_level;
-    char.proficiency_bonus = advanced.proficiency_bonus;
-    char.hp_max = advanced.hp_max;
-    char.hp_current = advanced.hp_current;
-    // Left alone when the analysis brought nothing, rather than blanked to `[]`.
-    if (advanced.features_traits) {
-      char.features_traits = advanced.features_traits;
-    }
+    const payload: LevelUpApplyRequest = {
+      character_id: char.char_id!,
+      analysis: this.levelUpAnalysis,
+      user_choices: this.levelUpUserChoices
+    };
 
-    // Save back to API
-    this.charState.updateCharacter(char.char_id!, char)
+    this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/level-up-apply`, payload)
       .subscribe({
-        next: () => {
+        next: (syncedChar) => {
+          this.charState.activeCharacter.set(syncedChar);
+          // Assuming upsertCharacter is a public method or the state relies on a refresh:
+          // Just refreshing the character list is safer.
+          this.charState.loadCharacters();
           this.showLevelUpModal = false;
           this.levelUpAnalysis = null;
-          this.rollToast.showMessage(`⚡ LEVEL UP: ${char.char_name}`, `Successfully leveled up to ${char.char_level}!`);
+          this.levelUpUserChoices = {};
+          this.rollToast.showMessage(`⚡ LEVEL UP: ${syncedChar.char_name}`, `Successfully leveled up to ${syncedChar.char_level}!`);
         },
         error: () => this.rollToast.showMessage('⚠️ LEVEL UP FAILED', 'Failed to save leveled up character.')
       });
@@ -1347,11 +1431,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  isGeneratingStrategy = false;
+
   onGenerateStrategy() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe((res) => {
-      this.strategyGuideText = res.guide_markdown;
+    this.isGeneratingStrategy = true;
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe({
+      next: (res) => {
+        this.isGeneratingStrategy = false;
+        this.strategyGuideText = res.guide_markdown;
+      },
+      error: () => {
+        this.isGeneratingStrategy = false;
+        this.rollToast.showMessage('⚠️ GENERATION FAILED', 'Failed to generate playstyle guide.');
+      }
     });
   }
 
@@ -1388,7 +1482,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/characters/import-pdf`, formData).subscribe({
       next: (imported) => {
-        this.charState.saveCharacter(imported).subscribe();
+        this.charState.loadCharacters().subscribe();
         this.rollToast.showMessage('📥 PDF IMPORTED', `Successfully imported ${imported.char_name}!`);
       },
       error: () => this.rollToast.showMessage('⚠️ IMPORT FAILED', 'Failed to import PDF character sheet.')

@@ -1,0 +1,39 @@
+{
+    "class_name": "Rogue",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Assassin": {
+            "name": "Assassin",
+            "scaling": {
+                "assassinate": {
+                    "name": "Assassinate",
+                    "kind": "utility",
+                    "hint": "Advantage against creatures that haven't taken a turn. Hits against surprised creatures are critical hits.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": ""
+                        }
+                    ]
+                }
+            }
+        },
+        "Phantom": {
+            "name": "Phantom",
+            "scaling": {
+                "wails_from_the_grave": {
+                    "name": "Wails from the Grave",
+                    "kind": "attack",
+                    "damage_type": "necrotic",
+                    "hint": "Deal necrotic damage to a second creature within 30 ft of the first target.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "half sneak attack"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

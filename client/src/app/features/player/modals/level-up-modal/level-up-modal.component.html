@@ -2,28 +2,107 @@
   <p class="mb-4 text-body-sm text-muted">Your character has reached a new level! Review the changes below.</p>
 
   <div *ngIf="levelUpAnalysis" class="flex flex-col gap-4">
-    <div class="rounded-lg border border-hairline bg-black/20 p-3">
-      <span class="text-body-sm text-muted">❤️ Hit Points Increase:</span>
-      <strong class="ml-2 text-emerald">+{{ levelUpAnalysis.hp_increase }} (Total: {{ levelUpAnalysis.new_total_hp }})</strong>
+    <div class="flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-4">
+      <span class="text-body-sm font-semibold uppercase text-muted">❤️ Hit Points Increase:</span>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          forgeButton
+          variant="secondary"
+          type="button"
+          class="!py-1 !px-3"
+          [class.ring-2]="userChoices['hp_method'] === 'average' || !userChoices['hp_method']"
+          [class.ring-emerald]="userChoices['hp_method'] === 'average' || !userChoices['hp_method']"
+          [disabled]="userChoices['hp_method'] === 'roll'"
+          (click)="selectHpAverage()">
+          Take Average (+{{ levelUpAnalysis.hp_increase }})
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          type="button"
+          class="!py-1 !px-3"
+          [class.ring-2]="userChoices['hp_method'] === 'roll'"
+          [class.ring-emerald]="userChoices['hp_method'] === 'roll'"
+          [disabled]="userChoices['hp_method'] === 'roll'"
+          (click)="rollHp()">
+          <span *ngIf="userChoices['hp_method'] !== 'roll'">🎲 Roll 1{{ character?.hit_dice?.match('d[0-9]+')?.[0] || 'd8' }} + {{ character?.stats?.CON ? (character!.stats!.CON / 2 - 5 | number:'1.0-0') : 0 }}</span>
+          <span *ngIf="userChoices['hp_method'] === 'roll'">🎲 Rolled: +{{ userChoices['custom_hp_increase'] }}</span>
+        </button>
+      </div>
+      <p class="text-body-sm text-muted">
+        New Total Max HP: <strong class="text-emerald">{{ levelUpAnalysis.new_total_hp - levelUpAnalysis.hp_increase + ((userChoices['custom_hp_increase'] !== undefined ? userChoices['custom_hp_increase'] * 1 : null) || levelUpAnalysis.hp_increase) }}</strong>
+      </p>
     </div>
 
-    <div *ngIf="levelUpAnalysis.new_features?.length > 0">
+    <!-- User Choices Form -->
+    <div *ngIf="levelUpAnalysis.choices_required?.length" class="flex flex-col gap-3 rounded-lg border border-gold/30 bg-surface/50 p-4">
+      <h3 class="font-display text-body font-bold text-gold">🤔 Choices Required</h3>
+      <div *ngFor="let choice of levelUpAnalysis.choices_required; let i = index" class="flex flex-col gap-2">
+        <label [for]="'choice-' + i" class="text-label font-semibold text-ink">{{ choice.label }}</label>
+        <select
+          forgeSelect
+          [id]="'choice-' + i"
+          [ngModel]="userChoices[choice.type + '_' + i]"
+          (ngModelChange)="onChoiceChange(choice.type + '_' + i, $event)">
+          <option [value]="undefined" disabled selected>Select an option...</option>
+          <option *ngFor="let opt of choice.options" [value]="opt">{{ opt }}</option>
+        </select>
+        <p *ngIf="choice.ai_recommendation" class="text-micro text-muted">💡 AI Suggests: {{ choice.ai_recommendation }}</p>
+
+        <!-- ASI Stat Pickers -->
+        <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+2 to one Stat'">
+          <div class="mt-1 flex items-center gap-2 rounded bg-surface p-2">
+            <span class="text-body-sm font-semibold text-muted">Select Stat for +2:</span>
+            <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
+              <option [value]="undefined" disabled selected>-- Select Stat --</option>
+              <option value="STR">Strength (STR)</option>
+              <option value="DEX">Dexterity (DEX)</option>
+              <option value="CON">Constitution (CON)</option>
+              <option value="INT">Intelligence (INT)</option>
+              <option value="WIS">Wisdom (WIS)</option>
+              <option value="CHA">Charisma (CHA)</option>
+            </select>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+1 to two Stats'">
+          <div class="mt-1 flex flex-col gap-2 rounded bg-surface p-2">
+            <div class="flex items-center gap-2">
+              <span class="text-body-sm font-semibold text-muted">Select 1st Stat (+1):</span>
+              <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
+                <option [value]="undefined" disabled selected>-- Select 1st Stat --</option>
+                <option value="STR">Strength (STR)</option>
+                <option value="DEX">Dexterity (DEX)</option>
+                <option value="CON">Constitution (CON)</option>
+                <option value="INT">Intelligence (INT)</option>
+                <option value="WIS">Wisdom (WIS)</option>
+                <option value="CHA">Charisma (CHA)</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-body-sm font-semibold text-muted">Select 2nd Stat (+1):</span>
+              <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat2_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat2_' + i, $event)">
+                <option [value]="undefined" disabled selected>-- Select 2nd Stat --</option>
+                <option value="STR">Strength (STR)</option>
+                <option value="DEX">Dexterity (DEX)</option>
+                <option value="CON">Constitution (CON)</option>
+                <option value="INT">Intelligence (INT)</option>
+                <option value="WIS">Wisdom (WIS)</option>
+                <option value="CHA">Charisma (CHA)</option>
+              </select>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+    <div *ngIf="levelUpAnalysis.automatic_changes?.length">
       <h3 class="mb-2 font-display text-body font-bold text-ink">✨ New Class Features</h3>
       <ul class="max-h-52 list-disc space-y-2 overflow-y-auto pl-5">
-        <li *ngFor="let feature of levelUpAnalysis.new_features" class="text-body-sm text-muted">
+        <li *ngFor="let feature of levelUpAnalysis.automatic_changes" class="text-body-sm text-muted">
           <strong class="text-ink">{{ feature.name }}</strong>
           <span class="block">{{ feature.description }}</span>
         </li>
-      </ul>
-    </div>
-
-    <div *ngIf="levelUpAnalysis.new_spells_known?.length > 0 || levelUpAnalysis.spell_slots_update">
-      <h3 class="mb-2 font-display text-body font-bold text-ink">🔮 Magical Progression</h3>
-      <p *ngIf="levelUpAnalysis.spell_slots_update" class="text-body-sm text-muted">
-        <strong>Spell Slots Updated:</strong> (See Spells tab for full list)
-      </p>
-      <ul *ngIf="levelUpAnalysis.new_spells_known?.length > 0" class="mt-2 list-disc pl-5 text-body-sm text-muted">
-        <li *ngFor="let spell of levelUpAnalysis.new_spells_known">Learned: <strong>{{ spell }}</strong></li>
       </ul>
     </div>
   </div>

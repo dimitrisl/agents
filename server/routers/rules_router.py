@@ -121,6 +121,66 @@ async def get_class_details(
     return data
 
 
+@router.get("/classes/{class_name}/subclasses", response_model=List[str])
+async def get_class_subclasses(
+    class_name: str,
+    edition: str = Depends(parse_edition),
+    current_user: dict = Depends(get_current_user),
+):
+    repo = get_rules_repo()
+    return repo.get_subclasses(class_name, edition)
+
+
+@router.get("/classes/{class_name}/scaling", response_model=List[Dict[str, Any]])
+async def get_class_scaling(
+    class_name: str,
+    level: int = Query(..., ge=1, le=20, description="Character level to resolve scaling for"),
+    subclass: Optional[str] = Query(None, description="Optional subclass name"),
+    edition: str = Depends(parse_edition),
+    current_user: dict = Depends(get_current_user),
+):
+    repo = get_rules_repo()
+    data = repo.get_class_progression(class_name, edition)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Class {class_name} not found in {edition}")
+
+    scaling_dict = dict(data.get("scaling", {}))
+
+    if subclass:
+        subclass_data = repo.get_subclass_mechanics(class_name, edition)
+        if subclass_data and "subclasses" in subclass_data:
+            specific_subclass = subclass_data["subclasses"].get(subclass, {})
+            subclass_scaling = specific_subclass.get("scaling", {})
+            scaling_dict.update(subclass_scaling)
+
+    resolved_actions = []
+
+    for action_id, action_def in scaling_dict.items():
+        steps = action_def.get("steps", [])
+        valid_steps = [s for s in steps if s.get("level", 0) <= level]
+        if not valid_steps:
+            continue
+
+        active_step = max(valid_steps, key=lambda s: s.get("level", 0))
+
+        action_payload = {
+            "id": action_id.replace("_", "-"),
+            "name": action_def.get("name"),
+            "kind": action_def.get("kind"),
+            "hint": action_def.get("hint"),
+            "notation": active_step.get("notation"),
+            "rollable": action_def.get("rollable", True),
+        }
+        if "damage_type" in action_def:
+            action_payload["damageType"] = action_def["damage_type"]
+        if "options" in action_def:
+            action_payload["options"] = action_def["options"]
+
+        resolved_actions.append(action_payload)
+
+    return resolved_actions
+
+
 @router.get("/feats", response_model=List[FeatSchema])
 async def get_feats(
     edition: str = Depends(parse_edition), current_user: dict = Depends(get_current_user)

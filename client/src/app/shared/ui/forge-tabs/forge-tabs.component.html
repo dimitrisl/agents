@@ -1,26 +1,49 @@
-<div
-  #tablist
-  [class]="tablistClasses"
-  [ngClass]="fadeClasses"
-  role="tablist"
-  (scroll)="onTablistScroll()"
->
-  @for (tab of tabs; track tab.id; let index = $index) {
-    <button
-      #tabButton
-      forgeTabButton
-      type="button"
-      role="tab"
-      [class]="buttonBaseClasses"
-      [ngClass]="tabClasses(tab)"
-      [id]="tabId(tab.id)"
-      [attr.aria-selected]="activeId === tab.id"
-      [attr.tabindex]="activeId === tab.id ? 0 : -1"
-      [disabled]="tab.disabled"
-      (click)="selectTab(tab)"
-      (keydown)="onKeydown($event, index)"
-    >
-      {{ tab.label }}
-    </button>
-  }
+<div class="relative group">
+  <!-- Left Scroll Button -->
+  <button
+    *ngIf="overflowStart"
+    type="button"
+    class="absolute left-0 top-0 bottom-0 w-8 z-10 flex items-center justify-center bg-gradient-to-r from-surface to-transparent text-ink opacity-0 group-hover:opacity-100 transition-opacity"
+    (click)="scrollBy(-150)"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 bg-surface rounded-full shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+  </button>
+
+  <div
+    #tablist
+    [class]="tablistClasses"
+    [ngClass]="fadeClasses"
+    role="tablist"
+    (scroll)="onTablistScroll()"
+    (wheel)="onWheel($event)"
+  >
+    @for (tab of tabs; track tab.id; let index = $index) {
+      <button
+        #tabButton
+        forgeTabButton
+        type="button"
+        role="tab"
+        [class]="buttonBaseClasses"
+        [ngClass]="tabClasses(tab)"
+        [id]="tabId(tab.id)"
+        [attr.aria-selected]="activeId === tab.id"
+        [attr.tabindex]="activeId === tab.id ? 0 : -1"
+        [disabled]="tab.disabled"
+        (click)="selectTab(tab)"
+        (keydown)="onKeydown($event, index)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  <!-- Right Scroll Button -->
+  <button
+    *ngIf="overflowEnd"
+    type="button"
+    class="absolute right-0 top-0 bottom-0 w-8 z-10 flex items-center justify-center bg-gradient-to-l from-surface to-transparent text-ink opacity-0 group-hover:opacity-100 transition-opacity"
+    (click)="scrollBy(150)"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 bg-surface rounded-full shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+  </button>
 </div>

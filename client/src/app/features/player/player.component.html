@@ -13,11 +13,24 @@
     (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
+  <div class="unreadable-alert" *ngIf="charState.unreadableCharacters().length > 0" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255, 50, 50, 0.1); border: 1px solid rgba(255, 50, 50, 0.4); border-radius: 8px; display: flex; gap: 1rem; align-items: center;">
+    <i class="fas fa-exclamation-triangle" style="color: #ff5555; font-size: 1.5rem;"></i>
+    <div>
+      <h3 style="color: #ff5555; margin-bottom: 0.2rem; font-size: 1rem; font-weight: 600;">
+        {{ charState.unreadableCharacters().length }} hero{{ charState.unreadableCharacters().length > 1 ? 'es' : '' }} could not be loaded
+      </h3>
+      <p style="opacity: 0.8; font-size: 0.9rem; margin: 0;">
+        Some characters in your vault failed validation. This usually happens if they were manually edited in the database or created with an older format.
+      </p>
+    </div>
+  </div>
+
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
-        <div *ngIf="char.active_campaign" class="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
-          Member of Campaign: <strong>{{ char.active_campaign }}</strong>
+        <div *ngIf="char.active_campaign" class="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
+          <span>Member of Campaign: <strong>{{ char.active_campaign }}</strong></span>
+          <button (click)="showHomebrewModal = true" class="ml-auto bg-gold text-surface px-3 py-1 rounded text-xs font-bold hover:bg-gold/90 transition-colors">Browse Homebrew</button>
         </div>
 
         <app-character-overview-card
@@ -33,8 +46,12 @@
           (portrait)="showPortraitModal = true"
           (hpDown)="adjustHp(-1)"
           (hpUp)="adjustHp(1)"
+          (tempDown)="adjustTempHp(-1)"
+          (tempUp)="adjustTempHp(1)"
+          (deathSaveChange)="setDeathSave($event.type, $event.value)"
           (abilityCheck)="rollAbilityCheck($event)"
           (savingThrow)="rollSavingThrow($event)"
+          (manageConditions)="openConditionsModal()"
         ></app-character-overview-card>
       </aside>
 
@@ -109,6 +126,7 @@
             </div>
 
             <app-action-dock
+              [isGeneratingStrategy]="isGeneratingStrategy"
               (shortRest)="openShortRestModal()"
               (longRest)="triggerLongRest()"
               (levelUp)="onLevelUp()"
@@ -123,14 +141,20 @@
   </ng-container>
 
   <ng-template #emptyState>
+
     <forge-empty-state
       icon="D20"
-      title="No Heroes Found"
-      description="Your vault is empty. It is time to forge a new legend."
+      [title]="charState.characters().length > 0 ? 'No Heroes for ' + charState.dndEdition() : 'No Heroes Found'"
+      [description]="charState.characters().length > 0 ? 'You have heroes in the other edition. Switch the edition filter in the header to see them, or forge a new hero.' : 'Your vault is empty. It is time to forge a new legend.'"
     >
-      <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
-        Forge Your First Hero
-      </button>
+      <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
+        <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
+          {{ charState.characters().length > 0 ? 'Forge New Hero' : 'Forge Your First Hero' }}
+        </button>
+        <button *ngIf="charState.characters().length > 0" forgeButton variant="secondary" size="lg" type="button" (click)="charState.toggleEdition()">
+          Switch Edition
+        </button>
+      </div>
     </forge-empty-state>
   </ng-template>
 
@@ -153,8 +177,9 @@
   <app-level-up-modal
     [open]="showLevelUpModal && !!levelUpAnalysis"
     (openChange)="showLevelUpModal = $event"
+    [character]="charState.activeCharacter()"
     [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
-    [levelUpAnalysis]="levelUpAnalysis"
+    [levelUpAnalysis]="levelUpAnalysis" [(userChoices)]="levelUpUserChoices"
     (applyLevelUp)="applyLevelUp()"
   ></app-level-up-modal>
 
@@ -184,9 +209,10 @@
   ></app-portrait-modal>
 
   <app-strategy-guide-modal
-    [open]="!!strategyGuideText"
+    [open]="isGeneratingStrategy || !!strategyGuideText"
+    [isGenerating]="isGeneratingStrategy"
     [strategyGuideText]="strategyGuideText"
-    (closed)="strategyGuideText = null"
+    (closed)="strategyGuideText = null; isGeneratingStrategy = false"
   ></app-strategy-guide-modal>
 
   <app-edit-sheet-modal
@@ -195,6 +221,14 @@
     [editChar]="editDraftChar"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
+
+  <app-conditions-modal
+    [open]="showConditionsModal"
+    [initialConditions]="charState.activeCharacter()?.conditions"
+    [initialConcentration]="charState.activeCharacter()?.concentrating_on"
+    (closed)="showConditionsModal = false"
+    (save)="saveConditions($event)"
+  ></app-conditions-modal>
 
   <app-roll-request-modal
     [open]="!!activeRollPrompt"
@@ -357,4 +391,12 @@
       </button>
     </div>
   </ng-container>
+
+  <app-player-homebrew-modal
+    *ngIf="showHomebrewModal && charState.activeCharacter()?.active_campaign"
+    [campaignName]="charState.activeCharacter()!.active_campaign!"
+    [charId]="charState.activeCharacter()!.char_id!"
+    (closeModal)="showHomebrewModal = false"
+  ></app-player-homebrew-modal>
+
 </forge-page>

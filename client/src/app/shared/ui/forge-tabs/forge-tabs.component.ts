@@ -186,8 +186,29 @@ export class ForgeTabsComponent implements AfterViewInit, OnChanges {
     }
   }
 
+  scrollBy(amount: number): void {
+    const element = this.tablist?.nativeElement;
+    if (element) {
+      element.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  }
+
   onTablistScroll(): void {
     this.syncOverflow();
+  }
+
+  onWheel(event: WheelEvent): void {
+    const element = this.tablist?.nativeElement;
+    if (!element) return;
+
+    // Only intercept if we actually have overflow
+    if (!this.overflowStart && !this.overflowEnd) return;
+
+    // If it's purely vertical scrolling (like a normal mouse wheel), translate to horizontal
+    if (event.deltaY !== 0 && event.deltaX === 0) {
+      element.scrollLeft += event.deltaY;
+      event.preventDefault();
+    }
   }
 
   @HostListener('window:resize')

@@ -22,6 +22,9 @@ _spells_cache: dict = {}
 _features_level_cache: dict = {}
 _races_cache: dict = {}
 _backgrounds_cache: dict = {}
+_weapons_cache: list | None = None
+_weapon_masteries_cache: dict = {}
+_subclasses_cache: dict = {}
 
 
 def _load_json(filepath: str):
@@ -205,6 +208,34 @@ class RulesRepository:
         _races_cache[edition] = races
         return races
 
+    def get_subclasses(self, class_name: str, edition: str = EDITION_2014) -> list:
+        filepath = os.path.join(DATA_DIR, "rules", "subclasses.json")
+        if not os.path.exists(filepath):
+            return []
+        data = _load_json(filepath)
+        edition_data = data.get(edition, data.get(EDITION_2014, {}))
+        return edition_data.get(class_name, [])
+
+    def get_subclass_mechanics(self, class_name: str, edition: str = EDITION_2014) -> dict:
+        """
+        Loads the rich mechanical data (like scaling tables) for a class's subclasses.
+        """
+        cache_key = (class_name.lower(), edition)
+        if cache_key in _subclasses_cache:
+            return _subclasses_cache[cache_key]
+
+        edition_dir = "2014" if edition == EDITION_2014 else "2024"
+        filename = f"{class_name.lower().replace(' ', '_')}.json"
+        filepath = os.path.join(DATA_DIR, "rules", "subclasses", edition_dir, filename)
+
+        if not os.path.exists(filepath):
+            _subclasses_cache[cache_key] = {}
+            return {}
+
+        result = _load_json(filepath)
+        _subclasses_cache[cache_key] = result
+        return result
+
     def get_available_backgrounds(self, edition: str = EDITION_2014) -> list:
         """
         Loads all available backgrounds for the specified edition.
@@ -223,3 +254,33 @@ class RulesRepository:
         backgrounds = [b for b in data if "name" in b]
         _backgrounds_cache[edition] = backgrounds
         return backgrounds
+
+    def get_all_weapons(self) -> list:
+        """
+        Loads all weapons from the master weapons JSON.
+        """
+        global _weapons_cache
+        if _weapons_cache is not None:
+            return _weapons_cache
+
+        filepath = os.path.join(DATA_DIR, "rules", "weapons.json")
+        _weapons_cache = _load_json(filepath)
+        return _weapons_cache
+
+    def get_all_weapon_masteries(self, edition: str = EDITION_2024) -> list:
+        """
+        Loads all weapon masteries.
+        """
+        if edition in _weapon_masteries_cache:
+            return _weapon_masteries_cache[edition]
+
+        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        filename = f"weapon_masteries_{edition_val}.json"
+        filepath = os.path.join(DATA_DIR, "rules", filename)
+
+        if not os.path.exists(filepath):
+            return []
+
+        data = _load_json(filepath)
+        _weapon_masteries_cache[edition] = data
+        return data

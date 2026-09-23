@@ -38,8 +38,10 @@ export class CharacterOverviewCardComponent {
   @Input() getModifierString!: (val: number) => string;
 
   @Output() portrait = new EventEmitter<void>();
-  @Output() hpDown = new EventEmitter<void>();
-  @Output() hpUp = new EventEmitter<void>();
+  @Output() hpChange = new EventEmitter<number>();
+  @Output() tempChange = new EventEmitter<number>();
+  @Output() deathSaveChange = new EventEmitter<{ type: 'successes' | 'failures'; value: number }>();
+  @Output() manageConditions = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
 

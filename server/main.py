@@ -14,6 +14,7 @@ from server.routers import (
     character_router,
     dm_router,
     forge_router,
+    homebrew_router,
     rules_router,
     websocket_router,
 )
@@ -59,6 +60,7 @@ app.include_router(auth_router.router, prefix=settings.API_V1_STR)
 app.include_router(character_router.router, prefix=settings.API_V1_STR)
 app.include_router(forge_router.router, prefix=settings.API_V1_STR)
 app.include_router(campaign_router.router, prefix=settings.API_V1_STR)
+app.include_router(homebrew_router.router, prefix=settings.API_V1_STR)
 app.include_router(dm_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
@@ -79,3 +81,13 @@ async def root():
         "version": settings.VERSION,
         "docs": "/docs",
     }
+
+
+def main():
+    import uvicorn
+
+    uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+if __name__ == "__main__":
+    main()

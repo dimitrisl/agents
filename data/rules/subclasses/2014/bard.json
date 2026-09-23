@@ -1,0 +1,35 @@
+{
+    "class_name": "Bard",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "College of Whispers": {
+            "name": "College of Whispers",
+            "scaling": {
+                "psychic_blades": {
+                    "name": "Psychic Blades",
+                    "kind": "rider",
+                    "damage_type": "psychic",
+                    "hint": "Expend one use of Bardic Inspiration to deal extra psychic damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "3d6"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "5d6"
+                        },
+                        {
+                            "level": 15,
+                            "notation": "8d6"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

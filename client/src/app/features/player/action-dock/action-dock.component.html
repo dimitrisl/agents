@@ -72,9 +72,10 @@
           size="sm"
           type="button"
           (click)="strategy.emit()"
+          [disabled]="isGeneratingStrategy"
           title="AI Playstyle Guide"
         >
-          📖 AI Guide
+          {{ isGeneratingStrategy ? '⏳ Generating...' : '📖 AI Guide' }}
         </button>
         <button
           forgeButton

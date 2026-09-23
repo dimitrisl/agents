@@ -74,6 +74,8 @@ export interface CharacterSchema {
   armor_class: number;
   hp_max: number;
   hp_current?: number;
+  hp_temp?: number;
+  death_saves?: { successes: number; failures: number };
   hit_dice_used?: number;
   speed: number;
   proficiency_bonus: number;
@@ -109,4 +111,29 @@ export interface CharacterSchema {
   playstyle_guide?: string;
   dnd_edition?: string;
   active_campaign?: string;
+}
+
+export interface LevelUpChoice {
+  type: string;
+  label: string;
+  options: string[];
+  ai_recommendation?: string;
+  reasoning?: string;
+}
+
+export interface LevelUpAnalysis {
+  automatic_changes: FeatureTrait[];
+  hp_increase: number;
+  new_total_hp: number;
+  choices_required: LevelUpChoice[];
+  updated_proficiency_bonus?: number;
+  updated_spell_slots?: Record<string, number>;
+  new_spells_known?: string[];
+  new_features?: FeatureTrait[]; // Alias
+}
+
+export interface LevelUpApplyRequest {
+  character_id: string;
+  analysis: LevelUpAnalysis;
+  user_choices?: Record<string, any>;
 }

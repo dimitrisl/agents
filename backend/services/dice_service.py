@@ -50,8 +50,9 @@ def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False)
     Parses and rolls dice notation (e.g. '1d20+5', '2d6-1', 'd8').
     Returns a dictionary with raw rolls, modifier, and total result.
     """
-    clean_str = (die_str or "1d20").lower().strip().replace(" ", "")
-    match = re.match(r"^(\d*)d(\d+)([+-]\d+)?$", clean_str)
+    raw_str = (die_str or "1d20").lower().strip()
+    clean_str = raw_str.replace(" ", "")
+    match = re.match(r"^(\d*)d(\d+)([+-]\d+)?", clean_str)
 
     if not match:
         logger.warning(f"Invalid dice expression '{die_str}', defaulting to 1d20.")

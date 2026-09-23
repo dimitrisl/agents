@@ -133,16 +133,16 @@ class Advancement(BaseModel):
 
 
 class SpellList(BaseModel):
-    cantrips: List[str] = []
-    level_1: List[str] = []
-    level_2: List[str] = []
-    level_3: List[str] = []
-    level_4: List[str] = []
-    level_5: List[str] = []
-    level_6: List[str] = []
-    level_7: List[str] = []
-    level_8: List[str] = []
-    level_9: List[str] = []
+    cantrips: List[str] = Field(default_factory=list)
+    level_1: List[str] = Field(default_factory=list)
+    level_2: List[str] = Field(default_factory=list)
+    level_3: List[str] = Field(default_factory=list)
+    level_4: List[str] = Field(default_factory=list)
+    level_5: List[str] = Field(default_factory=list)
+    level_6: List[str] = Field(default_factory=list)
+    level_7: List[str] = Field(default_factory=list)
+    level_8: List[str] = Field(default_factory=list)
+    level_9: List[str] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -168,6 +168,11 @@ class SpellList(BaseModel):
         return cleaned
 
 
+class DeathSavesSchema(BaseModel):
+    successes: int = 0
+    failures: int = 0
+
+
 class CharacterSchema(BaseModel):
     char_id: Optional[str] = None
     owner_id: Optional[str] = None
@@ -184,20 +189,22 @@ class CharacterSchema(BaseModel):
     armor_class: int = 10
     hp_max: int = 10
     hp_current: Optional[int] = None
+    hp_temp: int = 0
+    death_saves: DeathSavesSchema = Field(default_factory=DeathSavesSchema)
     hit_dice_used: int = 0
     speed: int = 30
     proficiency_bonus: int = 2
     stats: StatBlock
-    saving_throws: List[str] = []
-    skills: Dict[str, int] = {}
-    skill_proficiencies: List[str] = []
-    skill_expertise: List[str] = []
-    weapon_masteries: List[str] = []
-    weapons: List[Weapon] = []
-    equipment: List[EquipmentItem] = []
-    features_traits: List[FeatureTrait] = []
+    saving_throws: List[str] = Field(default_factory=list)
+    skills: Dict[str, int] = Field(default_factory=dict)
+    skill_proficiencies: List[str] = Field(default_factory=list)
+    skill_expertise: List[str] = Field(default_factory=list)
+    weapon_masteries: List[str] = Field(default_factory=list)
+    weapons: List[Weapon] = Field(default_factory=list)
+    equipment: List[EquipmentItem] = Field(default_factory=list)
+    features_traits: List[FeatureTrait] = Field(default_factory=list)
     spells: SpellList = Field(default_factory=SpellList)
-    prepared_spells: List[str] = []
+    prepared_spells: List[str] = Field(default_factory=list)
     spell_slots: Dict[str, Dict[str, int]] = Field(default_factory=dict)
     concentrating_on: Optional[str] = None
     conditions: List[str] = Field(default_factory=list)
@@ -206,19 +213,25 @@ class CharacterSchema(BaseModel):
     spell_attack_bonus: Optional[str] = None
     hit_dice: Optional[str] = ""
     passive_perception: int = 10
-    saving_throw_values: Dict[str, int] = {}
+    saving_throw_values: Dict[str, int] = Field(default_factory=dict)
     initiative_modifier: int = 0
-    advancements: List[Advancement] = []
+    advancements: List[Advancement] = Field(default_factory=list)
     personality_traits: Optional[str] = ""
     ideals: Optional[str] = ""
     bonds: Optional[str] = ""
     flaws: Optional[str] = ""
-    languages: List[str] = []
-    tool_proficiencies: List[str] = []
+    languages: List[str] = Field(default_factory=list)
+    tool_proficiencies: List[str] = Field(default_factory=list)
     char_portrait: Optional[str] = None
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
+
+    @computed_field
+    @property
+    def total_hp_max(self) -> int:
+        con_mod = (self.stats.CON - 10) // 2
+        return self.hp_max + (con_mod * self.char_level)
 
     @field_validator("spell_slots", mode="before")
     @classmethod
@@ -325,24 +338,24 @@ class MonsterEncounter(BaseModel):
 
 class EncounterSchema(BaseModel):
     encounter_text: str
-    monsters: List[MonsterEncounter] = []
+    monsters: List[MonsterEncounter] = Field(default_factory=list)
 
 
 class LevelUpChoice(BaseModel):
     type: str  # subclass|feat|spell|other
     label: str
-    options: List[str] = []
+    options: List[str] = Field(default_factory=list)
     ai_recommendation: Optional[str] = None
 
 
 class LevelUpAnalysisSchema(BaseModel):
-    automatic_changes: List[FeatureTrait] = []
+    automatic_changes: List[FeatureTrait] = Field(default_factory=list)
     hp_increase: int
     new_total_hp: int
-    choices_required: List[LevelUpChoice] = []
+    choices_required: List[LevelUpChoice] = Field(default_factory=list)
     updated_proficiency_bonus: Optional[int] = None
     updated_spell_slots: Optional[Dict[str, int]] = None
-    new_spells_known: List[str] = []
+    new_spells_known: List[str] = Field(default_factory=list)
 
     @computed_field
     @property
@@ -351,11 +364,17 @@ class LevelUpAnalysisSchema(BaseModel):
         return self.automatic_changes
 
 
+class LevelUpApplyRequest(BaseModel):
+    character_id: str
+    analysis: LevelUpAnalysisSchema
+    user_choices: Optional[Dict[str, Any]] = None
+
+
 class BuildValidationSchema(BaseModel):
     is_valid: bool
-    issues: List[str] = []
-    suggestions: List[str] = []
-    corrections: Optional[Dict[str, Any]] = {}
+    issues: List[str] = Field(default_factory=list)
+    suggestions: List[str] = Field(default_factory=list)
+    corrections: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class UserSchema(BaseModel):
@@ -445,11 +464,6 @@ class CombatantConditionSchema(BaseModel):
     expiresAtRound: Optional[int] = None
 
 
-class DeathSavesSchema(BaseModel):
-    successes: int = 0
-    failures: int = 0
-
-
 class InitiativeCombatantSchema(BaseModel):
     id: str
     char_id: Optional[str] = None
@@ -462,14 +476,14 @@ class InitiativeCombatantSchema(BaseModel):
     is_player: bool
     portrait: Optional[str] = None
     statblock: Optional[str] = None
-    conditions: List[CombatantConditionSchema] = []
+    conditions: List[CombatantConditionSchema] = Field(default_factory=list)
     deathSaves: Optional[DeathSavesSchema] = None
 
 
 class EncounterStateSchema(BaseModel):
     round: int = 0
     activeCombatantId: Optional[str] = None
-    combatants: List[InitiativeCombatantSchema] = []
+    combatants: List[InitiativeCombatantSchema] = Field(default_factory=list)
 
 
 class RaceSchema(BaseModel):

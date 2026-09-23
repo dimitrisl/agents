@@ -65,12 +65,20 @@ def calculate_ac(
     features: List[Dict[str, Any]] = None,
     wis_score: int = None,
     con_score: int = None,
+    homebrew_content: List[Dict[str, Any]] = None,
 ) -> int:
     """Calculates AC based on DEX and equipped items from KB."""
     from backend.repositories.rules_repository import RulesRepository
 
     _rules_repo = RulesRepository()
     all_items = _rules_repo.get_all_items()
+    if homebrew_content:
+        # Merge homebrew items (assuming they have similar schema)
+        all_items = all_items + [
+            item
+            for item in homebrew_content
+            if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
+        ]
 
     dex_mod = get_modifier(dex_score)
     base_ac = 10
@@ -367,8 +375,25 @@ def calculate_max_spell_slots(
     return slots
 
 
+def get_base_weapon(name: str, all_weapons: list) -> dict:
+    import re
+
+    name = (name or "").lower()
+    weapon_data = next((w for w in all_weapons if w.get("name", "").lower() == name), None)
+    if not weapon_data:
+        sorted_weapons = sorted(all_weapons, key=lambda x: len(x.get("name", "")), reverse=True)
+        for w in sorted_weapons:
+            w_name = w.get("name", "").lower()
+            if w_name and re.search(rf"\b{re.escape(w_name)}\b", name):
+                return w
+    return weapon_data
+
+
 def calculate_weapon_stats(
-    weapon: Dict[str, Any], stats: Dict[str, int], proficiency_bonus: int
+    weapon: Dict[str, Any],
+    stats: Dict[str, int],
+    proficiency_bonus: int,
+    homebrew_content: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
@@ -408,9 +433,28 @@ def calculate_weapon_stats(
         else:
             mod = str_mod
     else:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+        all_weapons = repo.get_all_weapons()
+        if homebrew_content:
+            all_weapons = all_weapons + [
+                w for w in homebrew_content if w.get("homebrew_type") == "weapon"
+            ]
         name = weapon.get("name", "").lower()
-        is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
-        is_finesse = any(word in name for word in ["rapier", "dagger", "scimitar", "shortsword"])
+
+        weapon_data = get_base_weapon(name, all_weapons)
+
+        if weapon_data:
+            category = (weapon_data.get("category") or "").lower()
+            props = [p.lower() for p in weapon_data.get("properties", [])]
+            is_ranged = "ranged" in category
+            is_finesse = any("finesse" in p for p in props)
+        else:
+            is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
+            is_finesse = any(
+                word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
+            )
 
         if is_ranged:
             mod = dex_mod
@@ -448,6 +492,7 @@ def sync_character_stats(
     char_data: Dict[str, Any],
     class_data: Dict[str, Any] = None,
     weapon_deltas: Dict[str, Any] = None,
+    homebrew_content: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Synchronizes all derived character stats."""
     from backend.repositories.rules_repository import RulesRepository
@@ -542,6 +587,12 @@ def sync_character_stats(
 
         item_name = equip.get("name", "").lower()
         all_items = repo.get_all_items()
+        if homebrew_content:
+            all_items = all_items + [
+                item
+                for item in homebrew_content
+                if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
+            ]
         item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
 
         if item_data and "stat_set" in item_data:
@@ -643,6 +694,10 @@ def sync_character_stats(
     features = char_data.get("features_traits", [])
 
     feat_library = repo.get_all_feats(edition)
+    if homebrew_content:
+        feat_library = feat_library + [
+            f for f in homebrew_content if f.get("homebrew_type") in ("feat", "feature")
+        ]
     feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
 
     for f in features:
@@ -677,14 +732,19 @@ def sync_character_stats(
         char_data.get("features_traits", []),
         wis_score=wis_score,
         con_score=con_score,
+        homebrew_content=homebrew_content,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus
     skill_profs = list(char_data.get("skill_proficiencies", []))
     wis_mod = get_modifier(wis_score)
-    pass_perc = char_data.get("passive_perception", 10)
+    pass_perc = char_data.get("passive_perception")
 
-    if pass_perc >= 10 + wis_mod + prof_bonus and "Perception" not in skill_profs:
+    if (
+        pass_perc is not None
+        and pass_perc >= 10 + wis_mod + prof_bonus
+        and "Perception" not in skill_profs
+    ):
         skill_profs.append("Perception")
 
     temp_skills = calculate_skills(
@@ -767,7 +827,7 @@ def sync_character_stats(
                     w_dict.get("damage_dice"), w_dict.get("damage_bonus")
                 )
 
-        updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus))
+        updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus, homebrew_content))
 
     if weapon_deltas and "deleted_rows" in weapon_deltas:
         deleted_indices = sorted(weapon_deltas["deleted_rows"], reverse=True)
@@ -788,7 +848,7 @@ def sync_character_stats(
                 "range": new_w_data.get("range", ""),
                 "is_custom": new_w_data.get("is_custom", False),
             }
-            new_w = calculate_weapon_stats(new_w, stats, prof_bonus)
+            new_w = calculate_weapon_stats(new_w, stats, prof_bonus, homebrew_content)
             updated_weapons.append(new_w)
 
     char_data["weapons"] = updated_weapons
@@ -901,8 +961,8 @@ def sync_character_stats(
     skill_profs = char_data.get("skill_proficiencies") or []
     normalized_profs = [str(s).strip().lower() for s in skill_profs]
     wis_mod = math.floor((stats.get("WIS", 10) - 10) / 2)
-    passive_percep = char_data.get("passive_perception") or (10 + wis_mod)
-    if passive_percep >= 10 + wis_mod + prof_bonus:
+    passive_percep = char_data.get("passive_perception")
+    if passive_percep is not None and passive_percep >= 10 + wis_mod + prof_bonus:
         if "perception" not in normalized_profs:
             skill_profs.append("Perception")
             char_data["skill_proficiencies"] = skill_profs
@@ -960,49 +1020,48 @@ def sync_character_stats(
                 else (3 if level >= 4 else 2)
             )
             existing_masteries = list(char_data.get("weapon_masteries") or [])
+            all_weapons = repo.get_all_weapons()
+            if homebrew_content:
+                all_weapons = all_weapons + [
+                    w for w in homebrew_content if w.get("homebrew_type") == "weapon"
+                ]
 
             # Prioritize masteries matching equipped weapons
             equipped_weapon_masteries = []
             for w in char_data.get("weapons", []):
                 if isinstance(w, dict):
                     w_name = (w.get("name") or "").lower()
-                    if "longsword" in w_name and "Sap (Longsword)" not in equipped_weapon_masteries:
-                        equipped_weapon_masteries.append("Sap (Longsword)")
-                    elif (
-                        "crossbow" in w_name
-                        and "Slow (Light Crossbow)" not in equipped_weapon_masteries
-                    ):
-                        equipped_weapon_masteries.append("Slow (Light Crossbow)")
-                    elif (
-                        "greatsword" in w_name
-                        and "Graze (Greatsword)" not in equipped_weapon_masteries
-                    ):
-                        equipped_weapon_masteries.append("Graze (Greatsword)")
-                    elif (
-                        "warhammer" in w_name
-                        and "Topple (Warhammer)" not in equipped_weapon_masteries
-                    ):
-                        equipped_weapon_masteries.append("Topple (Warhammer)")
+                    w_data = get_base_weapon(w_name, all_weapons)
+                    if w_data and "mastery" in w_data:
+                        m_string = f"{w_data['mastery']} ({w_data['name']})"
+                        if m_string not in equipped_weapon_masteries:
+                            equipped_weapon_masteries.append(m_string)
 
             for m in equipped_weapon_masteries:
                 if m not in existing_masteries:
                     existing_masteries.insert(0, m)
 
-            mastery_pool = [
-                "Sap (Longsword)",
-                "Slow (Light Crossbow)",
-                "Graze (Greatsword)",
-                "Nick (Dagger)",
-                "Topple (Warhammer)",
-                "Vex (Shortsword)",
-                "Push (Pike)",
-                "Cleave (Greataxe)",
+            # Popular defaults to ensure we have a good pool of different masteries
+            default_weapon_names = [
+                "Longsword",
+                "Light Crossbow",
+                "Greatsword",
+                "Dagger",
+                "Warhammer",
+                "Shortsword",
+                "Pike",
+                "Greataxe",
             ]
-            for m in mastery_pool:
-                if len(existing_masteries) >= target_masteries_count:
-                    break
-                if m not in existing_masteries:
-                    existing_masteries.append(m)
+            for def_name in default_weapon_names:
+                w_data = next(
+                    (x for x in all_weapons if x.get("name", "").lower() == def_name.lower()), None
+                )
+                if w_data and "mastery" in w_data:
+                    m_string = f"{w_data['mastery']} ({w_data['name']})"
+                    if len(existing_masteries) >= target_masteries_count:
+                        break
+                    if m_string not in existing_masteries:
+                        existing_masteries.append(m_string)
 
             char_data["weapon_masteries"] = existing_masteries[:target_masteries_count]
 
@@ -1011,10 +1070,9 @@ def sync_character_stats(
                     w_name = (w.get("name") or "").lower()
                     props = w.get("properties") or ""
                     if "mastery" not in props.lower():
-                        if "longsword" in w_name:
-                            w["properties"] = f"{props}, Mastery: Sap".strip(", ")
-                        elif "crossbow" in w_name:
-                            w["properties"] = f"{props}, Mastery: Slow".strip(", ")
+                        w_data = get_base_weapon(w_name, all_weapons)
+                        if w_data and "mastery" in w_data:
+                            w["properties"] = f"{props}, Mastery: {w_data['mastery']}".strip(", ")
 
         # B. Background Origin Feat
         bg = (char_data.get("background") or "").lower()

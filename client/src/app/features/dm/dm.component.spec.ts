@@ -304,7 +304,7 @@ describe('DmComponent — initiative rounds', () => {
     it('carries no combatant across a campaign switch', () => {
       const http = TestBed.inject(HttpTestingController);
       component.onCampaignSelect();
-      http.expectOne((req) => req.url.includes('/party')).flush([]);
+      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([]));
 
       // A monster added under the first campaign must not follow the DM to the
       // next one — nor end up saved under its name.
@@ -317,7 +317,7 @@ describe('DmComponent — initiative rounds', () => {
       expect(component.combatants).toEqual([]);
       expect(component.round).toBe(0);
 
-      http.expectOne((req) => req.url.includes('/party')).flush([]);
+      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([]));
       expect(storage.load('Phyrexia Awakens')).toBeNull();
       expect(storage.load('Curse of Strahd')?.combatants.map((c) => c.name)).toEqual(['Strahd']);
     });
@@ -349,10 +349,8 @@ describe('DmComponent — initiative rounds', () => {
       component.onCampaignSelect();
       // The inbox fetch is not what these tests are about, but it has to be
       // answered for `verify()` to mean "no stray writes".
-      http
-        .expectOne((req) => req.url.includes('/messages'))
-        .flush({ campaign_name: 'Curse of Strahd', whispers: [], roll_requests: [] });
-      http.expectOne((req) => req.url.includes('/party')).flush([
+      http.match((req) => req.url.includes('/messages')).forEach((req) => req.flush({ campaign_name: 'Curse of Strahd', whispers: [], roll_requests: [] }));
+      http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([
         {
           char_id: 'lyra1',
           char_name: 'Lyra Meadowlark',
@@ -361,7 +359,7 @@ describe('DmComponent — initiative rounds', () => {
           armor_class: 13,
           conditions: ['Invisible'],
         },
-      ]);
+      ]));
       hero = component.partyMembers[0];
     });
 
@@ -522,7 +520,8 @@ describe('DmComponent — encounter generator', () => {
     component.campaignName = 'Curse of Strahd';
   });
 
-  afterEach(() => {
+afterEach(() => {
+    http.match(() => true).forEach(req => req.flush({}));
     http.verify();
     localStorage.clear();
   });
@@ -563,14 +562,17 @@ describe('DmComponent — encounter generator', () => {
     component.avgLevel = 9;
 
     component.onCampaignSelect();
-    http.expectOne((r) => r.url.includes('/messages')).flush({
+
+
+    http.match((r) => r.url.includes('/messages')).forEach(req => req.flush({
       campaign_name: 'Curse of Strahd',
       whispers: [],
       roll_requests: [],
-    });
+    }));
+
+
     http
-      .expectOne((r) => r.url.includes('/party'))
-      .flush([{ char_id: 'e1', char_name: 'Ezren', char_level: 4, hp_current: 22, hp_max: 22 }]);
+      .match((r) => r.url.includes('/party')).forEach((r) => r.flush([{ char_id: 'e1', char_name: 'Ezren', char_level: 4, hp_current: 22, hp_max: 22 }]));
 
     expect(component.avgLevel).toBe(4);
   });
@@ -587,15 +589,19 @@ describe('DmComponent — encounter generator', () => {
 
   it('resolves the encounter against the ruleset the campaign is played under', () => {
     component.userCampaigns = [
-      { campaign_name: 'Curse of Strahd', dnd_edition: '2024 Revision (5.5e)' },
+      { campaign_name: 'Curse of Strahd', dnd_edition: '2024 Revision (5.5e)', party: [] },
     ];
     component.onCampaignSelect();
-    http.expectOne((r) => r.url.includes('/messages')).flush({
+
+
+    http.match((r) => r.url.includes('/messages')).forEach(req => req.flush({
       campaign_name: 'Curse of Strahd',
       whispers: [],
       roll_requests: [],
-    });
-    http.expectOne((r) => r.url.includes('/party')).flush([]);
+    }));
+
+
+
     component.partyMembers = [hero('Ezren', 5)];
 
     component.generateEncounter();
@@ -615,14 +621,18 @@ describe('DmComponent — encounter generator', () => {
 
   it('falls back to the edition toggle for a campaign saved before the field existed', () => {
     TestBed.inject(CharacterStateService).dndEdition.set('2024 Revision (5.5e)');
-    component.userCampaigns = [{ campaign_name: 'Curse of Strahd' }];
+    component.userCampaigns = [{ campaign_name: 'Curse of Strahd', party: [] }];
     component.onCampaignSelect();
-    http.expectOne((r) => r.url.includes('/messages')).flush({
+
+
+    http.match((r) => r.url.includes('/messages')).forEach(req => req.flush({
       campaign_name: 'Curse of Strahd',
       whispers: [],
       roll_requests: [],
-    });
-    http.expectOne((r) => r.url.includes('/party')).flush([]);
+    }));
+
+
+
     component.partyMembers = [hero('Ezren', 5)];
 
     component.generateEncounter();
@@ -690,7 +700,8 @@ describe('DmComponent — workspace teardown and whispers', () => {
     component.campaignName = 'Curse of Strahd';
   });
 
-  afterEach(() => {
+afterEach(() => {
+    http.match(() => true).forEach(req => req.flush({}));
     http.verify();
     localStorage.clear();
   });
@@ -728,11 +739,11 @@ describe('DmComponent — workspace teardown and whispers', () => {
   it('reads passive perception off the hero rather than a fixed 11', () => {
     component.loadParty();
 
-    http.expectOne((r) => r.url.includes('/party')).flush([
+    http.match((r) => r.url.includes('/party')).forEach((r) => r.flush([
       { char_id: 'e1', char_name: 'Ezren', stats: { WIS: 18 } },
       { char_id: 'v1', char_name: 'Valeros', stats: { WIS: 8 } },
       { char_id: 'm1', char_name: 'Merisiel' },
-    ]);
+    ]));
 
     expect(component.partyMembers.map((m) => m.passive_perception)).toEqual([14, 9, 10]);
   });

@@ -239,5 +239,66 @@
                 }
             ]
         }
+    },
+    "scaling": {
+        "sneak_attack": {
+            "name": "Sneak Attack",
+            "kind": "rider",
+            "hint": "Once per turn, with Advantage or an ally within 5 ft of the target. Finesse or ranged weapon only.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "1d6"
+                },
+                {
+                    "level": 3,
+                    "notation": "2d6"
+                },
+                {
+                    "level": 5,
+                    "notation": "3d6"
+                },
+                {
+                    "level": 7,
+                    "notation": "4d6"
+                },
+                {
+                    "level": 9,
+                    "notation": "5d6"
+                },
+                {
+                    "level": 11,
+                    "notation": "6d6"
+                },
+                {
+                    "level": 13,
+                    "notation": "7d6"
+                },
+                {
+                    "level": 15,
+                    "notation": "8d6"
+                },
+                {
+                    "level": 17,
+                    "notation": "9d6"
+                },
+                {
+                    "level": 19,
+                    "notation": "10d6"
+                }
+            ]
+        },
+        "cunning_strike": {
+            "name": "Cunning Strike",
+            "kind": "utility",
+            "rollable": false,
+            "hint": "Forgo Sneak Attack dice to add Poison, Trip or Withdraw. Two effects from 11th.",
+            "steps": [
+                {
+                    "level": 5,
+                    "notation": "\u22121d6 per effect"
+                }
+            ]
+        }
     }
 }

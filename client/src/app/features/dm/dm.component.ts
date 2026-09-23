@@ -11,6 +11,7 @@ import { Subscription } from 'rxjs';
 import { Subject, EMPTY } from 'rxjs';
 import { debounceTime, catchError, switchMap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
+import { HomebrewService } from '../../core/services/homebrew.service';
 import {
   Campaign,
   CampaignMessages,
@@ -44,6 +45,7 @@ import { NotesPanelComponent } from './panels/notes-panel/notes-panel.component'
 import { PartyPanelComponent } from './panels/party-panel/party-panel.component';
 import { InitiativePanelComponent } from './panels/initiative-panel/initiative-panel.component';
 import { GeneratorsPanelComponent } from './panels/generators-panel/generators-panel.component';
+import { HomebrewPanelComponent } from './panels/homebrew-panel/homebrew-panel.component';
 import { PrepPanelComponent } from './panels/prep-panel/prep-panel.component';
 import { WhisperModalComponent } from './modals/whisper-modal/whisper-modal.component';
 import { RollRequestModalComponent } from './modals/roll-request-modal/roll-request-modal.component';
@@ -87,6 +89,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     InitiativePanelComponent,
     GeneratorsPanelComponent,
     PrepPanelComponent,
+    HomebrewPanelComponent,
     WhisperModalComponent,
     RollRequestModalComponent,
     StatblockModalComponent,
@@ -98,13 +101,14 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   styleUrl: './dm.component.css',
 })
 export class DmComponent implements OnInit, OnDestroy {
-  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' = 'party';
+  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' | 'homebrew' = 'party';
   readonly dmTabs: ForgeTab[] = [
     { id: 'notes', label: '📝 Campaign Notes' },
     { id: 'party', label: '👥 Live Party Tracker' },
     { id: 'initiative', label: '⚔️ Initiative Tracker' },
     { id: 'generators', label: '🎲 AI Generators' },
     { id: 'prep', label: '📜 Session Prep' },
+    { id: 'homebrew', label: '🔥 Homebrew Forge' },
   ];
 
   userCampaigns: Campaign[] = [];
@@ -224,7 +228,8 @@ export class DmComponent implements OnInit, OnDestroy {
     public charState: CharacterStateService,
     private wsService: WebSocketService,
     private auth: AuthService, private router: Router,
-    private encounterStorage: EncounterStorageService
+    private encounterStorage: EncounterStorageService,
+    private homebrewService: HomebrewService
   ) {}
 
   // The campaign whose party/socket is currently live, so re-picking the same
@@ -245,6 +250,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   onlineCharacters = new Set<string>();
 
+  private campaignInitialLoad = new Set<string>();
+
   ngOnInit() {
     this.loadCampaigns();
 
@@ -252,7 +259,9 @@ export class DmComponent implements OnInit, OnDestroy {
     // and nobody ever has to reload the page to catch up.
     this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
       if (campaignName === this.campaignName) {
-        this.loadCampaignMessages(campaignName, true);
+        const isCatchUp = this.campaignInitialLoad.has(campaignName);
+        this.campaignInitialLoad.add(campaignName);
+        this.loadCampaignMessages(campaignName, isCatchUp);
       }
     });
 
@@ -278,6 +287,10 @@ export class DmComponent implements OnInit, OnDestroy {
         // board immediately so the answer has somewhere to land.
         this.cancelSupersededRollRequests(payload);
         this.upsertRollRequest(payload, false);
+      } else if (msg.type === 'homebrew_created') {
+        if (this.campaignName) {
+          this.homebrewService.loadHomebrew(this.campaignName).subscribe();
+        }
       } else if (msg.type === 'roll_result') {
         // A missed request comes down this same channel with no result on it — the
         // player never rolled. It still has to reach the board, or the request sits
@@ -614,7 +627,6 @@ export class DmComponent implements OnInit, OnDestroy {
     this.showDmInbox = false;
     this.inboxReplyMessage = '';
     this.inboxReplyRecipient = 'All';
-    this.loadCampaignMessages(this.campaignName);
     this.loadParty();
 
     if (!isFirstLoad) {

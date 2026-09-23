@@ -1,0 +1,85 @@
+{
+    "class_name": "Cleric",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Life Domain": {
+            "name": "Life Domain",
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "radiant",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Light Domain": {
+            "name": "Light Domain",
+            "scaling": {
+                "potent_spellcasting": {
+                    "name": "Potent Spellcasting",
+                    "kind": "utility",
+                    "hint": "Add your Wisdom modifier to the damage you deal with any cleric cantrip.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": ""
+                        }
+                    ]
+                }
+            }
+        },
+        "Trickery Domain": {
+            "name": "Trickery Domain",
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "poison",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "War Domain": {
+            "name": "War Domain",
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "same as weapon",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
