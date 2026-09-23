@@ -52,63 +52,7 @@
       </div>
     </div>
 
-    <div *ngIf="addMemberTab === 'custom'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-custom" class="flex flex-col gap-4">
-      <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
-        Character Name:
-        <input
-          forgeInput
-          type="text"
-          [ngModel]="newMemberName"
-          (ngModelChange)="newMemberNameChange.emit($event)"
-          placeholder="e.g. Minsc & Boo"
-        />
-      </label>
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
-          Class:
-          <input
-            forgeInput
-            type="text"
-            [ngModel]="newMemberClass"
-            (ngModelChange)="newMemberClassChange.emit($event)"
-            placeholder="Ranger"
-          />
-        </label>
-        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
-          Level:
-          <input
-            forgeInput
-            type="number"
-            min="1"
-            max="20"
-            [ngModel]="newMemberLevel"
-            (ngModelChange)="newMemberLevelChange.emit($event)"
-          />
-        </label>
-      </div>
-
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
-          Max HP:
-          <input
-            forgeInput
-            type="number"
-            [ngModel]="newMemberHp"
-            (ngModelChange)="newMemberHpChange.emit($event)"
-          />
-        </label>
-        <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
-          Armor Class (AC):
-          <input
-            forgeInput
-            type="number"
-            [ngModel]="newMemberAc"
-            (ngModelChange)="newMemberAcChange.emit($event)"
-          />
-        </label>
-      </div>
-    </div>
 
     <div *ngIf="addMemberTab === 'invite'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-invite" class="rounded-lg border border-hairline bg-black/30 p-4 text-center">
       <p class="mb-2 text-body text-muted">
@@ -147,9 +91,7 @@
       >
         Enlist Selected Hero
       </button>
-      <button *ngIf="addMemberTab === 'custom'" forgeButton type="button" (click)="addPartyMember.emit()">
-        Add Custom Hero
-      </button>
+
       <button
         *ngIf="addMemberTab === 'invite'"
         forgeButton
