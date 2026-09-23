@@ -491,6 +491,7 @@ class EncounterStateSchema(BaseModel):
     round: int = 0
     activeCombatantId: Optional[str] = None
     combatants: List[InitiativeCombatantSchema] = Field(default_factory=list)
+    danger_indicator: Optional[str] = None
 
 
 class RaceSchema(BaseModel):
