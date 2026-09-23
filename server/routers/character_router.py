@@ -66,6 +66,16 @@ async def list_characters(
     return CharacterListResponse(characters=characters, unreadable=unreadable)
 
 
+async def _get_homebrew_for_character(db: AsyncIOMotorDatabase, campaign_id: str) -> list:
+    homebrew_items = []
+    if campaign_id:
+        cursor = db["homebrew_content"].find({"campaign_id": campaign_id})
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            homebrew_items.append(doc)
+    return homebrew_items
+
+
 @router.post("", response_model=CharacterSchema, status_code=status.HTTP_201_CREATED)
 async def create_character(
     char_in: CharacterSchema,
@@ -75,8 +85,12 @@ async def create_character(
     char_dict = char_in.model_dump()
     char_dict["owner_id"] = current_user["id"]
 
+    homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
+
     # Ensure stats & derived properties are synchronized
-    char_dict = process_character_update(char_dict)
+    char_dict = await run_in_threadpool(
+        process_character_update, char_dict, None, None, None, homebrew_items
+    )
 
     await db["characters"].update_one(
         {"char_id": char_dict["char_id"]}, {"$set": char_dict}, upsert=True
@@ -112,8 +126,12 @@ async def update_character(
     char_dict["char_id"] = char_id
     char_dict["owner_id"] = current_user["id"]
 
+    homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
+
     # Re-calculate and sync stats using threadpool to prevent blocking the async event loop
-    char_dict = await run_in_threadpool(process_character_update, char_dict)
+    char_dict = await run_in_threadpool(
+        process_character_update, char_dict, None, None, None, homebrew_items
+    )
 
     await db["characters"].update_one({"char_id": char_id}, {"$set": char_dict})
 
@@ -172,9 +190,15 @@ async def add_homebrew_to_character(
 
     # Process updates (handles stats, max hp, etc.)
     char_dict = char.model_dump(by_alias=True)
-    updated_char = await process_character_update(db, char_id, char_dict)
 
-    return updated_char
+    homebrew_items = await _get_homebrew_for_character(db, campaign_id)
+
+    updated_char = await run_in_threadpool(
+        process_character_update, char_dict, None, None, None, homebrew_items
+    )
+    await db["characters"].update_one({"char_id": char_id}, {"$set": updated_char})
+
+    return CharacterSchema.model_validate(updated_char, strict=False)
 
 
 @router.delete("/{char_id}", response_model=SuccessResponseSchema)
@@ -209,7 +233,10 @@ async def export_pdf(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
-    char_dict = process_character_update(char_dict)
+    homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
+    char_dict = await run_in_threadpool(
+        process_character_update, char_dict, None, None, None, homebrew_items
+    )
 
     pdf_bytes = export_character_to_pdf(
         char_dict, "data/pdf_mappings/5E_CharacterSheet_Fillable.pdf"
@@ -265,7 +292,10 @@ async def import_pdf(
     if not parsed_char.get("char_id"):
         parsed_char["char_id"] = str(uuid.uuid4())
 
-    parsed_char = process_character_update(parsed_char)
+    homebrew_items = await _get_homebrew_for_character(db, parsed_char.get("active_campaign"))
+    parsed_char = await run_in_threadpool(
+        process_character_update, parsed_char, None, None, None, homebrew_items
+    )
     await db["characters"].update_one(
         {"char_id": parsed_char["char_id"]}, {"$set": parsed_char}, upsert=True
     )
