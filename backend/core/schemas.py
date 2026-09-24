@@ -329,7 +329,7 @@ class MonsterEncounter(BaseModel):
     ac: int
     dex: int = 10
     quantity: int = 1
-    statblock_summary: str
+    statblock_summary: Optional[str] = ""
 
     @field_validator("dex", "quantity", mode="before")
     @classmethod

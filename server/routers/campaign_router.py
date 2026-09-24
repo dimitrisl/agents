@@ -119,7 +119,7 @@ async def _find_campaign_character(
     which is the reliable handle; the name is the fallback for a hero the DM typed in
     by hand rather than one that joined from the vault.
     """
-    char_id = (char_filename or "").replace(".json", "").split("_")[-1]
+    char_id = (char_filename or "").replace(".json", "").rsplit("_", 1)[-1]
     if char_id:
         char = await db["characters"].find_one({"char_id": char_id})
         if char:

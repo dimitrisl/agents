@@ -355,6 +355,12 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterSub?.unsubscribe();
     this.encounterSyncSubject.complete();
 
+    // Flush any pending state changes
+    const pendingCharIds = Array.from(this.pendingPartyState.keys());
+    for (const charId of pendingCharIds) {
+      this.flushPartyState(charId);
+    }
+
     // Unsubscribing only stops this page from listening; the socket itself stays
     // up, and the service holds exactly one. Left open, the server goes on
     // routing every whisper and secret roll to a `role=dm` channel nobody is
@@ -1450,7 +1456,7 @@ export class DmComponent implements OnInit, OnDestroy {
   generateRiddle() {
     this.http.post<any>(`${environment.apiBaseUrl}/dm/riddle`, {
       location: this.riddleTheme,
-      edition: this.campaignEdition || '5e'
+      edition: this.activeEdition
     }).subscribe((res) => {
       this.riddleResult = res.riddle_markdown;
     });

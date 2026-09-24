@@ -76,12 +76,14 @@ export class PartyPanelComponent {
 
   toggleConditions(member: PartyMember): void {
     const key = this.memberKey(member);
-    if (this.openConditionEditors.has(key)) {
-      this.openConditionEditors.delete(key);
+    const newSet = new Set(this.openConditionEditors);
+    if (newSet.has(key)) {
+      newSet.delete(key);
     } else {
-      this.openConditionEditors.add(key);
+      newSet.add(key);
     }
+    this.openConditionEditors = newSet;
   }
 
-  private readonly openConditionEditors = new Set<string>();
+  private openConditionEditors = new Set<string>();
 }

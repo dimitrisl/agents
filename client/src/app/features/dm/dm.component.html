@@ -121,13 +121,7 @@
             </ul>
           </div>
 
-          <app-homebrew-panel
-            *ngIf="activeTab === 'homebrew'"
-            class="block min-w-0"
-            role="tabpanel"
-            aria-labelledby="dm-tabs-tab-homebrew"
-            [campaignName]="campaignName"
-          ></app-homebrew-panel>
+          <!-- Homebrew panel lives only in the main tab section below to avoid double-rendering -->
         </div>
       </forge-card>
     </aside>
