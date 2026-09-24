@@ -100,15 +100,19 @@ export function resolveShortRest(
   const hpBefore = currentHp(char);
   const hpAfter = Math.min(char.hp_max, hpBefore + rolled);
 
-  return {
-    rolled,
-    hpGained: hpAfter - hpBefore,
-    hpBefore,
-    hpAfter,
-    hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
-    restoresPactSlots: (char.char_class || '').toLowerCase().includes('warlock'),
-  };
-}
+    const isWarlock = 
+      (char.char_class || '').toLowerCase().includes('warlock') ||
+      (char.classes || []).some(c => (c.class_name || '').toLowerCase().includes('warlock'));
+
+    return {
+      rolled,
+      hpGained: hpAfter - hpBefore,
+      hpBefore,
+      hpAfter,
+      hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
+      restoresPactSlots: isWarlock,
+    };
+  }
 
 export interface LongRestOutcome {
   hpCurrent: number;
