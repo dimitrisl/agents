@@ -44,7 +44,7 @@
             <span class="text-label text-muted">
               Lvl {{ selectedHero.char_level }} {{ selectedHero.char_class }} ({{ selectedHero.race }})
             </span>
-            <div class="mt-1 text-label text-gold">
+            <div class="mt-1 text-label text-accent">
               🛡️ AC: {{ selectedHero.armor_class }} | ❤️ HP: {{ selectedHero.hp_max }}
             </div>
           </div>
@@ -59,7 +59,7 @@
         Invite players to join <strong>{{ campaignName }}</strong> from their Player Dashboard:
       </p>
       @if (inviteCode) {
-        <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-metric font-extrabold tracking-[0.25em] text-gold">
+        <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-metric font-extrabold tracking-[0.25em] text-accent">
           {{ inviteCode }}
         </div>
         <div>
@@ -70,7 +70,7 @@
         <ol class="mt-3 list-inside list-decimal space-y-1 text-left text-label leading-relaxed text-muted">
           <li>Players log into their account on the web app.</li>
           <li>Navigate to <strong>Player Dashboard</strong> and click <strong>🔑 Join Campaign</strong>.</li>
-          <li>Enter invite code <strong class="text-gold">{{ inviteCode }}</strong> to join this realm.</li>
+          <li>Enter invite code <strong class="text-accent">{{ inviteCode }}</strong> to join this realm.</li>
         </ol>
       } @else {
         <p class="text-body text-muted">
