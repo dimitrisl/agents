@@ -133,6 +133,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   newCampaignTitle = '';
   newCampaignNotes = '';
+  newCampaignEdition = '2014 Edition'; // Initialized in constructor
 
   newMemberName = '';
   newMemberClass = 'Fighter';
@@ -159,6 +160,15 @@ export class DmComponent implements OnInit, OnDestroy {
   rollStat = 'DEX';
   rollReason = 'Dragon Breath Fire Save';
   isSecretRoll = false;
+
+  onRollTypeChange(newType: string) {
+    this.rollType = newType;
+    if (newType === 'skill_check') {
+      this.rollStat = 'Perception'; // Default skill
+    } else {
+      this.rollStat = 'DEX'; // Default stat
+    }
+  }
 
   /**
    * Only set when the DM types a level by hand. Left null, the generator follows
@@ -217,6 +227,7 @@ export class DmComponent implements OnInit, OnDestroy {
   newCombatantName = '';
   newCombatantInit = 10;
   newCombatantHp = 20;
+  newCombatantAc = 12;
 
   addMemberTab: 'existing' | 'custom' | 'invite' = 'existing';
   selectedExistingCharId = '';
@@ -625,6 +636,14 @@ export class DmComponent implements OnInit, OnDestroy {
     this.inboxRollRequests = [];
     this.unreadInboxMessages = 0;
     this.showDmInbox = false;
+
+    // Clear generators
+    this.prepResult = '';
+    this.prepNotes = '';
+    this.riddleResult = '';
+    this.riddleTheme = '';
+    this.encounterResult = null;
+    this.npcResult = '';
   }
 
   onCampaignSelect() {
@@ -765,14 +784,20 @@ export class DmComponent implements OnInit, OnDestroy {
 
 
 
+  openNewCampaignModal() {
+    this.newCampaignTitle = '';
+    this.newCampaignNotes = '';
+    this.newCampaignEdition = this.charState.dndEdition();
+    this.showNewCampaignModal = true;
+  }
+
   createNewCampaign() {
     if (!this.newCampaignTitle.trim() || this.isCreatingCampaign) return;
     const newCamp: Campaign = {
       campaign_name: this.newCampaignTitle.trim(),
       notes: this.newCampaignNotes,
       party: [],
-      // A campaign is forged under whichever ruleset the DM is playing right now.
-      dnd_edition: this.charState.dndEdition()
+      dnd_edition: this.newCampaignEdition
     };
 
     this.isCreatingCampaign = true;
@@ -1045,13 +1070,16 @@ export class DmComponent implements OnInit, OnDestroy {
       initiative: this.newCombatantInit,
       hp: this.newCombatantHp,
       max_hp: this.newCombatantHp,
-      ac: 12,
+      ac: this.newCombatantAc,
       dex: 10,
       is_player: false,
     });
 
     this.combatants = this.sortCombatants([...this.combatants, added]);
     this.newCombatantName = '';
+    this.newCombatantInit = 10;
+    this.newCombatantHp = 20;
+    this.newCombatantAc = 12;
     this.persistEncounter();
   }
 

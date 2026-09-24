@@ -6,17 +6,55 @@
   (closed)="closed.emit()"
 >
   <div *ngIf="combatant as selectedStatblockCombatant" class="flex flex-col gap-4">
-    <p class="text-body text-muted">
-      AC: {{ selectedStatblockCombatant.ac }} | HP: {{ selectedStatblockCombatant.max_hp }} | DEX:
-      {{ selectedStatblockCombatant.dex }}
-    </p>
+    <!-- Party Member View -->
+    <ng-container *ngIf="partyMember; else monsterView">
+      <div class="flex items-center gap-3">
+        <img *ngIf="partyMember.portrait" [src]="partyMember.portrait" alt="" class="h-16 w-16 rounded-full object-cover border border-hairline" />
+        <div>
+          <p class="text-body text-muted">{{ partyMember.race }} {{ partyMember.char_class }} {{ partyMember.char_level }}</p>
+          <p class="text-body text-muted">
+            AC: <span class="font-bold text-ink">{{ partyMember.ac }}</span> | 
+            HP: <span class="font-bold text-ink">{{ partyMember.hp_current }}/{{ partyMember.hp_max }}</span> | 
+            Speed: <span class="font-bold text-ink">{{ partyMember.speed }} ft</span>
+          </p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-6 gap-2 rounded-lg border border-hairline bg-panel p-3 text-center">
+        <div class="flex flex-col"><span class="text-micro font-bold text-muted uppercase">STR</span><span class="text-label">{{ partyMember.stats.STR }}</span></div>
+        <div class="flex flex-col"><span class="text-micro font-bold text-muted uppercase">DEX</span><span class="text-label">{{ partyMember.stats.DEX }}</span></div>
+        <div class="flex flex-col"><span class="text-micro font-bold text-muted uppercase">CON</span><span class="text-label">{{ partyMember.stats.CON }}</span></div>
+        <div class="flex flex-col"><span class="text-micro font-bold text-muted uppercase">INT</span><span class="text-label">{{ partyMember.stats.INT }}</span></div>
+        <div class="flex flex-col"><span class="text-micro font-bold text-muted uppercase">WIS</span><span class="text-label">{{ partyMember.stats.WIS }}</span></div>
+        <div class="flex flex-col"><span class="text-micro font-bold text-muted uppercase">CHA</span><span class="text-label">{{ partyMember.stats.CHA }}</span></div>
+      </div>
+      
+      <div class="rounded-lg border border-hairline bg-panel p-4 text-body text-ink">
+        <p class="text-micro font-bold text-muted uppercase mb-2">Features & Traits</p>
+        <ul class="list-inside list-disc flex flex-col gap-1">
+          <li *ngFor="let feat of partyMember.features_traits">
+            <span class="font-semibold">{{ feat.name }}</span>
+            <span *ngIf="feat.description" class="text-muted block text-sm pl-5 whitespace-pre-wrap">{{ feat.description }}</span>
+          </li>
+        </ul>
+      </div>
+    </ng-container>
 
-    <div class="rounded-lg border border-hairline bg-panel p-4 text-body text-ink">
-      <p>{{ selectedStatblockCombatant.statblock || 'Standard D&D 5e monster statblock.' }}</p>
-    </div>
+    <!-- Monster View -->
+    <ng-template #monsterView>
+      <p class="text-body text-muted">
+        AC: <span class="font-bold text-ink">{{ selectedStatblockCombatant.ac }}</span> | 
+        HP: <span class="font-bold text-ink">{{ selectedStatblockCombatant.max_hp }}</span> | 
+        DEX: <span class="font-bold text-ink">{{ selectedStatblockCombatant.dex }}</span>
+      </p>
 
-    <div class="flex justify-end gap-2">
-      <button forgeButton variant="secondary" type="button" (click)="viewBeyond.emit(selectedStatblockCombatant.name)">
+      <div class="rounded-lg border border-hairline bg-panel p-4 text-body text-ink whitespace-pre-wrap">
+        {{ selectedStatblockCombatant.statblock || 'Standard D&D 5e monster statblock.' }}
+      </div>
+    </ng-template>
+
+    <div class="flex justify-end gap-2 mt-2">
+      <button *ngIf="!partyMember" forgeButton variant="secondary" type="button" (click)="viewBeyond.emit(selectedStatblockCombatant.name)">
         🌐 View on D&D Beyond
       </button>
       <button forgeButton type="button" (click)="closed.emit()">Close</button>

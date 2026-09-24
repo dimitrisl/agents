@@ -21,7 +21,7 @@
       title="No Campaigns Yet"
       description="Forge your first campaign to open the DM workspace."
     >
-      <button forgeButton variant="primary" type="button" (click)="showNewCampaignModal = true">
+      <button forgeButton variant="primary" type="button" (click)="openNewCampaignModal()">
         Forge a Campaign
       </button>
     </forge-empty-state>
@@ -32,7 +32,7 @@
     [inviteCode]="inviteCode"
     [editionShort]="editionShort"
     (campaignSelected)="onCampaignSelect()"
-    (createCampaign)="showNewCampaignModal = true"
+    (createCampaign)="openNewCampaignModal()"
     (generateInvite)="generateInviteCode()"
     (sendWhisper)="showWhisperModal = true"
     (deleteCampaign)="deleteCampaign()"
@@ -177,6 +177,7 @@
             [(newCombatantName)]="newCombatantName"
             [(newCombatantInit)]="newCombatantInit"
             [(newCombatantHp)]="newCombatantHp"
+            [(newCombatantAc)]="newCombatantAc"
             (importParty)="importPartyToInitiative()"
             (rollAll)="rollAllInitiative()"
             (advanceTurn)="nextTurn()"
@@ -264,7 +265,8 @@
     (openChange)="showRollModal = $event"
     [partyMembers]="partyMembers"
     [(rollTargetMember)]="rollTargetMember"
-    [(rollType)]="rollType"
+    [rollType]="rollType"
+    (rollTypeChange)="onRollTypeChange($event)"
     [(rollStat)]="rollStat"
     [(rollReason)]="rollReason"
     [(isSecretRoll)]="isSecretRoll"
@@ -274,6 +276,7 @@
   <app-statblock-modal
     [open]="!!selectedStatblockCombatant"
     [combatant]="selectedStatblockCombatant"
+    [partyMember]="selectedStatblockCombatant ? memberFor(selectedStatblockCombatant) : null"
     (closed)="selectedStatblockCombatant = null"
     (viewBeyond)="openBeyondUrl($event)"
   ></app-statblock-modal>
@@ -283,6 +286,7 @@
     (openChange)="showNewCampaignModal = $event"
     [(newCampaignTitle)]="newCampaignTitle"
     [(newCampaignNotes)]="newCampaignNotes"
+    [(newCampaignEdition)]="newCampaignEdition"
     (createCampaign)="createNewCampaign()"
   ></app-new-campaign-modal>
 
