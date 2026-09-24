@@ -1,6 +1,18 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'⚡ Level Up: Level ' + nextLevel" maxWidth="820px">
   <p class="mb-4 text-body-sm text-muted">Your character has reached a new level! Review the changes below.</p>
 
+  <div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-hairline bg-tile p-4">
+    <span class="text-body-sm font-semibold uppercase text-muted">Class to Level Up:</span>
+    <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-[200px]">
+      <optgroup label="Current Classes">
+        <option *ngFor="let cls of characterClasses" [value]="cls.class_name">{{ cls.class_name }} (Current: {{ cls.level }})</option>
+      </optgroup>
+      <optgroup label="Multiclass (New)">
+        <option *ngFor="let cls of availableClasses" [value]="cls">{{ cls }}</option>
+      </optgroup>
+    </select>
+  </div>
+
   <div *ngIf="levelUpAnalysis" class="flex flex-col gap-4">
     <div class="flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-4">
       <span class="text-body-sm font-semibold uppercase text-muted">❤️ Hit Points Increase:</span>
