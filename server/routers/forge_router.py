@@ -220,6 +220,9 @@ async def apply_level_up(
     char_doc["classes"] = classes
     char_doc["char_level"] = sum(c.get("level", 1) for c in classes)
 
+    if char_doc["char_level"] > 20:
+        raise HTTPException(status_code=400, detail="Character cannot exceed level 20.")
+
     # Note: if they change primary class logic, they will update it elsewhere, but we preserve primary char_class.
 
     # Update HP

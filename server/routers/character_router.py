@@ -292,7 +292,12 @@ async def import_pdf(
     # Assign a new unique char_id for imported characters if they don't have one
     import uuid
 
-    if not parsed_char.get("char_id"):
+    char_id = parsed_char.get("char_id")
+    if char_id:
+        existing_char = await db["characters"].find_one({"char_id": char_id})
+        if existing_char and existing_char.get("owner_id") != current_user["id"]:
+            parsed_char["char_id"] = str(uuid.uuid4())
+    else:
         parsed_char["char_id"] = str(uuid.uuid4())
 
     homebrew_items = await _get_homebrew_for_character(db, parsed_char.get("active_campaign"))
