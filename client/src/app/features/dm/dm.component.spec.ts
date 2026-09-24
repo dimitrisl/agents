@@ -740,8 +740,8 @@ afterEach(() => {
     component.loadParty();
 
     http.match((r) => r.url.includes('/party')).forEach((r) => r.flush([
-      { char_id: 'e1', char_name: 'Ezren', passive_perception: 14 },
-      { char_id: 'v1', char_name: 'Valeros', passive_perception: 9 },
+      { char_id: 'e1', char_name: 'Ezren', stats: { WIS: 18 } },
+      { char_id: 'v1', char_name: 'Valeros', stats: { WIS: 8 } },
       { char_id: 'm1', char_name: 'Merisiel' },
     ]));
 

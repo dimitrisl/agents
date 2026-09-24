@@ -8,36 +8,6 @@ from backend.services.dice_service import rebuild_damage_formula
 
 logger = logging.getLogger("DnDAssistant.StatsService")
 
-_ITEM_TYPES = ("item", "armor", "shield", "weapon")
-_FEAT_TYPES = ("feat", "feature")
-
-
-def _merge_homebrew_items(
-    base_items: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
-) -> List[Dict[str, Any]]:
-    """Merge homebrew items/armor/shields/weapons into the static item list."""
-    if not homebrew_content:
-        return base_items
-    return base_items + [i for i in homebrew_content if i.get("homebrew_type") in _ITEM_TYPES]
-
-
-def _merge_homebrew_weapons(
-    base_weapons: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
-) -> List[Dict[str, Any]]:
-    """Merge homebrew weapons into the static weapon list."""
-    if not homebrew_content:
-        return base_weapons
-    return base_weapons + [w for w in homebrew_content if w.get("homebrew_type") == "weapon"]
-
-
-def _merge_homebrew_feats(
-    base_feats: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
-) -> List[Dict[str, Any]]:
-    """Merge homebrew feats/features into the static feat list."""
-    if not homebrew_content:
-        return base_feats
-    return base_feats + [f for f in homebrew_content if f.get("homebrew_type") in _FEAT_TYPES]
-
 
 @functools.lru_cache(maxsize=128)
 def get_modifier(score: int) -> int:
@@ -68,45 +38,25 @@ def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -
     return math.ceil(level / 4) + 1
 
 
-def calculate_hp(
-    class_hit_die: str,
-    level: int,
-    con_score: int,
-    existing_hp: int = None,
-    hit_dice_list: list = None,
-) -> int:
-    """Calculates HP Max, preserving existing manual rolls if provided. Supports multiclassing via hit_dice_list."""
+def calculate_hp(class_hit_die: str, level: int, con_score: int, existing_hp: int = None) -> int:
+    """Calculates HP Max, preserving existing manual rolls if provided."""
+    try:
+        parts = str(class_hit_die).lower().split("d")
+        die_size = int(parts[-1])
+    except (ValueError, AttributeError, IndexError):
+        logger.warning(f"Invalid hit die format: {class_hit_die}. Defaulting to 8.")
+        die_size = 8
+
     con_mod = get_modifier(con_score)
 
-    if existing_hp is not None and existing_hp > 0:
-        return existing_hp
+    if existing_hp is None or existing_hp <= 0:
+        std_hp = die_size + con_mod
+        if level > 1:
+            average_gain = (die_size // 2 + 1) + con_mod
+            std_hp += average_gain * (level - 1)
+        return max(1, std_hp)
 
-    if not hit_dice_list:
-        hit_dice_list = [f"{level}d{str(class_hit_die).lower().split('d')[-1]}"]
-
-    total_hp = 0
-    first_level_added = False
-
-    for hd_str in hit_dice_list:
-        try:
-            parts = hd_str.lower().split("d")
-            count = int(parts[0])
-            die_size = int(parts[1])
-        except (ValueError, IndexError):
-            continue
-
-        for i in range(count):
-            if not first_level_added:
-                total_hp += die_size + con_mod
-                first_level_added = True
-            else:
-                total_hp += (die_size // 2 + 1) + con_mod
-
-    if not first_level_added:
-        # Fallback if list was empty or invalid
-        total_hp = 8 + con_mod
-
-    return total_hp
+    return existing_hp
 
 
 def calculate_ac(
@@ -121,7 +71,14 @@ def calculate_ac(
     from backend.repositories.rules_repository import RulesRepository
 
     _rules_repo = RulesRepository()
-    all_items = _merge_homebrew_items(_rules_repo.get_all_items(), homebrew_content)
+    all_items = _rules_repo.get_all_items()
+    if homebrew_content:
+        # Merge homebrew items (assuming they have similar schema)
+        all_items = all_items + [
+            item
+            for item in homebrew_content
+            if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
+        ]
 
     dex_mod = get_modifier(dex_score)
     base_ac = 10
@@ -243,7 +200,7 @@ def calculate_ac(
                 bonus_ac += 1
                 break
 
-    applied_dex = 0 if max_dex == 0 else min(dex_mod, max_dex)
+    applied_dex = min(dex_mod, max_dex)
     return base_ac + applied_dex + bonus_ac
 
 
@@ -329,11 +286,11 @@ def calculate_spell_stats(
 
 
 def calculate_max_spell_slots(
-    char_class: str, level: int, subclass: str = None, caster_type: str = None, classes: list = None
+    char_class: str, level: int, subclass: str = None, caster_type: str = None
 ) -> Dict[str, int]:
-    """Calculates maximum spell slots per level based on class, level, subclass, and caster type.
-    If 'classes' is provided, it calculates total multiclass slots."""
-    import math
+    """Calculates maximum spell slots per level based on class, level, subclass, and caster type."""
+    char_class = (char_class or "").lower()
+    subclass_lower = (subclass or "").lower()
 
     full_caster_slots = {
         1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -381,101 +338,39 @@ def calculate_max_spell_slots(
         20: (4, 5),
     }
 
-    if not classes:
-        classes = [
-            {
-                "class_name": char_class,
-                "level": level,
-                "subclass": subclass,
-                "caster_type": caster_type,
-            }
-        ]
-
-    total_caster_level = 0
-    warlock_level = 0
-
-    spellcasting_classes = 0
-
-    for cls in classes:
-        cname = (cls.get("class_name") or "").lower()
-        sub = (cls.get("subclass") or "").lower()
-        lvl = cls.get("level", 1)
-        ctype = cls.get("caster_type")
-
-        if ctype == "pact" or cname == "warlock":
-            warlock_level += lvl
-            continue
-
-        cls_caster_level = 0
-        if ctype == "full":
-            cls_caster_level = lvl
-        elif ctype == "half":
-            if cname == "artificer":
-                cls_caster_level = math.ceil(lvl / 2)
-            else:
-                cls_caster_level = math.floor(lvl / 2)
-        elif ctype == "third" or "eldritch knight" in sub or "arcane trickster" in sub:
-            cls_caster_level = math.floor(lvl / 3)
-
-        if cls_caster_level > 0:
-            spellcasting_classes += 1
-
-        total_caster_level += cls_caster_level
-
     slots = {}
-
-    if len(classes) == 1:
-        cname = (classes[0].get("class_name") or "").lower()
-        sub = (classes[0].get("subclass") or "").lower()
-        lvl = classes[0].get("level", 1)
-        ctype = classes[0].get("caster_type")
-
-        if ctype == "pact" or cname == "warlock":
-            if lvl in warlock_slots:
-                count, slot_lvl = warlock_slots[lvl]
-                slots[f"level_{slot_lvl}"] = count
-            return slots
-
-        if ctype == "full":
-            caster_level = lvl
-        elif ctype == "half":
-            caster_level = (lvl + 1) // 2 if lvl >= 2 else 0
-            if cname == "artificer":
-                caster_level = (lvl + 1) // 2
-        elif (
-            "eldritch knight" in sub
-            or "arcane trickster" in sub
-            or (cname in ["fighter", "rogue"] and lvl >= 3 and sub)
-        ):
-            if lvl >= 3:
-                caster_level = max(1, math.floor((lvl + 1) / 3))
-            else:
-                caster_level = 0
+    if caster_type == "full":
+        caster_level = level
+    elif caster_type == "half":
+        caster_level = (level + 1) // 2 if level >= 2 else 0
+        if char_class == "artificer":
+            caster_level = (level + 1) // 2
+    elif caster_type == "pact" or char_class == "warlock":
+        if level in warlock_slots:
+            count, slot_lvl = warlock_slots[level]
+            slots[f"level_{slot_lvl}"] = count
+        return slots
+    elif (
+        "eldritch knight" in subclass_lower
+        or "arcane trickster" in subclass_lower
+        or (char_class in ["fighter", "rogue"] and level >= 3 and subclass_lower)
+    ):
+        # Third-caster progression (Eldritch Knight / Arcane Trickster)
+        # Level 3: 2 1st lvl slots (Caster Level 1 equivalent)
+        # Level 4-6: 3 1st lvl slots (Caster Level 2 equivalent)
+        # Level 7-9: 4 1st lvl slots, 2 2nd lvl slots (Caster Level 3 equivalent)
+        if level >= 3:
+            caster_level = max(1, math.floor((level + 1) / 3))
         else:
             caster_level = 0
+    else:
+        caster_level = 0
 
-        if caster_level > 0 and caster_level <= 20:
-            prog = full_caster_slots[caster_level]
-            for idx, count in enumerate(prog):
-                if count > 0:
-                    slots[f"level_{idx + 1}"] = count
-        return slots
-
-    if total_caster_level > 0 and total_caster_level <= 20:
-        prog = full_caster_slots[total_caster_level]
+    if caster_level > 0 and caster_level <= 20:
+        prog = full_caster_slots[caster_level]
         for idx, count in enumerate(prog):
             if count > 0:
                 slots[f"level_{idx + 1}"] = count
-    elif total_caster_level > 20:
-        prog = full_caster_slots[20]
-        for idx, count in enumerate(prog):
-            if count > 0:
-                slots[f"level_{idx + 1}"] = count
-
-    if warlock_level > 0 and warlock_level <= 20:
-        count, slot_lvl = warlock_slots[warlock_level]
-        key = f"level_{slot_lvl}"
-        slots[key] = slots.get(key, 0) + count
 
     return slots
 
@@ -541,7 +436,11 @@ def calculate_weapon_stats(
         from backend.repositories.rules_repository import RulesRepository
 
         repo = RulesRepository()
-        all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
+        all_weapons = repo.get_all_weapons()
+        if homebrew_content:
+            all_weapons = all_weapons + [
+                w for w in homebrew_content if w.get("homebrew_type") == "weapon"
+            ]
         name = weapon.get("name", "").lower()
 
         weapon_data = get_base_weapon(name, all_weapons)
@@ -605,7 +504,7 @@ def sync_character_stats(
     if hasattr(stats_raw, "model_dump"):
         stats = stats_raw.model_dump()
     elif isinstance(stats_raw, dict):
-        stats = dict(stats_raw)
+        stats = stats_raw
     else:
         stats = {
             "STR": getattr(stats_raw, "STR", 10),
@@ -616,49 +515,12 @@ def sync_character_stats(
             "CHA": getattr(stats_raw, "CHA", 10),
         }
 
-    base_stats_raw = char_data.get("base_stats")
-    if base_stats_raw is None:
-        char_data["base_stats"] = dict(stats)
-    else:
-        if hasattr(base_stats_raw, "model_dump"):
-            stats = base_stats_raw.model_dump()
-        elif isinstance(base_stats_raw, dict):
-            stats = dict(base_stats_raw)
-        else:
-            stats = {
-                "STR": getattr(base_stats_raw, "STR", 10),
-                "DEX": getattr(base_stats_raw, "DEX", 10),
-                "CON": getattr(base_stats_raw, "CON", 10),
-                "INT": getattr(base_stats_raw, "INT", 10),
-                "WIS": getattr(base_stats_raw, "WIS", 10),
-                "CHA": getattr(base_stats_raw, "CHA", 10),
-            }
-
-    char_data["stats"] = stats
-
     if "saving_throw_values" not in char_data or char_data["saving_throw_values"] is None:
         char_data["saving_throw_values"] = {}
 
-    classes = char_data.get("classes", [])
-    if not classes:
-        # Pydantic models dump lists of ClassEntry to dicts, but just in case
-        classes = [
-            {
-                "class_name": char_data.get("char_class", "Fighter"),
-                "level": char_data.get("char_level", 1),
-                "subclass": char_data.get("subclass"),
-            }
-        ]
-    else:
-        # Convert pydantic ClassEntry to dict if it's not already
-        classes = [c.model_dump() if hasattr(c, "model_dump") else c for c in classes]
-
-    level = sum(c.get("level", 1) for c in classes)
-    char_data["char_level"] = level
-
+    level = char_data.get("char_level", 1)
     edition = char_data.get("dnd_edition", "2014 Edition")
-    char_class = classes[0].get("class_name", "Fighter")
-    subclass = classes[0].get("subclass")
+    char_class = char_data.get("char_class", "Fighter")
 
     if not class_data:
         class_data = repo.get_class_progression(char_class, edition)
@@ -685,9 +547,6 @@ def sync_character_stats(
         elif isinstance(ft, dict):
             normalized_ft.append(ft)
     char_data["features_traits"] = normalized_ft
-
-    # Pre-compute merged items list ONCE (not per equipment item)
-    all_items = _merge_homebrew_items(repo.get_all_items(), homebrew_content)
 
     for equip in char_data["equipment"]:
         if not equip.get("equipped", False):
@@ -727,6 +586,13 @@ def sync_character_stats(
                     )
 
         item_name = equip.get("name", "").lower()
+        all_items = repo.get_all_items()
+        if homebrew_content:
+            all_items = all_items + [
+                item
+                for item in homebrew_content
+                if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
+            ]
         item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
 
         if item_data and "stat_set" in item_data:
@@ -817,33 +683,21 @@ def sync_character_stats(
 
     from backend.services.progression_service import get_hit_die_for_class
 
-    hit_dice_list = []
-    for cls in classes:
-        cname = cls.get("class_name", "Fighter")
-        c_level = cls.get("level", 1)
-        hd_size = get_hit_die_for_class(cname, edition)
-        if cname == char_class and class_data and "hit_die" in class_data:
-            raw_die = class_data["hit_die"]
-            hd_size = raw_die[1:] if raw_die.startswith("1d") else raw_die
-        if hd_size.startswith("d"):
-            hd_size = hd_size[1:]
-        hit_dice_list.append(f"{c_level}d{hd_size}")
+    hit_die_size = get_hit_die_for_class(char_class, edition)
+    if class_data and "hit_die" in class_data:
+        raw_die = class_data["hit_die"]
+        hit_die_size = raw_die[1:] if raw_die.startswith("1d") else raw_die
 
-    hd_counts = {}
-    for hd in hit_dice_list:
-        parts = hd.split("d")
-        if len(parts) == 2:
-            hd_counts[parts[1]] = hd_counts.get(parts[1], 0) + int(parts[0])
-
-    char_data["hit_dice"] = ", ".join(
-        f"{count}d{size}"
-        for size, count in sorted(hd_counts.items(), key=lambda x: int(x[0]), reverse=True)
-    )
+    char_data["hit_dice"] = f"{level}{hit_die_size}"
 
     hp_bonus_per_level = 0
     features = char_data.get("features_traits", [])
 
-    feat_library = _merge_homebrew_feats(repo.get_all_feats(edition), homebrew_content)
+    feat_library = repo.get_all_feats(edition)
+    if homebrew_content:
+        feat_library = feat_library + [
+            f for f in homebrew_content if f.get("homebrew_type") in ("feat", "feature")
+        ]
     feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
 
     for f in features:
@@ -869,13 +723,7 @@ def sync_character_stats(
     else:
         base_existing_hp = None
 
-    hit_die_size = hit_dice_list[0].split("d")[1] if hit_dice_list else "10"
-    if not hit_die_size.startswith("d"):
-        hit_die_size = "d" + hit_die_size
-
-    base_hp = calculate_hp(
-        hit_die_size, level, con_score, existing_hp=base_existing_hp, hit_dice_list=hit_dice_list
-    )
+    base_hp = calculate_hp(hit_die_size, level, con_score, existing_hp=base_existing_hp)
     char_data["hp_max"] = base_hp + (hp_bonus_per_level * level)
 
     char_data["armor_class"] = calculate_ac(
@@ -1048,14 +896,12 @@ def sync_character_stats(
         subclass = "Eldritch Knight"
         char_data["subclass"] = subclass
 
-    for cls in classes:
-        cname = cls.get("class_name")
-        cls_data = repo.get_class_progression(cname, edition)
-        if cls_data and "caster_type" in cls_data:
-            cls["caster_type"] = cls_data.get("caster_type")
+    caster_type = None
+    if class_data and "caster_type" in class_data:
+        caster_type = class_data.get("caster_type")
 
     max_slots = calculate_max_spell_slots(
-        char_class, level, subclass=subclass, caster_type=None, classes=classes
+        char_class, level, subclass=subclass, caster_type=caster_type
     )
 
     # Rebuild spell_slots cleanly according to class/level max slots rules
@@ -1174,7 +1020,11 @@ def sync_character_stats(
                 else (3 if level >= 4 else 2)
             )
             existing_masteries = list(char_data.get("weapon_masteries") or [])
-            all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
+            all_weapons = repo.get_all_weapons()
+            if homebrew_content:
+                all_weapons = all_weapons + [
+                    w for w in homebrew_content if w.get("homebrew_type") == "weapon"
+                ]
 
             # Prioritize masteries matching equipped weapons
             equipped_weapon_masteries = []

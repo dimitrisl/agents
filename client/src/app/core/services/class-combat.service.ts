@@ -9,11 +9,14 @@ import {
   CombatContext,
   CombatProfile,
 
+  critThresholdFor,
+  extraCritDiceFor,
   isCaster,
 
 } from '../data/class-combat.data';
 import { abilityModifier, hitDieSize, proficiencyBonus } from '../rules';
 
+export function cantripTierFor(level: number): number { return level >= 17 ? 4 : level >= 11 ? 3 : level >= 5 ? 2 : 1; }
 
 export type { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
 
@@ -55,15 +58,12 @@ export class ClassCombatService {
   getProfile(char: CharacterSchema): Observable<CombatProfile> {
     const ctx = this.buildContext(char);
 
-    // Default cantrip tier for fallbacks
-    const defaultCantripTier = ctx.level >= 17 ? 4 : ctx.level >= 11 ? 3 : ctx.level >= 5 ? 2 : 1;
-
     if (!ctx.charClass) {
         return of({
             actions: this.universalActions(char, ctx),
-            extraCritDice: 0,
-            critThreshold: 20,
-            cantripTier: defaultCantripTier,
+            extraCritDice: extraCritDiceFor(ctx),
+            critThreshold: critThresholdFor(ctx),
+            cantripTier: cantripTierFor(ctx.level),
         });
     }
 
@@ -73,10 +73,10 @@ export class ClassCombatService {
         url += `&subclass=${encodeURIComponent(ctx.subclass)}`;
     }
 
-    return this.http.get<any>(url).pipe(
-      map(res => {
-        const apiActions = res.actions || [];
-        const mappedActions = apiActions.map((a: any) => ({
+    return this.http.get<any[]>(url).pipe(
+      map(apiActions => {
+        // Add icons based on the data if needed, or source
+        const mappedActions = apiActions.map(a => ({
           ...a,
           icon: a.icon || '⚔️',
           source: a.source || `${ctx.charClass} ${ctx.level}`
@@ -84,17 +84,17 @@ export class ClassCombatService {
 
         return {
           actions: [...mappedActions, ...this.universalActions(char, ctx)],
-          extraCritDice: res.extraCritDice || 0,
-          critThreshold: res.critThreshold || 20,
-          cantripTier: res.cantripTier || defaultCantripTier,
+          extraCritDice: extraCritDiceFor(ctx),
+          critThreshold: critThresholdFor(ctx),
+          cantripTier: cantripTierFor(ctx.level),
         }
       }),
       catchError(() => {
         return of({
           actions: this.universalActions(char, ctx),
-          extraCritDice: 0,
-          critThreshold: 20,
-          cantripTier: defaultCantripTier,
+          extraCritDice: extraCritDiceFor(ctx),
+          critThreshold: critThresholdFor(ctx),
+          cantripTier: cantripTierFor(ctx.level),
         });
       })
     );
@@ -127,7 +127,7 @@ export class ClassCombatService {
     });
 
     if (isCaster(ctx.charClass)) {
-      const tier = ctx.level >= 17 ? 4 : ctx.level >= 11 ? 3 : ctx.level >= 5 ? 2 : 1;
+      const tier = cantripTierFor(ctx.level);
       actions.push({
         id: 'cantrip-tier',
         name: 'Cantrip Scaling',
