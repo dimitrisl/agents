@@ -62,9 +62,10 @@
       tone="accent"
       type="button"
       class="w-full sm:w-auto"
+      [disabled]="isGeneratingPrep"
       (click)="generatePrep.emit()"
     >
-      📜 Generate Session Prep
+      {{ isGeneratingPrep ? '⏳ Forging...' : '📜 Generate Session Prep' }}
     </button>
   </footer>
 
@@ -107,8 +108,8 @@
       <p class="mt-1 text-label text-muted">Generate a thematic riddle for the party.</p>
     </div>
 
-    <button forgeButton variant="secondary" tone="accent" type="button" class="w-full sm:w-auto" (click)="generateRiddle.emit()">
-      🧩 Generate Riddle
+    <button forgeButton variant="secondary" tone="accent" type="button" class="w-full sm:w-auto" [disabled]="isGeneratingRiddle" (click)="generateRiddle.emit()">
+      {{ isGeneratingRiddle ? '⏳ Forging...' : '🧩 Generate Riddle' }}
     </button>
   </footer>
 </div>

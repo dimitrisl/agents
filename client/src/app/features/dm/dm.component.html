@@ -204,8 +204,10 @@
             [(difficulty)]="encounterDifficulty"
             [(location)]="location"
             [encounterResult]="encounterResult"
+            [isGeneratingEncounter]="isGeneratingEncounter"
             [(npcConcept)]="npcConcept"
             [npcResult]="npcResult"
+            [isGeneratingNpc]="isGeneratingNpc"
             (generateEncounter)="generateEncounter()"
             (addEncounterMonsters)="addEncounterMonstersToInitiative()"
             (generateNpc)="generateNpc()"
@@ -218,9 +220,11 @@
             aria-labelledby="dm-tabs-tab-prep"
             [(prepNotes)]="prepNotes"
             [prepResult]="prepResult"
+            [isGeneratingPrep]="isGeneratingPrep"
             (generatePrep)="generatePrep()"
             [(riddleTheme)]="riddleTheme"
             [riddleResult]="riddleResult"
+            [isGeneratingRiddle]="isGeneratingRiddle"
             (generateRiddle)="generateRiddle()"
           ></app-prep-panel>
 

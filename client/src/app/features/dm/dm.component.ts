@@ -194,11 +194,17 @@ export class DmComponent implements OnInit, OnDestroy {
 
   npcConcept = 'Shady underworld broker';
   npcResult = '';
+  isGeneratingNpc = false;
 
   prepNotes = '';
   prepResult = '';
+  isGeneratingPrep = false;
+  
   riddleTheme = '';
   riddleResult = '';
+  isGeneratingRiddle = false;
+  
+  isGeneratingEncounter = false;
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
@@ -1442,15 +1448,19 @@ export class DmComponent implements OnInit, OnDestroy {
       );
       return;
     }
-
+    this.isGeneratingEncounter = true;
     this.http.post<EncounterResponse>(`${environment.apiBaseUrl}/dm/encounter`, {
       party_size: this.partyMembers.length,
       avg_level: this.avgLevel,
       location: this.location,
       edition: this.activeEdition,
       difficulty: this.encounterDifficulty
-    }).subscribe((res) => {
-      this.encounterResult = res;
+    }).subscribe({
+      next: (res) => {
+        this.encounterResult = res;
+        this.isGeneratingEncounter = false;
+      },
+      error: () => this.isGeneratingEncounter = false
     });
   }
 
@@ -1485,29 +1495,44 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   generateNpc() {
+    this.isGeneratingNpc = true;
     this.http.post<NpcResponse>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
       edition: this.activeEdition
-    }).subscribe((res) => {
-      this.npcResult = res.npc_markdown;
+    }).subscribe({
+      next: (res) => {
+        this.npcResult = res.npc_markdown;
+        this.isGeneratingNpc = false;
+      },
+      error: () => this.isGeneratingNpc = false
     });
   }
 
   generatePrep() {
+    this.isGeneratingPrep = true;
     this.http.post<SessionPrepResponse>(`${environment.apiBaseUrl}/dm/session-prep`, {
       campaign_notes: this.prepNotes,
       party_info: this.partyMembers.map(m => m.name).join(', ')
-    }).subscribe((res) => {
-      this.prepResult = res.session_markdown;
+    }).subscribe({
+      next: (res) => {
+        this.prepResult = res.session_markdown;
+        this.isGeneratingPrep = false;
+      },
+      error: () => this.isGeneratingPrep = false
     });
   }
 
   generateRiddle() {
+    this.isGeneratingRiddle = true;
     this.http.post<any>(`${environment.apiBaseUrl}/dm/riddle`, {
       location: this.riddleTheme,
       edition: this.activeEdition
-    }).subscribe((res) => {
-      this.riddleResult = res.riddle_markdown;
+    }).subscribe({
+      next: (res) => {
+        this.riddleResult = res.riddle_markdown;
+        this.isGeneratingRiddle = false;
+      },
+      error: () => this.isGeneratingRiddle = false
     });
   }
 

@@ -23,8 +23,10 @@ import {
 export class PrepPanelComponent {
   @Input() prepNotes = '';
   @Input() prepResult = '';
+  @Input() isGeneratingPrep = false;
   @Input() riddleTheme = '';
   @Input() riddleResult = '';
+  @Input() isGeneratingRiddle = false;
 
   @Output() prepNotesChange = new EventEmitter<string>();
   @Output() generatePrep = new EventEmitter<void>();
