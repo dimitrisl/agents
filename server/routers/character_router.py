@@ -134,6 +134,15 @@ async def update_character(
         partial(process_character_update, char_dict, homebrew_content=homebrew_items)
     )
 
+    client_version = char_dict.get("version", 0)
+    if existing.get("version", 0) > client_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified elsewhere. Please refresh.",
+        )
+
+    char_dict["version"] = client_version + 1
+
     await db["characters"].update_one({"char_id": char_id}, {"$set": char_dict})
 
     return CharacterSchema.model_validate(char_dict, strict=False)

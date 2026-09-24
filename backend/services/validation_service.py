@@ -66,7 +66,7 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
     # between base stats and final item-boosted stats.
     # The stat calculation engine will handle bounds naturally.
     # 1b. Multiclass Prerequisites
-    stats = corrected_char.get("stats", {})
+    stats = corrected_char.get("base_stats") or corrected_char.get("stats", {})
     if hasattr(stats, "model_dump"):
         stats = stats.model_dump()
     elif not isinstance(stats, dict):

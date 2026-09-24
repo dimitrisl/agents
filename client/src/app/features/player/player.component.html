@@ -13,13 +13,13 @@
     (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
-  <div class="unreadable-alert" *ngIf="charState.unreadableCharacters().length > 0" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255, 50, 50, 0.1); border: 1px solid rgba(255, 50, 50, 0.4); border-radius: 8px; display: flex; gap: 1rem; align-items: center;">
-    <i class="fas fa-exclamation-triangle" style="color: #ff5555; font-size: 1.5rem;"></i>
+  <div class="unreadable-alert mb-6 p-4 bg-panel border border-danger rounded-[8px] flex gap-4 items-center" *ngIf="charState.unreadableCharacters().length > 0">
+    <i class="fas fa-exclamation-triangle text-red text-[1.5rem]"></i>
     <div>
-      <h3 style="color: #ff5555; margin-bottom: 0.2rem; font-size: 1rem; font-weight: 600;">
+      <h3 class="text-red mb-1 text-[1rem] font-semibold">
         {{ charState.unreadableCharacters().length }} hero{{ charState.unreadableCharacters().length > 1 ? 'es' : '' }} could not be loaded
       </h3>
-      <p style="opacity: 0.8; font-size: 0.9rem; margin: 0;">
+      <p class="text-subtext text-sm m-0">
         Some characters in your vault failed validation. This usually happens if they were manually edited in the database or created with an older format.
       </p>
     </div>

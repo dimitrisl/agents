@@ -243,7 +243,7 @@ def calculate_ac(
                 bonus_ac += 1
                 break
 
-    applied_dex = min(dex_mod, max_dex)
+    applied_dex = 0 if max_dex == 0 else min(dex_mod, max_dex)
     return base_ac + applied_dex + bonus_ac
 
 
@@ -605,7 +605,7 @@ def sync_character_stats(
     if hasattr(stats_raw, "model_dump"):
         stats = stats_raw.model_dump()
     elif isinstance(stats_raw, dict):
-        stats = stats_raw
+        stats = dict(stats_raw)
     else:
         stats = {
             "STR": getattr(stats_raw, "STR", 10),
@@ -615,6 +615,26 @@ def sync_character_stats(
             "WIS": getattr(stats_raw, "WIS", 10),
             "CHA": getattr(stats_raw, "CHA", 10),
         }
+
+    base_stats_raw = char_data.get("base_stats")
+    if base_stats_raw is None:
+        char_data["base_stats"] = dict(stats)
+    else:
+        if hasattr(base_stats_raw, "model_dump"):
+            stats = base_stats_raw.model_dump()
+        elif isinstance(base_stats_raw, dict):
+            stats = dict(base_stats_raw)
+        else:
+            stats = {
+                "STR": getattr(base_stats_raw, "STR", 10),
+                "DEX": getattr(base_stats_raw, "DEX", 10),
+                "CON": getattr(base_stats_raw, "CON", 10),
+                "INT": getattr(base_stats_raw, "INT", 10),
+                "WIS": getattr(base_stats_raw, "WIS", 10),
+                "CHA": getattr(base_stats_raw, "CHA", 10),
+            }
+
+    char_data["stats"] = stats
 
     if "saving_throw_values" not in char_data or char_data["saving_throw_values"] is None:
         char_data["saving_throw_values"] = {}

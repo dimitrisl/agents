@@ -258,18 +258,22 @@ export class DmComponent implements OnInit, OnDestroy {
     this.loadCampaigns();
 
     this.encounterSub = this.encounterSyncSubject.pipe(
-      debounceTime(500)
-    ).subscribe(() => {
-      if (!this.campaignName) return;
-      const state = {
-        round: this.round,
-        activeCombatantId: this.activeCombatantId,
-        combatants: this.combatants,
-      };
-      this.http.post(campaignUrl(this.campaignName, 'encounter'), state).subscribe({
-        error: (e) => console.error('Failed to sync encounter state', e)
-      });
-    });
+      debounceTime(500),
+      switchMap(() => {
+        if (!this.campaignName) return EMPTY;
+        const state = {
+          round: this.round,
+          activeCombatantId: this.activeCombatantId,
+          combatants: this.combatants,
+        };
+        return this.http.post(campaignUrl(this.campaignName, 'encounter'), state).pipe(
+          catchError((e) => {
+            console.error('Failed to sync encounter state', e);
+            return EMPTY;
+          })
+        );
+      })
+    ).subscribe();
 
     // Every (re)connect re-reads the thread, so a dropped socket costs nothing
     // and nobody ever has to reload the page to catch up.
@@ -349,6 +353,7 @@ export class DmComponent implements OnInit, OnDestroy {
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
     this.encounterSub?.unsubscribe();
+    this.encounterSyncSubject.complete();
 
     // Unsubscribing only stops this page from listening; the socket itself stays
     // up, and the service holds exactly one. Left open, the server goes on

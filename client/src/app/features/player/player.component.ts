@@ -258,7 +258,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       )
       .subscribe();
 
-    effect(() => {
+    effect((onCleanup) => {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
@@ -277,6 +277,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.clearRollPrompts();
         this.rebuildInboxFeed();
       }
+      onCleanup(() => { this.wsService.disconnect(); });
     });
   }
 

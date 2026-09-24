@@ -330,7 +330,9 @@ async def update_party_member_state(
 
     # Only the touched fields are written. A blind $set of the whole document
     # would race with the character sheet the player has open.
-    await db["characters"].update_one({"char_id": char_id}, {"$set": updates})
+    await db["characters"].update_one(
+        {"char_id": char_id}, {"$set": updates, "$inc": {"version": 1}}
+    )
 
     state = {
         "char_id": char_id,
