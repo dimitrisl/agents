@@ -54,7 +54,6 @@ export class AddMemberModalComponent {
   @Output() newMemberHpChange = new EventEmitter<number>();
   @Output() newMemberAcChange = new EventEmitter<number>();
   @Output() addExistingPartyMember = new EventEmitter<void>();
-  @Output() addPartyMember = new EventEmitter<void>();
   @Output() copyInviteCode = new EventEmitter<void>();
 
   selectAddMemberTab(tabId: string): void {
