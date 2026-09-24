@@ -76,7 +76,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Halfling"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 73",
         "is_official": true,
@@ -166,7 +168,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Dragonborn"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
         "is_official": true,
@@ -188,7 +192,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Dragonborn"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
         "is_official": true,
@@ -211,7 +217,7 @@
             "min_level": 0,
             "stat_requirements": {},
             "other": [
-                "Spellcasting"
+                "Elf"
             ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
@@ -300,7 +306,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Dwarf"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
         "is_official": true,
@@ -442,7 +450,10 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Elf",
+                "Half-Elf"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
         "is_official": true,
@@ -464,7 +475,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Gnome"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
         "is_official": true,
@@ -487,7 +500,7 @@
             "min_level": 0,
             "stat_requirements": {},
             "other": [
-                "Spellcasting"
+                "Elf"
             ]
         },
         "source": "Xanathar's Guide to Everything, p. 74",
@@ -649,7 +662,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Tiefling"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 75",
         "is_official": true,
@@ -1139,7 +1154,11 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Half-Elf",
+                "Half-Orc",
+                "Human"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 75",
         "is_official": true,
@@ -1231,7 +1250,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": []
+            "other": [
+                "Halfling"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 75",
         "is_official": true,
@@ -1391,7 +1412,11 @@
             "stat_requirements": {
                 "STR": 9
             },
-            "other": []
+            "other": [
+                "Dwarf",
+                "Halfling",
+                "Gnome"
+            ]
         },
         "source": "Xanathar's Guide to Everything, p. 75",
         "is_official": true,
@@ -1531,7 +1556,7 @@
             "min_level": 0,
             "stat_requirements": {},
             "other": [
-                "Spellcasting"
+                "Elf"
             ]
         },
         "source": "Xanathar's Guide to Everything, p. 75",

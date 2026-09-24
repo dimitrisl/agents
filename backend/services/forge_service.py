@@ -363,7 +363,15 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     choices = []
 
     # 1. Subclass
-    current_subclass = char_data.get("subclass")
+    current_subclass = None
+    for cls in classes:
+        if cls.get("class_name", "").lower() == char_class.lower():
+            current_subclass = cls.get("subclass")
+            break
+    
+    if not classes and char_class.lower() == char_data.get("char_class", "").lower():
+        current_subclass = char_data.get("subclass")
+
     if not current_subclass:
         subclasses = rules_repo.get_subclasses(char_class, edition)
         if subclasses:
@@ -374,7 +382,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 elif char_class in ["Wizard", "Druid"]:
                     subclass_level = 2
 
-            if target_level == subclass_level:
+            if target_level >= subclass_level:
                 choices.append(
                     {
                         "type": "subclass",
@@ -386,12 +394,18 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     # 2. ASI/Feat
     if target_level in [4, 8, 12, 16, 19]:
+        char_race = char_data.get("race", "").lower()
+        allowed_feats = []
+        for f in rules_repo.get_all_feats(edition):
+            reqs = f.get("prerequisites", {}).get("other", [])
+            if not reqs or any(r.lower() in char_race for r in reqs):
+                allowed_feats.append(f["name"])
+                
         choices.append(
             {
                 "type": "feat",
                 "label": "Choose a Feat or Ability Score Improvement",
-                "options": ["+2 to one Stat", "+1 to two Stats"]
-                + [f["name"] for f in rules_repo.get_all_feats(edition)],
+                "options": ["+2 to one Stat", "+1 to two Stats"] + allowed_feats,
                 "ai_recommendation": "A standard ASI/Feat level. Pick what suits your build best.",
             }
         )
