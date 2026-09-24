@@ -201,6 +201,7 @@ class CharacterSchema(BaseModel):
     hit_dice_used: int = 0
     speed: int = 30
     proficiency_bonus: int = 2
+    base_stats: Optional[StatBlock] = None
     stats: StatBlock
     saving_throws: List[str] = Field(default_factory=list)
     skills: Dict[str, int] = Field(default_factory=dict)
@@ -208,6 +209,7 @@ class CharacterSchema(BaseModel):
     skill_expertise: List[str] = Field(default_factory=list)
     weapon_masteries: List[str] = Field(default_factory=list)
     weapons: List[Weapon] = Field(default_factory=list)
+    version: int = 0
     equipment: List[EquipmentItem] = Field(default_factory=list)
     features_traits: List[FeatureTrait] = Field(default_factory=list)
     spells: SpellList = Field(default_factory=SpellList)
@@ -237,8 +239,7 @@ class CharacterSchema(BaseModel):
     @computed_field
     @property
     def total_hp_max(self) -> int:
-        con_mod = (self.stats.CON - 10) // 2
-        return self.hp_max + (con_mod * self.char_level)
+        return self.hp_max
 
     @field_validator("spell_slots", mode="before")
     @classmethod

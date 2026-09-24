@@ -32,7 +32,7 @@
         </select>
       </label>
 
-      <div *ngIf="selectedHero as selectedHero" class="rounded-lg border border-hairline bg-black/30 p-3">
+      <div *ngIf="selectedHero as selectedHero" class="rounded-lg border border-hairline bg-panel p-3">
         <div class="flex flex-col gap-3 min-[375px]:flex-row min-[375px]:items-center">
           <img
             [src]="selectedHero.char_portrait || 'https://img.icons8.com/color/96/knight.png'"
@@ -54,12 +54,12 @@
 
 
 
-    <div *ngIf="addMemberTab === 'invite'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-invite" class="rounded-lg border border-hairline bg-black/30 p-4 text-center">
+    <div *ngIf="addMemberTab === 'invite'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-invite" class="rounded-lg border border-hairline bg-panel p-4 text-center">
       <p class="mb-2 text-body text-muted">
         Invite players to join <strong>{{ campaignName }}</strong> from their Player Dashboard:
       </p>
       @if (inviteCode) {
-        <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-[1.6rem] font-extrabold tracking-[0.25em] text-gold">
+        <div class="mb-3 inline-block rounded-lg border border-gold bg-gold/10 px-4 py-2 text-metric font-extrabold tracking-[0.25em] text-gold">
           {{ inviteCode }}
         </div>
         <div>
