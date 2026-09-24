@@ -62,9 +62,11 @@
         <p *ngIf="choice.ai_recommendation" class="text-micro text-muted">💡 AI Suggests: {{ choice.ai_recommendation }}</p>
 
         <!-- ASI Stat Pickers -->
-        <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+2 to one Stat'">
+        <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+2 to one Stat' || (choice.type === 'feat' && userChoices[choice.type + '_' + i] && userChoices[choice.type + '_' + i] !== '+2 to one Stat' && userChoices[choice.type + '_' + i] !== '+1 to two Stats')">
           <div class="mt-1 flex items-center gap-2 rounded bg-surface p-2">
-            <span class="text-body-sm font-semibold text-muted">Select Stat for +2:</span>
+            <span class="text-body-sm font-semibold text-muted">
+              {{ userChoices[choice.type + '_' + i] === '+2 to one Stat' ? 'Select Stat for +2:' : 'Select +1 Stat (if Half-Feat):' }}
+            </span>
             <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
               <option [value]="undefined" disabled selected>-- Select Stat --</option>
               <option value="STR">Strength (STR)</option>
