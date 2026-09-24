@@ -57,6 +57,11 @@ export function skillModifier(
 ): number {
   if (!char?.stats) return 0;
 
+  // Prefer backend-computed values
+  if (char.skills && char.skills[skill.name] !== undefined) {
+    return char.skills[skill.name];
+  }
+
   const profBonus = proficiencyBonus(char);
   let bonus = 0;
 
