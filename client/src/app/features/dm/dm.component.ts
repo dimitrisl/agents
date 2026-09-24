@@ -1360,15 +1360,36 @@ export class DmComponent implements OnInit, OnDestroy {
       this.activeCombatantId = saved.activeCombatantId;
       this.round = saved.round;
       this.hasLiveEncounter = true;
-      return;
+    } else {
+      this.combatants = [];
+      this.activeCombatantId = null;
+      this.round = 0;
+      this.hasLiveEncounter = false;
     }
 
-    // Encounters belong to one campaign each, so nothing carries over from the
-    // table we just left — not the monsters, and not whose turn it was.
-    this.combatants = [];
-    this.activeCombatantId = null;
-    this.round = 0;
-    this.hasLiveEncounter = false;
+    // Try pulling from the server to support multi-device persistence
+    this.http.get<any>(`${campaignUrl(campaignName, 'encounter')}`).subscribe({
+      next: (serverState) => {
+        if (!serverState) return;
+        
+        // If server state is ahead or we had no local state, use it
+        if (!saved || saved.combatants.length === 0 || serverState.round >= this.round) {
+          this.combatants = this.sortCombatants(serverState.combatants || []);
+          this.activeCombatantId = serverState.activeCombatantId;
+          this.round = serverState.round || 0;
+          this.hasLiveEncounter = this.combatants.length > 0;
+          
+          if (this.hasLiveEncounter) {
+             this.encounterStorage.save(campaignName, {
+               combatants: this.combatants,
+               activeCombatantId: this.activeCombatantId,
+               round: this.round
+             });
+          }
+        }
+      },
+      error: () => { /* Silently fall back to local storage */ }
+    });
   }
 
   openStatblock(c: InitiativeCombatant) {
