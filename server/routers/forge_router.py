@@ -193,8 +193,34 @@ async def apply_level_up(
     if not char_doc:
         raise HTTPException(status_code=404, detail="Character not found or access denied")
 
-    # Increment level
-    char_doc["char_level"] = char_doc.get("char_level", 1) + 1
+    # Increment level based on multiclass choice
+    user_choices = payload.user_choices or {}
+    target_class = user_choices.get("level_up_class", char_doc.get("char_class", "Fighter"))
+
+    classes = char_doc.get("classes", [])
+    if not classes:
+        classes = [
+            {
+                "class_name": char_doc.get("char_class", "Fighter"),
+                "level": char_doc.get("char_level", 1),
+                "subclass": char_doc.get("subclass"),
+            }
+        ]
+
+    class_found = False
+    for cls in classes:
+        if cls.get("class_name", "").lower() == target_class.lower():
+            cls["level"] = cls.get("level", 0) + 1
+            class_found = True
+            break
+
+    if not class_found:
+        classes.append({"class_name": target_class, "level": 1, "subclass": None})
+
+    char_doc["classes"] = classes
+    char_doc["char_level"] = sum(c.get("level", 1) for c in classes)
+
+    # Note: if they change primary class logic, they will update it elsewhere, but we preserve primary char_class.
 
     # Update HP
     char_doc["hp_max"] = payload.analysis.new_total_hp

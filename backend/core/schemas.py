@@ -173,6 +173,12 @@ class DeathSavesSchema(BaseModel):
     failures: int = 0
 
 
+class ClassEntry(BaseModel):
+    class_name: str
+    level: int = 1
+    subclass: Optional[str] = None
+
+
 class CharacterSchema(BaseModel):
     char_id: Optional[str] = None
     owner_id: Optional[str] = None
@@ -182,6 +188,7 @@ class CharacterSchema(BaseModel):
     char_class: str
     subclass: Optional[str] = None
     char_level: int = 1
+    classes: List[ClassEntry] = Field(default_factory=list)
     race: str
     background: str
     alignment: Optional[str] = "Neutral"
@@ -484,6 +491,7 @@ class EncounterStateSchema(BaseModel):
     round: int = 0
     activeCombatantId: Optional[str] = None
     combatants: List[InitiativeCombatantSchema] = Field(default_factory=list)
+    danger_indicator: Optional[str] = None
 
 
 class RaceSchema(BaseModel):
