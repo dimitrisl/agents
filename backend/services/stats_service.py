@@ -8,6 +8,36 @@ from backend.services.dice_service import rebuild_damage_formula
 
 logger = logging.getLogger("DnDAssistant.StatsService")
 
+_ITEM_TYPES = ("item", "armor", "shield", "weapon")
+_FEAT_TYPES = ("feat", "feature")
+
+
+def _merge_homebrew_items(
+    base_items: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
+) -> List[Dict[str, Any]]:
+    """Merge homebrew items/armor/shields/weapons into the static item list."""
+    if not homebrew_content:
+        return base_items
+    return base_items + [i for i in homebrew_content if i.get("homebrew_type") in _ITEM_TYPES]
+
+
+def _merge_homebrew_weapons(
+    base_weapons: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
+) -> List[Dict[str, Any]]:
+    """Merge homebrew weapons into the static weapon list."""
+    if not homebrew_content:
+        return base_weapons
+    return base_weapons + [w for w in homebrew_content if w.get("homebrew_type") == "weapon"]
+
+
+def _merge_homebrew_feats(
+    base_feats: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
+) -> List[Dict[str, Any]]:
+    """Merge homebrew feats/features into the static feat list."""
+    if not homebrew_content:
+        return base_feats
+    return base_feats + [f for f in homebrew_content if f.get("homebrew_type") in _FEAT_TYPES]
+
 
 @functools.lru_cache(maxsize=128)
 def get_modifier(score: int) -> int:
@@ -91,14 +121,7 @@ def calculate_ac(
     from backend.repositories.rules_repository import RulesRepository
 
     _rules_repo = RulesRepository()
-    all_items = _rules_repo.get_all_items()
-    if homebrew_content:
-        # Merge homebrew items (assuming they have similar schema)
-        all_items = all_items + [
-            item
-            for item in homebrew_content
-            if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
-        ]
+    all_items = _merge_homebrew_items(_rules_repo.get_all_items(), homebrew_content)
 
     dex_mod = get_modifier(dex_score)
     base_ac = 10
@@ -518,11 +541,7 @@ def calculate_weapon_stats(
         from backend.repositories.rules_repository import RulesRepository
 
         repo = RulesRepository()
-        all_weapons = repo.get_all_weapons()
-        if homebrew_content:
-            all_weapons = all_weapons + [
-                w for w in homebrew_content if w.get("homebrew_type") == "weapon"
-            ]
+        all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
         name = weapon.get("name", "").lower()
 
         weapon_data = get_base_weapon(name, all_weapons)
@@ -647,6 +666,9 @@ def sync_character_stats(
             normalized_ft.append(ft)
     char_data["features_traits"] = normalized_ft
 
+    # Pre-compute merged items list ONCE (not per equipment item)
+    all_items = _merge_homebrew_items(repo.get_all_items(), homebrew_content)
+
     for equip in char_data["equipment"]:
         if not equip.get("equipped", False):
             continue
@@ -685,13 +707,6 @@ def sync_character_stats(
                     )
 
         item_name = equip.get("name", "").lower()
-        all_items = repo.get_all_items()
-        if homebrew_content:
-            all_items = all_items + [
-                item
-                for item in homebrew_content
-                if item.get("homebrew_type") in ("item", "armor", "shield", "weapon")
-            ]
         item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
 
         if item_data and "stat_set" in item_data:
@@ -808,11 +823,7 @@ def sync_character_stats(
     hp_bonus_per_level = 0
     features = char_data.get("features_traits", [])
 
-    feat_library = repo.get_all_feats(edition)
-    if homebrew_content:
-        feat_library = feat_library + [
-            f for f in homebrew_content if f.get("homebrew_type") in ("feat", "feature")
-        ]
+    feat_library = _merge_homebrew_feats(repo.get_all_feats(edition), homebrew_content)
     feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
 
     for f in features:
@@ -1143,11 +1154,7 @@ def sync_character_stats(
                 else (3 if level >= 4 else 2)
             )
             existing_masteries = list(char_data.get("weapon_masteries") or [])
-            all_weapons = repo.get_all_weapons()
-            if homebrew_content:
-                all_weapons = all_weapons + [
-                    w for w in homebrew_content if w.get("homebrew_type") == "weapon"
-                ]
+            all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
 
             # Prioritize masteries matching equipped weapons
             equipped_weapon_masteries = []

@@ -326,9 +326,15 @@ async def apply_level_up(
                 )
 
     # Sync stats deterministically
+    from backend.services.homebrew_service import HomebrewService
     from backend.services.mechanics_service import sync_character_stats
 
-    synced_char = sync_character_stats(char_doc)
+    homebrew_service = HomebrewService()
+    homebrew_items = await homebrew_service.get_campaign_homebrew(
+        db, char_doc.get("active_campaign")
+    )
+
+    synced_char = sync_character_stats(char_doc, homebrew_content=homebrew_items)
 
     # Ensure nested _id is not updated
     if "_id" in synced_char:

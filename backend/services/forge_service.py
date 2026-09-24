@@ -529,7 +529,7 @@ def process_character_update(
     stat_updates: dict = None,
     equipment_deltas: dict = None,
     weapon_deltas: dict = None,
-    homebrew_content: list = None,
+    homebrew_content: list[dict] | None = None,
 ) -> dict:
     """
     Processes character updates (stats and equipment) and returns synchronized character data.
