@@ -255,15 +255,18 @@
             "steps": [
                 {
                     "level": 9,
-                    "notation": "+1 weapon die"
+                    "notation": "+1 weapon die",
+                    "value": 1
                 },
                 {
                     "level": 13,
-                    "notation": "+2 weapon dice"
+                    "notation": "+2 weapon dice",
+                    "value": 2
                 },
                 {
                     "level": 17,
-                    "notation": "+3 weapon dice"
+                    "notation": "+3 weapon dice",
+                    "value": 3
                 }
             ]
         }

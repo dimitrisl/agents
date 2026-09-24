@@ -65,6 +65,8 @@ app.include_router(dm_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 
+os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
+
 # Mount portrait images directory
 app.mount(
     f"{settings.API_V1_STR}/portraits",

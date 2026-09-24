@@ -29,7 +29,7 @@ import {
   CombatantCondition,
   InitiativeCombatant,
 } from '../../core/models/initiative.model';
-import { PartyMember, passivePerception } from '../../core/models/party.model';
+import { PartyMember } from '../../core/models/party.model';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
@@ -247,6 +247,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   private pendingPartyState = new Map<string, PartyStateChanges>();
   private partyStateSubjects = new Map<string, Subject<void>>();
+  private encounterSyncSubject = new Subject<void>();
+  private encounterSub?: Subscription;
 
   onlineCharacters = new Set<string>();
 
@@ -254,6 +256,24 @@ export class DmComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadCampaigns();
+
+    this.encounterSub = this.encounterSyncSubject.pipe(
+      debounceTime(500),
+      switchMap(() => {
+        if (!this.campaignName) return EMPTY;
+        const state = {
+          round: this.round,
+          activeCombatantId: this.activeCombatantId,
+          combatants: this.combatants,
+        };
+        return this.http.post(campaignUrl(this.campaignName, 'encounter'), state).pipe(
+          catchError((e) => {
+            console.error('Failed to sync encounter state', e);
+            return EMPTY;
+          })
+        );
+      })
+    ).subscribe();
 
     // Every (re)connect re-reads the thread, so a dropped socket costs nothing
     // and nobody ever has to reload the page to catch up.
@@ -332,6 +352,8 @@ export class DmComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
+    this.encounterSub?.unsubscribe();
+    this.encounterSyncSubject.complete();
 
     // Unsubscribing only stops this page from listening; the socket itself stays
     // up, and the service holds exactly one. Left open, the server goes on
@@ -651,7 +673,7 @@ export class DmComponent implements OnInit, OnDestroy {
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
             ac: char.armor_class ?? 10,
-            passive_perception: passivePerception(char.stats),
+            passive_perception: char.passive_perception ?? 10,
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
             conditions: char.conditions || [],
@@ -735,35 +757,7 @@ export class DmComponent implements OnInit, OnDestroy {
     );
   }
 
-  addPartyMember() {
-    if (!this.newMemberName.trim()) return;
-    // The form asks for no ability scores, so a hand-typed member gets this
-    // stand-in block — and their Passive Perception is read off it rather than
-    // written out by hand, which is how the two came to disagree.
-    const stats = { STR: 14, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 };
-    const member: PartyMember = {
-      name: this.newMemberName.trim(),
-      char_class: this.newMemberClass || 'Fighter',
-      level: this.newMemberLevel || 5,
-      hp_current: this.newMemberHp || 40,
-      hp_max: this.newMemberHp || 40,
-      ac: this.newMemberAc || 16,
-      passive_perception: passivePerception(stats),
-      conditions: [],
-      stats
-    };
 
-    this.partyMembers.push(member);
-    if (!this.campaignParties[this.campaignName]) {
-      this.campaignParties[this.campaignName] = [];
-    }
-    this.campaignParties[this.campaignName] = [...this.partyMembers];
-
-    this.showAddMemberModal = false;
-    this.newMemberName = '';
-    this.importPartyToInitiative();
-    this.rollToast.showMessage('👤 HERO ENLISTED', `Added ${member.name} (${member.char_class}) to ${this.campaignName} party roster.`);
-  }
 
   createNewCampaign() {
     if (!this.newCampaignTitle.trim() || this.isCreatingCampaign) return;
@@ -1338,6 +1332,9 @@ export class DmComponent implements OnInit, OnDestroy {
     this.hasLiveEncounter = this.combatants.length > 0;
     if (!this.hasLiveEncounter) {
       this.encounterStorage.clear(this.campaignName);
+      this.http.delete(campaignUrl(this.campaignName, 'encounter')).subscribe({
+        error: (e) => console.error('Failed to clear encounter state', e)
+      });
       return;
     }
 
@@ -1346,6 +1343,7 @@ export class DmComponent implements OnInit, OnDestroy {
       activeCombatantId: this.activeCombatantId,
       combatants: this.combatants,
     });
+    this.encounterSyncSubject.next();
   }
 
   private restoreEncounter(campaignName: string) {
