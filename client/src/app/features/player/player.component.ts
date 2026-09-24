@@ -171,7 +171,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   shortRestDiceToSpend = 1;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
-  encounterState: any = null;
 
   portraitPrompt = '';
   strategyGuideText: string | null = null;
@@ -258,7 +257,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       )
       .subscribe();
 
-    effect((onCleanup) => {
+    effect(() => {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
@@ -277,7 +276,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.clearRollPrompts();
         this.rebuildInboxFeed();
       }
-      onCleanup(() => { this.wsService.disconnect(); });
     });
   }
 
@@ -312,9 +310,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           // those are the ones the player cannot see yet.
           this.enqueueRollPrompt(req);
         }
-      } else if (msg.type === 'encounter_update') {
-        this.encounterState = msg['payload'];
-
       } else if (msg.type === 'party_update') {
         const payload = msg['payload'];
         if (payload && payload.action === 'removed' && payload.char_id === char.char_id) {

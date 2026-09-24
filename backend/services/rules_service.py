@@ -41,7 +41,7 @@ def compare_rules(query: str) -> str:
     return generate_ai_response(prompt)
 
 
-def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None = None) -> dict:
+def autofix_character_build(char_data: dict) -> dict:
     """Validates character build against edition rules deterministically, applies corrections, and resynchronizes mechanics."""
     from backend.services.stats_service import sync_character_stats
     from backend.services.validation_service import deterministic_validate_build
@@ -76,9 +76,7 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
 
     # Re-sync derived stats using mechanics engine for the specific edition
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
-    synced_char = sync_character_stats(
-        corrected_char, class_data, homebrew_content=homebrew_content
-    )
+    synced_char = sync_character_stats(corrected_char, class_data)
 
     try:
         validated = CharacterSchema.model_validate(synced_char, strict=False)
@@ -88,9 +86,7 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
         return {"validation_result": validation, "character": synced_char}
 
 
-def parse_character_from_text(
-    sheet_text: str, edition: str = EDITION_2014, homebrew_content: list[dict] | None = None
-) -> dict:
+def parse_character_from_text(sheet_text: str, edition: str = EDITION_2014) -> dict:
     """
     Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure.
     Uses a 2-step chained process for maximum precision.
@@ -132,7 +128,7 @@ def parse_character_from_text(
     from backend.services.stats_service import sync_character_stats
 
     class_data = _get_rules_repo().get_class_progression(final_raw.get("char_class", ""), edition)
-    final_raw = sync_character_stats(final_raw, class_data, homebrew_content=homebrew_content)
+    final_raw = sync_character_stats(final_raw, class_data)
 
     try:
         # Validate against schema to ensure data integrity

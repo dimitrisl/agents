@@ -13,13 +13,11 @@
                     "steps": [
                         {
                             "level": 3,
-                            "notation": "crit on 19\u201320",
-                            "value": 19
+                            "notation": "crit on 19\u201320"
                         },
                         {
                             "level": 15,
-                            "notation": "crit on 18\u201320",
-                            "value": 18
+                            "notation": "crit on 18\u201320"
                         }
                     ]
                 }

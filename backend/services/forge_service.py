@@ -318,30 +318,10 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     from backend.repositories.rules_repository import RulesRepository
     from backend.services.progression_service import get_level_up_vitals
 
-    classes = char_data.get("classes", [])
-    user_choices = user_choices or {}
-
-    target_class = user_choices.get("level_up_class", char_data.get("char_class", "Fighter"))
-
-    # Calculate the current level of the TARGET class
-    class_current_level = 0
-    if classes:
-        for cls in classes:
-            if cls.get("class_name", "").lower() == target_class.lower():
-                class_current_level = cls.get("level", 0)
-                break
-    else:
-        if target_class.lower() == char_data.get("char_class", "Fighter").lower():
-            class_current_level = char_data.get("char_level", 1)
-
-    target_level = class_current_level + 1
-    current_total_level = char_data.get("char_level", 1)
-    target_total_level = current_total_level + 1
-
-    edition = char_data.get("dnd_edition", "2014 Edition")
-
-    # Override char_class to target_class for the rest of this function
-    char_class = target_class
+    current_level = char_data.get("char_level", 1)
+    target_level = current_level + 1
+    edition = char_data.get("dnd_edition", EDITION_2014)
+    char_class = char_data.get("char_class", "Fighter")
 
     rules_repo = RulesRepository()
     static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
@@ -349,16 +329,16 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     try:
         vitals = get_level_up_vitals(
             char_class=char_class,
-            current_level=class_current_level,
+            current_level=current_level,
             con_score=char_data.get("stats", {}).get("CON", 10),
             edition=edition,
+            features=char_data.get("features_traits", []),
         )
         hp_increase = vitals.get("average_hp_gain", 0)
     except Exception:
-        vitals = {"hp_increase": 0, "new_total_hp": char_data.get("hp_max", 0)}
-        hp_increase = 0
+        hp_increase = 6
 
-    updated_pb = math.ceil(target_total_level / 4) + 1
+    updated_pb = math.ceil(target_level / 4) + 1
 
     choices = []
 
@@ -529,7 +509,7 @@ def process_character_update(
     stat_updates: dict = None,
     equipment_deltas: dict = None,
     weapon_deltas: dict = None,
-    homebrew_content: list[dict] | None = None,
+    homebrew_content: list = None,
 ) -> dict:
     """
     Processes character updates (stats and equipment) and returns synchronized character data.
