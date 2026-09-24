@@ -40,6 +40,11 @@ export class LevelUpModalComponent {
     return this.userChoices['level_up_class'] || this.character?.char_class || 'Fighter';
   }
 
+  get targetClassLevel() {
+    const cls = this.characterClasses.find(c => c.class_name === this.levelUpClass);
+    return cls ? cls.level + 1 : 1;
+  }
+
   onClassChange(val: string) {
     // When changing class, reset other choices like hp_method to avoid mismatched hp increases
     this.userChoices = { 'level_up_class': val };

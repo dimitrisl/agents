@@ -253,7 +253,13 @@ async def apply_level_up(
             base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
 
             if base_type == "subclass":
-                char_doc["subclass"] = choice_val
+                for cls in char_doc["classes"]:
+                    if cls.get("class_name", "").lower() == target_class.lower():
+                        cls["subclass"] = choice_val
+                        break
+                
+                if target_class.lower() == char_doc.get("char_class", "").lower():
+                    char_doc["subclass"] = choice_val
                 continue
 
             # Check the type of choice from the analysis to know how to apply it
