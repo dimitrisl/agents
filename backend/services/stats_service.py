@@ -432,20 +432,20 @@ def calculate_max_spell_slots(
             ctype = cls.get("caster_type")
             sub = (cls.get("subclass") or "").lower()
             lvl = cls.get("level", 1)
-            
+
             is_caster = False
             if ctype == "full" or ctype == "half":
                 is_caster = True
             elif ctype == "third" or "eldritch knight" in sub or "arcane trickster" in sub:
                 is_caster = True
-                
+
             if is_caster:
                 target_cls = cls
                 break
-                
+
         if not target_cls and len(classes) > 0:
             target_cls = classes[0]
-            
+
         if target_cls:
             cname = (target_cls.get("class_name") or "").lower()
             sub = (target_cls.get("subclass") or "").lower()
@@ -481,7 +481,7 @@ def calculate_max_spell_slots(
                 for idx, count in enumerate(prog):
                     if count > 0:
                         slots[f"level_{idx + 1}"] = count
-            
+
             # Don't return early here, as Warlock slots need to be added at the end
             # for a character that is single-spellcaster + warlock.
             pass

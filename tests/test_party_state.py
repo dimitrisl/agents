@@ -80,7 +80,7 @@ def test_dm_can_write_hit_points(table):
     assert body["char_name"] == "Lyra Meadowlark"
 
     _, update = table["chars"].update_one.await_args.args
-    assert update == {"$set": {"hp_current": 12}}
+    assert update == {"$set": {"hp_current": 12}, "$inc": {"version": 1}}
 
 
 def test_only_the_touched_field_is_written(table):

@@ -100,7 +100,7 @@ export function resolveShortRest(
   const hpBefore = currentHp(char);
   const hpAfter = Math.min(char.hp_max, hpBefore + rolled);
 
-    const isWarlock = 
+    const isWarlock =
       (char.char_class || '').toLowerCase().includes('warlock') ||
       (char.classes || []).some(c => (c.class_name || '').toLowerCase().includes('warlock'));
 

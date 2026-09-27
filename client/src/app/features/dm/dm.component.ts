@@ -47,6 +47,7 @@ import { InitiativePanelComponent } from './panels/initiative-panel/initiative-p
 import { GeneratorsPanelComponent } from './panels/generators-panel/generators-panel.component';
 import { HomebrewPanelComponent } from './panels/homebrew-panel/homebrew-panel.component';
 import { PrepPanelComponent } from './panels/prep-panel/prep-panel.component';
+import { EntitiesPanelComponent } from './panels/entities-panel/entities-panel.component';
 import { WhisperModalComponent } from './modals/whisper-modal/whisper-modal.component';
 import { RollRequestModalComponent } from './modals/roll-request-modal/roll-request-modal.component';
 import { StatblockModalComponent } from './modals/statblock-modal/statblock-modal.component';
@@ -89,6 +90,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     InitiativePanelComponent,
     GeneratorsPanelComponent,
     PrepPanelComponent,
+    EntitiesPanelComponent,
     HomebrewPanelComponent,
     WhisperModalComponent,
     RollRequestModalComponent,
@@ -101,11 +103,12 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   styleUrl: './dm.component.css',
 })
 export class DmComponent implements OnInit, OnDestroy {
-  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' | 'homebrew' = 'party';
+  activeTab: 'notes' | 'party' | 'initiative' | 'entities' | 'generators' | 'prep' | 'homebrew' = 'party';
   readonly dmTabs: ForgeTab[] = [
     { id: 'notes', label: '📝 Campaign Notes' },
     { id: 'party', label: '👥 Live Party Tracker' },
     { id: 'initiative', label: '⚔️ Initiative Tracker' },
+    { id: 'entities', label: '📚 World Lore' },
     { id: 'generators', label: '🎲 AI Generators' },
     { id: 'prep', label: '📜 Session Prep' },
     { id: 'homebrew', label: '🔥 Homebrew Forge' },
@@ -199,11 +202,11 @@ export class DmComponent implements OnInit, OnDestroy {
   prepNotes = '';
   prepResult = '';
   isGeneratingPrep = false;
-  
+
   riddleTheme = '';
   riddleResult = '';
   isGeneratingRiddle = false;
-  
+
   isGeneratingEncounter = false;
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
@@ -896,11 +899,11 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   /** The party member behind an initiative row, when the row is a hero. */
-  private memberFor(combatant: InitiativeCombatant): PartyMember | undefined {
-    if (!combatant.is_player) return undefined;
+  public memberFor(combatant: InitiativeCombatant): PartyMember | null {
+    if (!combatant.is_player) return null;
     return this.partyMembers.find((m) =>
       combatant.char_id ? m.char_id === combatant.char_id : m.name === combatant.name
-    );
+    ) || null;
   }
 
   private combatantsFor(member: PartyMember): InitiativeCombatant[] {
@@ -1405,14 +1408,14 @@ export class DmComponent implements OnInit, OnDestroy {
     this.http.get<any>(`${campaignUrl(campaignName, 'encounter')}`).subscribe({
       next: (serverState) => {
         if (!serverState) return;
-        
+
         // If server state is ahead or we had no local state, use it
         if (!saved || saved.combatants.length === 0 || serverState.round >= this.round) {
           this.combatants = this.sortCombatants(serverState.combatants || []);
           this.activeCombatantId = serverState.activeCombatantId;
           this.round = serverState.round || 0;
           this.hasLiveEncounter = this.combatants.length > 0;
-          
+
           if (this.hasLiveEncounter) {
              this.encounterStorage.save(campaignName, {
                combatants: this.combatants,

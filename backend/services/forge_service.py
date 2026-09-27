@@ -368,7 +368,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         if cls.get("class_name", "").lower() == char_class.lower():
             current_subclass = cls.get("subclass")
             break
-    
+
     if not classes and char_class.lower() == char_data.get("char_class", "").lower():
         current_subclass = char_data.get("subclass")
 
@@ -400,7 +400,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             reqs = f.get("prerequisites", {}).get("other", [])
             if not reqs or any(r.lower() in char_race for r in reqs):
                 allowed_feats.append(f["name"])
-                
+
         choices.append(
             {
                 "type": "feat",

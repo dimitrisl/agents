@@ -525,3 +525,53 @@ class ItemSchema(BaseModel):
     name: str
     description: Optional[str] = None
     model_config = {"extra": "allow"}
+
+
+# ==========================================
+# Campaign Entities (Lore, NPCs, Factions)
+# ==========================================
+class CampaignEntitySchema(BaseModel):
+    id: Optional[str] = None
+    campaign_name: str
+    name: str
+    type: str  # e.g., 'npc', 'villain', 'faction', 'location', 'lore'
+    content: str  # Markdown description or notes
+    tags: List[str] = Field(default_factory=list)
+    stats: Optional[Dict[str, Any]] = None  # Flexible block for statblocks
+    created_at: Optional[datetime] = None
+
+
+class PasteExtractionRequest(BaseModel):
+    raw_text: str
+
+
+# ==========================================
+# Session Forge & Logs
+# ==========================================
+class SessionLogSchema(BaseModel):
+    id: Optional[str] = None
+    campaign_name: str
+    session_number: int
+    title: str
+    summary: str  # Markdown transcription/summary
+    real_world_date: Optional[datetime] = None
+    extracted_entities: List[CampaignEntitySchema] = Field(default_factory=list)
+    audio_file_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class SessionPrepSchema(BaseModel):
+    strong_start: str
+    secrets_clues: List[str] = Field(default_factory=list)
+    encounters: List[str] = Field(default_factory=list)
+    key_npcs: List[str] = Field(default_factory=list)
+
+
+class JourneyNodeSchema(BaseModel):
+    location_name: str
+    description: str
+    session_number: int
+
+
+class JourneyGraphResponse(BaseModel):
+    nodes: List[JourneyNodeSchema] = Field(default_factory=list)

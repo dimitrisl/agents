@@ -1372,7 +1372,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const oldClass = this.levelUpUserChoices['level_up_class'];
     const newClass = choices['level_up_class'];
     this.levelUpUserChoices = choices;
-    
+
     if (newClass && oldClass !== newClass) {
       const char = this.charState.activeCharacter();
       if (!char) return;

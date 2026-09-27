@@ -194,6 +194,14 @@
             (setDeathSave)="setDeathSave($event.combatant, $event.kind, $event.value)"
           ></app-initiative-panel>
 
+          <app-entities-panel
+            *ngIf="activeTab === 'entities'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-entities"
+            [campaignName]="campaignName"
+          ></app-entities-panel>
+
           <app-generators-panel
             *ngIf="activeTab === 'generators'"
             class="block min-w-0"
@@ -218,14 +226,7 @@
             class="block min-w-0"
             role="tabpanel"
             aria-labelledby="dm-tabs-tab-prep"
-            [(prepNotes)]="prepNotes"
-            [prepResult]="prepResult"
-            [isGeneratingPrep]="isGeneratingPrep"
-            (generatePrep)="generatePrep()"
-            [(riddleTheme)]="riddleTheme"
-            [riddleResult]="riddleResult"
-            [isGeneratingRiddle]="isGeneratingRiddle"
-            (generateRiddle)="generateRiddle()"
+            [campaignName]="campaignName"
           ></app-prep-panel>
 
           <app-homebrew-panel

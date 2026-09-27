@@ -83,5 +83,7 @@ async def create_riddle(payload: RiddleRequest, current_user: dict = Depends(get
 async def create_session_prep(
     payload: SessionPrepRequest, current_user: dict = Depends(get_current_user)
 ):
-    prep_text = await asyncio.to_thread(generate_session_prep, payload.campaign_notes, payload.party_info)
+    prep_text = await asyncio.to_thread(
+        generate_session_prep, payload.campaign_notes, payload.party_info
+    )
     return {"session_markdown": prep_text}

@@ -180,7 +180,7 @@
     (openChange)="showLevelUpModal = $event"
     [character]="charState.activeCharacter()"
     [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
-    [levelUpAnalysis]="levelUpAnalysis" 
+    [levelUpAnalysis]="levelUpAnalysis"
     [userChoices]="levelUpUserChoices"
     (userChoicesChange)="onLevelUpChoicesChange($event)"
     (applyLevelUp)="applyLevelUp()"

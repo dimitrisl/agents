@@ -257,7 +257,7 @@ async def apply_level_up(
                     if cls.get("class_name", "").lower() == target_class.lower():
                         cls["subclass"] = choice_val
                         break
-                
+
                 if target_class.lower() == char_doc.get("char_class", "").lower():
                     char_doc["subclass"] = choice_val
                 continue
@@ -322,14 +322,22 @@ async def apply_level_up(
                         char_doc["stats"][stat2] += 1
                 else:
                     from backend.repositories.rules_repository import RulesRepository
+
                     rules_repo = RulesRepository()
                     edition = char_doc.get("dnd_edition", "2014 Edition")
-                    feat_data = next((f for f in rules_repo.get_all_feats(edition) if f.get("name") == choice_val), None)
-                    
+                    feat_data = next(
+                        (
+                            f
+                            for f in rules_repo.get_all_feats(edition)
+                            if f.get("name") == choice_val
+                        ),
+                        None,
+                    )
+
                     feat_desc = "Selected via Level Up."
                     if feat_data:
                         feat_desc = feat_data.get("description", feat_desc)
-                        
+
                         # Apply static stat bonuses
                         stat_bonus = feat_data.get("stat_bonus", {})
                         if stat_bonus:
@@ -344,10 +352,10 @@ async def apply_level_up(
                             base = parts[0] if len(parts) > 1 else choice_key
                             stat1_key = f"{base}_stat1{idx_suffix}"
                             stat1 = payload.user_choices.get(stat1_key)
-                            
+
                             if stat1 and stat1 in char_doc.get("stats", {}):
                                 char_doc["stats"][stat1] += 1
-                    
+
                     char_doc.setdefault("features_traits", []).append(
                         {"name": choice_val, "description": feat_desc}
                     )
