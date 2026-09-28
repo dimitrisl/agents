@@ -90,19 +90,20 @@ export class WebSocketService {
 
     // Remove the /api/v1 suffix to get the root ws path
     wsUrl = wsUrl.replace('/api/v1', '');
-    // The JWT rides as a query param because the browser WebSocket API offers no
-    // way to set an Authorization header on the handshake.
-    const character = identity.character
-      ? `&character=${encodeURIComponent(identity.character)}`
-      : '';
-    const fullUrl =
-      `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}` +
-      `?token=${encodeURIComponent(token)}${character}`;
+    const fullUrl = `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}`;
 
     const socket = new WebSocket(fullUrl);
     this.socket = socket;
 
     socket.onopen = () => {
+      // Send auth payload immediately
+      socket.send(
+        JSON.stringify({
+          type: 'auth',
+          token: token,
+          character: identity.character || null,
+        })
+      );
       this.reconnectAttempts = 0;
       console.log(`[WebSocket] Connected to campaign channel: ${campaignId}`);
       this.startHeartbeat(socket);

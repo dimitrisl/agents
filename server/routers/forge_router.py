@@ -388,6 +388,16 @@ async def apply_level_up(
     if "_id" in synced_char:
         del synced_char["_id"]
 
-    await db["characters"].update_one({"char_id": payload.character_id}, {"$set": synced_char})
+    client_version = char_doc.get("version", 0)
+    synced_char["version"] = client_version + 1
+
+    result = await db["characters"].update_one(
+        {"char_id": payload.character_id, "version": client_version}, {"$set": synced_char}
+    )
+    if result.modified_count == 0 and result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently during level up. Please refresh.",
+        )
 
     return CharacterSchema.model_validate(synced_char, strict=False)

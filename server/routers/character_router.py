@@ -143,7 +143,15 @@ async def update_character(
 
     char_dict["version"] = client_version + 1
 
-    await db["characters"].update_one({"char_id": char_id}, {"$set": char_dict})
+    result = await db["characters"].update_one(
+        {"char_id": char_id, "version": client_version}, {"$set": char_dict}
+    )
+    if result.modified_count == 0 and result.matched_count == 0:
+        # It means the version in the database is no longer client_version
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently during processing. Please refresh.",
+        )
 
     return CharacterSchema.model_validate(char_dict, strict=False)
 
@@ -206,9 +214,19 @@ async def add_homebrew_to_character(
     updated_char = await run_in_threadpool(
         partial(process_character_update, char_dict, homebrew_content=homebrew_items)
     )
-    await db["characters"].update_one(
-        {"char_id": char_id, "owner_id": current_user["id"]}, {"$set": updated_char}
+
+    client_version = char_doc.get("version", 0)
+    updated_char["version"] = client_version + 1
+
+    result = await db["characters"].update_one(
+        {"char_id": char_id, "owner_id": current_user["id"], "version": client_version},
+        {"$set": updated_char},
     )
+    if result.modified_count == 0 and result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently. Please refresh.",
+        )
 
     return CharacterSchema.model_validate(updated_char, strict=False)
 
