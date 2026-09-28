@@ -56,7 +56,6 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() editMode = false;
   @Input() rollMode: RollMode = 'normal';
-  @Input() encounterState: any = null;
 
   @Output() addWeapon = new EventEmitter<void>();
   @Output() deleteWeapon = new EventEmitter<number>();

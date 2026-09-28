@@ -65,44 +65,6 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
     # or homebrew rules allow stats > 20, and the validation service does not differentiate
     # between base stats and final item-boosted stats.
     # The stat calculation engine will handle bounds naturally.
-    # 1b. Multiclass Prerequisites
-    stats = corrected_char.get("base_stats") or corrected_char.get("stats", {})
-    if hasattr(stats, "model_dump"):
-        stats = stats.model_dump()
-    elif not isinstance(stats, dict):
-        stats = {
-            "STR": getattr(stats, "STR", 10),
-            "DEX": getattr(stats, "DEX", 10),
-            "CON": getattr(stats, "CON", 10),
-            "INT": getattr(stats, "INT", 10),
-            "WIS": getattr(stats, "WIS", 10),
-            "CHA": getattr(stats, "CHA", 10),
-        }
-
-    classes = corrected_char.get("classes", [])
-    if len(classes) > 1:
-        prereqs = {
-            "barbarian": lambda s: s.get("STR", 0) >= 13,
-            "bard": lambda s: s.get("CHA", 0) >= 13,
-            "cleric": lambda s: s.get("WIS", 0) >= 13,
-            "druid": lambda s: s.get("WIS", 0) >= 13,
-            "fighter": lambda s: s.get("STR", 0) >= 13 or s.get("DEX", 0) >= 13,
-            "monk": lambda s: s.get("DEX", 0) >= 13 and s.get("WIS", 0) >= 13,
-            "paladin": lambda s: s.get("STR", 0) >= 13 and s.get("CHA", 0) >= 13,
-            "ranger": lambda s: s.get("DEX", 0) >= 13 and s.get("WIS", 0) >= 13,
-            "rogue": lambda s: s.get("DEX", 0) >= 13,
-            "sorcerer": lambda s: s.get("CHA", 0) >= 13,
-            "warlock": lambda s: s.get("CHA", 0) >= 13,
-            "wizard": lambda s: s.get("INT", 0) >= 13,
-            "artificer": lambda s: s.get("INT", 0) >= 13,
-        }
-        for cls in classes:
-            cname = cls.get("class_name", "").lower()
-            if cname in prereqs and not prereqs[cname](stats):
-                issue_msg = f"Character does not meet the multiclassing stat prerequisites for {cname.capitalize()}."
-                logger.warning(issue_msg)
-                issues.append(issue_msg)
-
     # 2. Armor Proficiency Validation
     # If the character has equipped armor they are not proficient in, unequip it.
     armor_profs = get_character_armor_proficiencies(corrected_char, class_data)

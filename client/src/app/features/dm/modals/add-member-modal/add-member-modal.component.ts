@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
+  ForgeInputDirective,
   ForgeModalComponent,
   ForgeSelectDirective,
   ForgeTab,
@@ -18,6 +19,7 @@ type AddMemberTab = 'existing' | 'custom' | 'invite';
     CommonModule,
     FormsModule,
     ForgeButtonDirective,
+    ForgeInputDirective,
     ForgeModalComponent,
     ForgeSelectDirective,
     ForgeTabsComponent,
@@ -28,6 +30,7 @@ type AddMemberTab = 'existing' | 'custom' | 'invite';
 export class AddMemberModalComponent {
   readonly addMemberTabs: ForgeTab[] = [
     { id: 'existing', label: '📜 Vault Heroes' },
+    { id: 'custom', label: '✏️ Custom Hero' },
     { id: 'invite', label: '🔑 Invite Code' },
   ];
 
@@ -54,6 +57,7 @@ export class AddMemberModalComponent {
   @Output() newMemberHpChange = new EventEmitter<number>();
   @Output() newMemberAcChange = new EventEmitter<number>();
   @Output() addExistingPartyMember = new EventEmitter<void>();
+  @Output() addPartyMember = new EventEmitter<void>();
   @Output() copyInviteCode = new EventEmitter<void>();
 
   selectAddMemberTab(tabId: string): void {

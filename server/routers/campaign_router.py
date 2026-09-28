@@ -16,7 +16,6 @@ from backend.core.schemas import (
     SuccessResponseSchema,
 )
 from backend.services.dice_service import roll_dice
-from backend.services.encounter_service import calculate_danger_indicator
 from backend.services.stats_service import calculate_skills, get_modifier
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
@@ -336,9 +335,7 @@ async def update_party_member_state(
 
     # Only the touched fields are written. A blind $set of the whole document
     # would race with the character sheet the player has open.
-    await db["characters"].update_one(
-        {"char_id": char_id}, {"$set": updates, "$inc": {"version": 1}}
-    )
+    await db["characters"].update_one({"char_id": char_id}, {"$set": updates})
 
     state = {
         "char_id": char_id,
@@ -770,12 +767,6 @@ async def update_encounter_state(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     enc_dict = payload.model_dump()
-
-    # Calculate Danger Indicator dynamically
-    enc_dict["danger_indicator"] = await calculate_danger_indicator(
-        enc_dict.get("combatants", []), db
-    )
-
     enc_dict["campaign_name"] = name
 
     await db["campaign_encounters"].update_one(

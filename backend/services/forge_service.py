@@ -352,16 +352,16 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     try:
         vitals = get_level_up_vitals(
             char_class=char_class,
-            current_level=class_current_level,
+            current_level=current_level,
             con_score=char_data.get("stats", {}).get("CON", 10),
             edition=edition,
+            features=char_data.get("features_traits", []),
         )
         hp_increase = vitals.get("average_hp_gain", 0)
     except Exception:
-        vitals = {"hp_increase": 0, "new_total_hp": char_data.get("hp_max", 0)}
-        hp_increase = 0
+        hp_increase = 6
 
-    updated_pb = math.ceil(target_total_level / 4) + 1
+    updated_pb = math.ceil(target_level / 4) + 1
 
     choices = []
 
@@ -546,7 +546,7 @@ def process_character_update(
     stat_updates: dict = None,
     equipment_deltas: dict = None,
     weapon_deltas: dict = None,
-    homebrew_content: list[dict] | None = None,
+    homebrew_content: list = None,
 ) -> dict:
     """
     Processes character updates (stats and equipment) and returns synchronized character data.

@@ -156,9 +156,6 @@ async def get_class_scaling(
             scaling_dict.update(subclass_scaling)
 
     resolved_actions = []
-    cantripTier = 4 if level >= 17 else 3 if level >= 11 else 2 if level >= 5 else 1
-    extraCritDice = 0
-    critThreshold = 20
 
     for action_id, action_def in scaling_dict.items():
         steps = action_def.get("steps", [])
@@ -181,20 +178,9 @@ async def get_class_scaling(
         if "options" in active_step:
             action_payload["options"] = active_step["options"]
 
-        if action_def.get("extraCritDice"):
-            extraCritDice = active_step.get("value", 0)
-
-        if action_id == "improved_critical":
-            critThreshold = active_step.get("value", 20)
-
         resolved_actions.append(action_payload)
 
-    return {
-        "actions": resolved_actions,
-        "cantripTier": cantripTier,
-        "extraCritDice": extraCritDice,
-        "critThreshold": critThreshold,
-    }
+    return resolved_actions
 
 
 @router.post("/combat-profile", response_model=ClassScalingResponse)

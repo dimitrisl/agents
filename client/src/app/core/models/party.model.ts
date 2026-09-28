@@ -29,3 +29,7 @@ export interface PartyMember {
  * ability score hardcoded — the number on screen was 11 for everyone, whatever
  * the sheet said.
  */
+export function passivePerception(stats?: { [key: string]: number }): number {
+  const wisdom = stats?.['WIS'] ?? 10;
+  return 10 + Math.floor((wisdom - 10) / 2);
+}

@@ -57,7 +57,24 @@ export interface CombatProfile {
   cantripTier: number;
 }
 
+export function extraCritDiceFor(ctx: CombatContext): number {
+  if (ctx.charClass.toLowerCase().trim() !== 'barbarian' || ctx.is2024) return 0;
+  if (ctx.level >= 17) return 3;
+  if (ctx.level >= 13) return 2;
+  if (ctx.level >= 9) return 1;
+  return 0;
+}
 
+/** Improved Critical, expressed as the lowest d20 face that still crits. */
+export function critThresholdFor(ctx: CombatContext): number {
+  const isChampion =
+    ctx.charClass.toLowerCase().trim() === 'fighter' &&
+    ctx.subclass.toLowerCase().includes('champion');
+  if (!isChampion) return 20;
+  if (ctx.level >= 15) return 18;
+  if (ctx.level >= 3) return 19;
+  return 20;
+}
 
 function titleCase(value: string): string {
   return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value;
