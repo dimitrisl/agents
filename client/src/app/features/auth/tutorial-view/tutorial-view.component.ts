@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { ForgeButtonDirective, ForgeCardComponent } from '../../../shared/ui';
+import { ForgeButtonDirective, ForgeCardComponent, ForgeStatBoxComponent, ForgeBadgeComponent, ForgeListRowComponent } from '../../../shared/ui';
 
 const ACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-accent shadow-[0_0_10px_var(--theme-accent)] transition-all';
 const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
@@ -7,7 +7,7 @@ const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
 @Component({
   selector: 'app-tutorial-view',
   standalone: true,
-  imports: [ForgeButtonDirective, ForgeCardComponent],
+  imports: [ForgeButtonDirective, ForgeCardComponent, ForgeStatBoxComponent, ForgeBadgeComponent, ForgeListRowComponent],
   templateUrl: './tutorial-view.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -20,11 +20,22 @@ export class TutorialViewComponent {
   @Output() back = new EventEmitter<void>();
   @Output() finish = new EventEmitter<void>();
 
+  role: 'none' | 'player' | 'dm' = 'none';
+
+  selectRole(role: 'player' | 'dm'): void {
+    this.role = role;
+    this.stepChange.emit(0);
+  }
+
   previous(): void {
-    if (this.step > 0) {
-      this.stepChange.emit(this.step - 1);
-    } else {
+    if (this.role === 'none') {
       this.back.emit();
+    } else {
+      if (this.step > 0) {
+        this.stepChange.emit(this.step - 1);
+      } else {
+        this.role = 'none';
+      }
     }
   }
 

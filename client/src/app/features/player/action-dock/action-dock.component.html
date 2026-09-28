@@ -43,6 +43,7 @@
         size="sm"
         type="button"
         (click)="levelUp.emit()"
+        [disabled]="!canLevelUp"
         title="Level Up Analysis"
       >
         ✦ Level Up

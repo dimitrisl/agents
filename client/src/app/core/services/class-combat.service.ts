@@ -68,12 +68,16 @@ export class ClassCombatService {
     }
 
     const edParam = ctx.is2024 ? '2024 Edition' : '2014 Edition';
-    let url = `${environment.apiBaseUrl}/rules/classes/${ctx.charClass.toLowerCase()}/scaling?level=${ctx.level}&edition=${encodeURIComponent(edParam)}`;
-    if (ctx.subclass) {
-        url += `&subclass=${encodeURIComponent(ctx.subclass)}`;
-    }
+    const payload = {
+      classes: char.classes && char.classes.length > 0
+        ? char.classes
+        : [{ class_name: ctx.charClass, level: ctx.level, subclass: ctx.subclass }],
+      edition: edParam
+    };
 
-    return this.http.get<any>(url).pipe(
+    const url = `${environment.apiBaseUrl}/rules/combat-profile`;
+
+    return this.http.post<any>(url, payload).pipe(
       map(res => {
         const apiActions = res.actions || [];
         const mappedActions = apiActions.map((a: any) => ({

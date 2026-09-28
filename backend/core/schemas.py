@@ -575,3 +575,41 @@ class JourneyNodeSchema(BaseModel):
 
 class JourneyGraphResponse(BaseModel):
     nodes: List[JourneyNodeSchema] = Field(default_factory=list)
+
+
+# --- Combat Rules Refactor Schemas ---
+
+
+class ScalingOption(BaseModel):
+    label: str
+    notation: str
+
+
+class ScalingStep(BaseModel):
+    level: int
+    notation: str
+    options: Optional[List[ScalingOption]] = None
+
+
+class ClassScalingAction(BaseModel):
+    id: str
+    name: str
+    kind: str
+    notation: str
+    hint: str
+    source: str
+    damageType: Optional[str] = None
+    rollable: bool
+    options: Optional[List[ScalingOption]] = None
+
+
+class ClassScalingResponse(BaseModel):
+    actions: List[ClassScalingAction] = []
+    extraCritDice: int = 0
+    critThreshold: int = 20
+    cantripTier: int = 1
+
+
+class CombatProfileRequest(BaseModel):
+    classes: List[ClassEntry]
+    edition: str = "2014 Edition"

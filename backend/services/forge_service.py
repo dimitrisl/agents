@@ -338,6 +338,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     current_total_level = char_data.get("char_level", 1)
     target_total_level = current_total_level + 1
 
+    if target_total_level > 20:
+        raise ValueError("Character cannot exceed level 20.")
+
     edition = char_data.get("dnd_edition", "2014 Edition")
 
     # Override char_class to target_class for the rest of this function

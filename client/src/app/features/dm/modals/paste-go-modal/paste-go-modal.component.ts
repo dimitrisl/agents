@@ -1,14 +1,14 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeButtonDirective, ForgeModalComponent, ForgeTextareaDirective } from '../../../../shared/ui';
+import { ForgeButtonDirective, ForgeModalComponent } from '../../../../shared/ui';
 import { CampaignEntityService } from '../../../../core/services/campaign-entity.service';
 import { CampaignEntity } from '../../../../core/models/campaign-entity.model';
 
 @Component({
   selector: 'app-paste-go-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent, ForgeTextareaDirective],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent],
   templateUrl: './paste-go-modal.component.html',
 })
 export class PasteGoModalComponent {

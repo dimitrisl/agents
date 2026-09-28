@@ -138,7 +138,11 @@ async def get_level_up_analysis(
     payload: LevelUpRequest, current_user: dict = Depends(get_current_user)
 ):
     char_data = payload.character.model_dump()
-    analysis = analyze_level_up(char_data, payload.user_choices)
+    try:
+        analysis = analyze_level_up(char_data, payload.user_choices)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if not analysis:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

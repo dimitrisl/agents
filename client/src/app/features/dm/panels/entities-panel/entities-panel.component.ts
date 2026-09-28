@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeButtonDirective, ForgeInputDirective, ForgeTextareaDirective } from '../../../../shared/ui';
+import { ForgeButtonDirective } from '../../../../shared/ui';
 import { CampaignEntity } from '../../../../core/models/campaign-entity.model';
 import { CampaignEntityService } from '../../../../core/services/campaign-entity.service';
 import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-modal.component';
@@ -9,7 +9,7 @@ import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-moda
 @Component({
   selector: 'app-entities-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeInputDirective, ForgeTextareaDirective, PasteGoModalComponent],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, PasteGoModalComponent],
   templateUrl: './entities-panel.component.html',
 })
 export class EntitiesPanelComponent implements OnInit {
