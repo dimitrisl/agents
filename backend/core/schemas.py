@@ -173,6 +173,12 @@ class DeathSavesSchema(BaseModel):
     failures: int = 0
 
 
+class ClassEntry(BaseModel):
+    class_name: str
+    level: int = 1
+    subclass: Optional[str] = None
+
+
 class CharacterSchema(BaseModel):
     char_id: Optional[str] = None
     owner_id: Optional[str] = None
@@ -182,6 +188,7 @@ class CharacterSchema(BaseModel):
     char_class: str
     subclass: Optional[str] = None
     char_level: int = 1
+    classes: List[ClassEntry] = Field(default_factory=list)
     race: str
     background: str
     alignment: Optional[str] = "Neutral"
@@ -194,6 +201,7 @@ class CharacterSchema(BaseModel):
     hit_dice_used: int = 0
     speed: int = 30
     proficiency_bonus: int = 2
+    base_stats: Optional[StatBlock] = None
     stats: StatBlock
     saving_throws: List[str] = Field(default_factory=list)
     skills: Dict[str, int] = Field(default_factory=dict)
@@ -201,6 +209,7 @@ class CharacterSchema(BaseModel):
     skill_expertise: List[str] = Field(default_factory=list)
     weapon_masteries: List[str] = Field(default_factory=list)
     weapons: List[Weapon] = Field(default_factory=list)
+    version: int = 0
     equipment: List[EquipmentItem] = Field(default_factory=list)
     features_traits: List[FeatureTrait] = Field(default_factory=list)
     spells: SpellList = Field(default_factory=SpellList)
@@ -230,8 +239,7 @@ class CharacterSchema(BaseModel):
     @computed_field
     @property
     def total_hp_max(self) -> int:
-        con_mod = (self.stats.CON - 10) // 2
-        return self.hp_max + (con_mod * self.char_level)
+        return self.hp_max
 
     @field_validator("spell_slots", mode="before")
     @classmethod
@@ -484,6 +492,7 @@ class EncounterStateSchema(BaseModel):
     round: int = 0
     activeCombatantId: Optional[str] = None
     combatants: List[InitiativeCombatantSchema] = Field(default_factory=list)
+    danger_indicator: Optional[str] = None
 
 
 class RaceSchema(BaseModel):
