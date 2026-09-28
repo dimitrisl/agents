@@ -295,20 +295,10 @@ class CharacterSchema(BaseModel):
         subclass = data.get("subclass")
         if char_class and isinstance(char_class, str) and " " in char_class:
             parts = [p.strip() for p in char_class.split()]
+            from backend.core.constants import SUBCLASSES_2014, SUBCLASSES_2024
+
             known_classes = {
-                "barbarian",
-                "bard",
-                "cleric",
-                "druid",
-                "fighter",
-                "monk",
-                "paladin",
-                "ranger",
-                "rogue",
-                "sorcerer",
-                "warlock",
-                "wizard",
-                "artificer",
+                c.lower() for c in list(SUBCLASSES_2014.keys()) + list(SUBCLASSES_2024.keys())
             }
             if parts[0].lower() in known_classes:
                 data["char_class"] = parts[0]

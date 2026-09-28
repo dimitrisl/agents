@@ -51,11 +51,11 @@ def _get_known_cantrips_for_edition(edition: str) -> set:
 
     repo = RulesRepository()
     spells = repo.get_all_spells(edition)
-    return {
+    return frozenset(
         s.get("name", "").strip().lower()
         for s in spells
         if str(s.get("level", "")).lower() in ["0", "cantrip"]
-    }
+    )
 
 
 def calculate_proficiency_bonus(level: int, class_data: Dict[str, Any] = None) -> int:

@@ -239,7 +239,10 @@ def forge_character_manual(
     )
     result = generate_ai_json(prompt)
     if not result:
-        result = {}
+        logger.warning(
+            "AI JSON generation returned None in manual forge. Generating default fallback character."
+        )
+        result = get_default_character()
 
     # Merge manual choices
     result["char_name"] = name

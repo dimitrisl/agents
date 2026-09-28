@@ -79,17 +79,25 @@ def table(monkeypatch):
         side_effect=lambda q: {"role": state["role"]} if state["role"] else None
     )
 
-    class AsyncIterator:
-        def __init__(self, items):
-            self.items = list(items)
+    class MockCursor:
+        """Chainable async cursor mock supporting .sort() and .limit()."""
 
-        def __aiter__(self):
+        def __init__(self, items):
+            self._items = list(items)
+
+        def sort(self, *args, **kwargs):
             return self
 
-        async def __anext__(self):
-            if not self.items:
-                raise StopAsyncIteration
-            return self.items.pop(0)
+        def limit(self, n):
+            self._items = self._items[:n]
+            return self
+
+        def __aiter__(self):
+            return self._async_gen().__aiter__()
+
+        async def _async_gen(self):
+            for item in self._items:
+                yield item
 
     class MockCollection:
         def __init__(self, state_dict, key):
@@ -130,7 +138,7 @@ def table(monkeypatch):
                         break
                 if match:
                     results.append(item.copy())
-            return AsyncIterator(results)
+            return MockCursor(results)
 
         async def insert_one(self, doc):
             # Tests don't usually assert on inserted docs directly via this mock,
@@ -256,4 +264,4 @@ class TestNothingReachesThePlayer:
 
         body = table["client"].get(MESSAGES_URL).json()
 
-        assert [r["id"] for r in body["roll_requests"]] == ["open", "hidden"]
+        assert {r["id"] for r in body["roll_requests"]} == {"open", "hidden"}

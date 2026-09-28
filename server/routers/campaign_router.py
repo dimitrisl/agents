@@ -273,14 +273,20 @@ async def get_campaign_party(
 ):
     cursor = db["characters"].find({"active_campaign": name})
     party_members = []
+    owner_ids = set()
     async for char in cursor:
         char.pop("_id", None)
-        owner_id = char.get("owner_id")
-        if owner_id:
-            user = await db["users"].find_one({"id": owner_id})
-            if user:
-                char["owner_username"] = user.get("username")
         party_members.append(char)
+        if char.get("owner_id"):
+            owner_ids.add(char.get("owner_id"))
+
+    if owner_ids:
+        users_cursor = db["users"].find({"id": {"$in": list(owner_ids)}})
+        user_map = {u["id"]: u.get("username") async for u in users_cursor}
+        for char in party_members:
+            if char.get("owner_id") in user_map:
+                char["owner_username"] = user_map[char.get("owner_id")]
+
     return party_members
 
 
@@ -631,11 +637,15 @@ async def get_campaign_messages(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    cursor_w = db["campaign_whispers"].find({"campaign_name": name})
+    cursor_w = (
+        db["campaign_whispers"].find({"campaign_name": name}).sort("timestamp", -1).limit(100)
+    )
     all_whispers = []
     async for w in cursor_w:
         w.pop("_id", None)
         all_whispers.append(w)
+
+    all_whispers.reverse()
 
     whispers = all_whispers
 
@@ -656,11 +666,15 @@ async def get_campaign_messages(
                 filtered_whispers.append(w)
         whispers = filtered_whispers
 
-    cursor_r = db["campaign_roll_requests"].find({"campaign_name": name})
+    cursor_r = (
+        db["campaign_roll_requests"].find({"campaign_name": name}).sort("created_at", -1).limit(100)
+    )
     roll_requests = []
     async for r in cursor_r:
         r.pop("_id", None)
         roll_requests.append(r)
+
+    roll_requests.reverse()
 
     return {
         "campaign_name": camp["campaign_name"],
