@@ -21,6 +21,9 @@ def roll_dice(dice_str: str):
     sides = int(match.group(2))
     modifier = int(match.group(3)) if match.group(3) else 0
 
+    if num_dice > 100 or sides < 1:
+        return {"error": "Limit exceeded. Max 100 dice and sides >= 1."}
+
     rolls = [random.randint(1, sides) for _ in range(num_dice)]
     total = sum(rolls) + modifier
 

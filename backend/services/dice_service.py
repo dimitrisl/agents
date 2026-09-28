@@ -62,6 +62,10 @@ def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False)
         sides = int(match.group(2))
         modifier = int(match.group(3)) if match.group(3) else 0
 
+    if advantage and disadvantage:
+        advantage = False
+        disadvantage = False
+
     rolls = []
     if sides == 20 and num_dice == 1 and (advantage or disadvantage):
         roll1 = random.randint(1, 20)

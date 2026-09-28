@@ -5,6 +5,7 @@ travel down another player's socket, and a client must never be able to publish
 into the room by hand.
 """
 
+import contextlib
 from typing import List, Optional
 
 import pytest
@@ -77,9 +78,15 @@ def channel(monkeypatch):
 
 
 def socket_url(role: str, character: Optional[str] = None) -> str:
-    # Use the role as the token so the mock DB knows who this is
-    url = f"/ws/campaigns/{CAMPAIGN.replace(' ', '%20')}?token={role}&role={role}"
-    return url + (f"&character={character}" if character else "")
+    url = f"/ws/campaigns/{CAMPAIGN.replace(' ', '%20')}"
+    return url
+
+
+@contextlib.contextmanager
+def auth_websocket_connect(channel, role: str, character: Optional[str] = None):
+    with channel.websocket_connect(socket_url(role, character)) as socket:
+        socket.send_json({"type": "auth", "token": role, "character": character})
+        yield socket
 
 
 def wait_for_message(socket, msg_type=None, msg_id=None):
@@ -102,14 +109,14 @@ def assert_silent(socket, who: str):
 
 
 def test_heartbeat_is_answered_privately(channel):
-    with channel.websocket_connect(socket_url("player", "Valeros")) as valeros:
+    with auth_websocket_connect(channel, "player", "Valeros") as valeros:
         assert_silent(valeros, "Valeros")
 
 
 def test_client_cannot_publish_into_the_room(channel):
     with (
-        channel.websocket_connect(socket_url("dm")) as dm,
-        channel.websocket_connect(socket_url("player", "Ezren")) as ezren,
+        auth_websocket_connect(channel, "dm") as dm,
+        auth_websocket_connect(channel, "player", "Ezren") as ezren,
     ):
         ezren.send_json({"type": "whisper", "payload": {"sender": "DM", "message": "forged"}})
         assert_silent(ezren, "Ezren")
@@ -118,9 +125,9 @@ def test_client_cannot_publish_into_the_room(channel):
 
 def test_private_whisper_reaches_only_recipient_and_dm(channel):
     with (
-        channel.websocket_connect(socket_url("dm")) as dm,
-        channel.websocket_connect(socket_url("player", "Valeros")) as valeros,
-        channel.websocket_connect(socket_url("player", "Ezren")) as ezren,
+        auth_websocket_connect(channel, "dm") as dm,
+        auth_websocket_connect(channel, "player", "Valeros") as valeros,
+        auth_websocket_connect(channel, "player", "Ezren") as ezren,
     ):
         channel.post(
             "/publish",
@@ -134,9 +141,9 @@ def test_private_whisper_reaches_only_recipient_and_dm(channel):
 
 def test_roll_request_and_result_reach_the_hero_and_the_dm(channel):
     with (
-        channel.websocket_connect(socket_url("dm")) as dm,
-        channel.websocket_connect(socket_url("player", "Valeros")) as valeros,
-        channel.websocket_connect(socket_url("player", "Ezren")) as ezren,
+        auth_websocket_connect(channel, "dm") as dm,
+        auth_websocket_connect(channel, "player", "Valeros") as valeros,
+        auth_websocket_connect(channel, "player", "Ezren") as ezren,
     ):
         channel.post(
             "/publish",
@@ -157,9 +164,9 @@ def test_roll_request_and_result_reach_the_hero_and_the_dm(channel):
 
 def test_table_wide_whisper_reaches_everyone(channel):
     with (
-        channel.websocket_connect(socket_url("dm")) as dm,
-        channel.websocket_connect(socket_url("player", "Valeros")) as valeros,
-        channel.websocket_connect(socket_url("player", "Ezren")) as ezren,
+        auth_websocket_connect(channel, "dm") as dm,
+        auth_websocket_connect(channel, "player", "Valeros") as valeros,
+        auth_websocket_connect(channel, "player", "Ezren") as ezren,
     ):
         channel.post("/publish", json={"message": {"type": "whisper", "id": "all"}})
 
@@ -168,7 +175,7 @@ def test_table_wide_whisper_reaches_everyone(channel):
 
 
 def test_character_matching_ignores_case_and_padding(channel):
-    with channel.websocket_connect(socket_url("player", "Valeros")) as valeros:
+    with auth_websocket_connect(channel, "player", "Valeros") as valeros:
         channel.post(
             "/publish",
             json={"message": {"type": "whisper", "id": "w2"}, "characters": ["  valeros "]},
@@ -177,7 +184,7 @@ def test_character_matching_ignores_case_and_padding(channel):
 
 
 def test_disconnect_empties_the_room(channel):
-    with channel.websocket_connect(socket_url("player", "Valeros")):
+    with auth_websocket_connect(channel, "player", "Valeros"):
         assert websocket_router.manager.active_connections[CAMPAIGN]
 
     assert CAMPAIGN not in websocket_router.manager.active_connections

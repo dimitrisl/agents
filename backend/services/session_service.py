@@ -22,9 +22,13 @@ class SessionService:
             raise ValueError("Gemini API Key is missing.")
 
         # Save to temp file
+        import uuid
+
         temp_dir = tempfile.gettempdir()
         file_extension = os.path.splitext(audio_file.filename)[1] or ".mp3"
-        temp_file_path = os.path.join(temp_dir, f"session_upload_{session_number}{file_extension}")
+        temp_file_path = os.path.join(
+            temp_dir, f"session_upload_{uuid.uuid4().hex}{file_extension}"
+        )
 
         try:
             with open(temp_file_path, "wb") as f:
