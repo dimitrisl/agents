@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from backend.core.schemas import EncounterStateSchema, InviteCodeResponse, SuccessResponseSchema
+from backend.core.schemas import (
+    CampaignEntitySchema,
+    EncounterStateSchema,
+    InviteCodeResponse,
+    PasteExtractionRequest,
+    SuccessResponseSchema,
+)
 from backend.services.dice_service import roll_dice
 from backend.services.stats_service import calculate_skills, get_modifier
 from server.db_async import get_database
@@ -118,7 +124,7 @@ async def _find_campaign_character(
     which is the reliable handle; the name is the fallback for a hero the DM typed in
     by hand rather than one that joined from the vault.
     """
-    char_id = (char_filename or "").replace(".json", "").split("_")[-1]
+    char_id = (char_filename or "").replace(".json", "").rsplit("_", 1)[-1]
     if char_id:
         char = await db["characters"].find_one({"char_id": char_id})
         if char:
@@ -888,3 +894,140 @@ async def remove_party_member(
     )
 
     return {"success": True, "message": "Member removed successfully."}
+
+
+# ==========================================
+# Campaign Entities & "Paste & Go" endpoints
+# ==========================================
+
+
+@router.get("/{name}/entities", response_model=List[CampaignEntitySchema])
+async def get_campaign_entities(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
+):
+    """Retrieve all campaign entities (NPCs, Villains, Lore, etc.)"""
+    # Verify campaign exists
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    cursor = db["campaign_entities"].find({"campaign_name": name})
+    entities = await cursor.to_list(length=None)
+
+    # Map _id to id
+    for ent in entities:
+        ent["id"] = str(ent.pop("_id", ""))
+
+    return entities
+
+
+@router.post("/{name}/entities", response_model=CampaignEntitySchema)
+async def create_campaign_entity(
+    name: str,
+    payload: CampaignEntitySchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """Create a new campaign entity (DM only)"""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    entity_dict = payload.model_dump(exclude={"id", "created_at"}, exclude_unset=True)
+    entity_dict["campaign_name"] = name
+    entity_dict["created_at"] = datetime.datetime.now(datetime.timezone.utc)
+
+    result = await db["campaign_entities"].insert_one(entity_dict)
+    entity_dict["id"] = str(result.inserted_id)
+
+    return entity_dict
+
+
+@router.put("/{name}/entities/{entity_id}", response_model=CampaignEntitySchema)
+async def update_campaign_entity(
+    name: str,
+    entity_id: str,
+    payload: CampaignEntitySchema,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """Update a campaign entity (DM only)"""
+    from bson.errors import InvalidId
+    from bson.objectid import ObjectId
+
+    try:
+        obj_id = ObjectId(entity_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid entity ID")
+
+    update_data = payload.model_dump(
+        exclude={"id", "campaign_name", "created_at"}, exclude_unset=True
+    )
+
+    result = await db["campaign_entities"].update_one(
+        {"_id": obj_id, "campaign_name": name}, {"$set": update_data}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    updated_doc = await db["campaign_entities"].find_one({"_id": obj_id})
+    updated_doc["id"] = str(updated_doc.pop("_id"))
+
+    return updated_doc
+
+
+@router.delete("/{name}/entities/{entity_id}", response_model=SuccessResponseSchema)
+async def delete_campaign_entity(
+    name: str,
+    entity_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """Delete a campaign entity (DM only)"""
+    from bson.errors import InvalidId
+    from bson.objectid import ObjectId
+
+    try:
+        obj_id = ObjectId(entity_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid entity ID")
+
+    result = await db["campaign_entities"].delete_one({"_id": obj_id, "campaign_name": name})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    return {"success": True, "message": "Entity deleted successfully"}
+
+
+@router.post("/{name}/entities/extract", response_model=CampaignEntitySchema)
+async def extract_campaign_entity(
+    name: str,
+    payload: PasteExtractionRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """
+    Paste & Go feature: Parses raw text via AI into a CampaignEntitySchema.
+    Does NOT save it to the database automatically.
+    """
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    # Run the extraction in a threadpool if it's blocking (generate_ai_json is sync)
+    from fastapi.concurrency import run_in_threadpool
+
+    from backend.services.lore_service import extract_entity_from_text
+
+    extracted_data = await run_in_threadpool(extract_entity_from_text, payload.raw_text, name)
+
+    # Return as schema (FastAPI handles validation)
+    return extracted_data

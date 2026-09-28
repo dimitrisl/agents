@@ -30,8 +30,10 @@ export class GeneratorsPanelComponent {
   @Input() difficulty: EncounterDifficulty = 'Medium';
   @Input() location = '';
   @Input() encounterResult: EncounterResponse | null = null;
+  @Input() isGeneratingEncounter = false;
   @Input() npcConcept = '';
   @Input() npcResult = '';
+  @Input() isGeneratingNpc = false;
 
   @Output() avgLevelChange = new EventEmitter<number>();
   @Output() difficultyChange = new EventEmitter<EncounterDifficulty>();

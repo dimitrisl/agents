@@ -318,10 +318,33 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     from backend.repositories.rules_repository import RulesRepository
     from backend.services.progression_service import get_level_up_vitals
 
-    current_level = char_data.get("char_level", 1)
-    target_level = current_level + 1
-    edition = char_data.get("dnd_edition", EDITION_2014)
-    char_class = char_data.get("char_class", "Fighter")
+    classes = char_data.get("classes", [])
+    user_choices = user_choices or {}
+
+    target_class = user_choices.get("level_up_class", char_data.get("char_class", "Fighter"))
+
+    # Calculate the current level of the TARGET class
+    class_current_level = 0
+    if classes:
+        for cls in classes:
+            if cls.get("class_name", "").lower() == target_class.lower():
+                class_current_level = cls.get("level", 0)
+                break
+    else:
+        if target_class.lower() == char_data.get("char_class", "Fighter").lower():
+            class_current_level = char_data.get("char_level", 1)
+
+    target_level = class_current_level + 1
+    current_total_level = char_data.get("char_level", 1)
+    target_total_level = current_total_level + 1
+
+    if target_total_level > 20:
+        raise ValueError("Character cannot exceed level 20.")
+
+    edition = char_data.get("dnd_edition", "2014 Edition")
+
+    # Override char_class to target_class for the rest of this function
+    char_class = target_class
 
     rules_repo = RulesRepository()
     static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
@@ -343,7 +366,15 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     choices = []
 
     # 1. Subclass
-    current_subclass = char_data.get("subclass")
+    current_subclass = None
+    for cls in classes:
+        if cls.get("class_name", "").lower() == char_class.lower():
+            current_subclass = cls.get("subclass")
+            break
+
+    if not classes and char_class.lower() == char_data.get("char_class", "").lower():
+        current_subclass = char_data.get("subclass")
+
     if not current_subclass:
         subclasses = rules_repo.get_subclasses(char_class, edition)
         if subclasses:
@@ -354,7 +385,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 elif char_class in ["Wizard", "Druid"]:
                     subclass_level = 2
 
-            if target_level == subclass_level:
+            if target_level >= subclass_level:
                 choices.append(
                     {
                         "type": "subclass",
@@ -366,12 +397,18 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     # 2. ASI/Feat
     if target_level in [4, 8, 12, 16, 19]:
+        char_race = char_data.get("race", "").lower()
+        allowed_feats = []
+        for f in rules_repo.get_all_feats(edition):
+            reqs = f.get("prerequisites", {}).get("other", [])
+            if not reqs or any(r.lower() in char_race for r in reqs):
+                allowed_feats.append(f["name"])
+
         choices.append(
             {
                 "type": "feat",
                 "label": "Choose a Feat or Ability Score Improvement",
-                "options": ["+2 to one Stat", "+1 to two Stats"]
-                + [f["name"] for f in rules_repo.get_all_feats(edition)],
+                "options": ["+2 to one Stat", "+1 to two Stats"] + allowed_feats,
                 "ai_recommendation": "A standard ASI/Feat level. Pick what suits your build best.",
             }
         )

@@ -321,7 +321,7 @@ class MonsterEncounter(BaseModel):
     ac: int
     dex: int = 10
     quantity: int = 1
-    statblock_summary: str
+    statblock_summary: Optional[str] = ""
 
     @field_validator("dex", "quantity", mode="before")
     @classmethod
@@ -516,3 +516,91 @@ class ItemSchema(BaseModel):
     name: str
     description: Optional[str] = None
     model_config = {"extra": "allow"}
+
+
+# ==========================================
+# Campaign Entities (Lore, NPCs, Factions)
+# ==========================================
+class CampaignEntitySchema(BaseModel):
+    id: Optional[str] = None
+    campaign_name: str
+    name: str
+    type: str  # e.g., 'npc', 'villain', 'faction', 'location', 'lore'
+    content: str  # Markdown description or notes
+    tags: List[str] = Field(default_factory=list)
+    stats: Optional[Dict[str, Any]] = None  # Flexible block for statblocks
+    created_at: Optional[datetime] = None
+
+
+class PasteExtractionRequest(BaseModel):
+    raw_text: str
+
+
+# ==========================================
+# Session Forge & Logs
+# ==========================================
+class SessionLogSchema(BaseModel):
+    id: Optional[str] = None
+    campaign_name: str
+    session_number: int
+    title: str
+    summary: str  # Markdown transcription/summary
+    real_world_date: Optional[datetime] = None
+    extracted_entities: List[CampaignEntitySchema] = Field(default_factory=list)
+    audio_file_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class SessionPrepSchema(BaseModel):
+    strong_start: str
+    secrets_clues: List[str] = Field(default_factory=list)
+    encounters: List[str] = Field(default_factory=list)
+    key_npcs: List[str] = Field(default_factory=list)
+
+
+class JourneyNodeSchema(BaseModel):
+    location_name: str
+    description: str
+    session_number: int
+
+
+class JourneyGraphResponse(BaseModel):
+    nodes: List[JourneyNodeSchema] = Field(default_factory=list)
+
+
+# --- Combat Rules Refactor Schemas ---
+
+
+class ScalingOption(BaseModel):
+    label: str
+    notation: str
+
+
+class ScalingStep(BaseModel):
+    level: int
+    notation: str
+    options: Optional[List[ScalingOption]] = None
+
+
+class ClassScalingAction(BaseModel):
+    id: str
+    name: str
+    kind: str
+    notation: str
+    hint: str
+    source: str
+    damageType: Optional[str] = None
+    rollable: bool
+    options: Optional[List[ScalingOption]] = None
+
+
+class ClassScalingResponse(BaseModel):
+    actions: List[ClassScalingAction] = []
+    extraCritDice: int = 0
+    critThreshold: int = 20
+    cantripTier: int = 1
+
+
+class CombatProfileRequest(BaseModel):
+    classes: List[ClassEntry]
+    edition: str = "2014 Edition"

@@ -1,3 +1,4 @@
+import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -50,12 +51,13 @@ class SessionPrepRequest(BaseModel):
 async def create_encounter(
     payload: EncounterRequest, current_user: dict = Depends(get_current_user)
 ):
-    result = generate_random_encounter(
-        party_size=payload.party_size,
-        avg_level=payload.avg_level,
-        location=payload.location,
-        edition=payload.edition,
-        difficulty=payload.difficulty,
+    result = await asyncio.to_thread(
+        generate_random_encounter,
+        payload.party_size,
+        payload.avg_level,
+        payload.location,
+        payload.edition,
+        payload.difficulty,
     )
     if not result:
         raise HTTPException(
@@ -67,13 +69,13 @@ async def create_encounter(
 
 @router.post("/npc", response_model=NpcResponse)
 async def create_npc(payload: NpcRequest, current_user: dict = Depends(get_current_user)):
-    npc_text = generate_npc(payload.npc_concept, payload.edition)
+    npc_text = await asyncio.to_thread(generate_npc, payload.npc_concept, payload.edition)
     return {"npc_markdown": npc_text}
 
 
 @router.post("/riddle", response_model=RiddleResponse)
 async def create_riddle(payload: RiddleRequest, current_user: dict = Depends(get_current_user)):
-    riddle_text = generate_riddle(payload.location, payload.edition)
+    riddle_text = await asyncio.to_thread(generate_riddle, payload.location, payload.edition)
     return {"riddle_markdown": riddle_text}
 
 
@@ -81,5 +83,7 @@ async def create_riddle(payload: RiddleRequest, current_user: dict = Depends(get
 async def create_session_prep(
     payload: SessionPrepRequest, current_user: dict = Depends(get_current_user)
 ):
-    prep_text = generate_session_prep(payload.campaign_notes, payload.party_info)
+    prep_text = await asyncio.to_thread(
+        generate_session_prep, payload.campaign_notes, payload.party_info
+    )
     return {"session_markdown": prep_text}

@@ -138,7 +138,11 @@ async def get_level_up_analysis(
     payload: LevelUpRequest, current_user: dict = Depends(get_current_user)
 ):
     char_data = payload.character.model_dump()
-    analysis = analyze_level_up(char_data, payload.user_choices)
+    try:
+        analysis = analyze_level_up(char_data, payload.user_choices)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if not analysis:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -224,7 +228,13 @@ async def apply_level_up(
             base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
 
             if base_type == "subclass":
-                char_doc["subclass"] = choice_val
+                for cls in char_doc["classes"]:
+                    if cls.get("class_name", "").lower() == target_class.lower():
+                        cls["subclass"] = choice_val
+                        break
+
+                if target_class.lower() == char_doc.get("char_class", "").lower():
+                    char_doc["subclass"] = choice_val
                 continue
 
             # Check the type of choice from the analysis to know how to apply it
@@ -286,8 +296,43 @@ async def apply_level_up(
                     if stat2 and stat2 in char_doc.get("stats", {}):
                         char_doc["stats"][stat2] += 1
                 else:
+                    from backend.repositories.rules_repository import RulesRepository
+
+                    rules_repo = RulesRepository()
+                    edition = char_doc.get("dnd_edition", "2014 Edition")
+                    feat_data = next(
+                        (
+                            f
+                            for f in rules_repo.get_all_feats(edition)
+                            if f.get("name") == choice_val
+                        ),
+                        None,
+                    )
+
+                    feat_desc = "Selected via Level Up."
+                    if feat_data:
+                        feat_desc = feat_data.get("description", feat_desc)
+
+                        # Apply static stat bonuses
+                        stat_bonus = feat_data.get("stat_bonus", {})
+                        if stat_bonus:
+                            for stat, bonus in stat_bonus.items():
+                                if bonus > 0 and stat in char_doc.get("stats", {}):
+                                    char_doc["stats"][stat] += bonus
+
+                        # Handle stat choice for half-feats if user provided it
+                        if feat_data.get("has_stat_choice"):
+                            parts = choice_key.rsplit("_", 1)
+                            idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
+                            base = parts[0] if len(parts) > 1 else choice_key
+                            stat1_key = f"{base}_stat1{idx_suffix}"
+                            stat1 = payload.user_choices.get(stat1_key)
+
+                            if stat1 and stat1 in char_doc.get("stats", {}):
+                                char_doc["stats"][stat1] += 1
+
                     char_doc.setdefault("features_traits", []).append(
-                        {"name": choice_val, "description": "Selected via Level Up."}
+                        {"name": choice_val, "description": feat_desc}
                     )
             elif "expertise" in choice_label.lower():
                 char_doc.setdefault("skill_expertise", []).append(choice_val)

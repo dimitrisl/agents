@@ -9,6 +9,7 @@ import { ForgeButtonDirective } from '../../../shared/ui';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ActionDockComponent {
+  @Input() canLevelUp = true;
   @Input() isGeneratingStrategy = false;
   @Output() shortRest = new EventEmitter<void>();
   @Output() longRest = new EventEmitter<void>();

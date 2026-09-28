@@ -19,6 +19,18 @@
     </label>
 
     <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
+      Ruleset Edition:
+      <select
+        forgeSelect
+        [ngModel]="newCampaignEdition"
+        (ngModelChange)="newCampaignEditionChange.emit($event)"
+      >
+        <option value="2014 Edition">2014 Edition</option>
+        <option value="2024 Edition">2024 Edition</option>
+      </select>
+    </label>
+
+    <label class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted">
       Initial DM Notes (Optional):
       <textarea
         forgeTextarea

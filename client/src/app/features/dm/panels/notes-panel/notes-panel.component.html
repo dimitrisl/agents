@@ -29,9 +29,8 @@
           id="dm-campaign-notes"
           rows="14"
           [ngModel]="campaignNotes"
-          (ngModelChange)="campaignNotesChange.emit($event)"
+          (ngModelChange)="onNotesChange($event)"
           placeholder="e.g. Chapter 3: The heroes enter the Sunless Citadel..."
-          (change)="saveNotes.emit()"
         ></textarea>
       </div>
     </section>
@@ -45,7 +44,7 @@
         Campaign notes
       </p>
       <p class="mt-1 text-label text-muted">
-        Saved automatically when you leave the field.
+        Saved automatically as you type.
       </p>
     </div>
 
