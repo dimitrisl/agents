@@ -42,6 +42,7 @@ def test_auth_registration_and_login(mocker):
     assert "id" in user_data
 
     # Test Demo Login
+    mocker.patch("server.config.settings.DEBUG_MODE", True)
     demo_response = client.post(
         "/api/v1/auth/demo",
         json={"demo_type": "mitsos"},

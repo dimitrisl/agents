@@ -356,10 +356,16 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             con_score=char_data.get("stats", {}).get("CON", 10),
             edition=edition,
         )
-        hp_increase = vitals.get("average_hp_gain", 0)
+        hp_increase = max(1, vitals.get("average_hp_gain", 0))
     except Exception:
-        vitals = {"hp_increase": 0, "new_total_hp": char_data.get("hp_max", 0)}
         hp_increase = 0
+
+    custom_hp = user_choices.get("custom_hp_increase")
+    if custom_hp is not None:
+        try:
+            hp_increase = max(1, int(custom_hp))
+        except (ValueError, TypeError):
+            pass
 
     updated_pb = math.ceil(target_total_level / 4) + 1
 

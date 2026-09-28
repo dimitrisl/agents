@@ -1,10 +1,11 @@
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user_from_token
@@ -49,7 +50,6 @@ class ConnectionManager:
         role: str = "player",
         character: Optional[str] = None,
     ) -> CampaignConnection:
-        await websocket.accept()
         connection = CampaignConnection(websocket=websocket, role=role, character=character)
         self.active_connections.setdefault(campaign_id, []).append(connection)
         logger.info(
@@ -166,9 +166,22 @@ manager = ConnectionManager()
 async def campaign_websocket_endpoint(
     websocket: WebSocket,
     campaign_id: str,
-    token: str = Query(...),
-    character: Optional[str] = Query(None),
 ):
+    await websocket.accept()
+
+    # Wait for the first message to authenticate
+    try:
+        data = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        payload = json.loads(data)
+        if payload.get("type") != "auth":
+            raise ValueError("First message must be auth")
+        token = payload.get("token")
+        character = payload.get("character")
+    except Exception as e:
+        logger.warning(f"WebSocket auth frame failed: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     try:
         user = await get_current_user_from_token(token)
     except Exception as e:

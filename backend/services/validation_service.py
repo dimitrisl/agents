@@ -104,7 +104,7 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
                 issues.append(issue_msg)
 
     # 2. Armor Proficiency Validation
-    # If the character has equipped armor they are not proficient in, unequip it.
+    # Check if the character has equipped armor they are not proficient in and issue a warning
     armor_profs = get_character_armor_proficiencies(corrected_char, class_data)
     all_items = repo.get_all_items()
     items_lookup = {i.get("name", "").lower(): i for i in all_items}
@@ -130,10 +130,9 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
 
                 if req_prof:
                     if req_prof not in armor_profs and "all armor" not in armor_profs:
-                        issue_msg = f"Character lacks proficiency for {item_name} ({req_prof}). Unequipping."
+                        issue_msg = f"Character lacks proficiency for {item_name} ({req_prof}). Wearing it imposes disadvantage on STR/DEX checks, saves, and attacks, and prevents spellcasting."
                         logger.warning(issue_msg)
                         issues.append(issue_msg)
-                        equip["equipped"] = False
 
     # 3. Weapon Proficiency Validation (Basic)
     # Weapons can be used without proficiency, but it shouldn't have proficiency bonus applied.

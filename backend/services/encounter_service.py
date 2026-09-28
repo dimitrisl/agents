@@ -183,7 +183,10 @@ async def calculate_danger_indicator(
 
     for enemy in enemies:
         # Estimate CR from Max HP
-        max_hp = enemy.get("max_hp", 10)
+        try:
+            max_hp = int(enemy.get("max_hp", 10))
+        except (ValueError, TypeError):
+            max_hp = 10
         cr_str = estimate_cr_from_hp(max_hp)
         enemy_base_xp += CR_XP_MAP.get(cr_str, 50)
 

@@ -71,16 +71,6 @@ async def get_current_user_from_token(
     except jwt.PyJWTError:
         raise credentials_exception
 
-    # Allow mock / demo users without database lookup
-    if user_id.startswith("local_user_") or user_id.startswith("mock_"):
-        return {
-            "id": user_id,
-            "username": username or "Adventurer",
-            "name": username or "Adventurer",
-            "email": f"{username}@phyrexian.forge",
-            "has_completed_tutorial": True,
-        }
-
     if db is None:
         db = await get_database()
 
@@ -88,14 +78,7 @@ async def get_current_user_from_token(
     if user is None:
         user = await db["users"].find_one({"username": username})
     if user is None:
-        # Fallback return minimal dict
-        return {
-            "id": user_id,
-            "username": username or "Adventurer",
-            "name": username or "Adventurer",
-            "email": f"{username}@phyrexian.forge",
-            "has_completed_tutorial": True,
-        }
+        raise credentials_exception
 
     user.pop("password_hash", None)
     return user
