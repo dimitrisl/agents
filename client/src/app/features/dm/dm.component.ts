@@ -47,6 +47,7 @@ import { InitiativePanelComponent } from './panels/initiative-panel/initiative-p
 import { GeneratorsPanelComponent } from './panels/generators-panel/generators-panel.component';
 import { HomebrewPanelComponent } from './panels/homebrew-panel/homebrew-panel.component';
 import { PrepPanelComponent } from './panels/prep-panel/prep-panel.component';
+import { EntitiesPanelComponent } from './panels/entities-panel/entities-panel.component';
 import { WhisperModalComponent } from './modals/whisper-modal/whisper-modal.component';
 import { RollRequestModalComponent } from './modals/roll-request-modal/roll-request-modal.component';
 import { StatblockModalComponent } from './modals/statblock-modal/statblock-modal.component';
@@ -89,6 +90,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     InitiativePanelComponent,
     GeneratorsPanelComponent,
     PrepPanelComponent,
+    EntitiesPanelComponent,
     HomebrewPanelComponent,
     WhisperModalComponent,
     RollRequestModalComponent,
@@ -101,11 +103,12 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   styleUrl: './dm.component.css',
 })
 export class DmComponent implements OnInit, OnDestroy {
-  activeTab: 'notes' | 'party' | 'initiative' | 'generators' | 'prep' | 'homebrew' = 'party';
+  activeTab: 'notes' | 'party' | 'initiative' | 'entities' | 'generators' | 'prep' | 'homebrew' = 'party';
   readonly dmTabs: ForgeTab[] = [
     { id: 'notes', label: '📝 Campaign Notes' },
     { id: 'party', label: '👥 Live Party Tracker' },
     { id: 'initiative', label: '⚔️ Initiative Tracker' },
+    { id: 'entities', label: '📚 World Lore' },
     { id: 'generators', label: '🎲 AI Generators' },
     { id: 'prep', label: '📜 Session Prep' },
     { id: 'homebrew', label: '🔥 Homebrew Forge' },
@@ -133,6 +136,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   newCampaignTitle = '';
   newCampaignNotes = '';
+  newCampaignEdition = '2014 Edition'; // Initialized in constructor
 
   newMemberName = '';
   newMemberClass = 'Fighter';
@@ -160,6 +164,15 @@ export class DmComponent implements OnInit, OnDestroy {
   rollReason = 'Dragon Breath Fire Save';
   isSecretRoll = false;
 
+  onRollTypeChange(newType: string) {
+    this.rollType = newType;
+    if (newType === 'skill_check') {
+      this.rollStat = 'Perception'; // Default skill
+    } else {
+      this.rollStat = 'DEX'; // Default stat
+    }
+  }
+
   /**
    * Only set when the DM types a level by hand. Left null, the generator follows
    * the roster — see the `avgLevel` accessor below.
@@ -184,11 +197,17 @@ export class DmComponent implements OnInit, OnDestroy {
 
   npcConcept = 'Shady underworld broker';
   npcResult = '';
+  isGeneratingNpc = false;
 
   prepNotes = '';
   prepResult = '';
+  isGeneratingPrep = false;
+
   riddleTheme = '';
   riddleResult = '';
+  isGeneratingRiddle = false;
+
+  isGeneratingEncounter = false;
 
   availableConditions = ['Poisoned', 'Concentrating', 'Stunned', 'Unconscious', 'Blinded', 'Charmed', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Prone', 'Restrained'];
 
@@ -217,6 +236,7 @@ export class DmComponent implements OnInit, OnDestroy {
   newCombatantName = '';
   newCombatantInit = 10;
   newCombatantHp = 20;
+  newCombatantAc = 12;
 
   addMemberTab: 'existing' | 'custom' | 'invite' = 'existing';
   selectedExistingCharId = '';
@@ -354,6 +374,12 @@ export class DmComponent implements OnInit, OnDestroy {
     this.openedSub?.unsubscribe();
     this.encounterSub?.unsubscribe();
     this.encounterSyncSubject.complete();
+
+    // Flush any pending state changes
+    const pendingCharIds = Array.from(this.pendingPartyState.keys());
+    for (const charId of pendingCharIds) {
+      this.flushPartyState(charId);
+    }
 
     // Unsubscribing only stops this page from listening; the socket itself stays
     // up, and the service holds exactly one. Left open, the server goes on
@@ -619,6 +645,14 @@ export class DmComponent implements OnInit, OnDestroy {
     this.inboxRollRequests = [];
     this.unreadInboxMessages = 0;
     this.showDmInbox = false;
+
+    // Clear generators
+    this.prepResult = '';
+    this.prepNotes = '';
+    this.riddleResult = '';
+    this.riddleTheme = '';
+    this.encounterResult = null;
+    this.npcResult = '';
   }
 
   onCampaignSelect() {
@@ -759,14 +793,20 @@ export class DmComponent implements OnInit, OnDestroy {
 
 
 
+  openNewCampaignModal() {
+    this.newCampaignTitle = '';
+    this.newCampaignNotes = '';
+    this.newCampaignEdition = this.charState.dndEdition();
+    this.showNewCampaignModal = true;
+  }
+
   createNewCampaign() {
     if (!this.newCampaignTitle.trim() || this.isCreatingCampaign) return;
     const newCamp: Campaign = {
       campaign_name: this.newCampaignTitle.trim(),
       notes: this.newCampaignNotes,
       party: [],
-      // A campaign is forged under whichever ruleset the DM is playing right now.
-      dnd_edition: this.charState.dndEdition()
+      dnd_edition: this.newCampaignEdition
     };
 
     this.isCreatingCampaign = true;
@@ -859,11 +899,11 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   /** The party member behind an initiative row, when the row is a hero. */
-  private memberFor(combatant: InitiativeCombatant): PartyMember | undefined {
-    if (!combatant.is_player) return undefined;
+  public memberFor(combatant: InitiativeCombatant): PartyMember | null {
+    if (!combatant.is_player) return null;
     return this.partyMembers.find((m) =>
       combatant.char_id ? m.char_id === combatant.char_id : m.name === combatant.name
-    );
+    ) || null;
   }
 
   private combatantsFor(member: PartyMember): InitiativeCombatant[] {
@@ -1039,13 +1079,16 @@ export class DmComponent implements OnInit, OnDestroy {
       initiative: this.newCombatantInit,
       hp: this.newCombatantHp,
       max_hp: this.newCombatantHp,
-      ac: 12,
+      ac: this.newCombatantAc,
       dex: 10,
       is_player: false,
     });
 
     this.combatants = this.sortCombatants([...this.combatants, added]);
     this.newCombatantName = '';
+    this.newCombatantInit = 10;
+    this.newCombatantHp = 20;
+    this.newCombatantAc = 12;
     this.persistEncounter();
   }
 
@@ -1354,15 +1397,36 @@ export class DmComponent implements OnInit, OnDestroy {
       this.activeCombatantId = saved.activeCombatantId;
       this.round = saved.round;
       this.hasLiveEncounter = true;
-      return;
+    } else {
+      this.combatants = [];
+      this.activeCombatantId = null;
+      this.round = 0;
+      this.hasLiveEncounter = false;
     }
 
-    // Encounters belong to one campaign each, so nothing carries over from the
-    // table we just left — not the monsters, and not whose turn it was.
-    this.combatants = [];
-    this.activeCombatantId = null;
-    this.round = 0;
-    this.hasLiveEncounter = false;
+    // Try pulling from the server to support multi-device persistence
+    this.http.get<any>(`${campaignUrl(campaignName, 'encounter')}`).subscribe({
+      next: (serverState) => {
+        if (!serverState) return;
+
+        // If server state is ahead or we had no local state, use it
+        if (!saved || saved.combatants.length === 0 || serverState.round >= this.round) {
+          this.combatants = this.sortCombatants(serverState.combatants || []);
+          this.activeCombatantId = serverState.activeCombatantId;
+          this.round = serverState.round || 0;
+          this.hasLiveEncounter = this.combatants.length > 0;
+
+          if (this.hasLiveEncounter) {
+             this.encounterStorage.save(campaignName, {
+               combatants: this.combatants,
+               activeCombatantId: this.activeCombatantId,
+               round: this.round
+             });
+          }
+        }
+      },
+      error: () => { /* Silently fall back to local storage */ }
+    });
   }
 
   openStatblock(c: InitiativeCombatant) {
@@ -1387,15 +1451,19 @@ export class DmComponent implements OnInit, OnDestroy {
       );
       return;
     }
-
+    this.isGeneratingEncounter = true;
     this.http.post<EncounterResponse>(`${environment.apiBaseUrl}/dm/encounter`, {
       party_size: this.partyMembers.length,
       avg_level: this.avgLevel,
       location: this.location,
       edition: this.activeEdition,
       difficulty: this.encounterDifficulty
-    }).subscribe((res) => {
-      this.encounterResult = res;
+    }).subscribe({
+      next: (res) => {
+        this.encounterResult = res;
+        this.isGeneratingEncounter = false;
+      },
+      error: () => this.isGeneratingEncounter = false
     });
   }
 
@@ -1430,29 +1498,44 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   generateNpc() {
+    this.isGeneratingNpc = true;
     this.http.post<NpcResponse>(`${environment.apiBaseUrl}/dm/npc`, {
       npc_concept: this.npcConcept,
       edition: this.activeEdition
-    }).subscribe((res) => {
-      this.npcResult = res.npc_markdown;
+    }).subscribe({
+      next: (res) => {
+        this.npcResult = res.npc_markdown;
+        this.isGeneratingNpc = false;
+      },
+      error: () => this.isGeneratingNpc = false
     });
   }
 
   generatePrep() {
+    this.isGeneratingPrep = true;
     this.http.post<SessionPrepResponse>(`${environment.apiBaseUrl}/dm/session-prep`, {
       campaign_notes: this.prepNotes,
       party_info: this.partyMembers.map(m => m.name).join(', ')
-    }).subscribe((res) => {
-      this.prepResult = res.session_markdown;
+    }).subscribe({
+      next: (res) => {
+        this.prepResult = res.session_markdown;
+        this.isGeneratingPrep = false;
+      },
+      error: () => this.isGeneratingPrep = false
     });
   }
 
   generateRiddle() {
+    this.isGeneratingRiddle = true;
     this.http.post<any>(`${environment.apiBaseUrl}/dm/riddle`, {
       location: this.riddleTheme,
-      edition: this.campaignEdition || '5e'
-    }).subscribe((res) => {
-      this.riddleResult = res.riddle_markdown;
+      edition: this.activeEdition
+    }).subscribe({
+      next: (res) => {
+        this.riddleResult = res.riddle_markdown;
+        this.isGeneratingRiddle = false;
+      },
+      error: () => this.isGeneratingRiddle = false
     });
   }
 

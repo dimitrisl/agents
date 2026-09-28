@@ -1,0 +1,87 @@
+<div class="flex h-[calc(100vh-16rem)] min-h-[500px]">
+  <!-- Sidebar list -->
+  <div class="w-1/3 border-r border-hairline flex flex-col bg-panel">
+    <div class="p-3 border-b border-hairline flex justify-between items-center">
+      <h3 class="text-label font-bold text-ink">World Lore</h3>
+      <div class="flex gap-2">
+        <button forgeButton variant="secondary" size="sm" (click)="openPasteModal()">✨ Paste & Go</button>
+        <button forgeButton size="sm" (click)="createNew()">+ New</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+      <div
+        *ngFor="let ent of entities"
+        (click)="selectEntity(ent)"
+        class="cursor-pointer p-2 rounded hover:bg-tile transition-colors border border-transparent"
+        [class.bg-tile]="selectedEntity?.id === ent.id"
+        [class.border-hairline]="selectedEntity?.id === ent.id"
+      >
+        <div class="font-semibold text-ink">{{ ent.name }}</div>
+        <div class="text-micro text-muted uppercase">{{ ent.type }}</div>
+      </div>
+      <div *ngIf="entities.length === 0" class="text-center text-muted p-4 italic text-sm">
+        No entities found. Create one or use Paste & Go!
+      </div>
+    </div>
+  </div>
+
+  <!-- Main View/Edit area -->
+  <div class="flex-1 flex flex-col bg-background">
+    <div *ngIf="!selectedEntity" class="flex-1 flex items-center justify-center text-muted">
+      Select an entity to view or create a new one.
+    </div>
+
+    <div *ngIf="selectedEntity" class="flex-1 flex flex-col overflow-y-auto p-6 gap-4">
+      <div class="flex justify-between items-start">
+        <input
+          [(ngModel)]="selectedEntity.name"
+          class="bg-transparent text-2xl font-bold text-ink border-b border-dashed border-hairline focus:border-accent outline-none w-2/3"
+          placeholder="Entity Name"
+        />
+        <div class="flex gap-2">
+          <button forgeButton variant="danger" *ngIf="selectedEntity.id" (click)="deleteEntity(selectedEntity.id)">Delete</button>
+          <button forgeButton (click)="saveEntity()">Save</button>
+        </div>
+      </div>
+
+      <div class="flex gap-4 items-center">
+        <label class="text-label text-muted">Type:</label>
+        <select [(ngModel)]="selectedEntity.type" class="forge-input w-48">
+          <option value="lore">Lore Note</option>
+          <option value="npc">NPC</option>
+          <option value="villain">Villain</option>
+          <option value="faction">Faction</option>
+          <option value="location">Location</option>
+          <option value="monster">Monster</option>
+        </select>
+      </div>
+
+      <div class="flex flex-col gap-2 flex-1 min-h-[300px]">
+        <label class="text-label text-muted">Content (Markdown):</label>
+        <textarea
+          [(ngModel)]="selectedEntity.content"
+          class="forge-input flex-1 font-mono text-sm resize-none"
+          placeholder="Write lore, background, or stats here..."
+        ></textarea>
+      </div>
+
+      <!-- Show simple parsed stats if they exist -->
+      <div *ngIf="selectedEntity.stats && (selectedEntity.stats | keyvalue).length > 0" class="bg-panel border border-hairline rounded p-4">
+        <h4 class="text-label font-bold text-ink mb-2">Extracted Stats</h4>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div *ngFor="let stat of selectedEntity.stats | keyvalue" class="flex justify-between">
+            <span class="text-muted">{{ stat.key }}:</span>
+            <span class="text-ink font-semibold">{{ stat.value | json }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-paste-go-modal
+  [open]="isPasteModalOpen"
+  [campaignName]="campaignName"
+  (openChange)="isPasteModalOpen = $event"
+  (entityExtracted)="onEntityExtracted($event)"
+></app-paste-go-modal>

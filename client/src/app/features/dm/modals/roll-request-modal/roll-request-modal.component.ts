@@ -25,6 +25,12 @@ import type { PartyMember } from '../../../../core/models/party.model';
 })
 export class RollRequestModalComponent {
   readonly stats = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+  readonly skills = [
+    'Acrobatics', 'Animal Handling', 'Arcana', 'Athletics', 'Deception',
+    'History', 'Insight', 'Intimidation', 'Investigation', 'Medicine',
+    'Nature', 'Perception', 'Performance', 'Persuasion', 'Religion',
+    'Sleight of Hand', 'Stealth', 'Survival'
+  ];
 
   @Input() open = false;
   @Input() partyMembers: PartyMember[] = [];

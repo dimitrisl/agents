@@ -1368,6 +1368,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  onLevelUpChoicesChange(choices: Record<string, any>) {
+    const oldClass = this.levelUpUserChoices['level_up_class'];
+    const newClass = choices['level_up_class'];
+    this.levelUpUserChoices = choices;
+
+    if (newClass && oldClass !== newClass) {
+      const char = this.charState.activeCharacter();
+      if (!char) return;
+      this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
+        character: char,
+        user_choices: this.levelUpUserChoices
+      }).subscribe((analysis) => {
+        this.levelUpAnalysis = analysis;
+      });
+    }
+  }
+
   applyLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char || !this.levelUpAnalysis) return;

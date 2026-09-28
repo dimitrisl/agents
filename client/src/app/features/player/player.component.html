@@ -127,6 +127,7 @@
             </div>
 
             <app-action-dock
+              [canLevelUp]="char.char_level < 20"
               [isGeneratingStrategy]="isGeneratingStrategy"
               (shortRest)="openShortRestModal()"
               (longRest)="triggerLongRest()"
@@ -180,7 +181,9 @@
     (openChange)="showLevelUpModal = $event"
     [character]="charState.activeCharacter()"
     [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
-    [levelUpAnalysis]="levelUpAnalysis" [(userChoices)]="levelUpUserChoices"
+    [levelUpAnalysis]="levelUpAnalysis"
+    [userChoices]="levelUpUserChoices"
+    (userChoicesChange)="onLevelUpChoicesChange($event)"
     (applyLevelUp)="applyLevelUp()"
   ></app-level-up-modal>
 

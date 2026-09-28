@@ -39,10 +39,12 @@ export class InitiativePanelComponent {
   @Input() newCombatantName = '';
   @Input() newCombatantInit = 10;
   @Input() newCombatantHp = 20;
+  @Input() newCombatantAc = 12;
 
   @Output() newCombatantNameChange = new EventEmitter<string>();
   @Output() newCombatantInitChange = new EventEmitter<number>();
   @Output() newCombatantHpChange = new EventEmitter<number>();
+  @Output() newCombatantAcChange = new EventEmitter<number>();
   @Output() importParty = new EventEmitter<void>();
   @Output() rollAll = new EventEmitter<void>();
   @Output() advanceTurn = new EventEmitter<void>();
@@ -74,7 +76,15 @@ export class InitiativePanelComponent {
 
   /** Which combatant has its condition palette open, and the duration to apply. */
   private openConditionsFor: string | null = null;
-  conditionRounds = 1;
+  private conditionRounds: Record<string, number> = {};
+
+  getConditionRounds(combatant: InitiativeCombatant): number {
+    return this.conditionRounds[combatant.id] ?? 1;
+  }
+
+  setConditionRounds(combatant: InitiativeCombatant, rounds: number): void {
+    this.conditionRounds = { ...this.conditionRounds, [combatant.id]: rounds };
+  }
 
   get roundLabel(): string {
     return this.round > 0 ? `Round ${this.round}` : 'Not started';
@@ -126,7 +136,7 @@ export class InitiativePanelComponent {
       this.removeCondition.emit({ combatant, condition });
       return;
     }
-    this.applyCondition.emit({ combatant, condition, rounds: this.conditionRounds });
+    this.applyCondition.emit({ combatant, condition, rounds: this.getConditionRounds(combatant) });
   }
 
   isConditionsOpen(combatant: InitiativeCombatant): boolean {

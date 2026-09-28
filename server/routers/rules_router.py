@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.core.schemas import (
     BackgroundSchema,
+    ClassScalingResponse,
+    CombatProfileRequest,
     FeatSchema,
     ItemSchema,
     RaceSchema,
@@ -131,7 +133,7 @@ async def get_class_subclasses(
     return repo.get_subclasses(class_name, edition)
 
 
-@router.get("/classes/{class_name}/scaling", response_model=Dict[str, Any])
+@router.get("/classes/{class_name}/scaling", response_model=ClassScalingResponse)
 async def get_class_scaling(
     class_name: str,
     level: int = Query(..., ge=1, le=20, description="Character level to resolve scaling for"),
@@ -176,8 +178,8 @@ async def get_class_scaling(
         }
         if "damage_type" in action_def:
             action_payload["damageType"] = action_def["damage_type"]
-        if "options" in action_def:
-            action_payload["options"] = action_def["options"]
+        if "options" in active_step:
+            action_payload["options"] = active_step["options"]
 
         if action_def.get("extraCritDice"):
             extraCritDice = active_step.get("value", 0)
@@ -186,6 +188,73 @@ async def get_class_scaling(
             critThreshold = active_step.get("value", 20)
 
         resolved_actions.append(action_payload)
+
+    return {
+        "actions": resolved_actions,
+        "cantripTier": cantripTier,
+        "extraCritDice": extraCritDice,
+        "critThreshold": critThreshold,
+    }
+
+
+@router.post("/combat-profile", response_model=ClassScalingResponse)
+async def get_combat_profile(
+    payload: CombatProfileRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    repo = get_rules_repo()
+    resolved_actions = []
+
+    total_level = sum(c.level for c in payload.classes)
+    cantripTier = (
+        4 if total_level >= 17 else 3 if total_level >= 11 else 2 if total_level >= 5 else 1
+    )
+    extraCritDice = 0
+    critThreshold = 20
+
+    for cls_entry in payload.classes:
+        data = repo.get_class_progression(cls_entry.class_name, payload.edition)
+        if not data:
+            continue
+
+        scaling_dict = dict(data.get("scaling", {}))
+
+        if cls_entry.subclass:
+            subclass_data = repo.get_subclass_mechanics(cls_entry.class_name, payload.edition)
+            if subclass_data and "subclasses" in subclass_data:
+                specific_subclass = subclass_data["subclasses"].get(cls_entry.subclass, {})
+                subclass_scaling = specific_subclass.get("scaling", {})
+                scaling_dict.update(subclass_scaling)
+
+        for action_id, action_def in scaling_dict.items():
+            steps = action_def.get("steps", [])
+            valid_steps = [s for s in steps if s.get("level", 0) <= cls_entry.level]
+            if not valid_steps:
+                continue
+
+            active_step = max(valid_steps, key=lambda s: s.get("level", 0))
+
+            action_payload = {
+                "id": action_id.replace("_", "-"),
+                "name": action_def.get("name"),
+                "kind": action_def.get("kind"),
+                "hint": action_def.get("hint"),
+                "notation": active_step.get("notation"),
+                "rollable": action_def.get("rollable", True),
+                "source": f"{cls_entry.class_name} {cls_entry.level}",
+            }
+            if "damage_type" in action_def:
+                action_payload["damageType"] = action_def["damage_type"]
+            if "options" in active_step:
+                action_payload["options"] = active_step["options"]
+
+            if action_def.get("extraCritDice"):
+                extraCritDice = max(extraCritDice, active_step.get("value", 0))
+
+            if action_id == "improved_critical":
+                critThreshold = min(critThreshold, active_step.get("value", 20))
+
+            resolved_actions.append(action_payload)
 
     return {
         "actions": resolved_actions,

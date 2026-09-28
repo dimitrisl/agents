@@ -21,7 +21,7 @@
       title="No Campaigns Yet"
       description="Forge your first campaign to open the DM workspace."
     >
-      <button forgeButton variant="primary" type="button" (click)="showNewCampaignModal = true">
+      <button forgeButton variant="primary" type="button" (click)="openNewCampaignModal()">
         Forge a Campaign
       </button>
     </forge-empty-state>
@@ -32,7 +32,7 @@
     [inviteCode]="inviteCode"
     [editionShort]="editionShort"
     (campaignSelected)="onCampaignSelect()"
-    (createCampaign)="showNewCampaignModal = true"
+    (createCampaign)="openNewCampaignModal()"
     (generateInvite)="generateInviteCode()"
     (sendWhisper)="showWhisperModal = true"
     (deleteCampaign)="deleteCampaign()"
@@ -121,13 +121,7 @@
             </ul>
           </div>
 
-          <app-homebrew-panel
-            *ngIf="activeTab === 'homebrew'"
-            class="block min-w-0"
-            role="tabpanel"
-            aria-labelledby="dm-tabs-tab-homebrew"
-            [campaignName]="campaignName"
-          ></app-homebrew-panel>
+          <!-- Homebrew panel lives only in the main tab section below to avoid double-rendering -->
         </div>
       </forge-card>
     </aside>
@@ -183,6 +177,7 @@
             [(newCombatantName)]="newCombatantName"
             [(newCombatantInit)]="newCombatantInit"
             [(newCombatantHp)]="newCombatantHp"
+            [(newCombatantAc)]="newCombatantAc"
             (importParty)="importPartyToInitiative()"
             (rollAll)="rollAllInitiative()"
             (advanceTurn)="nextTurn()"
@@ -199,6 +194,14 @@
             (setDeathSave)="setDeathSave($event.combatant, $event.kind, $event.value)"
           ></app-initiative-panel>
 
+          <app-entities-panel
+            *ngIf="activeTab === 'entities'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-tab-entities"
+            [campaignName]="campaignName"
+          ></app-entities-panel>
+
           <app-generators-panel
             *ngIf="activeTab === 'generators'"
             class="block min-w-0"
@@ -209,8 +212,10 @@
             [(difficulty)]="encounterDifficulty"
             [(location)]="location"
             [encounterResult]="encounterResult"
+            [isGeneratingEncounter]="isGeneratingEncounter"
             [(npcConcept)]="npcConcept"
             [npcResult]="npcResult"
+            [isGeneratingNpc]="isGeneratingNpc"
             (generateEncounter)="generateEncounter()"
             (addEncounterMonsters)="addEncounterMonstersToInitiative()"
             (generateNpc)="generateNpc()"
@@ -221,12 +226,7 @@
             class="block min-w-0"
             role="tabpanel"
             aria-labelledby="dm-tabs-tab-prep"
-            [(prepNotes)]="prepNotes"
-            [prepResult]="prepResult"
-            (generatePrep)="generatePrep()"
-            [(riddleTheme)]="riddleTheme"
-            [riddleResult]="riddleResult"
-            (generateRiddle)="generateRiddle()"
+            [campaignName]="campaignName"
           ></app-prep-panel>
 
           <app-homebrew-panel
@@ -270,7 +270,8 @@
     (openChange)="showRollModal = $event"
     [partyMembers]="partyMembers"
     [(rollTargetMember)]="rollTargetMember"
-    [(rollType)]="rollType"
+    [rollType]="rollType"
+    (rollTypeChange)="onRollTypeChange($event)"
     [(rollStat)]="rollStat"
     [(rollReason)]="rollReason"
     [(isSecretRoll)]="isSecretRoll"
@@ -280,6 +281,7 @@
   <app-statblock-modal
     [open]="!!selectedStatblockCombatant"
     [combatant]="selectedStatblockCombatant"
+    [partyMember]="selectedStatblockCombatant ? memberFor(selectedStatblockCombatant) : null"
     (closed)="selectedStatblockCombatant = null"
     (viewBeyond)="openBeyondUrl($event)"
   ></app-statblock-modal>
@@ -289,6 +291,7 @@
     (openChange)="showNewCampaignModal = $event"
     [(newCampaignTitle)]="newCampaignTitle"
     [(newCampaignNotes)]="newCampaignNotes"
+    [(newCampaignEdition)]="newCampaignEdition"
     (createCampaign)="createNewCampaign()"
   ></app-new-campaign-modal>
 

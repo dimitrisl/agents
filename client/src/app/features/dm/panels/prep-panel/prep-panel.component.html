@@ -1,114 +1,185 @@
-<div class="flex min-w-0 flex-col">
-  <div class="flex flex-col gap-4 p-4">
-    <section
-      class="overflow-hidden rounded-xl bg-panel"
-      aria-labelledby="dm-prep-heading"
-    >
-      <header class="flex flex-col gap-1 bg-tile px-4 py-3">
-        <h2
-          id="dm-prep-heading"
-          class="min-w-0 font-display text-title text-ink"
-        >
-          📜 AI Session Prep Assistant
-        </h2>
-        <p class="text-label text-muted">
-          Turn a recap and a few ideas into structured DM session notes.
-        </p>
-      </header>
+<div class="flex flex-col gap-6 p-4">
 
-      <div class="flex flex-col gap-4 p-4">
-        <div class="min-w-0">
-          <label
-            for="prep-notes"
-            class="mb-2 block text-label font-semibold text-muted"
-          >
-            Campaign Recap &amp; DM Ideas
-          </label>
-          <textarea
-            forgeTextarea
-            id="prep-notes"
-            rows="5"
-            [ngModel]="prepNotes"
-            (ngModelChange)="prepNotesChange.emit($event)"
-            placeholder="Recap: The party defeated the goblin warlord... Ideas: Introduce a secretive cult next."
-          ></textarea>
-        </div>
-
-        <div *ngIf="prepResult" class="min-w-0 rounded-xl bg-tile p-4">
-          <p class="text-micro font-semibold uppercase text-muted">
-            Session Prep
-          </p>
-          <p class="mt-1 whitespace-pre-wrap text-body text-ink">
-            {{ prepResult }}
-          </p>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <footer
-    class="sticky bottom-0 flex flex-col gap-3 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
-  >
-    <div class="min-w-0">
-      <p class="text-micro font-semibold uppercase text-muted">Session prep</p>
-      <p class="mt-1 text-label text-muted">
-        Generates a structured outline from your recap.
+  <!-- The Session Forge -->
+  <section class="overflow-hidden rounded-xl bg-panel border border-hairline shadow-sm">
+    <header class="flex flex-col gap-1 bg-tile px-4 py-3 border-b border-hairline">
+      <h2 class="min-w-0 font-display text-title text-ink">
+        ⚔️ The Session Forge (Prep Architect)
+      </h2>
+      <p class="text-label text-muted">
+        Generates a "Lazy DM" session plan using recent sessions and active world lore.
       </p>
-    </div>
+    </header>
 
-    <button
-      forgeButton
-      variant="secondary"
-      tone="accent"
-      type="button"
-      class="w-full sm:w-auto"
-      (click)="generatePrep.emit()"
-    >
-      📜 Generate Session Prep
-    </button>
-  </footer>
+    <div class="flex flex-col p-4 gap-4">
 
-  <div class="flex flex-col gap-4 p-4">
-    <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-riddle-heading">
-      <header class="flex flex-col gap-1 bg-tile px-4 py-3">
-        <h2 id="dm-riddle-heading" class="min-w-0 font-display text-title text-ink">
-          🧩 AI Riddle Generator
-        </h2>
-        <p class="text-label text-muted">
-          Generate thematic puzzles and riddles.
+      <div class="flex flex-col gap-2">
+        <label for="dm-ideas" class="font-bold text-label text-muted">Specific DM Ideas / Manual Recap</label>
+        <textarea
+          forgeTextarea
+          id="dm-ideas"
+          rows="3"
+          [(ngModel)]="dmIdeas"
+          placeholder="E.g. They met the king. I want to introduce a dragon this session."
+        ></textarea>
+      </div>
+
+      <div class="flex justify-between items-center mt-2">
+        <p class="text-body text-muted max-w-lg">
+          Click below to analyze your campaign's current state and generate a Strong Start, 5 Secrets, potential encounters, and key NPCs.
         </p>
-      </header>
+        <button forgeButton (click)="generatePrep()" [disabled]="isGeneratingPrep">
+          <span *ngIf="!isGeneratingPrep">Forge Next Session</span>
+          <span *ngIf="isGeneratingPrep" class="animate-pulse">Forging...</span>
+        </button>
+      </div>
 
-      <div class="flex flex-col gap-4 p-4">
-        <div class="min-w-0">
-          <label for="riddle-theme" class="mb-2 block text-label font-semibold text-muted">
-            Theme / Location
-          </label>
-          <input
-            forgeInput
-            id="riddle-theme"
-            [ngModel]="riddleTheme"
-            (ngModelChange)="riddleThemeChange.emit($event)"
-            placeholder="e.g. A frozen door in a crypt..."
-          />
+      <!-- Prep Results -->
+      <div *ngIf="prepResult" class="flex flex-col gap-4 mt-4 p-4 bg-background rounded border border-hairline">
+        <div>
+          <h4 class="font-bold text-accent mb-1">🔥 Strong Start</h4>
+          <p class="text-body text-ink">{{ prepResult.strong_start }}</p>
         </div>
 
-        <div *ngIf="riddleResult" class="min-w-0 rounded-xl bg-tile p-4">
-          <p class="text-micro font-semibold uppercase text-muted">Generated Riddle</p>
-          <p class="mt-1 whitespace-pre-wrap text-body text-ink">{{ riddleResult }}</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h4 class="font-bold text-accent mb-1">🤫 Secrets & Clues</h4>
+            <ul class="list-disc list-inside text-body text-ink">
+              <li *ngFor="let secret of prepResult.secrets_clues">{{ secret }}</li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-bold text-accent mb-1">⚔️ Potential Encounters</h4>
+            <ul class="list-disc list-inside text-body text-ink">
+              <li *ngFor="let enc of prepResult.encounters">{{ enc }}</li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-accent mb-1">🗣️ Key NPCs</h4>
+          <ul class="list-disc list-inside text-body text-ink">
+            <li *ngFor="let npc of prepResult.key_npcs">{{ npc }}</li>
+          </ul>
         </div>
       </div>
-    </section>
-  </div>
-
-  <footer class="sticky bottom-0 flex flex-col gap-3 border-t border-hairline bg-surface/95 p-3 backdrop-blur-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between">
-    <div class="min-w-0">
-      <p class="text-micro font-semibold uppercase text-muted">Puzzle & Riddle</p>
-      <p class="mt-1 text-label text-muted">Generate a thematic riddle for the party.</p>
     </div>
+  </section>
 
-    <button forgeButton variant="secondary" tone="accent" type="button" class="w-full sm:w-auto" (click)="generateRiddle.emit()">
-      🧩 Generate Riddle
-    </button>
-  </footer>
+
+  <!-- The Campaign Chronicle (Audio Upload) -->
+  <section class="overflow-hidden rounded-xl bg-panel border border-hairline shadow-sm">
+    <header class="flex flex-col gap-1 bg-tile px-4 py-3 border-b border-hairline">
+      <h2 class="min-w-0 font-display text-title text-ink">
+        🎙️ The Campaign Chronicle (Audio Journaling)
+      </h2>
+      <p class="text-label text-muted">
+        Upload your session audio. AI will transcribe it, summarize it, and extract new lore.
+      </p>
+    </header>
+
+    <div class="flex flex-col gap-4 p-4">
+
+      <!-- Upload form -->
+      <div class="flex items-end gap-4 p-4 bg-background rounded border border-dashed border-hairline">
+        <div class="flex flex-col gap-1 w-24">
+          <label class="text-micro font-bold uppercase text-muted">Session #</label>
+          <input type="number" [(ngModel)]="newSessionNumber" class="forge-input" min="1">
+        </div>
+
+        <div class="flex flex-col gap-1 flex-1">
+          <label class="text-micro font-bold uppercase text-muted">Audio File (MP3/WAV)</label>
+          <input type="file" accept="audio/*" (change)="onFileSelected($event)" class="text-body text-ink" [disabled]="isUploadingAudio">
+        </div>
+
+        <button forgeButton variant="secondary" (click)="uploadAudio()" [disabled]="!selectedFile || isUploadingAudio">
+          <span *ngIf="!isUploadingAudio">Upload & Transcribe</span>
+          <span *ngIf="isUploadingAudio" class="animate-pulse">Listening... (Takes ~1 min)</span>
+        </button>
+      </div>
+
+      <!-- Session List -->
+      <div class="flex flex-col gap-3 mt-4">
+        <h3 class="font-bold text-label text-muted uppercase">Past Sessions</h3>
+
+        <div *ngIf="sessions.length === 0" class="text-muted italic">
+          No sessions recorded yet.
+        </div>
+
+        <div *ngFor="let session of sessions" class="p-4 bg-tile rounded border border-hairline flex flex-col gap-2">
+          <div class="flex justify-between items-start">
+            <h4 class="font-bold text-ink text-lg">Session {{ session.session_number }}: {{ session.title }}</h4>
+            <span class="text-micro text-muted">{{ session.created_at | date }}</span>
+          </div>
+          <p class="text-body text-ink whitespace-pre-wrap">{{ session.summary }}</p>
+
+          <div *ngIf="session.extracted_entities && session.extracted_entities.length > 0" class="mt-2">
+            <span class="text-micro font-bold text-accent uppercase">Extracted Entities:</span>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <span *ngFor="let ent of session.extracted_entities" class="px-2 py-1 bg-panel border border-hairline rounded text-xs text-ink">
+                {{ ent.name }} ({{ ent.type }})
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Party Journey Map -->
+  <section class="overflow-hidden rounded-xl bg-panel border border-hairline shadow-sm">
+    <header class="flex flex-col gap-1 bg-tile px-4 py-3 border-b border-hairline">
+      <h2 class="min-w-0 font-display text-title text-ink">
+        🗺️ Party Journey Graph
+      </h2>
+      <p class="text-label text-muted">
+        Visualize the chronological path of locations the party has visited across all sessions.
+      </p>
+    </header>
+
+    <div class="flex flex-col gap-4 p-4">
+      <div class="flex justify-between items-center">
+        <p class="text-body text-muted max-w-lg">
+          Click below to let the AI analyze all your previous sessions and chart out the party's journey.
+        </p>
+        <button forgeButton variant="secondary" (click)="generateJourney()" [disabled]="isGeneratingJourney">
+          <span *ngIf="!isGeneratingJourney">Map Journey</span>
+          <span *ngIf="isGeneratingJourney" class="animate-pulse">Charting...</span>
+        </button>
+      </div>
+
+      <!-- Graph -->
+      <div *ngIf="journeyGraph && journeyGraph.nodes.length > 0" class="mt-6 flex items-start gap-0 p-4 bg-background rounded border border-hairline overflow-x-auto overflow-y-visible py-10 hide-scrollbar">
+        <ng-container *ngFor="let node of journeyGraph.nodes; let i = index; let last = last">
+
+          <!-- Node -->
+          <div class="flex flex-col items-center group relative cursor-help shrink-0 w-[100px]">
+            <!-- Circle -->
+            <div class="w-12 h-12 rounded-full bg-accent text-surface flex items-center justify-center font-bold text-lg shadow-sm border-2 border-transparent group-hover:border-ink transition-colors relative z-20">
+              {{ node.session_number }}
+            </div>
+            <!-- Label -->
+            <span class="mt-3 text-micro font-bold text-ink text-center line-clamp-2 px-1" title="{{ node.location_name }}">{{ node.location_name }}</span>
+
+            <!-- Tooltip -->
+            <div class="absolute bottom-[5rem] left-1/2 -translate-x-1/2 hidden group-hover:block w-56 p-3 bg-panel text-ink text-micro rounded shadow-xl border border-hairline z-30 pointer-events-none">
+              <span class="font-bold text-accent mb-1 block border-b border-hairline pb-1">Session {{ node.session_number }}</span>
+              {{ node.description }}
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div *ngIf="!last" class="flex-1 min-w-[50px] shrink-0 h-0.5 bg-muted flex items-center relative z-10 mt-6 -mx-4">
+             <div class="w-2 h-2 rounded-full bg-muted ml-auto mr-0"></div>
+          </div>
+
+        </ng-container>
+      </div>
+
+      <div *ngIf="journeyGraph && journeyGraph.nodes.length === 0" class="mt-4 p-4 bg-background rounded text-center text-muted italic">
+        No locations found in the logs yet. Try uploading some sessions first.
+      </div>
+    </div>
+  </section>
 </div>
