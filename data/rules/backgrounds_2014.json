@@ -94,5 +94,16 @@
     },
     {
         "name": "Waterdhavian Noble"
+    },
+    {
+        "name": "Custom Background",
+        "description": "A custom background with tailored proficiencies.",
+        "skills": [
+            "Any Two Skills"
+        ],
+        "tools": [
+            "Any Two Tools or Languages"
+        ],
+        "equipment": "15 GP"
     }
 ]

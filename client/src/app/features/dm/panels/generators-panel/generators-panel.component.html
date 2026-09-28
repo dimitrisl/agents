@@ -93,10 +93,10 @@
             tone="accent"
             type="button"
             class="w-full md:w-auto"
-            [disabled]="partySize === 0"
+            [disabled]="partySize === 0 || isGeneratingEncounter"
             (click)="generateEncounter.emit()"
           >
-            Generate Encounter
+            {{ isGeneratingEncounter ? '⏳ Forging...' : 'Generate Encounter' }}
           </button>
         </div>
 
@@ -172,9 +172,10 @@
             tone="accent"
             type="button"
             class="w-full md:w-auto"
+            [disabled]="isGeneratingNpc"
             (click)="generateNpc.emit()"
           >
-            Forge NPC
+            {{ isGeneratingNpc ? '⏳ Forging...' : 'Forge NPC' }}
           </button>
         </div>
 

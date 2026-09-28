@@ -1,0 +1,36 @@
+<forge-modal
+  title="✨ Paste & Go"
+  [open]="open"
+  maxWidth="600px"
+  (openChange)="close()"
+>
+  <div class="flex flex-col gap-4">
+    <p class="text-body text-muted">
+      Paste any statblock, monster text, or random lore notes below. The AI will parse it and convert it into a structured Campaign Entity for you to review and save.
+    </p>
+
+    <div *ngIf="error" class="p-3 bg-red-900/30 border border-red-500/50 rounded text-red-200 text-sm">
+      {{ error }}
+    </div>
+
+    <textarea
+      [(ngModel)]="rawText"
+      rows="10"
+      class="forge-input font-mono text-sm resize-y"
+      placeholder="e.g. Goblin Boss
+Armor Class 15 (chain shirt)
+Hit Points 21 (6d6)
+Speed 30 ft.
+STR 10 DEX 14 CON 10 INT 10 WIS 8 CHA 10..."
+      [disabled]="isExtracting"
+    ></textarea>
+
+    <div class="flex justify-end gap-2 mt-2">
+      <button forgeButton variant="secondary" (click)="close()" [disabled]="isExtracting">Cancel</button>
+      <button forgeButton (click)="extract()" [disabled]="!rawText.trim() || isExtracting">
+        <span *ngIf="!isExtracting">Extract via AI</span>
+        <span *ngIf="isExtracting" class="animate-pulse">Extracting...</span>
+      </button>
+    </div>
+  </div>
+</forge-modal>

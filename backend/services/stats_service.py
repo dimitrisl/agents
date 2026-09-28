@@ -339,35 +339,71 @@ def calculate_max_spell_slots(
     }
 
     slots = {}
-    if caster_type == "full":
-        caster_level = level
-    elif caster_type == "half":
-        caster_level = (level + 1) // 2 if level >= 2 else 0
-        if char_class == "artificer":
-            caster_level = (level + 1) // 2
-    elif caster_type == "pact" or char_class == "warlock":
-        if level in warlock_slots:
-            count, slot_lvl = warlock_slots[level]
-            slots[f"level_{slot_lvl}"] = count
-        return slots
-    elif (
-        "eldritch knight" in subclass_lower
-        or "arcane trickster" in subclass_lower
-        or (char_class in ["fighter", "rogue"] and level >= 3 and subclass_lower)
-    ):
-        # Third-caster progression (Eldritch Knight / Arcane Trickster)
-        # Level 3: 2 1st lvl slots (Caster Level 1 equivalent)
-        # Level 4-6: 3 1st lvl slots (Caster Level 2 equivalent)
-        # Level 7-9: 4 1st lvl slots, 2 2nd lvl slots (Caster Level 3 equivalent)
-        if level >= 3:
-            caster_level = max(1, math.floor((level + 1) / 3))
-        else:
-            caster_level = 0
-    else:
-        caster_level = 0
 
-    if caster_level > 0 and caster_level <= 20:
-        prog = full_caster_slots[caster_level]
+    if spellcasting_classes <= 1:
+        # Find the single spellcasting class (if any) to use its dedicated progression
+        target_cls = None
+        for cls in classes:
+            cname = (cls.get("class_name") or "").lower()
+            ctype = cls.get("caster_type")
+            sub = (cls.get("subclass") or "").lower()
+            lvl = cls.get("level", 1)
+
+            is_caster = False
+            if ctype == "full" or ctype == "half":
+                is_caster = True
+            elif ctype == "third" or "eldritch knight" in sub or "arcane trickster" in sub:
+                is_caster = True
+
+            if is_caster:
+                target_cls = cls
+                break
+
+        if not target_cls and len(classes) > 0:
+            target_cls = classes[0]
+
+        if target_cls:
+            cname = (target_cls.get("class_name") or "").lower()
+            sub = (target_cls.get("subclass") or "").lower()
+            lvl = target_cls.get("level", 1)
+            ctype = target_cls.get("caster_type")
+
+            if ctype == "pact" or cname == "warlock":
+                if lvl in warlock_slots:
+                    count, slot_lvl = warlock_slots[lvl]
+                    slots[f"level_{slot_lvl}"] = count
+                return slots
+
+            if ctype == "full":
+                caster_level = lvl
+            elif ctype == "half":
+                caster_level = (lvl + 1) // 2 if lvl >= 2 else 0
+                if cname == "artificer":
+                    caster_level = (lvl + 1) // 2
+            elif (
+                "eldritch knight" in sub
+                or "arcane trickster" in sub
+                or (cname in ["fighter", "rogue"] and lvl >= 3 and sub)
+            ):
+                if lvl >= 3:
+                    caster_level = max(1, math.floor((lvl + 1) / 3))
+                else:
+                    caster_level = 0
+            else:
+                caster_level = 0
+
+            if caster_level > 0 and caster_level <= 20:
+                prog = full_caster_slots[caster_level]
+                for idx, count in enumerate(prog):
+                    if count > 0:
+                        slots[f"level_{idx + 1}"] = count
+
+            # Don't return early here, as Warlock slots need to be added at the end
+            # for a character that is single-spellcaster + warlock.
+            pass
+
+    elif total_caster_level > 0 and total_caster_level <= 20:
+        prog = full_caster_slots[total_caster_level]
         for idx, count in enumerate(prog):
             if count > 0:
                 slots[f"level_{idx + 1}"] = count

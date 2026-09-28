@@ -67,6 +67,7 @@ export interface CharacterSchema {
   char_class: string;
   subclass?: string;
   char_level: number;
+  classes?: { class_name: string; level: number; subclass?: string }[];
   race: string;
   background: string;
   alignment?: string;

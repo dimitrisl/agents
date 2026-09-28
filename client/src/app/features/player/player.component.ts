@@ -136,7 +136,6 @@ interface RollTarget {
 export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
 
-  activeTab: 'sheet' = 'sheet';
   sheetSubTab: 'skills' | 'combat' | 'spells' | 'roleplay' = 'skills';
 
   readonly sheetTabs: ForgeTab[] = [
@@ -416,11 +415,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return this.getSkillsByAttribute(attr).some((skill) => this.isProficient(skill.name));
   }
 
-  getSkillsByAttribute(attr: string): SkillDefinition[] {
+  getSkillsByAttribute = (attr: string): SkillDefinition[] => {
     return this.allSkills.filter((s) => s.ability === attr);
   }
 
-  getAttributeFullName(attr: string): string {
+  getAttributeFullName = (attr: string): string => {
     const names: { [key: string]: string } = {
       STR: 'Strength',
       DEX: 'Dexterity',
@@ -431,7 +430,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return names[attr] || attr;
   }
 
-  getAttributeModifier(attr: string): string {
+  getAttributeModifier = (attr: string): string => {
     return formatModifier(abilityModifierOf(this.charState.activeCharacter(), attr));
   }
 
@@ -508,11 +507,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${rest.hitDiceRecovered} Hit Dice restored for ${char.char_name}.`);
   }
 
-  getSpellSlotMax(lvl: number): number {
+  getSpellSlotMax = (lvl: number): number => {
     return spellSlotMax(this.charState.activeCharacter(), lvl);
   }
 
-  getSpellSlotUsed(lvl: number): number {
+  getSpellSlotUsed = (lvl: number): number => {
     return spellSlotUsed(this.charState.activeCharacter(), lvl);
   }
 
@@ -536,7 +535,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.saveCurrentChar();
   }
 
-  isProficient(skillName: string): boolean {
+  isProficient = (skillName: string): boolean => {
     return isProficientIn(this.charState.activeCharacter(), skillName);
   }
 
@@ -544,7 +543,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return skillModifier(this.charState.activeCharacter(), skill);
   }
 
-  getSkillModString(skill: SkillDefinition): string {
+  getSkillModString = (skill: SkillDefinition): string => {
     return skillModifierString(this.charState.activeCharacter(), skill);
   }
 
@@ -1364,6 +1363,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  onLevelUpChoicesChange(choices: Record<string, any>) {
+    const oldClass = this.levelUpUserChoices['level_up_class'];
+    const newClass = choices['level_up_class'];
+    this.levelUpUserChoices = choices;
+
+    if (newClass && oldClass !== newClass) {
+      const char = this.charState.activeCharacter();
+      if (!char) return;
+      this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
+        character: char,
+        user_choices: this.levelUpUserChoices
+      }).subscribe((analysis) => {
+        this.levelUpAnalysis = analysis;
+      });
+    }
+  }
+
   applyLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char || !this.levelUpAnalysis) return;
@@ -1494,7 +1510,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return Object.keys(stats).map((key) => ({ key, value: stats[key] }));
   }
 
-  getModifierString(val: number): string {
+  getModifierString = (val: number): string => {
     return formatModifier(abilityModifier(val));
   }
 }

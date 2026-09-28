@@ -111,6 +111,17 @@
           />
         </div>
 
+        <div class="min-w-0">
+          <label for="combatant-ac" class="mb-2 block text-label font-semibold text-muted">AC</label>
+          <input
+            forgeInput
+            id="combatant-ac"
+            type="number"
+            [ngModel]="newCombatantAc"
+            (ngModelChange)="newCombatantAcChange.emit($event)"
+          />
+        </div>
+
         <button
           forgeButton
           variant="secondary"
@@ -321,7 +332,8 @@
                             type="number"
                             min="0"
                             class="max-w-24 text-center"
-                            [(ngModel)]="conditionRounds"
+                            [ngModel]="getConditionRounds(combatant)"
+                            (ngModelChange)="setConditionRounds(combatant, $event)"
                           />
                         </div>
                         <p class="min-w-0 flex-1 text-label text-muted">

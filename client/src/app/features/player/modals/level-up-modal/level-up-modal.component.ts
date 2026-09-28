@@ -26,6 +26,31 @@ export class LevelUpModalComponent {
   @Output() applyLevelUp = new EventEmitter<void>();
   @Output() userChoicesChange = new EventEmitter<Record<string, any>>();
 
+  get characterClasses() {
+    return this.character?.classes || [{ class_name: this.character?.char_class || 'Fighter', level: this.character?.char_level || 1 }];
+  }
+
+  get availableClasses() {
+    const all = ["Artificer", "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
+    const current = this.characterClasses.map(c => c.class_name);
+    return all.filter(c => !current.includes(c));
+  }
+
+  get levelUpClass() {
+    return this.userChoices['level_up_class'] || this.character?.char_class || 'Fighter';
+  }
+
+  get targetClassLevel() {
+    const cls = this.characterClasses.find(c => c.class_name === this.levelUpClass);
+    return cls ? cls.level + 1 : 1;
+  }
+
+  onClassChange(val: string) {
+    // When changing class, reset other choices like hp_method to avoid mismatched hp increases
+    this.userChoices = { 'level_up_class': val };
+    this.userChoicesChange.emit(this.userChoices);
+  }
+
   onChoiceChange(choiceKey: string, val: string) {
     this.userChoices = { ...this.userChoices, [choiceKey]: val };
     this.userChoicesChange.emit(this.userChoices);

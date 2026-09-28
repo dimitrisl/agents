@@ -16,6 +16,7 @@ from server.routers import (
     forge_router,
     homebrew_router,
     rules_router,
+    session_router,
     websocket_router,
 )
 
@@ -63,6 +64,7 @@ app.include_router(campaign_router.router, prefix=settings.API_V1_STR)
 app.include_router(homebrew_router.router, prefix=settings.API_V1_STR)
 app.include_router(dm_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
+app.include_router(session_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 
 # Mount portrait images directory

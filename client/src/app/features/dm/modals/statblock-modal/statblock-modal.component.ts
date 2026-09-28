@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { ForgeButtonDirective, ForgeModalComponent } from '../../../../shared/ui';
 import type { InitiativeCombatant } from '../../../../core/models/initiative.model';
+import type { PartyMember } from '../../../../core/models/party.model';
 
 @Component({
   selector: 'app-statblock-modal',
@@ -13,6 +14,7 @@ import type { InitiativeCombatant } from '../../../../core/models/initiative.mod
 export class StatblockModalComponent {
   @Input() open = false;
   @Input() combatant: InitiativeCombatant | null = null;
+  @Input() partyMember: PartyMember | null = null;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() closed = new EventEmitter<void>();

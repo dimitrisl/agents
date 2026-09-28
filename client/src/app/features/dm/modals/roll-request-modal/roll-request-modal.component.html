@@ -31,6 +31,7 @@
           (ngModelChange)="rollTypeChange.emit($event)"
         >
           <option value="ability_check">Ability Check</option>
+          <option value="skill_check">Skill Check</option>
           <option value="saving_throw">Saving Throw</option>
           <option value="attack_roll">Attack Roll</option>
           <option value="initiative">Initiative</option>
@@ -39,13 +40,19 @@
       <label
         class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
       >
-        Stat:
+        <ng-container *ngIf="rollType === 'skill_check'; else statLabel">Skill:</ng-container>
+        <ng-template #statLabel>Stat:</ng-template>
         <select
           forgeSelect
           [ngModel]="rollStat"
           (ngModelChange)="rollStatChange.emit($event)"
         >
-          <option *ngFor="let stat of stats" [value]="stat">{{ stat }}</option>
+          <ng-container *ngIf="rollType === 'skill_check'; else statOptions">
+            <option *ngFor="let skill of skills" [value]="skill">{{ skill }}</option>
+          </ng-container>
+          <ng-template #statOptions>
+            <option *ngFor="let stat of stats" [value]="stat">{{ stat }}</option>
+          </ng-template>
         </select>
       </label>
     </div>
