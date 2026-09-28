@@ -128,6 +128,9 @@ class GeminiProvider(LLMProvider):
                 cleaned_text = cleaned_text.split("```")[1].split("```")[0].strip()
 
             return json.loads(cleaned_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSONDecodeError parsing Gemini output: {e}\nRaw Text: {cleaned_text}")
+            return None
         except Exception as e:
             logger.error(f"Failed to generate JSON from Gemini: {e}")
             return None
@@ -225,6 +228,9 @@ class GeminiProvider(LLMProvider):
                 cleaned_text = cleaned_text.split("```")[1].split("```")[0].strip()
 
             return json.loads(cleaned_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSONDecodeError parsing Gemini output: {e}\nRaw Text: {cleaned_text}")
+            return None
         except Exception as e:
             logger.error(f"Failed to generate JSON from files: {str(e)}")
             return None

@@ -64,8 +64,9 @@ def generate_homebrew_pdf(items: List[Dict[str, Any]]) -> io.BytesIO:
 
         # Description
         desc = item.get("description", "No description provided.")
-        # Replace newlines with break tags for reportlab
-        desc = desc.replace("\n", "<br/>")
+        import html
+
+        desc = html.escape(desc).replace("\n", "<br/>")
         story.append(Paragraph(desc, body_style))
 
         story.append(Spacer(1, 0.4 * inch))

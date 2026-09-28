@@ -169,11 +169,10 @@ async def generate_ai_portrait(
     doc = await db["characters"].find_one(
         {"char_id": payload.char_id, "owner_id": current_user["id"]}
     )
-    if doc:
-        char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
-    else:
-        char_dict = payload.character_data or {"char_id": payload.char_id}
+    if not doc:
+        raise HTTPException(status_code=404, detail="Character not found")
 
+    char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
     portrait_url = await generate_portrait_url(char_dict, force=payload.force)
 
     if doc and portrait_url:

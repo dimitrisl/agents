@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -367,6 +367,13 @@ export class DmComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  unloadNotification($event: any) {
+    if (this.pendingPartyState.size > 0) {
+      $event.returnValue = true;
+    }
   }
 
   ngOnDestroy() {
@@ -1584,7 +1591,7 @@ export class DmComponent implements OnInit, OnDestroy {
     if (!this.campaignName) return;
     if (!confirm(`Are you sure you want to permanently delete the campaign "${this.campaignName}"? This action cannot be undone.`)) return;
 
-    this.http.delete(`${environment.apiBaseUrl}/campaigns/${this.campaignName}`).subscribe({
+    this.http.delete(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}`).subscribe({
       next: () => {
         this.rollToast.showMessage('🗑️ CAMPAIGN DELETED', `Campaign "${this.campaignName}" has been deleted.`);
         this.loadCampaigns(); // Will reload campaigns and switch to the first available or clear workspace
