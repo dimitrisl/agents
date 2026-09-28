@@ -227,14 +227,31 @@ class PDFMappingProvider:
 def create_image_overlay(image_url: str) -> io.BytesIO:
     """Creates a transparent PDF page with the image at specific coordinates."""
     try:
+        from urllib.parse import urlparse
+
+        from backend.utils.path_safety import safe_path
+
         img_data = None
-        if os.path.exists(image_url):
-            with open(image_url, "rb") as f:
-                img_data = io.BytesIO(f.read())
-        elif image_url.startswith(("http://", "https://")):
+        if image_url.startswith(("http://", "https://")):
+            parsed = urlparse(image_url)
+            # Prevent SSRF by only allowing external image hosts
+            allowed_hosts = ["image.pollinations.ai", "raw.githubusercontent.com", "imgur.com"]
+            if parsed.netloc not in allowed_hosts:
+                logger.warning(f"Blocked SSRF attempt for portrait domain: {parsed.netloc}")
+                return None
+
             resp = requests.get(image_url, timeout=10)
             if resp.status_code == 200:
                 img_data = io.BytesIO(resp.content)
+        else:
+            try:
+                target_path = safe_path(image_url, scope="portraits")
+                if os.path.exists(target_path):
+                    with open(target_path, "rb") as f:
+                        img_data = io.BytesIO(f.read())
+            except ValueError as e:
+                logger.warning(f"Blocked path traversal attempt: {e}")
+                return None
 
         if not img_data:
             logger.warning(f"Could not load portrait from {image_url}")

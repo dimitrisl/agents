@@ -161,9 +161,18 @@ class GeminiProvider(LLMProvider):
     def upload_file(self, file_path: str) -> str:
         if not self.client:
             raise ValueError("Gemini Client not initialized.")
+
+        from backend.utils.path_safety import safe_path
+
+        # Try validating as uploads, if it fails, try module_pics, else error.
         try:
-            logger.info(f"Uploading {file_path} to Gemini...")
-            gemini_file = self.client.files.upload(file=file_path)
+            target_path = safe_path(file_path, scope="uploads")
+        except ValueError:
+            target_path = safe_path(file_path, scope="module_pics")
+
+        try:
+            logger.info(f"Uploading {target_path} to Gemini...")
+            gemini_file = self.client.files.upload(file=target_path)
             logger.info(f"Successfully uploaded: {gemini_file.name}")
             return gemini_file.name
         except Exception as e:

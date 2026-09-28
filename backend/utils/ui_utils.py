@@ -6,12 +6,17 @@ import streamlit as st
 
 def get_image_base64(path):
     """Helper to convert a local image path to a base64 string for HTML embedding."""
-    if not path or not os.path.exists(path):
+    from backend.utils.path_safety import safe_path
+
+    if not path:
         return None
     try:
-        with open(path, "rb") as image_file:
+        target_path = safe_path(path, scope="portraits")
+        if not os.path.exists(target_path):
+            return None
+        with open(target_path, "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode()
-            ext = os.path.splitext(path)[1].lower().replace(".", "")
+            ext = os.path.splitext(target_path)[1].lower().replace(".", "")
             return f"data:image/{ext};base64,{encoded_string}"
     except Exception:
         return None
@@ -391,11 +396,14 @@ def render_character_header(
         col_img, col_text = st.columns([1, 5])
 
         if display_portrait:
+            import html
+
+            safe_img = html.escape(display_portrait, quote=True)
             with col_img:
                 st.markdown(
                     f"""
                     <div class="portrait-container">
-                        <img src="{display_portrait}" class="portrait-img">
+                        <img src="{safe_img}" class="portrait-img">
                     </div>
                 """,
                     unsafe_allow_html=True,

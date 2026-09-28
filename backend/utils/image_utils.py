@@ -81,9 +81,12 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
         # Save locally
         import time
 
+        from backend.utils.path_safety import safe_path
+
         timestamp = int(time.time())
-        filename = f"{char_id}_{timestamp}.png" if force else f"{char_id}.png"
-        filepath = os.path.join(PORTRAIT_DIR, filename)
+        safe_char_id = _secure_filename(char_id)
+        filename = f"{safe_char_id}_{timestamp}.png" if force else f"{safe_char_id}.png"
+        filepath = safe_path(os.path.join(PORTRAIT_DIR, filename), scope="portraits")
 
         with open(filepath, "wb") as f:
             f.write(response.content)
@@ -95,11 +98,23 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
         return None
 
 
+def _secure_filename(filename: str) -> str:
+    import re
+
+    base = os.path.basename(filename)
+    # Remove any non-alphanumeric/dot/dash/underscore chars just in case
+    return re.sub(r"[^a-zA-Z0-9_\.-]", "_", base)
+
+
 def save_custom_portrait(image_bytes: bytes, filename: str) -> str:
     """Saves custom uploaded portrait bytes
     to data/portraits/ and returns the public API URL."""
+    from backend.utils.path_safety import safe_path
+
     _ensure_dir()
-    filepath = os.path.join(PORTRAIT_DIR, filename)
+    safe_name = _secure_filename(filename)
+    filepath = safe_path(os.path.join(PORTRAIT_DIR, safe_name), scope="portraits")
+
     with open(filepath, "wb") as f:
         f.write(image_bytes)
-    return f"{settings.API_V1_STR}/portraits/{filename}"
+    return f"{settings.API_V1_STR}/portraits/{safe_name}"

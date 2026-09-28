@@ -117,7 +117,15 @@ async def login(
 
 
 @router.post("/demo", response_model=TokenResponseSchema)
-async def demo_login(payload: DemoLoginSchema):
+async def demo_login(payload: DemoLoginSchema, db: AsyncIOMotorDatabase = Depends(get_database)):
+    from server.config import settings
+
+    if not settings.DEBUG_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo login is disabled",
+        )
+
     dt = payload.demo_type.lower()
     if dt == "mitsos":
         user_id = "local_user_mitsos"
@@ -135,6 +143,21 @@ async def demo_login(payload: DemoLoginSchema):
         user_id = "local_user_adventurer"
         name = "Guest Adventurer"
         username = "adventurer"
+
+    # Ensure demo user exists in DB so auth doesn't fail
+    existing = await db["users"].find_one({"id": user_id})
+    if not existing:
+        await db["users"].insert_one(
+            {
+                "id": user_id,
+                "username": username,
+                "name": name,
+                "email": f"{username}@phyrexian.forge",
+                "has_completed_tutorial": True,
+                "password_hash": "demo",
+                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
 
     access_token = create_access_token(data={"sub": user_id, "username": username})
     user_res = UserResponseSchema(
