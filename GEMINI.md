@@ -107,3 +107,7 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 - `backend/services/stats_service.py`: Core D&D calculations logic.
 - `backend/services/validation_service.py`: Deterministic character build validation.
 - `backend/repositories/rules_repository.py`: Access to static D&D data.
+
+### 8. Git & Branching Strategy
+- **Development Branch:** All ongoing development and feature branches MUST target and merge into `dev`.
+- **Main Branch Isolation:** The `main` branch is strictly reserved for production releases. NEVER merge or commit directly to `main` during normal development. `main` will only be updated via PRs directly from `dev` when a release is ready.
