@@ -127,7 +127,7 @@
             </div>
 
             <app-action-dock
-              [canLevelUp]="hero.char_level < 20"
+              [canLevelUp]="char.char_level < 20"
               [isGeneratingStrategy]="isGeneratingStrategy"
               (shortRest)="openShortRestModal()"
               (longRest)="triggerLongRest()"
