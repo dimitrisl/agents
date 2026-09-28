@@ -36,6 +36,12 @@ For spellcasters of level {target_level}, generate appropriate spells across ALL
 If the level is 4 or higher (or 1 if 2024 edition), explicitly list their Feats and Ability Score Improvements (ASI) in the 'advancements' field.
 If specific user preferences for Feats, Spells, ASIs, or Build choices are provided above, PRIORITIZE including those requested Feats in 'advancements' and 'features_traits', and those requested Spells in the 'spells' object.
 
+IMPORTANT WARNINGS:
+- If 'Custom Background' is used, pick any 2 skills and a fitting Origin Feat.
+- If the character gains the 'Skilled' feat, they MUST gain EXACTLY 3 additional skill proficiencies.
+- You MUST strictly use the {edition} rules for their subclass. Do not use 2014 subclass mechanics if the requested edition is 2024 (e.g. for Monk 2024, use 'Warrior of the Elements' mechanics, not 'Way of the Four Elements').
+- If the user specifies a subrace, lineage, or subspecies in the Flavor/Concept field, apply the appropriate traits.
+
 Output the character strictly as a JSON object with exactly the following schema:
 {{
     "char_name": "Name of the character",
@@ -287,14 +293,14 @@ A player is manually creating a character with the following choices:
 {custom_preferences_instruction}
 
 Your task is to enrich this character with:
-1. Racial features/traits based on their race/species.
-2. Background features/traits based on their background.
-3. Appropriate class features for a level {target_level} {class_name} (and subclass {subclass}). Include key level progression features like Action Surge, Spellcasting, Cunning Action, etc.
+1. Racial features/traits based on their race/species (and subrace/lineage if provided).
+2. Background features/traits based on their background. If 'Custom Background' is used, pick 2 skills and a fitting Origin Feat.
+3. Appropriate class features for a level {target_level} {class_name} (and subclass {subclass}). WARNING: You MUST strictly use the {edition} rules for this subclass. Do not use 2014 subclass mechanics if the requested edition is 2024 (e.g. for Monk 2024, use 'Warrior of the Elements' mechanics, not 'Way of the Four Elements').
 4. Thematic starting weapons and equipment.
 5. Standard languages (e.g. Common, plus racial languages).
 6. A thematic backstory, personality traits, ideals, bonds, and flaws based on their concept, background, and class.
 7. Appropriate spells if they are a spellcaster across ALL unlocked spell levels for level {target_level} (cantrips, level_1, level_2, etc.).
-8. Feats and advancements for level {target_level} if level is 4 or higher.
+8. Feats and advancements for level {target_level} if level is 4 or higher. IMPORTANT: If the character gains the 'Skilled' feat, they MUST gain EXACTLY 3 additional skill proficiencies.
 
 If specific user preferences for Feats, Spells, ASIs, or Build choices are provided above, PRIORITIZE including those requested Feats (in advancements and features_traits) and requested Spells (in spells dictionary).
 

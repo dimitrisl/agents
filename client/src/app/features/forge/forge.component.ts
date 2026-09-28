@@ -157,7 +157,7 @@ export class ForgeComponent implements OnInit {
   }
 
   get bgOptions(): string[] {
-    return ['Acolyte', 'Charlatan', 'Criminal', 'Entertainer', 'Folk Hero', 'Guild Artisan', 'Hermit', 'Noble', 'Outlander', 'Sage', 'Sailor', 'Soldier', 'Urchin'];
+    return ['Acolyte', 'Charlatan', 'Criminal', 'Entertainer', 'Folk Hero', 'Guild Artisan', 'Hermit', 'Noble', 'Outlander', 'Sage', 'Sailor', 'Soldier', 'Urchin', 'Custom Background'];
   }
 
   // --- Blueprint side panel (presentation only, derived from the form state) ---
