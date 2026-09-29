@@ -1,20 +1,20 @@
 <section class="py-3" aria-labelledby="combat-stats-heading">
   <h3 id="combat-stats-heading" class="sr-only">Combat statistics</h3>
   <div class="grid grid-cols-3 overflow-hidden rounded-xl bg-tile">
-    <div class="px-3 py-3 text-center">
+    <div class="px-3 py-3 text-center flex flex-col items-center">
       <p class="text-micro font-semibold uppercase text-muted">AC</p>
       <p *ngIf="!editMode" class="mt-1 text-metric font-bold leading-none text-accent">{{ armorClass }}</p>
-      <input *ngIf="editMode" forgeInput type="number" class="mt-1 w-full text-center" [ngModel]="armorClass" (ngModelChange)="armorClassChange.emit($event)" aria-label="Armor Class" />
+      <input *ngIf="editMode" forgeInput type="number" class="mt-1 mx-auto max-w-16 text-center" [ngModel]="armorClass" (ngModelChange)="armorClassChange.emit($event)" aria-label="Armor Class" />
     </div>
-    <div class="border-x border-hairline px-3 py-3 text-center">
+    <div class="border-x border-hairline px-3 py-3 text-center flex flex-col items-center">
       <p class="text-micro font-semibold uppercase text-muted">Prof. Bonus</p>
       <p class="mt-1 text-metric font-bold leading-none text-accent">{{ formatSigned(proficiencyBonus) }}</p>
     </div>
-    <div class="px-3 py-3 text-center">
+    <div class="px-3 py-3 text-center flex flex-col items-center">
       <p class="text-micro font-semibold uppercase text-muted">Speed</p>
       <p *ngIf="!editMode" class="mt-1 text-metric font-bold leading-none text-accent">{{ speed }} <span class="text-body font-semibold">ft</span></p>
-      <div *ngIf="editMode" class="mt-1 flex items-center gap-1">
-        <input forgeInput type="number" class="w-full text-center" [ngModel]="speed" (ngModelChange)="speedChange.emit($event)" aria-label="Speed" />
+      <div *ngIf="editMode" class="mt-1 flex items-center justify-center gap-1">
+        <input forgeInput type="number" class="mx-auto max-w-16 text-center" [ngModel]="speed" (ngModelChange)="speedChange.emit($event)" aria-label="Speed" />
         <span class="text-body font-semibold">ft</span>
       </div>
     </div>
