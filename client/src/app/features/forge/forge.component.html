@@ -16,9 +16,16 @@
     </div>
 
     <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
-      <forge-badge tone="accent">{{
-        is2024 ? "2024 Rules" : "2014 Rules"
-      }}</forge-badge>
+      <button
+        type="button"
+        (click)="toggleEditionAndRefresh()"
+        class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent hover:opacity-80 transition-opacity"
+        title="Toggle D&D Edition"
+      >
+        <forge-badge [interactive]="true" tone="accent">
+          <span aria-hidden="true" class="mr-1">🔄</span> {{ is2024 ? "2024 Rules (5.5e)" : "2014 Rules (5e)" }}
+        </forge-badge>
+      </button>
       <forge-badge tone="muted">{{
         activeTab === "ai" ? "AI Forge" : "Manual Build"
       }}</forge-badge>

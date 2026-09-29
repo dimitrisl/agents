@@ -194,11 +194,11 @@ def test_subclass_cleared_below_level_three():
     corrected, issues = deterministic_validate_build(
         {
             "char_name": "Low Level Domain",
-            "char_class": "Cleric",
+            "char_class": "Fighter",
             "char_level": 2,
             "race": "Human",
             "background": "Acolyte",
-            "subclass": "Life Domain",
+            "subclass": "Champion",
             "stats": StatBlock().model_dump(),
         }
     )
@@ -211,16 +211,16 @@ def test_subclass_preserved_at_level_three_on_update():
     updated = process_character_update(
         {
             "char_name": "Level Three Domain",
-            "char_class": "Cleric",
+            "char_class": "Fighter",
             "char_level": 3,
             "race": "Human",
             "background": "Acolyte",
-            "subclass": "Life Domain",
+            "subclass": "Champion",
             "stats": StatBlock().model_dump(),
         }
     )
 
-    assert updated["subclass"] == "Life Domain"
+    assert updated["subclass"] == "Champion"
 
 
 def test_spell_list_sanitization():

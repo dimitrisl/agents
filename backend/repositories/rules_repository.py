@@ -51,7 +51,7 @@ class RulesRepository:
         if cache_key in _class_progression_cache:
             return _class_progression_cache[cache_key]
 
-        edition_dir = "2014" if edition == EDITION_2014 else "2024"
+        edition_dir = "2014" if "2014" in edition else "2024"
         filename = f"{class_name.lower().replace(' ', '_')}.json"
         filepath = os.path.join(RULES_DIR, edition_dir, filename)
 
@@ -71,7 +71,7 @@ class RulesRepository:
         if edition in _available_classes_cache:
             return _available_classes_cache[edition]
 
-        edition_dir = "2014" if edition == EDITION_2014 else "2024"
+        edition_dir = "2014" if "2014" in edition else "2024"
         dir_path = os.path.join(RULES_DIR, edition_dir)
         if not os.path.exists(dir_path):
             _available_classes_cache[edition] = []
@@ -116,7 +116,8 @@ class RulesRepository:
         if edition in _feats_cache:
             return _feats_cache[edition]
 
-        filename = f"feats_{'2024' if edition == EDITION_2024 else '2014'}.json"
+        is_2024 = "2024" in edition
+        filename = f"feats_{'2024' if is_2024 else '2014'}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         result = _load_json(filepath)
         _feats_cache[edition] = result
@@ -149,7 +150,7 @@ class RulesRepository:
         if edition in _spells_cache:
             return _spells_cache[edition]
 
-        edition_val = "2014" if edition == EDITION_2014 else "2024"
+        edition_val = "2014" if "2014" in edition else "2024"
         spells = []
 
         # Try database first
@@ -196,7 +197,7 @@ class RulesRepository:
         if edition in _races_cache:
             return _races_cache[edition]
 
-        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        edition_val = "2024" if "2024" in edition else "2014"
         filename = f"races_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
 
@@ -224,7 +225,7 @@ class RulesRepository:
         if cache_key in _subclasses_cache:
             return _subclasses_cache[cache_key]
 
-        edition_dir = "2014" if edition == EDITION_2014 else "2024"
+        edition_dir = "2014" if "2014" in edition else "2024"
         filename = f"{class_name.lower().replace(' ', '_')}.json"
         filepath = os.path.join(DATA_DIR, "rules", "subclasses", edition_dir, filename)
 
@@ -243,7 +244,7 @@ class RulesRepository:
         if edition in _backgrounds_cache:
             return _backgrounds_cache[edition]
 
-        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        edition_val = "2024" if "2024" in edition else "2014"
         filename = f"backgrounds_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
 
@@ -274,7 +275,7 @@ class RulesRepository:
         if edition in _weapon_masteries_cache:
             return _weapon_masteries_cache[edition]
 
-        edition_val = "2024" if edition == EDITION_2024 else "2014"
+        edition_val = "2024" if "2024" in edition else "2014"
         filename = f"weapon_masteries_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
 

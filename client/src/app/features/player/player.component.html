@@ -75,18 +75,13 @@
             <div class="min-w-0 p-4">
               <app-skills-panel
                 *ngIf="sheetSubTab === 'skills'"
-                [showProficientOnly]="showProficientOnly"
-                (showProficientOnlyChange)="onShowProficientOnlyChange($event)"
-                [openGroups]="openGroups"
-                [attributes]="skillAttributes"
-                [getSkillsByAttribute]="getSkillsByAttribute"
-                [getAttributeFullName]="getAttributeFullName"
-                [getAttributeModifier]="getAttributeModifier"
+                [allSkills]="allSkills"
+                [editMode]="editMode"
                 [isProficient]="isProficient"
                 [getSkillModString]="getSkillModString"
-                (toggleGroup)="toggleGroup($event)"
-                (rollAbility)="rollAbilityCheck($event)"
+                [getAttributeFullName]="getAttributeFullName"
                 (rollSkill)="rollSkillCheck($event)"
+                (toggleProficiency)="toggleSkillProficiency($event)"
               ></app-skills-panel>
 
               <app-combat-panel
@@ -110,10 +105,12 @@
                 role="tabpanel"
                 [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
                 [char]="char"
+                [editMode]="editMode"
                 [getSpellSlotUsed]="getSpellSlotUsed"
                 [getSpellSlotMax]="getSpellSlotMax"
                 (useSpellSlot)="useSpellSlot($event)"
                 (restoreSpellSlot)="restoreSpellSlot($event)"
+                (save)="saveCurrentChar()"
               ></app-spells-panel>
 
               <app-roleplay-panel

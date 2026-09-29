@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+from functools import lru_cache
 from typing import Any, Dict, Optional, Type
 
+from fastapi import HTTPException
 from google import genai
 from pydantic import BaseModel
 
@@ -56,9 +58,12 @@ class GeminiProvider(LLMProvider):
             logger.warning(f"Failed to fetch model list, defaulting to {fallback}. Error: {e}")
             return fallback[7:] if fallback.startswith("models/") else fallback
 
+    @lru_cache(maxsize=100)
     def generate_text(self, prompt: str, temperature: Optional[float] = None) -> str:
         if not self.client:
-            return "❌ Error: GEMINI_API_KEY is missing in your .env file."
+            raise HTTPException(
+                status_code=500, detail="GEMINI_API_KEY is missing in your .env file."
+            )
 
         try:
             if temperature is None:
@@ -77,9 +82,12 @@ class GeminiProvider(LLMProvider):
         except Exception as e:
             error_msg = str(e)
             if "503" in error_msg or "high demand" in error_msg.lower():
-                return "⚠️ The AI is currently experiencing high demand. Please wait a few seconds and try again."
+                raise HTTPException(
+                    status_code=503,
+                    detail="The AI is currently experiencing high demand. Please wait a few seconds and try again.",
+                )
             logger.error(f"Failed to generate response: {e}", exc_info=True)
-            return f"❌ Failed to generate response: {error_msg}"
+            raise HTTPException(status_code=500, detail=f"Failed to generate response: {error_msg}")
 
     def generate_json(
         self,
@@ -139,7 +147,7 @@ class GeminiProvider(LLMProvider):
         self, file_ids: list[str], prompt: str, temperature: Optional[float] = None
     ) -> str:
         if not self.client:
-            return "❌ Error: AI Client not initialized."
+            raise HTTPException(status_code=500, detail="AI Client not initialized.")
 
         try:
             contents = []
@@ -159,7 +167,7 @@ class GeminiProvider(LLMProvider):
             )
             return response.text
         except Exception as e:
-            return f"❌ Failed to generate from files: {str(e)}"
+            raise HTTPException(status_code=500, detail=f"Failed to generate from files: {str(e)}")
 
     def upload_file(self, file_path: str) -> str:
         if not self.client:

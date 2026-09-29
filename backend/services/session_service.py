@@ -4,12 +4,12 @@ from typing import Any, Dict, List
 
 from fastapi import UploadFile
 
-from backend.core.providers.gemini_provider import GeminiProvider
+from backend.core.providers.factory import get_llm_provider
 
 
 class SessionService:
     def __init__(self):
-        self.ai_provider = GeminiProvider()
+        self.ai_provider = get_llm_provider()
 
     async def process_audio_session(
         self, campaign_name: str, session_number: int, audio_file: UploadFile

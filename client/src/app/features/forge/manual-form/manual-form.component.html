@@ -250,7 +250,7 @@
           </legend>
 
           <div
-            class="grid grid-cols-3 rounded-full border border-hairline bg-panel p-1"
+            class="grid grid-cols-4 rounded-full border border-hairline bg-panel p-1"
           >
             <label
               class="flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-label transition-colors focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep"
@@ -277,6 +277,30 @@
                 ></span>
               }
               Standard
+            </label>
+
+            <label
+              class="flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-label transition-colors focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep"
+              [ngClass]="
+                manualStatMethod === 'pointbuy'
+                  ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+                  : 'text-muted hover:text-ink'
+              "
+              [attr.aria-checked]="manualStatMethod === 'pointbuy'"
+              title="Spend 27 points to buy ability scores."
+            >
+              <input
+                class="sr-only"
+                type="radio"
+                name="manualStatMethod"
+                value="pointbuy"
+                [ngModel]="manualStatMethod"
+                (ngModelChange)="manualStatMethodChange.emit($event)"
+              />
+              @if (manualStatMethod === "pointbuy") {
+                <span class="text-micro" aria-hidden="true">🪙</span>
+              }
+              Point Buy
             </label>
 
             <label
@@ -330,9 +354,21 @@
         </fieldset>
 
         @if (manualStatMethod === "standard") {
-          <p class="text-label text-muted">
-            Assign the standard array: 15, 14, 13, 12, 10, 8.
-          </p>
+          <div class="flex flex-wrap items-center gap-3">
+            <p class="text-label text-muted">
+              Assign the standard array: 15, 14, 13, 12, 10, 8.
+            </p>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="optimizeStats()"
+              title="Automatically distribute stats optimally for your class"
+            >
+              ⚡ Auto-Optimize
+            </button>
+          </div>
 
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <div
@@ -351,9 +387,46 @@
                 [(ngModel)]="manualStats[stat]"
                 (ngModelChange)="manualStatsChange.emit(manualStats)"
               >
-                <option *ngFor="let val of standardArrayValues" [value]="val">
+                <option *ngFor="let val of standardArrayValues" [ngValue]="val" [disabled]="isValueSelected(val, stat)">
                   {{ val }}
                 </option>
+              </select>
+            </div>
+          </div>
+        }
+
+        @if (manualStatMethod === "pointbuy") {
+          <div class="flex flex-wrap items-center gap-3">
+            <p class="text-label text-muted">
+              Points remaining: <strong [class.text-red-500]="getRemainingPoints() < 0" [class.text-emerald]="getRemainingPoints() >= 0">{{ getRemainingPoints() }}</strong> / 27
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div
+              *ngFor="let stat of statKeys"
+              class="min-w-0 rounded-xl bg-tile p-3"
+            >
+              <label
+                [for]="'pointbuy-' + stat"
+                class="mb-2 block text-micro font-semibold uppercase text-muted"
+              >
+                {{ stat }}
+              </label>
+              <select
+                forgeSelect
+                [id]="'pointbuy-' + stat"
+                [ngModel]="manualStats[stat] || 8"
+                (ngModelChange)="onPointBuyChange(stat, $event)"
+              >
+                <option [ngValue]="8">8 (Cost: 0)</option>
+                <option [ngValue]="9" [disabled]="getRemainingPoints() < (1 - getPointBuyCost(manualStats[stat] || 8))">9 (Cost: 1)</option>
+                <option [ngValue]="10" [disabled]="getRemainingPoints() < (2 - getPointBuyCost(manualStats[stat] || 8))">10 (Cost: 2)</option>
+                <option [ngValue]="11" [disabled]="getRemainingPoints() < (3 - getPointBuyCost(manualStats[stat] || 8))">11 (Cost: 3)</option>
+                <option [ngValue]="12" [disabled]="getRemainingPoints() < (4 - getPointBuyCost(manualStats[stat] || 8))">12 (Cost: 4)</option>
+                <option [ngValue]="13" [disabled]="getRemainingPoints() < (5 - getPointBuyCost(manualStats[stat] || 8))">13 (Cost: 5)</option>
+                <option [ngValue]="14" [disabled]="getRemainingPoints() < (7 - getPointBuyCost(manualStats[stat] || 8))">14 (Cost: 7)</option>
+                <option [ngValue]="15" [disabled]="getRemainingPoints() < (9 - getPointBuyCost(manualStats[stat] || 8))">15 (Cost: 9)</option>
               </select>
             </div>
           </div>
@@ -406,7 +479,7 @@
                     [(ngModel)]="manualStats[stat]"
                     (ngModelChange)="manualStatsChange.emit(manualStats)"
                   >
-                    <option *ngFor="let val of rolledScores" [value]="val">
+                    <option *ngFor="let val of rolledScores" [ngValue]="val">
                       {{ val }}
                     </option>
                   </select>

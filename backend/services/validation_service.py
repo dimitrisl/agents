@@ -146,14 +146,14 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
     # so no domain data is ever hardcoded here.
     subclass = corrected_char.get("subclass")
     level = corrected_char.get("char_level", 1)
-    if subclass and level < SUBCLASS_MIN_LEVEL:
-        issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {SUBCLASS_MIN_LEVEL}. Clearing subclass."
-        logger.warning(issue_msg)
-        issues.append(issue_msg)
-        corrected_char["subclass"] = None
-    elif subclass and class_data:
+
+    if subclass and class_data:
         subclass_min_level = _get_subclass_min_level(class_data)
-        if subclass_min_level and level < subclass_min_level:
+        if subclass_min_level is None:
+            # Fallback for parsing errors or older JSON
+            subclass_min_level = SUBCLASS_MIN_LEVEL
+
+        if level < subclass_min_level:
             issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {subclass_min_level} for class '{char_class}'. Clearing subclass."
             logger.warning(issue_msg)
             issues.append(issue_msg)

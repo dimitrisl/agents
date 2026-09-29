@@ -93,19 +93,27 @@
     </ng-template>
   </section>
 
-  <section class="flex flex-col gap-3" aria-labelledby="known-spells-heading" *ngIf="spellGroups.length > 0">
+  <section class="flex flex-col gap-3" aria-labelledby="known-spells-heading" *ngIf="spellGroups.length > 0 || editMode">
     <h3 id="known-spells-heading" class="font-display text-title text-ink">Known Spells</h3>
 
     <div class="flex flex-col gap-6">
       <div *ngFor="let group of spellGroups" class="flex flex-col gap-2">
-        <h4 class="text-micro font-semibold uppercase text-muted px-2">{{ group.label }}</h4>
+        <div class="flex items-center justify-between px-2">
+          <h4 class="text-micro font-semibold uppercase text-muted">{{ group.label }}</h4>
+          <button *ngIf="editMode" type="button" class="text-micro font-semibold text-accent" (click)="addSpell(group.label)">
+            + Add
+          </button>
+        </div>
         <div class="flex flex-col gap-1">
-          <div *ngFor="let spell of group.spells" class="rounded-lg overflow-hidden">
-            <forge-list-row [title]="spell" (onClick)="selectedSpell.set(spell)">
-              <ng-container trailing *ngIf="isPrepared(spell)">
-                <forge-badge tone="accent" size="sm">Prepared</forge-badge>
-              </ng-container>
-            </forge-list-row>
+          <div *ngFor="let spell of group.spells; let idx = index" class="rounded-lg overflow-hidden flex items-center">
+            <div class="flex-1 min-w-0">
+              <forge-list-row [title]="spell" (onClick)="selectedSpell.set(spell)">
+                <ng-container trailing *ngIf="isPrepared(spell)">
+                  <forge-badge tone="accent" size="sm">Prepared</forge-badge>
+                </ng-container>
+              </forge-list-row>
+            </div>
+            <button *ngIf="editMode" type="button" class="p-3 text-red-500 hover:text-red-400" (click)="deleteSpell(group.label, idx, $event)" title="Delete spell">✕</button>
           </div>
         </div>
       </div>
@@ -125,16 +133,28 @@
       <h3 id="features-heading" class="font-display text-title text-ink">
         Class Features &amp; Racial Traits
       </h3>
-      <button
-        *ngIf="features.length > 0"
-        forgeButton
-        variant="ghost"
-        size="sm"
-        type="button"
-        (click)="toggleAllFeatures()"
-      >
-        {{ allFeaturesExpanded ? 'Collapse all' : 'Expand all' }}
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          *ngIf="editMode"
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="addFeature()"
+        >
+          + Add
+        </button>
+        <button
+          *ngIf="features.length > 0"
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          (click)="toggleAllFeatures()"
+        >
+          {{ allFeaturesExpanded ? 'Collapse all' : 'Expand all' }}
+        </button>
+      </div>
     </div>
 
     <div
@@ -142,33 +162,36 @@
       class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
     >
       <div *ngFor="let feature of features; let index = index">
-        <button
-          type="button"
-          class="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
-          [attr.aria-expanded]="isFeatureExpanded(index)"
-          [attr.aria-controls]="'feature-body-' + index"
-          (click)="toggleFeature(index)"
-        >
-          <span class="min-w-0 font-display text-body text-ink">{{ feature.name }}</span>
-
-          <forge-badge *ngIf="feature.source" tone="muted">{{ feature.source }}</forge-badge>
-
-          <svg
-            class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
-            [class.rotate-180]="isFeatureExpanded(index)"
-            viewBox="0 0 20 20"
-            fill="none"
-            aria-hidden="true"
+        <div class="flex">
+          <button
+            type="button"
+            class="flex-1 grid min-h-12 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+            [attr.aria-expanded]="isFeatureExpanded(index)"
+            [attr.aria-controls]="'feature-body-' + index"
+            (click)="toggleFeature(index)"
           >
-            <path
-              d="M5 7.5L10 12.5L15 7.5"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+            <span class="min-w-0 font-display text-body text-ink">{{ feature.name }}</span>
+
+            <forge-badge *ngIf="feature.source" tone="muted">{{ feature.source }}</forge-badge>
+
+            <svg
+              class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
+              [class.rotate-180]="isFeatureExpanded(index)"
+              viewBox="0 0 20 20"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M5 7.5L10 12.5L15 7.5"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button *ngIf="editMode" type="button" class="px-4 text-red-500 hover:text-red-400" (click)="deleteFeature(index, $event)" title="Delete feature">✕</button>
+        </div>
 
         <p
           *ngIf="isFeatureExpanded(index)"
