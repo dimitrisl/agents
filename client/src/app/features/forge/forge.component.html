@@ -114,9 +114,15 @@
                 [(activeId)]="activeTab"
               ></forge-tabs>
 
-              <p class="shrink-0 text-micro font-semibold uppercase text-muted">
-                {{ is2024 ? "D&D 2024" : "D&D 2014" }}
-              </p>
+              <button
+                type="button"
+                (click)="toggleEditionAndRefresh()"
+                class="flex items-center gap-2 rounded-lg border-2 border-accent/50 bg-accent/10 px-4 py-2 font-display text-body font-bold text-accent transition-colors hover:bg-accent hover:text-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+              >
+                <i class="fas fa-book"></i>
+                {{ is2024 ? "D&D 2024 Rules (5.5e)" : "D&D 2014 Rules (5e)" }}
+                <span class="text-micro opacity-80">(Click to change)</span>
+              </button>
             </div>
 
             @if (activeTab === "ai") {

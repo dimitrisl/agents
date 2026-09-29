@@ -1,6 +1,9 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'✏️ Edit Character Sheet: ' + (editChar?.char_name || '')" maxWidth="960px">
   <ng-container *ngIf="editChar">
-    <p class="mb-4 text-body-sm text-muted">Modify core stats, vitals, background traits, and backstory.</p>
+    <p class="mb-2 text-body-sm text-muted">Modify core stats, vitals, background traits, and backstory.</p>
+    <div class="mb-4 rounded-lg bg-blue-900/30 border border-blue-500/50 p-3 text-body-sm text-blue-200">
+      <i class="fas fa-info-circle mr-2"></i><strong>Note:</strong> To edit Skills, Spells, Attacks, and Features, close this modal and use the <strong>⚡ Quick Edit</strong> button on the main dashboard to toggle inline editing mode!
+    </div>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
       <div>
