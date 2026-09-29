@@ -277,6 +277,9 @@ async def get_spells(
     search: Optional[str] = Query(None, description="Search term for spell name"),
     level: Optional[int] = Query(None, description="Filter by spell level"),
     char_class: Optional[str] = Query(None, description="Filter by class name"),
+    char_level: Optional[int] = Query(
+        None, description="Filter max spell level based on character level"
+    ),
     edition: str = Depends(parse_edition),
     current_user: dict = Depends(get_current_user),
 ):
@@ -285,6 +288,26 @@ async def get_spells(
         spells = repo.search_spells(search, edition)
     else:
         spells = repo.get_all_spells(edition)
+
+    if char_class and char_level is not None:
+        from backend.services.stats_service import calculate_max_spell_slots
+
+        max_slots = calculate_max_spell_slots(char_class, char_level, None)
+        max_spell_level = 0
+        for i in range(1, 10):
+            if max_slots.get(f"level_{i}", 0) > 0:
+                max_spell_level = i
+        # Handle warlock edge case
+        if char_class.lower() == "warlock" and char_level >= 11:
+            max_spell_level = max(max_spell_level, 6)
+        if char_class.lower() == "warlock" and char_level >= 13:
+            max_spell_level = max(max_spell_level, 7)
+        if char_class.lower() == "warlock" and char_level >= 15:
+            max_spell_level = max(max_spell_level, 8)
+        if char_class.lower() == "warlock" and char_level >= 17:
+            max_spell_level = max(max_spell_level, 9)
+
+        spells = [s for s in spells if s.get("level", 0) <= max_spell_level]
 
     if level is not None:
         spells = [s for s in spells if s.get("level") == level]
