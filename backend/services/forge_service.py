@@ -76,7 +76,9 @@ def forge_character(
     )
 
     if stats_mode == "standard":
-        stats_instruction = "Assign the values from the Standard Array (15, 14, 13, 12, 10, 8) to the character's base ability scores. You MUST put the highest numbers in the class's primary attributes."
+        stats_instruction = f"Assign the values from the Standard Array (15, 14, 13, 12, 10, 8) to the character's base ability scores. You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class (e.g., highest to STR for Barbarian). DO NOT just assign them in descending order to STR, DEX, CON, INT, WIS, CHA."
+    elif stats_mode == "point_buy":
+        stats_instruction = f"Assign base ability scores using the standard Point Buy system (27 points total, stats between 8 and 15 before racial bonuses). You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class."
     else:
 
         def roll_stat():
@@ -85,7 +87,7 @@ def forge_character(
             return sum(rolls)
 
         rolled_stats = sorted([roll_stat() for _ in range(6)], reverse=True)
-        stats_instruction = f"Assign exactly these rolled scores: {rolled_stats} to the character's base ability scores. You MUST put the highest numbers in the class's primary attributes."
+        stats_instruction = f"Assign exactly these rolled scores: {rolled_stats} to the character's base ability scores. You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class. DO NOT just assign them in descending order to STR, DEX, CON, INT, WIS, CHA."
 
     pref_instructions = []
     if custom_preferences and custom_preferences.strip():
@@ -144,13 +146,9 @@ def forge_character(
     result.pop("initiative_bonus", None)
 
     # Fix Custom Background (Bug 3 & 4)
+    # Custom Background is now entirely handled by the AI prompt.
     if "custom" in str(result.get("background", "")).lower():
-        if len(result.get("skill_proficiencies", [])) < 2:
-            result.setdefault("skill_proficiencies", []).extend(["Perception", "Athletics"])
-        if len(result.get("tool_proficiencies", [])) < 1:
-            result.setdefault("tool_proficiencies", []).append("Thieves' Tools")
-        if len(result.get("languages", [])) < 1:
-            result.setdefault("languages", []).append("Elvish")
+        pass
 
     result["dnd_edition"] = edition
     if not result.get("char_id"):
@@ -296,13 +294,9 @@ def forge_character_manual(
     result.pop("initiative_bonus", None)
 
     # Fix Custom Background (Bug 3 & 4)
+    # Custom Background is now entirely handled by the AI prompt.
     if "custom" in str(result.get("background", "")).lower():
-        if len(result.get("skill_proficiencies", [])) < 2:
-            result.setdefault("skill_proficiencies", []).extend(["Perception", "Athletics"])
-        if len(result.get("tool_proficiencies", [])) < 1:
-            result.setdefault("tool_proficiencies", []).append("Thieves' Tools")
-        if len(result.get("languages", [])) < 1:
-            result.setdefault("languages", []).append("Elvish")
+        pass
 
     # Add missing static class features (Bug 7)
     from backend.repositories.rules_repository import RulesRepository
@@ -456,9 +450,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         if subclasses:
             subclass_level = 3
             if edition == EDITION_2014:
-                if char_class in ["Cleric", "Sorcerer", "Warlock"]:
+                if char_class.title() in ["Cleric", "Sorcerer", "Warlock"]:
                     subclass_level = 1
-                elif char_class in ["Wizard", "Druid"]:
+                elif char_class.title() in ["Wizard", "Druid"]:
                     subclass_level = 2
 
             if target_level >= subclass_level:
