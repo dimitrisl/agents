@@ -66,7 +66,7 @@ import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
 import { CharacterTabsComponent } from './character-tabs/character-tabs.component';
 import { RollModeSelectorComponent } from './roll-mode-selector/roll-mode-selector.component';
-import { SkillsPanelComponent } from './skills-panel/skills-panel.component';
+import { SkillsPanelComponent } from './tabs/skills-panel/skills-panel.component';
 import { ActionDockComponent } from './action-dock/action-dock.component';
 import { CombatPanelComponent } from './tabs/combat-panel/combat-panel.component';
 import { SpellsPanelComponent } from './tabs/spells-panel/spells-panel.component';
@@ -542,6 +542,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   isProficient = (skillName: string): boolean => {
     return isProficientIn(this.charState.activeCharacter(), skillName);
+  }
+
+  toggleSkillProficiency(skillName: string) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (!char.skill_proficiencies) char.skill_proficiencies = [];
+    const index = char.skill_proficiencies.indexOf(skillName);
+    if (index > -1) {
+      char.skill_proficiencies.splice(index, 1);
+    } else {
+      char.skill_proficiencies.push(skillName);
+    }
+    this.saveCurrentChar();
   }
 
   getSkillModifier(skill: SkillDefinition): number {

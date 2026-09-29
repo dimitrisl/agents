@@ -53,7 +53,11 @@ describe('authGuard', () => {
   it('should logout and redirect if token validation fails', (done) => {
     authServiceSpy.isAuthenticated.mockReturnValue(false);
     authServiceSpy.hasToken.mockReturnValue(true);
-    authServiceSpy.fetchCurrentUser.mockReturnValue(throwError(() => new Error('Invalid token')));
+    authServiceSpy.fetchCurrentUser.mockReturnValue(throwError(() => {
+      const err = new Error('Invalid token') as any;
+      err.status = 401;
+      return err;
+    }));
 
     const result$ = runGuard() as any;
     result$.subscribe((res: any) => {

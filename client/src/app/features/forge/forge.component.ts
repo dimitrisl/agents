@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subject, of } from 'rxjs';
+import { switchMap, tap, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CharacterStateService } from '../../core/services/character-state.service';
@@ -33,8 +35,7 @@ import { HeroPreviewComponent } from './hero-preview/hero-preview.component';
   templateUrl: './forge.component.html',
 })
 export class ForgeComponent implements OnInit {
-  readonly subclassMinLevel = 3;
-  readonly subclassLockHint = 'Subclasses unlock at level 3';
+  readonly subclassLockHint = 'Subclasses unlock at higher levels depending on class and edition';
   Math = Math;
   activeTab: 'ai' | 'manual' = 'ai';
   loading = false;
@@ -142,6 +143,12 @@ export class ForgeComponent implements OnInit {
     this.updateManualSubclasses();
   }
 
+  toggleEditionAndRefresh() {
+    this.charState.toggleEdition();
+    this.updateSubclasses();
+    this.updateManualSubclasses();
+  }
+
   get is2024(): boolean {
     return this.charState.dndEdition().includes('2024');
   }
@@ -178,12 +185,20 @@ export class ForgeComponent implements OnInit {
     return this.activeTab === 'ai' ? this.aiLevel : this.manualLevel;
   }
 
+  getSubclassMinLevel(charClass: string): number {
+    if (this.is2024) return 3;
+    const c = charClass.toLowerCase();
+    if (['cleric', 'sorcerer', 'warlock'].includes(c)) return 1;
+    if (['druid', 'wizard'].includes(c)) return 2;
+    return 3;
+  }
+
   get aiSubclassLocked(): boolean {
-    return Number(this.aiLevel || 1) < this.subclassMinLevel;
+    return Number(this.aiLevel || 1) < this.getSubclassMinLevel(this.aiClass);
   }
 
   get manualSubclassLocked(): boolean {
-    return Number(this.manualLevel || 1) < this.subclassMinLevel;
+    return Number(this.manualLevel || 1) < this.getSubclassMinLevel(this.manualClass);
   }
 
   get blueprintStatsMode(): string {
@@ -257,7 +272,7 @@ export class ForgeComponent implements OnInit {
   }
 
   getFinalStat(key: string): number {
-    let base = this.manualStats[key] || 10;
+    let base = Number(this.manualStats[key]) || 10;
     if (this.adjPlus2 === key) base += 2;
     if (this.adjPlus1 === key) base += 1;
     if (this.adjPlus1Alt === key) base += 1;
@@ -265,6 +280,7 @@ export class ForgeComponent implements OnInit {
   }
 
   generateAiCharacter() {
+    if (this.loading) return;
     this.loading = true;
     this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/generate`, {
       concept: this.aiConcept,
@@ -301,6 +317,7 @@ export class ForgeComponent implements OnInit {
   }
 
   createManualCharacter() {
+    if (this.loading) return;
     this.loading = true;
     const finalStats: Record<string, number> = {};
     this.statKeys.forEach((k) => (finalStats[k] = this.getFinalStat(k)));

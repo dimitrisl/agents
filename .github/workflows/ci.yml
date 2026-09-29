@@ -45,7 +45,6 @@ jobs:
     - name: Run Pytest
       run: |
         mkdir -p data/portraits
-        poetry run pip install pytest pytest-mock mongomock pytest-cov
         poetry run pytest tests/ -v
       env:
         GEMINI_API_KEY: "dummy_key_for_tests"

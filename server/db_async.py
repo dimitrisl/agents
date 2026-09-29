@@ -1,28 +1,23 @@
 import logging
 
+import pymongo
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from server.config import settings
 
 logger = logging.getLogger("PhyrexianForge.AsyncDB")
 
-
-class Database:
-    client: AsyncIOMotorClient = None
-
-
-db = Database()
+client: AsyncIOMotorClient = None
 
 
 async def connect_to_mongo():
+    global client
     logger.info("Connecting to MongoDB Atlas async via Motor...")
-    db.client = AsyncIOMotorClient(settings.MONGO_URI)
+    client = AsyncIOMotorClient(settings.MONGO_URI)
 
     # Initialize indexes for campaign collections
-    database = db.client[settings.DATABASE_NAME]
+    database = client[settings.DATABASE_NAME]
     try:
-        import pymongo
-
         await database["campaign_whispers"].create_index([("campaign_name", pymongo.ASCENDING)])
         await database["campaign_roll_requests"].create_index(
             [("campaign_name", pymongo.ASCENDING)]
@@ -35,13 +30,15 @@ async def connect_to_mongo():
 
 
 async def close_mongo_connection():
+    global client
     logger.info("Closing async MongoDB connection...")
-    if db.client:
-        db.client.close()
+    if client:
+        client.close()
         logger.info("Async MongoDB connection closed.")
 
 
 async def get_database():
-    if db.client is None:
-        db.client = AsyncIOMotorClient(settings.MONGO_URI)
-    return db.client[settings.DATABASE_NAME]
+    global client
+    if client is None:
+        client = AsyncIOMotorClient(settings.MONGO_URI)
+    return client[settings.DATABASE_NAME]

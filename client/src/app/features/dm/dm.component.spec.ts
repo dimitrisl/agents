@@ -350,6 +350,7 @@ describe('DmComponent — initiative rounds', () => {
       // The inbox fetch is not what these tests are about, but it has to be
       // answered for `verify()` to mean "no stray writes".
       http.match((req) => req.url.includes('/messages')).forEach((req) => req.flush({ campaign_name: 'Curse of Strahd', whispers: [], roll_requests: [] }));
+      http.match((req) => req.url.includes('/encounter') && req.method === 'GET').forEach((req) => req.flush(null));
       http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([
         {
           char_id: 'lyra1',
@@ -644,6 +645,7 @@ afterEach(() => {
 
   it('forges a new campaign under the ruleset the DM is playing', () => {
     TestBed.inject(CharacterStateService).dndEdition.set('2024 Revision (5.5e)');
+    component.openNewCampaignModal();
     component.newCampaignTitle = 'Phyrexia Awakens';
 
     component.createNewCampaign();

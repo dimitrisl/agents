@@ -11,6 +11,7 @@ from backend.core.schemas import (
     PlaystyleGuideResponse,
     PortraitResponse,
 )
+from backend.repositories.rules_repository import RulesRepository
 from backend.services.forge_service import (
     analyze_level_up,
     forge_character,
@@ -280,14 +281,14 @@ async def apply_level_up(
                     pass
 
             if choice_type == "spell" or "spell" in choice_label.lower():
-                from backend.repositories.rules_repository import RulesRepository
+                clean_val = choice_val
 
                 rules_repo = RulesRepository()
                 edition = char_doc.get("dnd_edition", "2014 Edition")
                 all_spells = rules_repo.get_all_spells(edition)
 
                 spell_level = next(
-                    (s.get("level") for s in all_spells if s.get("name") == choice_val), None
+                    (s.get("level") for s in all_spells if s.get("name") == clean_val), None
                 )
                 spells_dict = char_doc.setdefault("spells", {})
 
@@ -297,8 +298,8 @@ async def apply_level_up(
                 else:
                     target_list = spells_dict.setdefault(f"level_{spell_level}", [])
 
-                if choice_val not in target_list:
-                    target_list.append(choice_val)
+                if clean_val not in target_list:
+                    target_list.append(clean_val)
             elif choice_type == "feat" or "feat" in choice_label.lower():
                 if choice_val == "+2 to one Stat":
                     # Reconstruct the stat keys (e.g. feat_stat1_0)
@@ -324,8 +325,6 @@ async def apply_level_up(
                     if stat2 and stat2 in char_doc.get("stats", {}):
                         char_doc["stats"][stat2] += 1
                 else:
-                    from backend.repositories.rules_repository import RulesRepository
-
                     rules_repo = RulesRepository()
                     edition = char_doc.get("dnd_edition", "2014 Edition")
                     feat_data = next(

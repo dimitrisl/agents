@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import uuid
 from functools import partial
 from typing import List, Optional
 
@@ -85,6 +86,9 @@ async def create_character(
 ):
     char_dict = char_in.model_dump()
     char_dict["owner_id"] = current_user["id"]
+
+    if not char_dict.get("char_id"):
+        char_dict["char_id"] = str(uuid.uuid4())
 
     homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
 
@@ -317,8 +321,6 @@ async def import_pdf(
     parsed_char["owner_id"] = current_user["id"]
 
     # Assign a new unique char_id for imported characters if they don't have one
-    import uuid
-
     char_id = parsed_char.get("char_id")
     if char_id:
         existing_char = await db["characters"].find_one({"char_id": char_id})

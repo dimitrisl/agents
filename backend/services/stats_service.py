@@ -972,7 +972,9 @@ def sync_character_stats(
             if feat_data.get("initiative_proficiency", False):
                 init_bonus += prof_bonus
 
-    char_data["initiative_modifier"] = get_modifier(dex_score) + init_bonus
+    char_data["initiative_modifier"] = (
+        get_modifier(dex_score) + init_bonus + char_data.get("initiative_bonus", 0)
+    )
 
     weapons = char_data.get("weapons", [])
     updated_weapons = []
@@ -1288,20 +1290,29 @@ def sync_character_stats(
                 "name": "Origin Feat: Tavern Brawler",
                 "description": "2024 Origin Feat: Re-roll 1s on unarmed strikes and shove as bonus action.",
             },
+            "custom": {
+                "name": "Origin Feat: Skilled",
+                "description": "2024 Origin Feat: Gain proficiency in 3 skills of your choice.",
+            },
         }
 
         has_origin_feat = any(
             "origin feat" in f.get("name", "").lower()
             or "alert" in f.get("name", "").lower()
             or "savage attacker" in f.get("name", "").lower()
+            or "skilled" in f.get("name", "").lower()
+            or "tough" in f.get("name", "").lower()
+            or "magic initiate" in f.get("name", "").lower()
+            or "tavern brawler" in f.get("name", "").lower()
+            or "musician" in f.get("name", "").lower()
             for f in char_data.get("features_traits", [])
         )
         if not has_origin_feat:
-            origin_info = origin_feat_map.get(bg, origin_feat_map["guard"])
+            origin_info = origin_feat_map.get(bg, origin_feat_map["custom"])
             char_data.setdefault("features_traits", []).append(origin_info)
 
             if "alert" in origin_info["name"].lower():
-                char_data["initiative_modifier"] = get_modifier(dex_score) + prof_bonus
+                char_data["initiative_modifier"] += prof_bonus
 
         # C. 2024 Fighter Class Features (Tactical Mind & Tactical Shift)
         if (char_class or "").lower() == "fighter":

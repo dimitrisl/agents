@@ -18,9 +18,11 @@ export class SpellsPanelComponent {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() getSpellSlotUsed!: (lvl: number) => number;
   @Input() getSpellSlotMax!: (lvl: number) => number;
+  @Input() editMode = false;
 
   @Output() useSpellSlot = new EventEmitter<number>();
   @Output() restoreSpellSlot = new EventEmitter<number>();
+  @Output() save = new EventEmitter<void>();
 
   readonly spellLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   selectedSpell = signal<string | null>(null);
@@ -95,6 +97,8 @@ export class SpellsPanelComponent {
       const levelSpells = spells[key];
       if (Array.isArray(levelSpells) && levelSpells.length > 0) {
         groups.push({ label: `Level ${index + 1}`, level: index + 1, spells: levelSpells });
+      } else if (this.editMode) {
+        groups.push({ label: `Level ${index + 1}`, level: index + 1, spells: [] });
       }
     });
 
@@ -104,5 +108,53 @@ export class SpellsPanelComponent {
   isPrepared(spellName: string): boolean {
     if (!this.char.prepared_spells) return false;
     return this.char.prepared_spells.includes(spellName);
+  }
+
+  addSpell(levelLabel: string) {
+    const spellName = prompt(`Enter spell name for ${levelLabel}:`);
+    if (spellName && spellName.trim()) {
+      if (!this.char.spells) {
+        this.char.spells = { cantrips: [], level_1: [], level_2: [], level_3: [], level_4: [], level_5: [], level_6: [], level_7: [], level_8: [], level_9: [] };
+      }
+      const lvlMap: Record<string, string> = {
+        'Cantrips': 'cantrips', 'Level 1': 'level_1', 'Level 2': 'level_2', 'Level 3': 'level_3', 'Level 4': 'level_4', 'Level 5': 'level_5', 'Level 6': 'level_6', 'Level 7': 'level_7', 'Level 8': 'level_8', 'Level 9': 'level_9'
+      };
+      const key = lvlMap[levelLabel];
+      if (key) {
+        const spellsObj = this.char.spells as any;
+        if (!spellsObj[key]) spellsObj[key] = [];
+        spellsObj[key].push(spellName.trim());
+        this.save.emit();
+      }
+    }
+  }
+
+  deleteSpell(levelLabel: string, index: number, event: Event) {
+    event.stopPropagation();
+    const lvlMap: Record<string, string> = {
+        'Cantrips': 'cantrips', 'Level 1': 'level_1', 'Level 2': 'level_2', 'Level 3': 'level_3', 'Level 4': 'level_4', 'Level 5': 'level_5', 'Level 6': 'level_6', 'Level 7': 'level_7', 'Level 8': 'level_8', 'Level 9': 'level_9'
+    };
+    const key = lvlMap[levelLabel];
+    if (key) {
+      (this.char.spells as any)[key].splice(index, 1);
+      this.save.emit();
+    }
+  }
+
+  addFeature() {
+    const featName = prompt('Enter Feature name:');
+    if (featName && featName.trim()) {
+      if (!this.char.features_traits) this.char.features_traits = [];
+      this.char.features_traits.push({ name: featName.trim(), description: 'Manually added trait', source: 'Custom' });
+      this.save.emit();
+    }
+  }
+
+  deleteFeature(index: number, event: Event) {
+    event.stopPropagation();
+    if (this.char.features_traits) {
+      this.char.features_traits.splice(index, 1);
+      this.save.emit();
+    }
   }
 }

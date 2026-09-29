@@ -34,9 +34,20 @@
             >
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="text-micro" [class.text-gold]="isProficient(skill.name)">
+                  <button
+                    type="button"
+                    class="text-micro transition-transform"
+                    [ngClass]="{
+                      'text-gold': isProficient(skill.name),
+                      'cursor-pointer hover:scale-125': editMode,
+                      'cursor-default': !editMode
+                    }"
+                    (click)="editMode ? toggleProficiency.emit(skill.name) : null"
+                    [attr.aria-label]="editMode ? 'Toggle proficiency for ' + skill.name : null"
+                    [title]="editMode ? 'Click to toggle proficiency' : ''"
+                  >
                     {{ isProficient(skill.name) ? '⭐' : '⚪' }}
-                  </span>
+                  </button>
                   <strong class="truncate text-body text-ink">{{ skill.name }}</strong>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import functools
 import logging
+import random
 import uuid
 
 from backend.core.ai_client import generate_ai_json, generate_ai_response
@@ -75,9 +76,16 @@ def forge_character(
     )
 
     if stats_mode == "standard":
-        stats_instruction = "You MUST use the Standard Array (15, 14, 13, 12, 10, 8) for their base ability scores, distributed optimally for their class/race."
+        stats_instruction = "Assign the values from the Standard Array (15, 14, 13, 12, 10, 8) to the character's base ability scores. You MUST put the highest numbers in the class's primary attributes."
     else:
-        stats_instruction = "You must assign them a balanced, high-quality array of 6 ability scores (equivalent to rolling 4d6 drop lowest)."
+
+        def roll_stat():
+            rolls = [random.randint(1, 6) for _ in range(4)]
+            rolls.remove(min(rolls))
+            return sum(rolls)
+
+        rolled_stats = sorted([roll_stat() for _ in range(6)], reverse=True)
+        stats_instruction = f"Assign exactly these rolled scores: {rolled_stats} to the character's base ability scores. You MUST put the highest numbers in the class's primary attributes."
 
     pref_instructions = []
     if custom_preferences and custom_preferences.strip():
@@ -132,6 +140,18 @@ def forge_character(
             }
         )
 
+    # Sanitize Hallucinations (Bug 5)
+    result.pop("initiative_bonus", None)
+
+    # Fix Custom Background (Bug 3 & 4)
+    if "custom" in str(result.get("background", "")).lower():
+        if len(result.get("skill_proficiencies", [])) < 2:
+            result.setdefault("skill_proficiencies", []).extend(["Perception", "Athletics"])
+        if len(result.get("tool_proficiencies", [])) < 1:
+            result.setdefault("tool_proficiencies", []).append("Thieves' Tools")
+        if len(result.get("languages", [])) < 1:
+            result.setdefault("languages", []).append("Elvish")
+
     result["dnd_edition"] = edition
     if not result.get("char_id"):
         result["char_id"] = str(uuid.uuid4())[:8]
@@ -139,6 +159,17 @@ def forge_character(
     if not auto_spells:
         result["spells"] = {}
         result["prepared_spells"] = []
+    else:
+        # Flatten spells into prepared_spells for the UI
+        spells_dict = result.get("spells", {})
+        prepared = result.get("prepared_spells", [])
+        if isinstance(spells_dict, dict):
+            for lvl, spell_list in spells_dict.items():
+                if isinstance(spell_list, list):
+                    for spell_name in spell_list:
+                        if spell_name not in prepared:
+                            prepared.append(spell_name)
+        result["prepared_spells"] = prepared
     if not auto_feats:
         result["advancements"] = []
         if "features_traits" in result and isinstance(result["features_traits"], list):
@@ -261,9 +292,45 @@ def forge_character_manual(
 
     result["char_id"] = str(uuid.uuid4())[:8]
 
+    # Sanitize Hallucinations (Bug 5)
+    result.pop("initiative_bonus", None)
+
+    # Fix Custom Background (Bug 3 & 4)
+    if "custom" in str(result.get("background", "")).lower():
+        if len(result.get("skill_proficiencies", [])) < 2:
+            result.setdefault("skill_proficiencies", []).extend(["Perception", "Athletics"])
+        if len(result.get("tool_proficiencies", [])) < 1:
+            result.setdefault("tool_proficiencies", []).append("Thieves' Tools")
+        if len(result.get("languages", [])) < 1:
+            result.setdefault("languages", []).append("Elvish")
+
+    # Add missing static class features (Bug 7)
+    from backend.repositories.rules_repository import RulesRepository
+
+    repo = RulesRepository()
+    all_static_features = []
+    for lvl in range(1, target_level + 1):
+        all_static_features.extend(repo.get_features_at_level(char_class, lvl, edition))
+
+    existing_feat_names = {f.get("name", "").lower() for f in result.get("features_traits", [])}
+    for feat in all_static_features:
+        if feat.get("name", "").lower() not in existing_feat_names:
+            result.setdefault("features_traits", []).append(feat)
+
     if not auto_spells:
         result["spells"] = {}
         result["prepared_spells"] = []
+    else:
+        # Flatten spells into prepared_spells for the UI
+        spells_dict = result.get("spells", {})
+        prepared = result.get("prepared_spells", [])
+        if isinstance(spells_dict, dict):
+            for lvl, spell_list in spells_dict.items():
+                if isinstance(spell_list, list):
+                    for spell_name in spell_list:
+                        if spell_name not in prepared:
+                            prepared.append(spell_name)
+        result["prepared_spells"] = prepared
     if not auto_feats:
         result["advancements"] = []
         if "features_traits" in result and isinstance(result["features_traits"], list):
@@ -405,7 +472,11 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 )
 
     # 2. ASI/Feat
-    if target_level in [4, 8, 12, 16, 19]:
+    is_asi_level = any(
+        "ability score improvement" in f.get("name", "").lower() for f in static_features
+    )
+
+    if is_asi_level:
         char_race = char_data.get("race", "").lower()
         allowed_feats = []
         for f in rules_repo.get_all_feats(edition):
@@ -435,7 +506,33 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "Artificer",
     ]
     if char_class in spellcasters:
-        spells = sorted([s["name"] for s in rules_repo.get_all_spells(edition)])
+        from backend.services.stats_service import calculate_max_spell_slots
+
+        max_slots = calculate_max_spell_slots(char_class, target_level, current_subclass)
+        max_spell_level = 0
+        for i in range(1, 10):
+            if max_slots.get(f"level_{i}", 0) > 0:
+                max_spell_level = i
+
+        # Handle Warlock Mystic Arcanum or similar edge cases
+        if char_class == "Warlock" and target_level >= 11:
+            max_spell_level = max(max_spell_level, 6)
+        if char_class == "Warlock" and target_level >= 13:
+            max_spell_level = max(max_spell_level, 7)
+        if char_class == "Warlock" and target_level >= 15:
+            max_spell_level = max(max_spell_level, 8)
+        if char_class == "Warlock" and target_level >= 17:
+            max_spell_level = max(max_spell_level, 9)
+
+        all_spells = rules_repo.get_all_spells(edition)
+        spells = []
+        for s in all_spells:
+            if s.get("level", 0) <= max_spell_level and (
+                not s.get("classes") or char_class in s.get("classes", [])
+            ):
+                spells.append(s["name"])
+
+        spells = sorted(spells)
 
         # Bard Magical Secrets overrides
         if char_class == "Bard" and target_level in [10, 14, 18]:
@@ -622,6 +719,6 @@ def process_character_update(
 
     # 3. Synchronize derived stats
     class_data = _get_rules_repo().get_class_progression(
-        updated_char.get("char_class"), updated_char.get("dnd_edition")
+        updated_char.get("char_class"), updated_char.get("dnd_edition", "2014 Edition")
     )
     return sync_character_stats(updated_char, class_data, weapon_deltas, homebrew_content)
