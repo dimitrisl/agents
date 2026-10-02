@@ -82,6 +82,7 @@ import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strat
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
 import { ConditionsModalComponent } from './modals/conditions-modal/conditions-modal.component';
 import { PlayerHomebrewModalComponent } from './modals/player-homebrew-modal/player-homebrew-modal.component';
+import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -129,6 +130,7 @@ interface RollTarget {
     EditSheetModalComponent,
     ConditionsModalComponent,
     PlayerHomebrewModalComponent,
+    VttGridComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -1139,8 +1141,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }).subscribe({
       next: (res) => {
         this.showJoinModal = false;
-        char.active_campaign = res.campaign_name;
-        this.saveCurrentChar();
+        // The backend already updated the character's active_campaign.
+        // We just need to reload from the server to get the fresh state (and correct version number).
+        this.charState.loadCharacters().subscribe();
         this.loadedCampaignMessageKey = null;
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },

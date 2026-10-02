@@ -5,6 +5,7 @@ export interface SessionLog {
   campaign_name: string;
   session_number: number;
   title: string;
+  session_type?: string;
   summary: string;
   real_world_date?: string;
   extracted_entities?: CampaignEntity[];

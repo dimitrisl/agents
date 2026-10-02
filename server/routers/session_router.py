@@ -15,6 +15,11 @@ class PrepRequest(BaseModel):
     dm_ideas: str = ""
 
 
+class TextSessionRequest(BaseModel):
+    session_number: int
+    notes: str
+
+
 router = APIRouter(tags=["sessions"])
 session_service = SessionService()
 
@@ -75,6 +80,57 @@ async def process_audio_session(
             real_world_date=datetime.now(timezone.utc),
             extracted_entities=extracted_entities,
             audio_file_id=ai_result.get("audio_file_id"),
+            created_at=datetime.now(timezone.utc),
+        )
+
+        result = await db.session_logs.insert_one(session_log.model_dump(exclude={"id"}))
+        session_log.id = str(result.inserted_id)
+
+        return session_log
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/campaigns/{name}/sessions/text", response_model=SessionLogSchema)
+async def process_text_session(
+    name: str,
+    request: TextSessionRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Process raw text session notes, generate a structured log and extract entities via AI."""
+    try:
+        # Process text and extract data
+        ai_result = await session_service.process_text_session(
+            campaign_name=name, session_number=request.session_number, notes=request.notes
+        )
+
+        extracted_entities = []
+        # Save extracted entities to db
+        for ent_data in ai_result.get("extracted_entities", []):
+            ent_schema = CampaignEntitySchema(
+                campaign_name=name,
+                name=ent_data.get("name", "Unknown Entity"),
+                type=ent_data.get("type", "lore"),
+                content=ent_data.get("content", ""),
+                tags=ent_data.get("tags", []),
+                current_location_id=ent_data.get("current_location_id"),
+                created_at=datetime.now(timezone.utc),
+            )
+            result = await db.campaign_entities.insert_one(ent_schema.model_dump(exclude={"id"}))
+            ent_schema.id = str(result.inserted_id)
+            extracted_entities.append(ent_schema)
+
+        # Create session log
+        session_log = SessionLogSchema(
+            campaign_name=name,
+            session_number=request.session_number,
+            title=ai_result.get("title", f"Session {request.session_number}"),
+            session_type="text",
+            summary=ai_result.get("summary", ""),
+            real_world_date=datetime.now(timezone.utc),
+            extracted_entities=extracted_entities,
             created_at=datetime.now(timezone.utc),
         )
 

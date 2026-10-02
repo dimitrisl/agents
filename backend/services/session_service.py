@@ -73,6 +73,44 @@ class SessionService:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
 
+    async def process_text_session(
+        self, campaign_name: str, session_number: int, notes: str
+    ) -> Dict[str, Any]:
+        """
+        Receives DM session notes, uploads to Gemini,
+        and generates a transcribed Session Log + extracted entities.
+        """
+        if not self.ai_provider.client:
+            raise ValueError("Gemini API Key is missing.")
+
+        prompt = (
+            f"You are an AI assistant for a Dungeon Master. Read the following DM notes of a D&D session "
+            f"(Session #{session_number} of '{campaign_name}').\n"
+            "1. Transform the raw notes into a detailed 'Session Log' markdown format (include a title and a narrative summary).\n"
+            "2. Extract any newly introduced NPCs, Villains, Factions, Locations, or notable Lore as 'entities'.\n"
+            "3. If an NPC's location is mentioned, include it in 'current_location_id' (just the string name of the location).\n"
+            "Return a JSON object matching this schema:\n"
+            "{\n"
+            "  'title': 'string',\n"
+            "  'summary': 'markdown string',\n"
+            "  'extracted_entities': [\n"
+            "    { 'name': 'string', 'type': 'npc|villain|faction|location|lore', 'content': 'description', 'tags': [], 'current_location_id': 'string|null' }\n"
+            "  ]\n"
+            "}\n\n"
+            f"DM NOTES:\n{notes}"
+        )
+
+        result = self.ai_provider.generate_json(prompt=prompt)
+
+        if not result:
+            raise ValueError("AI failed to process the session notes.")
+
+        return {
+            "title": result.get("title", f"Session {session_number} Recap"),
+            "summary": result.get("summary", "No summary generated."),
+            "extracted_entities": result.get("extracted_entities", []),
+        }
+
     def generate_session_forge_prep(
         self, past_sessions: List[dict], active_entities: List[dict], dm_ideas: str = ""
     ) -> dict:
@@ -145,3 +183,43 @@ class SessionService:
             raise ValueError("AI failed to generate journey graph.")
 
         return result
+
+    def generate_campaign_outlines(self, skeleton_data: dict) -> List[dict]:
+        """
+        Generates session-by-session outlines based on a campaign skeleton.
+        """
+        if not self.ai_provider.client:
+            raise ValueError("Gemini API Key is missing.")
+
+        prompt = (
+            "You are an expert Dungeon Master and storyteller.\n"
+            "Given the following campaign skeleton, generate a session-by-session outline that paces the story perfectly "
+            f"across EXACTLY {skeleton_data.get('max_sessions')} sessions. Ensure there are no plot holes, the tone is consistent, "
+            "and all key milestones and plot twists are logically distributed.\n\n"
+            "CAMPAIGN CONCEPT:\n"
+            f"{skeleton_data.get('concept')}\n\n"
+            "TONE:\n"
+            f"{skeleton_data.get('tone')}\n\n"
+            "PLOT TWISTS:\n"
+            f"{', '.join(skeleton_data.get('plot_twists', []))}\n\n"
+            "KEY MILESTONES:\n"
+            f"{', '.join(skeleton_data.get('key_milestones', []))}\n\n"
+            "Return a JSON object with this schema:\n"
+            "{\n"
+            "  'outlines': [\n"
+            "    {\n"
+            "      'session_number': 1,\n"
+            "      'main_event': 'string describing the core event',\n"
+            "      'required_npcs': ['npc name'],\n"
+            "      'location': 'location name',\n"
+            "      'plot_hooks': ['hook 1', 'hook 2']\n"
+            "    }\n"
+            "  ]\n"
+            "}"
+        )
+
+        result = self.ai_provider.generate_json(prompt=prompt, temperature=0.7)
+        if not result or "outlines" not in result:
+            raise ValueError("AI failed to generate campaign outlines.")
+
+        return result.get("outlines", [])

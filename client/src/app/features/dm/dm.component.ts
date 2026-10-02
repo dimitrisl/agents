@@ -55,6 +55,8 @@ import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campa
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
 
+import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
+
 type LoadStatus = 'loading' | 'ready' | 'error';
 
 /** What the DM may write back to a hero's sheet from the workspace. */
@@ -98,6 +100,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     NewCampaignModalComponent,
     AddMemberModalComponent,
     DmInboxComponent,
+    VttGridComponent,
   ],
   templateUrl: './dm.component.html',
   styleUrl: './dm.component.css',
@@ -251,6 +254,10 @@ export class DmComponent implements OnInit, OnDestroy {
     private encounterStorage: EncounterStorageService,
     private homebrewService: HomebrewService
   ) {}
+
+  openVTT() {
+    this.wsService.sendVttToggle(true);
+  }
 
   // The campaign whose party/socket is currently live, so re-picking the same
   // one from the dropdown does not refetch it.
@@ -777,18 +784,47 @@ export class DmComponent implements OnInit, OnDestroy {
     // sends the DM off to paste a code that was never copied, so the toast and
     // the modal closing both wait for the write to actually land.
     const code = this.inviteCode;
-    if (!navigator.clipboard) {
-      this.showClipboardFailure(code);
-      return;
-    }
 
-    navigator.clipboard.writeText(code).then(
-      () => {
+    // Modern Clipboard API (Requires secure context / HTTPS / Localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(code).then(
+        () => {
+          this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
+          this.showAddMemberModal = false;
+        },
+        () => this.fallbackCopyTextToClipboard(code)
+      );
+    } else {
+      this.fallbackCopyTextToClipboard(code);
+    }
+  }
+
+  private fallbackCopyTextToClipboard(code: string) {
+    const textArea = document.createElement('textarea');
+    textArea.value = code;
+
+    // Avoid scrolling to bottom
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.position = 'fixed';
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
         this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
         this.showAddMemberModal = false;
-      },
-      () => this.showClipboardFailure(code)
-    );
+      } else {
+        this.showClipboardFailure(code);
+      }
+    } catch (err) {
+      this.showClipboardFailure(code);
+    }
+
+    document.body.removeChild(textArea);
   }
 
   private showClipboardFailure(code: string) {

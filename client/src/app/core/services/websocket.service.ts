@@ -1,13 +1,15 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { VTTState, VTTToken, VTTGrid } from '../models/vtt.model';
 import { Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
 export interface WsMessage {
-  type: 'whisper' | 'roll_request' | 'roll_result' | 'party_update' | string;
+  type: 'whisper' | 'roll_request' | 'roll_result' | 'party_update' | 'vtt_sync' | string;
   sender?: string;
   recipient?: string;
   message?: string;
+  payload?: any;
   [key: string]: any;
 }
 
@@ -40,6 +42,7 @@ export class WebSocketService {
   private lastMessageAt = 0;
 
   public messages$ = new Subject<WsMessage>();
+  public vttState = signal<VTTState | null>(null);
 
   /**
    * Fires every time the channel comes up — first connect and every reconnect.
@@ -104,6 +107,9 @@ export class WebSocketService {
           character: identity.character || null,
         })
       );
+      // Immediately request VTT state
+      socket.send(JSON.stringify({ type: 'vtt_request_sync' }));
+
       this.reconnectAttempts = 0;
       console.log(`[WebSocket] Connected to campaign channel: ${campaignId}`);
       this.startHeartbeat(socket);
@@ -118,6 +124,11 @@ export class WebSocketService {
       try {
         const data: WsMessage = JSON.parse(event.data);
         if (data.type === 'pong') return; // Heartbeat only, nothing to show.
+
+        if (data.type === 'vtt_sync' && data.payload) {
+          this.vttState.set(data.payload as VTTState);
+        }
+
         this.messages$.next(data);
       } catch (e) {
         console.error('[WebSocket] Failed to parse message', event.data);
@@ -235,5 +246,26 @@ export class WebSocketService {
     } else {
       console.warn('[WebSocket] Cannot send message, socket is not open');
     }
+  }
+
+  // --- VTT Helpers ---
+  public sendVttToggle(isActive: boolean): void {
+    this.sendMessage({ type: 'vtt_toggle', payload: { is_active: isActive } });
+  }
+
+  public sendVttMove(tokenId: string, x: number, y: number): void {
+    this.sendMessage({ type: 'vtt_token_move', payload: { token_id: tokenId, x, y } });
+  }
+
+  public sendVttAddToken(token: VTTToken): void {
+    this.sendMessage({ type: 'vtt_add_token', payload: { token } });
+  }
+
+  public sendVttRemoveToken(tokenId: string): void {
+    this.sendMessage({ type: 'vtt_remove_token', payload: { token_id: tokenId } });
+  }
+
+  public sendVttUpdateGrid(grid: Partial<VTTGrid>): void {
+    this.sendMessage({ type: 'vtt_update_grid', payload: { grid } });
   }
 }

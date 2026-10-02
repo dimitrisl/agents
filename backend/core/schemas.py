@@ -528,6 +528,8 @@ class CampaignEntitySchema(BaseModel):
     content: str  # Markdown description or notes
     tags: List[str] = Field(default_factory=list)
     stats: Optional[Dict[str, Any]] = None  # Flexible block for statblocks
+    current_location_id: Optional[str] = None
+    image_url: Optional[str] = None
     created_at: Optional[datetime] = None
 
 
@@ -543,6 +545,7 @@ class SessionLogSchema(BaseModel):
     campaign_name: str
     session_number: int
     title: str
+    session_type: str = "audio"  # audio or text
     summary: str  # Markdown transcription/summary
     real_world_date: Optional[datetime] = None
     extracted_entities: List[CampaignEntitySchema] = Field(default_factory=list)
@@ -567,6 +570,27 @@ class JourneyGraphResponse(BaseModel):
     nodes: List[JourneyNodeSchema] = Field(default_factory=list)
 
 
+class SessionOutlineSchema(BaseModel):
+    session_number: int
+    main_event: str
+    required_npcs: List[str] = Field(default_factory=list)
+    location: str
+    plot_hooks: List[str] = Field(default_factory=list)
+
+
+class CampaignSkeletonSchema(BaseModel):
+    id: Optional[str] = None
+    campaign_name: str
+    concept: str
+    tone: str
+    max_sessions: int
+    plot_twists: List[str] = Field(default_factory=list)
+    key_milestones: List[str] = Field(default_factory=list)
+    generated_outlines: List[SessionOutlineSchema] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
 # --- Combat Rules Refactor Schemas ---
 
 
@@ -579,6 +603,37 @@ class ScalingStep(BaseModel):
     level: int
     notation: str
     options: Optional[List[ScalingOption]] = None
+
+
+# ==========================================
+# Virtual Tabletop (VTT) Schemas
+# ==========================================
+
+
+class VTTTokenSchema(BaseModel):
+    id: str
+    name: str
+    image_url: Optional[str] = None
+    x: int = 0
+    y: int = 0
+    size: int = 1  # 1 = 5ft square (Medium), 2 = 10ft (Large), etc.
+    is_enemy: bool = False
+    hp: Optional[int] = None
+    max_hp: Optional[int] = None
+    is_hidden: bool = False
+
+
+class VTTGridSchema(BaseModel):
+    width: int = 30
+    height: int = 30
+    background_image_url: Optional[str] = None
+    cell_size: int = 50  # pixels per cell for frontend rendering
+
+
+class VTTStateSchema(BaseModel):
+    is_active: bool = False
+    grid: VTTGridSchema = Field(default_factory=VTTGridSchema)
+    tokens: List[VTTTokenSchema] = Field(default_factory=list)
 
 
 class ClassScalingAction(BaseModel):

@@ -7,12 +7,14 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
+from backend.services.vtt_service import VTTService
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user_from_token
 
 logger = logging.getLogger("PhyrexianForge.WebSocket")
 
 router = APIRouter(tags=["WebSockets"])
+vtt_service = VTTService()
 
 
 @dataclass
@@ -236,6 +238,55 @@ async def campaign_websocket_endpoint(
             # heartbeat is answered, and only to the socket that sent it.
             if isinstance(payload, dict) and payload.get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
+            elif isinstance(payload, dict) and payload.get("type") in (
+                "vtt_token_move",
+                "vtt_toggle",
+                "vtt_add_token",
+                "vtt_remove_token",
+                "vtt_update_grid",
+                "vtt_request_sync",
+            ):
+                # Handle VTT events
+                event_type = payload.get("type")
+                vtt_payload = payload.get("payload", {})
+                new_state = None
+
+                if event_type == "vtt_request_sync":
+                    new_state = await vtt_service.get_vtt_state(db, decoded_id)
+                elif event_type == "vtt_token_move":
+                    new_state = await vtt_service.move_token(
+                        db,
+                        decoded_id,
+                        vtt_payload.get("token_id"),
+                        vtt_payload.get("x", 0),
+                        vtt_payload.get("y", 0),
+                        db_role,
+                        verified_character,
+                    )
+                elif db_role == "dm":
+                    # DM only actions
+                    if event_type == "vtt_toggle":
+                        new_state = await vtt_service.toggle_vtt(
+                            db, decoded_id, vtt_payload.get("is_active", False)
+                        )
+                    elif event_type == "vtt_add_token":
+                        new_state = await vtt_service.add_token(
+                            db, decoded_id, vtt_payload.get("token", {})
+                        )
+                    elif event_type == "vtt_remove_token":
+                        new_state = await vtt_service.remove_token(
+                            db, decoded_id, vtt_payload.get("token_id")
+                        )
+                    elif event_type == "vtt_update_grid":
+                        new_state = await vtt_service.update_grid(
+                            db, decoded_id, vtt_payload.get("grid", {})
+                        )
+
+                if new_state:
+                    # Broadcast the new state to everyone
+                    await manager.broadcast(
+                        decoded_id, {"type": "vtt_sync", "payload": new_state.model_dump()}
+                    )
             else:
                 logger.debug(f"Ignoring unsolicited WebSocket frame: {payload}")
     except WebSocketDisconnect:

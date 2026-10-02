@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ForgeButtonDirective } from '../../../../shared/ui';
 import { CampaignEntity } from '../../../../core/models/campaign-entity.model';
 import { CampaignEntityService } from '../../../../core/services/campaign-entity.service';
+import { AssetService } from '../../../../core/services/asset.service';
 import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-modal.component';
 
 @Component({
@@ -20,6 +21,10 @@ export class EntitiesPanelComponent implements OnInit {
   isEditing = false;
   isPasteModalOpen = false;
 
+  // Image Upload
+  selectedImage: File | null = null;
+  isUploadingImage = false;
+
   // New entity template
   newEntity: CampaignEntity = {
     campaign_name: '',
@@ -29,7 +34,7 @@ export class EntitiesPanelComponent implements OnInit {
     tags: []
   };
 
-  constructor(private entityService: CampaignEntityService) {}
+  constructor(private entityService: CampaignEntityService, private assetService: AssetService) {}
 
   ngOnInit(): void {
     if (this.campaignName) {
@@ -44,14 +49,43 @@ export class EntitiesPanelComponent implements OnInit {
     });
   }
 
+  getLocations(): CampaignEntity[] {
+    return this.entities.filter(e => e.type === 'location');
+  }
+
   selectEntity(entity: CampaignEntity): void {
     this.selectedEntity = { ...entity };
     this.isEditing = true;
+    this.selectedImage = null;
   }
 
   createNew(): void {
     this.selectedEntity = { ...this.newEntity, campaign_name: this.campaignName };
     this.isEditing = true;
+    this.selectedImage = null;
+  }
+
+  onImageSelected(event: any): void {
+    const file: File = event.target.files[0];
+    if (file) {
+      this.selectedImage = file;
+    }
+  }
+
+  uploadImage(): void {
+    if (!this.selectedImage || !this.selectedEntity) return;
+    this.isUploadingImage = true;
+    this.assetService.uploadAsset(this.campaignName, this.selectedImage).subscribe({
+      next: (res) => {
+        this.selectedEntity!.image_url = res.url;
+        this.selectedImage = null;
+        this.isUploadingImage = false;
+      },
+      error: (err) => {
+        console.error('Failed to upload image', err);
+        this.isUploadingImage = false;
+      }
+    });
   }
 
   saveEntity(): void {

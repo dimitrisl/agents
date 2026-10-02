@@ -137,6 +137,9 @@
         </forge-card>
       </section>
     </div>
+
+    <!-- VTT Grid inline below the stats -->
+    <app-vtt-grid role="player" [characterName]="charState.activeCharacter()?.char_name"></app-vtt-grid>
   </ng-container>
 
   <ng-template #emptyState>
@@ -399,5 +402,4 @@
     [charId]="charState.activeCharacter()!.char_id!"
     (closeModal)="showHomebrewModal = false"
   ></app-player-homebrew-modal>
-
 </forge-page>

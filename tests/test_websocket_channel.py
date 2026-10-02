@@ -184,7 +184,8 @@ def test_character_matching_ignores_case_and_padding(channel):
 
 
 def test_disconnect_empties_the_room(channel):
-    with auth_websocket_connect(channel, "player", "Valeros"):
+    with auth_websocket_connect(channel, "player", "Valeros") as socket:
+        wait_for_message(socket)
         assert websocket_router.manager.active_connections[CAMPAIGN]
 
     assert CAMPAIGN not in websocket_router.manager.active_connections
