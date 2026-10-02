@@ -58,6 +58,7 @@ async def process_audio_session(
 
         extracted_entities = []
         # Save extracted entities to db
+        docs_to_insert = []
         for ent_data in ai_result.get("extracted_entities", []):
             ent_schema = CampaignEntitySchema(
                 campaign_name=name,
@@ -67,9 +68,13 @@ async def process_audio_session(
                 tags=ent_data.get("tags", []),
                 created_at=datetime.now(timezone.utc),
             )
-            result = await db.campaign_entities.insert_one(ent_schema.model_dump(exclude={"id"}))
-            ent_schema.id = str(result.inserted_id)
             extracted_entities.append(ent_schema)
+            docs_to_insert.append(ent_schema.model_dump(exclude={"id"}))
+
+        if docs_to_insert:
+            result = await db.campaign_entities.insert_many(docs_to_insert)
+            for schema, inserted_id in zip(extracted_entities, result.inserted_ids):
+                schema.id = str(inserted_id)
 
         # Create session log
         session_log = SessionLogSchema(
@@ -108,6 +113,7 @@ async def process_text_session(
 
         extracted_entities = []
         # Save extracted entities to db
+        docs_to_insert = []
         for ent_data in ai_result.get("extracted_entities", []):
             ent_schema = CampaignEntitySchema(
                 campaign_name=name,
@@ -118,9 +124,13 @@ async def process_text_session(
                 current_location_id=ent_data.get("current_location_id"),
                 created_at=datetime.now(timezone.utc),
             )
-            result = await db.campaign_entities.insert_one(ent_schema.model_dump(exclude={"id"}))
-            ent_schema.id = str(result.inserted_id)
             extracted_entities.append(ent_schema)
+            docs_to_insert.append(ent_schema.model_dump(exclude={"id"}))
+
+        if docs_to_insert:
+            result = await db.campaign_entities.insert_many(docs_to_insert)
+            for schema, inserted_id in zip(extracted_entities, result.inserted_ids):
+                schema.id = str(inserted_id)
 
         # Create session log
         session_log = SessionLogSchema(

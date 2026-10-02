@@ -45,11 +45,14 @@ class VTTService:
                 if role == "dm" or (
                     character_name and token.name.lower() == character_name.lower()
                 ):
+                    await db.campaigns.update_one(
+                        {"campaign_name": campaign_name, "vtt_state.tokens.id": token_id},
+                        {"$set": {"vtt_state.tokens.$.x": x, "vtt_state.tokens.$.y": y}},
+                    )
                     token.x = x
                     token.y = y
                 break
 
-        await self.save_vtt_state(db, campaign_name, state)
         return state
 
     async def update_grid(

@@ -35,7 +35,9 @@ async def upload_asset(
     file_path = os.path.join(ASSETS_DIR, unique_filename)
 
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        import asyncio
+
+        await asyncio.to_thread(shutil.copyfileobj, file.file, buffer)
 
     return {"url": f"/api/campaigns/{name}/assets/{unique_filename}"}
 

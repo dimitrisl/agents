@@ -10,7 +10,7 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
   standalone: true,
   imports: [CommonModule, DragDropModule],
   template: `
-    <div class="vtt-container" *ngIf="vttState?.is_active" [class.minimized]="isMinimized">
+    <div class="vtt-container" *ngIf="vttState()?.is_active" [class.minimized]="isMinimized">
       <!-- Controls -->
       <div class="vtt-controls bg-panel border border-hairline p-2 flex gap-2 justify-between items-center z-10 relative">
         <div class="flex gap-4 items-center">
@@ -35,13 +35,13 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
       </div>
 
       <!-- The Grid Canvas -->
-      <div class="vtt-canvas" *ngIf="!isMinimized" [style.backgroundImage]="vttState?.grid?.background_image_url ? 'url(' + vttState!.grid!.background_image_url + ')' : 'none'">
+      <div class="vtt-canvas" *ngIf="!isMinimized" [style.backgroundImage]="vttState()?.grid?.background_image_url ? 'url(' + vttState()!.grid!.background_image_url + ')' : 'none'">
         <div class="grid-overlay"
-             [style.backgroundSize]="(vttState?.grid?.cell_size || 50) + 'px ' + (vttState?.grid?.cell_size || 50) + 'px'">
+             [style.backgroundSize]="(vttState()?.grid?.cell_size || 50) + 'px ' + (vttState()?.grid?.cell_size || 50) + 'px'">
         </div>
 
         <!-- Tokens -->
-        <div *ngFor="let token of vttState?.tokens"
+        <div *ngFor="let token of vttState()?.tokens"
              class="vtt-token"
              [class.hidden-token]="token.is_hidden && role !== 'dm'"
              [style.opacity]="token.is_hidden ? 0.5 : 1"
@@ -188,14 +188,10 @@ export class VttGridComponent implements OnInit {
   @Input() characterName?: string;
   @Input() combatants: InitiativeCombatant[] = [];
 
-  vttState: VTTState | null = null;
+  readonly vttState = this.wsService.vttState;
   isMinimized: boolean = false;
 
-  constructor(private wsService: WebSocketService) {
-    effect(() => {
-      this.vttState = this.wsService.vttState();
-    });
-  }
+  constructor(private wsService: WebSocketService) {}
 
   ngOnInit(): void {}
 
@@ -211,8 +207,9 @@ export class VttGridComponent implements OnInit {
 
   onDragEnded(event: CdkDragEnd, token: VTTToken): void {
     const position = event.source.getFreeDragPosition();
+    const state = this.vttState();
     // Snap to grid (cell_size)
-    const cellSize = this.vttState?.grid?.cell_size || 50;
+    const cellSize = state?.grid?.cell_size || 50;
     const snappedX = Math.round(position.x / cellSize) * cellSize;
     const snappedY = Math.round(position.y / cellSize) * cellSize;
 
@@ -236,8 +233,9 @@ export class VttGridComponent implements OnInit {
     const combatant = this.combatants.find(c => c.id === combatantId);
     if (!combatant) return;
 
+    const state = this.vttState();
     // Check if token already exists to avoid duplicates
-    if (this.vttState?.tokens?.some(t => t.id === combatant.id)) {
+    if (state?.tokens?.some((t: VTTToken) => t.id === combatant.id)) {
       return;
     }
 
