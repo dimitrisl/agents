@@ -5,6 +5,7 @@ import { ForgeButtonDirective } from '../../../../shared/ui';
 import { CampaignEntity } from '../../../../core/models/campaign-entity.model';
 import { CampaignEntityService } from '../../../../core/services/campaign-entity.service';
 import { AssetService } from '../../../../core/services/asset.service';
+import { RollToastService } from '../../../../core/services/roll-toast.service';
 import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-modal.component';
 
 @Component({
@@ -34,7 +35,11 @@ export class EntitiesPanelComponent implements OnInit {
     tags: []
   };
 
-  constructor(private entityService: CampaignEntityService, private assetService: AssetService) {}
+  constructor(
+    private entityService: CampaignEntityService,
+    private assetService: AssetService,
+    private rollToast: RollToastService
+  ) {}
 
   ngOnInit(): void {
     if (this.campaignName) {
@@ -45,7 +50,10 @@ export class EntitiesPanelComponent implements OnInit {
   loadEntities(): void {
     this.entityService.getEntities(this.campaignName).subscribe({
       next: (res) => (this.entities = res),
-      error: (err) => console.error('Failed to load entities', err)
+      error: (err) => {
+        console.error('Failed to load entities', err);
+        this.rollToast.showMessage('⚠️ LOAD FAILED', 'Failed to load entities.');
+      }
     });
   }
 
@@ -80,10 +88,12 @@ export class EntitiesPanelComponent implements OnInit {
         this.selectedEntity!.image_url = res.url;
         this.selectedImage = null;
         this.isUploadingImage = false;
+        this.rollToast.showMessage('✅ UPLOAD SUCCESS', 'Asset uploaded successfully.');
       },
       error: (err) => {
         console.error('Failed to upload image', err);
         this.isUploadingImage = false;
+        this.rollToast.showMessage('⚠️ UPLOAD FAILED', 'Failed to upload the image.');
       }
     });
   }
@@ -96,6 +106,11 @@ export class EntitiesPanelComponent implements OnInit {
         next: (res) => {
           this.loadEntities();
           this.selectedEntity = res;
+          this.rollToast.showMessage('✅ SAVED', 'Entity updated successfully.');
+        },
+        error: (err) => {
+          console.error('Failed to save entity', err);
+          this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to update entity.');
         }
       });
     } else {
@@ -103,6 +118,11 @@ export class EntitiesPanelComponent implements OnInit {
         next: (res) => {
           this.loadEntities();
           this.selectedEntity = res;
+          this.rollToast.showMessage('✅ CREATED', 'Entity created successfully.');
+        },
+        error: (err) => {
+          console.error('Failed to create entity', err);
+          this.rollToast.showMessage('⚠️ CREATE FAILED', 'Failed to create entity.');
         }
       });
     }
@@ -115,6 +135,11 @@ export class EntitiesPanelComponent implements OnInit {
         this.selectedEntity = null;
         this.isEditing = false;
         this.loadEntities();
+        this.rollToast.showMessage('✅ DELETED', 'Entity deleted.');
+      },
+      error: (err) => {
+        console.error('Failed to delete entity', err);
+        this.rollToast.showMessage('⚠️ DELETE FAILED', 'Failed to delete entity.');
       }
     });
   }

@@ -50,7 +50,12 @@ async def get_asset(
     campaign_member: dict = Depends(require_campaign_member()),
 ):
     """Retrieve an uploaded asset."""
-    file_path = os.path.join(ASSETS_DIR, filename)
+    file_path = os.path.abspath(os.path.join(ASSETS_DIR, filename))
+    base_dir = os.path.abspath(ASSETS_DIR)
+
+    if os.path.commonpath([base_dir, file_path]) != base_dir:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Asset not found")
 

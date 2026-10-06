@@ -1,36 +1,37 @@
-import { Component, Input, OnInit, effect } from '@angular/core';
+import { Component, Input, OnInit, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { VTTState, VTTToken } from '../../../core/models/vtt.model';
 import { InitiativeCombatant } from '../../../core/models/initiative.model';
+import { ForgeButtonDirective, ForgeSelectDirective } from '../../../shared/ui';
 
 @Component({
   selector: 'app-vtt-grid',
   standalone: true,
-  imports: [CommonModule, DragDropModule],
+  imports: [CommonModule, DragDropModule, ForgeButtonDirective, ForgeSelectDirective],
   template: `
     <div class="vtt-container" *ngIf="vttState()?.is_active" [class.minimized]="isMinimized">
       <!-- Controls -->
-      <div class="vtt-controls bg-panel border border-hairline p-2 flex gap-2 justify-between items-center z-10 relative">
+      <div class="vtt-controls bg-panel border-b border-hairline p-2 flex gap-2 justify-between items-center z-10 relative">
         <div class="flex gap-4 items-center">
-          <h3 class="text-white font-bold tracking-wider">VTT Grid</h3>
+          <h3 class="text-ink font-bold tracking-wider">VTT Grid</h3>
           <ng-container *ngIf="role === 'dm'">
             <div class="flex items-center gap-2">
-              <select #combatantSelect style="background: #222; color: #fff; border: 1px solid #555; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+              <select #combatantSelect forgeSelect>
                 <option value="">-- Select Combatant --</option>
                 <option *ngFor="let c of combatants" [value]="c.id">{{ c.name }}</option>
               </select>
-              <button (click)="addCombatantToken(combatantSelect.value)" style="background: #2563eb; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; border: none; cursor: pointer;">Add Token</button>
+              <button forgeButton variant="primary" size="sm" (click)="addCombatantToken(combatantSelect.value)">Add Token</button>
             </div>
-            <button (click)="changeBackground()" style="background: #4b5563; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; border: none; cursor: pointer;">Set Map</button>
+            <button forgeButton variant="secondary" size="sm" (click)="changeBackground()">Set Map</button>
           </ng-container>
         </div>
         <div class="flex gap-2">
-          <button (click)="toggleMinimize()" style="background: #333; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; border: none; cursor: pointer;">
+          <button forgeButton variant="secondary" size="sm" (click)="toggleMinimize()">
             {{ isMinimized ? 'Expand' : 'Minimize' }}
           </button>
-          <button *ngIf="role === 'dm'" (click)="closeGrid()" style="background: #dc2626; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; border: none; cursor: pointer;">Close Grid</button>
+          <button *ngIf="role === 'dm'" forgeButton variant="danger" size="sm" (click)="closeGrid()">Close Grid</button>
         </div>
       </div>
 
@@ -51,15 +52,16 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
              [cdkDragDisabled]="!canMoveToken(token)">
 
           <img *ngIf="token.image_url" [src]="token.image_url" class="token-img" [class.enemy-border]="token.is_enemy" [class.player-border]="!token.is_enemy">
-          <div *ngIf="!token.image_url" class="token-fallback" [class.bg-danger]="token.is_enemy" [class.bg-accent]="!token.is_enemy">
+          <div *ngIf="!token.image_url" class="token-fallback" [class.enemy-fallback]="token.is_enemy" [class.player-fallback]="!token.is_enemy">
             {{ token.name.charAt(0) }}
           </div>
 
           <div class="token-label">{{ token.name }}</div>
 
-          <button *ngIf="role === 'dm'" (click)="removeToken(token.id)" class="remove-token-btn" title="Remove Token">×</button>
+          <button *ngIf="role === 'dm'" (click)="removeToken(token.id)" class="remove-token-btn" title="Remove Token" aria-label="Remove token">×</button>
 
-          <div class="token-hp-bar" *ngIf="token.max_hp && token.hp !== undefined && (role === 'dm' || !token.is_enemy)">
+          <div class="token-hp-bar" *ngIf="token.max_hp && token.hp !== undefined && (role === 'dm' || !token.is_enemy)"
+               role="meter" aria-label="Hit points" aria-valuemin="0" [attr.aria-valuemax]="token.max_hp" [attr.aria-valuenow]="token.hp">
             <div class="hp-fill" [style.width.%]="(token.hp / token.max_hp) * 100"></div>
           </div>
         </div>
@@ -70,42 +72,41 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
     .vtt-container {
       width: 100%;
       height: 600px;
-      background: #111;
+      background: var(--color-deep);
       border: 1px solid var(--color-hairline);
       border-radius: 8px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       margin-top: 24px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       transition: height 0.3s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .vtt-container { transition: none; }
     }
     .vtt-container.minimized {
       height: 48px;
     }
     .vtt-controls {
-      background: #1a1a1a;
-      border-bottom: 1px solid #333;
-      padding: 12px 20px;
-      height: 48px;
+      min-height: 48px;
       box-sizing: border-box;
+      flex-wrap: wrap;
     }
     .vtt-canvas {
       flex: 1;
       position: relative;
       overflow: auto;
-      background-color: #111;
+      background-color: var(--color-deep);
       background-repeat: no-repeat;
       background-position: top left;
       background-attachment: local;
-      box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
     }
     .grid-overlay {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       pointer-events: none;
-      background-image: linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
-                        linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+      background-image: linear-gradient(to right, color-mix(in srgb, var(--color-ink) 10%, transparent) 1px, transparent 1px),
+                        linear-gradient(to bottom, color-mix(in srgb, var(--color-ink) 10%, transparent) 1px, transparent 1px);
       min-width: 2000px;
       min-height: 2000px;
     }
@@ -128,21 +129,24 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
       object-fit: cover;
       border: 2px solid;
     }
-    .enemy-border { border-color: #ef4444; }
-    .player-border { border-color: #3b82f6; }
+    .enemy-border { border-color: var(--color-red); }
+    .player-border { border-color: var(--color-cobalt); }
 
     .token-fallback {
       width: 40px; height: 40px;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      color: white; font-weight: bold; border: 2px solid rgba(255,255,255,0.5);
+      color: var(--color-ink); font-weight: bold;
+      border: 2px solid var(--color-hairline-hover);
     }
+    .enemy-fallback { background: color-mix(in srgb, var(--color-red) 35%, var(--color-surface)); }
+    .player-fallback { background: color-mix(in srgb, var(--color-cobalt) 35%, var(--color-surface)); }
 
     .token-label {
       position: absolute;
       bottom: -15px;
-      background: rgba(0,0,0,0.7);
-      color: white;
+      background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+      color: var(--color-ink);
       font-size: 10px;
       padding: 1px 4px;
       border-radius: 4px;
@@ -151,18 +155,23 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
 
     .remove-token-btn {
       position: absolute;
-      top: -5px; right: -5px;
-      background: #ef4444;
-      color: white;
-      border: none;
+      top: -10px; right: -10px;
+      background: var(--color-surface);
+      color: var(--color-red);
+      border: 1px solid var(--color-red);
       border-radius: 50%;
-      width: 16px; height: 16px;
-      font-size: 12px;
-      line-height: 12px;
+      width: 28px; height: 28px;
+      font-size: 16px;
+      line-height: 1;
       display: none;
       cursor: pointer;
     }
-    .vtt-token:hover .remove-token-btn {
+    .remove-token-btn:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
+    }
+    .vtt-token:hover .remove-token-btn,
+    .vtt-token:focus-within .remove-token-btn {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -173,13 +182,13 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
       top: -5px;
       width: 40px;
       height: 4px;
-      background: #333;
+      background: var(--color-surface);
       border-radius: 2px;
       overflow: hidden;
     }
     .hp-fill {
       height: 100%;
-      background: #10b981;
+      background: var(--color-emerald);
     }
   `]
 })
@@ -188,10 +197,11 @@ export class VttGridComponent implements OnInit {
   @Input() characterName?: string;
   @Input() combatants: InitiativeCombatant[] = [];
 
+  wsService = inject(WebSocketService);
   readonly vttState = this.wsService.vttState;
   isMinimized: boolean = false;
 
-  constructor(private wsService: WebSocketService) {}
+  constructor() {}
 
   ngOnInit(): void {}
 
@@ -251,16 +261,33 @@ export class VttGridComponent implements OnInit {
       max_hp: combatant.max_hp,
       image_url: combatant.portrait || ''
     };
+
+    // Optimistic update
+    this.wsService.vttState.update(s => {
+      if (!s) return s;
+      return { ...s, tokens: [...s.tokens, token] };
+    });
+
     this.wsService.sendVttAddToken(token);
   }
 
   removeToken(tokenId: string) {
+    // Optimistic update
+    this.wsService.vttState.update(s => {
+      if (!s) return s;
+      return { ...s, tokens: s.tokens.filter(t => t.id !== tokenId) };
+    });
     this.wsService.sendVttRemoveToken(tokenId);
   }
 
   changeBackground() {
     const url = prompt('Enter map image URL (e.g. from the web):', 'https://i.imgur.com/G4hXqD7.jpg');
     if (url) {
+      // Optimistic update
+      this.wsService.vttState.update(s => {
+        if (!s) return s;
+        return { ...s, grid: { ...s.grid, background_image_url: url, cell_size: 50 } };
+      });
       this.wsService.sendVttUpdateGrid({ background_image_url: url, cell_size: 50 });
     }
   }

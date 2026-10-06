@@ -22,6 +22,7 @@ from backend.services.dice_service import roll_dice
 from backend.services.encounter_service import calculate_danger_indicator
 from backend.services.session_service import SessionService
 from backend.services.stats_service import calculate_skills, get_modifier
+from backend.services.vtt_service import VTTService
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
@@ -229,7 +230,10 @@ async def list_campaigns(
         if role == "dm":
             campaigns.append(CampaignSchema(**doc).model_dump())
         else:
-            campaigns.append(PlayerCampaignSchema(**doc).model_dump())
+            player_doc = PlayerCampaignSchema(**doc)
+            if player_doc.vtt_state:
+                player_doc.vtt_state = VTTService.redact_for_player(player_doc.vtt_state)
+            campaigns.append(player_doc.model_dump())
     return campaigns
 
 
@@ -242,6 +246,9 @@ async def save_campaign(
     existing = await db["campaigns"].find_one({"campaign_name": payload.campaign_name})
 
     camp_dict = payload.model_dump()
+    # VTT state is owned by VTTService (atomic updates); a campaign save must never
+    # overwrite it, nor write a null that would block later dotted updates.
+    camp_dict.pop("vtt_state", None)
     if existing:
         member = await db["campaign_members"].find_one(
             {"campaign_id": payload.campaign_name, "user_id": current_user["id"]}
