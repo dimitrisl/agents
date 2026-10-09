@@ -357,7 +357,7 @@ async def update_party_member_state(
     # Only the touched fields are written. A blind $set of the whole document
     # would race with the character sheet the player has open.
     await db["characters"].update_one(
-        {"char_id": char_id}, {"$set": updates, "$inc": {"version": 1}}
+        {"char_id": char_id, "active_campaign": name}, {"$set": updates, "$inc": {"version": 1}}
     )
 
     state = {
@@ -897,14 +897,24 @@ async def remove_party_member(
             actual_filename = filename
             break
 
+    # Membership in *this* campaign is what authorizes the removal. Being a DM
+    # somewhere is not a licence to evict a hero sitting at another table.
+    if char.get("active_campaign") != name and not actual_filename:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="That character is not part of this campaign.",
+        )
+
     if not actual_filename:
         actual_filename = char_filename  # fallback
 
     # 1. Remove from campaign's party array
     await db["campaigns"].update_one({"campaign_name": name}, {"$pull": {"party": actual_filename}})
 
-    # 2. Remove active_campaign from character
-    await db["characters"].update_one({"char_id": char_id}, {"$unset": {"active_campaign": ""}})
+    # 2. Remove active_campaign from character (only if it still points at this campaign)
+    await db["characters"].update_one(
+        {"char_id": char_id, "active_campaign": name}, {"$unset": {"active_campaign": ""}}
+    )
 
     # 3. If owner is a player, remove their campaign_members record
     owner_id = char.get("owner_id")

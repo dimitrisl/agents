@@ -26,6 +26,21 @@ async def connect_to_mongo():
     except Exception as e:
         logger.error(f"Failed to create indexes: {e}")
 
+    # char_id must be globally unique: the character upserts rely on it so that two
+    # concurrent requests can never both claim the same id. Kept in its own try block
+    # because pre-existing duplicates would make this fail and must not take the
+    # (unrelated) campaign indexes down with it.
+    try:
+        await database["characters"].create_index(
+            [("char_id", pymongo.ASCENDING)], unique=True, name="uniq_char_id"
+        )
+        logger.info("Ensured unique index on characters.char_id")
+    except Exception as e:
+        logger.error(
+            f"Failed to create unique index on characters.char_id "
+            f"(duplicate char_ids already in the database?): {e}"
+        )
+
     logger.info("Async MongoDB connection initialized.")
 
 
