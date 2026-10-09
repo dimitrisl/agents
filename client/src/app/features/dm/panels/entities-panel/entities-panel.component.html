@@ -54,6 +54,23 @@
           <option value="location">Location</option>
           <option value="monster">Monster</option>
         </select>
+
+        <label class="text-label text-muted ml-4" *ngIf="selectedEntity.type === 'npc' || selectedEntity.type === 'monster'">Location:</label>
+        <select *ngIf="selectedEntity.type === 'npc' || selectedEntity.type === 'monster'" [(ngModel)]="selectedEntity.current_location_id" class="forge-input w-48">
+          <option [ngValue]="undefined">Unknown / None</option>
+          <option *ngFor="let loc of getLocations()" [value]="loc.id">{{ loc.name }}</option>
+        </select>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-label text-muted">Asset Image (Map/Portrait):</label>
+        <div class="flex items-center gap-4">
+          <img *ngIf="selectedEntity.image_url" [src]="selectedEntity.image_url" class="w-16 h-16 object-cover rounded border border-hairline">
+          <input type="file" accept="image/*" (change)="onImageSelected($event)" class="text-sm">
+          <button *ngIf="selectedImage" forgeButton variant="secondary" size="sm" (click)="uploadImage()" [disabled]="isUploadingImage">
+            {{ isUploadingImage ? 'Uploading...' : 'Upload' }}
+          </button>
+        </div>
       </div>
 
       <div class="flex flex-col gap-2 flex-1 min-h-[300px]">

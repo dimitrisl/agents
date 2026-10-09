@@ -10,19 +10,25 @@ from pydantic import BaseModel
 
 from backend.core.schemas import (
     CampaignEntitySchema,
+    CampaignSkeletonSchema,
     EncounterStateSchema,
     InviteCodeResponse,
     PasteExtractionRequest,
+    SessionOutlineSchema,
     SuccessResponseSchema,
+    VTTStateSchema,
 )
 from backend.services.dice_service import roll_dice
 from backend.services.encounter_service import calculate_danger_indicator
+from backend.services.session_service import SessionService
 from backend.services.stats_service import calculate_skills, get_modifier
+from backend.services.vtt_service import VTTService
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
 
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
+session_service = SessionService()
 
 
 class CampaignSchema(BaseModel):
@@ -33,6 +39,7 @@ class CampaignSchema(BaseModel):
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
+    vtt_state: Optional[VTTStateSchema] = None
 
 
 class PlayerCampaignSchema(BaseModel):
@@ -42,6 +49,7 @@ class PlayerCampaignSchema(BaseModel):
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
+    vtt_state: Optional[VTTStateSchema] = None
 
 
 class JoinCampaignRequest(BaseModel):
@@ -222,7 +230,10 @@ async def list_campaigns(
         if role == "dm":
             campaigns.append(CampaignSchema(**doc).model_dump())
         else:
-            campaigns.append(PlayerCampaignSchema(**doc).model_dump())
+            player_doc = PlayerCampaignSchema(**doc)
+            if player_doc.vtt_state:
+                player_doc.vtt_state = VTTService.redact_for_player(player_doc.vtt_state)
+            campaigns.append(player_doc.model_dump())
     return campaigns
 
 
@@ -235,6 +246,9 @@ async def save_campaign(
     existing = await db["campaigns"].find_one({"campaign_name": payload.campaign_name})
 
     camp_dict = payload.model_dump()
+    # VTT state is owned by VTTService (atomic updates); a campaign save must never
+    # overwrite it, nor write a null that would block later dotted updates.
+    camp_dict.pop("vtt_state", None)
     if existing:
         member = await db["campaign_members"].find_one(
             {"campaign_id": payload.campaign_name, "user_id": current_user["id"]}
@@ -1054,3 +1068,79 @@ async def extract_campaign_entity(
 
     # Return as schema (FastAPI handles validation)
     return extracted_data
+
+
+# ==========================================
+# Campaign Skeleton & Plot Management
+# ==========================================
+
+
+@router.get("/{name}/skeleton", response_model=CampaignSkeletonSchema)
+async def get_campaign_skeleton(
+    name: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Retrieve the campaign skeleton."""
+    skeleton = await db.campaign_skeletons.find_one({"campaign_name": name})
+    if not skeleton:
+        # Return an empty skeleton instead of 404 to initialize UI
+        return CampaignSkeletonSchema(campaign_name=name, concept="", tone="", max_sessions=10)
+
+    skeleton["id"] = str(skeleton.pop("_id"))
+    return skeleton
+
+
+@router.post("/{name}/skeleton", response_model=CampaignSkeletonSchema)
+async def update_campaign_skeleton(
+    name: str,
+    skeleton_data: CampaignSkeletonSchema,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Create or update the campaign skeleton."""
+    data = skeleton_data.model_dump(exclude={"id"})
+    data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
+    if "created_at" not in data or not data["created_at"]:
+        data["created_at"] = data["updated_at"]
+
+    await db.campaign_skeletons.update_one({"campaign_name": name}, {"$set": data}, upsert=True)
+
+    saved = await db.campaign_skeletons.find_one({"campaign_name": name})
+    saved["id"] = str(saved.pop("_id"))
+    return saved
+
+
+@router.post("/{name}/skeleton/generate-outlines", response_model=CampaignSkeletonSchema)
+async def generate_campaign_outlines(
+    name: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Generate session outlines based on the campaign skeleton."""
+    skeleton = await db.campaign_skeletons.find_one({"campaign_name": name})
+    if not skeleton:
+        raise HTTPException(
+            status_code=404, detail="Campaign skeleton not found. Please create one first."
+        )
+
+    try:
+        outlines_data = session_service.generate_campaign_outlines(skeleton)
+        outlines = [SessionOutlineSchema(**o) for o in outlines_data]
+
+        await db.campaign_skeletons.update_one(
+            {"campaign_name": name},
+            {
+                "$set": {
+                    "generated_outlines": [o.model_dump() for o in outlines],
+                    "updated_at": datetime.datetime.now(datetime.timezone.utc),
+                }
+            },
+        )
+
+        updated = await db.campaign_skeletons.find_one({"campaign_name": name})
+        updated["id"] = str(updated.pop("_id"))
+        return updated
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

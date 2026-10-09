@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ForgeButtonDirective, ForgeTextareaDirective } from '../../../../shared/ui';
 import { SessionService } from '../../../../core/services/session.service';
 import { SessionLog, SessionPrep } from '../../../../core/models/session.model';
+import { CampaignPlotService } from '../../../../core/services/campaign-plot.service';
+import { CampaignSkeleton } from '../../../../core/models/campaign-skeleton.model';
+import { RollToastService } from '../../../../core/services/roll-toast.service';
 
 @Component({
   selector: 'app-prep-panel',
@@ -16,23 +19,83 @@ export class PrepPanelComponent implements OnInit {
 
   sessions: SessionLog[] = [];
   prepResult: SessionPrep | null = null;
+  skeleton: CampaignSkeleton | null = null;
 
   isGeneratingPrep = false;
-  isUploadingAudio = false;
+  isProcessingSession = false;
+  isGeneratingOutlines = false;
 
   dmIdeas = '';
+  sessionTextNotes = '';
   newSessionNumber = 1;
   selectedFile: File | null = null;
 
   journeyGraph: import('../../../../core/models/session.model').JourneyGraph | null = null;
   isGeneratingJourney = false;
 
-  constructor(private sessionService: SessionService) {}
+  constructor(
+    private sessionService: SessionService,
+    private plotService: CampaignPlotService,
+    private rollToast: RollToastService
+  ) {}
 
   ngOnInit(): void {
     if (this.campaignName) {
       this.loadSessions();
+      this.loadSkeleton();
     }
+  }
+
+  loadSkeleton(): void {
+    this.plotService.getSkeleton(this.campaignName).subscribe({
+      next: (res) => this.skeleton = res,
+      error: (err) => {
+        console.error('Failed to load skeleton', err);
+        this.rollToast.showMessage('⚠️ LOAD FAILED', 'Failed to load campaign skeleton.');
+      }
+    });
+  }
+
+  saveSkeleton(): void {
+    if (!this.skeleton) return;
+    this.plotService.updateSkeleton(this.campaignName, this.skeleton).subscribe({
+      next: (res) => {
+        this.skeleton = res;
+        this.rollToast.showMessage('✅ SAVED', 'Campaign skeleton saved successfully.');
+      },
+      error: (err) => {
+        console.error('Failed to save skeleton', err);
+        this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign skeleton.');
+      }
+    });
+  }
+
+  generateOutlines(): void {
+    if (!this.skeleton) return;
+    this.isGeneratingOutlines = true;
+
+    // First save the current state, then generate
+    this.plotService.updateSkeleton(this.campaignName, this.skeleton).subscribe({
+      next: () => {
+        this.plotService.generateOutlines(this.campaignName).subscribe({
+          next: (res) => {
+            this.skeleton = res;
+            this.isGeneratingOutlines = false;
+            this.rollToast.showMessage('✅ OUTLINES GENERATED', 'Session outlines generated successfully.');
+          },
+          error: (err) => {
+            console.error('Failed to generate outlines', err);
+            this.isGeneratingOutlines = false;
+            this.rollToast.showMessage('⚠️ GENERATION FAILED', 'Failed to generate session outlines.');
+          }
+        });
+      },
+      error: (err) => {
+        console.error('Failed to save before generating', err);
+        this.isGeneratingOutlines = false;
+        this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save skeleton before generating outlines.');
+      }
+    });
   }
 
   loadSessions(): void {
@@ -43,7 +106,10 @@ export class PrepPanelComponent implements OnInit {
           this.newSessionNumber = this.sessions[0].session_number + 1;
         }
       },
-      error: (err) => console.error('Failed to load sessions', err)
+      error: (err) => {
+        console.error('Failed to load sessions', err);
+        this.rollToast.showMessage('⚠️ LOAD FAILED', 'Failed to load session logs.');
+      }
     });
   }
 
@@ -57,16 +123,37 @@ export class PrepPanelComponent implements OnInit {
   uploadAudio(): void {
     if (!this.selectedFile) return;
 
-    this.isUploadingAudio = true;
+    this.isProcessingSession = true;
     this.sessionService.uploadAudioSession(this.campaignName, this.newSessionNumber, this.selectedFile).subscribe({
       next: (res) => {
-        this.isUploadingAudio = false;
+        this.isProcessingSession = false;
         this.selectedFile = null;
         this.loadSessions(); // Reload to see the new session
+        this.rollToast.showMessage('🎙️ AUDIO PROCESSED', 'Audio session processed successfully.');
       },
       error: (err) => {
         console.error('Failed to upload audio', err);
-        this.isUploadingAudio = false;
+        this.isProcessingSession = false;
+        this.rollToast.showMessage('⚠️ PROCESS FAILED', 'Failed to process audio session.');
+      }
+    });
+  }
+
+  processTextSession(): void {
+    if (!this.sessionTextNotes) return;
+
+    this.isProcessingSession = true;
+    this.sessionService.processTextSession(this.campaignName, this.newSessionNumber, this.sessionTextNotes).subscribe({
+      next: (res) => {
+        this.isProcessingSession = false;
+        this.sessionTextNotes = '';
+        this.loadSessions(); // Reload to see the new session
+        this.rollToast.showMessage('📝 NOTES PROCESSED', 'Text notes processed successfully.');
+      },
+      error: (err) => {
+        console.error('Failed to process text notes', err);
+        this.isProcessingSession = false;
+        this.rollToast.showMessage('⚠️ PROCESS FAILED', 'Failed to process text notes.');
       }
     });
   }
@@ -77,10 +164,12 @@ export class PrepPanelComponent implements OnInit {
       next: (res) => {
         this.prepResult = res;
         this.isGeneratingPrep = false;
+        this.rollToast.showMessage('✅ PREP READY', 'Session prep generated successfully.');
       },
       error: (err) => {
         console.error('Failed to generate prep', err);
         this.isGeneratingPrep = false;
+        this.rollToast.showMessage('⚠️ PREP FAILED', 'Failed to generate session prep.');
       }
     });
   }
@@ -91,10 +180,12 @@ export class PrepPanelComponent implements OnInit {
       next: (res) => {
         this.journeyGraph = res;
         this.isGeneratingJourney = false;
+        this.rollToast.showMessage('🗺️ JOURNEY READY', 'Journey graph generated successfully.');
       },
       error: (err) => {
         console.error('Failed to generate journey', err);
         this.isGeneratingJourney = false;
+        this.rollToast.showMessage('⚠️ JOURNEY FAILED', 'Failed to generate journey graph.');
       }
     });
   }

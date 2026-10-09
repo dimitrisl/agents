@@ -25,6 +25,13 @@ export class SessionService {
     );
   }
 
+  processTextSession(campaignName: string, sessionNumber: number, notes: string): Observable<SessionLog> {
+    return this.http.post<SessionLog>(
+      `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/sessions/text`,
+      { session_number: sessionNumber, notes }
+    );
+  }
+
   generateSessionPrep(campaignName: string, dmIdeas: string = ''): Observable<SessionPrep> {
     return this.http.post<SessionPrep>(
       `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(campaignName)}/sessions/prep`,

@@ -1,5 +1,67 @@
 <div class="flex flex-col gap-6 p-4">
 
+  <!-- The Campaign Skeleton -->
+  <section class="overflow-hidden rounded-xl bg-panel border border-hairline shadow-sm">
+    <header class="flex flex-col gap-1 bg-tile px-4 py-3 border-b border-hairline">
+      <h2 class="min-w-0 font-display text-title text-ink">
+        🏛️ The Campaign Skeleton (Plot Architect)
+      </h2>
+      <p class="text-label text-muted">
+        Define the core arc and let the AI generate a complete session-by-session plot outline.
+      </p>
+    </header>
+
+    <div class="flex flex-col p-4 gap-4" *ngIf="skeleton">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex flex-col gap-2">
+          <label class="font-bold text-label text-muted">Core Concept</label>
+          <textarea forgeTextarea rows="2" [(ngModel)]="skeleton.concept" placeholder="A group of mercenaries discover a rising evil..."></textarea>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="font-bold text-label text-muted">Tone & Setting</label>
+          <textarea forgeTextarea rows="2" [(ngModel)]="skeleton.tone" placeholder="Dark fantasy, low magic..."></textarea>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="font-bold text-label text-muted">Key Milestones (comma-separated)</label>
+          <textarea forgeTextarea rows="2" [ngModel]="skeleton.key_milestones.join(', ')" (ngModelChange)="skeleton.key_milestones = $event.split(',')" placeholder="Find the artifact, Defeat the baron..."></textarea>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="font-bold text-label text-muted">Plot Twists (comma-separated)</label>
+          <textarea forgeTextarea rows="2" [ngModel]="skeleton.plot_twists.join(', ')" (ngModelChange)="skeleton.plot_twists = $event.split(',')" placeholder="The king is the villain..."></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 mt-2">
+        <label class="font-bold text-label text-muted">Max Sessions:</label>
+        <input type="number" [(ngModel)]="skeleton.max_sessions" class="forge-input w-24" min="1" max="100">
+
+        <div class="flex-1 flex justify-end gap-2">
+          <button forgeButton variant="secondary" (click)="saveSkeleton()">Save Skeleton</button>
+          <button forgeButton variant="primary" (click)="generateOutlines()" [disabled]="isGeneratingOutlines">
+            <span *ngIf="!isGeneratingOutlines">Generate Session Outlines</span>
+            <span *ngIf="isGeneratingOutlines" class="animate-pulse">Forging Arc...</span>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="skeleton.generated_outlines && skeleton.generated_outlines.length > 0" class="mt-6">
+        <h3 class="font-bold text-lg text-ink mb-2">Session Outlines</h3>
+        <div class="flex flex-col gap-2">
+          <div *ngFor="let outline of skeleton.generated_outlines" class="p-3 bg-background rounded border border-hairline">
+            <h4 class="font-bold text-accent">Session {{ outline.session_number }}: {{ outline.main_event }}</h4>
+            <div class="text-sm text-ink mt-1">
+              <span class="font-bold">Location:</span> {{ outline.location }}<br>
+              <span class="font-bold">NPCs:</span> {{ outline.required_npcs.join(', ') }}
+            </div>
+            <ul class="list-disc list-inside mt-2 text-muted text-sm">
+              <li *ngFor="let hook of outline.plot_hooks">{{ hook }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- The Session Forge -->
   <section class="overflow-hidden rounded-xl bg-panel border border-hairline shadow-sm">
     <header class="flex flex-col gap-1 bg-tile px-4 py-3 border-b border-hairline">
@@ -81,21 +143,41 @@
     <div class="flex flex-col gap-4 p-4">
 
       <!-- Upload form -->
-      <div class="flex items-end gap-4 p-4 bg-background rounded border border-dashed border-hairline">
+      <div class="flex items-end gap-4 p-4 bg-background rounded border border-dashed border-hairline flex-wrap">
         <div class="flex flex-col gap-1 w-24">
           <label class="text-micro font-bold uppercase text-muted">Session #</label>
           <input type="number" [(ngModel)]="newSessionNumber" class="forge-input" min="1">
         </div>
 
-        <div class="flex flex-col gap-1 flex-1">
+        <div class="flex flex-col gap-1 flex-1 min-w-[200px]">
           <label class="text-micro font-bold uppercase text-muted">Audio File (MP3/WAV)</label>
-          <input type="file" accept="audio/*" (change)="onFileSelected($event)" class="text-body text-ink" [disabled]="isUploadingAudio">
+          <input type="file" accept="audio/*" (change)="onFileSelected($event)" class="text-body text-ink" [disabled]="isProcessingSession">
         </div>
 
-        <button forgeButton variant="secondary" (click)="uploadAudio()" [disabled]="!selectedFile || isUploadingAudio">
-          <span *ngIf="!isUploadingAudio">Upload & Transcribe</span>
-          <span *ngIf="isUploadingAudio" class="animate-pulse">Listening... (Takes ~1 min)</span>
+        <button forgeButton variant="secondary" (click)="uploadAudio()" [disabled]="!selectedFile || isProcessingSession">
+          <span *ngIf="!isProcessingSession">Upload Audio</span>
         </button>
+      </div>
+
+      <!-- Text notes form -->
+      <div class="flex flex-col gap-4 p-4 bg-background rounded border border-dashed border-hairline mt-2">
+        <div class="flex flex-col gap-1">
+          <label class="text-micro font-bold uppercase text-muted">Or Process Text Notes</label>
+          <textarea
+            forgeTextarea
+            rows="4"
+            [(ngModel)]="sessionTextNotes"
+            placeholder="Paste your session notes here..."
+            [disabled]="isProcessingSession"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end">
+          <button forgeButton variant="primary" (click)="processTextSession()" [disabled]="!sessionTextNotes || isProcessingSession">
+            <span *ngIf="!isProcessingSession">Process Text Notes</span>
+            <span *ngIf="isProcessingSession" class="animate-pulse">Processing...</span>
+          </button>
+        </div>
       </div>
 
       <!-- Session List -->

@@ -72,6 +72,10 @@
             </div>
           </div>
 
+            <div class="border-t border-hairline p-4">
+              <button forgeButton variant="primary" class="w-full" (click)="openVTT()">🗺️ Open VTT Grid</button>
+            </div>
+
           <div class="border-t border-hairline">
             <p class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted">Party Health</p>
 
@@ -241,6 +245,9 @@
     </section>
   </div>
 
+  <!-- VTT Grid inline below the main grid -->
+  <app-vtt-grid role="dm" [combatants]="combatants"></app-vtt-grid>
+
   <app-dm-inbox
     [open]="showDmInbox"
     (openChange)="onDmInboxOpenChange($event)"
@@ -310,7 +317,6 @@
     [(newMemberAc)]="newMemberAc"
     [inviteCode]="inviteCode"
     (addExistingPartyMember)="addExistingPartyMember()"
-
     (copyInviteCode)="copyInviteCode()"
   ></app-add-member-modal>
 </forge-page>
