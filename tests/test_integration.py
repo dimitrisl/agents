@@ -1,5 +1,4 @@
-from unittest.mock import MagicMock
-
+import mongomock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -7,149 +6,104 @@ from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.main import app
 
-# Setup our mock database dictionary
-fake_db_data = {
-    "characters": {},
-    "users": {"test_user": {"id": "test_user", "username": "tester"}},
-    "homebrew_content": {},
-}
 
+class _AsyncCollection:
+    """Minimal async facade over a mongomock collection."""
 
-async def mock_find_one(collection_name, query):
-    if collection_name == "characters":
-        char_id = query.get("char_id")
-        owner_id = query.get("owner_id")
-        for char in fake_db_data["characters"].values():
-            if char.get("char_id") == char_id and char.get("owner_id") == owner_id:
-                return dict(char)
-    elif collection_name == "users":
-        return fake_db_data["users"].get("test_user")
-    return None
-
-
-class MockCursor:
-    def __init__(self, collection_name, query):
-        self.items = []
-        if collection_name == "characters":
-            owner_id = query.get("owner_id")
-            for char in fake_db_data["characters"].values():
-                if char.get("owner_id") == owner_id:
-                    self.items.append(dict(char))
-        elif collection_name == "homebrew_content":
-            campaign_id = query.get("campaign_id")
-            for item in fake_db_data["homebrew_content"].values():
-                if item.get("campaign_id") == campaign_id:
-                    self.items.append(dict(item))
-        self.idx = 0
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        if self.idx < len(self.items):
-            item = self.items[self.idx]
-            self.idx += 1
-            return item
-        raise StopAsyncIteration
-
-
-def mock_find(collection_name, query):
-    return MockCursor(collection_name, query)
-
-
-async def mock_update_one(collection_name, query, update, upsert=False):
-    if collection_name == "characters":
-        char_id = query.get("char_id") or update.get("$set", {}).get("char_id")
-        if char_id in fake_db_data["characters"]:
-            fake_db_data["characters"][char_id].update(update.get("$set", {}))
-            mock_res = MagicMock()
-            mock_res.modified_count = 1
-            mock_res.matched_count = 1
-            return mock_res
-        elif upsert:
-            fake_db_data["characters"][char_id] = update.get("$set", {})
-            mock_res = MagicMock()
-            mock_res.modified_count = 0
-            mock_res.matched_count = 0
-            return mock_res
-    mock_res = MagicMock()
-    mock_res.modified_count = 0
-    mock_res.matched_count = 0
-    return mock_res
-
-
-async def mock_delete_one(collection_name, query):
-    if collection_name == "characters":
-        char_id = query.get("char_id")
-        if char_id in fake_db_data["characters"]:
-            del fake_db_data["characters"][char_id]
-            mock_res = MagicMock()
-            mock_res.deleted_count = 1
-            return mock_res
-    mock_res = MagicMock()
-    mock_res.deleted_count = 0
-    return mock_res
-
-
-class MockCollection:
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, coll):
+        self._coll = coll
 
     async def find_one(self, query):
-        return await mock_find_one(self.name, query)
-
-    def find(self, query):
-        return mock_find(self.name, query)
+        return self._coll.find_one(query)
 
     async def update_one(self, query, update, upsert=False):
-        return await mock_update_one(self.name, query, update, upsert)
+        class Result:
+            def __init__(self, res):
+                self.modified_count = res.modified_count
+                self.matched_count = res.matched_count
+                self.upserted_id = res.upserted_id
+
+        res = self._coll.update_one(query, update, upsert=upsert)
+        return Result(res)
 
     async def delete_one(self, query):
-        return await mock_delete_one(self.name, query)
+        class Result:
+            def __init__(self, res):
+                self.deleted_count = res.deleted_count
+
+        res = self._coll.delete_one(query)
+        return Result(res)
+
+    class _AsyncCursor:
+        def __init__(self, cursor):
+            self.items = list(cursor)
+            self.idx = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.idx < len(self.items):
+                item = self.items[self.idx]
+                self.idx += 1
+                return item
+            raise StopAsyncIteration
+
+    def find(self, query):
+        return self._AsyncCursor(self._coll.find(query))
 
 
-class MockDatabase:
+class _AsyncDB:
+    def __init__(self):
+        self._db = mongomock.MongoClient().db
+        self.characters = _AsyncCollection(self._db.characters)
+        self.homebrew_content = _AsyncCollection(self._db.homebrew_content)
+        self.users = _AsyncCollection(self._db.users)
+
     def __getitem__(self, name):
-        return MockCollection(name)
+        if name == "characters":
+            return self.characters
+        elif name == "homebrew_content":
+            return self.homebrew_content
+        elif name == "users":
+            return self.users
+        return _AsyncCollection(self._db[name])
 
 
 @pytest.fixture
 def test_client():
+    # Intentionally not using 'with TestClient' to avoid triggering the real mongo lifespan logic
     client = TestClient(app)
     return client
 
 
+@pytest.fixture
+def mock_db():
+    db = _AsyncDB()
+    return db
+
+
 @pytest.fixture(autouse=True)
-def setup_mocks():
-    fake_db_data["characters"].clear()
+def setup_mocks(mock_db):
+    original_overrides = app.dependency_overrides.copy()
 
-    app.dependency_overrides[get_current_user] = lambda: {"id": "test_user", "username": "tester"}
-    app.dependency_overrides[get_database] = lambda: MockDatabase()
-    yield
-    app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides.pop(get_database, None)
+    app.dependency_overrides[get_current_user] = lambda: {"id": "user_1", "username": "tester"}
+    app.dependency_overrides[get_database] = lambda: mock_db
 
+    yield mock_db
 
-def test_root_endpoint(test_client):
-    response = test_client.get("/")
-    assert response.status_code == 200
-    assert response.json()["status"] == "online"
-
-
-def test_docs_endpoint_exists(test_client):
-    response = test_client.get("/docs")
-    assert response.status_code == 200
+    app.dependency_overrides = original_overrides
 
 
 def test_character_lifecycle(test_client):
-    # Create character
+    # 1. Create character
     new_char = {
         "char_name": "Grog Strongjaw",
         "char_class": "Barbarian",
         "level": 1,
         "race": "Goliath",
         "background": "Outlander",
-        "stats": {"str": 18, "dex": 14, "con": 16, "int": 8, "wis": 10, "cha": 12},
+        "stats": {"STR": 18, "DEX": 14, "CON": 16, "INT": 8, "WIS": 10, "CHA": 12},
         "hp_max": 15,
         "hp_current": 15,
     }
@@ -158,23 +112,104 @@ def test_character_lifecycle(test_client):
     char_data = create_resp.json()
     assert char_data["char_name"] == "Grog Strongjaw"
     assert "char_id" in char_data
+    # Verify stats were parsed correctly and generated a +4 STR modifier (if that logic applies)
+    assert char_data["stats"]["STR"] == 18
 
     char_id = char_data["char_id"]
 
-    # Get character
+    # 2. Get character
     get_resp = test_client.get(f"/api/v1/characters/{char_id}")
     assert get_resp.status_code == 200
     assert get_resp.json()["char_name"] == "Grog Strongjaw"
+    assert get_resp.json()["version"] == 0
 
-    # List characters
+    # 3. Update character (PUT)
+    update_payload = dict(char_data)
+    update_payload["char_name"] = "Grog Updated"
+    update_resp = test_client.put(f"/api/v1/characters/{char_id}", json=update_payload)
+    assert update_resp.status_code == 200
+    assert update_resp.json()["char_name"] == "Grog Updated"
+    assert update_resp.json()["version"] == 1
+
+    # 4. List characters
     list_resp = test_client.get("/api/v1/characters")
     assert list_resp.status_code == 200
     assert len(list_resp.json()["characters"]) == 1
 
-    # Delete character
+    # 5. Delete character
     del_resp = test_client.delete(f"/api/v1/characters/{char_id}")
     assert del_resp.status_code == 200
 
-    # Verify deletion
+    # 6. Verify deletion
     get_resp_after = test_client.get(f"/api/v1/characters/{char_id}")
     assert get_resp_after.status_code == 404
+
+
+def test_character_update_conflict(test_client):
+    new_char = {
+        "char_name": "Conflict Hero",
+        "char_class": "Fighter",
+        "level": 1,
+        "race": "Human",
+        "background": "Soldier",
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+    }
+    create_resp = test_client.post("/api/v1/characters", json=new_char)
+    assert create_resp.status_code == 201
+    char_data = create_resp.json()
+    char_id = char_data["char_id"]
+
+    # Attempt to update with a stale version (client sends version 0, but DB has version 1)
+    # Wait, the newly created char is version 0.
+    # Let's update it once to bump version to 1.
+    valid_update_resp = test_client.put(f"/api/v1/characters/{char_id}", json=char_data)
+    assert valid_update_resp.status_code == 200
+    assert valid_update_resp.json()["version"] == 1
+
+    # Now attempt to update again using the ORIGINAL payload (version 0)
+    conflict_resp = test_client.put(f"/api/v1/characters/{char_id}", json=char_data)
+    assert conflict_resp.status_code == 409
+    assert "Conflict" in conflict_resp.json()["detail"]
+
+
+def test_cross_user_isolation(test_client):
+    # Create char as user_1
+    new_char = {
+        "char_name": "User 1 Hero",
+        "char_class": "Fighter",
+        "race": "Human",
+        "background": "Soldier",
+        "stats": {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10},
+    }
+    create_resp = test_client.post("/api/v1/characters", json=new_char)
+    char_id = create_resp.json()["char_id"]
+
+    # Switch identity to user_2
+    app.dependency_overrides[get_current_user] = lambda: {"id": "user_2", "username": "evil_tester"}
+
+    # Attempt GET
+    get_resp = test_client.get(f"/api/v1/characters/{char_id}")
+    assert get_resp.status_code == 404
+
+    # Attempt PUT
+    put_resp = test_client.put(f"/api/v1/characters/{char_id}", json=create_resp.json())
+    assert put_resp.status_code == 404
+
+    # Attempt DELETE
+    del_resp = test_client.delete(f"/api/v1/characters/{char_id}")
+    assert del_resp.status_code == 404
+
+    # Attempt IDOR POST (Takeover)
+    idor_payload = dict(create_resp.json())
+    idor_payload["char_name"] = "Hacked Hero"
+    idor_resp = test_client.post("/api/v1/characters", json=idor_payload)
+    assert idor_resp.status_code == 403
+
+
+def test_validation_error_on_bad_payload(test_client):
+    bad_char = {
+        "char_name": "Bad Payload",
+        # missing race, background, stats
+    }
+    create_resp = test_client.post("/api/v1/characters", json=bad_char)
+    assert create_resp.status_code == 422

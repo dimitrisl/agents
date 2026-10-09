@@ -89,6 +89,13 @@ async def create_character(
 
     if not char_dict.get("char_id"):
         char_dict["char_id"] = str(uuid.uuid4())
+    else:
+        existing = await db["characters"].find_one({"char_id": char_dict["char_id"]})
+        if existing and existing.get("owner_id") != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot overwrite a character owned by another user.",
+            )
 
     homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
 
@@ -148,7 +155,8 @@ async def update_character(
     char_dict["version"] = client_version + 1
 
     result = await db["characters"].update_one(
-        {"char_id": char_id, "version": client_version}, {"$set": char_dict}
+        {"char_id": char_id, "owner_id": current_user["id"], "version": client_version},
+        {"$set": char_dict},
     )
     if result.modified_count == 0 and result.matched_count == 0:
         # It means the version in the database is no longer client_version
