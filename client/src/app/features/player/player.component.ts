@@ -6,7 +6,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
-  effect,
+  effect, signal, computed,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -138,7 +138,7 @@ interface RollTarget {
 export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
 
-  sheetSubTab: 'skills' | 'combat' | 'spells' | 'roleplay' = 'skills';
+  sheetSubTab = signal<'skills' | 'combat' | 'spells' | 'roleplay'>('skills');
 
   readonly sheetTabs: ForgeTab[] = [
     { id: 'skills', label: '📜 Skills & Checks' },
@@ -149,20 +149,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   selectSheetSubTab(tabId: string): void {
     if (tabId === 'skills' || tabId === 'combat' || tabId === 'spells' || tabId === 'roleplay') {
-      this.sheetSubTab = tabId;
+      this.sheetSubTab.set(tabId);
     }
   }
-  editMode = false;
-  showEditModal = false;
-  showConditionsModal = false;
-  showPortraitModal = false;
-  showJoinModal = false;
-  showHomebrewModal = false;
-  showShortRestModal = false;
-  showProficientOnly = false;
-  showLevelUpModal = false;
-  showValidationModal = false;
-  showWhisperInbox = false;
+  editMode = signal(false);
+  showEditModal = signal(false);
+  showConditionsModal = signal(false);
+  showPortraitModal = signal(false);
+  showJoinModal = signal(false);
+  showHomebrewModal = signal(false);
+  showShortRestModal = signal(false);
+  showProficientOnly = signal(false);
+  showLevelUpModal = signal(false);
+  showValidationModal = signal(false);
+  showWhisperInbox = signal(false);
   editDraftChar: CharacterSchema | null = null;
   isValidating = false;
   isAutoFixing = false;
@@ -273,7 +273,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.rollRequestHistory = [];
         this.unreadMessages = 0;
         this.whisperReply = '';
-        this.showWhisperInbox = false;
+        this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
         this.clearRollPrompts();
         this.rebuildInboxFeed();
@@ -398,8 +398,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // straight onto what is actually rollable. Turning it off restores whatever
   // the user had expanded beforehand.
   onShowProficientOnlyChange(showProficientOnly: boolean): void {
-    if (showProficientOnly === this.showProficientOnly) return;
-    this.showProficientOnly = showProficientOnly;
+    if (showProficientOnly === this.showProficientOnly()) return;
+    this.showProficientOnly.set(showProficientOnly);
 
     if (showProficientOnly) {
       this.openGroupsBeforeFilter = { ...this.openGroups };
@@ -459,7 +459,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   openShortRestModal() {
     this.shortRestDiceToSpend = 1;
-    this.showShortRestModal = true;
+    this.showShortRestModal.set(true);
   }
 
   executeShortRest() {
@@ -481,7 +481,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     this.saveCurrentChar();
-    this.showShortRestModal = false;
+    this.showShortRestModal.set(false);
 
     this.rollToast.showRoll({
       title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
@@ -822,15 +822,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   toggleWhisperInbox(): void {
-    this.showWhisperInbox = !this.showWhisperInbox;
-    if (this.showWhisperInbox) {
+    this.showWhisperInbox.set(!this.showWhisperInbox());
+    if (this.showWhisperInbox()) {
       this.unreadMessages = 0;
       this.pendingFeedScroll = true;
     }
   }
 
   closeWhisperInbox(): void {
-    this.showWhisperInbox = false;
+    this.showWhisperInbox.set(false);
   }
 
   formatWhisperTime(timestamp?: string): string {
@@ -992,7 +992,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox) {
+    if (markUnread && !this.showWhisperInbox()) {
       this.unreadMessages += 1;
     }
   }
@@ -1005,7 +1005,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox) {
+    if (markUnread && !this.showWhisperInbox()) {
       this.unreadMessages += 1;
     }
   }
@@ -1140,7 +1140,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`
     }).subscribe({
       next: (res) => {
-        this.showJoinModal = false;
+        this.showJoinModal.set(false);
         // The backend already updated the character's active_campaign.
         // We just need to reload from the server to get the fresh state (and correct version number).
         this.charState.loadCharacters().subscribe();
@@ -1160,7 +1160,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   openConditionsModal() {
-    this.showConditionsModal = true;
+    this.showConditionsModal.set(true);
   }
 
   saveConditions(data: { conditions: string[], concentratingOn: string }) {
@@ -1176,29 +1176,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.localSaveVersion++;
       this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
-    this.showConditionsModal = false;
+    this.showConditionsModal.set(false);
   }
 
   openEditModal() {
     const char = this.charState.activeCharacter();
     if (char) {
       this.editDraftChar = JSON.parse(JSON.stringify(char));
-      this.showEditModal = true;
+      this.showEditModal.set(true);
     }
   }
 
   saveEditModal() {
     if (this.editDraftChar) {
       this.charState.activeCharacter.set(JSON.parse(JSON.stringify(this.editDraftChar)));
-      this.showEditModal = false;
+      this.showEditModal.set(false);
       this.saveCurrentChar(true);
       this.editDraftChar = null;
     }
   }
 
   toggleEditMode() {
-    this.editMode = !this.editMode;
-    if (!this.editMode) {
+    this.editMode.set(!this.editMode());
+    if (!this.editMode()) {
       this.saveCurrentChar(true);
     }
   }
@@ -1365,7 +1365,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       char_id: char.char_id,
       prompt: this.portraitPrompt
     }).subscribe((res) => {
-      this.showPortraitModal = false;
+      this.showPortraitModal.set(false);
       if (res.portrait_url) {
         char.char_portrait = res.portrait_url;
         this.saveCurrentChar();
@@ -1380,7 +1380,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       character: char
     }).subscribe((analysis) => {
       this.levelUpAnalysis = analysis;
-      this.showLevelUpModal = true;
+      this.showLevelUpModal.set(true);
     });
   }
 
@@ -1418,7 +1418,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           // Assuming upsertCharacter is a public method or the state relies on a refresh:
           // Just refreshing the character list is safer.
           this.charState.loadCharacters();
-          this.showLevelUpModal = false;
+          this.showLevelUpModal.set(false);
           this.levelUpAnalysis = null;
           this.levelUpUserChoices = {};
           this.rollToast.showMessage(`⚡ LEVEL UP: ${syncedChar.char_name}`, `Successfully leveled up to ${syncedChar.char_level}!`);
@@ -1432,7 +1432,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char) return;
     this.isValidating = true;
     this.validationResult = null;
-    this.showValidationModal = true;
+    this.showValidationModal.set(true);
 
     this.http.post<any>(`${environment.apiBaseUrl}/rules/validate`, { character: char }).subscribe({
       next: (res) => {
@@ -1454,7 +1454,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.http.post<any>(`${environment.apiBaseUrl}/rules/autofix`, { character: char }).subscribe({
       next: (res) => {
         this.isAutoFixing = false;
-        this.showValidationModal = false;
+        this.showValidationModal.set(false);
         if (res.character) {
           this.charState.activeCharacter.set(res.character);
           this.saveCurrentChar(false);
@@ -1468,19 +1468,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
-  isGeneratingStrategy = false;
+  isGeneratingStrategy = signal(false);
 
   onGenerateStrategy() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.isGeneratingStrategy = true;
+    this.isGeneratingStrategy.set(true);
     this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe({
       next: (res) => {
-        this.isGeneratingStrategy = false;
+        this.isGeneratingStrategy.set(false);
         this.strategyGuideText = res.guide_markdown;
       },
       error: () => {
-        this.isGeneratingStrategy = false;
+        this.isGeneratingStrategy.set(false);
         this.rollToast.showMessage('⚠️ GENERATION FAILED', 'Failed to generate playstyle guide.');
       }
     });

@@ -3,13 +3,13 @@
     [activeCharacter]="charState.activeCharacter()"
     [activeCharacterId]="charState.activeCharacter()?.char_id"
     [characters]="charState.filteredCharacters()"
-    [editMode]="editMode"
+    [editMode]="editMode()"
     [portraitUrl]="charState.activeCharacter() ? getPortraitUrl(charState.activeCharacter()) : ''"
     (selectCharacter)="onSelectCharacter($event)"
     (newHero)="goToForge()"
     (editSheet)="openEditModal()"
     (quickEdit)="toggleEditMode()"
-    (joinCampaign)="showJoinModal = true"
+    (joinCampaign)="showJoinModal.set(true)"
     (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
@@ -30,12 +30,12 @@
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
         <div *ngIf="char.active_campaign" class="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
           <span>Member of Campaign: <strong>{{ char.active_campaign }}</strong></span>
-          <button (click)="showHomebrewModal = true" class="ml-auto bg-gold text-surface px-3 py-1 rounded text-xs font-bold hover:bg-gold/90 transition-colors">Browse Homebrew</button>
+          <button (click)="showHomebrewModal.set(true)" class="ml-auto bg-gold text-surface px-3 py-1 rounded text-xs font-bold hover:bg-gold/90 transition-colors">Browse Homebrew</button>
         </div>
 
         <app-character-overview-card
           [char]="char"
-          [editMode]="editMode"
+          [editMode]="editMode()"
           [edition]="char.dnd_edition || charState.dndEdition()"
           [portraitUrl]="getPortraitUrl(char)"
           [availableHitDice]="getAvailableHitDice()"
@@ -43,7 +43,7 @@
           [passivePerception]="charState.passivePerception()"
           [abilityEntries]="getStatsArray(char.stats)"
           [getModifierString]="getModifierString"
-          (portrait)="showPortraitModal = true"
+          (portrait)="showPortraitModal.set(true)"
           (hpDown)="adjustHp(-1)"
           (hpUp)="adjustHp(1)"
           (tempDown)="adjustTempHp(-1)"
@@ -62,7 +62,7 @@
               <app-character-tabs
                 class="min-w-0 flex-1"
                 [tabs]="sheetTabs"
-                [activeId]="sheetSubTab"
+                [activeId]="sheetSubTab()"
                 (activeIdChange)="selectSheetSubTab($event)"
               ></app-character-tabs>
 
@@ -74,9 +74,9 @@
 
             <div class="min-w-0 p-4">
               <app-skills-panel
-                *ngIf="sheetSubTab === 'skills'"
+                *ngIf="sheetSubTab() === 'skills'"
                 [allSkills]="allSkills"
-                [editMode]="editMode"
+                [editMode]="editMode()"
                 [isProficient]="isProficient"
                 [getSkillModString]="getSkillModString"
                 [getAttributeFullName]="getAttributeFullName"
@@ -85,11 +85,11 @@
               ></app-skills-panel>
 
               <app-combat-panel
-                *ngIf="sheetSubTab === 'combat'"
+                *ngIf="sheetSubTab() === 'combat'"
                 role="tabpanel"
-                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab()"
                 [char]="char"
-                [editMode]="editMode"
+                [editMode]="editMode()"
                 [rollMode]="rollMode"
                 [encounterState]="encounterState"
                 (addWeapon)="addWeapon()"
@@ -101,11 +101,11 @@
               ></app-combat-panel>
 
               <app-spells-panel
-                *ngIf="sheetSubTab === 'spells'"
+                *ngIf="sheetSubTab() === 'spells'"
                 role="tabpanel"
-                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab()"
                 [char]="char"
-                [editMode]="editMode"
+                [editMode]="editMode()"
                 [getSpellSlotUsed]="getSpellSlotUsed"
                 [getSpellSlotMax]="getSpellSlotMax"
                 (useSpellSlot)="useSpellSlot($event)"
@@ -114,18 +114,18 @@
               ></app-spells-panel>
 
               <app-roleplay-panel
-                *ngIf="sheetSubTab === 'roleplay'"
+                *ngIf="sheetSubTab() === 'roleplay'"
                 role="tabpanel"
-                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab"
+                [attr.aria-labelledby]="'player-tabs-tab-' + sheetSubTab()"
                 [char]="char"
-                [editMode]="editMode"
+                [editMode]="editMode()"
                 (save)="saveCurrentChar()"
               ></app-roleplay-panel>
             </div>
 
             <app-action-dock
               [canLevelUp]="char.char_level < 20"
-              [isGeneratingStrategy]="isGeneratingStrategy"
+              [isGeneratingStrategy]="isGeneratingStrategy()"
               (shortRest)="openShortRestModal()"
               (longRest)="triggerLongRest()"
               (levelUp)="onLevelUp()"
@@ -167,8 +167,8 @@
   ></app-pdf-preview-modal>
 
   <app-validation-modal
-    [open]="showValidationModal"
-    (openChange)="showValidationModal = $event"
+    [open]="showValidationModal()"
+    (openChange)="showValidationModal.set($event)"
     [characterName]="charState.activeCharacter()?.char_name"
     [isValidating]="isValidating"
     [validationResult]="validationResult"
@@ -177,8 +177,8 @@
   ></app-validation-modal>
 
   <app-level-up-modal
-    [open]="showLevelUpModal && !!levelUpAnalysis"
-    (openChange)="showLevelUpModal = $event"
+    [open]="showLevelUpModal() && !!levelUpAnalysis"
+    (openChange)="showLevelUpModal.set($event)"
     [character]="charState.activeCharacter()"
     [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
     [levelUpAnalysis]="levelUpAnalysis"
@@ -188,8 +188,8 @@
   ></app-level-up-modal>
 
   <app-short-rest-modal
-    [open]="showShortRestModal"
-    (openChange)="showShortRestModal = $event"
+    [open]="showShortRestModal()"
+    (openChange)="showShortRestModal.set($event)"
     [classHitDieSize]="getClassHitDieSize()"
     [conModifier]="getConModifier()"
     [availableHitDice]="getAvailableHitDice()"
@@ -199,38 +199,38 @@
   ></app-short-rest-modal>
 
   <app-join-campaign-modal
-    [open]="showJoinModal"
-    (openChange)="showJoinModal = $event"
+    [open]="showJoinModal()"
+    (openChange)="showJoinModal.set($event)"
     [(joinInviteCode)]="joinInviteCode"
     (joinCampaign)="joinCampaign()"
   ></app-join-campaign-modal>
 
   <app-portrait-modal
-    [open]="showPortraitModal"
-    (openChange)="showPortraitModal = $event"
+    [open]="showPortraitModal()"
+    (openChange)="showPortraitModal.set($event)"
     [(portraitPrompt)]="portraitPrompt"
     (generateAiPortrait)="generateAiPortrait()"
   ></app-portrait-modal>
 
   <app-strategy-guide-modal
-    [open]="isGeneratingStrategy || !!strategyGuideText"
-    [isGenerating]="isGeneratingStrategy"
+    [open]="isGeneratingStrategy() || !!strategyGuideText"
+    [isGenerating]="isGeneratingStrategy()"
     [strategyGuideText]="strategyGuideText"
-    (closed)="strategyGuideText = null; isGeneratingStrategy = false"
+    (closed)="strategyGuideText = null; isGeneratingStrategy.set(false)"
   ></app-strategy-guide-modal>
 
   <app-edit-sheet-modal
-    [open]="showEditModal"
-    (openChange)="showEditModal = $event"
+    [open]="showEditModal()"
+    (openChange)="showEditModal.set($event)"
     [editChar]="editDraftChar"
     (saveEditModal)="saveEditModal()"
   ></app-edit-sheet-modal>
 
   <app-conditions-modal
-    [open]="showConditionsModal"
+    [open]="showConditionsModal()"
     [initialConditions]="charState.activeCharacter()?.conditions"
     [initialConcentration]="charState.activeCharacter()?.concentrating_on"
-    (closed)="showConditionsModal = false"
+    (closed)="showConditionsModal.set(false)"
     (save)="saveConditions($event)"
   ></app-conditions-modal>
 
@@ -253,7 +253,7 @@
   <ng-container *ngIf="charState.activeCharacter() as char">
     <div *ngIf="char.active_campaign" class="whisper-dock">
       <section
-        *ngIf="showWhisperInbox"
+        *ngIf="showWhisperInbox()"
         class="whisper-panel animated-fade"
         aria-label="DM inbox"
       >
@@ -383,9 +383,9 @@
         [attr.aria-label]="
           unreadMessages > 0
             ? unreadMessages + ' new messages from the DM. Open inbox'
-            : (showWhisperInbox ? 'Close DM inbox' : 'Open DM inbox')
+            : (showWhisperInbox() ? 'Close DM inbox' : 'Open DM inbox')
         "
-        [attr.aria-expanded]="showWhisperInbox"
+        [attr.aria-expanded]="showWhisperInbox()"
         (click)="toggleWhisperInbox()"
       >
         💬
@@ -397,9 +397,9 @@
   </ng-container>
 
   <app-player-homebrew-modal
-    *ngIf="showHomebrewModal && charState.activeCharacter()?.active_campaign"
+    *ngIf="showHomebrewModal() && charState.activeCharacter()?.active_campaign"
     [campaignName]="charState.activeCharacter()!.active_campaign!"
     [charId]="charState.activeCharacter()!.char_id!"
-    (closeModal)="showHomebrewModal = false"
+    (closeModal)="showHomebrewModal.set(false)"
   ></app-player-homebrew-modal>
 </forge-page>
