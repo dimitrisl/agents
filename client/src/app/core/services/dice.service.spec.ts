@@ -113,7 +113,7 @@ describe('DiceService', () => {
   describe('rollNotation', () => {
     it('parses basic notation and rolls', () => {
       const spy = jest.spyOn(service, 'roll').mockReturnValue({} as any);
-      service.rollNotation('2d6+3', 'advantage'); // disadvantage/advantage dropped in roll for 2d6
+      service.rollNotation('2d6+3', 'advantage'); // Passes mode down; roll() will handle dropping it for non-d20s
       expect(spy).toHaveBeenCalledWith({ numDice: 2, sides: 6, modifier: 3, mode: 'advantage' });
     });
 
@@ -129,10 +129,19 @@ describe('DiceService', () => {
       expect(spy).toHaveBeenCalledWith({ sides: 20, numDice: 1, modifier: 0, mode: 'disadvantage' });
     });
 
+
     it('defaults to 1 die if omitted', () => {
       const spy = jest.spyOn(service, 'roll').mockReturnValue({} as any);
       service.rollNotation('d10');
       expect(spy).toHaveBeenCalledWith({ numDice: 1, sides: 10, modifier: 0, mode: 'normal' });
+    });
+
+    it('defaults to 1d20 for empty or null notation', () => {
+      const spy = jest.spyOn(service, 'roll').mockReturnValue({} as any);
+      service.rollNotation('');
+      expect(spy).toHaveBeenCalledWith({ sides: 20, numDice: 1, modifier: 0, mode: 'normal' });
+      service.rollNotation(null as any);
+      expect(spy).toHaveBeenCalledWith({ sides: 20, numDice: 1, modifier: 0, mode: 'normal' });
     });
   });
 
