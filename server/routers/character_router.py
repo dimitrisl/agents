@@ -17,6 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
+from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import CharacterSchema, SuccessResponseSchema
 from backend.services.forge_service import process_character_update
@@ -78,6 +79,28 @@ async def _get_homebrew_for_character(db: AsyncIOMotorDatabase, campaign_id: str
     return homebrew_items
 
 
+async def _save_owned_character(db: AsyncIOMotorDatabase, char_dict: dict, owner_id: str) -> None:
+    """
+    Upserts a character that belongs to ``owner_id``.
+
+    The filter includes ``owner_id`` so a char_id owned by somebody else never matches
+    (and is therefore never overwritten). In that case the upsert tries to insert, and
+    the unique index on ``char_id`` rejects it, which is what closes the race between
+    the ownership pre-check and the write.
+    """
+    try:
+        await db["characters"].update_one(
+            {"char_id": char_dict["char_id"], "owner_id": owner_id},
+            {"$set": char_dict},
+            upsert=True,
+        )
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot overwrite a character owned by another user.",
+        )
+
+
 @router.post("", response_model=CharacterSchema, status_code=status.HTTP_201_CREATED)
 async def create_character(
     char_in: CharacterSchema,
@@ -104,9 +127,7 @@ async def create_character(
         partial(process_character_update, char_dict, homebrew_content=homebrew_items)
     )
 
-    await db["characters"].update_one(
-        {"char_id": char_dict["char_id"]}, {"$set": char_dict}, upsert=True
-    )
+    await _save_owned_character(db, char_dict, current_user["id"])
     return CharacterSchema.model_validate(char_dict, strict=False)
 
 
@@ -341,7 +362,5 @@ async def import_pdf(
     parsed_char = await run_in_threadpool(
         partial(process_character_update, parsed_char, homebrew_content=homebrew_items)
     )
-    await db["characters"].update_one(
-        {"char_id": parsed_char["char_id"]}, {"$set": parsed_char}, upsert=True
-    )
+    await _save_owned_character(db, parsed_char, current_user["id"])
     return CharacterSchema.model_validate(parsed_char, strict=False)
