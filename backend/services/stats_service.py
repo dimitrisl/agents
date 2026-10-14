@@ -2,7 +2,7 @@ import copy
 import functools
 import logging
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Union
 
 from backend.services.dice_service import rebuild_damage_formula
 
@@ -116,8 +116,9 @@ def calculate_ac(
     wis_score: int = None,
     con_score: int = None,
     homebrew_content: List[Dict[str, Any]] = None,
-) -> int:
-    """Calculates AC based on DEX and equipped items from KB."""
+    return_breakdown: bool = False,
+) -> Union[int, Tuple[int, Dict[str, Any]]]:
+    """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
 
     _rules_repo = RulesRepository()
@@ -130,6 +131,8 @@ def calculate_ac(
 
     has_armor = False
     has_shield = False
+    armor_name = None
+    armor_type = "unarmored"
 
     for equip in equipment:
         if isinstance(equip, str):
@@ -176,17 +179,35 @@ def calculate_ac(
             elif "mage armor" in f_name:
                 has_mage_armor = True
 
+    base_source = "Base (10)"
     if not has_armor:
         unarmored_bases = [10]
         if has_monk_unarmored and not has_shield and wis_score is not None:
-            unarmored_bases.append(10 + get_modifier(wis_score))
+            monk_val = 10 + get_modifier(wis_score)
+            unarmored_bases.append(monk_val)
+            if monk_val > base_ac:
+                base_source = f"Unarmored Defense (Monk: 10 + WIS {get_modifier(wis_score):+d})"
         if has_barbarian_unarmored and con_score is not None:
-            unarmored_bases.append(10 + get_modifier(con_score))
+            barb_val = 10 + get_modifier(con_score)
+            unarmored_bases.append(barb_val)
+            if barb_val > base_ac:
+                base_source = (
+                    f"Unarmored Defense (Barbarian: 10 + CON {get_modifier(con_score):+d})"
+                )
         if has_draconic_resilience:
             unarmored_bases.append(13)
+            if 13 > base_ac:
+                base_source = "Draconic Resilience (13)"
         if has_mage_armor:
             unarmored_bases.append(13)
+            if 13 > base_ac:
+                base_source = "Mage Armor (13)"
         base_ac = max(base_ac, max(unarmored_bases))
+
+    shield_bonus_applied = False
+    shield_name = None
+    shield_bonus = 0
+    other_bonuses = []
 
     for equip in equipment:
         if isinstance(equip, str):
@@ -194,7 +215,8 @@ def calculate_ac(
         if not equip or not equip.get("equipped", False):
             continue
 
-        item_name = (equip.get("name") or "").lower()
+        raw_item_name = equip.get("name") or ""
+        item_name = raw_item_name.lower()
         item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
 
         try:
@@ -202,28 +224,56 @@ def calculate_ac(
         except (ValueError, TypeError):
             val = 0
 
+        is_shield = "shield" in item_name or (
+            item_data and (item_data.get("type") or "").lower() == "shield"
+        )
+        if is_shield:
+            if shield_bonus_applied:
+                continue
+            shield_bonus_applied = True
+            shield_name = raw_item_name or "Shield"
+            s_val = val if val != 0 else (item_data.get("ac_bonus", 2) if item_data else 2)
+            shield_bonus = s_val
+            bonus_ac += s_val
+            continue
+
         if item_data:
             if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
                 item_base = val if val >= 10 else item_data.get("ac_base", 10)
-                base_ac = max(base_ac, item_base)
+                if item_base >= base_ac:
+                    base_ac = item_base
+                    armor_name = item_data.get("name", raw_item_name)
+                    armor_type = item_data.get("type", "Armor")
+                    base_source = f"{armor_name} ({base_ac})"
 
                 if "dex_limit" in item_data:
                     max_dex = min(max_dex, item_data["dex_limit"])
 
                 if val != 0 and val < 10:
                     bonus_ac += val
+                    other_bonuses.append((f"{raw_item_name} bonus", val))
             else:
                 item_bonus = val if val != 0 else item_data.get("ac_bonus", 0)
-                bonus_ac += item_bonus
+                if item_bonus != 0:
+                    bonus_ac += item_bonus
+                    other_bonuses.append((raw_item_name, item_bonus))
         else:
             if val >= 10:
-                base_ac = max(base_ac, val)
+                if val >= base_ac:
+                    base_ac = val
+                    armor_name = raw_item_name
+                    base_source = f"{armor_name} ({base_ac})"
                 if "heavy" in item_name or "plate" in item_name or "chain mail" in item_name:
                     max_dex = min(max_dex, 0)
+                    armor_type = "Heavy Armor"
                 elif "medium" in item_name or "scale" in item_name or "breastplate" in item_name:
                     max_dex = min(max_dex, 2)
-            else:
+                    armor_type = "Medium Armor"
+                else:
+                    armor_type = "Light Armor"
+            elif val != 0:
                 bonus_ac += val
+                other_bonuses.append((raw_item_name, val))
 
     if features:
         for f in features:
@@ -231,8 +281,10 @@ def calculate_ac(
                 continue
             if "integrated protection" in (f.get("name") or "").lower():
                 bonus_ac += 1
+                other_bonuses.append(("Warforged Integrated Protection", 1))
 
-    if features and base_ac > 10:
+    defense_bonus = 0
+    if features and has_armor:
         for f in features:
             if not f or not isinstance(f, dict):
                 continue
@@ -240,11 +292,53 @@ def calculate_ac(
             if "defense" in name_lower and (
                 "fighting style" in name_lower or name_lower.strip() == "defense"
             ):
+                defense_bonus = 1
                 bonus_ac += 1
                 break
 
     applied_dex = 0 if max_dex == 0 else min(dex_mod, max_dex)
-    return base_ac + applied_dex + bonus_ac
+    total_ac = base_ac + applied_dex + bonus_ac
+
+    if not return_breakdown:
+        return total_ac
+
+    formula_parts = [base_source]
+    if max_dex == 0:
+        if dex_mod != 0:
+            formula_parts.append("DEX (+0, heavy armor)")
+    else:
+        dex_label = f"DEX ({applied_dex:+d})"
+        if max_dex < 10 and dex_mod > max_dex:
+            dex_label = f"DEX ({applied_dex:+d} max)"
+        formula_parts.append(dex_label)
+
+    if shield_bonus > 0:
+        formula_parts.append(f"{shield_name or 'Shield'} (+{shield_bonus})")
+
+    if defense_bonus > 0:
+        formula_parts.append(f"Defense Style (+{defense_bonus})")
+
+    for ob_name, ob_val in other_bonuses:
+        formula_parts.append(f"{ob_name} (+{ob_val})")
+
+    formula_text = " + ".join(formula_parts) + f" = {total_ac}"
+
+    breakdown = {
+        "base": base_ac,
+        "base_source": base_source,
+        "armor_type": armor_type,
+        "dex_mod": dex_mod,
+        "dex_applied": applied_dex,
+        "dex_cap": max_dex if max_dex < 10 else None,
+        "shield_bonus": shield_bonus,
+        "shield_name": shield_name,
+        "defense_bonus": defense_bonus,
+        "other_bonuses": [{"name": ob[0], "bonus": ob[1]} for ob in other_bonuses],
+        "total": total_ac,
+        "formula_text": formula_text,
+    }
+
+    return total_ac, breakdown
 
 
 def calculate_passive_perception(
@@ -889,8 +983,20 @@ def sync_character_stats(
                 hp_bonus_per_level += 1
 
     existing_hp = char_data.get("hp_max")
+    current_con_mod = get_modifier(con_score)
+    con_mod_applied = char_data.get("con_mod_applied")
+    if con_mod_applied is None:
+        base_con = (
+            base_stats_raw.get("CON", con_score) if isinstance(base_stats_raw, dict) else con_score
+        )
+        con_mod_applied = get_modifier(base_con)
+
+    con_delta = 0
     if existing_hp is not None and existing_hp > 0:
         base_existing_hp = existing_hp - (hp_bonus_per_level * level)
+        if con_mod_applied is not None and con_mod_applied != current_con_mod:
+            con_delta = current_con_mod - con_mod_applied
+            base_existing_hp += con_delta * level
     else:
         base_existing_hp = None
 
@@ -902,14 +1008,21 @@ def sync_character_stats(
         hit_die_size, level, con_score, existing_hp=base_existing_hp, hit_dice_list=hit_dice_list
     )
     char_data["hp_max"] = base_hp + (hp_bonus_per_level * level)
+    char_data["con_mod_applied"] = current_con_mod
 
-    char_data["armor_class"] = calculate_ac(
+    if con_delta != 0 and char_data.get("hp_current") is not None:
+        char_data["hp_current"] = max(
+            0, min(char_data["hp_max"], char_data["hp_current"] + con_delta * level)
+        )
+
+    char_data["armor_class"], char_data["ac_breakdown"] = calculate_ac(
         dex_score,
         char_data.get("equipment", []),
         char_data.get("features_traits", []),
         wis_score=wis_score,
         con_score=con_score,
         homebrew_content=homebrew_content,
+        return_breakdown=True,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus
@@ -1195,11 +1308,16 @@ def sync_character_stats(
         # A. Weapon Masteries (Fighter Lvl 1-3 = 3, Lvl 4+ = 4 masteries)
         martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
         if (char_class or "").lower() in martial_classes:
-            target_masteries_count = (
-                4
-                if (char_class or "").lower() == "fighter" and level >= 4
-                else (3 if level >= 4 else 2)
-            )
+            c_low = (char_class or "").lower()
+            if c_low == "fighter":
+                target_masteries_count = (
+                    6 if level >= 16 else (5 if level >= 10 else (4 if level >= 4 else 3))
+                )
+            elif c_low == "barbarian":
+                target_masteries_count = 4 if level >= 10 else (3 if level >= 4 else 2)
+            else:
+                # Paladin, Ranger, Rogue strictly get 2 weapon masteries
+                target_masteries_count = 2
             existing_masteries = list(char_data.get("weapon_masteries") or [])
             all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
 
@@ -1339,10 +1457,6 @@ def sync_character_stats(
             if not isinstance(cantrips, list):
                 cantrips = []
 
-            edition_val = char_data.get("dnd_edition") or "2014 Edition"
-            known_cantrips_lower = _get_known_cantrips_for_edition(edition_val)
-
-            # Defensive fallback in case the database has dirty data (e.g. Booming Blade as level 1)
             undeniable_cantrips = {
                 "booming blade",
                 "green-flame blade",
@@ -1354,7 +1468,10 @@ def sync_character_stats(
                 "ray of frost",
                 "shocking grasp",
             }
-            known_cantrips_lower.update(undeniable_cantrips)
+            edition_val = char_data.get("dnd_edition") or "2014 Edition"
+            known_cantrips_lower = (
+                set(_get_known_cantrips_for_edition(edition_val)) | undeniable_cantrips
+            )
 
             for lvl in [f"level_{i}" for i in range(1, 10)]:
                 lvl_spells = spells_dict.get(lvl, [])

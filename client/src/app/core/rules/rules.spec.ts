@@ -668,3 +668,33 @@ describe('level up', () => {
     });
   });
 });
+
+describe('2024 Weapon Masteries rules', () => {
+  const { getMasteryDefinition, calculateToppleDc, WEAPON_MASTERIES } = require('./weapon-masteries');
+
+  it('contains all 8 official 2024 weapon masteries', () => {
+    const keys = Object.keys(WEAPON_MASTERIES);
+    expect(keys).toEqual(
+      expect.arrayContaining(['Cleave', 'Graze', 'Nick', 'Push', 'Sap', 'Slow', 'Topple', 'Vex'])
+    );
+  });
+
+  it('finds mastery definitions case-insensitively', () => {
+    const topple = getMasteryDefinition('topple');
+    expect(topple).toBeDefined();
+    expect(topple?.name).toBe('Topple');
+    expect(topple?.trigger).toBe('Hit');
+    expect(topple?.hasSaveDc).toBe(true);
+
+    const vex = getMasteryDefinition('VEX');
+    expect(vex?.name).toBe('Vex');
+    expect(vex?.trigger).toBe('Damage');
+  });
+
+  it('calculates Topple Save DC accurately according to 8 + abilityMod + PB', () => {
+    // 8 + STR(+3) + PB(+2) = 13
+    expect(calculateToppleDc(3, 2)).toBe(13);
+    // 8 + STR(+4) + PB(+3) = 15
+    expect(calculateToppleDc(4, 3)).toBe(15);
+  });
+});

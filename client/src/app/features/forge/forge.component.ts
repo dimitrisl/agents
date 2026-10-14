@@ -201,6 +201,23 @@ export class ForgeComponent implements OnInit {
     return Number(this.manualLevel || 1) < this.getSubclassMinLevel(this.manualClass);
   }
 
+  get aiSubclassLockHint(): string {
+    return this.getSubclassLockHint(this.aiClass);
+  }
+
+  get manualSubclassLockHint(): string {
+    return this.getSubclassLockHint(this.manualClass);
+  }
+
+  getSubclassLockHint(charClass: string): string {
+    const minLevel = this.getSubclassMinLevel(charClass);
+    const className = charClass && charClass !== 'AI Choice' ? charClass : 'Class';
+    if (this.is2024) {
+      return `${className} subclass unlocks at Level ${minLevel} (2024 rules).`;
+    }
+    return `${className} subclass unlocks at Level ${minLevel} (2014 rules).`;
+  }
+
   get blueprintStatsMode(): string {
     if (this.activeTab === 'ai') return this.aiUseRolled ? 'Rolled 4d6' : 'Standard Array';
     if (this.manualStatMethod === 'rolled') return 'Rolled 4d6';

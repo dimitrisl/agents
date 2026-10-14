@@ -179,8 +179,6 @@ _SUBCLASS_KEYWORDS = (
     "sorcerous origin",
     "otherworldly patron",
     "artificer specialist",
-    "divine order",  # 2024 cleric
-    "warrior order",  # 2024 fighter variant
 )
 
 

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ForgeInputDirective } from '../../../shared/ui/forge-form-field/forge-input.directive';
 
+import { AcBreakdown } from '../../../core/models/character.model';
+
 @Component({
   selector: 'app-combat-stat-grid',
   standalone: true,
@@ -12,6 +14,7 @@ import { ForgeInputDirective } from '../../../shared/ui/forge-form-field/forge-i
 export class CombatStatGridComponent {
   @Input() editMode = false;
   @Input() armorClass = 0;
+  @Input() acBreakdown?: AcBreakdown | null;
   @Input() proficiencyBonus = 0;
   @Input() speed = 0;
   @Input() passivePerception = 10;

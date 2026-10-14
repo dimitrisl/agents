@@ -749,4 +749,22 @@ afterEach(() => {
 
     expect(component.partyMembers.map((m) => m.passive_perception)).toEqual([14, 9, 10]);
   });
+
+  it('auto-numbers combatants added with duplicate names', () => {
+    component.newCombatantName = 'Goblin';
+    component.newCombatantInit = 12;
+    component.newCombatantHp = 7;
+    component.newCombatantAc = 15;
+    component.addCombatant();
+
+    expect(component.combatants.length).toBe(1);
+    expect(component.combatants[0].name).toBe('Goblin');
+
+    component.newCombatantName = 'Goblin';
+    component.addCombatant();
+
+    expect(component.combatants.length).toBe(2);
+    expect(component.combatants.map(c => c.name)).toContain('Goblin');
+    expect(component.combatants.map(c => c.name)).toContain('Goblin 2');
+  });
 });

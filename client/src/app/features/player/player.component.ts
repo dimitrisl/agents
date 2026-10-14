@@ -47,6 +47,7 @@ import {
   resolveLongRest,
   resolveShortRest,
   restoreAllSpellSlots,
+  restorePactSpellSlots,
   savingThrowModifier,
   skillModifier,
   skillModifierString,
@@ -476,8 +477,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     char.hp_current = rest.hpAfter;
     char.hit_dice_used = rest.hitDiceUsed;
 
-    if (rest.restoresPactSlots && char.spell_slots) {
-      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
+    if (rest.pactDetails && char.spell_slots) {
+      char.spell_slots = restorePactSpellSlots(
+        char.spell_slots,
+        rest.pactDetails.pactSlotLevel,
+        rest.pactDetails.pactSlotCount
+      );
     }
 
     this.saveCurrentChar();

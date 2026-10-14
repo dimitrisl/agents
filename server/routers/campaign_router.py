@@ -801,7 +801,7 @@ async def update_encounter_state(
 
     # Calculate Danger Indicator dynamically
     enc_dict["danger_indicator"] = await calculate_danger_indicator(
-        enc_dict.get("combatants", []), db
+        enc_dict.get("combatants", []), db, edition=camp.get("dnd_edition", "2014 Edition")
     )
 
     enc_dict["campaign_name"] = name

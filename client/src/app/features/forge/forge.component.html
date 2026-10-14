@@ -104,25 +104,15 @@
         <forge-card padding="none" [hoverable]="false">
           <div class="flex min-h-0 flex-col">
             <div
-              class="flex flex-col gap-3 border-b border-hairline p-4 lg:flex-row lg:items-center lg:justify-between"
+              class="border-b border-hairline p-4"
             >
               <forge-tabs
-                class="min-w-0 flex-1"
+                class="min-w-0 w-full"
                 instanceId="forge-tabs"
                 variant="underline"
                 [tabs]="forgeTabs"
                 [(activeId)]="activeTab"
               ></forge-tabs>
-
-              <button
-                type="button"
-                (click)="toggleEditionAndRefresh()"
-                class="flex items-center gap-2 rounded-lg border-2 border-accent/50 bg-accent/10 px-4 py-2 font-display text-body font-bold text-accent transition-colors hover:bg-accent hover:text-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-              >
-                <i class="fas fa-book"></i>
-                {{ is2024 ? "D&D 2024 Rules (5.5e)" : "D&D 2014 Rules (5e)" }}
-                <span class="text-micro opacity-80">(Click to change)</span>
-              </button>
             </div>
 
             @if (activeTab === "ai") {
@@ -137,7 +127,7 @@
                 [alignments]="alignments"
                 [subclassOptions]="subclassOptions"
                 [subclassLocked]="aiSubclassLocked"
-                [subclassLockHint]="subclassLockHint"
+                [subclassLockHint]="aiSubclassLockHint"
                 [loading]="loading"
                 [(aiRace)]="aiRace"
                 [(aiClass)]="aiClass"
@@ -168,7 +158,7 @@
                 [standardArrayValues]="standardArrayValues"
                 [manualSubclassOptions]="manualSubclassOptions"
                 [subclassLocked]="manualSubclassLocked"
-                [subclassLockHint]="subclassLockHint"
+                [subclassLockHint]="manualSubclassLockHint"
                 [rolledScores]="rolledScores"
                 [loading]="loading"
                 [getFinalStat]="getFinalStat.bind(this)"

@@ -58,6 +58,21 @@ export interface SpellList {
   level_9?: string[];
 }
 
+export interface AcBreakdown {
+  base: number;
+  base_source: string;
+  armor_type?: string;
+  dex_mod: number;
+  dex_applied: number;
+  dex_cap?: number | null;
+  shield_bonus: number;
+  shield_name?: string | null;
+  defense_bonus: number;
+  other_bonuses?: { name: string; bonus: number }[];
+  total: number;
+  formula_text: string;
+}
+
 export interface CharacterSchema {
   char_id?: string;
   owner_id?: string;
@@ -73,6 +88,7 @@ export interface CharacterSchema {
   alignment?: string;
   backstory?: string;
   armor_class: number;
+  ac_breakdown?: AcBreakdown;
   hp_max: number;
   hp_current?: number;
   hp_temp?: number;

@@ -79,6 +79,61 @@ export interface ShortRestOutcome {
   hitDiceUsed: number;
   /** Warlocks recharge their pact slots on a short rest, not a long one. */
   restoresPactSlots: boolean;
+  pactDetails?: WarlockPactDetails | null;
+}
+
+export interface WarlockPactDetails {
+  pactSlotLevel: number;
+  pactSlotCount: number;
+}
+
+export function warlockPactDetails(
+  char: Pick<CharacterSchema, 'char_class' | 'char_level' | 'classes'> | null | undefined
+): WarlockPactDetails | null {
+  if (!char) return null;
+  let wLevel = 0;
+  const mainClass = (char.char_class || '').toLowerCase();
+  if (mainClass.includes('warlock')) {
+    wLevel = char.char_level || 1;
+  }
+  if (char.classes && char.classes.length > 0) {
+    const wEntry = char.classes.find(c => (c.class_name || '').toLowerCase().includes('warlock'));
+    if (wEntry) {
+      wLevel = wEntry.level || 1;
+    }
+  }
+
+  if (wLevel <= 0) return null;
+
+  let slotLvl = 1;
+  let slotCount = 1;
+  if (wLevel === 1) {
+    slotLvl = 1;
+    slotCount = 1;
+  } else if (wLevel === 2) {
+    slotLvl = 1;
+    slotCount = 2;
+  } else if (wLevel <= 4) {
+    slotLvl = 2;
+    slotCount = 2;
+  } else if (wLevel <= 6) {
+    slotLvl = 3;
+    slotCount = 2;
+  } else if (wLevel <= 8) {
+    slotLvl = 4;
+    slotCount = 2;
+  } else if (wLevel <= 10) {
+    slotLvl = 5;
+    slotCount = 2;
+  } else if (wLevel <= 16) {
+    slotLvl = 5;
+    slotCount = 3;
+  } else {
+    slotLvl = 5;
+    slotCount = 4;
+  }
+
+  return { pactSlotLevel: slotLvl, pactSlotCount: slotCount };
 }
 
 /**
@@ -100,19 +155,21 @@ export function resolveShortRest(
   const hpBefore = currentHp(char);
   const hpAfter = Math.min(char.hp_max, hpBefore + rolled);
 
-    const isWarlock =
-      (char.char_class || '').toLowerCase().includes('warlock') ||
-      (char.classes || []).some(c => (c.class_name || '').toLowerCase().includes('warlock'));
+  const pact = warlockPactDetails(char);
 
-    return {
-      rolled,
-      hpGained: hpAfter - hpBefore,
-      hpBefore,
-      hpAfter,
-      hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
-      restoresPactSlots: isWarlock,
-    };
+  const outcome: ShortRestOutcome = {
+    rolled,
+    hpGained: hpAfter - hpBefore,
+    hpBefore,
+    hpAfter,
+    hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
+    restoresPactSlots: !!pact,
+  };
+  if (pact) {
+    outcome.pactDetails = pact;
   }
+  return outcome;
+}
 
 export interface LongRestOutcome {
   hpCurrent: number;

@@ -7,7 +7,14 @@
         aria-label="Change character portrait"
         (click)="portrait.emit()"
       >
-        <img [src]="portraitUrl" alt="Character portrait" class="h-full w-full object-cover" />
+        @if (portraitUrl) {
+          <img [src]="portraitUrl" (error)="portraitUrl = ''" alt="Character portrait" class="h-full w-full object-cover" />
+        } @else {
+          <div class="flex h-full w-full flex-col items-center justify-center bg-accent/10 text-accent transition-colors group-hover:bg-accent/20">
+            <span class="text-2xl font-bold font-display uppercase">{{ (char.char_name || '?').charAt(0) }}</span>
+            <span class="mt-1 text-[10px] text-muted font-sans font-medium">Add Portrait</span>
+          </div>
+        }
         <span class="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-micro font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
           Portrait
         </span>
@@ -91,6 +98,7 @@
     <app-combat-stat-grid
       [editMode]="editMode"
       [armorClass]="char.armor_class"
+      [acBreakdown]="char.ac_breakdown"
       (armorClassChange)="char.armor_class = $event"
       [proficiencyBonus]="char.proficiency_bonus"
       [speed]="char.speed"
