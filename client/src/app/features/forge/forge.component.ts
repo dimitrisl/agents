@@ -85,6 +85,13 @@ export class ForgeComponent implements OnInit {
   adjPlus1 = 'None';
   adjPlus1Alt = 'None';
 
+  // Manual choices & rules data
+  manualSkills: string[] = [];
+  manualFeats: string[] = [];
+  manualSpells: string[] = [];
+  availableFeats: any[] = [];
+  availableSpells: any[] = [];
+
   // Dictionaries
   // Dictionaries representing full database ruleset
   subclassMap2014: Record<string, string[]> = {
@@ -141,12 +148,38 @@ export class ForgeComponent implements OnInit {
   ngOnInit() {
     this.updateSubclasses();
     this.updateManualSubclasses();
+    this.fetchFeats();
+    this.fetchSpells();
   }
 
   toggleEditionAndRefresh() {
     this.charState.toggleEdition();
     this.updateSubclasses();
     this.updateManualSubclasses();
+    this.fetchFeats();
+    this.fetchSpells();
+  }
+
+  fetchFeats() {
+    this.http.get<any[]>(`${environment.apiBaseUrl}/rules/feats`, {
+      params: { edition: this.charState.dndEdition() }
+    }).subscribe({
+      next: (feats) => this.availableFeats = feats || [],
+      error: () => this.availableFeats = []
+    });
+  }
+
+  fetchSpells() {
+    this.http.get<any[]>(`${environment.apiBaseUrl}/rules/spells`, {
+      params: {
+        edition: this.charState.dndEdition(),
+        char_class: this.manualClass,
+        char_level: this.manualLevel
+      }
+    }).subscribe({
+      next: (spells) => this.availableSpells = spells || [],
+      error: () => this.availableSpells = []
+    });
   }
 
   get is2024(): boolean {
@@ -350,7 +383,10 @@ export class ForgeComponent implements OnInit {
       gender: this.manualGender,
       concept: this.manualConcept,
       base_stats: finalStats,
-      edition: this.charState.dndEdition()
+      edition: this.charState.dndEdition(),
+      skill_proficiencies: this.manualSkills,
+      chosen_feats: this.manualFeats.length > 0 ? this.manualFeats : null,
+      chosen_spells: this.manualSpells.length > 0 ? this.manualSpells : null,
     }).subscribe({
       next: (char) => {
         this.loading = false;

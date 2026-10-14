@@ -215,3 +215,65 @@ def test_ac_breakdown_transparency():
     assert synced["armor_class"] == 19
     assert "ac_breakdown" in synced
     assert synced["ac_breakdown"]["formula_text"] == breakdown["formula_text"]
+
+
+def test_forge_character_manual_explicit_choices():
+    """Verify that forge_character_manual respects explicitly provided spells, feats, and skills."""
+    from unittest.mock import patch
+
+    from backend.services.forge_service import forge_character_manual
+
+    # Mock Gemini AI JSON call so test runs completely offline and deterministically
+    mock_ai_char = {
+        "char_name": "Test Wizard",
+        "gender": "Female",
+        "char_class": "Wizard",
+        "char_level": 3,
+        "race": "Elf",
+        "background": "Sage",
+        "alignment": "Neutral Good",
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 16, "WIS": 12, "CHA": 10},
+        "features_traits": [],
+        "spells": {},
+        "prepared_spells": [],
+    }
+
+    with patch("backend.services.forge_service.generate_ai_json", return_value=mock_ai_char):
+        result = forge_character_manual(
+            target_level=3,
+            race="Elf",
+            char_class="Wizard",
+            background="Sage",
+            subclass="Evoker",
+            alignment="Neutral Good",
+            gender="Female",
+            name="Test Wizard",
+            base_stats={"STR": 8, "DEX": 14, "CON": 14, "INT": 16, "WIS": 12, "CHA": 10},
+            skill_proficiencies=["Arcana", "Investigation", "History"],
+            saving_throws=["INT", "WIS"],
+            spell_ability="INT",
+            concept="Studious arcane researcher",
+            edition="2024 Revision (5.5e)",
+            chosen_spells=["Fire Bolt", "Mage Hand", "Shield", "Misty Step"],
+            chosen_feats=["Alert", "War Caster"],
+        )
+
+    # Verify skills
+    assert set(["Arcana", "Investigation", "History"]).issubset(set(result["skill_proficiencies"]))
+
+    # Verify spells
+    assert "Fire Bolt" in result["spells"].get("cantrips", [])
+    assert "Mage Hand" in result["spells"].get("cantrips", [])
+    assert "Shield" in result["spells"].get("level_1", [])
+    assert "Misty Step" in result["spells"].get("level_2", [])
+    assert "Fire Bolt" in result["prepared_spells"]
+    assert "Shield" in result["prepared_spells"]
+
+    # Verify feats
+    advancement_names = [a.get("name") for a in result.get("advancements", [])]
+    assert "Alert" in advancement_names
+    assert "War Caster" in advancement_names
+
+    trait_names = [f.get("name") for f in result.get("features_traits", [])]
+    assert any("Alert" in t for t in trait_names)
+    assert any("War Caster" in t for t in trait_names)

@@ -231,6 +231,9 @@ def forge_character_manual(
     custom_preferences: str = None,
     auto_spells: bool = True,
     auto_feats: bool = True,
+    chosen_spells: list = None,
+    chosen_feats: list = None,
+    chosen_equipment: list = None,
 ) -> dict:
     """Enriches and builds a manual character based on user selections and AI helper."""
     pref_instructions = []
@@ -238,11 +241,19 @@ def forge_character_manual(
         pref_instructions.append(
             f"USER CUSTOM BUILD PREFERENCES (FEATS, SPELLS, ASIs):\n{custom_preferences}"
         )
-    if not auto_spells:
+    if chosen_spells:
+        pref_instructions.append(
+            f"USER CHOSEN SPELLS (STRICTLY USE THESE): {', '.join(chosen_spells)}"
+        )
+    elif not auto_spells:
         pref_instructions.append(
             "DO NOT auto-select spells for this character. Leave 'spells' as an empty dictionary {} and 'prepared_spells' as an empty list []."
         )
-    if not auto_feats:
+    if chosen_feats:
+        pref_instructions.append(
+            f"USER CHOSEN FEATS (STRICTLY USE THESE): {', '.join(chosen_feats)}"
+        )
+    elif not auto_feats:
         pref_instructions.append(
             "DO NOT auto-select Feats or ASIs for this character. Leave 'advancements' as an empty list [] and do NOT add Feat traits."
         )
@@ -311,7 +322,20 @@ def forge_character_manual(
         if feat.get("name", "").lower() not in existing_feat_names:
             result.setdefault("features_traits", []).append(feat)
 
-    if not auto_spells:
+    if chosen_spells is not None:
+        all_rules_spells = {s["name"].lower(): s for s in repo.get_all_spells(edition)}
+        spells_dict: dict[str, list[str]] = {}
+        prepared: list[str] = []
+        for s_name in chosen_spells:
+            s_data = all_rules_spells.get(s_name.lower())
+            lvl = s_data.get("level", 0) if s_data else 0
+            lvl_key = "cantrips" if lvl == 0 else f"level_{lvl}"
+            clean_name = s_data["name"] if s_data else s_name
+            spells_dict.setdefault(lvl_key, []).append(clean_name)
+            prepared.append(clean_name)
+        result["spells"] = spells_dict
+        result["prepared_spells"] = prepared
+    elif not auto_spells:
         result["spells"] = {}
         result["prepared_spells"] = []
     else:
@@ -325,7 +349,41 @@ def forge_character_manual(
                         if spell_name not in prepared:
                             prepared.append(spell_name)
         result["prepared_spells"] = prepared
-    if not auto_feats:
+
+    if chosen_feats is not None:
+        all_rules_feats = {f["name"].lower(): f for f in repo.get_all_feats(edition)}
+        advancements = []
+        feat_traits = []
+        for f_name in chosen_feats:
+            f_data = all_rules_feats.get(f_name.lower())
+            name = f_data["name"] if f_data else f_name
+            desc = f_data.get("description", "") if f_data else ""
+            category = f_data.get("category", "General Feats") if f_data else "General Feats"
+            adv_level = 1 if "origin" in category.lower() or "2024" in edition else 4
+            advancements.append(
+                {
+                    "level": adv_level,
+                    "type": "Feat",
+                    "name": name,
+                    "description": desc[:200],
+                }
+            )
+            feat_traits.append(
+                {
+                    "name": f"Feat: {name}",
+                    "description": desc,
+                    "source": "Feat",
+                }
+            )
+        result["advancements"] = advancements
+        existing_traits = [
+            f
+            for f in result.get("features_traits", [])
+            if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
+        ]
+        existing_traits.extend(feat_traits)
+        result["features_traits"] = existing_traits
+    elif not auto_feats:
         result["advancements"] = []
         if "features_traits" in result and isinstance(result["features_traits"], list):
             result["features_traits"] = [
@@ -333,6 +391,9 @@ def forge_character_manual(
                 for f in result["features_traits"]
                 if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
             ]
+
+    if chosen_equipment is not None:
+        result["equipment"] = [{"name": it, "equipped": True} for it in chosen_equipment]
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
