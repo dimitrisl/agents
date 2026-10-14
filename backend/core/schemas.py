@@ -194,6 +194,7 @@ class CharacterSchema(BaseModel):
     alignment: Optional[str] = "Neutral"
     backstory: Optional[str] = ""
     armor_class: int = 10
+    ac_breakdown: Optional[Dict[str, Any]] = None
     hp_max: int = 10
     hp_current: Optional[int] = None
     hp_temp: int = 0

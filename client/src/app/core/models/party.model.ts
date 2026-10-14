@@ -6,6 +6,8 @@
  * for the same hero is a view of this record, never a second copy — see the
  * "one hero, one state" section of `dm.component.ts`.
  */
+import type { AcBreakdown } from './character.model';
+
 export interface PartyMember {
   /** Absent for a member the DM typed in by hand: there is no sheet to write to. */
   char_id?: string;
@@ -15,6 +17,7 @@ export interface PartyMember {
   hp_current: number;
   hp_max: number;
   ac: number;
+  ac_breakdown?: AcBreakdown;
   passive_perception: number;
   conditions: string[];
   stats?: { [key: string]: number };

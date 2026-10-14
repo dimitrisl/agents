@@ -50,7 +50,14 @@ export class CharacterStateService {
   private loaded = false;
   private inFlight$: Observable<any> | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.setAttribute(
+        'data-edition',
+        this.dndEdition().includes('2024') ? '2024' : '2014'
+      );
+    }
+  }
 
   /**
    * Returns the vault, fetching it only the first time. Concurrent callers share

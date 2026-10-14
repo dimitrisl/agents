@@ -628,6 +628,425 @@
         </div>
       </div>
     </section>
+
+    <!-- STEP 5: Skills & Proficiencies -->
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="manual-step-skills"
+    >
+      <header class="flex flex-col gap-2 bg-tile px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+            aria-hidden="true"
+          >
+            5
+          </span>
+          <div>
+            <h2
+              id="manual-step-skills"
+              class="min-w-0 font-display text-title text-ink"
+            >
+              Skills & Proficiencies
+            </h2>
+            <p class="text-label text-muted">
+              {{ manualClass }} typically chooses {{ skillRules.count }} class skills. (Selected: {{ manualSkills.length }})
+              @if (backgroundSkills.length > 0) {
+                <span class="text-micro text-accent font-mono ml-1">
+                  · Background grants: {{ backgroundSkills.join(', ') }}
+                </span>
+              }
+            </p>
+          </div>
+        </div>
+
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="loadSkillSuggestions()"
+          title="Pre-select recommended class skills"
+        >
+          ★ Use Suggested Skills
+        </button>
+      </header>
+
+      <div class="p-4">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          @for (skill of allSkills; track skill.name) {
+            <button
+              type="button"
+              (click)="toggleSkill(skill.name)"
+              class="flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors"
+              [ngClass]="
+                isSkillSelected(skill.name)
+                  ? 'border-accent bg-accent/15 text-accent shadow-sm'
+                  : 'border-hairline bg-tile/70 text-muted hover:border-accent/40 hover:text-ink'
+              "
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-body text-ink">
+                  {{ isSkillSelected(skill.name) ? '✓ ' : '' }}{{ skill.name }}
+                  <span class="text-micro font-bold uppercase text-muted">({{ skill.ability }})</span>
+                </span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  @if (isBackgroundSkill(skill.name)) {
+                    <forge-badge tone="accent" size="sm" title="Granted by your Background">From Background</forge-badge>
+                  }
+                  @if (isSkillRecommended(skill.name)) {
+                    <forge-badge tone="gold" size="sm">★ Suggested</forge-badge>
+                  } @else if (isSkillAllowed(skill.name)) {
+                    <forge-badge tone="muted" size="sm">Class Skill</forge-badge>
+                  }
+                </div>
+              </div>
+              <p class="line-clamp-1 text-micro text-muted">
+                {{ skill.description }}
+              </p>
+            </button>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 6: Feats & Advancements -->
+    <section
+      class="overflow-hidden rounded-xl bg-panel"
+      aria-labelledby="manual-step-feats"
+    >
+      <header class="flex flex-col gap-2 bg-tile px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+            aria-hidden="true"
+          >
+            6
+          </span>
+          <div>
+            <h2
+              id="manual-step-feats"
+              class="min-w-0 font-display text-title text-ink"
+            >
+              Feats & Advancements
+            </h2>
+            <div class="flex flex-wrap items-center gap-2 text-label text-muted">
+              <span>Choose feats for your character.</span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
+                <span>Origin:</span>
+                <strong [class.text-accent]="originFeatsCount >= maxOriginFeats">{{ originFeatsCount }}/{{ maxOriginFeats }}</strong>
+                <span class="text-hairline">|</span>
+                <span>General:</span>
+                <strong [class.text-accent]="generalFeatsCount >= maxGeneralFeats">{{ generalFeatsCount }}/{{ maxGeneralFeats }}</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="loadFeatSuggestions()"
+          title="Select recommended feats for your class up to capacity"
+        >
+          ★ Use Suggested Feats
+        </button>
+      </header>
+
+      <div class="flex flex-col gap-3 p-4">
+        @if (featLimitWarning) {
+          <div class="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-label text-danger">
+            <span class="flex items-center gap-1.5">
+              <span>⚠</span>
+              <span>{{ featLimitWarning }}</span>
+            </span>
+            <button
+              type="button"
+              class="text-micro font-semibold underline hover:opacity-80"
+              (click)="featLimitWarning = null"
+            >
+              Dismiss
+            </button>
+          </div>
+        }
+
+        <!-- Controls: Tab + Search -->
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              forgeButton
+              [variant]="featTab === 'origin' ? 'primary' : 'secondary'"
+              size="sm"
+              (click)="featTab = 'origin'"
+            >
+              Origin Feats
+            </button>
+            <button
+              type="button"
+              forgeButton
+              [variant]="featTab === 'general' ? 'primary' : 'secondary'"
+              size="sm"
+              (click)="featTab = 'general'"
+            >
+              General Feats
+            </button>
+            <button
+              type="button"
+              forgeButton
+              [variant]="featTab === 'all' ? 'primary' : 'secondary'"
+              size="sm"
+              (click)="featTab = 'all'"
+            >
+              All ({{ availableFeats.length }})
+            </button>
+          </div>
+
+          <div class="w-full sm:w-64">
+            <input
+              forgeInput
+              type="search"
+              [(ngModel)]="featSearch"
+              placeholder="Search feats..."
+            />
+          </div>
+        </div>
+
+        <!-- Feat Cards Grid -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 max-h-96 overflow-y-auto pr-1">
+          @for (feat of filteredFeats; track feat.name) {
+            <div
+              class="flex flex-col justify-between rounded-lg border p-3 transition-colors"
+              [ngClass]="
+                isFeatSelected(feat.name)
+                  ? 'border-accent bg-accent/10 shadow-sm'
+                  : 'border-hairline bg-tile/70 hover:border-accent/40'
+              "
+            >
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="font-semibold text-body text-ink">
+                    {{ feat.name }}
+                  </h3>
+                  <div class="flex flex-wrap items-center gap-1">
+                    @if (isFeatRecommended(feat.name)) {
+                      <forge-badge tone="gold" size="sm">★ Suggested</forge-badge>
+                    }
+                    <forge-badge tone="muted" size="sm">{{ feat.category || 'Feat' }}</forge-badge>
+                  </div>
+                </div>
+
+                <p class="text-micro text-muted line-clamp-3">
+                  {{ feat.description }}
+                </p>
+              </div>
+
+              <div class="mt-3 flex items-center justify-between border-t border-hairline/60 pt-2">
+                <span class="text-micro text-muted">
+                  {{ feat.prerequisites?.min_level ? 'Min Lvl ' + feat.prerequisites.min_level : 'No requirement' }}
+                </span>
+                <button
+                  type="button"
+                  forgeButton
+                  [variant]="isFeatSelected(feat.name) ? 'primary' : 'secondary'"
+                  size="sm"
+                  [title]="!isFeatSelected(feat.name) && !canAddFeat(feat) ? 'Capacity limit reached. Click to see details.' : ''"
+                  (click)="toggleFeat(feat.name)"
+                >
+                  {{ isFeatSelected(feat.name) ? '✓ Selected' : (!canAddFeat(feat) ? '+ Select (Maxed)' : '+ Select') }}
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <div class="col-span-full py-8 text-center text-muted">
+              No feats matching your search criteria.
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 7: Spells & Cantrips (for Spellcasters) -->
+    @if (isSpellcaster) {
+      <section
+        class="overflow-hidden rounded-xl bg-panel"
+        aria-labelledby="manual-step-spells"
+      >
+        <header class="flex flex-col gap-2 bg-tile px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+              aria-hidden="true"
+            >
+              7
+            </span>
+            <div>
+              <h2
+                id="manual-step-spells"
+                class="min-w-0 font-display text-title text-ink"
+              >
+                Spells & Cantrips
+              </h2>
+              <div class="flex flex-wrap items-center gap-2 text-label text-muted">
+                <span>Choose spells for your {{ manualClass }}.</span>
+                <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
+                  <span>Cantrips:</span>
+                  <strong [class.text-accent]="cantripsCount >= maxCantrips">{{ cantripsCount }}/{{ maxCantrips }}</strong>
+                  <span class="text-hairline">|</span>
+                  <span>Prepared:</span>
+                  <strong [class.text-accent]="leveledSpellsCount >= maxPreparedSpells">{{ leveledSpellsCount }}/{{ maxPreparedSpells }}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="loadSpellSuggestions()"
+            title="Pre-select recommended staple spells up to capacity"
+          >
+            ★ Use Suggested Spells
+          </button>
+        </header>
+
+        <div class="flex flex-col gap-3 p-4">
+          @if (spellLimitWarning) {
+            <div class="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-label text-danger">
+              <span class="flex items-center gap-1.5">
+                <span>⚠</span>
+                <span>{{ spellLimitWarning }}</span>
+              </span>
+              <button
+                type="button"
+                class="text-micro font-semibold underline hover:opacity-80"
+                (click)="spellLimitWarning = null"
+              >
+                Dismiss
+              </button>
+            </div>
+          }
+
+          <!-- Filter Controls -->
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <!-- Level Tabs -->
+            <div class="flex flex-wrap items-center gap-1.5">
+              @for (lvl of unlockedSpellLevels; track lvl) {
+                <button
+                  type="button"
+                  forgeButton
+                  [variant]="spellLevelTab === lvl ? 'primary' : 'secondary'"
+                  size="sm"
+                  (click)="spellLevelTab = lvl"
+                >
+                  {{ lvl === 0 ? 'Cantrips' : 'Lvl ' + lvl }}
+                  @if (getSelectedSpellsCountByLevel(lvl) > 0) {
+                    <span class="ml-1 text-micro opacity-80">({{ getSelectedSpellsCountByLevel(lvl) }})</span>
+                  }
+                </button>
+              }
+              <button
+                type="button"
+                forgeButton
+                [variant]="spellLevelTab === 'all' ? 'primary' : 'secondary'"
+                size="sm"
+                (click)="spellLevelTab = 'all'"
+              >
+                All
+              </button>
+            </div>
+
+            <!-- School and Search -->
+            <div class="flex flex-wrap items-center gap-2">
+              <select
+                forgeSelect
+                class="w-36 text-label"
+                [(ngModel)]="spellSchoolFilter"
+              >
+                @for (school of spellSchools; track school) {
+                  <option [value]="school">{{ school }}</option>
+                }
+              </select>
+
+              <div class="w-full sm:w-48">
+                <input
+                  forgeInput
+                  type="search"
+                  [(ngModel)]="spellSearch"
+                  placeholder="Search spells..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Spells Grid -->
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 max-h-96 overflow-y-auto pr-1">
+            @for (spell of filteredSpells; track spell.name) {
+              <div
+                class="flex flex-col justify-between rounded-lg border p-3 transition-colors"
+                [ngClass]="
+                  isSpellSelected(spell.name)
+                    ? 'border-accent bg-accent/10 shadow-sm'
+                    : 'border-hairline bg-tile/70 hover:border-accent/40'
+                "
+              >
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <h3 class="font-semibold text-body text-ink">
+                      {{ spell.name }}
+                    </h3>
+                    <div class="flex flex-wrap items-center gap-1">
+                      @if (isSpellRecommended(spell.name)) {
+                        <forge-badge tone="gold" size="sm">★ Suggested</forge-badge>
+                      }
+                      <forge-badge tone="muted" size="sm">
+                        {{ spell.level === 0 ? 'Cantrip' : 'Lvl ' + spell.level }}
+                      </forge-badge>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2 text-micro text-muted">
+                    <span class="capitalize">{{ spell.school }}</span>
+                    <span>·</span>
+                    <span>{{ spell.castingTime || '1 Action' }}</span>
+                    <span>·</span>
+                    <span>{{ spell.range || 'Self' }}</span>
+                  </div>
+
+                  <p class="text-micro text-muted line-clamp-3">
+                    {{ spell.description }}
+                  </p>
+                </div>
+
+                <div class="mt-3 flex items-center justify-between border-t border-hairline/60 pt-2">
+                  <span class="text-micro text-muted">
+                    {{ spell.duration || 'Instantaneous' }}
+                  </span>
+                  <button
+                    type="button"
+                    forgeButton
+                    [variant]="isSpellSelected(spell.name) ? 'primary' : 'secondary'"
+                    size="sm"
+                    [title]="!isSpellSelected(spell.name) && !canAddSpell(spell) ? 'Capacity limit reached. Click to see details.' : ''"
+                    (click)="toggleSpell(spell.name)"
+                  >
+                    {{ isSpellSelected(spell.name) ? '✓ Added' : (!canAddSpell(spell) ? '+ Add (Maxed)' : '+ Add') }}
+                  </button>
+                </div>
+              </div>
+            } @empty {
+              <div class="col-span-full py-8 text-center text-muted">
+                No spells found for this level or filter.
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+    }
   </div>
 
   <footer

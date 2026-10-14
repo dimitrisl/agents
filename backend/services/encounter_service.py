@@ -132,7 +132,7 @@ def get_encounter_multiplier(num_monsters: int) -> float:
 
 
 async def calculate_danger_indicator(
-    combatants: List[Dict[str, Any]], db: AsyncIOMotorDatabase
+    combatants: List[Dict[str, Any]], db: AsyncIOMotorDatabase, edition: str = "2014 Edition"
 ) -> str:
     """
     Calculates the danger indicator for an encounter asynchronously by fetching character levels from DB.
@@ -144,11 +144,6 @@ async def calculate_danger_indicator(
     enemies = []
 
     for combatant in combatants:
-        # Check if they are dead. We only consider conscious/alive combatants for danger levels.
-        # But wait, if someone is dead, the encounter shouldn't instantly become easy!
-        # Actually, standard D&D calculates encounter difficulty BEFORE the fight starts, assuming all are max HP.
-        # So we should include everyone.
-
         is_player = combatant.get("is_player", False)
 
         if is_player:
@@ -182,7 +177,22 @@ async def calculate_danger_indicator(
     num_enemies = len(enemies)
 
     for enemy in enemies:
-        # Estimate CR from Max HP
+        # Check if monster defines explicit xp
+        if enemy.get("xp") is not None:
+            try:
+                enemy_base_xp += int(enemy["xp"])
+                continue
+            except (ValueError, TypeError):
+                pass
+
+        # Check if monster defines explicit CR
+        if enemy.get("cr") is not None:
+            cr_clean = str(enemy["cr"]).strip()
+            if cr_clean in CR_XP_MAP:
+                enemy_base_xp += CR_XP_MAP[cr_clean]
+                continue
+
+        # Fallback: Estimate CR from Max HP
         try:
             max_hp = int(enemy.get("max_hp", 10))
         except (ValueError, TypeError):
@@ -190,22 +200,27 @@ async def calculate_danger_indicator(
         cr_str = estimate_cr_from_hp(max_hp)
         enemy_base_xp += CR_XP_MAP.get(cr_str, 50)
 
-    multiplier = get_encounter_multiplier(num_enemies)
+    is_2024 = "2024" in str(edition)
+    if is_2024:
+        # 2024 DMG rules eliminated monster count multipliers
+        multiplier = 1.0
+    else:
+        multiplier = get_encounter_multiplier(num_enemies)
 
-    if len(heroes) < 3:
-        tiers = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
-        try:
-            idx = tiers.index(multiplier)
-            multiplier = tiers[min(len(tiers) - 1, idx + 1)]
-        except ValueError:
-            pass
-    elif len(heroes) > 5:
-        tiers = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0]
-        try:
-            idx = tiers.index(multiplier)
-            multiplier = tiers[max(0, idx - 1)]
-        except ValueError:
-            pass
+        if len(heroes) < 3:
+            tiers = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
+            try:
+                idx = tiers.index(multiplier)
+                multiplier = tiers[min(len(tiers) - 1, idx + 1)]
+            except ValueError:
+                pass
+        elif len(heroes) > 5:
+            tiers = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0]
+            try:
+                idx = tiers.index(multiplier)
+                multiplier = tiers[max(0, idx - 1)]
+            except ValueError:
+                pass
 
     adjusted_enemy_xp = enemy_base_xp * multiplier
 

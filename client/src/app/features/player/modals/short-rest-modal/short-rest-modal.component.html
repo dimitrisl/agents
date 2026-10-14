@@ -2,9 +2,24 @@
   <p class="mb-4 text-body-sm text-muted">Spend Hit Dice during a 1-hour rest to recover lost Hit Points.</p>
 
   <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-    <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">🎲 Hit Die Size</span><strong>d{{ classHitDieSize }}</strong></div>
+    <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">🎲 Hit Die Size</span><strong>d{{ selectedDieSize || classHitDieSize }}</strong></div>
     <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">⚡ CON Modifier bonus per die</span><strong>+{{ conModifier }}</strong></div>
     <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">❤️ Available Hit Dice</span><strong>{{ availableHitDice }} / {{ characterLevel }}</strong></div>
+  </div>
+
+  <div *ngIf="hitDieOptions && hitDieOptions.length > 1" class="mt-4">
+    <label for="short-rest-die-pool" class="mb-1 block text-label font-semibold text-muted">Select Hit Die Pool to Spend:</label>
+    <select
+      forgeSelect
+      id="short-rest-die-pool"
+      [ngModel]="selectedDieSize"
+      (ngModelChange)="selectedDieSizeChange.emit($event)"
+      class="w-full"
+    >
+      <option *ngFor="let opt of hitDieOptions" [ngValue]="opt.dieSize">
+        d{{ opt.dieSize }} — {{ opt.className }} (Level {{ opt.level }})
+      </option>
+    </select>
   </div>
 
   <div *ngIf="availableHitDice > 0" class="mt-4">

@@ -35,10 +35,12 @@ import {
   abilityModifierOf,
   adjustedHp,
   availableHitDice,
+  availableHitDieOptions,
   conModifier,
   findSkill,
   formatModifier,
   hasSpellSlotLevel,
+  HitDieOption,
   hitDieSize,
   isProficientIn,
   levelUp,
@@ -47,6 +49,7 @@ import {
   resolveLongRest,
   resolveShortRest,
   restoreAllSpellSlots,
+  restorePactSpellSlots,
   savingThrowModifier,
   skillModifier,
   skillModifierString,
@@ -170,6 +173,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   levelUpAnalysis: LevelUpAnalysis | null = null;
   levelUpUserChoices: Record<string, any> = {};
   shortRestDiceToSpend = 1;
+  shortRestDieSize = 8;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
   encounterState: any = null;
@@ -449,6 +453,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return hitDieSize(this.charState.activeCharacter());
   }
 
+  getHitDieOptions(): HitDieOption[] {
+    return availableHitDieOptions(this.charState.activeCharacter());
+  }
+
   getConModifier(): number {
     return conModifier(this.charState.activeCharacter());
   }
@@ -459,6 +467,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   openShortRestModal() {
     this.shortRestDiceToSpend = 1;
+    this.shortRestDieSize = this.getClassHitDieSize();
     this.showShortRestModal.set(true);
   }
 
@@ -466,7 +475,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
 
-    const plan = planShortRest(char, this.shortRestDiceToSpend);
+    const plan = planShortRest(char, this.shortRestDiceToSpend, this.shortRestDieSize);
     if (!plan) return;
 
     const { diceSpent, dieSize, conBonus } = plan;
@@ -476,8 +485,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     char.hp_current = rest.hpAfter;
     char.hit_dice_used = rest.hitDiceUsed;
 
-    if (rest.restoresPactSlots && char.spell_slots) {
-      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
+    if (rest.pactDetails && char.spell_slots) {
+      char.spell_slots = restorePactSpellSlots(
+        char.spell_slots,
+        rest.pactDetails.pactSlotLevel,
+        rest.pactDetails.pactSlotCount
+      );
     }
 
     this.saveCurrentChar();

@@ -147,7 +147,7 @@
     <forge-empty-state
       icon="D20"
       [title]="charState.characters().length > 0 ? 'No Heroes for ' + charState.dndEdition() : 'No Heroes Found'"
-      [description]="charState.characters().length > 0 ? 'You have heroes in the other edition. Switch the edition filter in the header to see them, or forge a new hero.' : 'Your vault is empty. It is time to forge a new legend.'"
+      [description]="charState.characters().length > 0 ? 'You have heroes in the other edition. Switch the edition filter in the sidebar, click Switch Edition below, or forge a new hero.' : 'Your vault is empty. It is time to forge a new legend.'"
     >
       <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
         <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
@@ -191,6 +191,8 @@
     [open]="showShortRestModal()"
     (openChange)="showShortRestModal.set($event)"
     [classHitDieSize]="getClassHitDieSize()"
+    [hitDieOptions]="getHitDieOptions()"
+    [(selectedDieSize)]="shortRestDieSize"
     [conModifier]="getConModifier()"
     [availableHitDice]="getAvailableHitDice()"
     [characterLevel]="charState.activeCharacter()?.char_level"

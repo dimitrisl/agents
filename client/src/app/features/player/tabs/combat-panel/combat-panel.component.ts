@@ -14,6 +14,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema, EquipmentItem, Weapon } from '../../../../core/models/character.model';
+import { getMasteryDefinition, calculateToppleDc } from '../../../../core/rules/weapon-masteries';
 import { DamagePart, DiceService, RollMode } from '../../../../core/services/dice.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
 import {
@@ -258,5 +259,32 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
 
   private attackBonus(weapon: Weapon): number {
     return this.dice.parseNotation(weapon.attack_bonus || '')?.modifier ?? 0;
+  }
+
+  isTopple(mastery: string): boolean {
+    return (mastery || '').toLowerCase().trim() === 'topple';
+  }
+
+  getToppleDc(): number {
+    const stats = this.char.stats || { STR: 10, DEX: 10 };
+    const strMod = Math.floor(((stats.STR ?? 10) - 10) / 2);
+    const dexMod = Math.floor(((stats.DEX ?? 10) - 10) / 2);
+    const bestMod = Math.max(strMod, dexMod);
+    const pb = this.char.proficiency_bonus || 2;
+    return calculateToppleDc(bestMod, pb);
+  }
+
+  getMasteryTrigger(mastery: string): string | null {
+    return getMasteryDefinition(mastery)?.trigger || null;
+  }
+
+  masteryTooltip(mastery: string): string {
+    const def = getMasteryDefinition(mastery);
+    if (!def) return mastery;
+    let text = `${def.name} [Trigger: ${def.trigger}]: ${def.summary} ${def.ruleText}`;
+    if (this.isTopple(mastery)) {
+      text += ` [DC ${this.getToppleDc()} CON Save]`;
+    }
+    return text;
   }
 }

@@ -60,6 +60,9 @@ class ManualEnrichRequest(BaseModel):
     custom_preferences: Optional[str] = None
     auto_spells: bool = True
     auto_feats: bool = True
+    chosen_spells: Optional[list] = None
+    chosen_feats: Optional[list] = None
+    chosen_equipment: Optional[list] = None
 
 
 class LevelUpRequest(BaseModel):
@@ -124,6 +127,9 @@ async def enrich_manual_character(
         custom_preferences=payload.custom_preferences,
         auto_spells=payload.auto_spells,
         auto_feats=payload.auto_feats,
+        chosen_spells=payload.chosen_spells,
+        chosen_feats=payload.chosen_feats,
+        chosen_equipment=payload.chosen_equipment,
     )
     if not char_dict:
         raise HTTPException(

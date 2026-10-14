@@ -680,6 +680,15 @@ export class DmComponent implements OnInit, OnDestroy {
     this.campaignNotes = selected?.notes || '';
     // Blank for a campaign forged before the field existed; the toggle covers it.
     this.campaignEdition = selected?.dnd_edition || '';
+    if (selected?.dnd_edition) {
+      this.charState.dndEdition.set(selected.dnd_edition);
+      if (typeof document !== 'undefined' && document.documentElement) {
+        document.documentElement.setAttribute(
+          'data-edition',
+          selected.dnd_edition.includes('2024') ? '2024' : '2014'
+        );
+      }
+    }
 
     // Before anything async: an encounter left running in this campaign is put
     // straight back on the table, so the fight is on screen while the roster is
@@ -721,6 +730,7 @@ export class DmComponent implements OnInit, OnDestroy {
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
             ac: char.armor_class ?? 10,
+            ac_breakdown: char.ac_breakdown,
             passive_perception: char.passive_perception ?? 10,
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
@@ -1115,10 +1125,23 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   addCombatant() {
-    if (!this.newCombatantName) return;
+    if (!this.newCombatantName?.trim()) return;
+
+    let finalName = this.newCombatantName.trim();
+    const sameNameCombatants = this.combatants.filter(c =>
+      c.name.toLowerCase() === finalName.toLowerCase() ||
+      new RegExp(`^${finalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\d+$`, 'i').test(c.name)
+    );
+    if (sameNameCombatants.length > 0) {
+      if (!/\s+\d+$/.test(finalName)) {
+        finalName = `${finalName} ${sameNameCombatants.length + 1}`;
+      } else if (this.combatants.some(c => c.name.toLowerCase() === finalName.toLowerCase())) {
+        finalName = `${finalName} (${sameNameCombatants.length + 1})`;
+      }
+    }
 
     const added = this.buildCombatant({
-      name: this.newCombatantName,
+      name: finalName,
       initiative: this.newCombatantInit,
       hp: this.newCombatantHp,
       max_hp: this.newCombatantHp,
@@ -1517,7 +1540,14 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterResult.monsters.forEach((m) => {
       const qty = m.quantity || 1;
       for (let i = 0; i < qty; i++) {
-        const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
+        const baseName = m.name;
+        const existingCount = [...this.combatants, ...added].filter(c =>
+          c.name.toLowerCase() === baseName.toLowerCase() ||
+          new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\d+$`, 'i').test(c.name)
+        ).length;
+        const monsterName = (qty > 1 || existingCount > 0)
+          ? `${baseName} ${existingCount + 1}`
+          : baseName;
         // A generated statblock can come back without a usable DEX; average it
         // rather than sorting the creature into the order at NaN.
         const dex = Number.isFinite(m.dex) ? m.dex : 10;

@@ -37,6 +37,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "jest-preset-angular": "^14.6.2",
     "postcss": "^8.5.25",
+    "puppeteer": "^24.43.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.7.2"
   }

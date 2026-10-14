@@ -168,12 +168,23 @@
                   }
                 </td>
                 <td class="px-3 py-2 align-top">
-                  <div class="flex min-w-0 items-center gap-2">
-                    <img
-                      [src]="combatant.portrait || 'https://img.icons8.com/color/96/monster.png'"
-                      alt=""
-                      class="h-9 w-9 shrink-0 rounded-full border border-hairline object-cover"
-                    />
+                  <div class="flex items-center gap-2">
+                    @if (combatant.portrait) {
+                      <img
+                        [src]="combatant.portrait"
+                        (error)="combatant.portrait = ''"
+                        alt=""
+                        class="h-9 w-9 shrink-0 rounded-full border border-hairline object-cover"
+                      />
+                    } @else {
+                      <div
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline text-label font-bold uppercase"
+                        [ngClass]="combatant.is_player ? 'bg-accent/15 text-accent border-accent/30' : 'bg-red/15 text-red border-red/30'"
+                        aria-hidden="true"
+                      >
+                        {{ (combatant.name || '?').charAt(0) }}
+                      </div>
+                    }
                     <span class="min-w-0 truncate font-semibold text-ink">{{ combatant.name }}</span>
                   </div>
 
@@ -207,13 +218,13 @@
                     <input
                       #hpInput
                       forgeInput
-                      type="number"
-                      min="0"
-                      [max]="combatant.max_hp"
+                      type="text"
+                      inputmode="numeric"
                       class="max-w-20 text-center"
                       [attr.aria-label]="combatant.name + ' current hit points'"
                       [value]="combatant.hp"
                       (change)="onHpInput(combatant, hpInput)"
+                      (keydown.enter)="onHpInput(combatant, hpInput); hpInput.blur()"
                     />
                     <span class="whitespace-nowrap text-label text-muted">/ {{ combatant.max_hp }}</span>
                   </div>

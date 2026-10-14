@@ -53,6 +53,58 @@
         </p>
       </div>
 
+      <div class="flex flex-wrap items-center gap-1.5 pt-1">
+        <span class="text-micro font-semibold uppercase text-muted mr-1">Quick Buffs:</span>
+        <button
+          type="button"
+          (click)="addDiceBonus('1d4', 4)"
+          class="rounded-md border border-hairline px-2 py-0.5 text-xs font-semibold text-ink hover:border-accent hover:text-accent bg-surface/50 transition-colors"
+          title="Roll 1d4 (Bless / Guidance)"
+        >
+          ✨ +1d4 (Bless/Guidance)
+        </button>
+        <button
+          type="button"
+          (click)="addDiceBonus('1d6', 6)"
+          class="rounded-md border border-hairline px-2 py-0.5 text-xs font-semibold text-ink hover:border-accent hover:text-accent bg-surface/50 transition-colors"
+          title="Roll 1d6 (Bardic Inspiration d6)"
+        >
+          🎵 +1d6 (Inspiration)
+        </button>
+        <button
+          type="button"
+          (click)="addDiceBonus('1d8', 8)"
+          class="rounded-md border border-hairline px-2 py-0.5 text-xs font-semibold text-ink hover:border-accent hover:text-accent bg-surface/50 transition-colors"
+          title="Roll 1d8 (Bardic Inspiration d8)"
+        >
+          🎵 +1d8 (Inspiration)
+        </button>
+        <button
+          type="button"
+          (click)="addStaticBonus(2)"
+          class="rounded-md border border-hairline px-2 py-0.5 text-xs font-semibold text-ink hover:border-accent hover:text-accent bg-surface/50 transition-colors"
+          title="Add +2 circumstance bonus"
+        >
+          +2
+        </button>
+        @if (situationalBonus !== 0) {
+          <button
+            type="button"
+            (click)="clearBonus()"
+            class="rounded-md border border-red/40 px-2 py-0.5 text-xs font-semibold text-red hover:bg-red/10 transition-colors"
+            title="Reset bonus to 0"
+          >
+            Reset
+          </button>
+        }
+      </div>
+
+      @if (buffDiceHistory.length > 0) {
+        <p class="text-micro text-accent font-mono">
+          Buff dice applied: {{ buffDiceHistory.join(' + ') }}
+        </p>
+      }
+
       <p class="text-micro text-muted">
         A bless, a guidance die, a feature the sheet does not track — add it here so the
         DM sees the number you actually rolled.

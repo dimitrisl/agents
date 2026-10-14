@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent } from '../../../../shared/ui';
@@ -28,7 +28,7 @@ import type { RollRequest } from '../../../../core/models/campaign.model';
   templateUrl: './roll-request-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RollRequestModalComponent {
+export class RollRequestModalComponent implements OnChanges {
   @Input() open = false;
   @Input() request: RollRequest | null = null;
   /** `Perception` — what the sheet calls the thing being rolled. */
@@ -47,6 +47,14 @@ export class RollRequestModalComponent {
   @Output() confirm = new EventEmitter<void>();
   @Output() dismiss = new EventEmitter<void>();
 
+  buffDiceHistory: string[] = [];
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['request'] || changes['open']) {
+      this.buffDiceHistory = [];
+    }
+  }
+
   get totalModifier(): number {
     return this.baseModifier + (this.situationalBonus || 0);
   }
@@ -59,6 +67,22 @@ export class RollRequestModalComponent {
   /** Turns urgent only at the end, so the countdown is not a constant alarm. */
   get isRunningOut(): boolean {
     return this.secondsRemaining > 0 && this.secondsRemaining <= 10;
+  }
+
+  addDiceBonus(notation: string, sides: number): void {
+    const roll = Math.floor(Math.random() * sides) + 1;
+    this.buffDiceHistory.push(`${notation} [${roll}]`);
+    this.situationalBonusChange.emit((this.situationalBonus || 0) + roll);
+  }
+
+  addStaticBonus(val: number): void {
+    this.buffDiceHistory.push(`+${val}`);
+    this.situationalBonusChange.emit((this.situationalBonus || 0) + val);
+  }
+
+  clearBonus(): void {
+    this.buffDiceHistory = [];
+    this.situationalBonusChange.emit(0);
   }
 
   /**

@@ -47,34 +47,65 @@ def rebuild_damage_formula(damage_dice: str, damage_bonus: str) -> str:
 
 def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False) -> Dict[str, Any]:
     """
-    Parses and rolls dice notation (e.g. '1d20+5', '2d6-1', 'd8').
+    Parses and rolls dice notation (e.g. '1d20+5', '2d6-1', 'd8', '2d6 + 1d4 + 3').
     Returns a dictionary with raw rolls, modifier, and total result.
     """
     raw_str = (die_str or "1d20").lower().strip()
-    clean_str = raw_str.replace(" ", "")
-    match = re.match(r"^(\d*)d(\d+)([+-]\d+)?", clean_str)
+    dice_matches = list(re.finditer(r"([+-]?)\s*(\d*)d(\d+)", raw_str))
 
-    if not match:
+    if not dice_matches:
         logger.warning(f"Invalid dice expression '{die_str}', defaulting to 1d20.")
         num_dice, sides, modifier = 1, 20, 0
+        total_dice_count = 1
+        raw_val = random.randint(1, 20)
+        rolls = [raw_val]
     else:
-        num_dice = int(match.group(1)) if match.group(1) else 1
-        sides = int(match.group(2))
-        modifier = int(match.group(3)) if match.group(3) else 0
+        first_num_dice = int(dice_matches[0].group(2)) if dice_matches[0].group(2) else 1
+        sides = int(dice_matches[0].group(3))
+        total_dice_count = 0
 
-    if advantage and disadvantage:
-        advantage = False
-        disadvantage = False
+        if advantage and disadvantage:
+            advantage = False
+            disadvantage = False
 
-    rolls = []
-    if sides == 20 and num_dice == 1 and (advantage or disadvantage):
-        roll1 = random.randint(1, 20)
-        roll2 = random.randint(1, 20)
-        rolls = [roll1, roll2]
-        raw_val = max(roll1, roll2) if advantage and not disadvantage else min(roll1, roll2)
-    else:
-        rolls = [random.randint(1, sides) for _ in range(num_dice)]
-        raw_val = sum(rolls)
+        if (
+            sides == 20
+            and len(dice_matches) == 1
+            and first_num_dice == 1
+            and (advantage or disadvantage)
+        ):
+            roll1 = random.randint(1, 20)
+            roll2 = random.randint(1, 20)
+            rolls = [roll1, roll2]
+            raw_val = max(roll1, roll2) if advantage and not disadvantage else min(roll1, roll2)
+            total_dice_count = 1
+        else:
+            rolls = []
+            raw_val = 0
+            for m in dice_matches:
+                sign = -1 if m.group(1) == "-" else 1
+                n = int(m.group(2)) if m.group(2) else 1
+                s = int(m.group(3))
+                total_dice_count += n
+                for _ in range(n):
+                    r = random.randint(1, s)
+                    rolls.append(r)
+                    raw_val += sign * r
+
+        # Extract standalone modifiers
+        remaining = re.sub(r"([+-]?)\s*(\d*)d(\d+)", "", raw_str)
+        mod_matches = re.findall(r"([+-]?\s*\d+)", remaining)
+        modifier = 0
+        for mod_str in mod_matches:
+            mod_clean = mod_str.replace(" ", "")
+            if mod_clean:
+                try:
+                    modifier += int(mod_clean)
+                except ValueError:
+                    pass
+
+        is_compound = len(dice_matches) > 1
+        num_dice = total_dice_count if is_compound else first_num_dice
 
     total = raw_val + modifier
 
@@ -86,6 +117,6 @@ def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False)
         "rolls": rolls,
         "raw_result": raw_val,
         "total": total,
-        "is_nat20": (sides == 20 and raw_val == 20),
-        "is_nat1": (sides == 20 and raw_val == 1),
+        "is_nat20": (sides == 20 and total_dice_count == 1 and raw_val == 20),
+        "is_nat1": (sides == 20 and total_dice_count == 1 and raw_val == 1),
     }
