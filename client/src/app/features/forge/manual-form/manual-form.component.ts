@@ -12,9 +12,14 @@ import {
   ALL_DND_SKILLS,
   ClassSkillRules,
   getClassSkillRules,
+  getMaxCantrips,
+  getMaxGeneralFeats,
+  getMaxOriginFeats,
+  getMaxPreparedSpells,
   getRecommendedFeats,
   getRecommendedSpells,
   isSpellcasterClass,
+  ORIGIN_SUGGESTED_FEATS,
 } from '../../../core/rules/recommendations';
 
 @Component({
@@ -33,7 +38,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ManualFormComponent {
-  @Input() is2024 = false;
+  @Input() is2024 = true;
   @Input() raceOptions: string[] = [];
   @Input() classOptions: string[] = [];
   @Input() bgOptions: string[] = [];
@@ -129,17 +134,57 @@ export class ManualFormComponent {
     this.manualSkillsChange.emit(this.manualSkills);
   }
 
-  // --- Feats Section ---
+  // --- Feats Section & Limits ---
   featTab: 'origin' | 'general' | 'all' = 'origin';
   featSearch = '';
+  featLimitWarning: string | null = null;
+
+  isOriginFeat(feat: any): boolean {
+    const name = typeof feat === 'string' ? feat : feat?.name || '';
+    const category = (feat?.category || '').toLowerCase();
+    return (
+      category.includes('origin') ||
+      feat?.prerequisites?.min_level === 0 ||
+      ORIGIN_SUGGESTED_FEATS.some((of) => of.toLowerCase() === name.toLowerCase())
+    );
+  }
+
+  canAddFeat(feat: any): boolean {
+    const isOrigin = this.isOriginFeat(feat);
+    if (isOrigin) {
+      return this.originFeatsCount < this.maxOriginFeats || this.generalFeatsCount < this.maxGeneralFeats;
+    }
+    return this.generalFeatsCount < this.maxGeneralFeats;
+  }
+
+  get maxOriginFeats(): number {
+    return getMaxOriginFeats(this.manualRace, this.is2024 ? '2024' : '2014');
+  }
+
+  get maxGeneralFeats(): number {
+    return getMaxGeneralFeats(this.manualClass, this.manualLevel);
+  }
+
+  get originFeatsCount(): number {
+    return (this.manualFeats || []).filter((name) => {
+      const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
+      return f && this.isOriginFeat(f);
+    }).length;
+  }
+
+  get generalFeatsCount(): number {
+    return (this.manualFeats || []).filter((name) => {
+      const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
+      return f && !this.isOriginFeat(f);
+    }).length;
+  }
 
   get filteredFeats(): any[] {
     const search = (this.featSearch || '').toLowerCase().trim();
     return (this.availableFeats || []).filter((f) => {
       const name = (f.name || '').toLowerCase();
       const desc = (f.description || '').toLowerCase();
-      const category = (f.category || '').toLowerCase();
-      const isOrigin = category.includes('origin') || f.prerequisites?.min_level === 0;
+      const isOrigin = this.isOriginFeat(f);
 
       if (this.featTab === 'origin' && !isOrigin) return false;
       if (this.featTab === 'general' && isOrigin) return false;
@@ -158,11 +203,37 @@ export class ManualFormComponent {
   }
 
   toggleFeat(name: string): void {
+    this.featLimitWarning = null;
     const list = [...(this.manualFeats || [])];
     const idx = list.indexOf(name);
+
     if (idx >= 0) {
       list.splice(idx, 1);
     } else {
+      const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
+      const isOrigin = this.isOriginFeat(f);
+
+      if (isOrigin) {
+        if (this.originFeatsCount >= this.maxOriginFeats && this.generalFeatsCount >= this.maxGeneralFeats) {
+          if (this.maxOriginFeats === 0 && !this.is2024) {
+            this.featLimitWarning = `In 2014 rules, only Variant Human receives a bonus feat at Level 1. Switch species to Variant Human or level up to 4.`;
+          } else if (this.maxGeneralFeats === 0) {
+            this.featLimitWarning = `Origin Feat limit reached (${this.maxOriginFeats}). General feats unlock at Level 4. Deselect an Origin Feat first.`;
+          } else {
+            this.featLimitWarning = `Feat capacity reached (${this.maxOriginFeats} Origin + ${this.maxGeneralFeats} General allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+          }
+          return;
+        }
+      } else {
+        if (this.generalFeatsCount >= this.maxGeneralFeats) {
+          if (this.maxGeneralFeats === 0) {
+            this.featLimitWarning = `General Feats unlock at Level 4 (ASI milestones). You cannot select General Feats at Level ${this.manualLevel}.`;
+          } else {
+            this.featLimitWarning = `General Feat limit reached (${this.maxGeneralFeats} allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+          }
+          return;
+        }
+      }
       list.push(name);
     }
     this.manualFeats = list;
@@ -170,17 +241,33 @@ export class ManualFormComponent {
   }
 
   loadFeatSuggestions(): void {
+    this.featLimitWarning = null;
     const recs = getRecommendedFeats(this.manualClass, this.manualLevel, this.is2024);
-    const count = this.is2024 ? (this.manualLevel >= 4 ? 2 : 1) : this.manualLevel >= 4 ? 1 : 1;
-    const toPick = recs.slice(0, count);
-    this.manualFeats = Array.from(new Set([...(this.manualFeats || []), ...toPick]));
+    const chosen: string[] = [];
+
+    // Fill origin feats up to maxOriginFeats
+    const originRecs = recs.filter((name) => {
+      const f = (this.availableFeats || []).find((feat) => feat.name === name);
+      return f && this.isOriginFeat(f);
+    });
+    chosen.push(...originRecs.slice(0, this.maxOriginFeats));
+
+    // Fill general feats up to maxGeneralFeats
+    const generalRecs = recs.filter((name) => {
+      const f = (this.availableFeats || []).find((feat) => feat.name === name);
+      return f && !this.isOriginFeat(f);
+    });
+    chosen.push(...generalRecs.slice(0, this.maxGeneralFeats));
+
+    this.manualFeats = Array.from(new Set(chosen));
     this.manualFeatsChange.emit(this.manualFeats);
   }
 
-  // --- Spells Section ---
+  // --- Spells Section & Limits ---
   spellSearch = '';
   spellSchoolFilter = 'All';
   spellLevelTab: number | 'all' = 0;
+  spellLimitWarning: string | null = null;
 
   readonly spellSchools = [
     'All',
@@ -196,6 +283,38 @@ export class ManualFormComponent {
 
   get isSpellcaster(): boolean {
     return isSpellcasterClass(this.manualClass, this.manualSubclass, this.manualLevel, this.is2024);
+  }
+
+  get spellAbilityKey(): string {
+    const c = (this.manualClass || '').toLowerCase();
+    if (['cleric', 'druid', 'ranger'].includes(c)) return 'WIS';
+    if (['bard', 'paladin', 'sorcerer', 'warlock'].includes(c)) return 'CHA';
+    return 'INT';
+  }
+
+  get spellAbilityMod(): number {
+    const score = this.getFinalStat ? this.getFinalStat(this.spellAbilityKey) : 10;
+    return Math.floor((score - 10) / 2);
+  }
+
+  get maxCantrips(): number {
+    return getMaxCantrips(this.manualClass, this.manualLevel);
+  }
+
+  get maxPreparedSpells(): number {
+    return getMaxPreparedSpells(this.manualClass, this.manualLevel, this.spellAbilityMod, this.is2024);
+  }
+
+  get cantripsCount(): number {
+    return this.getSelectedSpellsCountByLevel(0);
+  }
+
+  get leveledSpellsCount(): number {
+    return (this.manualSpells || []).filter((name) => {
+      const s = (this.availableSpells || []).find((sp) => sp.name === name);
+      if (s) return s.level > 0;
+      return true;
+    }).length;
   }
 
   get unlockedSpellLevels(): number[] {
@@ -225,6 +344,11 @@ export class ManualFormComponent {
     });
   }
 
+  canAddSpell(spell: any): boolean {
+    const isCantrip = spell && spell.level === 0;
+    return isCantrip ? this.cantripsCount < this.maxCantrips : this.leveledSpellsCount < this.maxPreparedSpells;
+  }
+
   isSpellSelected(name: string): boolean {
     return (this.manualSpells || []).includes(name);
   }
@@ -234,11 +358,24 @@ export class ManualFormComponent {
   }
 
   toggleSpell(name: string): void {
+    this.spellLimitWarning = null;
     const list = [...(this.manualSpells || [])];
     const idx = list.indexOf(name);
+
     if (idx >= 0) {
       list.splice(idx, 1);
     } else {
+      const s = (this.availableSpells || []).find((sp) => sp.name === name) || { name, level: 1 };
+      const isCantrip = s && s.level === 0;
+
+      if (isCantrip && this.cantripsCount >= this.maxCantrips) {
+        this.spellLimitWarning = `Cantrip limit reached (${this.maxCantrips} allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+        return;
+      }
+      if (!isCantrip && this.leveledSpellsCount >= this.maxPreparedSpells) {
+        this.spellLimitWarning = `Prepared spell limit reached (${this.maxPreparedSpells} allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+        return;
+      }
       list.push(name);
     }
     this.manualSpells = list;
@@ -246,11 +383,23 @@ export class ManualFormComponent {
   }
 
   loadSpellSuggestions(): void {
+    this.spellLimitWarning = null;
     const recs = getRecommendedSpells(this.manualClass);
-    const validRecs = (this.availableSpells || [])
-      .filter((s) => recs.includes(s.name))
+    const chosen: string[] = [];
+
+    // Pick cantrips up to maxCantrips
+    const cantripRecs = (this.availableSpells || [])
+      .filter((s) => s.level === 0 && recs.includes(s.name))
       .map((s) => s.name);
-    this.manualSpells = Array.from(new Set([...(this.manualSpells || []), ...validRecs]));
+    chosen.push(...cantripRecs.slice(0, this.maxCantrips));
+
+    // Pick leveled spells up to maxPreparedSpells
+    const leveledRecs = (this.availableSpells || [])
+      .filter((s) => s.level > 0 && recs.includes(s.name))
+      .map((s) => s.name);
+    chosen.push(...leveledRecs.slice(0, this.maxPreparedSpells));
+
+    this.manualSpells = Array.from(new Set(chosen));
     this.manualSpellsChange.emit(this.manualSpells);
   }
 

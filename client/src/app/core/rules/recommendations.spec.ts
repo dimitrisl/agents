@@ -57,4 +57,47 @@ describe('Manual Build Recommendations Rules', () => {
     expect(clericSpells).toContain('Bless');
     expect(clericSpells).toContain('Spirit Guardians');
   });
+
+  it('should calculate max origin and general feats capacity', () => {
+    const { getMaxOriginFeats, getMaxGeneralFeats } = require('./recommendations');
+
+    // 2024: 1 Origin Feat, or 2 for Human
+    expect(getMaxOriginFeats('Human', '2024')).toBe(2);
+    expect(getMaxOriginFeats('Elf', '2024')).toBe(1);
+    expect(getMaxOriginFeats('Human', '2014')).toBe(0);
+    expect(getMaxOriginFeats('Variant Human', '2014')).toBe(1);
+
+    // General feats by level
+    expect(getMaxGeneralFeats('Wizard', 1)).toBe(0);
+    expect(getMaxGeneralFeats('Wizard', 4)).toBe(1);
+    expect(getMaxGeneralFeats('Wizard', 8)).toBe(2);
+
+    // Fighter extra milestones at 6 and 14
+    expect(getMaxGeneralFeats('Fighter', 4)).toBe(1);
+    expect(getMaxGeneralFeats('Fighter', 6)).toBe(2);
+    expect(getMaxGeneralFeats('Fighter', 8)).toBe(3);
+    expect(getMaxGeneralFeats('Fighter', 14)).toBe(5);
+
+    // Rogue extra milestone at 10
+    expect(getMaxGeneralFeats('Rogue', 10)).toBe(3);
+  });
+
+  it('should calculate max cantrips and prepared spells capacity', () => {
+    const { getMaxCantrips, getMaxPreparedSpells } = require('./recommendations');
+
+    // Cantrips
+    expect(getMaxCantrips('Wizard', 1)).toBe(3);
+    expect(getMaxCantrips('Wizard', 4)).toBe(4);
+    expect(getMaxCantrips('Wizard', 10)).toBe(5);
+    expect(getMaxCantrips('Fighter', 1)).toBe(0);
+
+    // 2024 prepared spells table
+    expect(getMaxPreparedSpells('Wizard', 1, 3, true)).toBe(4);
+    expect(getMaxPreparedSpells('Wizard', 3, 3, true)).toBe(6);
+    expect(getMaxPreparedSpells('Paladin', 1, 3, true)).toBe(2);
+
+    // 2014 prepared spells (level + ability mod)
+    expect(getMaxPreparedSpells('Wizard', 1, 3, false)).toBe(4); // 1 + 3
+    expect(getMaxPreparedSpells('Wizard', 3, 3, false)).toBe(6); // 3 + 3
+  });
 });

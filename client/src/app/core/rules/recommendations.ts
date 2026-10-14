@@ -247,3 +247,67 @@ export function getRecommendedSpells(className: string): string[] {
   const norm = Object.keys(CLASS_SUGGESTED_SPELLS).find((c) => c.toLowerCase() === (className || '').toLowerCase());
   return norm ? CLASS_SUGGESTED_SPELLS[norm] : [];
 }
+
+// --- Maximum Capacity Limits ---
+
+export function getMaxOriginFeats(race: string, edition: string = '2014'): number {
+  const is2024 = (edition || '').includes('2024');
+  if (is2024) {
+    return (race || '').toLowerCase() === 'human' ? 2 : 1;
+  }
+  return (race || '').toLowerCase() === 'variant human' ? 1 : 0;
+}
+
+export function getMaxGeneralFeats(className: string, level: number = 1): number {
+  const c = (className || '').toLowerCase();
+  let milestones = [4, 8, 12, 16, 19];
+  if (c === 'fighter') milestones = [4, 6, 8, 12, 14, 16, 19];
+  else if (c === 'rogue') milestones = [4, 8, 10, 12, 16, 19];
+  return milestones.filter((m) => m <= level).length;
+}
+
+export function getMaxCantrips(className: string, level: number = 1): number {
+  const c = (className || '').toLowerCase();
+  if (['wizard', 'cleric'].includes(c)) return level < 4 ? 3 : level < 10 ? 4 : 5;
+  if (['sorcerer'].includes(c)) return level < 4 ? 4 : level < 10 ? 5 : 6;
+  if (['druid', 'bard', 'warlock'].includes(c)) return level < 4 ? 2 : level < 10 ? 3 : 4;
+  if (['artificer'].includes(c)) return level < 10 ? 2 : level < 14 ? 3 : 4;
+  return 0;
+}
+
+export function getMaxPreparedSpells(
+  className: string,
+  level: number = 1,
+  abilityMod: number = 0,
+  is2024: boolean = false
+): number {
+  const c = (className || '').toLowerCase();
+  const idx = Math.min(19, Math.max(0, level - 1));
+
+  if (is2024) {
+    const fullCaster = [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22];
+    const warlock = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15];
+    const halfCaster = [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15];
+
+    if (['wizard', 'cleric', 'druid', 'bard', 'sorcerer'].includes(c)) return fullCaster[idx];
+    if (c === 'warlock') return warlock[idx];
+    if (['paladin', 'ranger'].includes(c)) return halfCaster[idx];
+    return 0;
+  } else {
+    // 2014 rules
+    if (['wizard', 'cleric', 'druid'].includes(c)) return Math.max(1, level + abilityMod);
+    if (c === 'paladin') return level >= 2 ? Math.max(1, Math.floor(level / 2) + abilityMod) : 0;
+    if (c === 'artificer') return Math.max(1, Math.floor(level / 2) + abilityMod);
+
+    const bard = [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22];
+    const sorcerer = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15];
+    const warlock = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15];
+    const ranger = [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11];
+
+    if (c === 'bard') return bard[idx];
+    if (c === 'sorcerer') return sorcerer[idx];
+    if (c === 'warlock') return warlock[idx];
+    if (c === 'ranger') return ranger[idx];
+    return 0;
+  }
+}

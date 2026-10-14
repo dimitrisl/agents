@@ -722,9 +722,16 @@
             >
               Feats & Advancements
             </h2>
-            <p class="text-label text-muted">
-              Choose Origin Feats (Level 1) or General Feats. (Selected: {{ manualFeats.length }})
-            </p>
+            <div class="flex flex-wrap items-center gap-2 text-label text-muted">
+              <span>Choose feats for your character.</span>
+              <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
+                <span>Origin:</span>
+                <strong [class.text-accent]="originFeatsCount >= maxOriginFeats">{{ originFeatsCount }}/{{ maxOriginFeats }}</strong>
+                <span class="text-hairline">|</span>
+                <span>General:</span>
+                <strong [class.text-accent]="generalFeatsCount >= maxGeneralFeats">{{ generalFeatsCount }}/{{ maxGeneralFeats }}</strong>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -734,13 +741,29 @@
           size="sm"
           type="button"
           (click)="loadFeatSuggestions()"
-          title="Select recommended feats for your class"
+          title="Select recommended feats for your class up to capacity"
         >
           ★ Use Suggested Feats
         </button>
       </header>
 
       <div class="flex flex-col gap-3 p-4">
+        @if (featLimitWarning) {
+          <div class="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-label text-danger">
+            <span class="flex items-center gap-1.5">
+              <span>⚠</span>
+              <span>{{ featLimitWarning }}</span>
+            </span>
+            <button
+              type="button"
+              class="text-micro font-semibold underline hover:opacity-80"
+              (click)="featLimitWarning = null"
+            >
+              Dismiss
+            </button>
+          </div>
+        }
+
         <!-- Controls: Tab + Search -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-center gap-2">
@@ -821,9 +844,10 @@
                   forgeButton
                   [variant]="isFeatSelected(feat.name) ? 'primary' : 'secondary'"
                   size="sm"
+                  [title]="!isFeatSelected(feat.name) && !canAddFeat(feat) ? 'Capacity limit reached. Click to see details.' : ''"
                   (click)="toggleFeat(feat.name)"
                 >
-                  {{ isFeatSelected(feat.name) ? '✓ Selected' : '+ Select' }}
+                  {{ isFeatSelected(feat.name) ? '✓ Selected' : (!canAddFeat(feat) ? '+ Select (Maxed)' : '+ Select') }}
                 </button>
               </div>
             </div>
@@ -857,9 +881,16 @@
               >
                 Spells & Cantrips
               </h2>
-              <p class="text-label text-muted">
-                Choose spells for your {{ manualClass }}. (Selected: {{ manualSpells.length }})
-              </p>
+              <div class="flex flex-wrap items-center gap-2 text-label text-muted">
+                <span>Choose spells for your {{ manualClass }}.</span>
+                <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
+                  <span>Cantrips:</span>
+                  <strong [class.text-accent]="cantripsCount >= maxCantrips">{{ cantripsCount }}/{{ maxCantrips }}</strong>
+                  <span class="text-hairline">|</span>
+                  <span>Prepared:</span>
+                  <strong [class.text-accent]="leveledSpellsCount >= maxPreparedSpells">{{ leveledSpellsCount }}/{{ maxPreparedSpells }}</strong>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -869,13 +900,29 @@
             size="sm"
             type="button"
             (click)="loadSpellSuggestions()"
-            title="Pre-select recommended staple spells"
+            title="Pre-select recommended staple spells up to capacity"
           >
             ★ Use Suggested Spells
           </button>
         </header>
 
         <div class="flex flex-col gap-3 p-4">
+          @if (spellLimitWarning) {
+            <div class="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-label text-danger">
+              <span class="flex items-center gap-1.5">
+                <span>⚠</span>
+                <span>{{ spellLimitWarning }}</span>
+              </span>
+              <button
+                type="button"
+                class="text-micro font-semibold underline hover:opacity-80"
+                (click)="spellLimitWarning = null"
+              >
+                Dismiss
+              </button>
+            </div>
+          }
+
           <!-- Filter Controls -->
           <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <!-- Level Tabs -->
@@ -976,9 +1023,10 @@
                     forgeButton
                     [variant]="isSpellSelected(spell.name) ? 'primary' : 'secondary'"
                     size="sm"
+                    [title]="!isSpellSelected(spell.name) && !canAddSpell(spell) ? 'Capacity limit reached. Click to see details.' : ''"
                     (click)="toggleSpell(spell.name)"
                   >
-                    {{ isSpellSelected(spell.name) ? '✓ Added' : '+ Add' }}
+                    {{ isSpellSelected(spell.name) ? '✓ Added' : (!canAddSpell(spell) ? '+ Add (Maxed)' : '+ Add') }}
                   </button>
                 </div>
               </div>
