@@ -35,10 +35,12 @@ import {
   abilityModifierOf,
   adjustedHp,
   availableHitDice,
+  availableHitDieOptions,
   conModifier,
   findSkill,
   formatModifier,
   hasSpellSlotLevel,
+  HitDieOption,
   hitDieSize,
   isProficientIn,
   levelUp,
@@ -171,6 +173,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   levelUpAnalysis: LevelUpAnalysis | null = null;
   levelUpUserChoices: Record<string, any> = {};
   shortRestDiceToSpend = 1;
+  shortRestDieSize = 8;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
   encounterState: any = null;
@@ -450,6 +453,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return hitDieSize(this.charState.activeCharacter());
   }
 
+  getHitDieOptions(): HitDieOption[] {
+    return availableHitDieOptions(this.charState.activeCharacter());
+  }
+
   getConModifier(): number {
     return conModifier(this.charState.activeCharacter());
   }
@@ -460,6 +467,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   openShortRestModal() {
     this.shortRestDiceToSpend = 1;
+    this.shortRestDieSize = this.getClassHitDieSize();
     this.showShortRestModal.set(true);
   }
 
@@ -467,7 +475,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
 
-    const plan = planShortRest(char, this.shortRestDiceToSpend);
+    const plan = planShortRest(char, this.shortRestDiceToSpend, this.shortRestDieSize);
     if (!plan) return;
 
     const { diceSpent, dieSize, conBonus } = plan;

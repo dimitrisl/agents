@@ -311,3 +311,72 @@ export function getMaxPreparedSpells(
     return 0;
   }
 }
+
+export const BACKGROUND_SKILLS_MAP: Record<string, string[]> = {
+  Acolyte: ['Insight', 'Religion'],
+  Artisan: ['Investigation', 'Persuasion'],
+  'Guild Artisan': ['Insight', 'Persuasion'],
+  Charlatan: ['Deception', 'Sleight of Hand'],
+  Criminal: ['Deception', 'Stealth'],
+  Entertainer: ['Acrobatics', 'Performance'],
+  Farmer: ['Animal Handling', 'Nature'],
+  'Folk Hero': ['Animal Handling', 'Survival'],
+  Guard: ['Athletics', 'Perception'],
+  Guide: ['Stealth', 'Survival'],
+  Hermit: ['Medicine', 'Religion'],
+  Merchant: ['Animal Handling', 'Persuasion'],
+  Noble: ['History', 'Persuasion'],
+  Outlander: ['Athletics', 'Survival'],
+  Sage: ['Arcana', 'History'],
+  Sailor: ['Athletics', 'Perception'],
+  Scribe: ['Investigation', 'Perception'],
+  Soldier: ['Athletics', 'Intimidation'],
+  Urchin: ['Sleight of Hand', 'Stealth'],
+  Wayfarer: ['Insight', 'Stealth'],
+};
+
+export function getBackgroundSkills(background: string): string[] {
+  const norm = Object.keys(BACKGROUND_SKILLS_MAP).find(
+    (b) => b.toLowerCase() === (background || '').toLowerCase()
+  );
+  return norm ? BACKGROUND_SKILLS_MAP[norm] : [];
+}
+
+export function getMaxCastableSpellLevel(
+  className: string,
+  level: number = 1,
+  is2024: boolean = false,
+  subclass?: string | null
+): number {
+  const c = (className || '').toLowerCase();
+  const lvl = Math.max(1, level);
+
+  if (!isSpellcasterClass(className, subclass, level, is2024)) {
+    return 0;
+  }
+
+  // Full casters
+  if (['wizard', 'cleric', 'druid', 'bard', 'sorcerer'].includes(c)) {
+    return Math.min(9, Math.ceil(lvl / 2));
+  }
+
+  // Warlock (Pact Magic)
+  if (c === 'warlock') {
+    return Math.min(5, Math.ceil(lvl / 2));
+  }
+
+  // Half casters
+  if (['paladin', 'ranger'].includes(c)) {
+    if (!is2024 && lvl < 2) return 0;
+    return Math.min(5, Math.ceil(lvl / 4));
+  }
+
+  // Artificer
+  if (c === 'artificer') {
+    return Math.min(5, Math.ceil(lvl / 4));
+  }
+
+  // Third casters
+  if (lvl < 3) return 0;
+  return Math.min(4, Math.ceil((lvl - 2) / 6));
+}

@@ -651,6 +651,11 @@
             </h2>
             <p class="text-label text-muted">
               {{ manualClass }} typically chooses {{ skillRules.count }} class skills. (Selected: {{ manualSkills.length }})
+              @if (backgroundSkills.length > 0) {
+                <span class="text-micro text-accent font-mono ml-1">
+                  · Background grants: {{ backgroundSkills.join(', ') }}
+                </span>
+              }
             </p>
           </div>
         </div>
@@ -685,7 +690,10 @@
                   {{ isSkillSelected(skill.name) ? '✓ ' : '' }}{{ skill.name }}
                   <span class="text-micro font-bold uppercase text-muted">({{ skill.ability }})</span>
                 </span>
-                <div class="flex items-center gap-1.5">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  @if (isBackgroundSkill(skill.name)) {
+                    <forge-badge tone="accent" size="sm" title="Granted by your Background">From Background</forge-badge>
+                  }
                   @if (isSkillRecommended(skill.name)) {
                     <forge-badge tone="gold" size="sm">★ Suggested</forge-badge>
                   } @else if (isSkillAllowed(skill.name)) {

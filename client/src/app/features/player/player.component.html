@@ -191,6 +191,8 @@
     [open]="showShortRestModal()"
     (openChange)="showShortRestModal.set($event)"
     [classHitDieSize]="getClassHitDieSize()"
+    [hitDieOptions]="getHitDieOptions()"
+    [(selectedDieSize)]="shortRestDieSize"
     [conModifier]="getConModifier()"
     [availableHitDice]="getAvailableHitDice()"
     [characterLevel]="charState.activeCharacter()?.char_level"

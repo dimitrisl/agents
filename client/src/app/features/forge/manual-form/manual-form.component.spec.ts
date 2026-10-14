@@ -51,9 +51,37 @@ describe('ManualFormComponent', () => {
 
   it('should load skill suggestions for class', () => {
     component.manualClass = 'Wizard';
+    component.manualBackground = 'Sage'; // Sage grants Arcana & History
     component.loadSkillSuggestions();
-    expect(component.manualSkills).toContain('Arcana');
-    expect(component.manualSkills).toContain('Investigation');
+    // Sage grants Arcana, so suggestions should pick other class skills
+    expect(component.manualSkills.length).toBe(2);
+  });
+
+  it('should identify background skills and prioritize non-background skills in suggestions', () => {
+    component.manualBackground = 'Soldier'; // grants Athletics & Intimidation
+    expect(component.isBackgroundSkill('Athletics')).toBe(true);
+    expect(component.isBackgroundSkill('Intimidation')).toBe(true);
+    expect(component.isBackgroundSkill('Arcana')).toBe(false);
+
+    component.manualClass = 'Fighter'; // standard recommended is Athletics & Perception
+    component.loadSkillSuggestions();
+    // Since Athletics is already granted by Soldier, it should pick Perception and another allowed skill
+    expect(component.manualSkills).not.toContain('Athletics');
+    expect(component.manualSkills).toContain('Perception');
+    expect(component.manualSkills.length).toBe(2);
+  });
+
+  it('should cap unlockedSpellLevels by maxCastableLevel', () => {
+    component.manualClass = 'Wizard';
+    component.manualLevel = 1;
+    // Level 1 Wizard can only cast cantrips (0) and 1st-level spells (1)
+    expect(component.maxCastableLevel).toBe(1);
+    expect(component.unlockedSpellLevels).toEqual([0, 1]);
+
+    component.manualLevel = 3;
+    // Level 3 Wizard can cast up to 2nd-level spells
+    expect(component.maxCastableLevel).toBe(2);
+    expect(component.unlockedSpellLevels).toEqual([0, 1, 2]);
   });
 
   it('should toggle feat selection', () => {

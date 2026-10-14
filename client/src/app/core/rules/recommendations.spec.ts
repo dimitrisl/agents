@@ -100,4 +100,28 @@ describe('Manual Build Recommendations Rules', () => {
     expect(getMaxPreparedSpells('Wizard', 1, 3, false)).toBe(4); // 1 + 3
     expect(getMaxPreparedSpells('Wizard', 3, 3, false)).toBe(6); // 3 + 3
   });
+
+  it('should return background skills and max castable spell level correctly', () => {
+    const { getBackgroundSkills, getMaxCastableSpellLevel } = require('./recommendations');
+
+    expect(getBackgroundSkills('Soldier')).toEqual(['Athletics', 'Intimidation']);
+    expect(getBackgroundSkills('Acolyte')).toEqual(['Insight', 'Religion']);
+    expect(getBackgroundSkills('Sailor')).toEqual(['Athletics', 'Perception']);
+    expect(getBackgroundSkills('Unknown')).toEqual([]);
+
+    // Full caster spell level progression
+    expect(getMaxCastableSpellLevel('Wizard', 1)).toBe(1);
+    expect(getMaxCastableSpellLevel('Wizard', 3)).toBe(2);
+    expect(getMaxCastableSpellLevel('Wizard', 5)).toBe(3);
+    expect(getMaxCastableSpellLevel('Wizard', 17)).toBe(9);
+
+    // Half caster progression
+    expect(getMaxCastableSpellLevel('Paladin', 1, true)).toBe(1);
+    expect(getMaxCastableSpellLevel('Paladin', 1, false)).toBe(0);
+    expect(getMaxCastableSpellLevel('Paladin', 2, false)).toBe(1);
+    expect(getMaxCastableSpellLevel('Paladin', 5, true)).toBe(2);
+
+    // Third caster / non caster
+    expect(getMaxCastableSpellLevel('Barbarian', 5)).toBe(0);
+  });
 });

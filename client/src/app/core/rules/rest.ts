@@ -38,6 +38,42 @@ export function availableHitDice(char: CharacterSchema | null | undefined): numb
   return Math.max(0, (char.char_level || 1) - (char.hit_dice_used || 0));
 }
 
+export interface HitDieOption {
+  dieSize: number;
+  className: string;
+  level: number;
+}
+
+/**
+ * Lists the hit die pool options available to the character.
+ * For multiclass characters, lists each class with its level and hit die size.
+ * Single class characters return a single option.
+ */
+export function availableHitDieOptions(
+  char: Pick<CharacterSchema, 'classes' | 'char_class' | 'char_level' | 'hit_dice'> | null | undefined
+): HitDieOption[] {
+  if (!char) return [];
+
+  if (char.classes && char.classes.length > 0) {
+    return char.classes.map((cls) => {
+      const isMain = (cls.class_name || '').toLowerCase() === (char.char_class || '').toLowerCase();
+      return {
+        className: cls.class_name || 'Class',
+        level: cls.level || 1,
+        dieSize: isMain ? hitDieSize(char) : hitDieSidesFor(cls.class_name),
+      };
+    });
+  }
+
+  return [
+    {
+      className: char.char_class || 'Class',
+      level: char.char_level || 1,
+      dieSize: hitDieSize(char),
+    },
+  ];
+}
+
 export interface ShortRestPlan {
   /** Dice actually spent — at least one, never more than are left. */
   diceSpent: number;
@@ -53,7 +89,8 @@ export interface ShortRestPlan {
  */
 export function planShortRest(
   char: CharacterSchema | null | undefined,
-  requestedDice: number
+  requestedDice: number,
+  overrideDieSize?: number
 ): ShortRestPlan | null {
   const available = availableHitDice(char);
   if (available <= 0) return null;
@@ -63,7 +100,7 @@ export function planShortRest(
 
   return {
     diceSpent,
-    dieSize: hitDieSize(char),
+    dieSize: overrideDieSize && overrideDieSize > 0 ? overrideDieSize : hitDieSize(char),
     conModifier: conMod,
     conBonus: conMod * diceSpent,
   };

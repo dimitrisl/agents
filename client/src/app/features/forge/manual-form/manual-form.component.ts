@@ -16,10 +16,12 @@ import {
   getMaxGeneralFeats,
   getMaxOriginFeats,
   getMaxPreparedSpells,
+  getMaxCastableSpellLevel,
   getRecommendedFeats,
   getRecommendedSpells,
   isSpellcasterClass,
   ORIGIN_SUGGESTED_FEATS,
+  getBackgroundSkills,
 } from '../../../core/rules/recommendations';
 
 @Component({
@@ -129,8 +131,27 @@ export class ManualFormComponent {
     this.manualSkillsChange.emit(this.manualSkills);
   }
 
+  get backgroundSkills(): string[] {
+    return getBackgroundSkills(this.manualBackground);
+  }
+
+  isBackgroundSkill(name: string): boolean {
+    return this.backgroundSkills.some((s) => s.toLowerCase() === (name || '').toLowerCase());
+  }
+
   loadSkillSuggestions(): void {
-    this.manualSkills = [...this.skillRules.recommended];
+    const bgSkills = this.backgroundSkills.map((s) => s.toLowerCase());
+    // Filter out skills already granted by background so choices aren't duplicated
+    const nonBgRecs = this.skillRules.recommended.filter((s) => !bgSkills.includes(s.toLowerCase()));
+    const needed = this.skillRules.count;
+    const finalSkills = [...nonBgRecs];
+    if (finalSkills.length < needed) {
+      const remainingAllowed = this.skillRules.allowed.filter(
+        (s) => !bgSkills.includes(s.toLowerCase()) && !finalSkills.includes(s)
+      );
+      finalSkills.push(...remainingAllowed.slice(0, needed - finalSkills.length));
+    }
+    this.manualSkills = finalSkills.slice(0, needed);
     this.manualSkillsChange.emit(this.manualSkills);
   }
 
@@ -317,20 +338,33 @@ export class ManualFormComponent {
     }).length;
   }
 
+  get maxCastableLevel(): number {
+    return getMaxCastableSpellLevel(this.manualClass, this.manualLevel, this.is2024, this.manualSubclass);
+  }
+
   get unlockedSpellLevels(): number[] {
+    const maxLvl = this.maxCastableLevel;
     const lvls = new Set<number>();
+    lvls.add(0); // Always include Cantrips for casters
+    for (let i = 1; i <= maxLvl; i++) {
+      lvls.add(i);
+    }
+    // Also include any levels present in availableSpells that do not exceed maxLvl
     (this.availableSpells || []).forEach((s) => {
-      if (typeof s.level === 'number') lvls.add(s.level);
+      if (typeof s.level === 'number' && s.level <= maxLvl) {
+        lvls.add(s.level);
+      }
     });
-    if (lvls.size === 0) return [0, 1];
     return Array.from(lvls).sort((a, b) => a - b);
   }
 
   get filteredSpells(): any[] {
     const search = (this.spellSearch || '').toLowerCase().trim();
     const school = (this.spellSchoolFilter || 'All').toLowerCase();
+    const maxLvl = this.maxCastableLevel;
 
     return (this.availableSpells || []).filter((s) => {
+      if (typeof s.level === 'number' && s.level > maxLvl) return false;
       if (this.spellLevelTab !== 'all' && s.level !== this.spellLevelTab) return false;
       if (school !== 'all' && (s.school || '').toLowerCase() !== school) return false;
       if (

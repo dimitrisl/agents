@@ -1,12 +1,25 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent } from '../../../../shared/ui';
+import {
+  ForgeButtonDirective,
+  ForgeInputDirective,
+  ForgeModalComponent,
+  ForgeSelectDirective,
+} from '../../../../shared/ui';
+import { HitDieOption } from '../../../../core/rules/rest';
 
 @Component({
   selector: 'app-short-rest-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ForgeButtonDirective,
+    ForgeInputDirective,
+    ForgeModalComponent,
+    ForgeSelectDirective,
+  ],
   templateUrl: './short-rest-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -17,8 +30,11 @@ export class ShortRestModalComponent {
   @Input() availableHitDice = 0;
   @Input() characterLevel?: number;
   @Input() shortRestDiceToSpend = 1;
+  @Input() hitDieOptions: HitDieOption[] = [];
+  @Input() selectedDieSize = 8;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() shortRestDiceToSpendChange = new EventEmitter<number>();
+  @Output() selectedDieSizeChange = new EventEmitter<number>();
   @Output() executeShortRest = new EventEmitter<void>();
 }
