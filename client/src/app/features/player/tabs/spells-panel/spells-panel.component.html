@@ -104,6 +104,18 @@
             + Add
           </button>
         </div>
+        <div *ngIf="editMode && addingSpellGroup() === group.label" class="flex items-center gap-2 px-2">
+          <input
+            forgeInput
+            type="text"
+            class="flex-1"
+            [(ngModel)]="newSpellName"
+            [placeholder]="'New ' + group.label + ' spell...'"
+            (keyup.enter)="confirmAddSpell(group.label)"
+          />
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddSpell(group.label)">Add</button>
+          <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddSpell()">Cancel</button>
+        </div>
         <div class="flex flex-col gap-1">
           <div *ngFor="let spell of group.spells; let idx = index" class="rounded-lg overflow-hidden flex items-center">
             <div class="flex-1 min-w-0">
@@ -113,7 +125,7 @@
                 </ng-container>
               </forge-list-row>
             </div>
-            <button *ngIf="editMode" type="button" class="p-3 text-red-500 hover:text-red-400" (click)="deleteSpell(group.label, idx, $event)" title="Delete spell">✕</button>
+            <button *ngIf="editMode" type="button" class="p-3 text-crimson hover:text-crimson/80" (click)="deleteSpell(group.label, idx, $event)" title="Delete spell">✕</button>
           </div>
         </div>
       </div>
@@ -157,6 +169,19 @@
       </div>
     </div>
 
+    <div *ngIf="editMode && addingFeature()" class="flex items-center gap-2">
+      <input
+        forgeInput
+        type="text"
+        class="flex-1"
+        [(ngModel)]="newFeatureName"
+        placeholder="Enter feature or trait name..."
+        (keyup.enter)="confirmAddFeature()"
+      />
+      <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddFeature()">Add</button>
+      <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddFeature()">Cancel</button>
+    </div>
+
     <div
       *ngIf="features.length > 0; else noFeatures"
       class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
@@ -190,7 +215,7 @@
               />
             </svg>
           </button>
-          <button *ngIf="editMode" type="button" class="px-4 text-red-500 hover:text-red-400" (click)="deleteFeature(index, $event)" title="Delete feature">✕</button>
+          <button *ngIf="editMode" type="button" class="px-4 text-crimson hover:text-crimson/80" (click)="deleteFeature(index, $event)" title="Delete feature">✕</button>
         </div>
 
         <p

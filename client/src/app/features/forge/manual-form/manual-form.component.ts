@@ -163,11 +163,9 @@ export class ManualFormComponent {
   isOriginFeat(feat: any): boolean {
     const name = typeof feat === 'string' ? feat : feat?.name || '';
     const category = (feat?.category || '').toLowerCase();
-    return (
-      category.includes('origin') ||
-      feat?.prerequisites?.min_level === 0 ||
-      ORIGIN_SUGGESTED_FEATS.some((of) => of.toLowerCase() === name.toLowerCase())
-    );
+    if (category.includes('origin')) return true;
+    if (ORIGIN_SUGGESTED_FEATS.some((of) => of.toLowerCase() === name.toLowerCase())) return true;
+    return this.is2024 && feat?.prerequisites?.min_level === 0;
   }
 
   canAddFeat(feat: any): boolean {
@@ -186,18 +184,22 @@ export class ManualFormComponent {
     return getMaxGeneralFeats(this.manualClass, this.manualLevel);
   }
 
-  get originFeatsCount(): number {
+  private get rawOriginFeatsSelected(): number {
     return (this.manualFeats || []).filter((name) => {
       const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
       return f && this.isOriginFeat(f);
     }).length;
   }
 
+  get originFeatsCount(): number {
+    return Math.min(this.rawOriginFeatsSelected, this.maxOriginFeats);
+  }
+
   get generalFeatsCount(): number {
-    return (this.manualFeats || []).filter((name) => {
-      const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
-      return f && !this.isOriginFeat(f);
-    }).length;
+    const total = (this.manualFeats || []).length;
+    const nonOrigin = total - this.rawOriginFeatsSelected;
+    const overflowOrigin = Math.max(0, this.rawOriginFeatsSelected - this.maxOriginFeats);
+    return nonOrigin + overflowOrigin;
   }
 
   get filteredFeats(): any[] {
@@ -268,16 +270,13 @@ export class ManualFormComponent {
 
     // Fill origin feats up to maxOriginFeats
     const originRecs = recs.filter((name) => {
-      const f = (this.availableFeats || []).find((feat) => feat.name === name);
+      const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
       return f && this.isOriginFeat(f);
     });
     chosen.push(...originRecs.slice(0, this.maxOriginFeats));
 
     // Fill general feats up to maxGeneralFeats
-    const generalRecs = recs.filter((name) => {
-      const f = (this.availableFeats || []).find((feat) => feat.name === name);
-      return f && !this.isOriginFeat(f);
-    });
+    const generalRecs = recs.filter((name) => !chosen.includes(name));
     chosen.push(...generalRecs.slice(0, this.maxGeneralFeats));
 
     this.manualFeats = Array.from(new Set(chosen));
@@ -319,11 +318,11 @@ export class ManualFormComponent {
   }
 
   get maxCantrips(): number {
-    return getMaxCantrips(this.manualClass, this.manualLevel);
+    return getMaxCantrips(this.manualClass, this.manualLevel, this.manualSubclass);
   }
 
   get maxPreparedSpells(): number {
-    return getMaxPreparedSpells(this.manualClass, this.manualLevel, this.spellAbilityMod, this.is2024);
+    return getMaxPreparedSpells(this.manualClass, this.manualLevel, this.spellAbilityMod, this.is2024, this.manualSubclass);
   }
 
   get cantripsCount(): number {
@@ -388,7 +387,7 @@ export class ManualFormComponent {
   }
 
   isSpellRecommended(name: string): boolean {
-    return getRecommendedSpells(this.manualClass).includes(name);
+    return getRecommendedSpells(this.manualClass, this.manualSubclass).includes(name);
   }
 
   toggleSpell(name: string): void {
@@ -418,7 +417,7 @@ export class ManualFormComponent {
 
   loadSpellSuggestions(): void {
     this.spellLimitWarning = null;
-    const recs = getRecommendedSpells(this.manualClass);
+    const recs = getRecommendedSpells(this.manualClass, this.manualSubclass);
     const chosen: string[] = [];
 
     // Pick cantrips up to maxCantrips

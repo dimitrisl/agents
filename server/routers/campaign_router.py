@@ -548,6 +548,39 @@ async def add_roll_request(
     }
 
 
+async def _authorize_roll_request_target(
+    db: AsyncIOMotorDatabase,
+    campaign_name: str,
+    target: dict,
+    current_user: dict,
+    member: dict,
+) -> None:
+    if member.get("role") == "dm":
+        return
+
+    target_char = await _find_campaign_character(
+        db,
+        campaign_name,
+        target.get("char_filename", ""),
+        target.get("char_name", ""),
+    )
+    if target_char and target_char.get("owner_id"):
+        if target_char["owner_id"] != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to act on another player's roll request.",
+            )
+        return
+
+    if member.get("character_id"):
+        member_char = await db["characters"].find_one({"char_id": member["character_id"]})
+        if member_char and member_char.get("char_name") != target.get("char_name"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to act on another player's roll request.",
+            )
+
+
 @router.post("/{name}/roll-request/{request_id}/result", response_model=SuccessResponseSchema)
 async def resolve_roll_request(
     name: str,
@@ -565,11 +598,13 @@ async def resolve_roll_request(
     if not target:
         raise HTTPException(status_code=404, detail="Roll request not found")
 
+    await _authorize_roll_request_target(db, name, target, current_user, member)
+
     result = result_in.model_dump()
     resolved_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    await db["campaign_roll_requests"].update_one(
-        {"_id": target["_id"]},
+    outcome = await db["campaign_roll_requests"].update_one(
+        {"_id": target["_id"], "status": "pending"},
         {
             "$set": {
                 "status": "resolved",
@@ -578,6 +613,11 @@ async def resolve_roll_request(
             }
         },
     )
+    if outcome.modified_count == 0 and target.get("status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Roll request was already resolved or missed.",
+        )
 
     target["status"] = "resolved"
     target["result"] = result
@@ -616,6 +656,8 @@ async def miss_roll_request(
     target = await db["campaign_roll_requests"].find_one({"campaign_name": name, "id": request_id})
     if not target:
         raise HTTPException(status_code=404, detail="Roll request not found")
+
+    await _authorize_roll_request_target(db, name, target, current_user, member)
 
     missed_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -858,6 +900,10 @@ async def delete_campaign(
     await db["campaign_whispers"].delete_many({"campaign_name": name})
     await db["campaign_roll_requests"].delete_many({"campaign_name": name})
     await db["campaign_encounters"].delete_many({"campaign_name": name})
+    await db["campaign_entities"].delete_many({"campaign_name": name})
+    await db["session_logs"].delete_many({"campaign_name": name})
+    await db["campaign_skeletons"].delete_many({"campaign_name": name})
+    await db["homebrew_content"].delete_many({"campaign_name": name})
 
     # 3. Unset active_campaign for all characters currently in this campaign
     await db["characters"].update_many(
@@ -1135,7 +1181,11 @@ async def generate_campaign_outlines(
         )
 
     try:
-        outlines_data = session_service.generate_campaign_outlines(skeleton)
+        from fastapi.concurrency import run_in_threadpool
+
+        outlines_data = await run_in_threadpool(
+            session_service.generate_campaign_outlines, skeleton
+        )
         outlines = [SessionOutlineSchema(**o) for o in outlines_data]
 
         await db.campaign_skeletons.update_one(

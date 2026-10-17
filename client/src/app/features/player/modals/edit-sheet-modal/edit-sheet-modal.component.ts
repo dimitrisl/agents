@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema } from '../../../../core/models/character.model';
+import { getSubclassUnlockLevel } from '../../../../core/rules/recommendations';
 import { ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent, ForgeTextareaDirective } from '../../../../shared/ui';
 
 @Component({
@@ -18,7 +19,12 @@ export class EditSheetModalComponent {
   @Output() openChange = new EventEmitter<boolean>();
   @Output() saveEditModal = new EventEmitter<void>();
 
+  get subclassUnlockLevel(): number {
+    const is2024 = (this.editChar?.dnd_edition || '').includes('2024');
+    return getSubclassUnlockLevel(this.editChar?.char_class || '', is2024);
+  }
+
   get canEditSubclass(): boolean {
-    return Number(this.editChar?.char_level || 1) >= 3;
+    return Number(this.editChar?.char_level || 1) >= this.subclassUnlockLevel;
   }
 }

@@ -74,4 +74,53 @@ describe('ForgeComponent', () => {
 
     expect(component.tempForgedChar).toBeTruthy();
   });
+
+  it('should reset stale skills, feats, and spells when class changes and fetch Wizard spells for Eldritch Knight', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+    component.manualSkills = ['Arcana', 'Investigation'];
+    component.manualFeats = ['War Caster'];
+    component.manualSpells = ['Fire Bolt', 'Shield'];
+
+    component.onManualClassChange('Fighter');
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    expect(component.manualSkills).toEqual([]);
+    expect(component.manualFeats).toEqual([]);
+    expect(component.manualSpells).toEqual([]);
+    expect(component.availableSpells).toEqual([]);
+
+    // Selecting Eldritch Knight at level 3 should fetch Wizard spells
+    component.manualLevel = 3;
+    component.onManualSubclassChange('Eldritch Knight');
+    const spellReq = httpMock.expectOne((req) => req.url.includes('/rules/spells'));
+    expect(spellReq.request.params.get('char_class')).toBe('Wizard');
+    spellReq.flush([{ name: 'Shield', level: 1 }]);
+    expect(component.availableSpells.length).toBe(1);
+  });
+
+  it('should clear subclass and over-level spells when level is lowered below unlock threshold', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([
+      { name: 'Fire Bolt', level: 0 },
+      { name: 'Shield', level: 1 },
+      { name: 'Fireball', level: 3 },
+    ]);
+
+    component.manualClass = 'Wizard';
+    component.manualLevel = 5;
+    component.manualSubclass = 'School of Evocation';
+    component.manualSpells = ['Fire Bolt', 'Shield', 'Fireball'];
+
+    // Lowering level to 1 should lock subclass ('None') and prune Fireball (level 3 spell)
+    component.onManualLevelChange(1);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([
+      { name: 'Fire Bolt', level: 0 },
+      { name: 'Shield', level: 1 },
+    ]);
+    expect(component.manualSubclass).toBe('None');
+    expect(component.manualSpells).toEqual(['Fire Bolt', 'Shield']);
+  });
 });

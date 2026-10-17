@@ -294,4 +294,45 @@ describe('PlayerComponent — DM roll requests', () => {
       http.expectNone((r) => r.url.includes('/miss'));
     });
   });
+
+  describe('party_update and Warlock short rest', () => {
+    it('replaces activeCharacter with a new object reference on party_update for OnPush children', () => {
+      component.ngOnInit();
+      http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
+
+      const charState = TestBed.inject(CharacterStateService);
+      const beforeRef = charState.activeCharacter();
+
+      messages$.next({
+        type: 'party_update',
+        payload: { char_id: 'lyra1', hp_current: 19, conditions: ['Blessed'] },
+      } as WsMessage);
+
+      const afterRef = charState.activeCharacter();
+      expect(afterRef).not.toBe(beforeRef);
+      expect(afterRef?.hp_current).toBe(19);
+      expect(afterRef?.conditions).toEqual(['Blessed']);
+    });
+
+    it('restores Warlock Pact Magic slots on a 0-dice short rest without rolling hit dice', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({
+        ...HERO,
+        char_class: 'Warlock',
+        char_level: 3,
+        hit_dice_used: 3,
+        spell_slots: { level_2: { max: 2, used: 2 } },
+      });
+
+      const rollDieSpy = jest.spyOn(TestBed.inject(DiceService), 'rollDie');
+      component.shortRestDiceToSpend = 0;
+      component.executeShortRest();
+
+      const putReq = http.expectOne((r) => r.method === 'PUT' && r.url.includes('/characters/'));
+      putReq.flush(putReq.request.body);
+
+      expect(rollDieSpy).not.toHaveBeenCalled();
+      expect(charState.activeCharacter()?.spell_slots?.['level_2'].used).toBe(0);
+    });
+  });
 });

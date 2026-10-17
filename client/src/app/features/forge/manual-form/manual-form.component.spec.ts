@@ -191,5 +191,50 @@ describe('ManualFormComponent', () => {
 
     component.manualClass = 'Barbarian';
     expect(component.isSpellcaster).toBe(false);
+
+    component.manualClass = 'Fighter';
+    component.manualSubclass = 'Eldritch Knight';
+    component.manualLevel = 3;
+    expect(component.isSpellcaster).toBe(true);
+    expect(component.maxCantrips).toBe(2);
+    expect(component.maxPreparedSpells).toBe(3);
+  });
+
+  it('should not treat min_level 0 feats without Origin category as Origin Feats in 2014 edition', () => {
+    const gwm2014 = {
+      name: 'Great Weapon Master',
+      category: '',
+      prerequisites: { min_level: 0 },
+    };
+    component.is2024 = false;
+    expect(component.isOriginFeat(gwm2014)).toBe(false);
+
+    component.is2024 = true;
+    expect(component.isOriginFeat(gwm2014)).toBe(true);
+  });
+
+  it('should allow excess Origin Feats to overflow into General Feat slots at level 4+', () => {
+    component.is2024 = true;
+    component.manualRace = 'Elf'; // 1 Origin Feat
+    component.manualClass = 'Wizard';
+    component.manualLevel = 4; // 1 General Feat
+
+    expect(component.maxOriginFeats).toBe(1);
+    expect(component.maxGeneralFeats).toBe(1);
+
+    component.toggleFeat('Alert'); // fills Origin slot (1/1)
+    expect(component.originFeatsCount).toBe(1);
+    expect(component.generalFeatsCount).toBe(0);
+
+    // Selecting a 2nd Origin Feat overflows into the General Feat slot (1/1)
+    component.toggleFeat('Tough');
+    expect(component.manualFeats).toEqual(['Alert', 'Tough']);
+    expect(component.originFeatsCount).toBe(1);
+    expect(component.generalFeatsCount).toBe(1);
+
+    // Selecting a 3rd Origin Feat or General Feat is now blocked
+    component.toggleFeat('Lucky');
+    expect(component.manualFeats).toEqual(['Alert', 'Tough']);
+    expect(component.featLimitWarning).toContain('Feat capacity reached');
   });
 });

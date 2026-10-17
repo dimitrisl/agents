@@ -115,8 +115,11 @@ class HomebrewService:
             f"Fill in appropriate balancing numbers (damage, weight, etc.) if they omitted them."
         )
 
+        import asyncio
+
         # We rely on the LLMProvider to generate JSON conforming to the schema
-        response = self.provider.generate_json(
+        response = await asyncio.to_thread(
+            self.provider.generate_json,
             prompt=prompt,
             schema=target_schema,
             system_instruction=system_instruction,

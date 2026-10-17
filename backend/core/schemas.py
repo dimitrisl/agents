@@ -201,9 +201,17 @@ class CharacterSchema(BaseModel):
     death_saves: DeathSavesSchema = Field(default_factory=DeathSavesSchema)
     hit_dice_used: int = 0
     speed: int = 30
+    base_speed: Optional[int] = None
     proficiency_bonus: int = 2
     base_stats: Optional[StatBlock] = None
     stats: StatBlock
+    equip_stat_bonuses: Dict[str, int] = Field(default_factory=dict)
+    equip_hp_bonus: int = 0
+    feat_hp_bonus: int = 0
+    con_mod_applied: Optional[int] = None
+    global_attack_bonus: int = 0
+    global_damage_bonus: int = 0
+    initiative_bonus: int = 0
     saving_throws: List[str] = Field(default_factory=list)
     skills: Dict[str, int] = Field(default_factory=dict)
     skill_proficiencies: List[str] = Field(default_factory=list)
@@ -420,6 +428,7 @@ class PlaystyleGuideResponse(BaseModel):
 class PortraitResponse(BaseModel):
     success: bool
     portrait_url: str
+    version: Optional[int] = None
 
 
 class InviteCodeResponse(BaseModel):

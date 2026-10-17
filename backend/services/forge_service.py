@@ -480,6 +480,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             current_level=class_current_level,
             con_score=char_data.get("stats", {}).get("CON", 10),
             edition=edition,
+            features=char_data.get("features_traits", []),
         )
         hp_increase = max(1, vitals.get("average_hp_gain", 0))
     except Exception:
@@ -563,7 +564,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     if char_class in spellcasters:
         from backend.services.stats_service import calculate_max_spell_slots
 
-        max_slots = calculate_max_spell_slots(char_class, target_level, current_subclass)
+        max_slots = calculate_max_spell_slots(
+            char_class, target_level, current_subclass, edition=edition
+        )
         max_spell_level = 0
         for i in range(1, 10):
             if max_slots.get(f"level_{i}", 0) > 0:
@@ -714,6 +717,10 @@ def process_character_update(
     All calculations and data manipulation happen here, in the backend.
     """
     updated_char = current_char.copy()
+    if isinstance(updated_char.get("stats"), dict):
+        updated_char["stats"] = dict(updated_char["stats"])
+    if isinstance(updated_char.get("base_stats"), dict):
+        updated_char["base_stats"] = dict(updated_char["base_stats"])
 
     # 1. Apply Stat Updates & Level
     if stat_updates:
@@ -721,7 +728,13 @@ def process_character_update(
             if k == "char_level":
                 updated_char["char_level"] = v
             elif k in updated_char.get("stats", {}):
+                old_val = updated_char["stats"][k]
                 updated_char["stats"][k] = v
+                if (
+                    isinstance(updated_char.get("base_stats"), dict)
+                    and k in updated_char["base_stats"]
+                ):
+                    updated_char["base_stats"][k] += v - old_val
 
     # 2. Apply Equipment Deltas
     if equipment_deltas:

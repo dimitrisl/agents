@@ -28,6 +28,7 @@ export class ShortRestModalComponent {
   @Input() classHitDieSize = 8;
   @Input() conModifier = 0;
   @Input() availableHitDice = 0;
+  @Input() hasPactSlots = false;
   @Input() characterLevel?: number;
   @Input() shortRestDiceToSpend = 1;
   @Input() hitDieOptions: HitDieOption[] = [];
@@ -37,4 +38,16 @@ export class ShortRestModalComponent {
   @Output() shortRestDiceToSpendChange = new EventEmitter<number>();
   @Output() selectedDieSizeChange = new EventEmitter<number>();
   @Output() executeShortRest = new EventEmitter<void>();
+
+  get selectedClassMaxDice(): number {
+    if (this.hitDieOptions && this.hitDieOptions.length > 1) {
+      const matchingLevels = this.hitDieOptions
+        .filter((opt) => opt.dieSize === this.selectedDieSize)
+        .reduce((sum, opt) => sum + (opt.level || 0), 0);
+      if (matchingLevels > 0) {
+        return Math.min(this.availableHitDice, matchingLevels);
+      }
+    }
+    return this.availableHitDice;
+  }
 }

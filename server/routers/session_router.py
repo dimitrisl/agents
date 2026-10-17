@@ -162,6 +162,8 @@ async def generate_prep(
 ):
     """Generate session prep based on past sessions and active entities."""
     try:
+        from fastapi.concurrency import run_in_threadpool
+
         # Fetch last 3 sessions
         cursor = db.session_logs.find({"campaign_name": name}).sort("session_number", -1).limit(3)
         past_sessions = await cursor.to_list(length=3)
@@ -172,8 +174,11 @@ async def generate_prep(
         ).limit(20)
         active_entities = await ent_cursor.to_list(length=20)
 
-        prep_data = session_service.generate_session_forge_prep(
-            past_sessions=past_sessions, active_entities=active_entities, dm_ideas=request.dm_ideas
+        prep_data = await run_in_threadpool(
+            session_service.generate_session_forge_prep,
+            past_sessions=past_sessions,
+            active_entities=active_entities,
+            dm_ideas=request.dm_ideas,
         )
 
         return SessionPrepSchema(**prep_data)
@@ -190,6 +195,8 @@ async def generate_journey(
 ):
     """Generate a chronological graph of visited locations."""
     try:
+        from fastapi.concurrency import run_in_threadpool
+
         # Fetch all sessions in chronological order (oldest first)
         cursor = db.session_logs.find({"campaign_name": name}).sort("session_number", 1)
         past_sessions = await cursor.to_list(length=100)
@@ -197,7 +204,7 @@ async def generate_journey(
         if not past_sessions:
             return {"nodes": []}
 
-        graph_data = session_service.generate_journey_graph(past_sessions)
+        graph_data = await run_in_threadpool(session_service.generate_journey_graph, past_sessions)
         return graph_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

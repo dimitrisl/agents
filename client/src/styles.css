@@ -47,6 +47,7 @@
 @theme inline {
   /* surfaces */
   --color-deep: var(--bg-deep);
+  --color-obsidian: var(--bg-deep);
   --color-surface: var(--bg-card);
   --color-panel: var(--bg-panel);
   --color-tile: var(--bg-tile);
@@ -63,6 +64,7 @@
 
   /* fixed palette */
   --color-red: var(--primary-red);
+  --color-crimson: var(--primary-red);
   --color-violet: var(--accent-violet);
   --color-cobalt: var(--accent-cobalt);
   --color-emerald: var(--accent-emerald);

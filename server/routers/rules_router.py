@@ -2,6 +2,7 @@ import functools
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from backend.core.constants import EDITION_2014, EDITION_2024
@@ -60,7 +61,7 @@ class CharacterValidationRequest(BaseModel):
 async def ask_rules_oracle(
     payload: RulesQueryRequest, current_user: dict = Depends(get_current_user)
 ):
-    answer = query_rules(payload.query, payload.edition)
+    answer = await run_in_threadpool(query_rules, payload.query, payload.edition)
     return {"answer_markdown": answer}
 
 
@@ -68,7 +69,7 @@ async def ask_rules_oracle(
 async def compare_rule_editions(
     payload: RulesCompareRequest, current_user: dict = Depends(get_current_user)
 ):
-    comparison = compare_rules(payload.query)
+    comparison = await run_in_threadpool(compare_rules, payload.query)
     return {"comparison_markdown": comparison}
 
 
@@ -92,7 +93,7 @@ async def validate_rules(
 async def autofix_rules(
     payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
 ):
-    result = autofix_character_build(payload.character)
+    result = await run_in_threadpool(autofix_character_build, payload.character)
     return result
 
 
@@ -175,6 +176,7 @@ async def get_class_scaling(
             "hint": action_def.get("hint"),
             "notation": active_step.get("notation"),
             "rollable": action_def.get("rollable", True),
+            "source": f"{class_name} {level}",
         }
         if "damage_type" in action_def:
             action_payload["damageType"] = action_def["damage_type"]

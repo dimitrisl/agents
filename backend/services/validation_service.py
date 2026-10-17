@@ -10,19 +10,35 @@ SUBCLASS_MIN_LEVEL = 3
 
 
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
-    """Extracts all armor proficiencies granted by class, subclass, and features."""
+    """Extracts all armor proficiencies granted by class, multiclass entries, subclass, and features."""
     proficiencies = set()
+    edition = char_data.get("dnd_edition", "2014 Edition")
+    repo = RulesRepository()
 
-    # 1. Base Class Proficiencies
-    if class_data and "starting_proficiencies" in class_data:
-        armor_profs = class_data["starting_proficiencies"].get("armor", [])
-        for p in armor_profs:
-            p_lower = p.lower()
-            if p_lower != "none":
-                if p_lower in ["light", "medium", "heavy"]:
-                    proficiencies.add(f"{p_lower} armor")
-                else:
-                    proficiencies.add(p_lower)
+    class_datas = [class_data] if class_data else []
+    for cls in char_data.get("classes", []):
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        cname = c_dict.get("class_name")
+        if cname:
+            c_prog = repo.get_class_progression(cname, edition)
+            if c_prog and c_prog not in class_datas:
+                class_datas.append(c_prog)
+
+    # 1. Base & Multiclass Proficiencies
+    for cd in class_datas:
+        if cd and "starting_proficiencies" in cd:
+            armor_profs = cd["starting_proficiencies"].get("armor", [])
+            for p in armor_profs:
+                p_lower = p.lower()
+                if p_lower != "none":
+                    if p_lower in ["light", "medium", "heavy"]:
+                        proficiencies.add(f"{p_lower} armor")
+                    else:
+                        proficiencies.add(p_lower)
 
     # 2. Features and Traits
     # e.g., "Bonus Proficiency: Heavy Armor" or "Training in War and Song" (Light armor)

@@ -438,7 +438,7 @@ describe('DmComponent — initiative rounds', () => {
 
       // Round 2 opens: the one-round condition is spent.
       component.nextTurn();
-      expect(hero.conditions).toEqual(['Invisible']);
+      expect(component.partyMembers[0].conditions).toEqual(['Invisible']);
 
       flushWrites();
       const req = http.expectOne((r) => r.method === 'PATCH');
@@ -455,11 +455,34 @@ describe('DmComponent — initiative rounds', () => {
       component.nextTurn();
       flushWrites();
       http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
-      expect(hero.conditions).toEqual(['Invisible']);
+      expect(component.partyMembers[0].conditions).toEqual(['Invisible']);
 
       component.previousTurn();
 
-      expect(hero.conditions).toEqual(['Invisible', 'Poisoned']);
+      expect(component.partyMembers[0].conditions).toEqual(['Invisible', 'Poisoned']);
+      flushWrites();
+      http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
+    });
+
+    it('replaces partyMembers array and modified member references for OnPush consumers', () => {
+      const prevArray = component.partyMembers;
+      const prevMember = component.partyMembers[0];
+
+      component.setPartyHp(prevMember, 10);
+      expect(component.partyMembers).not.toBe(prevArray);
+      expect(component.partyMembers[0]).not.toBe(prevMember);
+      expect(component.partyMembers[0].hp_current).toBe(10);
+
+      flushWrites();
+      http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
+
+      const afterHpArray = component.partyMembers;
+      const afterHpMember = component.partyMembers[0];
+      component.toggleCondition(afterHpMember, 'Prone');
+      expect(component.partyMembers).not.toBe(afterHpArray);
+      expect(component.partyMembers[0]).not.toBe(afterHpMember);
+      expect(component.partyMembers[0].conditions).toContain('Prone');
+
       flushWrites();
       http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
     });

@@ -1,10 +1,11 @@
+import asyncio
 import os
-import tempfile
 from typing import Any, Dict, List
 
 from fastapi import UploadFile
 
 from backend.core.providers.factory import get_llm_provider
+from backend.utils.path_safety import ALLOWED_DIRS
 
 
 class SessionService:
@@ -15,19 +16,20 @@ class SessionService:
         self, campaign_name: str, session_number: int, audio_file: UploadFile
     ) -> Dict[str, Any]:
         """
-        Receives an audio file, streams it to a temp file, uploads it to Gemini,
-        and generates a transcribed Session Log + extracted entities.
+        Receives an audio file, streams it to a temp file inside ALLOWED_DIRS['uploads'],
+        uploads it to Gemini, and generates a transcribed Session Log + extracted entities.
         """
         if not self.ai_provider.client:
             raise ValueError("Gemini API Key is missing.")
 
-        # Save to temp file
         import uuid
 
-        temp_dir = tempfile.gettempdir()
-        file_extension = os.path.splitext(audio_file.filename)[1] or ".mp3"
+        upload_dir = ALLOWED_DIRS["uploads"]
+        os.makedirs(upload_dir, exist_ok=True)
+        raw_filename = audio_file.filename or "audio.mp3"
+        file_extension = os.path.splitext(raw_filename)[1] or ".mp3"
         temp_file_path = os.path.join(
-            temp_dir, f"session_upload_{uuid.uuid4().hex}{file_extension}"
+            upload_dir, f"session_upload_{uuid.uuid4().hex}{file_extension}"
         )
 
         try:
@@ -35,8 +37,8 @@ class SessionService:
                 while content := await audio_file.read(1024 * 1024):  # 1MB chunks
                     f.write(content)
 
-            # Upload to Gemini
-            gemini_file_id = self.ai_provider.upload_file(temp_file_path)
+            # Upload to Gemini (offload blocking I/O to threadpool)
+            gemini_file_id = await asyncio.to_thread(self.ai_provider.upload_file, temp_file_path)
 
             prompt = (
                 f"You are an AI assistant for a Dungeon Master. Listen to this recording of a D&D session "
@@ -54,8 +56,10 @@ class SessionService:
             )
 
             # Generate JSON from file
-            result = self.ai_provider.generate_json_from_files(
-                file_ids=[gemini_file_id], prompt=prompt
+            result = await asyncio.to_thread(
+                self.ai_provider.generate_json_from_files,
+                file_ids=[gemini_file_id],
+                prompt=prompt,
             )
 
             if not result:
@@ -100,7 +104,7 @@ class SessionService:
             f"DM NOTES:\n{notes}"
         )
 
-        result = self.ai_provider.generate_json(prompt=prompt)
+        result = await asyncio.to_thread(self.ai_provider.generate_json, prompt=prompt)
 
         if not result:
             raise ValueError("AI failed to process the session notes.")
@@ -129,6 +133,7 @@ class SessionService:
         entities_context = "\n".join(
             [f"- {e.get('name')} ({e.get('type')}): {e.get('content')}" for e in active_entities]
         )
+        ideas_section = f"DM IDEAS / NOTES FOR NEXT SESSION:\n{dm_ideas}\n\n" if dm_ideas else ""
 
         prompt = (
             "You are an expert Dungeon Master using the 'Return of the Lazy Dungeon Master' method.\n"
@@ -137,6 +142,7 @@ class SessionService:
             f"{sessions_context}\n\n"
             "ACTIVE ENTITIES:\n"
             f"{entities_context}\n\n"
+            f"{ideas_section}"
             "Return a JSON object with:\n"
             "{\n"
             "  'strong_start': 'A dramatic opening scene to hook the players.',\n"

@@ -363,7 +363,7 @@ describe('short rest', () => {
       expect(planShortRest(tough, 3)?.conBonus).toBe(12);
     });
 
-    it('respects overrideDieSize when provided for multiclass rest planning', () => {
+    it('respects overrideDieSize when provided for multiclass rest planning and caps to that class pool', () => {
       const multiclassChar = hero({
         char_class: 'Barbarian',
         char_level: 8,
@@ -377,6 +377,24 @@ describe('short rest', () => {
       expect(planShortRest(multiclassChar, 1)?.dieSize).toBe(12);
       // Explicit override specifies Wizard die pool (d6)
       expect(planShortRest(multiclassChar, 2, 6)?.dieSize).toBe(6);
+      // Requesting 5 Wizard d6 dice caps at Wizard level (3)
+      expect(planShortRest(multiclassChar, 5, 6)?.diceSpent).toBe(3);
+    });
+
+    it('allows a Warlock to take a 0-dice short rest to recover Pact Magic slots', () => {
+      const warlock = hero({
+        char_class: 'Warlock',
+        char_level: 3,
+        hit_dice_used: 3,
+      });
+
+      const plan = planShortRest(warlock, 0);
+      expect(plan).toEqual({
+        diceSpent: 0,
+        dieSize: 8,
+        conModifier: 2,
+        conBonus: 0,
+      });
     });
   });
 
