@@ -423,7 +423,12 @@ def calculate_spell_stats(
 
 
 def calculate_max_spell_slots(
-    char_class: str, level: int, subclass: str = None, caster_type: str = None, classes: list = None
+    char_class: str,
+    level: int,
+    subclass: str = None,
+    caster_type: str = None,
+    classes: list = None,
+    edition: str = "2014 Edition",
 ) -> Dict[str, int]:
     """Calculates maximum spell slots per level based on class, level, subclass, and caster type.
     If 'classes' is provided, it calculates total multiclass slots."""
@@ -504,7 +509,8 @@ def calculate_max_spell_slots(
         if ctype == "full":
             cls_caster_level = lvl
         elif ctype == "half":
-            if cname == "artificer":
+            is_2024 = "2024" in str(edition)
+            if cname == "artificer" or (is_2024 and cname in ["paladin", "ranger"]):
                 cls_caster_level = math.ceil(lvl / 2)
             else:
                 cls_caster_level = math.floor(lvl / 2)
@@ -555,16 +561,18 @@ def calculate_max_spell_slots(
             if ctype == "full":
                 caster_level = lvl
             elif ctype == "half":
-                caster_level = (lvl + 1) // 2 if lvl >= 2 else 0
-                if cname == "artificer":
+                is_2024 = "2024" in str(edition)
+                if cname == "artificer" or (is_2024 and cname in ["paladin", "ranger"]):
                     caster_level = (lvl + 1) // 2
+                else:
+                    caster_level = (lvl + 1) // 2 if lvl >= 2 else 0
             elif (
                 "eldritch knight" in sub
                 or "arcane trickster" in sub
                 or (cname in ["fighter", "rogue"] and lvl >= 3 and sub)
             ):
                 if lvl >= 3:
-                    caster_level = max(1, math.floor((lvl + 1) / 3))
+                    caster_level = max(1, (lvl + 2) // 3)
                 else:
                     caster_level = 0
             else:
@@ -808,6 +816,14 @@ def sync_character_stats(
     # Pre-compute merged items list ONCE (not per equipment item)
     all_items = _merge_homebrew_items(repo.get_all_items(), homebrew_content)
 
+    equip_hp_bonus = 0
+    equip_speed_bonus = 0
+    equip_init_bonus = 0
+    equip_atk_bonus = 0
+    equip_dmg_bonus = 0
+    equip_save_bonus = 0
+    equip_save_bonuses = {}
+
     for equip in char_data["equipment"]:
         if not equip.get("equipped", False):
             continue
@@ -826,24 +842,21 @@ def sync_character_stats(
             if attr_key in stats:
                 stats[attr_key] += bonus_val
             elif attr_key == "HP":
-                char_data["hp_max"] = char_data.get("hp_max", 0) + bonus_val
+                equip_hp_bonus += bonus_val
             elif attr_key in ["SPD", "SPEED"]:
-                char_data["speed"] = char_data.get("speed", 30) + bonus_val
+                equip_speed_bonus += bonus_val
             elif attr_key in ["INIT", "INITIATIVE"]:
-                char_data["initiative_bonus"] = char_data.get("initiative_bonus", 0) + bonus_val
+                equip_init_bonus += bonus_val
             elif attr_key in ["ATK", "HIT", "ATTACK"]:
-                char_data["global_attack_bonus"] = (
-                    char_data.get("global_attack_bonus", 0) + bonus_val
-                )
+                equip_atk_bonus += bonus_val
             elif attr_key in ["DMG", "DAMAGE"]:
-                char_data["global_damage_bonus"] = (
-                    char_data.get("global_damage_bonus", 0) + bonus_val
-                )
+                equip_dmg_bonus += bonus_val
             elif attr_key in ["SAVES", "SAVE"]:
-                for s in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
-                    char_data["saving_throw_values"][s] = (
-                        char_data["saving_throw_values"].get(s, 0) + bonus_val
-                    )
+                equip_save_bonus += bonus_val
+            elif attr_key.endswith("_SAVE"):
+                stat_save = attr_key.split("_")[0]
+                if stat_save in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+                    equip_save_bonuses[stat_save] = equip_save_bonuses.get(stat_save, 0) + bonus_val
 
         item_name = equip.get("name", "").lower()
         item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
@@ -854,6 +867,15 @@ def sync_character_stats(
         if item_data and "stat_bonus" in item_data:
             for stat, val in item_data["stat_bonus"].items():
                 stats[stat] = stats.get(stat, 10) + val
+
+    base_speed = char_data.get("base_speed")
+    if base_speed is None:
+        base_speed = char_data.get("speed", 30)
+        char_data["base_speed"] = base_speed
+    char_data["speed"] = base_speed + equip_speed_bonus
+    char_data["global_attack_bonus"] = equip_atk_bonus
+    char_data["global_damage_bonus"] = equip_dmg_bonus
+    char_data["initiative_bonus"] = equip_init_bonus
 
     con_score = stats.get("CON", 10)
     dex_score = stats.get("DEX", 10)
@@ -965,22 +987,31 @@ def sync_character_stats(
     feat_library = _merge_homebrew_feats(repo.get_all_feats(edition), homebrew_content)
     feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
 
+    import re
+
     for f in features:
-        feat_name = f.get("name", "").lower()
-        clean_name = feat_name.replace("feat: ", "").strip()
+        if not isinstance(f, dict):
+            continue
+        f_name = f.get("name", "")
+        f_desc = f.get("description", "")
+        full_text = f"{f_name} {f_desc}".lower()
+
+        if "dwarven toughness" in full_text:
+            hp_bonus_per_level += 1
+            continue
+
+        clean_name = f_name.lower().replace("origin feat: ", "").replace("feat: ", "").strip()
+        if not clean_name:
+            continue
 
         feat_data = feat_lookup.get(clean_name)
         if not feat_data:
             for k, v in feat_lookup.items():
-                if k in clean_name or clean_name in k:
+                if k and re.search(rf"\b{re.escape(k)}\b", clean_name):
                     feat_data = v
                     break
         if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
             hp_bonus_per_level += feat_data["hp_bonus_per_level"]
-        else:
-            desc = f.get("description", "").lower()
-            if "dwarven toughness" in desc:
-                hp_bonus_per_level += 1
 
     existing_hp = char_data.get("hp_max")
     current_con_mod = get_modifier(con_score)
@@ -991,9 +1022,11 @@ def sync_character_stats(
         )
         con_mod_applied = get_modifier(base_con)
 
+    prev_equip_hp = char_data.get("equip_hp_bonus", 0)
+
     con_delta = 0
     if existing_hp is not None and existing_hp > 0:
-        base_existing_hp = existing_hp - (hp_bonus_per_level * level)
+        base_existing_hp = existing_hp - (hp_bonus_per_level * level) - prev_equip_hp
         if con_mod_applied is not None and con_mod_applied != current_con_mod:
             con_delta = current_con_mod - con_mod_applied
             base_existing_hp += con_delta * level
@@ -1007,7 +1040,8 @@ def sync_character_stats(
     base_hp = calculate_hp(
         hit_die_size, level, con_score, existing_hp=base_existing_hp, hit_dice_list=hit_dice_list
     )
-    char_data["hp_max"] = base_hp + (hp_bonus_per_level * level)
+    char_data["hp_max"] = base_hp + (hp_bonus_per_level * level) + equip_hp_bonus
+    char_data["equip_hp_bonus"] = equip_hp_bonus
     char_data["con_mod_applied"] = current_con_mod
 
     if con_delta != 0 and char_data.get("hp_current") is not None:
@@ -1070,14 +1104,27 @@ def sync_character_stats(
     char_data["saving_throw_values"] = calculate_saving_throws(
         stats, prof_bonus, char_data.get("saving_throws", [])
     )
+    if equip_save_bonus > 0 or equip_save_bonuses:
+        for s in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
+            bonus_to_add = equip_save_bonus + equip_save_bonuses.get(s, 0)
+            if bonus_to_add:
+                char_data["saving_throw_values"][s] = (
+                    char_data["saving_throw_values"].get(s, 0) + bonus_to_add
+                )
 
     init_bonus = 0
     for f in features:
-        feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
+        if not isinstance(f, dict):
+            continue
+        feat_name = (
+            f.get("name", "").lower().replace("origin feat: ", "").replace("feat: ", "").strip()
+        )
+        if not feat_name:
+            continue
         feat_data = feat_lookup.get(feat_name)
         if not feat_data:
             for k, v in feat_lookup.items():
-                if k in feat_name or feat_name in k:
+                if k and re.search(rf"\b{re.escape(k)}\b", feat_name):
                     feat_data = v
                     break
         if feat_data:
@@ -1195,7 +1242,7 @@ def sync_character_stats(
             cls["caster_type"] = cls_data.get("caster_type")
 
     max_slots = calculate_max_spell_slots(
-        char_class, level, subclass=subclass, caster_type=None, classes=classes
+        char_class, level, subclass=subclass, caster_type=None, classes=classes, edition=edition
     )
 
     # Rebuild spell_slots cleanly according to class/level max slots rules
@@ -1261,11 +1308,24 @@ def sync_character_stats(
             skill_profs.append("Perception")
             char_data["skill_proficiencies"] = skill_profs
 
-    if char_class.lower() == "rogue":
-        sneak_attack_dice = (level + 1) // 2
+    rogue_level = 0
+    for cls in classes:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        if (c_dict.get("class_name") or "").lower() == "rogue":
+            rogue_level += c_dict.get("level", 1)
+
+    if rogue_level == 0 and (char_class or "").lower() == "rogue":
+        rogue_level = level
+
+    if rogue_level > 0:
+        sneak_attack_dice = (rogue_level + 1) // 2
         sneak_attack_str = f"{sneak_attack_dice}d6"
         for ft in char_data.get("features_traits", []):
-            if ft.get("name") == "Sneak Attack":
+            if isinstance(ft, dict) and ft.get("name") == "Sneak Attack":
                 desc = ft.get("description", "")
                 if "extra 1d6 damage" in desc:
                     ft["description"] = desc.replace(
