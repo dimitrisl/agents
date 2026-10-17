@@ -11,7 +11,7 @@ XP_THRESHOLDS = {
     6: {"easy": 300, "medium": 600, "hard": 900, "deadly": 1400},
     7: {"easy": 350, "medium": 750, "hard": 1100, "deadly": 1700},
     8: {"easy": 450, "medium": 900, "hard": 1400, "deadly": 2100},
-    9: {"easy": 500, "medium": 1050, "hard": 1600, "deadly": 2400},
+    9: {"easy": 550, "medium": 1100, "hard": 1600, "deadly": 2400},
     10: {"easy": 600, "medium": 1200, "hard": 1900, "deadly": 2800},
     11: {"easy": 800, "medium": 1600, "hard": 2400, "deadly": 3600},
     12: {"easy": 1000, "medium": 2000, "hard": 3000, "deadly": 4500},

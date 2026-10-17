@@ -146,6 +146,19 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
     # so no domain data is ever hardcoded here.
     subclass = corrected_char.get("subclass")
     level = corrected_char.get("char_level", 1)
+    classes_list = corrected_char.get("classes", [])
+
+    # In multiclass characters, verify the specific class level rather than total character level
+    char_class_level = level
+    for cls in classes_list:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        if c_dict.get("class_name", "").lower() == char_class.lower():
+            char_class_level = c_dict.get("level", level)
+            break
 
     if subclass and class_data:
         subclass_min_level = _get_subclass_min_level(class_data)
@@ -153,11 +166,43 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
             # Fallback for parsing errors or older JSON
             subclass_min_level = SUBCLASS_MIN_LEVEL
 
-        if level < subclass_min_level:
-            issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {subclass_min_level} for class '{char_class}'. Clearing subclass."
+        if char_class_level < subclass_min_level:
+            issue_msg = f"Character is level {char_class_level} in '{char_class}' but subclass '{subclass}' requires level {subclass_min_level}. Clearing subclass."
             logger.warning(issue_msg)
             issues.append(issue_msg)
             corrected_char["subclass"] = None
+
+    # Check any other classes in the multiclass list
+    for cls in classes_list:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        c_sub = c_dict.get("subclass")
+        c_name = c_dict.get("class_name", "")
+        c_lvl = c_dict.get("level", 1)
+        if c_sub and c_name:
+            c_data = (
+                class_data
+                if c_name.lower() == char_class.lower()
+                else repo.get_class_progression(c_name, edition)
+            )
+            if c_data:
+                c_min = _get_subclass_min_level(c_data)
+                if c_min is None:
+                    c_min = SUBCLASS_MIN_LEVEL
+                if c_lvl < c_min:
+                    issue_msg = f"Character has {c_lvl} level(s) in '{c_name}' but subclass '{c_sub}' requires level {c_min}. Clearing subclass."
+                    logger.warning(issue_msg)
+                    if issue_msg not in issues:
+                        issues.append(issue_msg)
+                    if isinstance(cls, dict):
+                        cls["subclass"] = None
+                    elif hasattr(cls, "subclass"):
+                        cls.subclass = None
+                    if c_name.lower() == char_class.lower():
+                        corrected_char["subclass"] = None
 
     return corrected_char, issues
 
