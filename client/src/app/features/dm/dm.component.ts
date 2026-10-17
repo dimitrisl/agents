@@ -318,17 +318,25 @@ export class DmComponent implements OnInit, OnDestroy {
 
       if (msg.type === 'presence_sync') {
         this.onlineCharacters = new Set(payload as string[]);
-        this.partyMembers.forEach(m => m.isOnline = this.onlineCharacters.has(m.name));
+        this.partyMembers = this.partyMembers.map(m => {
+          const isOnline = this.onlineCharacters.has(m.name);
+          m.isOnline = isOnline;
+          return { ...m, isOnline };
+        });
       } else if (msg.type === 'presence_update') {
         if (payload.status === 'online') {
           this.onlineCharacters.add(payload.character);
         } else {
           this.onlineCharacters.delete(payload.character);
         }
-        const member = this.partyMembers.find(m => m.name === payload.character);
-        if (member) {
-          member.isOnline = payload.status === 'online';
-        }
+        const isOnline = payload.status === 'online';
+        this.partyMembers = this.partyMembers.map(m => {
+          if (m.name === payload.character) {
+            m.isOnline = isOnline;
+            return { ...m, isOnline };
+          }
+          return m;
+        });
       } else if (msg.type === 'roll_request') {
         // Echo of what this DM (or a co-DM) just asked for — it belongs on the
         // board immediately so the answer has somewhere to land.
@@ -924,31 +932,51 @@ export class DmComponent implements OnInit, OnDestroy {
   // tabs used to hold their own numbers and drift apart in the middle of a
   // fight, with the DM left to guess which one was true.
 
+  private isSameMember(a: PartyMember, b: PartyMember): boolean {
+    return a === b || (a.char_id && b.char_id ? a.char_id === b.char_id : a.name === b.name);
+  }
+
   adjustHp(member: PartyMember, delta: number) {
     this.setPartyHp(member, member.hp_current + delta);
   }
 
   setPartyHp(member: PartyMember, hp: number) {
-    const clamped = Math.max(0, Math.min(member.hp_max, Math.round(hp) || 0));
-    if (clamped === member.hp_current) return;
+    const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
+    const clamped = Math.max(0, Math.min(currentMember.hp_max, Math.round(hp) || 0));
+    if (clamped === currentMember.hp_current) return;
 
     member.hp_current = clamped;
-    this.projectMemberOntoCombatants(member);
-    this.pushPartyState(member, { hp_current: clamped });
+    currentMember.hp_current = clamped;
+    const updatedMember = { ...currentMember, hp_current: clamped };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.projectMemberOntoCombatants(updatedMember);
+    this.pushPartyState(updatedMember, { hp_current: clamped });
   }
 
   toggleCondition(member: PartyMember, cond: string) {
-    const idx = member.conditions.indexOf(cond);
+    const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
+    const idx = currentMember.conditions.indexOf(cond);
+    let nextConditions: string[];
     if (idx >= 0) {
-      member.conditions = member.conditions.filter((c) => c !== cond);
-      this.dropConditionFromCombatants(member, cond);
+      nextConditions = currentMember.conditions.filter((c) => c !== cond);
+      member.conditions = nextConditions;
+      currentMember.conditions = nextConditions;
+      this.dropConditionFromCombatants(currentMember, cond);
     } else {
-      member.conditions = [...member.conditions, cond];
+      nextConditions = [...currentMember.conditions, cond];
+      member.conditions = nextConditions;
+      currentMember.conditions = nextConditions;
       // Set from the roster, so it has no combat timer — it lasts until lifted.
-      this.addConditionToCombatants(member, cond, null);
+      this.addConditionToCombatants(currentMember, cond, null);
     }
 
-    this.pushPartyState(member, { conditions: member.conditions });
+    const updatedMember = { ...currentMember, conditions: nextConditions };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.pushPartyState(updatedMember, { conditions: nextConditions });
   }
 
   /** The party member behind an initiative row, when the row is a hero. */
@@ -1017,9 +1045,10 @@ export class DmComponent implements OnInit, OnDestroy {
    * kept rather than deleted.
    */
   private reconcileLapsedConditions() {
-    for (const member of this.partyMembers) {
+    let changed = false;
+    const nextMembers = this.partyMembers.map((member) => {
       const combatant = this.combatantsFor(member)[0];
-      if (!combatant) continue;
+      if (!combatant) return member;
 
       const active = combatant.conditions
         .filter((c) => c.expiresAtRound === null || c.expiresAtRound > this.round)
@@ -1028,10 +1057,16 @@ export class DmComponent implements OnInit, OnDestroy {
       const unchanged =
         active.length === member.conditions.length &&
         active.every((name) => member.conditions.includes(name));
-      if (unchanged) continue;
+      if (unchanged) return member;
 
+      changed = true;
       member.conditions = active;
-      this.pushPartyState(member, { conditions: active });
+      const updated = { ...member, conditions: active };
+      this.pushPartyState(updated, { conditions: active });
+      return updated;
+    });
+    if (changed) {
+      this.partyMembers = nextMembers;
     }
   }
 
@@ -1280,8 +1315,13 @@ export class DmComponent implements OnInit, OnDestroy {
     // A hero's conditions belong to the roster and the database as well.
     const member = this.memberFor(combatant);
     if (member && !member.conditions.includes(condition)) {
-      member.conditions = [...member.conditions, condition];
-      this.pushPartyState(member, { conditions: member.conditions });
+      const nextConditions = [...member.conditions, condition];
+      member.conditions = nextConditions;
+      const updated = { ...member, conditions: nextConditions };
+      this.partyMembers = this.partyMembers.map((m) =>
+        this.isSameMember(m, member) ? updated : m
+      );
+      this.pushPartyState(updated, { conditions: nextConditions });
     }
   }
 
@@ -1293,8 +1333,13 @@ export class DmComponent implements OnInit, OnDestroy {
 
     const member = this.memberFor(combatant);
     if (member && member.conditions.includes(condition)) {
-      member.conditions = member.conditions.filter((c) => c !== condition);
-      this.pushPartyState(member, { conditions: member.conditions });
+      const nextConditions = member.conditions.filter((c) => c !== condition);
+      member.conditions = nextConditions;
+      const updated = { ...member, conditions: nextConditions };
+      this.partyMembers = this.partyMembers.map((m) =>
+        this.isSameMember(m, member) ? updated : m
+      );
+      this.pushPartyState(updated, { conditions: nextConditions });
     }
   }
 
@@ -1304,7 +1349,8 @@ export class DmComponent implements OnInit, OnDestroy {
     const member = this.memberFor(combatant);
     if (member) {
       this.setPartyHp(member, hp);
-      this.clearDeathSavesIfStanding(combatant.id, member.hp_current);
+      const updated = this.memberFor(combatant) || member;
+      this.clearDeathSavesIfStanding(combatant.id, updated.hp_current);
       return;
     }
 
@@ -1422,10 +1468,16 @@ export class DmComponent implements OnInit, OnDestroy {
     const member = this.partyMembers.find((m) => m.char_id === payload.char_id);
     if (!member) return;
 
-    if (typeof payload.hp_current === 'number') member.hp_current = payload.hp_current;
-    if (Array.isArray(payload.conditions)) member.conditions = [...payload.conditions];
+    const nextHp = typeof payload.hp_current === 'number' ? payload.hp_current : member.hp_current;
+    const nextConditions = Array.isArray(payload.conditions) ? [...payload.conditions] : member.conditions;
+    member.hp_current = nextHp;
+    member.conditions = nextConditions;
+    const updated = { ...member, hp_current: nextHp, conditions: nextConditions };
+    this.partyMembers = this.partyMembers.map((m) =>
+      m.char_id === payload.char_id ? updated : m
+    );
 
-    this.projectMemberOntoCombatants(member);
+    this.projectMemberOntoCombatants(updated);
   }
 
   // --- Encounter persistence ---

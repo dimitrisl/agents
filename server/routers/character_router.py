@@ -301,8 +301,10 @@ async def export_pdf(
         partial(process_character_update, char_dict, homebrew_content=homebrew_items)
     )
 
-    pdf_bytes = export_character_to_pdf(
-        char_dict, "data/pdf_mappings/5E_CharacterSheet_Fillable.pdf"
+    pdf_bytes = await run_in_threadpool(
+        export_character_to_pdf,
+        char_dict,
+        "data/pdf_mappings/5E_CharacterSheet_Fillable.pdf",
     )
     if not pdf_bytes:
         raise HTTPException(
@@ -324,7 +326,7 @@ async def import_pdf(
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    if not file.filename.endswith(".pdf"):
+    if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded file must be a PDF.",
@@ -332,7 +334,7 @@ async def import_pdf(
 
     contents = await file.read()
     file_io = io.BytesIO(contents)
-    sheet_text = extract_text_and_fields_from_pdf(file_io)
+    sheet_text = await run_in_threadpool(extract_text_and_fields_from_pdf, file_io)
 
     if not sheet_text:
         raise HTTPException(
@@ -340,7 +342,7 @@ async def import_pdf(
             detail="Could not extract text from PDF.",
         )
 
-    parsed_char = parse_character_from_text(sheet_text)
+    parsed_char = await run_in_threadpool(parse_character_from_text, sheet_text)
     if not parsed_char:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

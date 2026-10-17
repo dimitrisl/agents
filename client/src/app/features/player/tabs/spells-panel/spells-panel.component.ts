@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CharacterSchema, FeatureTrait } from '../../../../core/models/character.model';
-import { ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent } from '../../../../shared/ui';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeListRowComponent } from '../../../../shared/ui';
 import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell-detail-modal.component';
 
 @Component({
   selector: 'app-spells-panel',
   standalone: true,
-  imports: [CommonModule, ForgeBadgeComponent, ForgeButtonDirective, ForgeListRowComponent, SpellDetailModalComponent],
+  imports: [CommonModule, FormsModule, ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeListRowComponent, SpellDetailModalComponent],
   templateUrl: './spells-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -26,6 +27,10 @@ export class SpellsPanelComponent {
 
   readonly spellLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   selectedSpell = signal<string | null>(null);
+  addingSpellGroup = signal<string | null>(null);
+  newSpellName = '';
+  addingFeature = signal<boolean>(false);
+  newFeatureName = '';
 
   private readonly expandedFeatures = new Set<number>();
 
@@ -86,6 +91,8 @@ export class SpellsPanelComponent {
 
     if (spells.cantrips && spells.cantrips.length > 0) {
       groups.push({ label: 'Cantrips', level: 0, spells: spells.cantrips });
+    } else if (this.editMode) {
+      groups.push({ label: 'Cantrips', level: 0, spells: [] });
     }
 
     const levelKeys: (keyof typeof spells)[] = [
@@ -110,9 +117,19 @@ export class SpellsPanelComponent {
     return this.char.prepared_spells.includes(spellName);
   }
 
-  addSpell(levelLabel: string) {
-    const spellName = prompt(`Enter spell name for ${levelLabel}:`);
-    if (spellName && spellName.trim()) {
+  addSpell(levelLabel: string, explicitName?: string) {
+    if (explicitName !== undefined) {
+      this.newSpellName = explicitName;
+      this.confirmAddSpell(levelLabel);
+      return;
+    }
+    this.addingSpellGroup.set(levelLabel);
+    this.newSpellName = '';
+  }
+
+  confirmAddSpell(levelLabel: string) {
+    const spellName = this.newSpellName.trim();
+    if (spellName) {
       if (!this.char.spells) {
         this.char.spells = { cantrips: [], level_1: [], level_2: [], level_3: [], level_4: [], level_5: [], level_6: [], level_7: [], level_8: [], level_9: [] };
       }
@@ -123,10 +140,17 @@ export class SpellsPanelComponent {
       if (key) {
         const spellsObj = this.char.spells as any;
         if (!spellsObj[key]) spellsObj[key] = [];
-        spellsObj[key].push(spellName.trim());
+        spellsObj[key].push(spellName);
         this.save.emit();
       }
     }
+    this.addingSpellGroup.set(null);
+    this.newSpellName = '';
+  }
+
+  cancelAddSpell() {
+    this.addingSpellGroup.set(null);
+    this.newSpellName = '';
   }
 
   deleteSpell(levelLabel: string, index: number, event: Event) {
@@ -141,13 +165,30 @@ export class SpellsPanelComponent {
     }
   }
 
-  addFeature() {
-    const featName = prompt('Enter Feature name:');
-    if (featName && featName.trim()) {
+  addFeature(explicitName?: string) {
+    if (explicitName !== undefined) {
+      this.newFeatureName = explicitName;
+      this.confirmAddFeature();
+      return;
+    }
+    this.addingFeature.set(true);
+    this.newFeatureName = '';
+  }
+
+  confirmAddFeature() {
+    const featName = this.newFeatureName.trim();
+    if (featName) {
       if (!this.char.features_traits) this.char.features_traits = [];
-      this.char.features_traits.push({ name: featName.trim(), description: 'Manually added trait', source: 'Custom' });
+      this.char.features_traits.push({ name: featName, description: 'Manually added trait', source: 'Custom' });
       this.save.emit();
     }
+    this.addingFeature.set(false);
+    this.newFeatureName = '';
+  }
+
+  cancelAddFeature() {
+    this.addingFeature.set(false);
+    this.newFeatureName = '';
   }
 
   deleteFeature(index: number, event: Event) {

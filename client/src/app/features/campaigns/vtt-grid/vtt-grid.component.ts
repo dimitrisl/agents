@@ -37,7 +37,7 @@ import { ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent, ForgeSe
       </div>
 
       <!-- The Grid Canvas -->
-      <div class="vtt-canvas" *ngIf="!isMinimized" [style.backgroundImage]="vttState()?.grid?.background_image_url ? 'url(' + vttState()!.grid!.background_image_url + ')' : 'none'">
+      <div class="vtt-canvas" *ngIf="!isMinimized" [style.backgroundImage]="getBackgroundImageStyle()">
         <div class="grid-overlay"
              [style.backgroundSize]="(vttState()?.grid?.cell_size || 50) + 'px ' + (vttState()?.grid?.cell_size || 50) + 'px'">
         </div>
@@ -225,7 +225,9 @@ import { ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent, ForgeSe
       border: 1px solid var(--color-accent);
       border-radius: 4px;
       padding: 0 4px;
-      height: 22px;
+      min-width: 28px;
+      min-height: 28px;
+      height: 28px;
       font-size: 10px;
       font-weight: bold;
       cursor: pointer;
@@ -239,7 +241,10 @@ import { ForgeButtonDirective, ForgeInputDirective, ForgeModalComponent, ForgeSe
       color: var(--color-red);
       border: 1px solid var(--color-red);
       border-radius: 50%;
-      width: 22px; height: 22px;
+      min-width: 28px;
+      min-height: 28px;
+      width: 28px;
+      height: 28px;
       font-size: 14px;
       line-height: 1;
       display: flex;
@@ -283,6 +288,13 @@ export class VttGridComponent implements OnInit {
 
   ngOnInit(): void {}
 
+  getBackgroundImageStyle(): string {
+    const url = this.vttState()?.grid?.background_image_url;
+    if (!url) return 'none';
+    const safeUrl = url.replace(/["\\\n\r]/g, '');
+    return `url("${safeUrl}")`;
+  }
+
   toggleMinimize(): void {
     this.isMinimized = !this.isMinimized;
   }
@@ -305,6 +317,15 @@ export class VttGridComponent implements OnInit {
     event.source.setFreeDragPosition({x: snappedX, y: snappedY});
     token.x = snappedX;
     token.y = snappedY;
+    this.wsService.vttState.update((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tokens: s.tokens.map((t) =>
+          t.id === token.id ? { ...t, x: snappedX, y: snappedY } : t
+        ),
+      };
+    });
 
     // Broadcast
     this.wsService.sendVttMove(token.id, snappedX, snappedY);
@@ -371,13 +392,14 @@ export class VttGridComponent implements OnInit {
     if (!combatant) return;
 
     const state = this.vttState();
-    // Check if token already exists to avoid duplicates
-    if (state?.tokens?.some((t: VTTToken) => t.id === combatant.id)) {
+    const existingTokens = state?.tokens || [];
+    const alreadyExists = existingTokens.some((t: VTTToken) => t.id === combatant.id);
+    // Check if player token already exists to avoid duplicate hero tokens
+    if (alreadyExists && combatant.is_player) {
       return;
     }
 
     let tokenName = combatant.name;
-    const existingTokens = state?.tokens || [];
     const sameNameTokens = existingTokens.filter(t =>
       t.name.toLowerCase() === combatant.name.toLowerCase() ||
       new RegExp(`^${combatant.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*#\\d+$`, 'i').test(t.name)
@@ -386,8 +408,12 @@ export class VttGridComponent implements OnInit {
       tokenName = `${combatant.name} #${sameNameTokens.length + 1}`;
     }
 
+    const tokenId = alreadyExists
+      ? `${combatant.id}_${sameNameTokens.length + 1}`
+      : combatant.id;
+
     const token: VTTToken = {
-      id: combatant.id,
+      id: tokenId,
       name: tokenName,
       x: 100 + Math.floor(Math.random() * 50),
       y: 100 + Math.floor(Math.random() * 50),

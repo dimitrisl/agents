@@ -243,9 +243,25 @@ export const CLASS_SUGGESTED_SPELLS: Record<string, string[]> = {
   ]
 };
 
-export function getRecommendedSpells(className: string): string[] {
-  const norm = Object.keys(CLASS_SUGGESTED_SPELLS).find((c) => c.toLowerCase() === (className || '').toLowerCase());
+export function getRecommendedSpells(className: string, subclass: string = ''): string[] {
+  const c = (className || '').toLowerCase();
+  const sub = (subclass || '').toLowerCase();
+  if (
+    (c === 'fighter' && sub.includes('eldritch knight')) ||
+    (c === 'rogue' && sub.includes('arcane trickster'))
+  ) {
+    return CLASS_SUGGESTED_SPELLS['Wizard'];
+  }
+  const norm = Object.keys(CLASS_SUGGESTED_SPELLS).find((k) => k.toLowerCase() === c);
   return norm ? CLASS_SUGGESTED_SPELLS[norm] : [];
+}
+
+export function getSubclassUnlockLevel(className: string, is2024: boolean = false): number {
+  if (is2024) return 3;
+  const c = (className || '').toLowerCase();
+  if (['cleric', 'sorcerer', 'warlock'].includes(c)) return 1;
+  if (['druid', 'wizard'].includes(c)) return 2;
+  return 3;
 }
 
 // --- Maximum Capacity Limits ---
@@ -266,12 +282,20 @@ export function getMaxGeneralFeats(className: string, level: number = 1): number
   return milestones.filter((m) => m <= level).length;
 }
 
-export function getMaxCantrips(className: string, level: number = 1): number {
+export function getMaxCantrips(className: string, level: number = 1, subclass: string = ''): number {
   const c = (className || '').toLowerCase();
-  if (['wizard', 'cleric'].includes(c)) return level < 4 ? 3 : level < 10 ? 4 : 5;
-  if (['sorcerer'].includes(c)) return level < 4 ? 4 : level < 10 ? 5 : 6;
-  if (['druid', 'bard', 'warlock'].includes(c)) return level < 4 ? 2 : level < 10 ? 3 : 4;
-  if (['artificer'].includes(c)) return level < 10 ? 2 : level < 14 ? 3 : 4;
+  const sub = (subclass || '').toLowerCase();
+  const lvl = Math.max(1, level);
+  if (['wizard', 'cleric'].includes(c)) return lvl < 4 ? 3 : lvl < 10 ? 4 : 5;
+  if (['sorcerer'].includes(c)) return lvl < 4 ? 4 : lvl < 10 ? 5 : 6;
+  if (['druid', 'bard', 'warlock'].includes(c)) return lvl < 4 ? 2 : lvl < 10 ? 3 : 4;
+  if (['artificer'].includes(c)) return lvl < 10 ? 2 : lvl < 14 ? 3 : 4;
+  if (c === 'fighter' && sub.includes('eldritch knight')) {
+    return lvl >= 10 ? 3 : lvl >= 3 ? 2 : 0;
+  }
+  if (c === 'rogue' && sub.includes('arcane trickster')) {
+    return lvl >= 10 ? 4 : lvl >= 3 ? 3 : 0;
+  }
   return 0;
 }
 
@@ -279,10 +303,20 @@ export function getMaxPreparedSpells(
   className: string,
   level: number = 1,
   abilityMod: number = 0,
-  is2024: boolean = false
+  is2024: boolean = false,
+  subclass: string = ''
 ): number {
   const c = (className || '').toLowerCase();
+  const sub = (subclass || '').toLowerCase();
   const idx = Math.min(19, Math.max(0, level - 1));
+  const thirdCaster = [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13];
+
+  if (
+    (c === 'fighter' && sub.includes('eldritch knight')) ||
+    (c === 'rogue' && sub.includes('arcane trickster'))
+  ) {
+    return level >= 3 ? thirdCaster[idx] : 0;
+  }
 
   if (is2024) {
     const fullCaster = [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22];
@@ -351,7 +385,13 @@ export function getMaxCastableSpellLevel(
   const c = (className || '').toLowerCase();
   const lvl = Math.max(1, level);
 
-  if (!isSpellcasterClass(className, subclass, level, is2024)) {
+  if (subclass !== undefined && subclass !== null) {
+    if (!isSpellcasterClass(className, subclass, level, is2024)) {
+      return 0;
+    }
+  } else if (
+    !['wizard', 'cleric', 'druid', 'bard', 'sorcerer', 'warlock', 'paladin', 'ranger', 'artificer', 'fighter', 'rogue'].includes(c)
+  ) {
     return 0;
   }
 
@@ -378,5 +418,5 @@ export function getMaxCastableSpellLevel(
 
   // Third casters
   if (lvl < 3) return 0;
-  return Math.min(4, Math.ceil((lvl - 2) / 6));
+  return Math.min(4, Math.ceil(Math.floor((lvl + 2) / 3) / 2));
 }

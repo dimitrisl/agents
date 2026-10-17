@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ForgeButtonDirective } from '../../../../shared/ui';
@@ -14,7 +14,7 @@ import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-moda
   imports: [CommonModule, FormsModule, ForgeButtonDirective, PasteGoModalComponent],
   templateUrl: './entities-panel.component.html',
 })
-export class EntitiesPanelComponent implements OnInit {
+export class EntitiesPanelComponent implements OnInit, OnChanges {
   @Input() campaignName!: string;
 
   entities: CampaignEntity[] = [];
@@ -43,6 +43,15 @@ export class EntitiesPanelComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.campaignName) {
+      this.loadEntities();
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['campaignName'] && !changes['campaignName'].firstChange && this.campaignName) {
+      this.selectedEntity = null;
+      this.isEditing = false;
+      this.selectedImage = null;
       this.loadEntities();
     }
   }

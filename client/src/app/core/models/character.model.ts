@@ -76,6 +76,7 @@ export interface AcBreakdown {
 export interface CharacterSchema {
   char_id?: string;
   owner_id?: string;
+  version?: number;
   char_name: string;
   is_npc?: boolean;
   gender?: string;
@@ -128,6 +129,15 @@ export interface CharacterSchema {
   playstyle_guide?: string;
   dnd_edition?: string;
   active_campaign?: string;
+  base_stats?: StatBlock;
+  base_speed?: number;
+  equip_hp_bonus?: number;
+  feat_hp_bonus?: number;
+  con_mod_applied?: number;
+  global_attack_bonus?: number;
+  global_damage_bonus?: number;
+  initiative_bonus?: number;
+  equip_stat_bonuses?: { [key: string]: number };
 }
 
 export interface LevelUpChoice {

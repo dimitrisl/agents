@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ForgeButtonDirective, ForgeTextareaDirective } from '../../../../shared/ui';
@@ -14,7 +14,7 @@ import { RollToastService } from '../../../../core/services/roll-toast.service';
   imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeTextareaDirective],
   templateUrl: './prep-panel.component.html',
 })
-export class PrepPanelComponent implements OnInit {
+export class PrepPanelComponent implements OnInit, OnChanges {
   @Input() campaignName!: string;
 
   sessions: SessionLog[] = [];
@@ -41,6 +41,18 @@ export class PrepPanelComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.campaignName) {
+      this.loadSessions();
+      this.loadSkeleton();
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['campaignName'] && !changes['campaignName'].firstChange && this.campaignName) {
+      this.prepResult = null;
+      this.journeyGraph = null;
+      this.dmIdeas = '';
+      this.sessionTextNotes = '';
+      this.selectedFile = null;
       this.loadSessions();
       this.loadSkeleton();
     }

@@ -398,7 +398,7 @@
         @if (manualStatMethod === "pointbuy") {
           <div class="flex flex-wrap items-center gap-3">
             <p class="text-label text-muted">
-              Points remaining: <strong [class.text-red-500]="getRemainingPoints() < 0" [class.text-emerald]="getRemainingPoints() >= 0">{{ getRemainingPoints() }}</strong> / 27
+              Points remaining: <strong [class.text-crimson]="getRemainingPoints() < 0" [class.text-emerald]="getRemainingPoints() >= 0">{{ getRemainingPoints() }}</strong> / 27
             </p>
           </div>
 
@@ -757,7 +757,7 @@
 
       <div class="flex flex-col gap-3 p-4">
         @if (featLimitWarning) {
-          <div class="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-label text-danger">
+          <div class="flex items-center justify-between rounded-lg border border-crimson/40 bg-crimson/10 px-3 py-2 text-label text-crimson">
             <span class="flex items-center gap-1.5">
               <span>⚠</span>
               <span>{{ featLimitWarning }}</span>
@@ -916,7 +916,7 @@
 
         <div class="flex flex-col gap-3 p-4">
           @if (spellLimitWarning) {
-            <div class="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-label text-danger">
+            <div class="flex items-center justify-between rounded-lg border border-crimson/40 bg-crimson/10 px-3 py-2 text-label text-crimson">
               <span class="flex items-center gap-1.5">
                 <span>⚠</span>
                 <span>{{ spellLimitWarning }}</span>

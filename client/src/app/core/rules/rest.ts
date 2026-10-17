@@ -85,22 +85,47 @@ export interface ShortRestPlan {
 
 /**
  * Works out what the hero is about to throw. Returns `null` when there is nothing
- * to spend, which is the caller's cue to leave the sheet alone entirely.
+ * to spend (unless Warlock Pact Magic slots can be recovered), which is the
+ * caller's cue to leave the sheet alone entirely.
  */
 export function planShortRest(
   char: CharacterSchema | null | undefined,
   requestedDice: number,
   overrideDieSize?: number
 ): ShortRestPlan | null {
+  if (!char) return null;
   const available = availableHitDice(char);
-  if (available <= 0) return null;
-
-  const diceSpent = Math.min(available, Math.max(1, requestedDice));
   const conMod = conModifier(char);
+  const resolvedDieSize = overrideDieSize && overrideDieSize > 0 ? overrideDieSize : hitDieSize(char);
+  const pact = warlockPactDetails(char);
+
+  if (available <= 0 || requestedDice <= 0) {
+    if (pact && (available <= 0 || requestedDice === 0)) {
+      return {
+        diceSpent: 0,
+        dieSize: resolvedDieSize,
+        conModifier: conMod,
+        conBonus: 0,
+      };
+    }
+    if (available <= 0) return null;
+  }
+
+  let maxForDie = available;
+  if (overrideDieSize && overrideDieSize > 0 && char.classes && char.classes.length > 0) {
+    const matchingLevels = availableHitDieOptions(char)
+      .filter((opt) => opt.dieSize === overrideDieSize)
+      .reduce((sum, opt) => sum + (opt.level || 0), 0);
+    if (matchingLevels > 0) {
+      maxForDie = Math.min(available, matchingLevels);
+    }
+  }
+
+  const diceSpent = Math.min(maxForDie, Math.max(1, requestedDice));
 
   return {
     diceSpent,
-    dieSize: overrideDieSize && overrideDieSize > 0 ? overrideDieSize : hitDieSize(char),
+    dieSize: resolvedDieSize,
     conModifier: conMod,
     conBonus: conMod * diceSpent,
   };

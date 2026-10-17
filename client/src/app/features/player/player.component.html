@@ -13,13 +13,13 @@
     (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
-  <div class="unreadable-alert mb-6 p-4 bg-panel border border-danger rounded-[8px] flex gap-4 items-center" *ngIf="charState.unreadableCharacters().length > 0">
+  <div class="unreadable-alert mb-6 p-4 bg-panel border border-crimson rounded-[8px] flex gap-4 items-center" *ngIf="charState.unreadableCharacters().length > 0">
     <i class="fas fa-exclamation-triangle text-red text-[1.5rem]"></i>
     <div>
       <h3 class="text-red mb-1 text-[1rem] font-semibold">
         {{ charState.unreadableCharacters().length }} hero{{ charState.unreadableCharacters().length > 1 ? 'es' : '' }} could not be loaded
       </h3>
-      <p class="text-subtext text-sm m-0">
+      <p class="text-muted text-sm m-0">
         Some characters in your vault failed validation. This usually happens if they were manually edited in the database or created with an older format.
       </p>
     </div>
@@ -44,10 +44,8 @@
           [abilityEntries]="getStatsArray(char.stats)"
           [getModifierString]="getModifierString"
           (portrait)="showPortraitModal.set(true)"
-          (hpDown)="adjustHp(-1)"
-          (hpUp)="adjustHp(1)"
-          (tempDown)="adjustTempHp(-1)"
-          (tempUp)="adjustTempHp(1)"
+          (hpChange)="adjustHp($event)"
+          (tempChange)="adjustTempHp($event)"
           (deathSaveChange)="setDeathSave($event.type, $event.value)"
           (abilityCheck)="rollAbilityCheck($event)"
           (savingThrow)="rollSavingThrow($event)"
@@ -195,6 +193,7 @@
     [(selectedDieSize)]="shortRestDieSize"
     [conModifier]="getConModifier()"
     [availableHitDice]="getAvailableHitDice()"
+    [hasPactSlots]="!!getWarlockPactDetails()"
     [characterLevel]="charState.activeCharacter()?.char_level"
     [(shortRestDiceToSpend)]="shortRestDiceToSpend"
     (executeShortRest)="executeShortRest()"

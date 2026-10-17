@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
@@ -72,7 +73,8 @@ class LevelUpRequest(BaseModel):
 
 class PortraitRequest(BaseModel):
     char_id: str
-    force: bool = False
+    force: bool = True
+    prompt: Optional[str] = None
     character_data: Optional[Dict[str, Any]] = None
 
 
@@ -80,7 +82,8 @@ class PortraitRequest(BaseModel):
 async def generate_forge_character(
     payload: ForgeCharacterRequest, current_user: dict = Depends(get_current_user)
 ):
-    char_dict = forge_character(
+    char_dict = await run_in_threadpool(
+        forge_character,
         target_level=payload.target_level,
         forge_race=payload.race,
         forge_class=payload.char_class,
@@ -109,7 +112,8 @@ async def generate_forge_character(
 async def enrich_manual_character(
     payload: ManualEnrichRequest, current_user: dict = Depends(get_current_user)
 ):
-    char_dict = forge_character_manual(
+    char_dict = await run_in_threadpool(
+        forge_character_manual,
         target_level=payload.target_level,
         race=payload.race,
         char_class=payload.char_class,
@@ -146,7 +150,7 @@ async def get_level_up_analysis(
 ):
     char_data = payload.character.model_dump()
     try:
-        analysis = analyze_level_up(char_data, payload.user_choices)
+        analysis = await run_in_threadpool(analyze_level_up, char_data, payload.user_choices)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -163,7 +167,7 @@ async def get_playstyle_guide(
     character: CharacterSchema, current_user: dict = Depends(get_current_user)
 ):
     char_data = character.model_dump()
-    guide_text = generate_playstyle_guide(char_data)
+    guide_text = await run_in_threadpool(generate_playstyle_guide, char_data)
     return {"guide_markdown": guide_text}
 
 
@@ -180,15 +184,24 @@ async def generate_ai_portrait(
         raise HTTPException(status_code=404, detail="Character not found")
 
     char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
-    portrait_url = await generate_portrait_url(char_dict, force=payload.force)
+    portrait_url = await generate_portrait_url(
+        char_dict, force=payload.force, custom_prompt=payload.prompt
+    )
 
+    new_version = int(doc.get("version", 0) or 0)
     if doc and portrait_url:
+        new_version += 1
         char_dict["char_portrait"] = portrait_url
         await db["characters"].update_one(
-            {"char_id": payload.char_id}, {"$set": {"char_portrait": portrait_url}}
+            {"char_id": payload.char_id, "owner_id": current_user["id"]},
+            {"$set": {"char_portrait": portrait_url, "version": new_version}},
         )
 
-    return {"success": bool(portrait_url), "portrait_url": portrait_url or ""}
+    return {
+        "success": bool(portrait_url),
+        "portrait_url": portrait_url or "",
+        "version": new_version,
+    }
 
 
 @router.post("/level-up-apply", response_model=CharacterSchema)
@@ -206,6 +219,7 @@ async def apply_level_up(
     # Increment level based on multiclass choice
     user_choices = payload.user_choices or {}
     target_class = user_choices.get("level_up_class", char_doc.get("char_class", "Fighter"))
+    old_level = max(1, int(char_doc.get("char_level", 1) or 1))
 
     classes = char_doc.get("classes", [])
     if not classes:
@@ -235,9 +249,19 @@ async def apply_level_up(
 
     # Note: if they change primary class logic, they will update it elsewhere, but we preserve primary char_class.
 
-    # Update HP
+    # Update HP (new_total_hp already includes any existing feat_hp_bonus for the new level)
     char_doc["hp_max"] = payload.analysis.new_total_hp
     char_doc["hp_current"] = payload.analysis.new_total_hp  # heal on level up
+    if char_doc.get("feat_hp_bonus", 0) > 0:
+        char_doc["feat_hp_bonus"] = (char_doc["feat_hp_bonus"] // old_level) * char_doc[
+            "char_level"
+        ]
+
+    def _bump_stat(stat_key: str, amount: int) -> None:
+        if stat_key and stat_key in char_doc.get("stats", {}):
+            char_doc["stats"][stat_key] += amount
+            if isinstance(char_doc.get("base_stats"), dict) and stat_key in char_doc["base_stats"]:
+                char_doc["base_stats"][stat_key] += amount
 
     # Append automatic features
     existing_features = {
@@ -315,8 +339,7 @@ async def apply_level_up(
                     stat1_key = f"{base}_stat1{idx_suffix}"
 
                     stat1 = payload.user_choices.get(stat1_key)
-                    if stat1 and stat1 in char_doc.get("stats", {}):
-                        char_doc["stats"][stat1] += 2
+                    _bump_stat(stat1, 2)
                 elif choice_val == "+1 to two Stats":
                     parts = choice_key.rsplit("_", 1)
                     idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
@@ -326,10 +349,8 @@ async def apply_level_up(
 
                     stat1 = payload.user_choices.get(stat1_key)
                     stat2 = payload.user_choices.get(stat2_key)
-                    if stat1 and stat1 in char_doc.get("stats", {}):
-                        char_doc["stats"][stat1] += 1
-                    if stat2 and stat2 in char_doc.get("stats", {}):
-                        char_doc["stats"][stat2] += 1
+                    _bump_stat(stat1, 1)
+                    _bump_stat(stat2, 1)
                 else:
                     rules_repo = RulesRepository()
                     edition = char_doc.get("dnd_edition", "2014 Edition")
@@ -350,8 +371,8 @@ async def apply_level_up(
                         stat_bonus = feat_data.get("stat_bonus", {})
                         if stat_bonus:
                             for stat, bonus in stat_bonus.items():
-                                if bonus > 0 and stat in char_doc.get("stats", {}):
-                                    char_doc["stats"][stat] += bonus
+                                if bonus > 0:
+                                    _bump_stat(stat, bonus)
 
                         # Handle stat choice for half-feats if user provided it
                         if feat_data.get("has_stat_choice"):
@@ -360,9 +381,7 @@ async def apply_level_up(
                             base = parts[0] if len(parts) > 1 else choice_key
                             stat1_key = f"{base}_stat1{idx_suffix}"
                             stat1 = payload.user_choices.get(stat1_key)
-
-                            if stat1 and stat1 in char_doc.get("stats", {}):
-                                char_doc["stats"][stat1] += 1
+                            _bump_stat(stat1, 1)
 
                     char_doc.setdefault("features_traits", []).append(
                         {"name": choice_val, "description": feat_desc}

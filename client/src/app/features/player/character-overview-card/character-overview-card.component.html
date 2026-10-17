@@ -45,7 +45,7 @@
           <div>
             <label class="mb-1 block text-micro font-semibold uppercase text-muted">Subclass</label>
             <input forgeInput type="text" [(ngModel)]="char.subclass" placeholder="Subclass" aria-label="Subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'overview-subclass-hint' : null" />
-            <p *ngIf="!canEditSubclass" id="overview-subclass-hint" class="text-micro uppercase text-muted">Subclasses unlock at level 3</p>
+            <p *ngIf="!canEditSubclass" id="overview-subclass-hint" class="text-micro uppercase text-muted">Subclasses unlock at level {{ subclassUnlockLevel }}</p>
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>

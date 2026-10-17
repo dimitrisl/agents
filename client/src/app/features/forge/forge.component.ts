@@ -18,6 +18,11 @@ import {
 import { AiFormComponent } from './ai-form/ai-form.component';
 import { ManualFormComponent } from './manual-form/manual-form.component';
 import { HeroPreviewComponent } from './hero-preview/hero-preview.component';
+import {
+  getMaxCastableSpellLevel,
+  getSubclassUnlockLevel,
+  isSpellcasterClass,
+} from '../../core/rules/recommendations';
 
 @Component({
   selector: 'app-forge',
@@ -154,9 +159,60 @@ export class ForgeComponent implements OnInit {
 
   toggleEditionAndRefresh() {
     this.charState.toggleEdition();
+    this.manualFeats = [];
+    this.manualSpells = [];
+    if (!this.raceOptions.includes(this.manualRace)) {
+      this.manualRace = this.raceOptions[0] || 'Human';
+    }
+    if (!this.bgOptions.includes(this.manualBackground)) {
+      this.manualBackground = this.bgOptions[0] || 'Soldier';
+    }
     this.updateSubclasses();
     this.updateManualSubclasses();
     this.fetchFeats();
+    this.fetchSpells();
+  }
+
+  onManualClassChange(newClass?: string) {
+    if (newClass !== undefined) {
+      this.manualClass = newClass;
+    }
+    this.manualSkills = [];
+    this.manualFeats = [];
+    this.manualSpells = [];
+    this.updateManualSubclasses();
+    this.fetchSpells();
+  }
+
+  onManualLevelChange(newLevel?: number) {
+    if (newLevel !== undefined) {
+      this.manualLevel = Number(newLevel);
+    }
+    this.updateManualSubclasses();
+    if (!isSpellcasterClass(this.manualClass, this.manualSubclass, this.manualLevel, this.is2024)) {
+      this.manualSpells = [];
+    } else {
+      const maxLvl = getMaxCastableSpellLevel(
+        this.manualClass,
+        this.manualLevel,
+        this.is2024,
+        this.manualSubclass
+      );
+      this.manualSpells = this.manualSpells.filter((spellName) => {
+        const found = this.availableSpells.find((s) => s.name === spellName);
+        return !found || (found.level ?? 0) <= maxLvl;
+      });
+    }
+    this.fetchSpells();
+  }
+
+  onManualSubclassChange(newSubclass?: string) {
+    if (newSubclass !== undefined) {
+      this.manualSubclass = newSubclass;
+    }
+    if (!isSpellcasterClass(this.manualClass, this.manualSubclass, this.manualLevel, this.is2024)) {
+      this.manualSpells = [];
+    }
     this.fetchSpells();
   }
 
@@ -170,10 +226,20 @@ export class ForgeComponent implements OnInit {
   }
 
   fetchSpells() {
+    const c = (this.manualClass || '').toLowerCase();
+    const sub = (this.manualSubclass || '').toLowerCase();
+    let spellClass = this.manualClass;
+    if (
+      (c === 'fighter' && sub.includes('eldritch knight')) ||
+      (c === 'rogue' && sub.includes('arcane trickster'))
+    ) {
+      spellClass = 'Wizard';
+    }
+
     this.http.get<any[]>(`${environment.apiBaseUrl}/rules/spells`, {
       params: {
         edition: this.charState.dndEdition(),
-        char_class: this.manualClass,
+        char_class: spellClass,
         char_level: this.manualLevel
       }
     }).subscribe({
@@ -219,11 +285,7 @@ export class ForgeComponent implements OnInit {
   }
 
   getSubclassMinLevel(charClass: string): number {
-    if (this.is2024) return 3;
-    const c = charClass.toLowerCase();
-    if (['cleric', 'sorcerer', 'warlock'].includes(c)) return 1;
-    if (['druid', 'wizard'].includes(c)) return 2;
-    return 3;
+    return getSubclassUnlockLevel(charClass, this.is2024);
   }
 
   get aiSubclassLocked(): boolean {
@@ -312,6 +374,9 @@ export class ForgeComponent implements OnInit {
     const map = this.is2024 ? this.subclassMap2024 : this.subclassMap2014;
     const subs = map[this.manualClass] || [];
     this.manualSubclassOptions.push(...subs);
+    if (!this.manualSubclassOptions.includes(this.manualSubclass)) {
+      this.manualSubclass = 'None';
+    }
   }
 
   roll4d6Stats() {

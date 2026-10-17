@@ -104,4 +104,33 @@ describe('ShortRestModalComponent', () => {
     expect(warningEl).not.toBeNull();
     expect(warningEl!.textContent).toContain('no available Hit Dice remaining');
   });
+
+  it('allows Warlock with hasPactSlots to take a short rest even when availableHitDice is 0', () => {
+    jest.spyOn(component.executeShortRest, 'emit');
+    fixture.componentRef.setInput('availableHitDice', 0);
+    fixture.componentRef.setInput('hasPactSlots', true);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button'));
+    const pactBtn = buttons.find((b) => b.textContent?.includes('Recover Pact Slots'));
+    expect(pactBtn).toBeDefined();
+    pactBtn!.click();
+
+    expect(component.executeShortRest.emit).toHaveBeenCalled();
+  });
+
+  it('caps selectedClassMaxDice to the selected multiclass hit die pool level', () => {
+    fixture.componentRef.setInput('availableHitDice', 6);
+    fixture.componentRef.setInput('hitDieOptions', [
+      { className: 'Barbarian', level: 5, dieSize: 12 },
+      { className: 'Wizard', level: 2, dieSize: 6 },
+    ]);
+    fixture.componentRef.setInput('selectedDieSize', 6);
+    fixture.componentRef.setInput('diceToSpend', 5);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(component.selectedClassMaxDice).toBe(2);
+  });
 });

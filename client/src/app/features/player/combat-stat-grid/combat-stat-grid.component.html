@@ -8,12 +8,12 @@
       <div class="flex items-center gap-1">
         <p class="text-micro font-semibold uppercase text-muted">AC</p>
         @if (acBreakdown?.formula_text) {
-          <span class="text-[10px] text-ink-muted/70 group-hover:text-accent transition-colors" aria-label="Formula breakdown">ℹ️</span>
+          <span class="text-[10px] text-muted/70 group-hover:text-accent transition-colors" aria-label="Formula breakdown">ℹ️</span>
         }
       </div>
       <p *ngIf="!editMode" class="mt-1 text-metric font-bold leading-none text-accent">{{ armorClass }}</p>
       @if (!editMode && acBreakdown; as bd) {
-        <p class="mt-0.5 max-w-[120px] truncate text-[9px] text-ink-muted group-hover:text-ink transition-colors font-mono" [title]="bd.formula_text">
+        <p class="mt-0.5 max-w-[120px] truncate text-[9px] text-muted group-hover:text-ink transition-colors font-mono" [title]="bd.formula_text">
           {{ bd.base_source }}
         </p>
       }

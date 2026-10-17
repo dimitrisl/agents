@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
+import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
 import {
   ForgeBadgeComponent,
   ForgeCardComponent,
@@ -45,7 +46,12 @@ export class CharacterOverviewCardComponent {
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
 
+  get subclassUnlockLevel(): number {
+    const is2024 = (this.char?.dnd_edition || this.edition || '').includes('2024');
+    return getSubclassUnlockLevel(this.char?.char_class || '', is2024);
+  }
+
   get canEditSubclass(): boolean {
-    return Number(this.char?.char_level || 1) >= 3;
+    return Number(this.char?.char_level || 1) >= this.subclassUnlockLevel;
   }
 }

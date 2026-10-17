@@ -56,6 +56,7 @@ import {
   spellSlotMax,
   spellSlotUsed,
   spendSpellSlot,
+  warlockPactDetails,
 } from '../../core/rules';
 import {
   ForgeButtonDirective,
@@ -369,14 +370,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!payload || payload.char_id !== char.char_id) return;
 
     const previousHp = char.hp_current ?? char.hp_max;
-    if (typeof payload.hp_current === 'number') char.hp_current = payload.hp_current;
-    if (Array.isArray(payload.conditions)) char.conditions = [...payload.conditions];
+    const updated: CharacterSchema = { ...char };
+    if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
+    if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
+    this.charState.activeCharacter.set(updated);
 
-    const hp = char.hp_current ?? char.hp_max;
+    const hp = updated.hp_current ?? updated.hp_max;
     if (hp !== previousHp) {
       const delta = hp - previousHp;
       const verb = delta < 0 ? `took ${Math.abs(delta)} damage` : `healed ${delta}`;
-      this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${char.hp_max}.`);
+      this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${updated.hp_max}.`);
     }
   }
 
@@ -465,8 +468,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return availableHitDice(this.charState.activeCharacter());
   }
 
+  getWarlockPactDetails() {
+    return warlockPactDetails(this.charState.activeCharacter());
+  }
+
   openShortRestModal() {
-    this.shortRestDiceToSpend = 1;
+    this.shortRestDiceToSpend = this.getAvailableHitDice() > 0 ? 1 : 0;
     this.shortRestDieSize = this.getClassHitDieSize();
     this.showShortRestModal.set(true);
   }
@@ -479,8 +486,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!plan) return;
 
     const { diceSpent, dieSize, conBonus } = plan;
-    const roll = this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus });
-    const rest = resolveShortRest(char, plan, roll.total);
+    const roll = diceSpent > 0
+      ? this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus })
+      : null;
+    const rest = resolveShortRest(char, plan, roll ? roll.total : 0);
 
     char.hp_current = rest.hpAfter;
     char.hit_dice_used = rest.hitDiceUsed;
@@ -496,20 +505,27 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.saveCurrentChar();
     this.showShortRestModal.set(false);
 
-    this.rollToast.showRoll({
-      title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
-      // Every hit die is worth showing here, so this spells them out rather than
-      // using the service's summed form.
-      expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
-      raw: roll.raw,
-      rolls: roll.rolls,
-      sides: dieSize,
-      modifier: conBonus,
-      // The roll display shows what the dice came to; the message shows what the
-      // hero actually got, which is less whenever the rest hits `hp_max`.
-      total: rest.rolled,
-      message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
-    });
+    if (roll && diceSpent > 0) {
+      this.rollToast.showRoll({
+        title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
+        // Every hit die is worth showing here, so this spells them out rather than
+        // using the service's summed form.
+        expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+        raw: roll.raw,
+        rolls: roll.rolls,
+        sides: dieSize,
+        modifier: conBonus,
+        // The roll display shows what the dice came to; the message shows what the
+        // hero actually got, which is less whenever the rest hits `hp_max`.
+        total: rest.rolled,
+        message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
+      });
+    } else if (rest.restoresPactSlots) {
+      this.rollToast.showMessage(
+        '⛺ SHORT REST COMPLETED',
+        `Warlock Pact Magic spell slots restored for ${char.char_name}.`
+      );
+    }
   }
 
   triggerLongRest() {
@@ -1380,6 +1396,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }).subscribe((res) => {
       this.showPortraitModal.set(false);
       if (res.portrait_url) {
+        if (typeof res.version === 'number') {
+          char.version = res.version;
+        }
         char.char_portrait = res.portrait_url;
         this.saveCurrentChar();
       }
