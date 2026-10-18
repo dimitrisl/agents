@@ -28,7 +28,7 @@ import { ForgeButtonDirective } from '../../shared/ui';
 export class CampaignPickerComponent implements OnInit {
   private http = inject(HttpClient);
   private router = inject(Router);
-  private auth = inject(AuthService);
+  readonly auth = inject(AuthService);
 
   campaigns = signal<Campaign[]>([]);
   loading = signal(true);

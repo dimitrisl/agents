@@ -38,6 +38,42 @@ export function availableHitDice(char: CharacterSchema | null | undefined): numb
   return Math.max(0, (char.char_level || 1) - (char.hit_dice_used || 0));
 }
 
+export interface HitDieOption {
+  dieSize: number;
+  className: string;
+  level: number;
+}
+
+/**
+ * Lists the hit die pool options available to the character.
+ * For multiclass characters, lists each class with its level and hit die size.
+ * Single class characters return a single option.
+ */
+export function availableHitDieOptions(
+  char: Pick<CharacterSchema, 'classes' | 'char_class' | 'char_level' | 'hit_dice'> | null | undefined
+): HitDieOption[] {
+  if (!char) return [];
+
+  if (char.classes && char.classes.length > 0) {
+    return char.classes.map((cls) => {
+      const isMain = (cls.class_name || '').toLowerCase() === (char.char_class || '').toLowerCase();
+      return {
+        className: cls.class_name || 'Class',
+        level: cls.level || 1,
+        dieSize: isMain ? hitDieSize(char) : hitDieSidesFor(cls.class_name),
+      };
+    });
+  }
+
+  return [
+    {
+      className: char.char_class || 'Class',
+      level: char.char_level || 1,
+      dieSize: hitDieSize(char),
+    },
+  ];
+}
+
 export interface ShortRestPlan {
   /** Dice actually spent — at least one, never more than are left. */
   diceSpent: number;
@@ -49,21 +85,47 @@ export interface ShortRestPlan {
 
 /**
  * Works out what the hero is about to throw. Returns `null` when there is nothing
- * to spend, which is the caller's cue to leave the sheet alone entirely.
+ * to spend (unless Warlock Pact Magic slots can be recovered), which is the
+ * caller's cue to leave the sheet alone entirely.
  */
 export function planShortRest(
   char: CharacterSchema | null | undefined,
-  requestedDice: number
+  requestedDice: number,
+  overrideDieSize?: number
 ): ShortRestPlan | null {
+  if (!char) return null;
   const available = availableHitDice(char);
-  if (available <= 0) return null;
-
-  const diceSpent = Math.min(available, Math.max(1, requestedDice));
   const conMod = conModifier(char);
+  const resolvedDieSize = overrideDieSize && overrideDieSize > 0 ? overrideDieSize : hitDieSize(char);
+  const pact = warlockPactDetails(char);
+
+  if (available <= 0 || requestedDice <= 0) {
+    if (pact && (available <= 0 || requestedDice === 0)) {
+      return {
+        diceSpent: 0,
+        dieSize: resolvedDieSize,
+        conModifier: conMod,
+        conBonus: 0,
+      };
+    }
+    if (available <= 0) return null;
+  }
+
+  let maxForDie = available;
+  if (overrideDieSize && overrideDieSize > 0 && char.classes && char.classes.length > 0) {
+    const matchingLevels = availableHitDieOptions(char)
+      .filter((opt) => opt.dieSize === overrideDieSize)
+      .reduce((sum, opt) => sum + (opt.level || 0), 0);
+    if (matchingLevels > 0) {
+      maxForDie = Math.min(available, matchingLevels);
+    }
+  }
+
+  const diceSpent = Math.min(maxForDie, Math.max(1, requestedDice));
 
   return {
     diceSpent,
-    dieSize: hitDieSize(char),
+    dieSize: resolvedDieSize,
     conModifier: conMod,
     conBonus: conMod * diceSpent,
   };
@@ -79,6 +141,61 @@ export interface ShortRestOutcome {
   hitDiceUsed: number;
   /** Warlocks recharge their pact slots on a short rest, not a long one. */
   restoresPactSlots: boolean;
+  pactDetails?: WarlockPactDetails | null;
+}
+
+export interface WarlockPactDetails {
+  pactSlotLevel: number;
+  pactSlotCount: number;
+}
+
+export function warlockPactDetails(
+  char: Pick<CharacterSchema, 'char_class' | 'char_level' | 'classes'> | null | undefined
+): WarlockPactDetails | null {
+  if (!char) return null;
+  let wLevel = 0;
+  const mainClass = (char.char_class || '').toLowerCase();
+  if (mainClass.includes('warlock')) {
+    wLevel = char.char_level || 1;
+  }
+  if (char.classes && char.classes.length > 0) {
+    const wEntry = char.classes.find(c => (c.class_name || '').toLowerCase().includes('warlock'));
+    if (wEntry) {
+      wLevel = wEntry.level || 1;
+    }
+  }
+
+  if (wLevel <= 0) return null;
+
+  let slotLvl = 1;
+  let slotCount = 1;
+  if (wLevel === 1) {
+    slotLvl = 1;
+    slotCount = 1;
+  } else if (wLevel === 2) {
+    slotLvl = 1;
+    slotCount = 2;
+  } else if (wLevel <= 4) {
+    slotLvl = 2;
+    slotCount = 2;
+  } else if (wLevel <= 6) {
+    slotLvl = 3;
+    slotCount = 2;
+  } else if (wLevel <= 8) {
+    slotLvl = 4;
+    slotCount = 2;
+  } else if (wLevel <= 10) {
+    slotLvl = 5;
+    slotCount = 2;
+  } else if (wLevel <= 16) {
+    slotLvl = 5;
+    slotCount = 3;
+  } else {
+    slotLvl = 5;
+    slotCount = 4;
+  }
+
+  return { pactSlotLevel: slotLvl, pactSlotCount: slotCount };
 }
 
 /**
@@ -100,19 +217,21 @@ export function resolveShortRest(
   const hpBefore = currentHp(char);
   const hpAfter = Math.min(char.hp_max, hpBefore + rolled);
 
-    const isWarlock =
-      (char.char_class || '').toLowerCase().includes('warlock') ||
-      (char.classes || []).some(c => (c.class_name || '').toLowerCase().includes('warlock'));
+  const pact = warlockPactDetails(char);
 
-    return {
-      rolled,
-      hpGained: hpAfter - hpBefore,
-      hpBefore,
-      hpAfter,
-      hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
-      restoresPactSlots: isWarlock,
-    };
+  const outcome: ShortRestOutcome = {
+    rolled,
+    hpGained: hpAfter - hpBefore,
+    hpBefore,
+    hpAfter,
+    hitDiceUsed: (char.hit_dice_used || 0) + plan.diceSpent,
+    restoresPactSlots: !!pact,
+  };
+  if (pact) {
+    outcome.pactDetails = pact;
   }
+  return outcome;
+}
 
 export interface LongRestOutcome {
   hpCurrent: number;

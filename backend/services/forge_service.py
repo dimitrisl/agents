@@ -1,5 +1,6 @@
 import functools
 import logging
+import random
 import uuid
 
 from backend.core.ai_client import generate_ai_json, generate_ai_response
@@ -75,9 +76,18 @@ def forge_character(
     )
 
     if stats_mode == "standard":
-        stats_instruction = "You MUST use the Standard Array (15, 14, 13, 12, 10, 8) for their base ability scores, distributed optimally for their class/race."
+        stats_instruction = f"Assign the values from the Standard Array (15, 14, 13, 12, 10, 8) to the character's base ability scores. You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class (e.g., highest to STR for Barbarian). DO NOT just assign them in descending order to STR, DEX, CON, INT, WIS, CHA."
+    elif stats_mode == "point_buy":
+        stats_instruction = f"Assign base ability scores using the standard Point Buy system (27 points total, stats between 8 and 15 before racial bonuses). You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class."
     else:
-        stats_instruction = "You must assign them a balanced, high-quality array of 6 ability scores (equivalent to rolling 4d6 drop lowest)."
+
+        def roll_stat():
+            rolls = [random.randint(1, 6) for _ in range(4)]
+            rolls.remove(min(rolls))
+            return sum(rolls)
+
+        rolled_stats = sorted([roll_stat() for _ in range(6)], reverse=True)
+        stats_instruction = f"Assign exactly these rolled scores: {rolled_stats} to the character's base ability scores. You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class. DO NOT just assign them in descending order to STR, DEX, CON, INT, WIS, CHA."
 
     pref_instructions = []
     if custom_preferences and custom_preferences.strip():
@@ -132,6 +142,14 @@ def forge_character(
             }
         )
 
+    # Sanitize Hallucinations (Bug 5)
+    result.pop("initiative_bonus", None)
+
+    # Fix Custom Background (Bug 3 & 4)
+    # Custom Background is now entirely handled by the AI prompt.
+    if "custom" in str(result.get("background", "")).lower():
+        pass
+
     result["dnd_edition"] = edition
     if not result.get("char_id"):
         result["char_id"] = str(uuid.uuid4())[:8]
@@ -139,6 +157,17 @@ def forge_character(
     if not auto_spells:
         result["spells"] = {}
         result["prepared_spells"] = []
+    else:
+        # Flatten spells into prepared_spells for the UI
+        spells_dict = result.get("spells", {})
+        prepared = result.get("prepared_spells", [])
+        if isinstance(spells_dict, dict):
+            for lvl, spell_list in spells_dict.items():
+                if isinstance(spell_list, list):
+                    for spell_name in spell_list:
+                        if spell_name not in prepared:
+                            prepared.append(spell_name)
+        result["prepared_spells"] = prepared
     if not auto_feats:
         result["advancements"] = []
         if "features_traits" in result and isinstance(result["features_traits"], list):
@@ -202,6 +231,9 @@ def forge_character_manual(
     custom_preferences: str = None,
     auto_spells: bool = True,
     auto_feats: bool = True,
+    chosen_spells: list = None,
+    chosen_feats: list = None,
+    chosen_equipment: list = None,
 ) -> dict:
     """Enriches and builds a manual character based on user selections and AI helper."""
     pref_instructions = []
@@ -209,11 +241,19 @@ def forge_character_manual(
         pref_instructions.append(
             f"USER CUSTOM BUILD PREFERENCES (FEATS, SPELLS, ASIs):\n{custom_preferences}"
         )
-    if not auto_spells:
+    if chosen_spells:
+        pref_instructions.append(
+            f"USER CHOSEN SPELLS (STRICTLY USE THESE): {', '.join(chosen_spells)}"
+        )
+    elif not auto_spells:
         pref_instructions.append(
             "DO NOT auto-select spells for this character. Leave 'spells' as an empty dictionary {} and 'prepared_spells' as an empty list []."
         )
-    if not auto_feats:
+    if chosen_feats:
+        pref_instructions.append(
+            f"USER CHOSEN FEATS (STRICTLY USE THESE): {', '.join(chosen_feats)}"
+        )
+    elif not auto_feats:
         pref_instructions.append(
             "DO NOT auto-select Feats or ASIs for this character. Leave 'advancements' as an empty list [] and do NOT add Feat traits."
         )
@@ -239,7 +279,10 @@ def forge_character_manual(
     )
     result = generate_ai_json(prompt)
     if not result:
-        result = {}
+        logger.warning(
+            "AI JSON generation returned None in manual forge. Generating default fallback character."
+        )
+        result = get_default_character()
 
     # Merge manual choices
     result["char_name"] = name
@@ -258,10 +301,89 @@ def forge_character_manual(
 
     result["char_id"] = str(uuid.uuid4())[:8]
 
-    if not auto_spells:
+    # Sanitize Hallucinations (Bug 5)
+    result.pop("initiative_bonus", None)
+
+    # Fix Custom Background (Bug 3 & 4)
+    # Custom Background is now entirely handled by the AI prompt.
+    if "custom" in str(result.get("background", "")).lower():
+        pass
+
+    # Add missing static class features (Bug 7)
+    from backend.repositories.rules_repository import RulesRepository
+
+    repo = RulesRepository()
+    all_static_features = []
+    for lvl in range(1, target_level + 1):
+        all_static_features.extend(repo.get_features_at_level(char_class, lvl, edition))
+
+    existing_feat_names = {f.get("name", "").lower() for f in result.get("features_traits", [])}
+    for feat in all_static_features:
+        if feat.get("name", "").lower() not in existing_feat_names:
+            result.setdefault("features_traits", []).append(feat)
+
+    if chosen_spells is not None:
+        all_rules_spells = {s["name"].lower(): s for s in repo.get_all_spells(edition)}
+        spells_dict: dict[str, list[str]] = {}
+        prepared: list[str] = []
+        for s_name in chosen_spells:
+            s_data = all_rules_spells.get(s_name.lower())
+            lvl = s_data.get("level", 0) if s_data else 0
+            lvl_key = "cantrips" if lvl == 0 else f"level_{lvl}"
+            clean_name = s_data["name"] if s_data else s_name
+            spells_dict.setdefault(lvl_key, []).append(clean_name)
+            prepared.append(clean_name)
+        result["spells"] = spells_dict
+        result["prepared_spells"] = prepared
+    elif not auto_spells:
         result["spells"] = {}
         result["prepared_spells"] = []
-    if not auto_feats:
+    else:
+        # Flatten spells into prepared_spells for the UI
+        spells_dict = result.get("spells", {})
+        prepared = result.get("prepared_spells", [])
+        if isinstance(spells_dict, dict):
+            for lvl, spell_list in spells_dict.items():
+                if isinstance(spell_list, list):
+                    for spell_name in spell_list:
+                        if spell_name not in prepared:
+                            prepared.append(spell_name)
+        result["prepared_spells"] = prepared
+
+    if chosen_feats is not None:
+        all_rules_feats = {f["name"].lower(): f for f in repo.get_all_feats(edition)}
+        advancements = []
+        feat_traits = []
+        for f_name in chosen_feats:
+            f_data = all_rules_feats.get(f_name.lower())
+            name = f_data["name"] if f_data else f_name
+            desc = f_data.get("description", "") if f_data else ""
+            category = f_data.get("category", "General Feats") if f_data else "General Feats"
+            adv_level = 1 if "origin" in category.lower() or "2024" in edition else 4
+            advancements.append(
+                {
+                    "level": adv_level,
+                    "type": "Feat",
+                    "name": name,
+                    "description": desc[:200],
+                }
+            )
+            feat_traits.append(
+                {
+                    "name": f"Feat: {name}",
+                    "description": desc,
+                    "source": "Feat",
+                }
+            )
+        result["advancements"] = advancements
+        existing_traits = [
+            f
+            for f in result.get("features_traits", [])
+            if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
+        ]
+        existing_traits.extend(feat_traits)
+        result["features_traits"] = existing_traits
+    elif not auto_feats:
         result["advancements"] = []
         if "features_traits" in result and isinstance(result["features_traits"], list):
             result["features_traits"] = [
@@ -269,6 +391,9 @@ def forge_character_manual(
                 for f in result["features_traits"]
                 if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
             ]
+
+    if chosen_equipment is not None:
+        result["equipment"] = [{"name": it, "equipped": True} for it in chosen_equipment]
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
@@ -355,6 +480,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             current_level=class_current_level,
             con_score=char_data.get("stats", {}).get("CON", 10),
             edition=edition,
+            features=char_data.get("features_traits", []),
         )
         hp_increase = max(1, vitals.get("average_hp_gain", 0))
     except Exception:
@@ -386,9 +512,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         if subclasses:
             subclass_level = 3
             if edition == EDITION_2014:
-                if char_class in ["Cleric", "Sorcerer", "Warlock"]:
+                if char_class.title() in ["Cleric", "Sorcerer", "Warlock"]:
                     subclass_level = 1
-                elif char_class in ["Wizard", "Druid"]:
+                elif char_class.title() in ["Wizard", "Druid"]:
                     subclass_level = 2
 
             if target_level >= subclass_level:
@@ -402,7 +528,11 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 )
 
     # 2. ASI/Feat
-    if target_level in [4, 8, 12, 16, 19]:
+    is_asi_level = any(
+        "ability score improvement" in f.get("name", "").lower() for f in static_features
+    )
+
+    if is_asi_level:
         char_race = char_data.get("race", "").lower()
         allowed_feats = []
         for f in rules_repo.get_all_feats(edition):
@@ -432,7 +562,35 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "Artificer",
     ]
     if char_class in spellcasters:
-        spells = sorted([s["name"] for s in rules_repo.get_all_spells(edition)])
+        from backend.services.stats_service import calculate_max_spell_slots
+
+        max_slots = calculate_max_spell_slots(
+            char_class, target_level, current_subclass, edition=edition
+        )
+        max_spell_level = 0
+        for i in range(1, 10):
+            if max_slots.get(f"level_{i}", 0) > 0:
+                max_spell_level = i
+
+        # Handle Warlock Mystic Arcanum or similar edge cases
+        if char_class == "Warlock" and target_level >= 11:
+            max_spell_level = max(max_spell_level, 6)
+        if char_class == "Warlock" and target_level >= 13:
+            max_spell_level = max(max_spell_level, 7)
+        if char_class == "Warlock" and target_level >= 15:
+            max_spell_level = max(max_spell_level, 8)
+        if char_class == "Warlock" and target_level >= 17:
+            max_spell_level = max(max_spell_level, 9)
+
+        all_spells = rules_repo.get_all_spells(edition)
+        spells = []
+        for s in all_spells:
+            if s.get("level", 0) <= max_spell_level and (
+                not s.get("classes") or char_class in s.get("classes", [])
+            ):
+                spells.append(s["name"])
+
+        spells = sorted(spells)
 
         # Bard Magical Secrets overrides
         if char_class == "Bard" and target_level in [10, 14, 18]:
@@ -559,6 +717,10 @@ def process_character_update(
     All calculations and data manipulation happen here, in the backend.
     """
     updated_char = current_char.copy()
+    if isinstance(updated_char.get("stats"), dict):
+        updated_char["stats"] = dict(updated_char["stats"])
+    if isinstance(updated_char.get("base_stats"), dict):
+        updated_char["base_stats"] = dict(updated_char["base_stats"])
 
     # 1. Apply Stat Updates & Level
     if stat_updates:
@@ -566,7 +728,13 @@ def process_character_update(
             if k == "char_level":
                 updated_char["char_level"] = v
             elif k in updated_char.get("stats", {}):
+                old_val = updated_char["stats"][k]
                 updated_char["stats"][k] = v
+                if (
+                    isinstance(updated_char.get("base_stats"), dict)
+                    and k in updated_char["base_stats"]
+                ):
+                    updated_char["base_stats"][k] += v - old_val
 
     # 2. Apply Equipment Deltas
     if equipment_deltas:
@@ -619,6 +787,6 @@ def process_character_update(
 
     # 3. Synchronize derived stats
     class_data = _get_rules_repo().get_class_progression(
-        updated_char.get("char_class"), updated_char.get("dnd_edition")
+        updated_char.get("char_class"), updated_char.get("dnd_edition", "2014 Edition")
     )
     return sync_character_stats(updated_char, class_data, weapon_deltas, homebrew_content)

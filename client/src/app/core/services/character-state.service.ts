@@ -50,7 +50,14 @@ export class CharacterStateService {
   private loaded = false;
   private inFlight$: Observable<any> | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.setAttribute(
+        'data-edition',
+        this.dndEdition().includes('2024') ? '2024' : '2014'
+      );
+    }
+  }
 
   /**
    * Returns the vault, fetching it only the first time. Concurrent callers share
@@ -90,7 +97,9 @@ export class CharacterStateService {
               this.activeCharacter.set(available.length > 0 ? available[0] : null);
             } else {
               const exists = chars?.find((c: any) => c.char_id === currentActive.char_id);
-              if (!exists && currentActive.char_id !== 'default_paladin') {
+              if (exists) {
+                this.activeCharacter.set(exists);
+              } else if (currentActive.char_id !== 'default_paladin') {
                 this.characters.set([currentActive, ...(chars || [])]);
               }
             }

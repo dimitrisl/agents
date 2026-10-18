@@ -74,6 +74,24 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
     if "2024" in edition and level < 3:
         corrected_char["subclass"] = ""
 
+    # Add missing static class features
+    from backend.repositories.rules_repository import RulesRepository
+
+    repo = RulesRepository()
+    all_static_features = []
+    if char_class and level:
+        for lvl in range(1, level + 1):
+            all_static_features.extend(repo.get_features_at_level(char_class, lvl, edition))
+
+    existing_feat_names = {
+        f.get("name", "").lower()
+        for f in corrected_char.get("features_traits", [])
+        if isinstance(f, dict)
+    }
+    for feat in all_static_features:
+        if feat.get("name", "").lower() not in existing_feat_names:
+            corrected_char.setdefault("features_traits", []).append(feat)
+
     # Re-sync derived stats using mechanics engine for the specific edition
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
     synced_char = sync_character_stats(

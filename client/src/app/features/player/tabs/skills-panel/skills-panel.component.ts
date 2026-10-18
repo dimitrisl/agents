@@ -19,11 +19,13 @@ import type { SkillDefinition } from '../../player.component';
 })
 export class SkillsPanelComponent {
   @Input() allSkills: SkillDefinition[] = [];
+  @Input() editMode = false;
   @Input() isProficient!: (skillName: string) => boolean;
   @Input() getSkillModString!: (skill: SkillDefinition) => string;
   @Input() getAttributeFullName!: (attr: string) => string;
 
   @Output() rollSkill = new EventEmitter<SkillDefinition>();
+  @Output() toggleProficiency = new EventEmitter<string>();
 
   showProficientOnly = false;
   openGroups: { [key: string]: boolean } = {

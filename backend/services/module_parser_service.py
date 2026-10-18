@@ -17,6 +17,22 @@ os.makedirs(MODULE_PICS_DIR, exist_ok=True)
 class ModuleParserService:
     def __init__(self):
         self.provider = get_llm_provider()
+        self._cleanup_old_images()
+
+    def _cleanup_old_images(self, max_age_hours=24):
+        """Removes module images older than max_age_hours to prevent storage bloat."""
+        import time
+
+        now = time.time()
+        for filename in os.listdir(MODULE_PICS_DIR):
+            filepath = os.path.join(MODULE_PICS_DIR, filename)
+            if os.path.isfile(filepath):
+                file_age = now - os.path.getctime(filepath)
+                if file_age > max_age_hours * 3600:
+                    try:
+                        os.remove(filepath)
+                    except OSError:
+                        pass
 
     def upload_pdf_to_gemini(self, pdf_path: str):
         """Uploads a PDF module to AI Provider File API and returns the file ID."""

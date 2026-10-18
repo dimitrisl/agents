@@ -35,12 +35,26 @@
     *ngIf="char.weapon_masteries && char.weapon_masteries.length > 0"
     class="rounded-xl border border-accent/25 bg-tile p-4"
   >
-    <h3 class="text-micro font-semibold uppercase text-accent">
-      2024 Weapon Masteries ({{ char.weapon_masteries.length }} active)
-    </h3>
-    <div class="mt-2 flex flex-wrap gap-2">
-      <forge-badge *ngFor="let mastery of char.weapon_masteries" tone="accent">
-        {{ mastery }}
+    <div class="flex items-center justify-between">
+      <h3 class="text-micro font-semibold uppercase text-accent">
+        2024 Weapon Masteries ({{ char.weapon_masteries.length }} active)
+      </h3>
+      <span class="text-micro text-muted">Hover for rules &amp; triggers</span>
+    </div>
+    <div class="mt-2.5 flex flex-wrap gap-2">
+      <forge-badge
+        *ngFor="let mastery of char.weapon_masteries"
+        tone="accent"
+        [interactive]="true"
+        [title]="masteryTooltip(mastery)"
+      >
+        <span class="font-bold">{{ mastery }}</span>
+        @if (isTopple(mastery)) {
+          <span class="ml-1 text-xs opacity-90">(DC {{ getToppleDc() }} CON)</span>
+        }
+        @if (getMasteryTrigger(mastery); as trig) {
+          <span class="ml-1 text-[10px] text-accent/80 font-mono">[{{ trig }}]</span>
+        }
       </forge-badge>
     </div>
   </div>

@@ -6,7 +6,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
-  effect,
+  effect, signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -35,10 +35,12 @@ import {
   abilityModifierOf,
   adjustedHp,
   availableHitDice,
+  availableHitDieOptions,
   conModifier,
   findSkill,
   formatModifier,
   hasSpellSlotLevel,
+  HitDieOption,
   hitDieSize,
   isProficientIn,
   levelUp,
@@ -47,12 +49,14 @@ import {
   resolveLongRest,
   resolveShortRest,
   restoreAllSpellSlots,
+  restorePactSpellSlots,
   savingThrowModifier,
   skillModifier,
   skillModifierString,
   spellSlotMax,
   spellSlotUsed,
   spendSpellSlot,
+  warlockPactDetails,
 } from '../../core/rules';
 import {
   ForgeButtonDirective,
@@ -66,7 +70,7 @@ import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
 import { CharacterTabsComponent } from './character-tabs/character-tabs.component';
 import { RollModeSelectorComponent } from './roll-mode-selector/roll-mode-selector.component';
-import { SkillsPanelComponent } from './skills-panel/skills-panel.component';
+import { SkillsPanelComponent } from './tabs/skills-panel/skills-panel.component';
 import { ActionDockComponent } from './action-dock/action-dock.component';
 import { CombatPanelComponent } from './tabs/combat-panel/combat-panel.component';
 import { SpellsPanelComponent } from './tabs/spells-panel/spells-panel.component';
@@ -82,6 +86,7 @@ import { StrategyGuideModalComponent } from './modals/strategy-guide-modal/strat
 import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-modal.component';
 import { ConditionsModalComponent } from './modals/conditions-modal/conditions-modal.component';
 import { PlayerHomebrewModalComponent } from './modals/player-homebrew-modal/player-homebrew-modal.component';
+import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -129,6 +134,7 @@ interface RollTarget {
     EditSheetModalComponent,
     ConditionsModalComponent,
     PlayerHomebrewModalComponent,
+    VttGridComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -136,7 +142,7 @@ interface RollTarget {
 export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
 
-  sheetSubTab: 'skills' | 'combat' | 'spells' | 'roleplay' = 'skills';
+  sheetSubTab = signal<'skills' | 'combat' | 'spells' | 'roleplay'>('skills');
 
   readonly sheetTabs: ForgeTab[] = [
     { id: 'skills', label: '📜 Skills & Checks' },
@@ -147,20 +153,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   selectSheetSubTab(tabId: string): void {
     if (tabId === 'skills' || tabId === 'combat' || tabId === 'spells' || tabId === 'roleplay') {
-      this.sheetSubTab = tabId;
+      this.sheetSubTab.set(tabId);
     }
   }
-  editMode = false;
-  showEditModal = false;
-  showConditionsModal = false;
-  showPortraitModal = false;
-  showJoinModal = false;
-  showHomebrewModal = false;
-  showShortRestModal = false;
-  showProficientOnly = false;
-  showLevelUpModal = false;
-  showValidationModal = false;
-  showWhisperInbox = false;
+  editMode = signal(false);
+  showEditModal = signal(false);
+  showConditionsModal = signal(false);
+  showPortraitModal = signal(false);
+  showJoinModal = signal(false);
+  showHomebrewModal = signal(false);
+  showShortRestModal = signal(false);
+  showProficientOnly = signal(false);
+  showLevelUpModal = signal(false);
+  showValidationModal = signal(false);
+  showWhisperInbox = signal(false);
   editDraftChar: CharacterSchema | null = null;
   isValidating = false;
   isAutoFixing = false;
@@ -168,6 +174,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   levelUpAnalysis: LevelUpAnalysis | null = null;
   levelUpUserChoices: Record<string, any> = {};
   shortRestDiceToSpend = 1;
+  shortRestDieSize = 8;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
   encounterState: any = null;
@@ -271,7 +278,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.rollRequestHistory = [];
         this.unreadMessages = 0;
         this.whisperReply = '';
-        this.showWhisperInbox = false;
+        this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
         this.clearRollPrompts();
         this.rebuildInboxFeed();
@@ -363,14 +370,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!payload || payload.char_id !== char.char_id) return;
 
     const previousHp = char.hp_current ?? char.hp_max;
-    if (typeof payload.hp_current === 'number') char.hp_current = payload.hp_current;
-    if (Array.isArray(payload.conditions)) char.conditions = [...payload.conditions];
+    const updated: CharacterSchema = { ...char };
+    if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
+    if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
+    this.charState.activeCharacter.set(updated);
 
-    const hp = char.hp_current ?? char.hp_max;
+    const hp = updated.hp_current ?? updated.hp_max;
     if (hp !== previousHp) {
       const delta = hp - previousHp;
       const verb = delta < 0 ? `took ${Math.abs(delta)} damage` : `healed ${delta}`;
-      this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${char.hp_max}.`);
+      this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${updated.hp_max}.`);
     }
   }
 
@@ -396,8 +405,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // straight onto what is actually rollable. Turning it off restores whatever
   // the user had expanded beforehand.
   onShowProficientOnlyChange(showProficientOnly: boolean): void {
-    if (showProficientOnly === this.showProficientOnly) return;
-    this.showProficientOnly = showProficientOnly;
+    if (showProficientOnly === this.showProficientOnly()) return;
+    this.showProficientOnly.set(showProficientOnly);
 
     if (showProficientOnly) {
       this.openGroupsBeforeFilter = { ...this.openGroups };
@@ -447,6 +456,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return hitDieSize(this.charState.activeCharacter());
   }
 
+  getHitDieOptions(): HitDieOption[] {
+    return availableHitDieOptions(this.charState.activeCharacter());
+  }
+
   getConModifier(): number {
     return conModifier(this.charState.activeCharacter());
   }
@@ -455,46 +468,64 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return availableHitDice(this.charState.activeCharacter());
   }
 
+  getWarlockPactDetails() {
+    return warlockPactDetails(this.charState.activeCharacter());
+  }
+
   openShortRestModal() {
-    this.shortRestDiceToSpend = 1;
-    this.showShortRestModal = true;
+    this.shortRestDiceToSpend = this.getAvailableHitDice() > 0 ? 1 : 0;
+    this.shortRestDieSize = this.getClassHitDieSize();
+    this.showShortRestModal.set(true);
   }
 
   executeShortRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
 
-    const plan = planShortRest(char, this.shortRestDiceToSpend);
+    const plan = planShortRest(char, this.shortRestDiceToSpend, this.shortRestDieSize);
     if (!plan) return;
 
     const { diceSpent, dieSize, conBonus } = plan;
-    const roll = this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus });
-    const rest = resolveShortRest(char, plan, roll.total);
+    const roll = diceSpent > 0
+      ? this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus })
+      : null;
+    const rest = resolveShortRest(char, plan, roll ? roll.total : 0);
 
     char.hp_current = rest.hpAfter;
     char.hit_dice_used = rest.hitDiceUsed;
 
-    if (rest.restoresPactSlots && char.spell_slots) {
-      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
+    if (rest.pactDetails && char.spell_slots) {
+      char.spell_slots = restorePactSpellSlots(
+        char.spell_slots,
+        rest.pactDetails.pactSlotLevel,
+        rest.pactDetails.pactSlotCount
+      );
     }
 
     this.saveCurrentChar();
-    this.showShortRestModal = false;
+    this.showShortRestModal.set(false);
 
-    this.rollToast.showRoll({
-      title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
-      // Every hit die is worth showing here, so this spells them out rather than
-      // using the service's summed form.
-      expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
-      raw: roll.raw,
-      rolls: roll.rolls,
-      sides: dieSize,
-      modifier: conBonus,
-      // The roll display shows what the dice came to; the message shows what the
-      // hero actually got, which is less whenever the rest hits `hp_max`.
-      total: rest.rolled,
-      message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
-    });
+    if (roll && diceSpent > 0) {
+      this.rollToast.showRoll({
+        title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
+        // Every hit die is worth showing here, so this spells them out rather than
+        // using the service's summed form.
+        expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+        raw: roll.raw,
+        rolls: roll.rolls,
+        sides: dieSize,
+        modifier: conBonus,
+        // The roll display shows what the dice came to; the message shows what the
+        // hero actually got, which is less whenever the rest hits `hp_max`.
+        total: rest.rolled,
+        message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
+      });
+    } else if (rest.restoresPactSlots) {
+      this.rollToast.showMessage(
+        '⛺ SHORT REST COMPLETED',
+        `Warlock Pact Magic spell slots restored for ${char.char_name}.`
+      );
+    }
   }
 
   triggerLongRest() {
@@ -542,6 +573,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   isProficient = (skillName: string): boolean => {
     return isProficientIn(this.charState.activeCharacter(), skillName);
+  }
+
+  toggleSkillProficiency(skillName: string) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (!char.skill_proficiencies) char.skill_proficiencies = [];
+    const index = char.skill_proficiencies.indexOf(skillName);
+    if (index > -1) {
+      char.skill_proficiencies.splice(index, 1);
+    } else {
+      char.skill_proficiencies.push(skillName);
+    }
+    this.saveCurrentChar();
   }
 
   getSkillModifier(skill: SkillDefinition): number {
@@ -807,15 +851,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   toggleWhisperInbox(): void {
-    this.showWhisperInbox = !this.showWhisperInbox;
-    if (this.showWhisperInbox) {
+    this.showWhisperInbox.set(!this.showWhisperInbox());
+    if (this.showWhisperInbox()) {
       this.unreadMessages = 0;
       this.pendingFeedScroll = true;
     }
   }
 
   closeWhisperInbox(): void {
-    this.showWhisperInbox = false;
+    this.showWhisperInbox.set(false);
   }
 
   formatWhisperTime(timestamp?: string): string {
@@ -977,7 +1021,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox) {
+    if (markUnread && !this.showWhisperInbox()) {
       this.unreadMessages += 1;
     }
   }
@@ -990,7 +1034,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox) {
+    if (markUnread && !this.showWhisperInbox()) {
       this.unreadMessages += 1;
     }
   }
@@ -1125,9 +1169,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`
     }).subscribe({
       next: (res) => {
-        this.showJoinModal = false;
-        char.active_campaign = res.campaign_name;
-        this.saveCurrentChar();
+        this.showJoinModal.set(false);
+        // The backend already updated the character's active_campaign.
+        // We just need to reload from the server to get the fresh state (and correct version number).
+        this.charState.loadCharacters().subscribe();
         this.loadedCampaignMessageKey = null;
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
@@ -1144,7 +1189,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   openConditionsModal() {
-    this.showConditionsModal = true;
+    this.showConditionsModal.set(true);
   }
 
   saveConditions(data: { conditions: string[], concentratingOn: string }) {
@@ -1160,29 +1205,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.localSaveVersion++;
       this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
-    this.showConditionsModal = false;
+    this.showConditionsModal.set(false);
   }
 
   openEditModal() {
     const char = this.charState.activeCharacter();
     if (char) {
       this.editDraftChar = JSON.parse(JSON.stringify(char));
-      this.showEditModal = true;
+      this.showEditModal.set(true);
     }
   }
 
   saveEditModal() {
     if (this.editDraftChar) {
       this.charState.activeCharacter.set(JSON.parse(JSON.stringify(this.editDraftChar)));
-      this.showEditModal = false;
+      this.showEditModal.set(false);
       this.saveCurrentChar(true);
       this.editDraftChar = null;
     }
   }
 
   toggleEditMode() {
-    this.editMode = !this.editMode;
-    if (!this.editMode) {
+    this.editMode.set(!this.editMode());
+    if (!this.editMode()) {
       this.saveCurrentChar(true);
     }
   }
@@ -1349,8 +1394,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       char_id: char.char_id,
       prompt: this.portraitPrompt
     }).subscribe((res) => {
-      this.showPortraitModal = false;
+      this.showPortraitModal.set(false);
       if (res.portrait_url) {
+        if (typeof res.version === 'number') {
+          char.version = res.version;
+        }
         char.char_portrait = res.portrait_url;
         this.saveCurrentChar();
       }
@@ -1364,7 +1412,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       character: char
     }).subscribe((analysis) => {
       this.levelUpAnalysis = analysis;
-      this.showLevelUpModal = true;
+      this.showLevelUpModal.set(true);
     });
   }
 
@@ -1402,7 +1450,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           // Assuming upsertCharacter is a public method or the state relies on a refresh:
           // Just refreshing the character list is safer.
           this.charState.loadCharacters();
-          this.showLevelUpModal = false;
+          this.showLevelUpModal.set(false);
           this.levelUpAnalysis = null;
           this.levelUpUserChoices = {};
           this.rollToast.showMessage(`⚡ LEVEL UP: ${syncedChar.char_name}`, `Successfully leveled up to ${syncedChar.char_level}!`);
@@ -1416,7 +1464,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char) return;
     this.isValidating = true;
     this.validationResult = null;
-    this.showValidationModal = true;
+    this.showValidationModal.set(true);
 
     this.http.post<any>(`${environment.apiBaseUrl}/rules/validate`, { character: char }).subscribe({
       next: (res) => {
@@ -1438,7 +1486,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.http.post<any>(`${environment.apiBaseUrl}/rules/autofix`, { character: char }).subscribe({
       next: (res) => {
         this.isAutoFixing = false;
-        this.showValidationModal = false;
+        this.showValidationModal.set(false);
         if (res.character) {
           this.charState.activeCharacter.set(res.character);
           this.saveCurrentChar(false);
@@ -1452,19 +1500,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
-  isGeneratingStrategy = false;
+  isGeneratingStrategy = signal(false);
 
   onGenerateStrategy() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    this.isGeneratingStrategy = true;
+    this.isGeneratingStrategy.set(true);
     this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe({
       next: (res) => {
-        this.isGeneratingStrategy = false;
+        this.isGeneratingStrategy.set(false);
         this.strategyGuideText = res.guide_markdown;
       },
       error: () => {
-        this.isGeneratingStrategy = false;
+        this.isGeneratingStrategy.set(false);
         this.rollToast.showMessage('⚠️ GENERATION FAILED', 'Failed to generate playstyle guide.');
       }
     });

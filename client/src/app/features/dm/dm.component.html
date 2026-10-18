@@ -72,6 +72,10 @@
             </div>
           </div>
 
+            <div class="border-t border-hairline p-4">
+              <button forgeButton variant="primary" class="w-full" (click)="openVTT()">🗺️ Open VTT Grid</button>
+            </div>
+
           <div class="border-t border-hairline">
             <p class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted">Party Health</p>
 
@@ -95,11 +99,21 @@
                 *ngFor="let member of partyMembers; trackBy: trackPartyMember"
                 class="flex min-h-11 items-center gap-3 px-4 py-2"
               >
-                <img
-                  [src]="member.portrait || 'https://img.icons8.com/color/96/knight.png'"
-                  alt=""
-                  class="h-8 w-8 shrink-0 rounded-full border border-hairline object-cover"
-                />
+                @if (member.portrait) {
+                  <img
+                    [src]="member.portrait"
+                    (error)="member.portrait = ''"
+                    alt=""
+                    class="h-8 w-8 shrink-0 rounded-full border border-hairline object-cover"
+                  />
+                } @else {
+                  <div
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-micro font-bold text-accent uppercase"
+                    aria-hidden="true"
+                  >
+                    {{ (member.name || '?').charAt(0) }}
+                  </div>
+                }
                 <div class="min-w-0 flex-1">
                   <p class="truncate text-body font-semibold text-ink">{{ member.name }}</p>
                   <div
@@ -241,6 +255,9 @@
     </section>
   </div>
 
+  <!-- VTT Grid inline below the main grid -->
+  <app-vtt-grid role="dm" [combatants]="combatants"></app-vtt-grid>
+
   <app-dm-inbox
     [open]="showDmInbox"
     (openChange)="onDmInboxOpenChange($event)"
@@ -310,7 +327,6 @@
     [(newMemberAc)]="newMemberAc"
     [inviteCode]="inviteCode"
     (addExistingPartyMember)="addExistingPartyMember()"
-
     (copyInviteCode)="copyInviteCode()"
   ></app-add-member-modal>
 </forge-page>

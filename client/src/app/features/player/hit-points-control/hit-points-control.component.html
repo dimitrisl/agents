@@ -31,12 +31,12 @@
       <div class="flex items-baseline justify-center relative">
         <span
           class="text-metric font-extrabold absolute -left-6 top-1"
-          [ngClass]="current === 0 ? 'text-red-500' : 'text-accent'"
+          [ngClass]="current === 0 ? 'text-crimson' : 'text-accent'"
           aria-hidden="true"
           >♥</span
         >
         <span class="sr-only">Current hit points</span>
-        <span class="text-[2rem] font-extrabold text-ink" [ngClass]="{'text-red-500': current === 0}">{{ current }}</span>
+        <span class="text-[2rem] font-extrabold text-ink" [ngClass]="{'text-crimson': current === 0}">{{ current }}</span>
         <span class="px-1 text-title font-semibold text-muted">/</span>
         <span class="text-title font-semibold text-muted">{{ max }}</span>
       </div>
@@ -69,7 +69,7 @@
       </button>
       <button
         *ngIf="temp > 0"
-        class="text-micro font-semibold uppercase text-muted hover:text-danger transition-colors"
+        class="text-micro font-semibold uppercase text-muted hover:text-crimson transition-colors"
         (click)="applyTempHpChange(-1)"
         aria-label="Remove temp HP"
       >

@@ -60,21 +60,33 @@ def get_level_up_vitals(
         repo = RulesRepository()
         feat_library = repo.get_all_feats(edition)
         feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
+        import re
+
         for f in features:
             if isinstance(f, dict):
-                feat_name = f.get("name", "").lower().replace("feat: ", "").strip()
+                f_name = f.get("name", "")
+                f_desc = f.get("description", "")
+                full_text = f"{f_name} {f_desc}".lower()
+
+                if "dwarven toughness" in full_text:
+                    hp_bonus_per_level += 1
+                    continue
+
+                feat_name = (
+                    f_name.lower().replace("origin feat: ", "").replace("feat: ", "").strip()
+                )
+                if not feat_name:
+                    continue
+
                 feat_data = feat_lookup.get(feat_name)
                 if not feat_data:
                     for k, v in feat_lookup.items():
-                        if k in feat_name or feat_name in k:
+                        if k and re.search(rf"\b{re.escape(k)}\b", feat_name):
                             feat_data = v
                             break
+
                 if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
                     hp_bonus_per_level += feat_data["hp_bonus_per_level"]
-                else:
-                    desc = f.get("description", "").lower()
-                    if "dwarven toughness" in desc:
-                        hp_bonus_per_level += 1
 
     avg_gain = (die_size // 2) + 1 + con_mod + hp_bonus_per_level
 

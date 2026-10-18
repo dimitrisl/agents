@@ -18,12 +18,17 @@ def _ensure_dir():
     os.makedirs(PORTRAIT_DIR, exist_ok=True)
 
 
-async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
+async def generate_portrait_url(
+    char_data: dict, force: bool = False, custom_prompt: str | None = None
+) -> str:
     """
     Generates a character portrait using image.pollinations.ai,
     downloads it, saves it to a local folder, and returns the public API URL.
     """
     _ensure_dir()
+
+    if custom_prompt and custom_prompt.strip():
+        force = True
 
     # If the character already has a local portrait that exists, just return it.
     existing_portrait = char_data.get("char_portrait")
@@ -49,6 +54,12 @@ async def generate_portrait_url(char_data: dict, force: bool = False) -> str:
 
     # Extract keywords from backstory (first 150 chars) to avoid prompt bloat
     visual_hooks = backstory[:150] if backstory else ""
+    if custom_prompt and custom_prompt.strip():
+        visual_hooks = (
+            f"{custom_prompt.strip()}. {visual_hooks}".strip(". ")
+            if visual_hooks
+            else custom_prompt.strip()
+        )
 
     # Construct a rich, descriptive prompt
     prompt = PORTRAIT_PROMPT.format(

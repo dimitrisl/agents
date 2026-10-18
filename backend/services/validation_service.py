@@ -10,19 +10,35 @@ SUBCLASS_MIN_LEVEL = 3
 
 
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
-    """Extracts all armor proficiencies granted by class, subclass, and features."""
+    """Extracts all armor proficiencies granted by class, multiclass entries, subclass, and features."""
     proficiencies = set()
+    edition = char_data.get("dnd_edition", "2014 Edition")
+    repo = RulesRepository()
 
-    # 1. Base Class Proficiencies
-    if class_data and "starting_proficiencies" in class_data:
-        armor_profs = class_data["starting_proficiencies"].get("armor", [])
-        for p in armor_profs:
-            p_lower = p.lower()
-            if p_lower != "none":
-                if p_lower in ["light", "medium", "heavy"]:
-                    proficiencies.add(f"{p_lower} armor")
-                else:
-                    proficiencies.add(p_lower)
+    class_datas = [class_data] if class_data else []
+    for cls in char_data.get("classes", []):
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        cname = c_dict.get("class_name")
+        if cname:
+            c_prog = repo.get_class_progression(cname, edition)
+            if c_prog and c_prog not in class_datas:
+                class_datas.append(c_prog)
+
+    # 1. Base & Multiclass Proficiencies
+    for cd in class_datas:
+        if cd and "starting_proficiencies" in cd:
+            armor_profs = cd["starting_proficiencies"].get("armor", [])
+            for p in armor_profs:
+                p_lower = p.lower()
+                if p_lower != "none":
+                    if p_lower in ["light", "medium", "heavy"]:
+                        proficiencies.add(f"{p_lower} armor")
+                    else:
+                        proficiencies.add(p_lower)
 
     # 2. Features and Traits
     # e.g., "Bonus Proficiency: Heavy Armor" or "Training in War and Song" (Light armor)
@@ -146,18 +162,63 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
     # so no domain data is ever hardcoded here.
     subclass = corrected_char.get("subclass")
     level = corrected_char.get("char_level", 1)
-    if subclass and level < SUBCLASS_MIN_LEVEL:
-        issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {SUBCLASS_MIN_LEVEL}. Clearing subclass."
-        logger.warning(issue_msg)
-        issues.append(issue_msg)
-        corrected_char["subclass"] = None
-    elif subclass and class_data:
+    classes_list = corrected_char.get("classes", [])
+
+    # In multiclass characters, verify the specific class level rather than total character level
+    char_class_level = level
+    for cls in classes_list:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        if c_dict.get("class_name", "").lower() == char_class.lower():
+            char_class_level = c_dict.get("level", level)
+            break
+
+    if subclass and class_data:
         subclass_min_level = _get_subclass_min_level(class_data)
-        if subclass_min_level and level < subclass_min_level:
-            issue_msg = f"Character is level {level} but subclass '{subclass}' requires level {subclass_min_level} for class '{char_class}'. Clearing subclass."
+        if subclass_min_level is None:
+            # Fallback for parsing errors or older JSON
+            subclass_min_level = SUBCLASS_MIN_LEVEL
+
+        if char_class_level < subclass_min_level:
+            issue_msg = f"Character is level {char_class_level} in '{char_class}' but subclass '{subclass}' requires level {subclass_min_level}. Clearing subclass."
             logger.warning(issue_msg)
             issues.append(issue_msg)
             corrected_char["subclass"] = None
+
+    # Check any other classes in the multiclass list
+    for cls in classes_list:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        c_sub = c_dict.get("subclass")
+        c_name = c_dict.get("class_name", "")
+        c_lvl = c_dict.get("level", 1)
+        if c_sub and c_name:
+            c_data = (
+                class_data
+                if c_name.lower() == char_class.lower()
+                else repo.get_class_progression(c_name, edition)
+            )
+            if c_data:
+                c_min = _get_subclass_min_level(c_data)
+                if c_min is None:
+                    c_min = SUBCLASS_MIN_LEVEL
+                if c_lvl < c_min:
+                    issue_msg = f"Character has {c_lvl} level(s) in '{c_name}' but subclass '{c_sub}' requires level {c_min}. Clearing subclass."
+                    logger.warning(issue_msg)
+                    if issue_msg not in issues:
+                        issues.append(issue_msg)
+                    if isinstance(cls, dict):
+                        cls["subclass"] = None
+                    elif hasattr(cls, "subclass"):
+                        cls.subclass = None
+                    if c_name.lower() == char_class.lower():
+                        corrected_char["subclass"] = None
 
     return corrected_char, issues
 
@@ -179,8 +240,6 @@ _SUBCLASS_KEYWORDS = (
     "sorcerous origin",
     "otherworldly patron",
     "artificer specialist",
-    "divine order",  # 2024 cleric
-    "warrior order",  # 2024 fighter variant
 )
 
 

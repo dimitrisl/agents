@@ -106,11 +106,13 @@ async def export_homebrew_pdf(
     member: dict = Depends(require_campaign_role("dm", "player")),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
+    from fastapi.concurrency import run_in_threadpool
+
     items = await homebrew_service.get_campaign_homebrew(db, name)
     if not items:
         raise HTTPException(status_code=404, detail="No homebrew items to export.")
 
-    pdf_buffer = generate_homebrew_pdf(items)
+    pdf_buffer = await run_in_threadpool(generate_homebrew_pdf, items)
 
     return StreamingResponse(
         pdf_buffer,

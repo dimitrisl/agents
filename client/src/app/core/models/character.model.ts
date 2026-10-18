@@ -58,9 +58,25 @@ export interface SpellList {
   level_9?: string[];
 }
 
+export interface AcBreakdown {
+  base: number;
+  base_source: string;
+  armor_type?: string;
+  dex_mod: number;
+  dex_applied: number;
+  dex_cap?: number | null;
+  shield_bonus: number;
+  shield_name?: string | null;
+  defense_bonus: number;
+  other_bonuses?: { name: string; bonus: number }[];
+  total: number;
+  formula_text: string;
+}
+
 export interface CharacterSchema {
   char_id?: string;
   owner_id?: string;
+  version?: number;
   char_name: string;
   is_npc?: boolean;
   gender?: string;
@@ -73,6 +89,7 @@ export interface CharacterSchema {
   alignment?: string;
   backstory?: string;
   armor_class: number;
+  ac_breakdown?: AcBreakdown;
   hp_max: number;
   hp_current?: number;
   hp_temp?: number;
@@ -112,6 +129,15 @@ export interface CharacterSchema {
   playstyle_guide?: string;
   dnd_edition?: string;
   active_campaign?: string;
+  base_stats?: StatBlock;
+  base_speed?: number;
+  equip_hp_bonus?: number;
+  feat_hp_bonus?: number;
+  con_mod_applied?: number;
+  global_attack_bonus?: number;
+  global_damage_bonus?: number;
+  initiative_bonus?: number;
+  equip_stat_bonuses?: { [key: string]: number };
 }
 
 export interface LevelUpChoice {

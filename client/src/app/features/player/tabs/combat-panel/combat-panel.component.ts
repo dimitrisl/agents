@@ -14,6 +14,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema, EquipmentItem, Weapon } from '../../../../core/models/character.model';
+import { getMasteryDefinition, calculateToppleDc } from '../../../../core/rules/weapon-masteries';
 import { DamagePart, DiceService, RollMode } from '../../../../core/services/dice.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
 import {
@@ -258,5 +259,66 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
 
   private attackBonus(weapon: Weapon): number {
     return this.dice.parseNotation(weapon.attack_bonus || '')?.modifier ?? 0;
+  }
+
+  isTopple(mastery: string): boolean {
+    return (mastery || '').toLowerCase().trim() === 'topple';
+  }
+
+  getToppleDc(w?: any): number {
+    const stats = this.char.stats || { STR: 10, DEX: 10 };
+    const strMod = Math.floor(((stats.STR ?? 10) - 10) / 2);
+    const dexMod = Math.floor(((stats.DEX ?? 10) - 10) / 2);
+    const pb = this.char.proficiency_bonus || 2;
+
+    const resolveWeaponMod = (weapon: any): number => {
+      if (weapon.ability_modifier !== undefined && weapon.ability_modifier !== null) {
+        if (typeof weapon.ability_modifier === 'number') return weapon.ability_modifier;
+        const explicit = String(weapon.ability_modifier).toUpperCase().trim();
+        if (explicit === 'STR') return strMod;
+        if (explicit === 'DEX') return dexMod;
+      }
+      const props = (weapon.properties || '').toLowerCase();
+      const isFinesse = props.includes('finesse');
+      const isRanged = (weapon.range || '').includes('/') && !props.includes('thrown');
+      if (!isFinesse && !isRanged) {
+        return strMod;
+      }
+      return Math.max(strMod, dexMod);
+    };
+
+    if (w) {
+      return calculateToppleDc(resolveWeaponMod(w), pb);
+    }
+
+    const TOPPLE_WEAPON_NAMES = ['battleaxe', 'lance', 'maul', 'quarterstaff', 'trident'];
+    const weapons = this.char.weapons || [];
+    const toppleWeapons = weapons.filter((wpn: any) => {
+      const name = (wpn.name || '').toLowerCase();
+      return (
+        (wpn.mastery || '').toLowerCase().trim() === 'topple' ||
+        (wpn.properties || '').toLowerCase().includes('topple') ||
+        TOPPLE_WEAPON_NAMES.some((tw) => name.includes(tw))
+      );
+    });
+    if (toppleWeapons.length > 0) {
+      return Math.max(...toppleWeapons.map((wpn) => calculateToppleDc(resolveWeaponMod(wpn), pb)));
+    }
+
+    return calculateToppleDc(strMod, pb);
+  }
+
+  getMasteryTrigger(mastery: string): string | null {
+    return getMasteryDefinition(mastery)?.trigger || null;
+  }
+
+  masteryTooltip(mastery: string, w?: any): string {
+    const def = getMasteryDefinition(mastery);
+    if (!def) return mastery;
+    let text = `${def.name} [Trigger: ${def.trigger}]: ${def.summary} ${def.ruleText}`;
+    if (this.isTopple(mastery)) {
+      text += ` [DC ${this.getToppleDc(w)} CON Save]`;
+    }
+    return text;
   }
 }

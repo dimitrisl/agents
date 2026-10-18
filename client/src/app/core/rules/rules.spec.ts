@@ -7,6 +7,7 @@ import {
   abilityScore,
   adjustedHp,
   availableHitDice,
+  availableHitDieOptions,
   clampHp,
   conModifier,
   currentHp,
@@ -361,6 +362,71 @@ describe('short rest', () => {
 
       expect(planShortRest(tough, 3)?.conBonus).toBe(12);
     });
+
+    it('respects overrideDieSize when provided for multiclass rest planning and caps to that class pool', () => {
+      const multiclassChar = hero({
+        char_class: 'Barbarian',
+        char_level: 8,
+        classes: [
+          { class_name: 'Barbarian', level: 5 },
+          { class_name: 'Wizard', level: 3 },
+        ],
+      });
+
+      // Default uses Barbarian hit die (d12)
+      expect(planShortRest(multiclassChar, 1)?.dieSize).toBe(12);
+      // Explicit override specifies Wizard die pool (d6)
+      expect(planShortRest(multiclassChar, 2, 6)?.dieSize).toBe(6);
+      // Requesting 5 Wizard d6 dice caps at Wizard level (3)
+      expect(planShortRest(multiclassChar, 5, 6)?.diceSpent).toBe(3);
+    });
+
+    it('allows a Warlock to take a 0-dice short rest to recover Pact Magic slots', () => {
+      const warlock = hero({
+        char_class: 'Warlock',
+        char_level: 3,
+        hit_dice_used: 3,
+      });
+
+      const plan = planShortRest(warlock, 0);
+      expect(plan).toEqual({
+        diceSpent: 0,
+        dieSize: 8,
+        conModifier: 2,
+        conBonus: 0,
+      });
+    });
+  });
+
+  describe('availableHitDieOptions', () => {
+    it('returns empty array if char is null or undefined', () => {
+      expect(availableHitDieOptions(null)).toEqual([]);
+      expect(availableHitDieOptions(undefined)).toEqual([]);
+    });
+
+    it('returns single option for single-class character', () => {
+      const single = hero({ char_class: 'Paladin', char_level: 4 });
+      const options = availableHitDieOptions(single);
+      expect(options).toEqual([
+        { className: 'Paladin', level: 4, dieSize: 10 },
+      ]);
+    });
+
+    it('returns all class hit die options for multiclass character', () => {
+      const multi = hero({
+        char_class: 'Barbarian',
+        char_level: 8,
+        classes: [
+          { class_name: 'Barbarian', level: 5 },
+          { class_name: 'Wizard', level: 3 },
+        ],
+      });
+      const options = availableHitDieOptions(multi);
+      expect(options).toEqual([
+        { className: 'Barbarian', level: 5, dieSize: 12 },
+        { className: 'Wizard', level: 3, dieSize: 6 },
+      ]);
+    });
   });
 
   describe('resolveShortRest', () => {
@@ -666,5 +732,35 @@ describe('level up', () => {
       char_level: 6,
       proficiency_bonus: 3,
     });
+  });
+});
+
+describe('2024 Weapon Masteries rules', () => {
+  const { getMasteryDefinition, calculateToppleDc, WEAPON_MASTERIES } = require('./weapon-masteries');
+
+  it('contains all 8 official 2024 weapon masteries', () => {
+    const keys = Object.keys(WEAPON_MASTERIES);
+    expect(keys).toEqual(
+      expect.arrayContaining(['Cleave', 'Graze', 'Nick', 'Push', 'Sap', 'Slow', 'Topple', 'Vex'])
+    );
+  });
+
+  it('finds mastery definitions case-insensitively', () => {
+    const topple = getMasteryDefinition('topple');
+    expect(topple).toBeDefined();
+    expect(topple?.name).toBe('Topple');
+    expect(topple?.trigger).toBe('Hit');
+    expect(topple?.hasSaveDc).toBe(true);
+
+    const vex = getMasteryDefinition('VEX');
+    expect(vex?.name).toBe('Vex');
+    expect(vex?.trigger).toBe('Damage');
+  });
+
+  it('calculates Topple Save DC accurately according to 8 + abilityMod + PB', () => {
+    // 8 + STR(+3) + PB(+2) = 13
+    expect(calculateToppleDc(3, 2)).toBe(13);
+    // 8 + STR(+4) + PB(+3) = 15
+    expect(calculateToppleDc(4, 3)).toBe(15);
   });
 });

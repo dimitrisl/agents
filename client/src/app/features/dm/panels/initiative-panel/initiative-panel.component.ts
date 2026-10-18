@@ -154,10 +154,19 @@ export class InitiativePanelComponent {
    * the DM never reads a number the tracker did not accept.
    */
   onHpInput(combatant: InitiativeCombatant, input: HTMLInputElement): void {
-    const typed = input.valueAsNumber;
-    const hp = Number.isFinite(typed)
-      ? Math.max(0, Math.min(combatant.max_hp, Math.round(typed)))
-      : combatant.hp;
+    const raw = (input.value || '').trim();
+    let hp = combatant.hp;
+    if (raw.startsWith('+') || raw.startsWith('-')) {
+      const delta = parseInt(raw, 10);
+      if (!isNaN(delta)) {
+        hp = Math.max(0, Math.min(combatant.max_hp, combatant.hp + delta));
+      }
+    } else {
+      const typed = parseInt(raw, 10);
+      if (!isNaN(typed)) {
+        hp = Math.max(0, Math.min(combatant.max_hp, typed));
+      }
+    }
 
     input.value = `${hp}`;
     this.hpChange.emit({ combatant, hp });

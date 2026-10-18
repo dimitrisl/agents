@@ -6,6 +6,8 @@ export interface CampaignEntity {
   content: string; // Markdown
   tags: string[];
   stats?: Record<string, any>;
+  current_location_id?: string;
+  image_url?: string;
   created_at?: string;
 }
 

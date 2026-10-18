@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -55,6 +55,8 @@ import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campa
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
 
+import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
+
 type LoadStatus = 'loading' | 'ready' | 'error';
 
 /** What the DM may write back to a hero's sheet from the workspace. */
@@ -98,6 +100,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     NewCampaignModalComponent,
     AddMemberModalComponent,
     DmInboxComponent,
+    VttGridComponent,
   ],
   templateUrl: './dm.component.html',
   styleUrl: './dm.component.css',
@@ -252,6 +255,10 @@ export class DmComponent implements OnInit, OnDestroy {
     private homebrewService: HomebrewService
   ) {}
 
+  openVTT() {
+    this.wsService.sendVttToggle(true);
+  }
+
   // The campaign whose party/socket is currently live, so re-picking the same
   // one from the dropdown does not refetch it.
   private activeWorkspace: string | null = null;
@@ -311,17 +318,25 @@ export class DmComponent implements OnInit, OnDestroy {
 
       if (msg.type === 'presence_sync') {
         this.onlineCharacters = new Set(payload as string[]);
-        this.partyMembers.forEach(m => m.isOnline = this.onlineCharacters.has(m.name));
+        this.partyMembers = this.partyMembers.map(m => {
+          const isOnline = this.onlineCharacters.has(m.name);
+          m.isOnline = isOnline;
+          return { ...m, isOnline };
+        });
       } else if (msg.type === 'presence_update') {
         if (payload.status === 'online') {
           this.onlineCharacters.add(payload.character);
         } else {
           this.onlineCharacters.delete(payload.character);
         }
-        const member = this.partyMembers.find(m => m.name === payload.character);
-        if (member) {
-          member.isOnline = payload.status === 'online';
-        }
+        const isOnline = payload.status === 'online';
+        this.partyMembers = this.partyMembers.map(m => {
+          if (m.name === payload.character) {
+            m.isOnline = isOnline;
+            return { ...m, isOnline };
+          }
+          return m;
+        });
       } else if (msg.type === 'roll_request') {
         // Echo of what this DM (or a co-DM) just asked for — it belongs on the
         // board immediately so the answer has somewhere to land.
@@ -367,6 +382,13 @@ export class DmComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  unloadNotification($event: any) {
+    if (this.pendingPartyState.size > 0) {
+      $event.returnValue = true;
+    }
   }
 
   ngOnDestroy() {
@@ -666,6 +688,15 @@ export class DmComponent implements OnInit, OnDestroy {
     this.campaignNotes = selected?.notes || '';
     // Blank for a campaign forged before the field existed; the toggle covers it.
     this.campaignEdition = selected?.dnd_edition || '';
+    if (selected?.dnd_edition) {
+      this.charState.dndEdition.set(selected.dnd_edition);
+      if (typeof document !== 'undefined' && document.documentElement) {
+        document.documentElement.setAttribute(
+          'data-edition',
+          selected.dnd_edition.includes('2024') ? '2024' : '2014'
+        );
+      }
+    }
 
     // Before anything async: an encounter left running in this campaign is put
     // straight back on the table, so the fight is on screen while the roster is
@@ -707,6 +738,7 @@ export class DmComponent implements OnInit, OnDestroy {
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
             ac: char.armor_class ?? 10,
+            ac_breakdown: char.ac_breakdown,
             passive_perception: char.passive_perception ?? 10,
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
@@ -770,18 +802,47 @@ export class DmComponent implements OnInit, OnDestroy {
     // sends the DM off to paste a code that was never copied, so the toast and
     // the modal closing both wait for the write to actually land.
     const code = this.inviteCode;
-    if (!navigator.clipboard) {
-      this.showClipboardFailure(code);
-      return;
-    }
 
-    navigator.clipboard.writeText(code).then(
-      () => {
+    // Modern Clipboard API (Requires secure context / HTTPS / Localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(code).then(
+        () => {
+          this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
+          this.showAddMemberModal = false;
+        },
+        () => this.fallbackCopyTextToClipboard(code)
+      );
+    } else {
+      this.fallbackCopyTextToClipboard(code);
+    }
+  }
+
+  private fallbackCopyTextToClipboard(code: string) {
+    const textArea = document.createElement('textarea');
+    textArea.value = code;
+
+    // Avoid scrolling to bottom
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.position = 'fixed';
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
         this.rollToast.showMessage('📋 CODE COPIED', `Invite code "${code}" copied to clipboard! Share with players.`);
         this.showAddMemberModal = false;
-      },
-      () => this.showClipboardFailure(code)
-    );
+      } else {
+        this.showClipboardFailure(code);
+      }
+    } catch (err) {
+      this.showClipboardFailure(code);
+    }
+
+    document.body.removeChild(textArea);
   }
 
   private showClipboardFailure(code: string) {
@@ -871,31 +932,51 @@ export class DmComponent implements OnInit, OnDestroy {
   // tabs used to hold their own numbers and drift apart in the middle of a
   // fight, with the DM left to guess which one was true.
 
+  private isSameMember(a: PartyMember, b: PartyMember): boolean {
+    return a === b || (a.char_id && b.char_id ? a.char_id === b.char_id : a.name === b.name);
+  }
+
   adjustHp(member: PartyMember, delta: number) {
     this.setPartyHp(member, member.hp_current + delta);
   }
 
   setPartyHp(member: PartyMember, hp: number) {
-    const clamped = Math.max(0, Math.min(member.hp_max, Math.round(hp) || 0));
-    if (clamped === member.hp_current) return;
+    const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
+    const clamped = Math.max(0, Math.min(currentMember.hp_max, Math.round(hp) || 0));
+    if (clamped === currentMember.hp_current) return;
 
     member.hp_current = clamped;
-    this.projectMemberOntoCombatants(member);
-    this.pushPartyState(member, { hp_current: clamped });
+    currentMember.hp_current = clamped;
+    const updatedMember = { ...currentMember, hp_current: clamped };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.projectMemberOntoCombatants(updatedMember);
+    this.pushPartyState(updatedMember, { hp_current: clamped });
   }
 
   toggleCondition(member: PartyMember, cond: string) {
-    const idx = member.conditions.indexOf(cond);
+    const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
+    const idx = currentMember.conditions.indexOf(cond);
+    let nextConditions: string[];
     if (idx >= 0) {
-      member.conditions = member.conditions.filter((c) => c !== cond);
-      this.dropConditionFromCombatants(member, cond);
+      nextConditions = currentMember.conditions.filter((c) => c !== cond);
+      member.conditions = nextConditions;
+      currentMember.conditions = nextConditions;
+      this.dropConditionFromCombatants(currentMember, cond);
     } else {
-      member.conditions = [...member.conditions, cond];
+      nextConditions = [...currentMember.conditions, cond];
+      member.conditions = nextConditions;
+      currentMember.conditions = nextConditions;
       // Set from the roster, so it has no combat timer — it lasts until lifted.
-      this.addConditionToCombatants(member, cond, null);
+      this.addConditionToCombatants(currentMember, cond, null);
     }
 
-    this.pushPartyState(member, { conditions: member.conditions });
+    const updatedMember = { ...currentMember, conditions: nextConditions };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.pushPartyState(updatedMember, { conditions: nextConditions });
   }
 
   /** The party member behind an initiative row, when the row is a hero. */
@@ -964,9 +1045,10 @@ export class DmComponent implements OnInit, OnDestroy {
    * kept rather than deleted.
    */
   private reconcileLapsedConditions() {
-    for (const member of this.partyMembers) {
+    let changed = false;
+    const nextMembers = this.partyMembers.map((member) => {
       const combatant = this.combatantsFor(member)[0];
-      if (!combatant) continue;
+      if (!combatant) return member;
 
       const active = combatant.conditions
         .filter((c) => c.expiresAtRound === null || c.expiresAtRound > this.round)
@@ -975,10 +1057,16 @@ export class DmComponent implements OnInit, OnDestroy {
       const unchanged =
         active.length === member.conditions.length &&
         active.every((name) => member.conditions.includes(name));
-      if (unchanged) continue;
+      if (unchanged) return member;
 
+      changed = true;
       member.conditions = active;
-      this.pushPartyState(member, { conditions: active });
+      const updated = { ...member, conditions: active };
+      this.pushPartyState(updated, { conditions: active });
+      return updated;
+    });
+    if (changed) {
+      this.partyMembers = nextMembers;
     }
   }
 
@@ -1072,10 +1160,23 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   addCombatant() {
-    if (!this.newCombatantName) return;
+    if (!this.newCombatantName?.trim()) return;
+
+    let finalName = this.newCombatantName.trim();
+    const sameNameCombatants = this.combatants.filter(c =>
+      c.name.toLowerCase() === finalName.toLowerCase() ||
+      new RegExp(`^${finalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\d+$`, 'i').test(c.name)
+    );
+    if (sameNameCombatants.length > 0) {
+      if (!/\s+\d+$/.test(finalName)) {
+        finalName = `${finalName} ${sameNameCombatants.length + 1}`;
+      } else if (this.combatants.some(c => c.name.toLowerCase() === finalName.toLowerCase())) {
+        finalName = `${finalName} (${sameNameCombatants.length + 1})`;
+      }
+    }
 
     const added = this.buildCombatant({
-      name: this.newCombatantName,
+      name: finalName,
       initiative: this.newCombatantInit,
       hp: this.newCombatantHp,
       max_hp: this.newCombatantHp,
@@ -1214,8 +1315,13 @@ export class DmComponent implements OnInit, OnDestroy {
     // A hero's conditions belong to the roster and the database as well.
     const member = this.memberFor(combatant);
     if (member && !member.conditions.includes(condition)) {
-      member.conditions = [...member.conditions, condition];
-      this.pushPartyState(member, { conditions: member.conditions });
+      const nextConditions = [...member.conditions, condition];
+      member.conditions = nextConditions;
+      const updated = { ...member, conditions: nextConditions };
+      this.partyMembers = this.partyMembers.map((m) =>
+        this.isSameMember(m, member) ? updated : m
+      );
+      this.pushPartyState(updated, { conditions: nextConditions });
     }
   }
 
@@ -1227,8 +1333,13 @@ export class DmComponent implements OnInit, OnDestroy {
 
     const member = this.memberFor(combatant);
     if (member && member.conditions.includes(condition)) {
-      member.conditions = member.conditions.filter((c) => c !== condition);
-      this.pushPartyState(member, { conditions: member.conditions });
+      const nextConditions = member.conditions.filter((c) => c !== condition);
+      member.conditions = nextConditions;
+      const updated = { ...member, conditions: nextConditions };
+      this.partyMembers = this.partyMembers.map((m) =>
+        this.isSameMember(m, member) ? updated : m
+      );
+      this.pushPartyState(updated, { conditions: nextConditions });
     }
   }
 
@@ -1238,7 +1349,8 @@ export class DmComponent implements OnInit, OnDestroy {
     const member = this.memberFor(combatant);
     if (member) {
       this.setPartyHp(member, hp);
-      this.clearDeathSavesIfStanding(combatant.id, member.hp_current);
+      const updated = this.memberFor(combatant) || member;
+      this.clearDeathSavesIfStanding(combatant.id, updated.hp_current);
       return;
     }
 
@@ -1356,10 +1468,16 @@ export class DmComponent implements OnInit, OnDestroy {
     const member = this.partyMembers.find((m) => m.char_id === payload.char_id);
     if (!member) return;
 
-    if (typeof payload.hp_current === 'number') member.hp_current = payload.hp_current;
-    if (Array.isArray(payload.conditions)) member.conditions = [...payload.conditions];
+    const nextHp = typeof payload.hp_current === 'number' ? payload.hp_current : member.hp_current;
+    const nextConditions = Array.isArray(payload.conditions) ? [...payload.conditions] : member.conditions;
+    member.hp_current = nextHp;
+    member.conditions = nextConditions;
+    const updated = { ...member, hp_current: nextHp, conditions: nextConditions };
+    this.partyMembers = this.partyMembers.map((m) =>
+      m.char_id === payload.char_id ? updated : m
+    );
 
-    this.projectMemberOntoCombatants(member);
+    this.projectMemberOntoCombatants(updated);
   }
 
   // --- Encounter persistence ---
@@ -1474,7 +1592,14 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterResult.monsters.forEach((m) => {
       const qty = m.quantity || 1;
       for (let i = 0; i < qty; i++) {
-        const monsterName = qty > 1 ? `${m.name} ${i + 1}` : m.name;
+        const baseName = m.name;
+        const existingCount = [...this.combatants, ...added].filter(c =>
+          c.name.toLowerCase() === baseName.toLowerCase() ||
+          new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\d+$`, 'i').test(c.name)
+        ).length;
+        const monsterName = (qty > 1 || existingCount > 0)
+          ? `${baseName} ${existingCount + 1}`
+          : baseName;
         // A generated statblock can come back without a usable DEX; average it
         // rather than sorting the creature into the order at NaN.
         const dex = Number.isFinite(m.dex) ? m.dex : 10;
@@ -1584,7 +1709,7 @@ export class DmComponent implements OnInit, OnDestroy {
     if (!this.campaignName) return;
     if (!confirm(`Are you sure you want to permanently delete the campaign "${this.campaignName}"? This action cannot be undone.`)) return;
 
-    this.http.delete(`${environment.apiBaseUrl}/campaigns/${this.campaignName}`).subscribe({
+    this.http.delete(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}`).subscribe({
       next: () => {
         this.rollToast.showMessage('🗑️ CAMPAIGN DELETED', `Campaign "${this.campaignName}" has been deleted.`);
         this.loadCampaigns(); // Will reload campaigns and switch to the first available or clear workspace

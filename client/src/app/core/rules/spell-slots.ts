@@ -52,11 +52,27 @@ export function regainSpellSlot(slots: SpellSlots | undefined, level: number): S
   return next;
 }
 
-/** Every level back to full — what a long rest, and a warlock's short rest, grant. */
+/** Every level back to full — what a long rest grants. */
 export function restoreAllSpellSlots(slots: SpellSlots | undefined): SpellSlots {
   const next: SpellSlots = {};
   for (const [key, slot] of Object.entries(slots ?? {})) {
     next[key] = { ...slot, used: 0 };
+  }
+  return next;
+}
+
+/** Restores only the Warlock's pact magic slots at their specific pact slot level. */
+export function restorePactSpellSlots(
+  slots: SpellSlots | undefined,
+  pactLevel: number,
+  pactCount: number = 2
+): SpellSlots {
+  if (!slots || pactLevel <= 0) return { ...(slots ?? {}) };
+  const key = spellSlotKey(pactLevel);
+  const next: SpellSlots = { ...slots };
+  const slot = next[key];
+  if (slot) {
+    next[key] = { ...slot, used: Math.max(0, slot.used - pactCount) };
   }
   return next;
 }

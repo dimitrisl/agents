@@ -350,6 +350,7 @@ describe('DmComponent — initiative rounds', () => {
       // The inbox fetch is not what these tests are about, but it has to be
       // answered for `verify()` to mean "no stray writes".
       http.match((req) => req.url.includes('/messages')).forEach((req) => req.flush({ campaign_name: 'Curse of Strahd', whispers: [], roll_requests: [] }));
+      http.match((req) => req.url.includes('/encounter') && req.method === 'GET').forEach((req) => req.flush(null));
       http.match((req) => req.url.includes('/party')).forEach((req) => req.flush([
         {
           char_id: 'lyra1',
@@ -437,7 +438,7 @@ describe('DmComponent — initiative rounds', () => {
 
       // Round 2 opens: the one-round condition is spent.
       component.nextTurn();
-      expect(hero.conditions).toEqual(['Invisible']);
+      expect(component.partyMembers[0].conditions).toEqual(['Invisible']);
 
       flushWrites();
       const req = http.expectOne((r) => r.method === 'PATCH');
@@ -454,11 +455,34 @@ describe('DmComponent — initiative rounds', () => {
       component.nextTurn();
       flushWrites();
       http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
-      expect(hero.conditions).toEqual(['Invisible']);
+      expect(component.partyMembers[0].conditions).toEqual(['Invisible']);
 
       component.previousTurn();
 
-      expect(hero.conditions).toEqual(['Invisible', 'Poisoned']);
+      expect(component.partyMembers[0].conditions).toEqual(['Invisible', 'Poisoned']);
+      flushWrites();
+      http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
+    });
+
+    it('replaces partyMembers array and modified member references for OnPush consumers', () => {
+      const prevArray = component.partyMembers;
+      const prevMember = component.partyMembers[0];
+
+      component.setPartyHp(prevMember, 10);
+      expect(component.partyMembers).not.toBe(prevArray);
+      expect(component.partyMembers[0]).not.toBe(prevMember);
+      expect(component.partyMembers[0].hp_current).toBe(10);
+
+      flushWrites();
+      http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
+
+      const afterHpArray = component.partyMembers;
+      const afterHpMember = component.partyMembers[0];
+      component.toggleCondition(afterHpMember, 'Prone');
+      expect(component.partyMembers).not.toBe(afterHpArray);
+      expect(component.partyMembers[0]).not.toBe(afterHpMember);
+      expect(component.partyMembers[0].conditions).toContain('Prone');
+
       flushWrites();
       http.expectOne((r) => r.method === 'PATCH').flush({ success: true });
     });
@@ -644,6 +668,7 @@ afterEach(() => {
 
   it('forges a new campaign under the ruleset the DM is playing', () => {
     TestBed.inject(CharacterStateService).dndEdition.set('2024 Revision (5.5e)');
+    component.openNewCampaignModal();
     component.newCampaignTitle = 'Phyrexia Awakens';
 
     component.createNewCampaign();
@@ -746,5 +771,23 @@ afterEach(() => {
     ]));
 
     expect(component.partyMembers.map((m) => m.passive_perception)).toEqual([14, 9, 10]);
+  });
+
+  it('auto-numbers combatants added with duplicate names', () => {
+    component.newCombatantName = 'Goblin';
+    component.newCombatantInit = 12;
+    component.newCombatantHp = 7;
+    component.newCombatantAc = 15;
+    component.addCombatant();
+
+    expect(component.combatants.length).toBe(1);
+    expect(component.combatants[0].name).toBe('Goblin');
+
+    component.newCombatantName = 'Goblin';
+    component.addCombatant();
+
+    expect(component.combatants.length).toBe(2);
+    expect(component.combatants.map(c => c.name)).toContain('Goblin');
+    expect(component.combatants.map(c => c.name)).toContain('Goblin 2');
   });
 });

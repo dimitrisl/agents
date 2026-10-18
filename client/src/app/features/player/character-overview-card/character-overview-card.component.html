@@ -7,7 +7,14 @@
         aria-label="Change character portrait"
         (click)="portrait.emit()"
       >
-        <img [src]="portraitUrl" alt="Character portrait" class="h-full w-full object-cover" />
+        @if (portraitUrl) {
+          <img [src]="portraitUrl" (error)="portraitUrl = ''" alt="Character portrait" class="h-full w-full object-cover" />
+        } @else {
+          <div class="flex h-full w-full flex-col items-center justify-center bg-accent/10 text-accent transition-colors group-hover:bg-accent/20">
+            <span class="text-2xl font-bold font-display uppercase">{{ (char.char_name || '?').charAt(0) }}</span>
+            <span class="mt-1 text-[10px] text-muted font-sans font-medium">Add Portrait</span>
+          </div>
+        }
         <span class="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-micro font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
           Portrait
         </span>
@@ -27,12 +34,29 @@
         </div>
 
         <div *ngIf="editMode" class="mt-3 grid grid-cols-1 gap-2">
-          <input forgeInput type="text" [(ngModel)]="char.race" placeholder="Race" aria-label="Race" />
-          <input forgeInput type="text" [(ngModel)]="char.char_class" placeholder="Class" aria-label="Class" />
-          <input forgeInput type="text" [(ngModel)]="char.subclass" placeholder="Subclass" aria-label="Subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'overview-subclass-hint' : null" />
-          <p *ngIf="!canEditSubclass" id="overview-subclass-hint" class="text-micro uppercase text-muted">Subclasses unlock at level 3</p>
-          <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" aria-label="Level" />
-          <input forgeInput type="text" [(ngModel)]="char.background" placeholder="Background" aria-label="Background" />
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted">Race</label>
+            <input forgeInput type="text" [(ngModel)]="char.race" placeholder="Race" aria-label="Race" />
+          </div>
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted">Class</label>
+            <input forgeInput type="text" [(ngModel)]="char.char_class" placeholder="Class" aria-label="Class" />
+          </div>
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted">Subclass</label>
+            <input forgeInput type="text" [(ngModel)]="char.subclass" placeholder="Subclass" aria-label="Subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'overview-subclass-hint' : null" />
+            <p *ngIf="!canEditSubclass" id="overview-subclass-hint" class="text-micro uppercase text-muted">Subclasses unlock at level {{ subclassUnlockLevel }}</p>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="mb-1 block text-micro font-semibold uppercase text-muted">Level</label>
+              <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" aria-label="Level" />
+            </div>
+            <div>
+              <label class="mb-1 block text-micro font-semibold uppercase text-muted">Background</label>
+              <input forgeInput type="text" [(ngModel)]="char.background" placeholder="Background" aria-label="Background" />
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -72,17 +96,16 @@
     </section>
 
     <app-combat-stat-grid
+      [editMode]="editMode"
       [armorClass]="char.armor_class"
+      [acBreakdown]="char.ac_breakdown"
+      (armorClassChange)="char.armor_class = $event"
       [proficiencyBonus]="char.proficiency_bonus"
       [speed]="char.speed"
+      (speedChange)="char.speed = $event"
       [passivePerception]="passivePerception"
       [initiativeModifier]="char.initiative_modifier"
     ></app-combat-stat-grid>
-
-    <div *ngIf="editMode" class="grid grid-cols-2 gap-2 py-3">
-      <input forgeInput type="number" [(ngModel)]="char.armor_class" placeholder="Armor Class" aria-label="Armor Class" />
-      <input forgeInput type="number" [(ngModel)]="char.speed" placeholder="Speed" aria-label="Speed" />
-    </div>
 
     <app-ability-score-grid
       [char]="char"

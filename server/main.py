@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from server.config import settings
 from server.db_async import close_mongo_connection, connect_to_mongo
 from server.routers import (
+    assets_router,
     auth_router,
     campaign_router,
     character_router,
@@ -65,6 +66,7 @@ app.include_router(homebrew_router.router, prefix=settings.API_V1_STR)
 app.include_router(dm_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(session_router.router, prefix=settings.API_V1_STR)
+app.include_router(assets_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 
 os.makedirs(os.path.join("data", "portraits"), exist_ok=True)

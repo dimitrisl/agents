@@ -24,7 +24,7 @@ import type { PartyMember } from '../../../../core/models/party.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PartyPanelComponent {
-  readonly stats = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+  readonly stats = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
 
   @Input({ required: true }) campaignName!: string;
   @Input() partyMembers: PartyMember[] = [];
@@ -56,10 +56,19 @@ export class PartyPanelComponent {
    * roster holding a number nothing else in the workspace agreed with.
    */
   onHpInput(member: PartyMember, input: HTMLInputElement): void {
-    const typed = input.valueAsNumber;
-    const hp = Number.isFinite(typed)
-      ? Math.max(0, Math.min(member.hp_max, Math.round(typed)))
-      : member.hp_current;
+    const raw = (input.value || '').trim();
+    let hp = member.hp_current;
+    if (raw.startsWith('+') || raw.startsWith('-')) {
+      const delta = parseInt(raw, 10);
+      if (!isNaN(delta)) {
+        hp = Math.max(0, Math.min(member.hp_max, member.hp_current + delta));
+      }
+    } else {
+      const typed = parseInt(raw, 10);
+      if (!isNaN(typed)) {
+        hp = Math.max(0, Math.min(member.hp_max, typed));
+      }
+    }
 
     input.value = `${hp}`;
     this.setHp.emit({ member, hp });

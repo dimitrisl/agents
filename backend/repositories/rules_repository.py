@@ -27,6 +27,10 @@ _weapon_masteries_cache: dict = {}
 _subclasses_cache: dict = {}
 
 
+def _norm_edition(edition: str) -> str:
+    return "2024" if "2024" in str(edition) else "2014"
+
+
 def _load_json(filepath: str):
     try:
         with open(filepath, "r") as f:
@@ -47,11 +51,11 @@ class RulesRepository:
         Loads the progression data for a specific class and edition.
         Results are cached in module-level dict to avoid instance-level memory leaks.
         """
-        cache_key = (class_name.lower(), edition)
+        edition_dir = _norm_edition(edition)
+        cache_key = (class_name.lower(), edition_dir)
         if cache_key in _class_progression_cache:
             return _class_progression_cache[cache_key]
 
-        edition_dir = "2014" if edition == EDITION_2014 else "2024"
         filename = f"{class_name.lower().replace(' ', '_')}.json"
         filepath = os.path.join(RULES_DIR, edition_dir, filename)
 
@@ -68,13 +72,13 @@ class RulesRepository:
         """
         Lists all available classes for the specified edition based on JSON files.
         """
-        if edition in _available_classes_cache:
-            return _available_classes_cache[edition]
+        edition_dir = _norm_edition(edition)
+        if edition_dir in _available_classes_cache:
+            return _available_classes_cache[edition_dir]
 
-        edition_dir = "2014" if edition == EDITION_2014 else "2024"
         dir_path = os.path.join(RULES_DIR, edition_dir)
         if not os.path.exists(dir_path):
-            _available_classes_cache[edition] = []
+            _available_classes_cache[edition_dir] = []
             return []
 
         classes = []
@@ -83,7 +87,7 @@ class RulesRepository:
                 class_name = filename.replace(".json", "").replace("_", " ").title()
                 classes.append(class_name)
         result = sorted(classes)
-        _available_classes_cache[edition] = result
+        _available_classes_cache[edition_dir] = result
         return result
 
     def get_features_at_level(
@@ -94,7 +98,8 @@ class RulesRepository:
         """
         if not class_name:
             return []
-        cache_key = (class_name.lower(), level, edition)
+        edition_dir = _norm_edition(edition)
+        cache_key = (class_name.lower(), level, edition_dir)
         if cache_key in _features_level_cache:
             return _features_level_cache[cache_key]
 
@@ -113,13 +118,14 @@ class RulesRepository:
         """
         Loads all feats for the specified edition.
         """
-        if edition in _feats_cache:
-            return _feats_cache[edition]
+        edition_val = _norm_edition(edition)
+        if edition_val in _feats_cache:
+            return _feats_cache[edition_val]
 
-        filename = f"feats_{'2024' if edition == EDITION_2024 else '2014'}.json"
+        filename = f"feats_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         result = _load_json(filepath)
-        _feats_cache[edition] = result
+        _feats_cache[edition_val] = result
         return result
 
     def search_feats(self, query: str, edition: str = EDITION_2014) -> list:
@@ -146,10 +152,10 @@ class RulesRepository:
         """
         Loads all spells for the specified edition, prioritizing MongoDB.
         """
-        if edition in _spells_cache:
-            return _spells_cache[edition]
+        edition_val = _norm_edition(edition)
+        if edition_val in _spells_cache:
+            return _spells_cache[edition_val]
 
-        edition_val = "2014" if edition == EDITION_2014 else "2024"
         spells = []
 
         # Try database first
@@ -178,7 +184,7 @@ class RulesRepository:
             if name_key not in db_spells_map:
                 spells.append(s)
 
-        _spells_cache[edition] = spells
+        _spells_cache[edition_val] = spells
         return spells
 
     def search_spells(self, query: str, edition: str = EDITION_2014) -> list:
@@ -193,10 +199,10 @@ class RulesRepository:
         """
         Loads all available races for the specified edition.
         """
-        if edition in _races_cache:
-            return _races_cache[edition]
+        edition_val = _norm_edition(edition)
+        if edition_val in _races_cache:
+            return _races_cache[edition_val]
 
-        edition_val = "2024" if edition == EDITION_2024 else "2014"
         filename = f"races_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
 
@@ -205,7 +211,7 @@ class RulesRepository:
 
         data = _load_json(filepath)
         races = [r for r in data if "name" in r]
-        _races_cache[edition] = races
+        _races_cache[edition_val] = races
         return races
 
     def get_subclasses(self, class_name: str, edition: str = EDITION_2014) -> list:
@@ -213,18 +219,19 @@ class RulesRepository:
         if not os.path.exists(filepath):
             return []
         data = _load_json(filepath)
-        edition_data = data.get(edition, data.get(EDITION_2014, {}))
+        target_key = "2024 Edition" if "2024" in str(edition) else EDITION_2014
+        edition_data = data.get(target_key, data.get(EDITION_2014, {}))
         return edition_data.get(class_name, [])
 
     def get_subclass_mechanics(self, class_name: str, edition: str = EDITION_2014) -> dict:
         """
         Loads the rich mechanical data (like scaling tables) for a class's subclasses.
         """
-        cache_key = (class_name.lower(), edition)
+        edition_dir = _norm_edition(edition)
+        cache_key = (class_name.lower(), edition_dir)
         if cache_key in _subclasses_cache:
             return _subclasses_cache[cache_key]
 
-        edition_dir = "2014" if edition == EDITION_2014 else "2024"
         filename = f"{class_name.lower().replace(' ', '_')}.json"
         filepath = os.path.join(DATA_DIR, "rules", "subclasses", edition_dir, filename)
 
@@ -240,10 +247,10 @@ class RulesRepository:
         """
         Loads all available backgrounds for the specified edition.
         """
-        if edition in _backgrounds_cache:
-            return _backgrounds_cache[edition]
+        edition_val = _norm_edition(edition)
+        if edition_val in _backgrounds_cache:
+            return _backgrounds_cache[edition_val]
 
-        edition_val = "2024" if edition == EDITION_2024 else "2014"
         filename = f"backgrounds_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
 
@@ -252,7 +259,7 @@ class RulesRepository:
 
         data = _load_json(filepath)
         backgrounds = [b for b in data if "name" in b]
-        _backgrounds_cache[edition] = backgrounds
+        _backgrounds_cache[edition_val] = backgrounds
         return backgrounds
 
     def get_all_weapons(self) -> list:
@@ -271,10 +278,10 @@ class RulesRepository:
         """
         Loads all weapon masteries.
         """
-        if edition in _weapon_masteries_cache:
-            return _weapon_masteries_cache[edition]
+        edition_val = _norm_edition(edition)
+        if edition_val in _weapon_masteries_cache:
+            return _weapon_masteries_cache[edition_val]
 
-        edition_val = "2024" if edition == EDITION_2024 else "2014"
         filename = f"weapon_masteries_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
 
@@ -282,5 +289,5 @@ class RulesRepository:
             return []
 
         data = _load_json(filepath)
-        _weapon_masteries_cache[edition] = data
+        _weapon_masteries_cache[edition_val] = data
         return data

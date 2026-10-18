@@ -41,9 +41,17 @@ def load_config():
 
 
 def save_config(config):
-    """Saves the configuration to config.json."""
     try:
-        with open(CONFIG_FILE, "w") as f:
+        temp_file = f"{CONFIG_FILE}.tmp"
+        with open(temp_file, "w") as f:
             json.dump(config, f, indent=4)
-    except Exception as e:
-        logger.error(f"Failed to save config: {e}")
+        os.replace(temp_file, CONFIG_FILE)
+    except (IOError, OSError) as e:
+        logger.error(f"IO Error saving config: {e}")
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except OSError:
+                pass
+    except TypeError as e:
+        logger.error(f"Serialization Error saving config: {e}")

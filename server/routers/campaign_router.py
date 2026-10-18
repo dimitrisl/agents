@@ -10,19 +10,25 @@ from pydantic import BaseModel
 
 from backend.core.schemas import (
     CampaignEntitySchema,
+    CampaignSkeletonSchema,
     EncounterStateSchema,
     InviteCodeResponse,
     PasteExtractionRequest,
+    SessionOutlineSchema,
     SuccessResponseSchema,
+    VTTStateSchema,
 )
 from backend.services.dice_service import roll_dice
 from backend.services.encounter_service import calculate_danger_indicator
+from backend.services.session_service import SessionService
 from backend.services.stats_service import calculate_skills, get_modifier
+from backend.services.vtt_service import VTTService
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
 
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
+session_service = SessionService()
 
 
 class CampaignSchema(BaseModel):
@@ -33,6 +39,7 @@ class CampaignSchema(BaseModel):
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
+    vtt_state: Optional[VTTStateSchema] = None
 
 
 class PlayerCampaignSchema(BaseModel):
@@ -42,6 +49,7 @@ class PlayerCampaignSchema(BaseModel):
     party: List[str] = []
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
+    vtt_state: Optional[VTTStateSchema] = None
 
 
 class JoinCampaignRequest(BaseModel):
@@ -222,7 +230,10 @@ async def list_campaigns(
         if role == "dm":
             campaigns.append(CampaignSchema(**doc).model_dump())
         else:
-            campaigns.append(PlayerCampaignSchema(**doc).model_dump())
+            player_doc = PlayerCampaignSchema(**doc)
+            if player_doc.vtt_state:
+                player_doc.vtt_state = VTTService.redact_for_player(player_doc.vtt_state)
+            campaigns.append(player_doc.model_dump())
     return campaigns
 
 
@@ -235,6 +246,9 @@ async def save_campaign(
     existing = await db["campaigns"].find_one({"campaign_name": payload.campaign_name})
 
     camp_dict = payload.model_dump()
+    # VTT state is owned by VTTService (atomic updates); a campaign save must never
+    # overwrite it, nor write a null that would block later dotted updates.
+    camp_dict.pop("vtt_state", None)
     if existing:
         member = await db["campaign_members"].find_one(
             {"campaign_id": payload.campaign_name, "user_id": current_user["id"]}
@@ -273,14 +287,20 @@ async def get_campaign_party(
 ):
     cursor = db["characters"].find({"active_campaign": name})
     party_members = []
+    owner_ids = set()
     async for char in cursor:
         char.pop("_id", None)
-        owner_id = char.get("owner_id")
-        if owner_id:
-            user = await db["users"].find_one({"id": owner_id})
-            if user:
-                char["owner_username"] = user.get("username")
         party_members.append(char)
+        if char.get("owner_id"):
+            owner_ids.add(char.get("owner_id"))
+
+    if owner_ids:
+        users_cursor = db["users"].find({"id": {"$in": list(owner_ids)}})
+        user_map = {u["id"]: u.get("username") async for u in users_cursor}
+        for char in party_members:
+            if char.get("owner_id") in user_map:
+                char["owner_username"] = user_map[char.get("owner_id")]
+
     return party_members
 
 
@@ -337,7 +357,7 @@ async def update_party_member_state(
     # Only the touched fields are written. A blind $set of the whole document
     # would race with the character sheet the player has open.
     await db["characters"].update_one(
-        {"char_id": char_id}, {"$set": updates, "$inc": {"version": 1}}
+        {"char_id": char_id, "active_campaign": name}, {"$set": updates, "$inc": {"version": 1}}
     )
 
     state = {
@@ -528,6 +548,39 @@ async def add_roll_request(
     }
 
 
+async def _authorize_roll_request_target(
+    db: AsyncIOMotorDatabase,
+    campaign_name: str,
+    target: dict,
+    current_user: dict,
+    member: dict,
+) -> None:
+    if member.get("role") == "dm":
+        return
+
+    target_char = await _find_campaign_character(
+        db,
+        campaign_name,
+        target.get("char_filename", ""),
+        target.get("char_name", ""),
+    )
+    if target_char and target_char.get("owner_id"):
+        if target_char["owner_id"] != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to act on another player's roll request.",
+            )
+        return
+
+    if member.get("character_id"):
+        member_char = await db["characters"].find_one({"char_id": member["character_id"]})
+        if member_char and member_char.get("char_name") != target.get("char_name"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to act on another player's roll request.",
+            )
+
+
 @router.post("/{name}/roll-request/{request_id}/result", response_model=SuccessResponseSchema)
 async def resolve_roll_request(
     name: str,
@@ -545,11 +598,13 @@ async def resolve_roll_request(
     if not target:
         raise HTTPException(status_code=404, detail="Roll request not found")
 
+    await _authorize_roll_request_target(db, name, target, current_user, member)
+
     result = result_in.model_dump()
     resolved_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    await db["campaign_roll_requests"].update_one(
-        {"_id": target["_id"]},
+    outcome = await db["campaign_roll_requests"].update_one(
+        {"_id": target["_id"], "status": "pending"},
         {
             "$set": {
                 "status": "resolved",
@@ -558,6 +613,11 @@ async def resolve_roll_request(
             }
         },
     )
+    if outcome.modified_count == 0 and target.get("status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Roll request was already resolved or missed.",
+        )
 
     target["status"] = "resolved"
     target["result"] = result
@@ -597,6 +657,8 @@ async def miss_roll_request(
     if not target:
         raise HTTPException(status_code=404, detail="Roll request not found")
 
+    await _authorize_roll_request_target(db, name, target, current_user, member)
+
     missed_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     outcome = await db["campaign_roll_requests"].update_one(
@@ -631,11 +693,15 @@ async def get_campaign_messages(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    cursor_w = db["campaign_whispers"].find({"campaign_name": name})
+    cursor_w = (
+        db["campaign_whispers"].find({"campaign_name": name}).sort("timestamp", -1).limit(100)
+    )
     all_whispers = []
     async for w in cursor_w:
         w.pop("_id", None)
         all_whispers.append(w)
+
+    all_whispers.reverse()
 
     whispers = all_whispers
 
@@ -656,11 +722,15 @@ async def get_campaign_messages(
                 filtered_whispers.append(w)
         whispers = filtered_whispers
 
-    cursor_r = db["campaign_roll_requests"].find({"campaign_name": name})
+    cursor_r = (
+        db["campaign_roll_requests"].find({"campaign_name": name}).sort("created_at", -1).limit(100)
+    )
     roll_requests = []
     async for r in cursor_r:
         r.pop("_id", None)
         roll_requests.append(r)
+
+    roll_requests.reverse()
 
     return {
         "campaign_name": camp["campaign_name"],
@@ -773,7 +843,7 @@ async def update_encounter_state(
 
     # Calculate Danger Indicator dynamically
     enc_dict["danger_indicator"] = await calculate_danger_indicator(
-        enc_dict.get("combatants", []), db
+        enc_dict.get("combatants", []), db, edition=camp.get("dnd_edition", "2014 Edition")
     )
 
     enc_dict["campaign_name"] = name
@@ -830,6 +900,10 @@ async def delete_campaign(
     await db["campaign_whispers"].delete_many({"campaign_name": name})
     await db["campaign_roll_requests"].delete_many({"campaign_name": name})
     await db["campaign_encounters"].delete_many({"campaign_name": name})
+    await db["campaign_entities"].delete_many({"campaign_name": name})
+    await db["session_logs"].delete_many({"campaign_name": name})
+    await db["campaign_skeletons"].delete_many({"campaign_name": name})
+    await db["homebrew_content"].delete_many({"campaign_name": name})
 
     # 3. Unset active_campaign for all characters currently in this campaign
     await db["characters"].update_many(
@@ -869,14 +943,24 @@ async def remove_party_member(
             actual_filename = filename
             break
 
+    # Membership in *this* campaign is what authorizes the removal. Being a DM
+    # somewhere is not a licence to evict a hero sitting at another table.
+    if char.get("active_campaign") != name and not actual_filename:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="That character is not part of this campaign.",
+        )
+
     if not actual_filename:
         actual_filename = char_filename  # fallback
 
     # 1. Remove from campaign's party array
     await db["campaigns"].update_one({"campaign_name": name}, {"$pull": {"party": actual_filename}})
 
-    # 2. Remove active_campaign from character
-    await db["characters"].update_one({"char_id": char_id}, {"$unset": {"active_campaign": ""}})
+    # 2. Remove active_campaign from character (only if it still points at this campaign)
+    await db["characters"].update_one(
+        {"char_id": char_id, "active_campaign": name}, {"$unset": {"active_campaign": ""}}
+    )
 
     # 3. If owner is a player, remove their campaign_members record
     owner_id = char.get("owner_id")
@@ -1040,3 +1124,83 @@ async def extract_campaign_entity(
 
     # Return as schema (FastAPI handles validation)
     return extracted_data
+
+
+# ==========================================
+# Campaign Skeleton & Plot Management
+# ==========================================
+
+
+@router.get("/{name}/skeleton", response_model=CampaignSkeletonSchema)
+async def get_campaign_skeleton(
+    name: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Retrieve the campaign skeleton."""
+    skeleton = await db.campaign_skeletons.find_one({"campaign_name": name})
+    if not skeleton:
+        # Return an empty skeleton instead of 404 to initialize UI
+        return CampaignSkeletonSchema(campaign_name=name, concept="", tone="", max_sessions=10)
+
+    skeleton["id"] = str(skeleton.pop("_id"))
+    return skeleton
+
+
+@router.post("/{name}/skeleton", response_model=CampaignSkeletonSchema)
+async def update_campaign_skeleton(
+    name: str,
+    skeleton_data: CampaignSkeletonSchema,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Create or update the campaign skeleton."""
+    data = skeleton_data.model_dump(exclude={"id"})
+    data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
+    if "created_at" not in data or not data["created_at"]:
+        data["created_at"] = data["updated_at"]
+
+    await db.campaign_skeletons.update_one({"campaign_name": name}, {"$set": data}, upsert=True)
+
+    saved = await db.campaign_skeletons.find_one({"campaign_name": name})
+    saved["id"] = str(saved.pop("_id"))
+    return saved
+
+
+@router.post("/{name}/skeleton/generate-outlines", response_model=CampaignSkeletonSchema)
+async def generate_campaign_outlines(
+    name: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Generate session outlines based on the campaign skeleton."""
+    skeleton = await db.campaign_skeletons.find_one({"campaign_name": name})
+    if not skeleton:
+        raise HTTPException(
+            status_code=404, detail="Campaign skeleton not found. Please create one first."
+        )
+
+    try:
+        from fastapi.concurrency import run_in_threadpool
+
+        outlines_data = await run_in_threadpool(
+            session_service.generate_campaign_outlines, skeleton
+        )
+        outlines = [SessionOutlineSchema(**o) for o in outlines_data]
+
+        await db.campaign_skeletons.update_one(
+            {"campaign_name": name},
+            {
+                "$set": {
+                    "generated_outlines": [o.model_dump() for o in outlines],
+                    "updated_at": datetime.datetime.now(datetime.timezone.utc),
+                }
+            },
+        )
+
+        updated = await db.campaign_skeletons.find_one({"campaign_name": name})
+        updated["id"] = str(updated.pop("_id"))
+        return updated
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

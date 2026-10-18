@@ -200,6 +200,14 @@
         "saving_throws": [
             "Strength",
             "Constitution"
+        ],
+        "armor": [
+            "All armor",
+            "Shields"
+        ],
+        "weapons": [
+            "Simple",
+            "Martial"
         ]
     },
     "scaling": {

@@ -1,6 +1,9 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'✏️ Edit Character Sheet: ' + (editChar?.char_name || '')" maxWidth="960px">
   <ng-container *ngIf="editChar">
-    <p class="mb-4 text-body-sm text-muted">Modify core stats, vitals, background traits, and backstory.</p>
+    <p class="mb-2 text-body-sm text-muted">Modify core stats, vitals, background traits, and backstory.</p>
+    <div class="mb-4 rounded-lg bg-violet/10 border border-violet/40 p-3 text-body-sm text-ink">
+      <i class="fas fa-info-circle mr-2"></i><strong>Note:</strong> To edit Skills, Spells, Attacks, and Features, close this modal and use the <strong>⚡ Quick Edit</strong> button on the main dashboard to toggle inline editing mode!
+    </div>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
       <div>
@@ -19,7 +22,7 @@
       <div>
         <label class="mb-1 block text-label font-semibold text-muted">Subclass:</label>
         <input forgeInput type="text" [(ngModel)]="editChar.subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'edit-subclass-hint' : null" />
-        <p *ngIf="!canEditSubclass" id="edit-subclass-hint" class="mt-1 text-micro uppercase text-muted">Subclasses unlock at level 3</p>
+        <p *ngIf="!canEditSubclass" id="edit-subclass-hint" class="mt-1 text-micro uppercase text-muted">Subclasses unlock at level {{ subclassUnlockLevel }}</p>
       </div>
     </div>
 

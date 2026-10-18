@@ -31,43 +31,58 @@
         *ngFor="let member of partyMembers; trackBy: trackMember"
         class="flex min-w-0 flex-col overflow-hidden rounded-xl bg-panel"
       >
-        <header class="flex items-center gap-3 bg-tile px-4 py-3">
-          <img
-            [src]="member.portrait || 'https://img.icons8.com/color/96/knight.png'"
-            alt=""
-            class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
-          />
-          <div class="min-w-0 flex-1">
-            <h3 class="truncate font-display text-title text-ink">
-              {{ member.isOnline ? '🟢' : '⚪' }} {{ member.name }}
-              <span *ngIf="member.owner_username" class="text-muted text-sm font-normal">({{ member.owner_username }})</span>
-            </h3>
-            <p class="truncate text-micro font-semibold uppercase text-muted">
-              Level {{ member.level }} {{ member.char_class }}
-            </p>
+        <header class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 bg-tile px-4 py-3">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            @if (member.portrait) {
+              <img
+                [src]="member.portrait"
+                (error)="member.portrait = ''"
+                alt=""
+                class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
+              />
+            } @else {
+              <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline text-title font-bold uppercase bg-accent/15 text-accent border-accent/30"
+                aria-hidden="true"
+              >
+                {{ (member.name || '?').charAt(0) }}
+              </div>
+            }
+            <div class="min-w-0 flex-1">
+              <h3 class="font-display text-title text-ink flex items-center gap-1.5 truncate">
+                <span class="text-xs" [attr.aria-label]="member.isOnline ? 'Online' : 'Offline'">{{ member.isOnline ? '🟢' : '⚪' }}</span>
+                <span class="font-bold truncate">{{ member.name }}</span>
+                <span *ngIf="member.owner_username" class="text-muted text-xs font-normal truncate">({{ member.owner_username }})</span>
+              </h3>
+              <p class="truncate text-micro font-semibold uppercase text-muted">
+                Level {{ member.level }} {{ member.char_class }}
+              </p>
+            </div>
           </div>
-          <button
-            forgeButton
-            variant="ghost"
-            size="sm"
-            type="button"
-            class="shrink-0"
-            [attr.aria-label]="'Request a roll from ' + member.name"
-            (click)="privateRollRequest.emit(member)"
-          >
-            🎲 Request Roll
-          </button>
-          <button
-            forgeButton
-            variant="danger"
-            size="sm"
-            type="button"
-            class="shrink-0"
-            [attr.aria-label]="'Remove ' + member.name + ' from campaign'"
-            (click)="removeMember.emit(member)"
-          >
-            Kick
-          </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              forgeButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              class="shrink-0"
+              [attr.aria-label]="'Request a roll from ' + member.name"
+              (click)="privateRollRequest.emit(member)"
+            >
+              🎲 Request Roll
+            </button>
+            <button
+              forgeButton
+              variant="danger"
+              size="sm"
+              type="button"
+              class="shrink-0"
+              [attr.aria-label]="'Remove ' + member.name + ' from campaign'"
+              (click)="removeMember.emit(member)"
+            >
+              Kick
+            </button>
+          </div>
         </header>
 
         <div class="flex min-w-0 flex-col gap-4 p-4">
@@ -92,13 +107,13 @@
               <input
                 #memberHp
                 forgeInput
-                type="number"
+                type="text"
+                inputmode="numeric"
                 class="max-w-20 text-center"
                 [attr.aria-label]="member.name + ' current hit points'"
                 [value]="member.hp_current"
                 (change)="onHpInput(member, memberHp)"
-                min="0"
-                [max]="member.hp_max"
+                (keydown.enter)="onHpInput(member, memberHp); memberHp.blur()"
               />
               <button
                 forgeButton
@@ -129,8 +144,16 @@
           </div>
 
           <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
-            <div class="px-3 py-3 text-center">
-              <p class="text-micro font-semibold uppercase text-muted">🛡️ AC</p>
+            <div
+              class="px-3 py-3 text-center cursor-help group"
+              [title]="member.ac_breakdown?.formula_text || ('AC ' + member.ac)"
+            >
+              <div class="flex items-center justify-center gap-1">
+                <p class="text-micro font-semibold uppercase text-muted">🛡️ AC</p>
+                @if (member.ac_breakdown?.formula_text) {
+                  <span class="text-[10px] text-muted/70 group-hover:text-accent transition-colors" aria-label="Formula breakdown">ℹ️</span>
+                }
+              </div>
               <p class="mt-1 text-metric font-bold leading-none text-accent">{{ member.ac }}</p>
             </div>
             <div class="border-l border-hairline px-3 py-3 text-center">

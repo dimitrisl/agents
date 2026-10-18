@@ -37,7 +37,7 @@ If the level is 4 or higher (or 1 if 2024 edition), explicitly list their Feats 
 If specific user preferences for Feats, Spells, ASIs, or Build choices are provided above, PRIORITIZE including those requested Feats in 'advancements' and 'features_traits', and those requested Spells in the 'spells' object.
 
 IMPORTANT WARNINGS:
-- If 'Custom Background' is used, pick any 2 skills and a fitting Origin Feat.
+- If 'Custom Background' is used, you MUST explicitly provide 2 skill proficiencies, 1 tool proficiency, 1 language proficiency, and a fitting Origin Feat in the respective JSON fields.
 - If the character gains the 'Skilled' feat, they MUST gain EXACTLY 3 additional skill proficiencies.
 - You MUST strictly use the {edition} rules for their subclass. Do not use 2014 subclass mechanics if the requested edition is 2024 (e.g. for Monk 2024, use 'Warrior of the Elements' mechanics, not 'Way of the Four Elements').
 - If the user specifies a subrace, lineage, or subspecies in the Flavor/Concept field, apply the appropriate traits.

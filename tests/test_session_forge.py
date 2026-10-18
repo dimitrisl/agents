@@ -26,6 +26,9 @@ def mock_db():
     db.campaign_entities.insert_one = AsyncMock(
         return_value=MagicMock(inserted_id="mock_entity_id")
     )
+    db.campaign_entities.insert_many = AsyncMock(
+        return_value=MagicMock(inserted_ids=["mock_entity_id_1"])
+    )
     return db
 
 
@@ -121,6 +124,7 @@ def test_process_audio_session(client, mock_db):
 
         os.remove("test_audio.txt")
 
+        print("RESPONSE CONTENT:", response.text)
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "The Goblin Cave"
