@@ -6,18 +6,31 @@ import pypdf
 logger = logging.getLogger("DnDAssistant.PDFImporter")
 
 
-def extract_text_and_fields_from_pdf(uploaded_pdf) -> str:
+class PDFPageLimitExceededError(ValueError):
+    """Raised when an uploaded PDF exceeds the maximum allowed page count."""
+
+    pass
+
+
+def extract_text_and_fields_from_pdf(uploaded_pdf, max_pages: int = 10) -> str:
     """
     Extracts form fields and visual layout text/tables from a PDF file.
     Returns a unified string representation.
+    Enforces max_pages limit to prevent DoS.
     """
     extracted_text = ""
 
-    # 1. Form Field Extraction (AcroForm + Manual Annotation Scan)
+    # 1. Form Field Extraction & Page Count Check (pypdf)
     field_data_found = {}
     try:
         uploaded_pdf.seek(0)
         pdf_reader = pypdf.PdfReader(uploaded_pdf)
+
+        if len(pdf_reader.pages) > max_pages:
+            raise PDFPageLimitExceededError(
+                f"PDF exceeds maximum allowed page count of {max_pages} pages (has {len(pdf_reader.pages)})."
+            )
+
         fields = pdf_reader.get_fields()
         if fields:
             for name, data in fields.items():
@@ -40,6 +53,8 @@ def extract_text_and_fields_from_pdf(uploaded_pdf) -> str:
                     except Exception as e:
                         logger.warning(f"Field extraction error: {e}")
                         continue
+    except PDFPageLimitExceededError:
+        raise
     except Exception as e:
         logger.warning(f"Field extraction error: {e}")
 

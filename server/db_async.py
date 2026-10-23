@@ -67,6 +67,53 @@ INDEX_DEFINITIONS = [
         [("campaign_name", pymongo.ASCENDING), ("session_number", pymongo.DESCENDING)],
         {"name": "idx_session_logs_campaign_session"},
     ),
+    # Whisper TTL index (#155) - expires after WHISPER_RETENTION_DAYS unless has_open_report is True
+    (
+        "campaign_whispers",
+        [("created_at", pymongo.ASCENDING)],
+        {
+            "name": "ttl_campaign_whispers_created_at",
+            "expireAfterSeconds": settings.WHISPER_RETENTION_DAYS * 86400,
+            "partialFilterExpression": {"has_open_report": {"$eq": False}},
+        },
+    ),
+    # Whisper reports (#155)
+    (
+        "whisper_reports",
+        [("report_id", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_whisper_reports_report_id"},
+    ),
+    (
+        "whisper_reports",
+        [("status", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)],
+        {"name": "idx_whisper_reports_status_created"},
+    ),
+    # VTT Scenes, History & Assets (#156)
+    (
+        "campaign_scenes",
+        [("scene_id", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_campaign_scenes_scene_id"},
+    ),
+    (
+        "campaign_scenes",
+        [("campaign_name", pymongo.ASCENDING), ("order", pymongo.ASCENDING)],
+        {"name": "idx_campaign_scenes_campaign_order"},
+    ),
+    (
+        "campaign_scene_history",
+        [("campaign_name", pymongo.ASCENDING), ("activated_at", pymongo.DESCENDING)],
+        {"name": "idx_campaign_scene_history_campaign_activated"},
+    ),
+    (
+        "campaign_assets",
+        [("filename", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_campaign_assets_filename"},
+    ),
+    (
+        "campaign_assets",
+        [("campaign_name", pymongo.ASCENDING)],
+        {"name": "idx_campaign_assets_campaign_name"},
+    ),
 ]
 
 

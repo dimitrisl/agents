@@ -18,6 +18,7 @@ export interface CommandItem {
   title: string;
   category: 'Navigation' | 'Action' | 'Rules';
   route?: string;
+  queryParams?: Record<string, any>;
   action?: () => void;
 }
 
@@ -40,6 +41,7 @@ export class CommandPaletteComponent {
   commands: CommandItem[] = [
     { icon: '\u2728', title: 'Open Character Forge', category: 'Navigation', route: '/forge' },
     { icon: '\u{1F4DC}', title: 'Player Dashboard Sheet', category: 'Navigation', route: '/player' },
+    { icon: '\u{1F4E4}', title: 'Import Character (PDF, D&D Beyond, Foundry)', category: 'Action', route: '/player', queryParams: { import: '1' } },
     { icon: '\u{1F3F0}', title: 'Dungeon Master Workspace', category: 'Navigation', route: '/dm' },
     { icon: '\u{1F4DA}', title: 'Arcane Rules Library', category: 'Navigation', route: '/rules' },
     { icon: '\u2699\uFE0F', title: 'System Settings', category: 'Navigation', route: '/settings' },
@@ -91,10 +93,10 @@ export class CommandPaletteComponent {
 
   selectItem(item: CommandItem) {
     this.close();
-    if (item.route) {
-      this.router.navigate([item.route]);
-    } else if (item.action) {
+    if (item.action) {
       item.action();
+    } else if (item.route) {
+      this.router.navigate([item.route], item.queryParams ? { queryParams: item.queryParams } : undefined);
     }
   }
 

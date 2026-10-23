@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     # Audio session uploads (100 MB max cap)
     MAX_AUDIO_FILE_SIZE_BYTES: int = 100 * 1024 * 1024
 
+    # Whisper retention (days) for TTL index (#155)
+    WHISPER_RETENTION_DAYS: int = 365
+
+    # Character Import Limits (#152, #153)
+    MAX_PDF_IMPORT_BYTES: int = 10 * 1024 * 1024  # 10 MB
+    MAX_PDF_IMPORT_PAGES: int = 10
+    MAX_PDF_TEXT_CHARS: int = 40_000
+    MAX_FOUNDRY_IMPORT_BYTES: int = 5 * 1024 * 1024  # 5 MB
+    DNDBEYOND_IMPORT_RATE_LIMIT: str = "10/minute"
+
     @property
     def cors_origin_list(self) -> list[str]:
         """Parse comma-separated CORS_ORIGINS into a list."""

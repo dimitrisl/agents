@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -390,15 +391,86 @@ class UserSchema(BaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
     has_completed_tutorial: bool = False
+    is_admin: bool = False
     created_at: Optional[str] = None
 
 
 class WhisperSchema(BaseModel):
     id: str
+    campaign_name: Optional[str] = None
     sender: str
     recipient: str
     message: str
     timestamp: str
+    sender_user_id: Optional[str] = None
+    sender_username: Optional[str] = None
+    sender_character_id: Optional[str] = None
+    sender_character_name: Optional[str] = None
+    recipient_user_id: Optional[str] = None
+    recipient_username: Optional[str] = None
+    recipient_character_id: Optional[str] = None
+    recipient_character_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
+    has_open_report: bool = False
+    sender_deleted: bool = False
+    recipient_deleted: bool = False
+
+
+class AdminUserSchema(BaseModel):
+    id: str
+    username: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    created_at: Optional[str] = None
+    is_admin: bool = False
+    character_count: int = 0
+    dm_campaign_count: int = 0
+    member_campaign_count: int = 0
+
+
+class UserDeletionPreview(BaseModel):
+    user_id: str
+    username: str
+    characters_to_delete: int = 0
+    portraits_to_delete: int = 0
+    dm_campaigns_to_delete: int = 0
+    dm_campaign_names: List[str] = Field(default_factory=list)
+    player_characters_to_detach: int = 0
+    memberships_to_remove: int = 0
+    roll_requests_to_delete: int = 0
+    whispers_to_archive: int = 0
+    can_delete: bool = True
+    blocking_reasons: List[str] = Field(default_factory=list)
+
+
+class UserDeletionReport(UserDeletionPreview):
+    deleted: bool = True
+
+
+class WhisperReportCreateRequest(BaseModel):
+    reason: str
+
+
+class WhisperReportUpdateRequest(BaseModel):
+    status: str  # "open" | "resolved" | "dismissed"
+    resolution_note: Optional[str] = None
+
+
+class WhisperReportSchema(BaseModel):
+    report_id: str
+    whisper_id: str
+    campaign_name: str
+    reported_by_user_id: str
+    reported_by_username: Optional[str] = None
+    reason: str
+    created_at: datetime
+    status: str = "open"
+    resolution_note: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    resolved_by_user_id: Optional[str] = None
+    whisper: Optional[Dict[str, Any]] = None
+    context_whispers: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 # ==========================================
@@ -640,10 +712,49 @@ class VTTGridSchema(BaseModel):
     cell_size: int = 50  # pixels per cell for frontend rendering
 
 
-class VTTStateSchema(BaseModel):
-    is_active: bool = False
+class VTTFogSchema(BaseModel):
+    enabled: bool = False
+    revealed: List[int] = Field(default_factory=list)
+
+
+class VTTSceneSchema(BaseModel):
+    scene_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    campaign_name: str
+    name: str = "Default"
+    dm_notes: str = ""
     grid: VTTGridSchema = Field(default_factory=VTTGridSchema)
     tokens: List[VTTTokenSchema] = Field(default_factory=list)
+    fog: VTTFogSchema = Field(default_factory=VTTFogSchema)
+    order: int = 0
+    is_active_scene: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    last_activated_at: Optional[datetime] = None
+
+
+class VTTSceneHistorySchema(BaseModel):
+    campaign_name: str
+    scene_id: str
+    scene_name: str
+    activated_at: datetime
+    activated_by_user_id: str
+
+
+class CampaignAssetSchema(BaseModel):
+    filename: str
+    campaign_name: str
+    uploaded_by_user_id: str
+    kind: str = "map"  # "map" | "token"
+    created_at: datetime
+
+
+class VTTStateSchema(BaseModel):
+    is_active: bool = False
+    active_scene_id: Optional[str] = None
+    scene_name: Optional[str] = None
+    grid: VTTGridSchema = Field(default_factory=VTTGridSchema)
+    tokens: List[VTTTokenSchema] = Field(default_factory=list)
+    fog: VTTFogSchema = Field(default_factory=VTTFogSchema)
 
 
 class ClassScalingAction(BaseModel):

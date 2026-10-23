@@ -17,4 +17,5 @@ export class ActionDockComponent {
   @Output() audit = new EventEmitter<void>();
   @Output() strategy = new EventEmitter<void>();
   @Output() exportPdf = new EventEmitter<void>();
+  @Output() importCharacter = new EventEmitter<void>();
 }

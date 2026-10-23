@@ -452,6 +452,28 @@ export class DmComponent implements OnInit, OnDestroy {
       });
   }
 
+  onReportWhisper(whisper: Whisper) {
+    if (!this.campaignName || !whisper.id) return;
+    const reason = window.prompt('Please enter the reason for reporting this message:');
+    if (!reason || !reason.trim()) return;
+
+    this.http
+      .post<{ success: boolean; message: string }>(
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whispers/${encodeURIComponent(whisper.id)}/report`,
+        { reason: reason.trim() }
+      )
+      .subscribe({
+        next: () => {
+          whisper.has_open_report = true;
+          this.rollToast.showMessage('REPORT SUBMITTED', 'Whisper has been reported to moderators.');
+        },
+        error: (err) => {
+          const detail = err.error?.detail || 'Failed to submit report.';
+          this.rollToast.showMessage('REPORT FAILED', detail);
+        },
+      });
+  }
+
   /**
    * `isCatchUp` is the reconnect case: the thread is merged rather than replaced,
    * so anything that happened while the socket was down still lands as unread

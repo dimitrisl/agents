@@ -63,6 +63,11 @@ export interface Whisper {
   recipient: string;
   message: string;
   timestamp?: string;
+  sender_user_id?: string;
+  recipient_user_id?: string;
+  sender_deleted?: boolean;
+  recipient_deleted?: boolean;
+  has_open_report?: boolean;
 }
 
 /** Replayed history for one campaign channel — `GET /campaigns/{name}/messages`. */
