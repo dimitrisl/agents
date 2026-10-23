@@ -110,19 +110,21 @@ def test_process_audio_session(client, mock_db):
     session_service.ai_provider = mock_provider_instance
 
     try:
-        with open("test_audio.txt", "w") as f:
-            f.write("dummy audio content")
+        # Provide a valid MP3 file payload (ID3 header) matching the audio validator requirements
+        mp3_dummy_content = b"ID3\x04\x00\x00\x00\x00\x00\x23" + b"\x00" * 64
+        with open("test_audio.mp3", "wb") as f:
+            f.write(mp3_dummy_content)
 
-        with open("test_audio.txt", "rb") as f:
+        with open("test_audio.mp3", "rb") as f:
             response = client.post(
                 "/api/v1/campaigns/TestCamp/sessions/audio",
                 data={"session_number": 1},
-                files={"audio_file": ("test_audio.txt", f, "text/plain")},
+                files={"audio_file": ("test_audio.mp3", f, "audio/mpeg")},
             )
 
         import os
 
-        os.remove("test_audio.txt")
+        os.remove("test_audio.mp3")
 
         print("RESPONSE CONTENT:", response.text)
         assert response.status_code == 200

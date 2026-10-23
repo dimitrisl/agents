@@ -37,6 +37,19 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 - All file reads, uploads, and image writes must pass through `safe_path(filepath, scope="portraits"|"uploads")`.
 - Validates that the resolved absolute path resides strictly within the designated directory using `os.path.commonpath`. Any attempts to use `../` or absolute root paths raise an immediate `HTTP 400 Bad Request`.
 
+### 4. Audio File Upload Security (`backend/utils/audio_validator.py`)
+- **Metadata & Extension Verification:** Validates allowed extensions (`.mp3`, `.wav`, `.m4a`, `.ogg`, `.webm`, `.flac`, `.aac`) and cross-validates against compatible MIME types (including RFC standards and browser variants).
+- **Magic Byte Signature Inspection:** Validates binary container headers and audio stream syncwords:
+  - **MP3:** Validates ID3v2 headers (version, revision, syncsafe integer constraints) and raw MPEG-1/2 frame sync.
+  - **WAV:** Verifies `RIFF`/`RIFX` header and `WAVE` format marker.
+  - **OGG:** Verifies `OggS` container capture pattern.
+  - **FLAC:** Requires `fLaC` stream marker (even when preceded by ID3 tags).
+  - **M4A:** Inspects `ftyp` box for audio brands (`m4a `, `mp41`, etc.) while explicitly rejecting image/non-audio ISOBMFF formats (`avif`, `heic`).
+  - **WebM:** Verifies EBML header `\x1a\x45\xdf\xa3` and `webm`/`matroska` DocType.
+  - **AAC:** Requires genuine ADTS frame sync (`0xFFF`, layer `00`) or `ADIF` stream marker.
+  - **Disallowed Signatures:** Strictly rejects disguised executables (ELF, PE/MZ, Mach-O), archives (`7z`, `RAR`, `GZIP`, `XZ`), and scripts (`#!`, `<?php`, `<script`, HTML/XML).
+- **Defensive Streaming & Size Cap (100MB):** Defensively streams uploads in 1MB chunks directly to disk while counting bytes. If the file exceeds `MAX_AUDIO_FILE_SIZE_BYTES` (100MB), the stream aborts with `HTTP 413 Content Too Large` and cleans up temporary files to prevent disk/memory exhaustion.
+
 ---
 
 ## ⏱️ Rate Limiting & DoS / Quota Exhaustion Defenses (`server/rate_limiter.py`)

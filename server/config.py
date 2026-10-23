@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     AUDIO_SESSION_RATE_LIMIT: str = "2/minute"
     GLOBAL_RATE_LIMIT: str = "100/minute"
 
+    # Audio session uploads (100 MB max cap)
+    MAX_AUDIO_FILE_SIZE_BYTES: int = 100 * 1024 * 1024
+
     @property
     def cors_origin_list(self) -> list[str]:
         """Parse comma-separated CORS_ORIGINS into a list."""
