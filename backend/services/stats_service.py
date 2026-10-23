@@ -689,7 +689,17 @@ def calculate_weapon_stats(
     damage_raw = weapon.get("damage") or rebuild_damage_formula(
         weapon.get("damage_dice"), weapon.get("damage_bonus")
     )
-    dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw, re.I)
+    if not damage_raw:
+        if "weapon_data" not in locals() or not weapon_data:
+            from backend.repositories.rules_repository import RulesRepository
+
+            repo = RulesRepository()
+            all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
+            name = weapon.get("name", "").lower()
+            weapon_data = get_base_weapon(name, all_weapons)
+        if weapon_data and weapon_data.get("damage"):
+            damage_raw = weapon_data.get("damage")
+    dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw or "", re.I)
     if dice_match:
         dice_part = dice_match.group(1)
         type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)

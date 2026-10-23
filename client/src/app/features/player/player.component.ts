@@ -12,7 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap, tap } from 'rxjs';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { HomebrewService } from '../../core/services/homebrew.service';
@@ -62,6 +62,7 @@ import {
   ForgeButtonDirective,
   ForgeCardComponent,
   ForgeEmptyStateComponent,
+  ForgeModalComponent,
   ForgePageComponent,
   ForgeTab,
   ForgeTextareaDirective,
@@ -112,6 +113,7 @@ interface RollTarget {
     ForgeButtonDirective,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
+    ForgeModalComponent,
     ForgePageComponent,
     ForgeTextareaDirective,
     PlayerDashboardHeaderComponent,
@@ -167,6 +169,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showLevelUpModal = signal(false);
   showValidationModal = signal(false);
   showWhisperInbox = signal(false);
+  showImportModal = signal(false);
+  importTab = signal<'pdf' | 'dndbeyond' | 'foundry'>('pdf');
+  isImporting = signal(false);
+  importError = signal<string | null>(null);
+  importWarnings = signal<string[]>([]);
+  dndBeyondUrl = '';
   editDraftChar: CharacterSchema | null = null;
   isValidating = false;
   isAutoFixing = false;
@@ -235,6 +243,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router,
+    private route: ActivatedRoute,
     private wsService: WebSocketService,
     private homebrewService: HomebrewService
   ) {
@@ -291,6 +300,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   ngOnInit() {
     this.charState.ensureLoaded().subscribe();
+
+    this.route.queryParams.subscribe((params) => {
+      if (params['import'] === '1') {
+        this.openImportModal();
+      }
+    });
 
     // Every (re)connect re-reads the thread, so a dropped socket costs nothing
     // and the hero never has to reload the page to see what the DM sent.
@@ -1225,6 +1240,138 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  openImportModal(): void {
+    this.importError.set(null);
+    this.importWarnings.set([]);
+    this.dndBeyondUrl = '';
+    this.showImportModal.set(true);
+  }
+
+  closeImportModal(): void {
+    this.showImportModal.set(false);
+  }
+
+  onImportPdf(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.isImporting.set(true);
+    this.importError.set(null);
+    this.importWarnings.set([]);
+
+    this.http.post<any>(`${environment.apiBaseUrl}/characters/import-pdf`, formData)
+      .subscribe({
+        next: (res) => {
+          this.isImporting.set(false);
+          this.charState.loadCharacters().subscribe(() => {
+            this.charState.activeCharacter.set(res);
+          });
+          if (res.warnings && res.warnings.length > 0) {
+            this.importWarnings.set(res.warnings);
+          } else {
+            this.closeImportModal();
+          }
+          this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'}.`);
+          input.value = '';
+        },
+        error: (err) => {
+          this.isImporting.set(false);
+          const detail = err.error?.detail || 'Failed to import character from PDF.';
+          this.importError.set(detail);
+          input.value = '';
+        }
+      });
+  }
+
+  onImportDndBeyond(): void {
+    const url = this.dndBeyondUrl.trim();
+    if (!url) return;
+
+    this.isImporting.set(true);
+    this.importError.set(null);
+    this.importWarnings.set([]);
+
+    this.http.post<any>(`${environment.apiBaseUrl}/characters/import-dndbeyond`, { url_or_id: url })
+      .subscribe({
+        next: (res) => {
+          this.isImporting.set(false);
+          this.charState.loadCharacters().subscribe(() => {
+            this.charState.activeCharacter.set(res);
+          });
+          if (res.warnings && res.warnings.length > 0) {
+            this.importWarnings.set(res.warnings);
+          } else {
+            this.closeImportModal();
+          }
+          this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'} from D&D Beyond.`);
+        },
+        error: (err) => {
+          this.isImporting.set(false);
+          const detail = err.error?.detail || 'Failed to import character from D&D Beyond.';
+          this.importError.set(detail);
+        }
+      });
+  }
+
+  onImportFoundry(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.isImporting.set(true);
+    this.importError.set(null);
+    this.importWarnings.set([]);
+
+    this.http.post<any>(`${environment.apiBaseUrl}/characters/import-foundry`, formData)
+      .subscribe({
+        next: (res) => {
+          this.isImporting.set(false);
+          this.charState.loadCharacters().subscribe(() => {
+            this.charState.activeCharacter.set(res);
+          });
+          if (res.warnings && res.warnings.length > 0) {
+            this.importWarnings.set(res.warnings);
+          } else {
+            this.closeImportModal();
+          }
+          this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'} from Foundry VTT.`);
+          input.value = '';
+        },
+        error: (err) => {
+          this.isImporting.set(false);
+          const detail = err.error?.detail || 'Failed to import character from Foundry.';
+          this.importError.set(detail);
+          input.value = '';
+        }
+      });
+  }
+
+  reportWhisper(whisper: Whisper): void {
+    const char = this.charState.activeCharacter();
+    if (!char?.active_campaign || !whisper.id) return;
+    const reason = window.prompt('Please enter the reason for reporting this message:');
+    if (!reason || !reason.trim()) return;
+
+    this.http.post<{ success: boolean; message: string }>(
+      `${environment.apiBaseUrl}/campaigns/${char.active_campaign}/whispers/${whisper.id}/report`,
+      { reason: reason.trim() }
+    ).subscribe({
+      next: () => {
+        whisper.has_open_report = true;
+        this.rollToast.showMessage('REPORT SUBMITTED', 'Whisper has been reported to moderators.');
+      },
+      error: (err) => {
+        const detail = err.error?.detail || 'Failed to submit report.';
+        this.rollToast.showMessage('REPORT FAILED', detail);
+      }
+    });
+  }
+
   toggleEditMode() {
     this.editMode.set(!this.editMode());
     if (!this.editMode()) {
@@ -1540,22 +1687,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
     this.pdfPreviewBlobUrl = null;
     this.pdfPreviewUrl = null;
-  }
-
-  onImportPdf(event: any) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/characters/import-pdf`, formData).subscribe({
-      next: (imported) => {
-        this.charState.loadCharacters().subscribe();
-        this.rollToast.showMessage('📥 PDF IMPORTED', `Successfully imported ${imported.char_name}!`);
-      },
-      error: () => this.rollToast.showMessage('⚠️ IMPORT FAILED', 'Failed to import PDF character sheet.')
-    });
   }
 
   getStatsArray(stats: any) {

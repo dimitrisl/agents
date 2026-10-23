@@ -1,0 +1,91 @@
+{
+  "id": 1003,
+  "success": true,
+  "data": {
+    "name": "Valen Shadowblade",
+    "gender": "Male",
+    "age": 32,
+    "alignmentId": 4,
+    "race": {
+      "fullName": "Human",
+      "baseName": "Human",
+      "weightSpeeds": {
+        "normal": {
+          "walk": 30
+        }
+      }
+    },
+    "background": {
+      "definition": {
+        "name": "Criminal"
+      }
+    },
+    "classes": [
+      {
+        "level": 3,
+        "definition": {
+          "name": "Rogue",
+          "hitDice": 8
+        },
+        "subclassDefinition": {
+          "name": "Assassin"
+        }
+      },
+      {
+        "level": 2,
+        "definition": {
+          "name": "Fighter",
+          "hitDice": 10
+        },
+        "subclassDefinition": null
+      }
+    ],
+    "stats": [
+      { "id": 1, "value": 12 },
+      { "id": 2, "value": 16 },
+      { "id": 3, "value": 14 },
+      { "id": 4, "value": 10 },
+      { "id": 5, "value": 13 },
+      { "id": 6, "value": 8 }
+    ],
+    "bonusStats": [],
+    "overrideStats": [],
+    "modifiers": {
+      "class": [
+        { "type": "proficiency", "subType": "dexterity-saving-throws" },
+        { "type": "proficiency", "subType": "intelligence-saving-throws" },
+        { "type": "proficiency", "subType": "stealth" },
+        { "type": "proficiency", "subType": "deception" },
+        { "type": "expertise", "subType": "stealth" }
+      ]
+    },
+    "baseHitPoints": 36,
+    "bonusHitPoints": 0,
+    "removedHitPoints": 0,
+    "temporaryHitPoints": 0,
+    "currencies": {
+      "cp": 5,
+      "sp": 15,
+      "ep": 0,
+      "gp": 200,
+      "pp": 0
+    },
+    "inventory": [
+      {
+        "definition": {
+          "name": "Rapier",
+          "filterType": "Weapon",
+          "damage": {
+            "diceString": "1d8",
+            "damageType": "piercing"
+          },
+          "properties": [
+            { "name": "Finesse" }
+          ]
+        },
+        "equipped": true,
+        "quantity": 1
+      }
+    ]
+  }
+}

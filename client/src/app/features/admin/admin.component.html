@@ -10,165 +10,434 @@
         🛡️ Admin Workspace
       </h1>
       <p class="mt-1 text-body text-muted">
-        System diagnostics, database metrics and user management.
+        System diagnostics, user management, and whisper moderation.
       </p>
     </div>
 
     <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
+      <div class="inline-flex rounded-xl bg-tile p-1 border border-hairline">
+        <button
+          forgeButton
+          [variant]="currentTab() === 'users' ? 'primary' : 'ghost'"
+          size="sm"
+          type="button"
+          (click)="currentTab.set('users')"
+        >
+          👤 Users ({{ totalUsers() }})
+        </button>
+        <button
+          forgeButton
+          [variant]="currentTab() === 'reports' ? 'primary' : 'ghost'"
+          size="sm"
+          type="button"
+          (click)="currentTab.set('reports')"
+        >
+          🚩 Whisper Reports ({{ reports().length }})
+        </button>
+      </div>
       <forge-badge tone="success">● Database Online</forge-badge>
     </div>
   </header>
 
-  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-    <aside
-      class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto"
-    >
-      <forge-card padding="none" [hoverable]="false">
-        <div class="flex flex-col">
-          <header class="border-b border-hairline p-4">
-            <p class="text-micro font-semibold uppercase text-muted">
-              System Status
-            </p>
-            <h2 class="mt-1 truncate font-display text-title text-ink">
-              Machine Orthodoxy
-            </h2>
+  <!-- USERS TAB -->
+  <div *ngIf="currentTab() === 'users'" class="flex flex-col gap-6">
+    <forge-card padding="none" [hoverable]="false">
+      <div class="flex min-h-0 flex-col">
+        <div
+          class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="min-w-0">
+            <h2 class="font-display text-title text-ink">Registered Accounts</h2>
             <p class="mt-1 text-label text-muted">
-              Live metrics for this forge instance.
+              Accounts with access to this forge instance.
             </p>
-          </header>
-
-          <div class="p-4">
-            <div class="grid grid-cols-2 overflow-hidden rounded-xl bg-tile">
-              <div class="px-3 py-3 text-center">
-                <p class="text-micro font-semibold uppercase text-muted">
-                  Active Users
-                </p>
-                <p class="mt-1 text-metric font-bold leading-none text-accent">
-                  {{ activeUsers }}
-                </p>
-              </div>
-              <div class="border-l border-hairline px-3 py-3 text-center">
-                <p class="text-micro font-semibold uppercase text-muted">
-                  Characters
-                </p>
-                <p class="mt-1 text-metric font-bold leading-none text-accent">
-                  {{ totalCharacters }}
-                </p>
-              </div>
-            </div>
           </div>
 
-          <dl class="divide-y divide-hairline/70 border-t border-hairline">
-            <div
-              class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
-            >
-              <dt
-                class="shrink-0 text-micro font-semibold uppercase text-muted"
-              >
-                Database
-              </dt>
-              <dd
-                class="flex min-w-0 items-center gap-2 text-body font-semibold text-emerald"
-              >
-                <span
-                  class="h-2 w-2 shrink-0 rounded-full bg-emerald"
-                  aria-hidden="true"
-                ></span>
-                Online
-              </dd>
-            </div>
-            <div
-              class="flex min-h-11 items-center justify-between gap-3 px-4 py-2"
-            >
-              <dt
-                class="shrink-0 text-micro font-semibold uppercase text-muted"
-              >
-                Registered
-              </dt>
-              <dd
-                class="min-w-0 truncate text-right text-body font-semibold text-ink"
-              >
-                {{ users.length }}
-                {{ users.length === 1 ? "account" : "accounts" }}
-              </dd>
-            </div>
-          </dl>
+          <div class="flex items-center gap-3">
+            <input
+              forgeInput
+              type="text"
+              placeholder="Search username or email…"
+              [ngModel]="searchQuery()"
+              (ngModelChange)="onSearchChange($event)"
+              class="w-64"
+            />
+            <forge-badge tone="muted" class="shrink-0">
+              {{ totalUsers() }} total
+            </forge-badge>
+          </div>
         </div>
-      </forge-card>
-    </aside>
 
-    <section class="min-w-0">
-      <forge-card padding="none" [hoverable]="false">
-        <div class="flex min-h-0 flex-col">
-          <div
-            class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div class="min-w-0">
-              <h2 class="font-display text-title text-ink">Registered Users</h2>
-              <p class="mt-1 text-label text-muted">
-                Accounts with access to this forge instance.
-              </p>
+        <div class="flex min-w-0 flex-col gap-4 p-4">
+          @if (isLoadingUsers()) {
+            <div class="py-12 text-center text-muted">
+              ⏳ Loading registered users…
             </div>
-
-            <forge-badge tone="muted" class="shrink-0"
-              >{{ users.length }} total</forge-badge
-            >
-          </div>
-
-          <div class="flex min-w-0 flex-col gap-4 p-4">
-            @if (users.length === 0) {
-              <forge-empty-state
-                icon="👤"
-                title="No registered users"
-                description="Accounts will appear here once someone signs up to this instance."
-              ></forge-empty-state>
-            } @else {
-              <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
-                <table class="min-w-full border-collapse text-left text-body">
-                  <thead class="bg-tile text-micro uppercase text-muted">
-                    <tr>
-                      <th scope="col" class="px-4 py-3 font-semibold">
-                        Username
-                      </th>
-                      <th scope="col" class="px-4 py-3 font-semibold">Name</th>
-                      <th scope="col" class="px-4 py-3 font-semibold">Role</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-hairline">
-                    <tr
-                      *ngFor="let user of users; trackBy: trackUser"
-                      class="transition-colors hover:bg-tile"
-                    >
-                      <td class="px-4 py-3">
-                        <div class="flex min-w-0 items-center gap-3">
-                          <span
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile text-label font-bold uppercase text-muted"
-                            aria-hidden="true"
-                          >
-                            {{ user.username.charAt(0) }}
-                          </span>
-                          <span
-                            class="min-w-0 truncate font-semibold text-ink"
-                            >{{ user.username }}</span
-                          >
-                        </div>
-                      </td>
-                      <td class="px-4 py-3 text-muted">{{ user.name }}</td>
-                      <td class="px-4 py-3">
-                        <forge-badge
-                          [tone]="user.superadmin ? 'danger' : 'muted'"
+          } @else if (users().length === 0) {
+            <forge-empty-state
+              icon="👤"
+              title="No users found"
+              description="No accounts match your search criteria."
+            ></forge-empty-state>
+          } @else {
+            <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
+              <table class="min-w-full border-collapse text-left text-body">
+                <thead class="bg-tile text-micro uppercase text-muted">
+                  <tr>
+                    <th scope="col" class="px-4 py-3 font-semibold">Username</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Email / Name</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Role</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-center">Characters</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-center">DM Campaigns</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-center">Member In</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-hairline">
+                  <tr
+                    *ngFor="let user of users(); trackBy: trackUser"
+                    class="transition-colors hover:bg-tile"
+                  >
+                    <td class="px-4 py-3">
+                      <div class="flex min-w-0 items-center gap-3">
+                        <span
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile text-label font-bold uppercase text-muted"
+                          aria-hidden="true"
                         >
-                          {{ user.role }}
-                        </forge-badge>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            }
+                          {{ user.username.charAt(0) }}
+                        </span>
+                        <span class="min-w-0 truncate font-semibold text-ink">
+                          {{ user.username }}
+                        </span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-muted">
+                      {{ user.email || user.name || '—' }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <forge-badge [tone]="user.is_admin ? 'danger' : 'muted'">
+                        {{ user.is_admin ? '🛡️ Admin' : 'Player' }}
+                      </forge-badge>
+                    </td>
+                    <td class="px-4 py-3 text-center text-ink font-semibold">
+                      {{ user.character_count }}
+                    </td>
+                    <td class="px-4 py-3 text-center text-ink font-semibold">
+                      {{ user.dm_campaign_count }}
+                    </td>
+                    <td class="px-4 py-3 text-center text-ink font-semibold">
+                      {{ user.member_campaign_count }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <button
+                        forgeButton
+                        variant="danger"
+                        size="sm"
+                        type="button"
+                        (click)="openDeleteModal(user)"
+                        title="Delete User and Cascade"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      </div>
+    </forge-card>
+  </div>
+
+  <!-- WHISPER REPORTS TAB -->
+  <div *ngIf="currentTab() === 'reports'" class="flex flex-col gap-6">
+    <forge-card padding="none" [hoverable]="false">
+      <div class="flex min-h-0 flex-col">
+        <div
+          class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="min-w-0">
+            <h2 class="font-display text-title text-ink">Whisper Reports Moderation</h2>
+            <p class="mt-1 text-label text-muted">
+              Flagged secret player-to-player or player-to-DM whispers requiring review.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <select
+              class="rounded-xl border border-hairline bg-tile px-3 py-1.5 text-label text-ink"
+              [ngModel]="reportStatusFilter()"
+              (ngModelChange)="onReportFilterChange($event)"
+            >
+              <option value="all">All Reports</option>
+              <option value="open">Open</option>
+              <option value="resolved">Resolved</option>
+              <option value="dismissed">Dismissed</option>
+            </select>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="loadReports()"
+            >
+              🔄 Refresh
+            </button>
           </div>
         </div>
-      </forge-card>
-    </section>
+
+        <div class="flex min-w-0 flex-col gap-4 p-4">
+          @if (isLoadingReports()) {
+            <div class="py-12 text-center text-muted">
+              ⏳ Loading whisper reports…
+            </div>
+          } @else if (reports().length === 0) {
+            <forge-empty-state
+              icon="🕊️"
+              title="No reports found"
+              description="No whispers have been reported for moderation under this filter."
+            ></forge-empty-state>
+          } @else {
+            <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
+              <table class="min-w-full border-collapse text-left text-body">
+                <thead class="bg-tile text-micro uppercase text-muted">
+                  <tr>
+                    <th scope="col" class="px-4 py-3 font-semibold">Reported At</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Campaign</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Reported By</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Reason</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Status</th>
+                    <th scope="col" class="px-4 py-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-hairline">
+                  <tr
+                    *ngFor="let rep of reports(); trackBy: trackReport"
+                    class="transition-colors hover:bg-tile"
+                  >
+                    <td class="px-4 py-3 text-micro text-muted whitespace-nowrap">
+                      {{ rep.created_at | date:'medium' }}
+                    </td>
+                    <td class="px-4 py-3 font-semibold text-ink">
+                      {{ rep.campaign_name }}
+                    </td>
+                    <td class="px-4 py-3 text-muted">
+                      {{ rep.reported_by_username || rep.reported_by_user_id }}
+                    </td>
+                    <td class="px-4 py-3 text-ink max-w-xs truncate" [title]="rep.reason">
+                      {{ rep.reason }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <forge-badge
+                        [tone]="rep.status === 'open' ? 'danger' : (rep.status === 'resolved' ? 'success' : 'muted')"
+                      >
+                        {{ rep.status | uppercase }}
+                      </forge-badge>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <button
+                        forgeButton
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        (click)="inspectReport(rep)"
+                      >
+                        🔍 Inspect Context
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      </div>
+    </forge-card>
   </div>
+
+  <!-- USER DELETION PREVIEW MODAL -->
+  <forge-modal
+    [open]="showDeleteModal()"
+    (closed)="showDeleteModal.set(false)"
+    title="Cascade Delete User"
+    maxWidth="640px"
+  >
+    <div class="flex flex-col gap-4">
+      @if (!deletionPreview()) {
+        <div class="py-8 text-center text-muted">
+          ⏳ Calculating cascading deletion preview…
+        </div>
+      } @else {
+        <!-- Blocking Reasons Warning -->
+        <div
+          *ngIf="!deletionPreview()!.can_delete"
+          class="rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200 flex flex-col gap-2"
+        >
+          <div class="font-bold flex items-center gap-2 text-red-400">
+            ⚠️ Deletion Blocked
+          </div>
+          <ul class="list-disc list-inside text-label">
+            <li *ngFor="let reason of deletionPreview()!.blocking_reasons">
+              {{ reason }}
+            </li>
+          </ul>
+        </div>
+
+        <div *ngIf="deletionPreview()!.can_delete" class="text-body text-ink">
+          Are you sure you want to permanently delete user
+          <strong class="text-accent">{{ selectedUser()?.username }}</strong>?
+          This action is immediate and non-reversible.
+        </div>
+
+        <div class="rounded-xl bg-tile p-4 border border-hairline flex flex-col gap-2 text-label">
+          <p class="font-bold text-ink">Summary of affected data:</p>
+          <div class="grid grid-cols-2 gap-2 text-micro">
+            <div>Characters deleted: <strong>{{ deletionPreview()!.characters_to_delete }}</strong></div>
+            <div>Portraits removed: <strong>{{ deletionPreview()!.portraits_to_delete }}</strong></div>
+            <div>DM Campaigns deleted: <strong>{{ deletionPreview()!.dm_campaigns_to_delete }}</strong></div>
+            <div>Other player chars detached: <strong>{{ deletionPreview()!.player_characters_to_detach }}</strong></div>
+            <div>Memberships removed: <strong>{{ deletionPreview()!.memberships_to_remove }}</strong></div>
+            <div>Pending roll requests purged: <strong>{{ deletionPreview()!.roll_requests_to_delete }}</strong></div>
+            <div>Whispers archived: <strong>{{ deletionPreview()!.whispers_to_archive }}</strong></div>
+          </div>
+        </div>
+
+        <div *ngIf="deletionPreview()!.can_delete" class="flex flex-col gap-2 pt-2">
+          <label class="text-micro font-semibold uppercase text-muted">
+            Type <span class="text-ink font-bold">{{ selectedUser()?.username }}</span> to confirm:
+          </label>
+          <input
+            forgeInput
+            type="text"
+            placeholder="Username"
+            [ngModel]="confirmUsername()"
+            (ngModelChange)="confirmUsername.set($event)"
+          />
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-hairline">
+          <button
+            forgeButton
+            variant="ghost"
+            type="button"
+            (click)="showDeleteModal.set(false)"
+          >
+            Cancel
+          </button>
+          <button
+            forgeButton
+            variant="danger"
+            type="button"
+            [disabled]="!deletionPreview()!.can_delete || confirmUsername().trim() !== selectedUser()?.username || isDeleting()"
+            (click)="confirmDelete()"
+          >
+            {{ isDeleting() ? 'Deleting…' : 'Confirm Permanent Deletion' }}
+          </button>
+        </div>
+      }
+    </div>
+  </forge-modal>
+
+  <!-- WHISPER REPORT INSPECTION MODAL -->
+  <forge-modal
+    [open]="showReportModal()"
+    (closed)="showReportModal.set(false)"
+    title="Whisper Moderation Context"
+    maxWidth="720px"
+  >
+    <div class="flex flex-col gap-4">
+      @if (!selectedReport()) {
+        <div class="py-8 text-center text-muted">
+          ⏳ Loading conversation context…
+        </div>
+      } @else {
+        <div class="rounded-xl bg-tile p-4 border border-hairline flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-micro font-semibold uppercase text-muted">Report Reason</span>
+            <forge-badge
+              [tone]="selectedReport()!.status === 'open' ? 'danger' : (selectedReport()!.status === 'resolved' ? 'success' : 'muted')"
+            >
+              {{ selectedReport()!.status | uppercase }}
+            </forge-badge>
+          </div>
+          <p class="text-body text-ink font-semibold">{{ selectedReport()!.reason }}</p>
+          <span class="text-micro text-muted">
+            Reported by {{ selectedReport()!.reported_by_username || selectedReport()!.reported_by_user_id }} on {{ selectedReport()!.created_at | date:'medium' }}
+          </span>
+        </div>
+
+        <!-- Conversation History Context -->
+        <div class="flex flex-col gap-2">
+          <h3 class="text-micro font-semibold uppercase text-muted">
+            Conversation Context (±10 Whispers)
+          </h3>
+          <div class="max-h-72 overflow-y-auto rounded-xl bg-panel border border-hairline p-3 flex flex-col gap-2">
+            <div
+              *ngFor="let w of selectedReport()!.context_whispers"
+              class="p-2.5 rounded-lg border text-label"
+              [ngClass]="w.id === selectedReport()!.whisper_id ? 'bg-red-950/40 border-red-800' : 'bg-tile border-hairline'"
+            >
+              <div class="flex items-center justify-between text-micro text-muted mb-1">
+                <span class="font-bold text-ink">
+                  {{ w.sender }} ➔ {{ w.recipient }}
+                </span>
+                <span>{{ w.timestamp || (w.created_at | date:'shortTime') }}</span>
+              </div>
+              <p class="text-ink">{{ w.message }}</p>
+              <span *ngIf="w.id === selectedReport()!.whisper_id" class="text-micro font-bold text-red-400 mt-1 block">
+                🚩 Flagged Message
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resolution Note & Action -->
+        <div class="flex flex-col gap-2 pt-2 border-t border-hairline">
+          <label class="text-micro font-semibold uppercase text-muted">
+            Resolution Note
+          </label>
+          <input
+            forgeInput
+            type="text"
+            placeholder="Add note on action taken (optional)…"
+            [ngModel]="resolutionNote()"
+            (ngModelChange)="resolutionNote.set($event)"
+          />
+        </div>
+
+        <div class="flex items-center justify-between pt-4 border-t border-hairline">
+          <button
+            forgeButton
+            variant="ghost"
+            type="button"
+            (click)="showReportModal.set(false)"
+          >
+            Close
+          </button>
+          <div class="flex items-center gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              type="button"
+              [disabled]="isUpdatingReport()"
+              (click)="updateReportStatus('dismissed')"
+            >
+              Dismiss Report
+            </button>
+            <button
+              forgeButton
+              variant="primary"
+              tone="accent"
+              type="button"
+              [disabled]="isUpdatingReport()"
+              (click)="updateReportStatus('resolved')"
+            >
+              Resolve Report
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </forge-modal>
 </forge-page>

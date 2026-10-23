@@ -1,0 +1,107 @@
+{
+  "name": "Lyra Whisperwind",
+  "type": "character",
+  "system": {
+    "abilities": {
+      "str": { "value": 10, "proficient": 0 },
+      "dex": { "value": 16, "proficient": 1 },
+      "con": { "value": 14, "proficient": 0 },
+      "int": { "value": 12, "proficient": 0 },
+      "wis": { "value": 12, "proficient": 0 },
+      "cha": { "value": 16, "proficient": 1 }
+    },
+    "attributes": {
+      "ac": { "value": 15 },
+      "hp": { "value": 31, "max": 31, "temp": 0 },
+      "movement": { "walk": 35 },
+      "prof": 2,
+      "init": { "bonus": 3 }
+    },
+    "details": {
+      "alignment": "Chaotic Good",
+      "biography": { "value": "A wandering bard who tells tales of forgotten kingdoms." }
+    },
+    "skills": {
+      "acr": { "value": 1 },
+      "prf": { "value": 2 },
+      "per": { "value": 2 },
+      "ste": { "value": 1 }
+    },
+    "currency": {
+      "cp": 25,
+      "sp": 30,
+      "ep": 0,
+      "gp": 90,
+      "pp": 1
+    }
+  },
+  "items": [
+    {
+      "name": "Wood Elf",
+      "type": "race"
+    },
+    {
+      "name": "Entertainer",
+      "type": "background"
+    },
+    {
+      "name": "Bard",
+      "type": "class",
+      "system": {
+        "levels": 3,
+        "hitDice": "d8",
+        "identifier": "bard"
+      }
+    },
+    {
+      "name": "College of Lore",
+      "type": "subclass",
+      "system": {
+        "classIdentifier": "bard"
+      }
+    },
+    {
+      "name": "Sorcerer",
+      "type": "class",
+      "system": {
+        "levels": 1,
+        "hitDice": "d6",
+        "identifier": "sorcerer"
+      }
+    },
+    {
+      "name": "Shortbow",
+      "type": "weapon",
+      "system": {
+        "damage": {
+          "parts": [["1d6", "piercing"]]
+        },
+        "properties": {
+          "amm": true,
+          "two": true
+        }
+      }
+    },
+    {
+      "name": "Vicious Mockery",
+      "type": "spell",
+      "system": {
+        "level": 0
+      }
+    },
+    {
+      "name": "Dissonant Whispers",
+      "type": "spell",
+      "system": {
+        "level": 1
+      }
+    },
+    {
+      "name": "Invisibility",
+      "type": "spell",
+      "system": {
+        "level": 2
+      }
+    }
+  ]
+}

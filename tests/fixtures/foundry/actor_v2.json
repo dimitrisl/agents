@@ -1,0 +1,76 @@
+{
+  "name": "Thorne Ironbreaker",
+  "type": "character",
+  "system": {
+    "abilities": {
+      "str": { "value": 18, "proficient": 1 },
+      "dex": { "value": 12, "proficient": 0 },
+      "con": { "value": 16, "proficient": 1 },
+      "int": { "value": 10, "proficient": 0 },
+      "wis": { "value": 13, "proficient": 0 },
+      "cha": { "value": 8, "proficient": 0 }
+    },
+    "attributes": {
+      "ac": { "value": 18 },
+      "hp": { "value": 44, "max": 44, "temp": 0 },
+      "movement": { "walk": 25 },
+      "prof": 3,
+      "init": { "bonus": 1 }
+    },
+    "details": {
+      "race": "Mountain Dwarf",
+      "background": "Soldier",
+      "alignment": "Lawful Neutral",
+      "biography": { "value": "<p>A steadfast defender of the dwarven stronghold.</p>" },
+      "level": 4
+    },
+    "skills": {
+      "ath": { "value": 1 },
+      "itm": { "value": 1 },
+      "sur": { "value": 0 }
+    },
+    "currency": {
+      "cp": 0,
+      "sp": 10,
+      "ep": 0,
+      "gp": 120,
+      "pp": 0
+    }
+  },
+  "items": [
+    {
+      "name": "Fighter",
+      "type": "class",
+      "system": {
+        "levels": 4,
+        "hitDice": "d10",
+        "subclass": "Battle Master"
+      }
+    },
+    {
+      "name": "Warhammer",
+      "type": "weapon",
+      "system": {
+        "damage": {
+          "parts": [["1d8 + @mod", "bludgeoning"]]
+        },
+        "properties": ["ver"]
+      }
+    },
+    {
+      "name": "Plate Armor",
+      "type": "equipment",
+      "system": {
+        "equipped": true,
+        "quantity": 1
+      }
+    },
+    {
+      "name": "Second Wind",
+      "type": "feat",
+      "system": {
+        "description": { "value": "<p>Regain 1d10 + fighter level HP once per short rest.</p>" }
+      }
+    }
+  ]
+}

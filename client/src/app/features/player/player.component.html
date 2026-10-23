@@ -130,6 +130,7 @@
               (audit)="onValidateCharacter()"
               (strategy)="onGenerateStrategy()"
               (exportPdf)="onExportPdf()"
+              (importCharacter)="openImportModal()"
             ></app-action-dock>
           </div>
         </forge-card>
@@ -137,7 +138,7 @@
     </div>
 
     <!-- VTT Grid inline below the stats -->
-    <app-vtt-grid role="player" [characterName]="charState.activeCharacter()?.char_name"></app-vtt-grid>
+    <app-vtt-grid role="player" [characterName]="charState.activeCharacter()?.char_name" [campaignName]="charState.activeCharacter()?.active_campaign"></app-vtt-grid>
   </ng-container>
 
   <ng-template #emptyState>
@@ -150,6 +151,9 @@
       <div class="flex flex-wrap items-center justify-center gap-3 mt-2">
         <button forgeButton variant="primary" size="lg" type="button" (click)="goToForge()">
           {{ charState.characters().length > 0 ? 'Forge New Hero' : 'Forge Your First Hero' }}
+        </button>
+        <button forgeButton variant="secondary" size="lg" type="button" (click)="openImportModal()">
+          📤 Import Hero
         </button>
         <button *ngIf="charState.characters().length > 0" forgeButton variant="secondary" size="lg" type="button" (click)="charState.toggleEdition()">
           Switch Edition
@@ -295,16 +299,33 @@
                   <span class="message-kind">
                     {{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}
                   </span>
+                  <span *ngIf="entry.whisper.sender_deleted" class="text-micro text-error font-medium">
+                    (Διαγραμμένος χρήστης)
+                  </span>
                   <time class="shrink-0 text-micro text-muted">
                     {{ formatWhisperTime(entry.whisper.timestamp) }}
                   </time>
                 </div>
                 <p class="whisper-text">{{ entry.whisper.message }}</p>
-                <p class="message-status">
-                  💬 {{ isOwnWhisper(entry.whisper)
-                      ? 'Replied to ' + entry.whisper.recipient
-                      : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to you') }}
-                </p>
+                <div class="flex items-center justify-between text-micro text-muted">
+                  <p class="message-status">
+                    💬 {{ isOwnWhisper(entry.whisper)
+                        ? 'Replied to ' + entry.whisper.recipient
+                        : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to you') }}
+                  </p>
+                  <button
+                    *ngIf="!isOwnWhisper(entry.whisper) && !entry.whisper.has_open_report"
+                    type="button"
+                    class="text-error/70 hover:text-error text-micro hover:underline cursor-pointer"
+                    (click)="reportWhisper(entry.whisper)"
+                    title="Report whisper to moderators"
+                  >
+                    🚩 Report
+                  </button>
+                  <span *ngIf="entry.whisper.has_open_report" class="text-micro text-gold">
+                    🚩 Reported
+                  </span>
+                </div>
               </article>
             } @else {
               <article
@@ -403,4 +424,153 @@
     [charId]="charState.activeCharacter()!.char_id!"
     (closeModal)="showHomebrewModal.set(false)"
   ></app-player-homebrew-modal>
+
+  <!-- Character Import Modal (#151, #153) -->
+  <forge-modal
+    [open]="showImportModal()"
+    (openChange)="showImportModal.set($event)"
+    title="📥 Import Character Sheet"
+    maxWidth="640px"
+  >
+    <div class="flex flex-col gap-4 p-1">
+      <!-- Tabs -->
+      <div class="flex border-b border-hairline gap-2">
+        <button
+          type="button"
+          forgeButton
+          [variant]="importTab() === 'pdf' ? 'primary' : 'ghost'"
+          size="sm"
+          (click)="importTab.set('pdf')"
+        >
+          📄 5e PDF Sheet
+        </button>
+        <button
+          type="button"
+          forgeButton
+          [variant]="importTab() === 'dndbeyond' ? 'primary' : 'ghost'"
+          size="sm"
+          (click)="importTab.set('dndbeyond')"
+        >
+          🌐 D&D Beyond
+        </button>
+        <button
+          type="button"
+          forgeButton
+          [variant]="importTab() === 'foundry' ? 'primary' : 'ghost'"
+          size="sm"
+          (click)="importTab.set('foundry')"
+        >
+          ⚡ Foundry VTT
+        </button>
+      </div>
+
+      <!-- Error banner -->
+      <div
+        *ngIf="importError()"
+        class="rounded-lg border border-red-500/40 bg-red-950/20 p-3 text-body-sm text-red-300"
+      >
+        ⚠️ {{ importError() }}
+      </div>
+
+      <!-- Warnings banner -->
+      <div
+        *ngIf="importWarnings().length > 0"
+        class="rounded-lg border border-gold/40 bg-gold/10 p-3 text-body-sm text-ink"
+      >
+        <p class="font-semibold text-gold mb-1">Import Warnings / Fallbacks:</p>
+        <ul class="list-disc list-inside space-y-1">
+          <li *ngFor="let w of importWarnings()">{{ w }}</li>
+        </ul>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isImporting()" class="flex flex-col items-center justify-center py-8">
+        <div class="w-10 h-10 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-3 text-body-sm text-muted">Importing and syncing character data...</p>
+      </div>
+
+      <!-- PDF Tab -->
+      <div *ngIf="!isImporting() && importTab() === 'pdf'" class="flex flex-col gap-3">
+        <p class="text-body-sm text-muted">
+          Upload an official or fillable D&D 5e character sheet PDF (up to 10 MB). Stats, skills, spells, and equipment will be extracted automatically.
+        </p>
+        <label
+          class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-hairline hover:border-gold/60 rounded-lg cursor-pointer bg-black/10 transition-colors"
+        >
+          <span class="text-3xl mb-2">📄</span>
+          <span class="text-body font-semibold text-ink">Choose PDF file to upload</span>
+          <span class="text-micro text-muted mt-1">.pdf format only (max 10 MB, 10 pages)</span>
+          <input
+            type="file"
+            accept=".pdf"
+            class="hidden"
+            (change)="onImportPdf($event)"
+          />
+        </label>
+      </div>
+
+      <!-- D&D Beyond Tab -->
+      <div *ngIf="!isImporting() && importTab() === 'dndbeyond'" class="flex flex-col gap-3">
+        <p class="text-body-sm text-muted">
+          Enter a public D&D Beyond character share URL or numeric Character ID.
+        </p>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-label text-muted font-semibold">Character URL or ID</label>
+          <input
+            type="text"
+            forgeInput
+            [(ngModel)]="dndBeyondUrl"
+            placeholder="e.g. https://www.dndbeyond.com/characters/12345678 or 12345678"
+            class="w-full text-body"
+            (keydown.enter)="onImportDndBeyond()"
+          />
+        </div>
+        <div class="flex justify-end mt-2">
+          <button
+            forgeButton
+            variant="primary"
+            size="sm"
+            type="button"
+            [disabled]="!dndBeyondUrl.trim() || isImporting()"
+            (click)="onImportDndBeyond()"
+          >
+            Import from D&D Beyond
+          </button>
+        </div>
+      </div>
+
+      <!-- Foundry VTT Tab -->
+      <div *ngIf="!isImporting() && importTab() === 'foundry'" class="flex flex-col gap-3">
+        <p class="text-body-sm text-muted">
+          Export your character as JSON from Foundry VTT (dnd5e system) and upload the exported file here.
+        </p>
+        <label
+          class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-hairline hover:border-gold/60 rounded-lg cursor-pointer bg-black/10 transition-colors"
+        >
+          <span class="text-3xl mb-2">⚡</span>
+          <span class="text-body font-semibold text-ink">Choose Foundry JSON file</span>
+          <span class="text-micro text-muted mt-1">.json export file (max 5 MB)</span>
+          <input
+            type="file"
+            accept=".json"
+            class="hidden"
+            (change)="onImportFoundry($event)"
+          />
+        </label>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex justify-end gap-2 border-t border-hairline pt-3 mt-2">
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="closeImportModal()"
+        >
+          {{ importWarnings().length > 0 ? 'Done' : 'Close' }}
+        </button>
+      </div>
+    </div>
+  </forge-modal>
 </forge-page>

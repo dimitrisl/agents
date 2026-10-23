@@ -185,7 +185,7 @@ def test_campaign_deletion_only_by_owner():
     mock_db.__getitem__.side_effect = lambda k: {
         "campaigns": mock_campaigns,
         "campaign_members": mock_members,
-        "campaign_whispers": MagicMock(delete_many=AsyncMock()),
+        "campaign_whispers": MagicMock(delete_many=AsyncMock(), update_many=AsyncMock()),
         "campaign_roll_requests": MagicMock(delete_many=AsyncMock()),
         "campaign_encounters": MagicMock(delete_many=AsyncMock()),
         "campaign_entities": MagicMock(delete_many=AsyncMock()),

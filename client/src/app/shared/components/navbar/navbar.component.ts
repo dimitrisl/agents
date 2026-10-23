@@ -29,7 +29,6 @@ export class NavbarComponent {
   }
 
   isAdmin(): boolean {
-    const u = this.authService.currentUser();
-    return u?.username === 'mitsos' || u?.id === 'local_user_mitsos';
+    return !!this.authService.currentUser()?.is_admin;
   }
 }

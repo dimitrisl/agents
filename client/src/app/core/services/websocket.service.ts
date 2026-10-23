@@ -268,4 +268,24 @@ export class WebSocketService {
   public sendVttUpdateGrid(grid: Partial<VTTGrid>): void {
     this.sendMessage({ type: 'vtt_update_grid', payload: { grid } });
   }
+
+  public sendVttFogToggle(enabled: boolean): void {
+    this.sendMessage({ type: 'vtt_fog_toggle', payload: { enabled } });
+  }
+
+  public sendVttFogReveal(cells?: number[][], rect?: { x: number; y: number; w: number; h: number }): void {
+    this.sendMessage({ type: 'vtt_fog_reveal', payload: { cells, rect } });
+  }
+
+  public sendVttFogHide(cells?: number[][], rect?: { x: number; y: number; w: number; h: number }): void {
+    this.sendMessage({ type: 'vtt_fog_hide', payload: { cells, rect } });
+  }
+
+  public sendVttFogRevealAll(): void {
+    this.sendMessage({ type: 'vtt_fog_reveal_all', payload: {} });
+  }
+
+  public sendVttFogHideAll(): void {
+    this.sendMessage({ type: 'vtt_fog_hide_all', payload: {} });
+  }
 }
