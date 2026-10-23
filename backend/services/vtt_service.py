@@ -472,40 +472,70 @@ class VTTService:
                     {"$set": {"fog.enabled": bool(enabled)}},
                 )
             )
+        else:
+            await _maybe_await(
+                _col(db, "campaigns").update_one(
+                    {"campaign_name": campaign_name},
+                    {"$set": {"vtt_state.fog.enabled": bool(enabled)}},
+                )
+            )
         return await self.get_vtt_state(db, campaign_name)
 
     async def reveal_fog(self, db: Any, campaign_name: str, payload: dict) -> VTTStateSchema:
         state = await self.get_vtt_state(db, campaign_name)
         indices = self._extract_valid_cell_indices(payload, state.grid.width, state.grid.height)
-        if indices and state.active_scene_id:
-            await _maybe_await(
-                _col(db, "campaign_scenes").update_one(
-                    {"scene_id": state.active_scene_id},
-                    {"$addToSet": {"fog.revealed": {"$each": indices}}},
+        if indices:
+            if state.active_scene_id:
+                await _maybe_await(
+                    _col(db, "campaign_scenes").update_one(
+                        {"scene_id": state.active_scene_id},
+                        {"$addToSet": {"fog.revealed": {"$each": indices}}},
+                    )
                 )
-            )
+            else:
+                await _maybe_await(
+                    _col(db, "campaigns").update_one(
+                        {"campaign_name": campaign_name},
+                        {"$addToSet": {"vtt_state.fog.revealed": {"$each": indices}}},
+                    )
+                )
         return await self.get_vtt_state(db, campaign_name)
 
     async def hide_fog(self, db: Any, campaign_name: str, payload: dict) -> VTTStateSchema:
         state = await self.get_vtt_state(db, campaign_name)
         indices = self._extract_valid_cell_indices(payload, state.grid.width, state.grid.height)
-        if indices and state.active_scene_id:
-            await _maybe_await(
-                _col(db, "campaign_scenes").update_one(
-                    {"scene_id": state.active_scene_id},
-                    {"$pull": {"fog.revealed": {"$in": indices}}},
+        if indices:
+            if state.active_scene_id:
+                await _maybe_await(
+                    _col(db, "campaign_scenes").update_one(
+                        {"scene_id": state.active_scene_id},
+                        {"$pull": {"fog.revealed": {"$in": indices}}},
+                    )
                 )
-            )
+            else:
+                await _maybe_await(
+                    _col(db, "campaigns").update_one(
+                        {"campaign_name": campaign_name},
+                        {"$pull": {"vtt_state.fog.revealed": {"$in": indices}}},
+                    )
+                )
         return await self.get_vtt_state(db, campaign_name)
 
     async def reveal_all_fog(self, db: Any, campaign_name: str) -> VTTStateSchema:
         state = await self.get_vtt_state(db, campaign_name)
+        all_indices = list(range(state.grid.width * state.grid.height))
         if state.active_scene_id:
-            all_indices = list(range(state.grid.width * state.grid.height))
             await _maybe_await(
                 _col(db, "campaign_scenes").update_one(
                     {"scene_id": state.active_scene_id},
                     {"$set": {"fog.revealed": all_indices}},
+                )
+            )
+        else:
+            await _maybe_await(
+                _col(db, "campaigns").update_one(
+                    {"campaign_name": campaign_name},
+                    {"$set": {"vtt_state.fog.revealed": all_indices}},
                 )
             )
         return await self.get_vtt_state(db, campaign_name)
@@ -517,6 +547,13 @@ class VTTService:
                 _col(db, "campaign_scenes").update_one(
                     {"scene_id": state.active_scene_id},
                     {"$set": {"fog.revealed": []}},
+                )
+            )
+        else:
+            await _maybe_await(
+                _col(db, "campaigns").update_one(
+                    {"campaign_name": campaign_name},
+                    {"$set": {"vtt_state.fog.revealed": []}},
                 )
             )
         return await self.get_vtt_state(db, campaign_name)

@@ -270,6 +270,7 @@
     [(replyMessage)]="inboxReplyMessage"
     [isSendingReply]="isSendingInboxReply"
     (sendReply)="sendInboxReply()"
+    (reportWhisper)="onReportWhisper($event)"
   ></app-dm-inbox>
   }
 

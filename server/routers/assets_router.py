@@ -125,7 +125,7 @@ async def get_asset(
         raise HTTPException(status_code=404, detail="Asset not found")
 
     asset = await db["campaign_assets"].find_one({"filename": filename})
-    if asset and asset.get("campaign_name") != name:
+    if not asset or asset.get("campaign_name") != name:
         raise HTTPException(status_code=404, detail="Asset not found")
 
     return FileResponse(file_path)

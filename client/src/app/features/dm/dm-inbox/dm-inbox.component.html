@@ -37,12 +37,29 @@
               <span class="message-kind">
                 {{ isFromDm(entry.whisper) ? 'You (DM)' : entry.whisper.sender }}
               </span>
+              <span *ngIf="entry.whisper.sender_deleted || (isFromDm(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-error font-medium">
+                (Διαγραμμένος χρήστης)
+              </span>
               <time class="shrink-0 text-micro text-muted">
                 {{ formatTime(entry.whisper.timestamp) }}
               </time>
             </div>
             <p class="inbox-text">{{ entry.whisper.message }}</p>
-            <p class="message-status">💬 {{ whisperDirection(entry.whisper) }}</p>
+            <div class="flex items-center justify-between text-micro text-muted">
+              <p class="message-status">💬 {{ whisperDirection(entry.whisper) }}</p>
+              <button
+                *ngIf="!isFromDm(entry.whisper) && !entry.whisper.has_open_report"
+                type="button"
+                class="text-error/70 hover:text-error text-micro hover:underline cursor-pointer"
+                (click)="reportWhisper.emit(entry.whisper)"
+                title="Report whisper to moderators"
+              >
+                🚩 Report
+              </button>
+              <span *ngIf="entry.whisper.has_open_report" class="text-micro text-gold">
+                🚩 Reported
+              </span>
+            </div>
           </article>
         } @else {
           <article

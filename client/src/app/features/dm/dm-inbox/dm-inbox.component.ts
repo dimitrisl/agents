@@ -62,6 +62,7 @@ export class DmInboxComponent implements OnChanges, AfterViewChecked {
   @Output() replyRecipientChange = new EventEmitter<string>();
   @Output() replyMessageChange = new EventEmitter<string>();
   @Output() sendReply = new EventEmitter<void>();
+  @Output() reportWhisper = new EventEmitter<Whisper>();
 
   @ViewChild('feedList') private feedList?: ElementRef<HTMLElement>;
 

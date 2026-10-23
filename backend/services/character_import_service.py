@@ -11,7 +11,9 @@ from backend.services.stats_service import get_modifier, sync_character_stats
 
 logger = logging.getLogger("DnDAssistant.CharacterImportService")
 
-DDB_URL_REGEX = re.compile(r"(?:https?://)?(?:www\.)?dndbeyond\.com/characters/(\d+)")
+DDB_URL_REGEX = re.compile(
+    r"^https?://(?:www\.)?dndbeyond\.com/(?:profile/[^/]+/)?characters/(\d+)/?(?:\?.*)?$"
+)
 
 DDB_STAT_MAP = {
     1: "STR",
@@ -57,7 +59,31 @@ SKILL_NAME_MAP = {
 
 
 class DndBeyondImportError(ValueError):
-    """Raised when D&D Beyond fetch or parse fails."""
+    """Base exception for D&D Beyond import failures."""
+
+    pass
+
+
+class DndBeyondInvalidUrlError(DndBeyondImportError):
+    """Raised when URL format is invalid or potential SSRF."""
+
+    pass
+
+
+class DndBeyondPrivateError(DndBeyondImportError):
+    """Raised when character is set to private (401/403)."""
+
+    pass
+
+
+class DndBeyondNotFoundError(DndBeyondImportError):
+    """Raised when character is not found (404)."""
+
+    pass
+
+
+class DndBeyondUpstreamError(DndBeyondImportError):
+    """Raised when D&D Beyond character service fails or returns >= 500 / network error."""
 
     pass
 
@@ -69,12 +95,12 @@ class CharacterImportService:
         cleaned = url_or_id.strip()
         if cleaned.isdigit():
             return cleaned
-        match = DDB_URL_REGEX.search(cleaned)
+        match = DDB_URL_REGEX.match(cleaned)
         if match:
             return match.group(1)
-        raise DndBeyondImportError(
+        raise DndBeyondInvalidUrlError(
             f"Invalid D&D Beyond character URL or ID: '{url_or_id}'. "
-            "Expected format: https://www.dndbeyond.com/characters/12345678 or numeric ID."
+            "Expected format: https://www.dndbeyond.com/characters/<id> or https://www.dndbeyond.com/profile/<user>/characters/<id>."
         )
 
     @classmethod
@@ -101,35 +127,37 @@ class CharacterImportService:
                 response = await client.get(api_url, headers=headers)
             except httpx.RequestError as exc:
                 logger.error(f"D&D Beyond network error fetching {char_id}: {exc}")
-                raise DndBeyondImportError(f"Network error contacting D&D Beyond: {exc}")
+                raise DndBeyondUpstreamError(f"Network error contacting D&D Beyond: {exc}")
 
         if response.status_code == 404:
-            raise DndBeyondImportError(
-                "Character not found on D&D Beyond or character is set to Private. "
-                "Please verify the ID and ensure character privacy is set to Public."
+            raise DndBeyondNotFoundError(
+                "Character not found on D&D Beyond. Please verify the character ID."
             )
-        elif response.status_code == 403:
-            raise DndBeyondImportError(
-                "Access forbidden by D&D Beyond. The character is likely private. "
-                "Please set the character visibility to Public on D&D Beyond and retry."
+        elif response.status_code in (401, 403):
+            raise DndBeyondPrivateError(
+                "Character is Private on D&D Beyond. Please set Character Privacy to Public or export a PDF."
             )
         elif response.status_code == 429:
-            raise DndBeyondImportError(
+            raise DndBeyondUpstreamError(
                 "D&D Beyond rate limit reached. Please wait a few moments before retrying."
             )
+        elif response.status_code >= 500:
+            raise DndBeyondUpstreamError(
+                f"D&D Beyond service error (HTTP {response.status_code}). Try importing via PDF."
+            )
         elif response.status_code != 200:
-            raise DndBeyondImportError(
+            raise DndBeyondUpstreamError(
                 f"D&D Beyond returned unexpected status HTTP {response.status_code}."
             )
 
         try:
             payload = response.json()
         except Exception as e:
-            raise DndBeyondImportError(f"Failed to parse JSON response from D&D Beyond: {e}")
+            raise DndBeyondUpstreamError(f"Failed to parse JSON response from D&D Beyond: {e}")
 
         if not isinstance(payload, dict) or not payload.get("success", True):
             msg = payload.get("message") if isinstance(payload, dict) else str(payload)
-            raise DndBeyondImportError(f"D&D Beyond returned error: {msg}")
+            raise DndBeyondUpstreamError(f"D&D Beyond returned error: {msg}")
 
         return payload
 

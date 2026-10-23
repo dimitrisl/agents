@@ -231,3 +231,72 @@ def test_import_foundry_endpoint_rejects_corrupted_json(test_client):
     )
     assert res.status_code == 400
     assert "invalid JSON" in res.json()["detail"]
+
+
+def test_import_dndbeyond_rejects_invalid_url_and_ssrf(test_client):
+    # Non-D&D Beyond domain (SSRF attempt)
+    res = test_client.post(
+        "/characters/import-dndbeyond",
+        json={"url_or_id": "https://evil.com/characters/12345"},
+    )
+    assert res.status_code == 400
+    assert "Invalid D&D Beyond character URL" in res.json()["detail"]
+
+    # Localhost attempt
+    res = test_client.post(
+        "/characters/import-dndbeyond",
+        json={"url_or_id": "http://localhost:8000/characters/12345"},
+    )
+    assert res.status_code == 400
+
+    # Malformed URL
+    res = test_client.post(
+        "/characters/import-dndbeyond",
+        json={"url_or_id": "not_a_valid_url_or_id"},
+    )
+    assert res.status_code == 400
+
+
+def test_extract_ddb_character_id_profile_url():
+    # Supports D&D Beyond profile URLs
+    url = "https://www.dndbeyond.com/profile/CriticalRole/characters/99887766"
+    assert CharacterImportService.extract_dndbeyond_character_id(url) == "99887766"
+
+
+@patch.object(CharacterImportService, "fetch_dndbeyond_character")
+def test_import_dndbeyond_returns_403_for_private_character(mock_fetch, test_client):
+    from backend.services.character_import_service import DndBeyondPrivateError
+
+    mock_fetch.side_effect = DndBeyondPrivateError("Character is Private on D&D Beyond.")
+    res = test_client.post(
+        "/characters/import-dndbeyond",
+        json={"url_or_id": "https://www.dndbeyond.com/characters/12345"},
+    )
+    assert res.status_code == 403
+    assert "Private" in res.json()["detail"]
+
+
+@patch.object(CharacterImportService, "fetch_dndbeyond_character")
+def test_import_dndbeyond_returns_404_for_not_found(mock_fetch, test_client):
+    from backend.services.character_import_service import DndBeyondNotFoundError
+
+    mock_fetch.side_effect = DndBeyondNotFoundError("Character not found on D&D Beyond.")
+    res = test_client.post(
+        "/characters/import-dndbeyond",
+        json={"url_or_id": "https://www.dndbeyond.com/characters/99999999"},
+    )
+    assert res.status_code == 404
+    assert "not found" in res.json()["detail"].lower()
+
+
+@patch.object(CharacterImportService, "fetch_dndbeyond_character")
+def test_import_dndbeyond_returns_502_for_upstream_error(mock_fetch, test_client):
+    from backend.services.character_import_service import DndBeyondUpstreamError
+
+    mock_fetch.side_effect = DndBeyondUpstreamError("D&D Beyond service error (HTTP 500).")
+    res = test_client.post(
+        "/characters/import-dndbeyond",
+        json={"url_or_id": "https://www.dndbeyond.com/characters/12345"},
+    )
+    assert res.status_code == 502
+    assert "service error" in res.json()["detail"].lower()

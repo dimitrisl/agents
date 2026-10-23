@@ -167,10 +167,17 @@ class ConnectionManager:
 
             # Check targeting
             if targets is not None or target_uids is not None:
-                matches_char = targets is not None and connection.is_character(targets)
-                matches_user = target_uids is not None and connection.is_user(target_uids)
-                if not (connection.is_dm or matches_char or matches_user):
-                    continue
+                if not connection.is_dm:
+                    if target_uids is not None:
+                        if connection.user_id:
+                            if not connection.is_user(target_uids):
+                                continue
+                        else:
+                            if targets is not None and not connection.is_character(targets):
+                                continue
+                    elif targets is not None:
+                        if not connection.is_character(targets):
+                            continue
 
             try:
                 await connection.websocket.send_json(message)

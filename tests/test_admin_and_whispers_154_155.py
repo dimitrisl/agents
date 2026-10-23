@@ -236,3 +236,147 @@ def test_admin_update_report_status(admin_client, mock_db):
     assert res.status_code == 200
     assert res.json()["status"] == "resolved"
     mock_db["whisper_reports"].update_one.assert_called_once()
+
+
+def test_non_admin_gets_403(mock_db):
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.include_router(admin_router, prefix="/api/v1")
+
+    regular_user = {"id": "player_1", "username": "player", "is_admin": False}
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: regular_user
+    # mock_db["users"].find_one returns non-admin doc
+    mock_db["users"].find_one = AsyncMock(return_value=regular_user)
+
+    client = TestClient(app)
+    res = client.get("/api/v1/admin/users")
+    assert res.status_code == 403
+    assert "Admin privileges required" in res.json()["detail"]
+
+
+def test_report_whisper_rejects_empty_reason(admin_client, mock_db):
+    member_doc = {
+        "campaign_id": "Curse of Strahd",
+        "user_id": "admin_user_1",
+        "username": "admin",
+        "role": "dm",
+    }
+    mock_db["campaign_members"].find_one = AsyncMock(return_value=member_doc)
+    res = admin_client.post(
+        "/api/v1/campaigns/Curse of Strahd/whispers/wh_123/report",
+        json={"reason": "   "},
+    )
+    assert res.status_code == 400
+    assert "cannot be empty" in res.json()["detail"]
+
+
+def test_report_whisper_unauthorized_user_forbidden(mock_db):
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.include_router(campaign_router, prefix="/api/v1")
+
+    unrelated_user = {"id": "unrelated_1", "username": "eavesdropper", "is_admin": False}
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: unrelated_user
+
+    member_doc = {
+        "campaign_id": "Curse of Strahd",
+        "user_id": "unrelated_1",
+        "username": "eavesdropper",
+        "role": "player",
+    }
+    mock_db["campaign_members"].find_one = AsyncMock(return_value=member_doc)
+
+    camp_doc = {"campaign_name": "Curse of Strahd"}
+    private_whisper = {
+        "id": "wh_private",
+        "campaign_name": "Curse of Strahd",
+        "sender": "Alice",
+        "recipient": "Bob",
+        "sender_user_id": "user_alice",
+        "recipient_user_id": "user_bob",
+        "message": "Secret message",
+    }
+    mock_db["campaigns"].find_one = AsyncMock(return_value=camp_doc)
+    mock_db["campaign_whispers"].find_one = AsyncMock(return_value=private_whisper)
+
+    client = TestClient(app)
+    res = client.post(
+        "/api/v1/campaigns/Curse of Strahd/whispers/wh_private/report",
+        json={"reason": "I want to report this"},
+    )
+    assert res.status_code == 403
+    assert "Not authorized" in res.json()["detail"]
+
+
+def test_whisper_report_context_endpoint_and_bidirectional_context(admin_client, mock_db):
+    target_time = datetime(2026, 10, 24, 12, 5, 0, tzinfo=timezone.utc)
+
+    report_doc = {
+        "_id": ObjectId(),
+        "report_id": "rep_test_ctx",
+        "whisper_id": "wh_target",
+        "campaign_name": "Curse of Strahd",
+        "reported_by_user_id": "user_bob",
+        "reason": "Harassment",
+        "created_at": target_time,
+        "status": "open",
+    }
+    reported_whisper = {
+        "id": "wh_target",
+        "campaign_name": "Curse of Strahd",
+        "sender": "Alice",
+        "recipient": "Bob",
+        "sender_user_id": "u_alice",
+        "recipient_user_id": "u_bob",
+        "message": "Reported bad message",
+        "created_at": target_time,
+    }
+
+    mock_db["whisper_reports"].find_one = AsyncMock(return_value=report_doc)
+    mock_db["campaign_whispers"].find_one = AsyncMock(return_value=reported_whisper)
+
+    # Context mocks: 2 whispers before and 1 whisper after
+    w_before = [
+        {
+            "id": "w_b1",
+            "message": "Hi",
+            "created_at": datetime(2026, 10, 24, 12, 1, 0, tzinfo=timezone.utc),
+        },
+        {
+            "id": "w_b2",
+            "message": "How are you",
+            "created_at": datetime(2026, 10, 24, 12, 2, 0, tzinfo=timezone.utc),
+        },
+    ]
+    w_after = [
+        {
+            "id": "w_a1",
+            "message": "Please stop",
+            "created_at": datetime(2026, 10, 24, 12, 6, 0, tzinfo=timezone.utc),
+        },
+    ]
+
+    cursor_before = MagicMock()
+    cursor_before.sort = MagicMock(return_value=cursor_before)
+    cursor_before.limit = MagicMock(return_value=cursor_before)
+    cursor_before.to_list = AsyncMock(return_value=list(reversed(w_before)))
+
+    cursor_after = MagicMock()
+    cursor_after.sort = MagicMock(return_value=cursor_after)
+    cursor_after.limit = MagicMock(return_value=cursor_after)
+    cursor_after.to_list = AsyncMock(return_value=w_after)
+
+    mock_db["campaign_whispers"].find = MagicMock(side_effect=[cursor_before, cursor_after])
+
+    # Test alias route /whisper-reports/{report_id}/context
+    res = admin_client.get("/api/v1/admin/whisper-reports/rep_test_ctx/context")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["report_id"] == "rep_test_ctx"
+    assert len(data["context_whispers"]) == 4  # 2 before + 1 target + 1 after
+    assert data["context_whispers"][0]["id"] == "w_b1"
+    assert data["context_whispers"][1]["id"] == "w_b2"
+    assert data["context_whispers"][2]["id"] == "wh_target"
+    assert data["context_whispers"][3]["id"] == "w_a1"

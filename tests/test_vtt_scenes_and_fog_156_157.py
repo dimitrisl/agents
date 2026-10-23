@@ -298,3 +298,143 @@ async def test_lazy_migration_and_script_migration(mock_db):
     assert len(state.tokens) == 1
     assert state.tokens[0].name == "Fighter"
     mock_db["campaign_scenes"].insert_one.assert_called_once()
+
+
+def test_unregistered_asset_returns_404(vtt_test_app, mock_db):
+    user = {"id": "user_1", "username": "player1"}
+    vtt_test_app.dependency_overrides[get_database] = lambda: mock_db
+    vtt_test_app.dependency_overrides[get_current_user] = lambda: user
+
+    member_doc = {
+        "campaign_id": "Campaign_A",
+        "user_id": "user_1",
+        "username": "player1",
+        "role": "player",
+    }
+    mock_db["campaign_members"].find_one = AsyncMock(return_value=member_doc)
+    # Asset does not exist in db["campaign_assets"]
+    mock_db["campaign_assets"].find_one = AsyncMock(return_value=None)
+
+    client = TestClient(vtt_test_app)
+    res = client.get("/api/v1/campaigns/Campaign_A/assets/unregistered_asset.png")
+    assert res.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_scene_duplicate_and_activate(vtt_test_app, mock_db):
+    dm_user = {"id": "dm_user_id", "username": "dm_bob"}
+    vtt_test_app.dependency_overrides[get_database] = lambda: mock_db
+    vtt_test_app.dependency_overrides[get_current_user] = lambda: dm_user
+
+    dm_member = {
+        "campaign_id": "TestCampaign",
+        "user_id": "dm_user_id",
+        "username": "dm_bob",
+        "role": "dm",
+    }
+    camp_doc = {
+        "campaign_name": "TestCampaign",
+        "vtt_state": {"is_active": True, "active_scene_id": "scene_1"},
+    }
+    source_scene = {
+        "scene_id": "scene_1",
+        "campaign_name": "TestCampaign",
+        "name": "Dungeon Entrance",
+        "dm_notes": "Traps near doorway",
+        "grid": {"width": 20, "height": 20, "cell_size": 50},
+        "tokens": [],
+        "fog": {"enabled": True, "revealed": [0, 1]},
+        "order": 0,
+    }
+    mock_db["campaign_members"].find_one = AsyncMock(return_value=dm_member)
+    mock_db["campaigns"].find_one = AsyncMock(return_value=camp_doc)
+    mock_db["campaign_scenes"].find_one = AsyncMock(return_value=source_scene)
+
+    client = TestClient(vtt_test_app)
+
+    # 1. Duplicate
+    res_dup = client.post("/api/v1/campaigns/TestCampaign/scenes/scene_1/duplicate")
+    assert res_dup.status_code == status.HTTP_201_CREATED
+    dup_data = res_dup.json()
+    assert dup_data["name"] == "Dungeon Entrance (Copy)"
+    assert dup_data["scene_id"] != "scene_1"
+    mock_db["campaign_scenes"].insert_one.assert_called()
+
+    # 2. Activate
+    res_act = client.post("/api/v1/campaigns/TestCampaign/scenes/scene_1/activate")
+    assert res_act.status_code == status.HTTP_200_OK
+    assert res_act.json()["success"] is True
+    mock_db["campaigns"].update_one.assert_called()
+    mock_db["campaign_scene_history"].insert_one.assert_called()
+
+
+@pytest.mark.anyio
+async def test_vtt_service_fog_operations(mock_db):
+    scene_id = "scene_fog_1"
+    camp_doc = {
+        "campaign_name": "FogCamp",
+        "vtt_state": {
+            "is_active": True,
+            "active_scene_id": scene_id,
+        },
+    }
+    scene_doc = {
+        "scene_id": scene_id,
+        "campaign_name": "FogCamp",
+        "name": "Default",
+        "grid": {"width": 10, "height": 10, "cell_size": 50},
+        "tokens": [],
+        "fog": {"enabled": False, "revealed": []},
+    }
+
+    async def find_scene(query, *args, **kwargs):
+        if query.get("scene_id") == scene_id or query.get("campaign_name") == "FogCamp":
+            return scene_doc
+        return None
+
+    async def update_scene(query, update, *args, **kwargs):
+        if "$set" in update:
+            for k, v in update["$set"].items():
+                if k == "fog.enabled":
+                    scene_doc["fog"]["enabled"] = v
+                elif k == "fog.revealed":
+                    scene_doc["fog"]["revealed"] = v
+        if "$addToSet" in update:
+            for k, v in update["$addToSet"].items():
+                if k == "fog.revealed":
+                    existing = scene_doc["fog"].get("revealed", [])
+                    scene_doc["fog"]["revealed"] = list(set(existing + v["$each"]))
+        if "$pull" in update:
+            for k, v in update["$pull"].items():
+                if k == "fog.revealed":
+                    pull_set = set(v["$in"])
+                    scene_doc["fog"]["revealed"] = [
+                        idx for idx in scene_doc["fog"].get("revealed", []) if idx not in pull_set
+                    ]
+        return MagicMock(matched_count=1)
+
+    mock_db["campaigns"].find_one = AsyncMock(return_value=camp_doc)
+    mock_db["campaign_scenes"].find_one = AsyncMock(side_effect=find_scene)
+    mock_db["campaign_scenes"].update_one = AsyncMock(side_effect=update_scene)
+
+    svc = VTTService()
+    # Toggle fog
+    s1 = await svc.toggle_fog(mock_db, "FogCamp", enabled=True)
+    assert s1.fog.enabled is True
+
+    # Reveal fog
+    s2 = await svc.reveal_fog(mock_db, "FogCamp", {"cells": [[0, 0], [1, 1]]})
+    assert 0 in s2.fog.revealed
+    assert (1 * 10 + 1) in s2.fog.revealed
+
+    # Hide fog
+    s3 = await svc.hide_fog(mock_db, "FogCamp", {"cells": [[0, 0]]})
+    assert 0 not in s3.fog.revealed
+    assert (1 * 10 + 1) in s3.fog.revealed
+
+    # Reveal all
+    s4 = await svc.reveal_all_fog(mock_db, "FogCamp")
+    assert len(s4.fog.revealed) == 100
+
+    # Hide all
+    s5 = await svc.hide_all_fog(mock_db, "FogCamp")
+    assert s5.fog.revealed == []

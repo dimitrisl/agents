@@ -27,6 +27,10 @@ from backend.core.schemas import CharacterSchema, SuccessResponseSchema
 from backend.services.character_import_service import (
     CharacterImportService,
     DndBeyondImportError,
+    DndBeyondInvalidUrlError,
+    DndBeyondNotFoundError,
+    DndBeyondPrivateError,
+    DndBeyondUpstreamError,
 )
 from backend.services.forge_service import process_character_update
 from backend.services.homebrew_service import HomebrewService
@@ -835,6 +839,26 @@ async def import_dndbeyond(
             char_dict, current_user["id"], db, sync_stats=True
         )
         return ImportCharacterResponse(**saved_char.model_dump(), warnings=warnings)
+    except DndBeyondInvalidUrlError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except DndBeyondPrivateError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except DndBeyondNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except DndBeyondUpstreamError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        )
     except DndBeyondImportError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

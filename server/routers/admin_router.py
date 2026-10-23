@@ -124,7 +124,57 @@ async def list_whisper_reports(
     return reports
 
 
+async def _fetch_context_whispers(db: Any, whisper: dict) -> List[dict]:
+    cname = whisper.get("campaign_name")
+    u1 = whisper.get("sender_user_id")
+    u2 = whisper.get("recipient_user_id")
+    pair_query: Dict[str, Any] = {"campaign_name": cname}
+    if u1 and u2:
+        pair_query["$or"] = [
+            {"sender_user_id": u1, "recipient_user_id": u2},
+            {"sender_user_id": u2, "recipient_user_id": u1},
+        ]
+    else:
+        s1 = whisper.get("sender")
+        s2 = whisper.get("recipient")
+        pair_query["$or"] = [
+            {"sender": s1, "recipient": s2},
+            {"sender": s2, "recipient": s1},
+        ]
+
+    sort_field = "created_at" if whisper.get("created_at") is not None else "timestamp"
+    target_val = whisper.get(sort_field)
+
+    async def _run_query(filter_dict: dict, sort_order: int, limit: int) -> List[dict]:
+        cursor = db["campaign_whispers"].find(filter_dict).sort(sort_field, sort_order).limit(limit)
+        if hasattr(cursor, "to_list"):
+            raw = await _maybe_await(cursor.to_list(length=limit))
+        elif hasattr(cursor, "__aiter__"):
+            raw = [w async for w in cursor]
+        else:
+            raw = list(cursor)
+        out = []
+        for w in raw:
+            w.pop("_id", None)
+            out.append(w)
+        return out
+
+    if target_val is not None:
+        before_query = {**pair_query, sort_field: {"$lt": target_val}}
+        after_query = {**pair_query, sort_field: {"$gt": target_val}}
+        before_whispers = await _run_query(before_query, -1, 10)
+        before_whispers.reverse()
+        after_whispers = await _run_query(after_query, 1, 10)
+        return before_whispers + [whisper] + after_whispers
+    else:
+        whispers = await _run_query(pair_query, -1, 20)
+        whispers.reverse()
+        return whispers
+
+
 @router.get("/reports/{report_id}", response_model=WhisperReportSchema)
+@router.get("/reports/{report_id}/context", response_model=WhisperReportSchema)
+@router.get("/whisper-reports/{report_id}/context", response_model=WhisperReportSchema)
 async def get_whisper_report_detail(
     report_id: str,
     admin_user: dict = Depends(require_admin),
@@ -140,37 +190,9 @@ async def get_whisper_report_detail(
         whisper.pop("_id", None)
         report["whisper"] = whisper
 
-    # Context whispers (up to 10 before and 10 after between the same two users in the same campaign)
     context_whispers = []
     if whisper:
-        cname = whisper.get("campaign_name")
-        u1 = whisper.get("sender_user_id")
-        u2 = whisper.get("recipient_user_id")
-        pair_query: Dict[str, Any] = {"campaign_name": cname}
-        if u1 and u2:
-            pair_query["$or"] = [
-                {"sender_user_id": u1, "recipient_user_id": u2},
-                {"sender_user_id": u2, "recipient_user_id": u1},
-            ]
-        else:
-            s1 = whisper.get("sender")
-            s2 = whisper.get("recipient")
-            pair_query["$or"] = [
-                {"sender": s1, "recipient": s2},
-                {"sender": s2, "recipient": s1},
-            ]
-
-        cursor_ctx = db["campaign_whispers"].find(pair_query).sort("created_at", -1).limit(20)
-        if hasattr(cursor_ctx, "to_list"):
-            raw_ctx = await _maybe_await(cursor_ctx.to_list(length=20))
-        elif hasattr(cursor_ctx, "__aiter__"):
-            raw_ctx = [cw async for cw in cursor_ctx]
-        else:
-            raw_ctx = list(cursor_ctx)
-        for cw in raw_ctx:
-            cw.pop("_id", None)
-            context_whispers.append(cw)
-        context_whispers.reverse()
+        context_whispers = await _fetch_context_whispers(db, whisper)
 
     report["context_whispers"] = context_whispers
 

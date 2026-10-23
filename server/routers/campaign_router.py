@@ -965,6 +965,12 @@ async def report_whisper(
     db: AsyncIOMotorDatabase = Depends(get_database),
     member: dict = Depends(require_campaign_member()),
 ):
+    if not payload.reason or not payload.reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Report reason cannot be empty.",
+        )
+
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")

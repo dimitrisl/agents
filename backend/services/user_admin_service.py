@@ -318,7 +318,10 @@ async def delete_user_cascade(db: Any, user_id: str, admin_user: dict) -> UserDe
         logger.warning("Error disconnecting websockets for user %s: %s", actual_user_id, e)
 
     # 7. Delete user document last
-    await _maybe_await(db["users"].delete_one({"id": actual_user_id}))
+    delete_filter = {"id": actual_user_id}
+    if user.get("username"):
+        delete_filter = {"$or": [{"id": actual_user_id}, {"username": user["username"]}]}
+    await _maybe_await(db["users"].delete_one(delete_filter))
 
     # 8. Record in admin_audit_log
     try:

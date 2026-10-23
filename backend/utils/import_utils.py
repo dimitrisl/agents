@@ -358,6 +358,7 @@ def import_vtt_character(vtt_data: Dict[str, Any]) -> Tuple[Dict[str, Any], List
         "background": background,
         "alignment": alignment,
         "backstory": backstory,
+        "base_stats": dict(stats),
         "stats": stats,
         "saving_throws": saving_throws,
         "skill_proficiencies": skill_profs,

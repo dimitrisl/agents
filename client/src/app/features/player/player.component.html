@@ -299,7 +299,7 @@
                   <span class="message-kind">
                     {{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}
                   </span>
-                  <span *ngIf="entry.whisper.sender_deleted" class="text-micro text-error font-medium">
+                  <span *ngIf="entry.whisper.sender_deleted || (isOwnWhisper(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-error font-medium">
                     (Διαγραμμένος χρήστης)
                   </span>
                   <time class="shrink-0 text-micro text-muted">
