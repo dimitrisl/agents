@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, EmailStr
+from pymongo.errors import DuplicateKeyError
 
 from server.db_async import get_database
 from server.dependencies.auth import (
@@ -68,7 +69,13 @@ async def register(user_in: UserRegisterSchema, db: AsyncIOMotorDatabase = Depen
         "has_completed_tutorial": False,
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
-    await db["users"].insert_one(user_doc)
+    try:
+        await db["users"].insert_one(user_doc)
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered.",
+        )
     return UserResponseSchema(**user_doc)
 
 
@@ -147,17 +154,20 @@ async def demo_login(payload: DemoLoginSchema, db: AsyncIOMotorDatabase = Depend
     # Ensure demo user exists in DB so auth doesn't fail
     existing = await db["users"].find_one({"id": user_id})
     if not existing:
-        await db["users"].insert_one(
-            {
-                "id": user_id,
-                "username": username,
-                "name": name,
-                "email": f"{username}@phyrexian.forge",
-                "has_completed_tutorial": True,
-                "password_hash": "demo",
-                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            }
-        )
+        try:
+            await db["users"].insert_one(
+                {
+                    "id": user_id,
+                    "username": username,
+                    "name": name,
+                    "email": f"{username}@phyrexian.forge",
+                    "has_completed_tutorial": True,
+                    "password_hash": "demo",
+                    "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+            )
+        except DuplicateKeyError:
+            pass
 
     access_token = create_access_token(data={"sub": user_id, "username": username})
     user_res = UserResponseSchema(

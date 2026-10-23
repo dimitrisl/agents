@@ -34,11 +34,17 @@ async def lifespan(app: FastAPI):
     # Startup: Connect to MongoDB async
     logger.info("Initializing Phyrexian Forge FastAPI Backend Server...")
     os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
-    await connect_to_mongo()
+    try:
+        await connect_to_mongo()
+    except Exception as e:
+        logger.error(f"Failed during async MongoDB connection initialization: {e}")
     yield
     # Shutdown: Close connection
     logger.info("Shutting down Phyrexian Forge FastAPI Backend Server...")
-    await close_mongo_connection()
+    try:
+        await close_mongo_connection()
+    except Exception as e:
+        logger.error(f"Failed during async MongoDB connection shutdown: {e}")
 
 
 app = FastAPI(

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
+from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import (
     CampaignEntitySchema,
@@ -260,21 +261,43 @@ async def save_campaign(
         camp_dict["party"] = existing.get("party", [])
         if "invite_code" in existing:
             camp_dict["invite_code"] = existing["invite_code"]
+
+        try:
+            await db["campaigns"].update_one(
+                {"campaign_name": payload.campaign_name}, {"$set": camp_dict}
+            )
+        except DuplicateKeyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Campaign '{payload.campaign_name}' conflict.",
+            ) from e
     else:
         camp_dict["owner_id"] = current_user["id"]
-        await db["campaign_members"].insert_one(
-            {
-                "campaign_id": payload.campaign_name,
-                "user_id": current_user["id"],
-                "role": "dm",
-                "character_id": None,
-                "joined_at": datetime.datetime.now(datetime.timezone.utc),
-            }
-        )
+        doc_to_insert = dict(camp_dict)
+        try:
+            await db["campaigns"].insert_one(doc_to_insert)
+        except DuplicateKeyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Campaign '{payload.campaign_name}' already exists.",
+            ) from e
 
-    await db["campaigns"].update_one(
-        {"campaign_name": payload.campaign_name}, {"$set": camp_dict}, upsert=True
-    )
+        try:
+            await db["campaign_members"].insert_one(
+                {
+                    "campaign_id": payload.campaign_name,
+                    "user_id": current_user["id"],
+                    "role": "dm",
+                    "character_id": None,
+                    "joined_at": datetime.datetime.now(datetime.timezone.utc),
+                }
+            )
+        except DuplicateKeyError:
+            await db["campaign_members"].update_one(
+                {"campaign_id": payload.campaign_name, "user_id": current_user["id"]},
+                {"$set": {"role": "dm"}},
+            )
+
     return CampaignSchema(**camp_dict)
 
 
@@ -392,19 +415,16 @@ async def join_campaign_by_code(
     if not char or char.get("owner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
 
-    await db["campaigns"].update_one(
-        {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": payload.char_filename}}
-    )
-
-    await db["characters"].update_one(
-        {"char_id": char_id, "owner_id": current_user["id"]},
-        {"$set": {"active_campaign": camp["campaign_name"]}},
-    )
-
     existing_member = await db["campaign_members"].find_one(
         {"campaign_id": camp["campaign_name"], "user_id": current_user["id"]}
     )
-    if not existing_member:
+    if existing_member:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
+        )
+
+    try:
         await db["campaign_members"].insert_one(
             {
                 "campaign_id": camp["campaign_name"],
@@ -414,10 +434,20 @@ async def join_campaign_by_code(
                 "joined_at": datetime.datetime.now(datetime.timezone.utc),
             }
         )
-    else:
-        await db["campaign_members"].update_one(
-            {"_id": existing_member["_id"]}, {"$set": {"character_id": char_id}}
-        )
+    except DuplicateKeyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
+        ) from e
+
+    await db["campaigns"].update_one(
+        {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": payload.char_filename}}
+    )
+
+    await db["characters"].update_one(
+        {"char_id": char_id, "owner_id": current_user["id"]},
+        {"$set": {"active_campaign": camp["campaign_name"]}},
+    )
 
     return {
         "success": True,
