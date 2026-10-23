@@ -48,6 +48,14 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY: str = ""
 
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    AUTH_LOGIN_RATE_LIMIT: str = "5/minute"
+    AUTH_REGISTER_RATE_LIMIT: str = "3/minute"
+    AI_RATE_LIMIT: str = "10/minute"
+    AUDIO_SESSION_RATE_LIMIT: str = "2/minute"
+    GLOBAL_RATE_LIMIT: str = "100/minute"
+
     @property
     def cors_origin_list(self) -> list[str]:
         """Parse comma-separated CORS_ORIGINS into a list."""

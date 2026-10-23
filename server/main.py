@@ -2,12 +2,20 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+import slowapi.middleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 
 from server.config import settings
 from server.db_async import close_mongo_connection, connect_to_mongo
+from server.rate_limiter import (
+    PhyrexianSlowAPIMiddleware,
+    custom_find_route_handler,
+    limiter,
+    rate_limit_exceeded_handler,
+)
 from server.routers import (
     assets_router,
     auth_router,
@@ -47,6 +55,9 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed during async MongoDB connection shutdown: {e}")
 
 
+# Patch slowapi route handler lookup for nested FastAPI routers
+slowapi.middleware._find_route_handler = custom_find_route_handler
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -54,7 +65,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Configuration for Angular frontend
+# SlowAPI Rate Limiting setup
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(PhyrexianSlowAPIMiddleware)
+
+# CORS Configuration for Angular frontend (outermost middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,

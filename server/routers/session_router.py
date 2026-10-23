@@ -1,14 +1,16 @@
 from datetime import datetime, timezone
 from typing import List
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from backend.core.schemas import CampaignEntitySchema, SessionLogSchema, SessionPrepSchema
 from backend.services.session_service import SessionService
+from server.config import settings
 from server.db_async import get_database
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
+from server.rate_limiter import limiter
 
 
 class PrepRequest(BaseModel):
@@ -42,7 +44,9 @@ async def get_sessions(
 
 
 @router.post("/campaigns/{name}/sessions/audio", response_model=SessionLogSchema)
+@limiter.limit(settings.AUDIO_SESSION_RATE_LIMIT)
 async def process_audio_session(
+    request: Request,
     name: str,
     session_number: int = Form(...),
     audio_file: UploadFile = File(...),
@@ -98,9 +102,11 @@ async def process_audio_session(
 
 
 @router.post("/campaigns/{name}/sessions/text", response_model=SessionLogSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def process_text_session(
+    request: Request,
     name: str,
-    request: TextSessionRequest,
+    payload: TextSessionRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
     campaign_member: dict = Depends(require_campaign_role("dm")),
 ):
@@ -108,7 +114,7 @@ async def process_text_session(
     try:
         # Process text and extract data
         ai_result = await session_service.process_text_session(
-            campaign_name=name, session_number=request.session_number, notes=request.notes
+            campaign_name=name, session_number=payload.session_number, notes=payload.notes
         )
 
         extracted_entities = []
@@ -135,8 +141,8 @@ async def process_text_session(
         # Create session log
         session_log = SessionLogSchema(
             campaign_name=name,
-            session_number=request.session_number,
-            title=ai_result.get("title", f"Session {request.session_number}"),
+            session_number=payload.session_number,
+            title=ai_result.get("title", f"Session {payload.session_number}"),
             session_type="text",
             summary=ai_result.get("summary", ""),
             real_world_date=datetime.now(timezone.utc),
@@ -154,9 +160,11 @@ async def process_text_session(
 
 
 @router.post("/campaigns/{name}/sessions/prep", response_model=SessionPrepSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def generate_prep(
+    request: Request,
     name: str,
-    request: PrepRequest,
+    payload: PrepRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
     campaign_member: dict = Depends(require_campaign_role("dm")),
 ):
@@ -178,7 +186,7 @@ async def generate_prep(
             session_service.generate_session_forge_prep,
             past_sessions=past_sessions,
             active_entities=active_entities,
-            dm_ideas=request.dm_ideas,
+            dm_ideas=payload.dm_ideas,
         )
 
         return SessionPrepSchema(**prep_data)
@@ -188,7 +196,9 @@ async def generate_prep(
 
 
 @router.post("/campaigns/{name}/sessions/journey", response_model=dict)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def generate_journey(
+    request: Request,
     name: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     campaign_member: dict = Depends(require_campaign_member()),

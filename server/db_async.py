@@ -99,13 +99,19 @@ async def init_indexes(database):
 async def connect_to_mongo():
     global client
     logger.info("Connecting to MongoDB Atlas async via Motor...")
-    client = AsyncIOMotorClient(settings.MONGO_URI)
+    client = AsyncIOMotorClient(settings.MONGO_URI, serverSelectionTimeoutMS=2000)
 
-    # Initialize all indexes defensively
-    database = client[settings.DATABASE_NAME]
-    await init_indexes(database)
-
-    logger.info("Async MongoDB connection initialized.")
+    # Defensively check connectivity before attempting to create indexes
+    try:
+        await client.admin.command("ping")
+        database = client[settings.DATABASE_NAME]
+        await init_indexes(database)
+        logger.info("Async MongoDB connection and indexes initialized.")
+    except Exception as e:
+        logger.warning(
+            "MongoDB ping/connect failed (%s). Skipping index initialization (offline/testing environment).",
+            e,
+        )
 
 
 async def close_mongo_connection():
@@ -119,5 +125,5 @@ async def close_mongo_connection():
 async def get_database():
     global client
     if client is None:
-        client = AsyncIOMotorClient(settings.MONGO_URI)
+        client = AsyncIOMotorClient(settings.MONGO_URI, serverSelectionTimeoutMS=2000)
     return client[settings.DATABASE_NAME]

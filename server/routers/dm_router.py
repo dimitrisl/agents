@@ -1,7 +1,7 @@
 import asyncio
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from backend.core.schemas import (
@@ -16,7 +16,9 @@ from backend.services.dm_service import (
     generate_riddle,
     generate_session_prep,
 )
+from server.config import settings
 from server.dependencies.auth import get_current_user
+from server.rate_limiter import limiter
 
 router = APIRouter(prefix="/dm", tags=["DM Tools"])
 
@@ -48,8 +50,11 @@ class SessionPrepRequest(BaseModel):
 
 
 @router.post("/encounter", response_model=EncounterSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def create_encounter(
-    payload: EncounterRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: EncounterRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     result = await asyncio.to_thread(
         generate_random_encounter,
@@ -68,20 +73,29 @@ async def create_encounter(
 
 
 @router.post("/npc", response_model=NpcResponse)
-async def create_npc(payload: NpcRequest, current_user: dict = Depends(get_current_user)):
+@limiter.limit(settings.AI_RATE_LIMIT)
+async def create_npc(
+    request: Request, payload: NpcRequest, current_user: dict = Depends(get_current_user)
+):
     npc_text = await asyncio.to_thread(generate_npc, payload.npc_concept, payload.edition)
     return {"npc_markdown": npc_text}
 
 
 @router.post("/riddle", response_model=RiddleResponse)
-async def create_riddle(payload: RiddleRequest, current_user: dict = Depends(get_current_user)):
+@limiter.limit(settings.AI_RATE_LIMIT)
+async def create_riddle(
+    request: Request, payload: RiddleRequest, current_user: dict = Depends(get_current_user)
+):
     riddle_text = await asyncio.to_thread(generate_riddle, payload.location, payload.edition)
     return {"riddle_markdown": riddle_text}
 
 
 @router.post("/session-prep", response_model=SessionPrepResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def create_session_prep(
-    payload: SessionPrepRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: SessionPrepRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     prep_text = await asyncio.to_thread(
         generate_session_prep, payload.campaign_notes, payload.party_info
