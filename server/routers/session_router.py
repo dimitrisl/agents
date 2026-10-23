@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 from typing import List
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from backend.core.schemas import CampaignEntitySchema, SessionLogSchema, SessionPrepSchema
 from backend.services.session_service import SessionService
+from backend.utils.audio_validator import validate_audio_metadata
 from server.config import settings
 from server.db_async import get_database
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
@@ -54,6 +55,22 @@ async def process_audio_session(
     campaign_member: dict = Depends(require_campaign_role("dm")),
 ):
     """Upload an audio file, generate transcription and extract entities via AI."""
+    # Fast reject if Content-Length header is present and exceeds max cap
+    content_length_header = request.headers.get("content-length")
+    if content_length_header:
+        try:
+            if int(content_length_header) > settings.MAX_AUDIO_FILE_SIZE_BYTES:
+                max_mb = settings.MAX_AUDIO_FILE_SIZE_BYTES // (1024 * 1024)
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail=f"File size exceeds the maximum allowed limit of {max_mb}MB.",
+                )
+        except ValueError:
+            pass
+
+    # Validate file extension and MIME type
+    validate_audio_metadata(audio_file)
+
     try:
         # Process audio and extract data
         ai_result = await session_service.process_audio_session(
@@ -97,6 +114,8 @@ async def process_audio_session(
 
         return session_log
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

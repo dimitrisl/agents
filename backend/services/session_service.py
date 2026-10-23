@@ -5,7 +5,9 @@ from typing import Any, Dict, List
 from fastapi import UploadFile
 
 from backend.core.providers.factory import get_llm_provider
+from backend.utils.audio_validator import stream_and_validate_audio, validate_audio_metadata
 from backend.utils.path_safety import ALLOWED_DIRS
+from server.config import settings
 
 
 class SessionService:
@@ -26,16 +28,15 @@ class SessionService:
 
         upload_dir = ALLOWED_DIRS["uploads"]
         os.makedirs(upload_dir, exist_ok=True)
-        raw_filename = audio_file.filename or "audio.mp3"
-        file_extension = os.path.splitext(raw_filename)[1] or ".mp3"
-        temp_file_path = os.path.join(
-            upload_dir, f"session_upload_{uuid.uuid4().hex}{file_extension}"
-        )
+        ext = validate_audio_metadata(audio_file)
+        temp_file_path = os.path.join(upload_dir, f"session_upload_{uuid.uuid4().hex}{ext}")
 
         try:
-            with open(temp_file_path, "wb") as f:
-                while content := await audio_file.read(1024 * 1024):  # 1MB chunks
-                    f.write(content)
+            await stream_and_validate_audio(
+                audio_file=audio_file,
+                dest_path=temp_file_path,
+                max_size_bytes=settings.MAX_AUDIO_FILE_SIZE_BYTES,
+            )
 
             # Upload to Gemini (offload blocking I/O to threadpool)
             gemini_file_id = await asyncio.to_thread(self.ai_provider.upload_file, temp_file_path)
