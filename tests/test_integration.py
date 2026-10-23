@@ -49,7 +49,30 @@ class _AsyncCollection:
                 return item
             raise StopAsyncIteration
 
-    def find(self, query):
+    async def update_many(self, query, update, upsert=False):
+        class Result:
+            def __init__(self, res):
+                self.modified_count = res.modified_count
+                self.matched_count = res.matched_count
+                self.upserted_id = res.upserted_id
+
+        res = self._coll.update_many(query, update, upsert=upsert)
+        return Result(res)
+
+    async def delete_many(self, query):
+        class Result:
+            def __init__(self, res):
+                self.deleted_count = res.deleted_count
+
+        res = self._coll.delete_many(query)
+        return Result(res)
+
+    async def insert_one(self, doc):
+        return self._coll.insert_one(doc)
+
+    def find(self, query=None):
+        if query is None:
+            query = {}
         return self._AsyncCursor(self._coll.find(query))
 
     async def count_documents(self, query):
