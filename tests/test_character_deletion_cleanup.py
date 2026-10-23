@@ -594,3 +594,201 @@ def test_websocket_broadcast_on_cascading_deletion(monkeypatch, client, test_db,
         and b[1].get("payload", {}).get("char_id") == char_id
     ]
     assert len(matched) == 1
+
+
+def test_portrait_shared_asset_false_positive_prevention(client, test_db):
+    """
+    Ensure a character with portrait 'hero.png' has its file deleted even if another character
+    has portrait 'test_hero.png'. Unanchored regex matching must not cause false sharing.
+    """
+    p_hero = os.path.join(PORTRAIT_DIR, "hero.png")
+    os.makedirs(PORTRAIT_DIR, exist_ok=True)
+    with open(p_hero, "w") as f:
+        f.write("hero portrait data")
+
+    # Character being deleted
+    test_db["characters"]._coll.insert_one(
+        {
+            "char_id": "hero_clean",
+            "owner_id": "user_alice",
+            "char_portrait": "/api/v1/portraits/hero.png",
+        }
+    )
+    # Another character with test_hero.png (contains "hero.png" as substring)
+    test_db["characters"]._coll.insert_one(
+        {
+            "char_id": "hero_other",
+            "owner_id": "user_bob",
+            "char_portrait": "/api/v1/portraits/test_hero.png",
+        }
+    )
+
+    try:
+        resp = client.delete("/api/v1/characters/hero_clean")
+        assert resp.status_code == 200
+        assert not os.path.exists(p_hero)
+    finally:
+        if os.path.exists(p_hero):
+            os.remove(p_hero)
+
+
+def test_portrait_non_default_names_containing_keywords(client, test_db):
+    """
+    Portraits like 'dark_knight.png' or 'golden_anvil.png' must be deleted and not falsely
+    classified as protected template assets.
+    """
+    f1 = os.path.join(PORTRAIT_DIR, "dark_knight.png")
+    f2 = os.path.join(PORTRAIT_DIR, "golden_anvil.png")
+    os.makedirs(PORTRAIT_DIR, exist_ok=True)
+    with open(f1, "w") as f:
+        f.write("dark knight")
+    with open(f2, "w") as f:
+        f.write("golden anvil")
+
+    test_db["characters"]._coll.insert_one(
+        {
+            "char_id": "knight_char",
+            "owner_id": "user_alice",
+            "char_portrait": "/api/v1/portraits/dark_knight.png",
+        }
+    )
+    test_db["characters"]._coll.insert_one(
+        {
+            "char_id": "anvil_char",
+            "owner_id": "user_alice",
+            "char_portrait": "data/portraits/golden_anvil.png",
+        }
+    )
+
+    try:
+        resp1 = client.delete("/api/v1/characters/knight_char")
+        assert resp1.status_code == 200
+        assert not os.path.exists(f1)
+
+        resp2 = client.delete("/api/v1/characters/anvil_char")
+        assert resp2.status_code == 200
+        assert not os.path.exists(f2)
+    finally:
+        if os.path.exists(f1):
+            os.remove(f1)
+        if os.path.exists(f2):
+            os.remove(f2)
+
+
+def test_portrait_absolute_url_local_endpoint_cleaned(client, test_db):
+    """
+    Portraits stored as absolute URLs pointing to local API (http://localhost:8000/api/v1/portraits/...)
+    must be extracted and deleted.
+    """
+    filename = "custom_abs_url_avatar.png"
+    filepath = os.path.join(PORTRAIT_DIR, filename)
+    os.makedirs(PORTRAIT_DIR, exist_ok=True)
+    with open(filepath, "w") as f:
+        f.write("absolute url portrait")
+
+    test_db["characters"]._coll.insert_one(
+        {
+            "char_id": "char_abs_url",
+            "owner_id": "user_alice",
+            "char_portrait": f"http://localhost:8000/api/v1/portraits/{filename}",
+        }
+    )
+
+    try:
+        resp = client.delete("/api/v1/characters/char_abs_url")
+        assert resp.status_code == 200
+        assert not os.path.exists(filepath)
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+
+def test_portrait_non_png_extensions_cleaned(client, test_db):
+    """
+    Disk scanning for character ID portraits must find non-PNG extensions like .webp and .jpg.
+    """
+    char_id = "hero_multi_ext"
+    f_webp = os.path.join(PORTRAIT_DIR, f"{char_id}.webp")
+    f_jpg = os.path.join(PORTRAIT_DIR, f"{char_id}_1790000000.jpg")
+    os.makedirs(PORTRAIT_DIR, exist_ok=True)
+    with open(f_webp, "w") as f:
+        f.write("webp")
+    with open(f_jpg, "w") as f:
+        f.write("jpg")
+
+    test_db["characters"]._coll.insert_one(
+        {
+            "char_id": char_id,
+            "owner_id": "user_alice",
+            "char_portrait": f"/api/v1/portraits/{char_id}.webp",
+        }
+    )
+
+    try:
+        resp = client.delete(f"/api/v1/characters/{char_id}")
+        assert resp.status_code == 200
+        assert not os.path.exists(f_webp)
+        assert not os.path.exists(f_jpg)
+    finally:
+        if os.path.exists(f_webp):
+            os.remove(f_webp)
+        if os.path.exists(f_jpg):
+            os.remove(f_jpg)
+
+
+def test_cascading_cleanup_active_combatant_cleared(client, test_db, sample_character):
+    """
+    If the deleted character was activeCombatantId in campaign_encounters, it must be cleared.
+    """
+    char_id = sample_character["char_id"]
+    camp_name = sample_character["active_campaign"]
+
+    test_db["campaigns"]._coll.insert_one({"campaign_name": camp_name, "party": [char_id]})
+    test_db["campaign_encounters"]._coll.insert_one(
+        {
+            "campaign_name": camp_name,
+            "activeCombatantId": char_id,
+            "combatants": [{"id": char_id, "char_id": char_id, "name": "Valeros", "hp": 20}],
+        }
+    )
+
+    resp = client.delete(f"/api/v1/characters/{char_id}")
+    assert resp.status_code == 200
+
+    enc = test_db["campaign_encounters"]._coll.find_one({"campaign_name": camp_name})
+    assert enc["activeCombatantId"] is None
+    assert len(enc["combatants"]) == 0
+
+
+def test_presence_update_broadcast_on_character_deletion(
+    monkeypatch, client, test_db, sample_character
+):
+    """
+    Deleting a character broadcasts a presence_update offline event for connected clients.
+    """
+    from server.routers import websocket_router
+
+    broadcasts = []
+
+    async def _mock_broadcast(campaign_id, message, **kwargs):
+        broadcasts.append((campaign_id, message))
+
+    monkeypatch.setattr(websocket_router.manager, "broadcast", _mock_broadcast)
+
+    char_id = sample_character["char_id"]
+    camp_name = sample_character["active_campaign"]
+
+    test_db["campaigns"]._coll.insert_one({"campaign_name": camp_name, "party": [char_id]})
+
+    resp = client.delete(f"/api/v1/characters/{char_id}")
+    assert resp.status_code == 200
+
+    presence_broadcasts = [
+        b
+        for b in broadcasts
+        if b[0] == camp_name
+        and b[1].get("type") == "presence_update"
+        and b[1].get("payload", {}).get("character") == "Valeros"
+        and b[1].get("payload", {}).get("status") == "offline"
+    ]
+    assert len(presence_broadcasts) == 1

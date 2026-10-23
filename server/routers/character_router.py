@@ -271,10 +271,17 @@ async def add_homebrew_to_character(
 
 DEFAULT_PORTRAIT_NAMES = {
     "default.png",
+    "default.jpg",
+    "default.jpeg",
+    "default.webp",
     "default_portrait.png",
+    "default_portrait.jpg",
     "placeholder.png",
+    "placeholder.jpg",
+    "placeholder.webp",
     "anvil.png",
     "knight.png",
+    "logo.png",
 }
 
 
@@ -292,15 +299,13 @@ def _is_default_or_shared_asset_name(filename: str) -> bool:
     """Returns True if the filename corresponds to a default or shared template asset."""
     if not filename or filename == ".gitkeep":
         return True
-    lower = filename.lower()
+    lower = filename.lower().strip()
     if lower in DEFAULT_PORTRAIT_NAMES:
         return True
-    if (
-        lower.startswith("default")
-        or lower.startswith("placeholder")
-        or "anvil.png" in lower
-        or "knight.png" in lower
-    ):
+    base_name, _ = os.path.splitext(lower)
+    if base_name in {"default", "placeholder", "anvil", "knight", "logo"}:
+        return True
+    if base_name.startswith("default_") or base_name.startswith("placeholder_"):
         return True
     return False
 
@@ -321,27 +326,34 @@ async def _cleanup_character_portraits(
     # 1. From char_portrait field
     if char_portrait and isinstance(char_portrait, str):
         trimmed = char_portrait.strip()
-        # Skip external URLs or data URIs
-        if not (
-            trimmed.startswith("http://")
-            or trimmed.startswith("https://")
-            or trimmed.startswith("data:")
-        ):
-            parsed = urllib.parse.urlparse(trimmed).path
-            fname = os.path.basename(parsed)
-            fname = _secure_filename(fname)
-            if fname and not _is_default_or_shared_asset_name(fname):
-                candidate_filenames.add(fname)
+        # Skip inline data URIs
+        if not trimmed.startswith("data:"):
+            parsed = urllib.parse.urlparse(trimmed)
+            is_http = trimmed.startswith("http://") or trimmed.startswith("https://")
+            path = parsed.path
+            is_local = (
+                not is_http
+                or path.startswith(f"{settings.API_V1_STR}/portraits/")
+                or path.startswith("/api/v1/portraits/")
+                or "/portraits/" in path
+            )
+            if is_local and path:
+                fname = os.path.basename(path)
+                fname = _secure_filename(fname)
+                if fname and not _is_default_or_shared_asset_name(fname):
+                    candidate_filenames.add(fname)
 
     # 2. Standard safe_char_id.png
     if safe_char_id and not _is_default_or_shared_asset_name(f"{safe_char_id}.png"):
         candidate_filenames.add(f"{safe_char_id}.png")
 
-    # 3. Any versioned files on disk matching safe_char_id_*.png
+    # 3. Any files on disk matching safe_char_id.* or safe_char_id_*.*
     if safe_char_id and os.path.exists(PORTRAIT_DIR) and os.path.isdir(PORTRAIT_DIR):
         try:
             for disk_file in os.listdir(PORTRAIT_DIR):
-                if disk_file.startswith(f"{safe_char_id}_") and disk_file.endswith(".png"):
+                if disk_file.startswith(f"{safe_char_id}.") or disk_file.startswith(
+                    f"{safe_char_id}_"
+                ):
                     if not _is_default_or_shared_asset_name(disk_file):
                         candidate_filenames.add(disk_file)
         except Exception as e:
@@ -353,7 +365,8 @@ async def _cleanup_character_portraits(
     for fname in candidate_filenames:
         try:
             if char_coll is not None:
-                # Check if any other character in MongoDB references this portrait
+                # Path-delimited regex so "hero.png" doesn't falsely match "test_hero.png"
+                regex_pattern = rf"(^|[/\\]){re.escape(fname)}$"
                 shared_count = await char_coll.count_documents(
                     {
                         "char_id": {"$ne": char_id},
@@ -361,7 +374,7 @@ async def _cleanup_character_portraits(
                             {"char_portrait": fname},
                             {"char_portrait": f"{settings.API_V1_STR}/portraits/{fname}"},
                             {"char_portrait": f"data/portraits/{fname}"},
-                            {"char_portrait": {"$regex": re.escape(fname)}},
+                            {"char_portrait": {"$regex": regex_pattern}},
                         ],
                     }
                 )
@@ -394,6 +407,9 @@ async def _cleanup_campaign_references(
     """
     pattern = rf"(^|[_]){re.escape(char_id)}(\.json)?$"
     active_campaign = char.get("active_campaign")
+    char_name = char.get("char_name")
+    slug_name = char_name.lower().replace(" ", "_") if char_name else ""
+    standard_filename = f"{slug_name}_{char_id}.json" if slug_name else f"{char_id}.json"
 
     camp_coll = _get_coll(db, "campaigns")
     enc_coll = _get_coll(db, "campaign_encounters")
@@ -413,6 +429,7 @@ async def _cleanup_campaign_references(
                     {"party": {"$regex": pattern}},
                     {"party": char_id},
                     {"party": f"{char_id}.json"},
+                    {"party": standard_filename},
                 ]
             }
             if active_campaign:
@@ -423,18 +440,22 @@ async def _cleanup_campaign_references(
                 camp_name = camp.get("campaign_name")
                 if camp_name:
                     affected_campaigns.add(camp_name)
-                party = camp.get("party", [])
+                party = camp.get("party") or []
                 to_remove = [
                     item
                     for item in party
                     if item == char_id
                     or item == f"{char_id}.json"
+                    or item == standard_filename
                     or item.endswith(f"_{char_id}.json")
                     or bool(re.search(pattern, item))
                 ]
                 if to_remove:
+                    update_filter = (
+                        {"_id": camp["_id"]} if "_id" in camp else {"campaign_name": camp_name}
+                    )
                     await camp_coll.update_one(
-                        {"_id": camp["_id"]},
+                        update_filter,
                         {"$pull": {"party": {"$in": to_remove}}},
                     )
         except Exception as e:
@@ -442,9 +463,12 @@ async def _cleanup_campaign_references(
 
         # 2. Blanket update to pull any remaining character ID references in party
         try:
+            blanket_pull_targets = [char_id, f"{char_id}.json"]
+            if standard_filename not in blanket_pull_targets:
+                blanket_pull_targets.append(standard_filename)
             await camp_coll.update_many(
                 {},
-                {"$pull": {"party": {"$in": [char_id, f"{char_id}.json"]}}},
+                {"$pull": {"party": {"$in": blanket_pull_targets}}},
             )
         except Exception as e:
             logger.warning("Error running blanket party update for %s: %s", char_id, e)
@@ -469,6 +493,10 @@ async def _cleanup_campaign_references(
                 {},
                 {"$pull": {"combatants": {"id": char_id}}},
             )
+            await enc_coll.update_many(
+                {"activeCombatantId": char_id},
+                {"$set": {"activeCombatantId": None}},
+            )
         except Exception as e:
             logger.warning("Error removing combatants for %s: %s", char_id, e)
 
@@ -481,6 +509,7 @@ async def _cleanup_campaign_references(
                         {"char_filename": {"$regex": pattern}},
                         {"char_filename": char_id},
                         {"char_filename": f"{char_id}.json"},
+                        {"char_filename": standard_filename},
                     ]
                 }
             )
@@ -495,6 +524,13 @@ async def _cleanup_campaign_references(
             async for member_doc in cursor_members:
                 m_camp = member_doc.get("campaign_id")
                 m_user = member_doc.get("user_id")
+                if m_camp:
+                    affected_campaigns.add(m_camp)
+                filter_doc = (
+                    {"_id": member_doc["_id"]}
+                    if "_id" in member_doc
+                    else {"campaign_id": m_camp, "user_id": m_user}
+                )
                 if member_doc.get("role") != "dm":
                     other_count = (
                         await char_coll.count_documents(
@@ -508,7 +544,7 @@ async def _cleanup_campaign_references(
                         else 0
                     )
                     if other_count == 0:
-                        await mem_coll.delete_one({"_id": member_doc["_id"]})
+                        await mem_coll.delete_one(filter_doc)
                     else:
                         other_char = (
                             await char_coll.find_one(
@@ -523,26 +559,26 @@ async def _cleanup_campaign_references(
                         )
                         if other_char:
                             await mem_coll.update_one(
-                                {"_id": member_doc["_id"]},
+                                filter_doc,
                                 {"$set": {"character_id": other_char["char_id"]}},
                             )
                         else:
                             await mem_coll.update_one(
-                                {"_id": member_doc["_id"]},
-                                {"$unset": {"character_id": ""}},
+                                filter_doc,
+                                {"$set": {"character_id": None}},
                             )
                 else:
-                    # DM membership is preserved
+                    # DM membership is preserved; character_id cleared
                     await mem_coll.update_one(
-                        {"_id": member_doc["_id"]},
-                        {"$unset": {"character_id": ""}},
+                        filter_doc,
+                        {"$set": {"character_id": None}},
                     )
         except Exception as e:
             logger.warning("Error reconciling campaign_members character_id for %s: %s", char_id, e)
 
         # 6b. For the character's owner across all affected campaigns, clean up membership if they have no remaining characters
         try:
-            for camp_name in affected_campaigns:
+            for camp_name in list(affected_campaigns):
                 member_doc = await mem_coll.find_one(
                     {
                         "campaign_id": camp_name,
@@ -561,8 +597,30 @@ async def _cleanup_campaign_references(
                         if char_coll is not None
                         else 0
                     )
+                    filter_doc = (
+                        {"_id": member_doc["_id"]}
+                        if "_id" in member_doc
+                        else {"campaign_id": camp_name, "user_id": owner_id}
+                    )
                     if other_count == 0:
-                        await mem_coll.delete_one({"_id": member_doc["_id"]})
+                        await mem_coll.delete_one(filter_doc)
+                    elif not member_doc.get("character_id"):
+                        other_char = (
+                            await char_coll.find_one(
+                                {
+                                    "owner_id": owner_id,
+                                    "active_campaign": camp_name,
+                                    "char_id": {"$ne": char_id},
+                                }
+                            )
+                            if char_coll is not None
+                            else None
+                        )
+                        if other_char:
+                            await mem_coll.update_one(
+                                filter_doc,
+                                {"$set": {"character_id": other_char["char_id"]}},
+                            )
         except Exception as e:
             logger.warning(
                 "Error reconciling campaign_members for affected campaigns %s: %s",
@@ -579,6 +637,14 @@ async def _cleanup_campaign_references(
                 camp_name,
                 {"type": "party_update", "payload": {"action": "removed", "char_id": char_id}},
             )
+            if char_name:
+                await manager.broadcast(
+                    camp_name,
+                    {
+                        "type": "presence_update",
+                        "payload": {"character": char_name, "status": "offline"},
+                    },
+                )
     except Exception as e:
         logger.warning("Error broadcasting websocket party update for %s: %s", char_id, e)
 
@@ -603,8 +669,15 @@ async def delete_character(
     if result.deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
 
-    await _cleanup_character_portraits(db, char_id, char.get("char_portrait"))
-    await _cleanup_campaign_references(db, char_id, char, current_user["id"])
+    try:
+        await _cleanup_character_portraits(db, char_id, char.get("char_portrait"))
+    except Exception as e:
+        logger.warning("Failed cascading portrait cleanup for %s: %s", char_id, e)
+
+    try:
+        await _cleanup_campaign_references(db, char_id, char, current_user["id"])
+    except Exception as e:
+        logger.warning("Failed cascading campaign cleanup for %s: %s", char_id, e)
 
     return {"success": True, "message": f"Character {char_id} deleted."}
 
