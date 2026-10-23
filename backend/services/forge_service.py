@@ -584,13 +584,18 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
         all_spells = rules_repo.get_all_spells(edition)
         spells = []
+        magical_secrets_spells = []
+        char_class_lower = char_class.lower()
         for s in all_spells:
-            if s.get("level", 0) <= max_spell_level and (
-                not s.get("classes") or char_class in s.get("classes", [])
-            ):
-                spells.append(s["name"])
+            s_level = s.get("level", 0)
+            if s_level <= max_spell_level:
+                magical_secrets_spells.append(s["name"])
+                s_classes = [c.lower() for c in s.get("classes", [])]
+                if not s_classes or char_class_lower in s_classes:
+                    spells.append(s["name"])
 
         spells = sorted(spells)
+        magical_secrets_spells = sorted(magical_secrets_spells)
 
         # Bard Magical Secrets overrides
         if char_class == "Bard" and target_level in [10, 14, 18]:
@@ -598,7 +603,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 {
                     "type": "spell_secret_1",
                     "label": "Magical Secrets: Choose 1st Spell (Any Class)",
-                    "options": spells,
+                    "options": magical_secrets_spells,
                     "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
                 }
             )
@@ -606,7 +611,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 {
                     "type": "spell_secret_2",
                     "label": "Magical Secrets: Choose 2nd Spell (Any Class)",
-                    "options": spells,
+                    "options": magical_secrets_spells,
                     "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
                 }
             )
@@ -615,7 +620,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 {
                     "type": "spell_secret_1",
                     "label": "Additional Magical Secrets: Choose 1st Spell (Any Class)",
-                    "options": spells,
+                    "options": magical_secrets_spells,
                     "ai_recommendation": "Lore Bards get Magical Secrets early!",
                 }
             )
@@ -623,7 +628,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 {
                     "type": "spell_secret_2",
                     "label": "Additional Magical Secrets: Choose 2nd Spell (Any Class)",
-                    "options": spells,
+                    "options": magical_secrets_spells,
                     "ai_recommendation": "Lore Bards get Magical Secrets early!",
                 }
             )
