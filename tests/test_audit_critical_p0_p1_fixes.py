@@ -61,26 +61,49 @@ def test_rate_limiter_rejects_expired_token():
     assert "user:attacker_user" not in key
 
 
-def test_rate_limiter_accepts_valid_token():
-    """Valid JWT token uses user identity bucket."""
+def test_rate_limiter_rejects_token_without_exp():
+    """JWT without 'exp' claim must be rejected and fallback to IP."""
+    no_exp_payload = {
+        "sub": "forged_user",
+    }
+    no_exp_token = jwt.encode(no_exp_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+    mock_request = MagicMock()
+    mock_request.headers = {
+        "authorization": f"Bearer {no_exp_token}",
+    }
+    mock_request.client.host = "192.168.1.100"
+
+    key = get_user_or_ip_key(mock_request)
+    assert key.startswith("ip:"), f"Expected IP key for token without exp, got: {key}"
+    assert "user:forged_user" not in key
+
+
+def test_rate_limiter_accepts_valid_token_and_case_insensitive_bearer():
+    """Valid JWT token uses user identity bucket, even with lowercase 'bearer' prefix."""
     valid_payload = {
         "sub": "legit_user",
         "exp": int(time.time()) + 3600,
     }
     valid_token = jwt.encode(valid_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
+    # 1. Standard "Bearer "
     mock_request = MagicMock()
     mock_request.headers = {
         "authorization": f"Bearer {valid_token}",
     }
     mock_request.client.host = "192.168.1.100"
+    assert get_user_or_ip_key(mock_request) == "user:legit_user"
 
-    key = get_user_or_ip_key(mock_request)
-    assert key == "user:legit_user"
+    # 2. Lowercase "bearer "
+    mock_request.headers = {
+        "authorization": f"bearer {valid_token}",
+    }
+    assert get_user_or_ip_key(mock_request) == "user:legit_user"
 
 
 def test_rate_limiter_proxy_safety():
-    """Untrusted client sending spoofed X-Forwarded-For must be ignored."""
+    """Untrusted client sending spoofed X-Forwarded-For must be ignored; trusted proxy honored."""
     # 1. Untrusted peer IP
     untrusted_request = MagicMock()
     untrusted_request.client.host = "203.0.113.195"
@@ -90,7 +113,7 @@ def test_rate_limiter_proxy_safety():
     ip = get_real_ip(untrusted_request)
     assert ip == "203.0.113.195"
 
-    # 2. Trusted proxy peer IP (127.0.0.1)
+    # 2. Trusted proxy peer IP (127.0.0.1) with X-Forwarded-For
     trusted_request = MagicMock()
     trusted_request.client.host = "127.0.0.1"
     trusted_request.headers = {"x-forwarded-for": "198.51.100.42"}
@@ -98,6 +121,14 @@ def test_rate_limiter_proxy_safety():
     assert is_trusted_proxy("127.0.0.1")
     ip = get_real_ip(trusted_request)
     assert ip == "198.51.100.42"
+
+    # 3. Trusted proxy with X-Real-IP header
+    real_ip_request = MagicMock()
+    real_ip_request.client.host = "127.0.0.1"
+    real_ip_request.headers = {"x-real-ip": "198.51.100.99"}
+
+    ip = get_real_ip(real_ip_request)
+    assert ip == "198.51.100.99"
 
 
 # --- 3. [TICKET-P1-04] Campaign Assets IDOR & Tenancy Protection ---
@@ -332,7 +363,7 @@ async def test_roll_request_authorization_default_deny():
 
 # --- 7. [TICKET-P1-06] Character PDF Exporter Local Portraits ---
 def test_pdf_exporter_local_portrait_resolution(tmp_path):
-    """Local portraits in PORTRAIT_DIR must be loaded safely."""
+    """Local portraits in PORTRAIT_DIR must be loaded safely; path traversal & edge cases blocked."""
     test_portrait_filename = "test_avatar_123.png"
     target_dir = os.path.abspath(PORTRAIT_DIR)
     os.makedirs(target_dir, exist_ok=True)
@@ -358,6 +389,16 @@ def test_pdf_exporter_local_portrait_resolution(tmp_path):
         # 3. Test path traversal is blocked
         blocked_overlay = create_image_overlay("../../etc/passwd")
         assert blocked_overlay is None
+
+        # 4. Test URL-encoded path traversal is blocked
+        blocked_encoded = create_image_overlay(
+            "http://localhost:8000/api/v1/portraits/%2e%2e%2fetc%2fpasswd"
+        )
+        assert blocked_encoded is None
+
+        # 5. Test None and empty inputs return None gracefully without raising
+        assert create_image_overlay(None) is None
+        assert create_image_overlay("") is None
     finally:
         if os.path.exists(portrait_path):
             os.remove(portrait_path)
@@ -388,24 +429,52 @@ def test_bard_magical_secrets_bypasses_class_filter():
     assert secret_1 is not None, "Magical Secrets choice 1 missing at level 10"
     assert secret_2 is not None, "Magical Secrets choice 2 missing at level 10"
 
-    # Verify that non-Bard spells (e.g. Fireball or Wizard/Cleric spells) are available
     secret_options = secret_1["options"]
     assert len(secret_options) > 0
 
-    # Fireball is a 3rd level Sorcerer/Wizard spell, not normally a Bard spell
     from backend.repositories.rules_repository import RulesRepository
 
     repo = RulesRepository()
     all_spells = repo.get_all_spells(EDITION_2024)
+    # Check case-insensitively for spells truly not available to bards
     non_bard_spells = [
         s["name"]
         for s in all_spells
-        if s.get("level", 0) <= 5 and "Bard" not in s.get("classes", [])
+        if s.get("level", 0) <= 5 and "bard" not in [c.lower() for c in s.get("classes", [])]
     ]
 
-    # At least some non-bard spells must be present in Magical Secrets options
+    # Non-bard spells (e.g. Fireball) must be available in Magical Secrets
     overlap = set(secret_options).intersection(set(non_bard_spells))
     assert len(overlap) > 0, (
         f"Magical Secrets options should include non-Bard spells, but none were found! "
         f"Sample non-bard: {non_bard_spells[:5]}"
     )
+    assert "Fireball" in secret_options
+
+    # Also verify regular Bard level up (level 1 -> 2) includes Bard spells and excludes Wizard-only spells
+    bard_level_1 = {
+        "char_name": "Elan",
+        "char_level": 1,
+        "char_class": "Bard",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 10, "DEX": 14, "CON": 12, "INT": 12, "WIS": 10, "CHA": 18},
+        "hit_dice": "d8",
+        "hp_max": 9,
+        "proficiency_bonus": 2,
+        "features_traits": [],
+    }
+    lvl2_payload = analyze_level_up(bard_level_1)
+    lvl2_choices = lvl2_payload.get("choices_required", [])
+    spell_choice = next((c for c in lvl2_choices if c.get("type") == "spell"), None)
+    assert spell_choice is not None
+    assert len(spell_choice["options"]) > 0
+    # Must include Bard spells (like Vicious Mockery or Dissonant Whispers)
+    bard_sample_present = any(
+        s in spell_choice["options"]
+        for s in ["Dissonant Whispers", "Vicious Mockery", "Charm Person"]
+    )
+    assert bard_sample_present, (
+        f"Expected Bard spells in regular level up options, got {spell_choice['options'][:5]}"
+    )
+    # Must NOT include non-Bard spells (like Mage Armor or Shield)
+    assert "Mage Armor" not in spell_choice["options"]

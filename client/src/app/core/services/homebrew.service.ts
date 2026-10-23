@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, shareReplay, tap } from 'rxjs';
 
 export interface HomebrewItem {
   _id?: string;
@@ -64,7 +64,8 @@ export class HomebrewService {
             window.URL.revokeObjectURL(downloadUrl);
           }
         }
-      })
+      }),
+      shareReplay(1)
     );
     download$.subscribe();
     return download$;

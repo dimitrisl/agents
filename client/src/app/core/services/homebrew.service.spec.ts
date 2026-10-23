@@ -55,4 +55,27 @@ describe('HomebrewService', () => {
 
     clickSpy.mockRestore();
   });
+
+  it('exportHomebrewPdf should share request when caller also subscribes', () => {
+    const campaignName = 'Neverwinter';
+    const mockBlob = new Blob(['%PDF-1.4 dummy content'], { type: 'application/pdf' });
+
+    window.URL.createObjectURL = jest.fn().mockReturnValue('blob:http://localhost/mock-url');
+    window.URL.revokeObjectURL = jest.fn();
+    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    // Caller subscribes as well
+    let receivedBlob: Blob | null = null;
+    service.exportHomebrewPdf(campaignName).subscribe((b) => {
+      receivedBlob = b;
+    });
+
+    // Only one HTTP request should be sent
+    const req = httpTestingController.expectOne(`${environment.apiBaseUrl}/campaigns/${campaignName}/homebrew/export/pdf`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockBlob);
+
+    expect(receivedBlob).toBe(mockBlob);
+    clickSpy.mockRestore();
+  });
 });

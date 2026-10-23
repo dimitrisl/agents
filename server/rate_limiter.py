@@ -42,11 +42,21 @@ def is_trusted_proxy(ip: str) -> bool:
 
 def get_real_ip(request: Request) -> str:
     """
-    Extract real client IP from X-Forwarded-For header only if request comes
+    Extract real client IP from X-Real-IP or X-Forwarded-For header only if request comes
     from a trusted reverse proxy, otherwise fallback to request client host or 127.0.0.1.
     """
     remote_ip = get_remote_address(request)
     if is_trusted_proxy(remote_ip):
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            candidate = real_ip.strip()
+            if candidate:
+                try:
+                    ipaddress.ip_address(candidate)
+                    return candidate
+                except ValueError:
+                    pass
+
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
             candidate = forwarded.split(",")[0].strip()
@@ -74,14 +84,14 @@ def get_user_or_ip_key(request: Request) -> str:
     Otherwise falls back to client IP.
     """
     auth = request.headers.get("authorization", "")
-    if auth.startswith("Bearer "):
+    if auth.lower().startswith("bearer "):
         token = auth[7:].strip()
         try:
             payload = jwt.decode(
                 token,
                 settings.SECRET_KEY,
                 algorithms=[settings.ALGORITHM],
-                options={"verify_exp": True},
+                options={"verify_exp": True, "require": ["exp"]},
             )
             sub = payload.get("sub") or payload.get("username")
             if sub:

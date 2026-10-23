@@ -229,8 +229,11 @@ PORTRAIT_DIR = os.path.join("data", "portraits")
 
 def create_image_overlay(image_url: str) -> io.BytesIO:
     """Creates a transparent PDF page with the image at specific coordinates."""
+    if not image_url or not isinstance(image_url, str):
+        return None
+
     try:
-        from urllib.parse import urlparse
+        from urllib.parse import unquote, urlparse
 
         from backend.utils.path_safety import safe_path
 
@@ -246,7 +249,7 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
                     img_data = io.BytesIO(resp.content)
             else:
                 # Local or self-hosted portrait URL (e.g. http://localhost:8000/api/v1/portraits/{file})
-                filename = os.path.basename(parsed.path)
+                filename = os.path.basename(unquote(parsed.path))
                 if filename:
                     try:
                         target_path = safe_path(
@@ -263,7 +266,8 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
                     return None
         else:
             try:
-                filename = os.path.basename(parsed.path) or os.path.basename(image_url)
+                raw_filename = unquote(parsed.path) if parsed.path else unquote(image_url)
+                filename = os.path.basename(raw_filename)
                 target_path = None
                 if filename:
                     try:
@@ -273,7 +277,7 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
                     except ValueError:
                         pass
                 if not target_path or not os.path.exists(target_path):
-                    target_path = safe_path(image_url, scope="portraits")
+                    target_path = safe_path(unquote(image_url), scope="portraits")
 
                 if target_path and os.path.exists(target_path):
                     with open(target_path, "rb") as f:

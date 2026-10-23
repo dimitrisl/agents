@@ -72,6 +72,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+if settings.SECRET_KEY and len(settings.SECRET_KEY.encode("utf-8")) < 32:
+    logger.warning(
+        "JWT_SECRET_KEY is shorter than 32 bytes (256 bits). "
+        "RFC 7518 requires keys for HMAC-SHA256 to be at least 32 bytes."
+    )
 if settings.GEMINI_API_KEY:
     import os
 

@@ -585,11 +585,13 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         all_spells = rules_repo.get_all_spells(edition)
         spells = []
         magical_secrets_spells = []
+        char_class_lower = char_class.lower()
         for s in all_spells:
             s_level = s.get("level", 0)
             if s_level <= max_spell_level:
                 magical_secrets_spells.append(s["name"])
-                if not s.get("classes") or char_class in s.get("classes", []):
+                s_classes = [c.lower() for c in s.get("classes", [])]
+                if not s_classes or char_class_lower in s_classes:
                     spells.append(s["name"])
 
         spells = sorted(spells)
