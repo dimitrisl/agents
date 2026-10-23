@@ -59,12 +59,9 @@ async def migrate():
         await db["campaign_members"].delete_many({})
         await db["campaign_members"].insert_many(members_to_insert)
 
-        # Create unique index
-        from pymongo import ASCENDING
+        from server.db_async import init_indexes
 
-        await db["campaign_members"].create_index(
-            [("campaign_id", ASCENDING), ("user_id", ASCENDING)], unique=True
-        )
+        await init_indexes(db)
         print(f"Migration completed. Inserted {len(members_to_insert)} members.")
     else:
         print("No members to migrate.")
