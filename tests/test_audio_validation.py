@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from starlette.datastructures import Headers
 
 from backend.utils.audio_validator import (
+    format_file_size_limit,
     stream_and_validate_audio,
     validate_audio_metadata,
     verify_audio_signature,
@@ -73,7 +74,7 @@ VALID_M4A = b"\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00" + b"\x00" * 32
 VALID_WEBM = b"\x1a\x45\xdf\xa3\x01\x00\x00\x1f\x42\x82\x84webm" + b"\x00" * 32
 VALID_AAC_ADTS = b"\xff\xf1\x50\x80" + b"\x00" * 32
 VALID_AAC_ADIF = b"ADIF\x00\x00\x00\x00" + b"\x00" * 32
-VALID_AAC_ID3 = b"ID3\x04\x00\x00\x00\x00\x00\x23" + b"\x00" * 32
+VALID_AAC_ID3 = b"ID3\x04\x00\x00\x00\x00\x00\x00\xff\xf1\x50\x80" + b"\x00" * 32
 
 
 def make_upload_file(
@@ -95,15 +96,20 @@ class TestValidateAudioMetadata:
         [
             ("session.mp3", "audio/mpeg", ".mp3"),
             ("SESSION.MP3", "audio/mp3", ".mp3"),
+            ("session.mp3", "audio/x-mp3", ".mp3"),
             ("session.wav", "audio/wav", ".wav"),
             ("session.wav", "audio/x-wav", ".wav"),
+            ("session.wav", "audio/vnd.wave", ".wav"),
             ("session.m4a", "audio/mp4", ".m4a"),
             ("session.m4a", "audio/x-m4a", ".m4a"),
             ("session.ogg", "audio/ogg", ".ogg"),
             ("session.ogg", "application/ogg", ".ogg"),
+            ("session.ogg", "audio/x-ogg", ".ogg"),
+            ("session.ogg", "application/x-ogg", ".ogg"),
             ("session.webm", "audio/webm", ".webm"),
             ("session.webm", "audio/webm; codecs=opus", ".webm"),
             ("session.flac", "audio/flac", ".flac"),
+            ("session.flac", "application/x-flac", ".flac"),
             ("session.aac", "audio/aac", ".aac"),
             ("session.aac", "audio/x-aac", ".aac"),
         ],
@@ -206,12 +212,19 @@ class TestVerifyAudioSignature:
             (".wav", b"\x7fELF\x02\x01\x01\x00linux binary"),
             (".ogg", b"\xca\xfe\xba\xbejava or macho fat binary"),
             (".flac", b"#!/bin/bash\nrm -rf /"),
+            (".flac", b"  \n#!/bin/bash\nrm -rf /"),
             (".m4a", b"%PDF-1.4\n1 0 obj<<>>"),
             (".webm", b"PK\x03\x04\x14\x00\x00\x00zip archive"),
             (".aac", b"<!DOCTYPE html><html><body>malware</body></html>"),
+            (".mp3", b"\xef\xbb\xbf<!DOCTYPE html><html><body>malware</body></html>"),
             (".mp3", b"<html xmlns='http://www.w3.org/1999/xhtml'>"),
             (".wav", b"<?xml version='1.0'?><evil/>"),
+            (".wav", b"<?php phpinfo(); ?>"),
             (".ogg", b"<svg xmlns='http://www.w3.org/2000/svg'></svg>"),
+            (".ogg", b"7z\xbc\xaf\x27\x1c\x00\x04"),
+            (".aac", b"Rar!\x1a\x07\x00"),
+            (".m4a", b"\x1f\x8b\x08\x00"),
+            (".webm", b"\xfd7zXZ\x00archive"),
         ],
     )
     def test_disallowed_and_executable_signatures_rejected(self, ext, disallowed_bytes):
@@ -224,14 +237,29 @@ class TestVerifyAudioSignature:
             (".wav", VALID_MP3_ID3),
             (".ogg", VALID_FLAC),
             (".flac", VALID_OGG),
+            (".flac", VALID_MP3_ID3),
+            (".aac", VALID_MP3_ID3),
             (".m4a", VALID_WEBM),
             (".webm", VALID_M4A),
+            (".m4a", b"\x00\x00\x00\x1cftypavif\x00\x00\x00\x00avifmif1"),
+            (".m4a", b"\x00\x00\x00\x1cftypheic\x00\x00\x00\x00heicmif1"),
         ],
     )
     def test_mismatched_magic_bytes_rejected(self, claimed_ext, content_from_other_format):
         assert verify_audio_signature(content_from_other_format, claimed_ext) is False
 
-    @pytest.mark.parametrize("header", [b"", b"\x00", b"\xff", b"hello world random text"])
+    @pytest.mark.parametrize(
+        "header",
+        [
+            b"",
+            b"\x00",
+            b"\xff",
+            b"hello world random text",
+            b"ID3\xff\x00\x00\x00\x00\x00\x00",  # invalid ID3 version 255
+            b"ID3\x04\x00\x00\x00\x80\x00\x00",  # non-syncsafe high bit set in size
+            b"ID3",  # truncated ID3 header (< 10 bytes)
+        ],
+    )
     def test_empty_and_garbage_headers_rejected(self, header):
         assert verify_audio_signature(header, ".mp3") is False
 
@@ -293,8 +321,32 @@ class TestStreamAndValidateAudio:
                 await stream_and_validate_audio(uf, dest_file, max_size_bytes=200, chunk_size=100)
 
             assert exc_info.value.status_code == 413
-            assert "File size exceeds the maximum allowed limit" in exc_info.value.detail
+            assert (
+                "File size exceeds the maximum allowed limit of 200 bytes." in exc_info.value.detail
+            )
             assert not os.path.exists(dest_file)
+
+    @pytest.mark.anyio
+    async def test_stream_resets_file_pointer_if_previously_read(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dest_file = os.path.join(tmpdir, "dest.mp3")
+            content = VALID_MP3_ID3 + b"\x00" * 256
+            uf = make_upload_file(content, filename="test.mp3", content_type="audio/mpeg")
+
+            # Partially consume the upload file first
+            await uf.read(20)
+            assert uf.file.tell() == 20
+
+            # stream_and_validate_audio should defensively seek(0) and read all content
+            written_bytes = await stream_and_validate_audio(uf, dest_file)
+            assert written_bytes == len(content)
+            with open(dest_file, "rb") as f:
+                assert f.read() == content
+
+    def test_format_file_size_limit(self):
+        assert format_file_size_limit(100 * 1024 * 1024) == "100MB"
+        assert format_file_size_limit(500 * 1024) == "500KB"
+        assert format_file_size_limit(100) == "100 bytes"
 
 
 # ---------------------------------------------------------------------------

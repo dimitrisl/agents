@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from backend.core.schemas import CampaignEntitySchema, SessionLogSchema, SessionPrepSchema
 from backend.services.session_service import SessionService
-from backend.utils.audio_validator import validate_audio_metadata
+from backend.utils.audio_validator import format_file_size_limit, validate_audio_metadata
 from server.config import settings
 from server.db_async import get_database
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
@@ -60,10 +60,10 @@ async def process_audio_session(
     if content_length_header:
         try:
             if int(content_length_header) > settings.MAX_AUDIO_FILE_SIZE_BYTES:
-                max_mb = settings.MAX_AUDIO_FILE_SIZE_BYTES // (1024 * 1024)
+                limit_str = format_file_size_limit(settings.MAX_AUDIO_FILE_SIZE_BYTES)
                 raise HTTPException(
                     status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    detail=f"File size exceeds the maximum allowed limit of {max_mb}MB.",
+                    detail=f"File size exceeds the maximum allowed limit of {limit_str}.",
                 )
         except ValueError:
             pass
