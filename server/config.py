@@ -9,7 +9,7 @@ logger = logging.getLogger("PhyrexianForge.Config")
 
 def _generate_dev_secret() -> str:
     """Generate a random secret for development. Logs a warning."""
-    key = secrets.token_urlsafe(32)
+    key = secrets.token_urlsafe(64)
     logger.warning(
         "JWT_SECRET_KEY not set — generated a random ephemeral key. "
         "All tokens will be invalidated on restart. Set JWT_SECRET_KEY in .env for production."
@@ -48,13 +48,14 @@ class Settings(BaseSettings):
 
     GEMINI_API_KEY: str = ""
 
-    # Rate Limiting
+    # Rate Limiting & Proxies
     RATE_LIMIT_ENABLED: bool = True
     AUTH_LOGIN_RATE_LIMIT: str = "5/minute"
     AUTH_REGISTER_RATE_LIMIT: str = "3/minute"
     AI_RATE_LIMIT: str = "10/minute"
     AUDIO_SESSION_RATE_LIMIT: str = "2/minute"
     GLOBAL_RATE_LIMIT: str = "100/minute"
+    TRUSTED_PROXIES: str = "127.0.0.1,::1,testclient,localhost"
 
     # Audio session uploads (100 MB max cap)
     MAX_AUDIO_FILE_SIZE_BYTES: int = 100 * 1024 * 1024
@@ -63,6 +64,11 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         """Parse comma-separated CORS_ORIGINS into a list."""
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def trusted_proxy_list(self) -> list[str]:
+        """Parse comma-separated TRUSTED_PROXIES into a list."""
+        return [p.strip() for p in self.TRUSTED_PROXIES.split(",") if p.strip()]
 
 
 settings = Settings()

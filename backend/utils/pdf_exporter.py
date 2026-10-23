@@ -224,6 +224,9 @@ class PDFMappingProvider:
         return field_data
 
 
+PORTRAIT_DIR = os.path.join("data", "portraits")
+
+
 def create_image_overlay(image_url: str) -> io.BytesIO:
     """Creates a transparent PDF page with the image at specific coordinates."""
     try:
@@ -232,21 +235,47 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
         from backend.utils.path_safety import safe_path
 
         img_data = None
-        if image_url.startswith(("http://", "https://")):
-            parsed = urlparse(image_url)
+        parsed = urlparse(image_url)
+
+        if parsed.scheme in ("http", "https"):
             # Prevent SSRF by only allowing external image hosts
             allowed_hosts = ["image.pollinations.ai", "raw.githubusercontent.com", "imgur.com"]
-            if parsed.netloc not in allowed_hosts:
-                logger.warning(f"Blocked SSRF attempt for portrait domain: {parsed.netloc}")
-                return None
-
-            resp = requests.get(image_url, timeout=10)
-            if resp.status_code == 200:
-                img_data = io.BytesIO(resp.content)
+            if parsed.netloc in allowed_hosts:
+                resp = requests.get(image_url, timeout=10)
+                if resp.status_code == 200:
+                    img_data = io.BytesIO(resp.content)
+            else:
+                # Local or self-hosted portrait URL (e.g. http://localhost:8000/api/v1/portraits/{file})
+                filename = os.path.basename(parsed.path)
+                if filename:
+                    try:
+                        target_path = safe_path(
+                            os.path.join(PORTRAIT_DIR, filename), scope="portraits"
+                        )
+                        if os.path.exists(target_path):
+                            with open(target_path, "rb") as f:
+                                img_data = io.BytesIO(f.read())
+                    except ValueError as e:
+                        logger.warning(f"Blocked path traversal attempt: {e}")
+                        return None
+                if not img_data:
+                    logger.warning(f"Blocked SSRF attempt for portrait domain: {parsed.netloc}")
+                    return None
         else:
             try:
-                target_path = safe_path(image_url, scope="portraits")
-                if os.path.exists(target_path):
+                filename = os.path.basename(parsed.path) or os.path.basename(image_url)
+                target_path = None
+                if filename:
+                    try:
+                        target_path = safe_path(
+                            os.path.join(PORTRAIT_DIR, filename), scope="portraits"
+                        )
+                    except ValueError:
+                        pass
+                if not target_path or not os.path.exists(target_path):
+                    target_path = safe_path(image_url, scope="portraits")
+
+                if target_path and os.path.exists(target_path):
                     with open(target_path, "rb") as f:
                         img_data = io.BytesIO(f.read())
             except ValueError as e:

@@ -1,6 +1,6 @@
 import os
 import uuid
-from typing import Dict, Optional
+from typing import Dict
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -65,8 +65,8 @@ async def upload_asset(
 async def get_asset(
     name: str,
     filename: str,
-    db: Optional[AsyncIOMotorDatabase] = Depends(get_database),
-    campaign_member: Optional[dict] = None,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_member()),
 ):
     """Retrieve an uploaded asset."""
     file_path = os.path.abspath(os.path.join(ASSETS_DIR, filename))

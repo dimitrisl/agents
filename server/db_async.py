@@ -38,11 +38,16 @@ INDEX_DEFINITIONS = [
     # Users: globally unique username and unique id
     ("users", [("username", pymongo.ASCENDING)], {"unique": True, "name": "uniq_users_username"}),
     ("users", [("id", pymongo.ASCENDING)], {"unique": True, "name": "uniq_users_id"}),
-    # Campaigns: unique campaign_name
+    # Campaigns: unique campaign_name and unique sparse invite_code
     (
         "campaigns",
         [("campaign_name", pymongo.ASCENDING)],
         {"unique": True, "name": "uniq_campaigns_campaign_name"},
+    ),
+    (
+        "campaigns",
+        [("invite_code", pymongo.ASCENDING)],
+        {"unique": True, "sparse": True, "name": "uniq_campaigns_invite_code"},
     ),
     # Campaign members: compound unique index on (campaign_id, user_id) to prevent duplicate memberships
     (

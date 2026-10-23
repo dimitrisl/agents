@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 from typing import Callable, Iterable, List, Optional, Tuple
 
@@ -16,17 +17,46 @@ from server.config import settings
 logger = logging.getLogger("PhyrexianForge.RateLimiter")
 
 
+def is_trusted_proxy(ip: str) -> bool:
+    """Check if the given IP address is in the list of trusted reverse proxies."""
+    if not ip:
+        return False
+    trusted = set(settings.trusted_proxy_list)
+    if ip in trusted:
+        return True
+    try:
+        addr = ipaddress.ip_address(ip)
+        for t in trusted:
+            try:
+                if "/" in t:
+                    if addr in ipaddress.ip_network(t, strict=False):
+                        return True
+                elif addr == ipaddress.ip_address(t):
+                    return True
+            except ValueError:
+                pass
+    except ValueError:
+        pass
+    return False
+
+
 def get_real_ip(request: Request) -> str:
     """
-    Extract real client IP from X-Forwarded-For header if present (useful behind reverse proxies),
-    otherwise fallback to request client host or 127.0.0.1.
+    Extract real client IP from X-Forwarded-For header only if request comes
+    from a trusted reverse proxy, otherwise fallback to request client host or 127.0.0.1.
     """
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        ip = forwarded.split(",")[0].strip()
-        if ip:
-            return ip
-    return get_remote_address(request)
+    remote_ip = get_remote_address(request)
+    if is_trusted_proxy(remote_ip):
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            candidate = forwarded.split(",")[0].strip()
+            if candidate:
+                try:
+                    ipaddress.ip_address(candidate)
+                    return candidate
+                except ValueError:
+                    pass
+    return remote_ip
 
 
 def get_auth_key(request: Request) -> str:
@@ -51,7 +81,7 @@ def get_user_or_ip_key(request: Request) -> str:
                 token,
                 settings.SECRET_KEY,
                 algorithms=[settings.ALGORITHM],
-                options={"verify_exp": False},
+                options={"verify_exp": True},
             )
             sub = payload.get("sub") or payload.get("username")
             if sub:

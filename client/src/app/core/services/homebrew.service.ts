@@ -48,8 +48,26 @@ export class HomebrewService {
     return this.http.get(`${this.apiUrl}/${campaignName}/homebrew/export`);
   }
 
-  exportHomebrewPdf(campaignName: string) {
-    window.open(`${this.apiUrl}/${campaignName}/homebrew/export/pdf`, '_blank');
+  exportHomebrewPdf(campaignName: string): Observable<Blob> {
+    const url = `${this.apiUrl}/${campaignName}/homebrew/export/pdf`;
+    const download$ = this.http.get(url, { responseType: 'blob' }).pipe(
+      tap((blob: Blob) => {
+        if (typeof window !== 'undefined' && window.URL && typeof window.URL.createObjectURL === 'function') {
+          const downloadUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = `${campaignName}_homebrew.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          if (typeof window.URL.revokeObjectURL === 'function') {
+            window.URL.revokeObjectURL(downloadUrl);
+          }
+        }
+      })
+    );
+    download$.subscribe();
+    return download$;
   }
 
   importHomebrew(campaignName: string, items: any[]): Observable<any> {
