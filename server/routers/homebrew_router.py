@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import TypeAdapter, ValidationError
@@ -13,9 +13,11 @@ from backend.core.homebrew_schemas import (
 )
 from backend.services.homebrew_service import HomebrewService
 from backend.utils.homebrew_pdf import generate_homebrew_pdf
+from server.config import settings
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_role
+from server.rate_limiter import limiter
 from server.routers.websocket_router import manager
 
 router = APIRouter(prefix="/campaigns/{name}/homebrew", tags=["Homebrew Forge"])
@@ -35,7 +37,9 @@ async def get_homebrew(
 
 
 @router.post("/forge")
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def forge_homebrew(
+    request: Request,
     name: str,
     payload: HomebrewCreateRequest,
     current_user: dict = Depends(get_current_user),

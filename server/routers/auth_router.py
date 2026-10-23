@@ -1,12 +1,13 @@
 import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, EmailStr
 from pymongo.errors import DuplicateKeyError
 
+from server.config import settings
 from server.db_async import get_database
 from server.dependencies.auth import (
     create_access_token,
@@ -14,6 +15,7 @@ from server.dependencies.auth import (
     get_password_hash,
     verify_password,
 )
+from server.rate_limiter import get_auth_key, limiter
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -48,7 +50,12 @@ class TutorialUpdateSchema(BaseModel):
 
 
 @router.post("/register", response_model=UserResponseSchema, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserRegisterSchema, db: AsyncIOMotorDatabase = Depends(get_database)):
+@limiter.limit(settings.AUTH_REGISTER_RATE_LIMIT, key_func=get_auth_key)
+async def register(
+    request: Request,
+    user_in: UserRegisterSchema,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     username_clean = user_in.username.lower().strip()
     existing = await db["users"].find_one({"username": username_clean})
     if existing:
@@ -80,7 +87,9 @@ async def register(user_in: UserRegisterSchema, db: AsyncIOMotorDatabase = Depen
 
 
 @router.post("/login", response_model=TokenResponseSchema)
+@limiter.limit(settings.AUTH_LOGIN_RATE_LIMIT, key_func=get_auth_key)
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
@@ -124,7 +133,12 @@ async def login(
 
 
 @router.post("/demo", response_model=TokenResponseSchema)
-async def demo_login(payload: DemoLoginSchema, db: AsyncIOMotorDatabase = Depends(get_database)):
+@limiter.limit(settings.AUTH_LOGIN_RATE_LIMIT, key_func=get_auth_key)
+async def demo_login(
+    request: Request,
+    payload: DemoLoginSchema,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     from server.config import settings
 
     if not settings.DEBUG_MODE:

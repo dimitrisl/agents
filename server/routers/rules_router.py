@@ -1,7 +1,7 @@
 import functools
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
@@ -26,7 +26,9 @@ from backend.services.rules_service import (
     query_rules,
 )
 from backend.services.validation_service import deterministic_validate_build
+from server.config import settings
 from server.dependencies.auth import get_current_user
+from server.rate_limiter import limiter
 
 
 def parse_edition(
@@ -58,16 +60,22 @@ class CharacterValidationRequest(BaseModel):
 
 
 @router.post("/query", response_model=RulesQueryResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def ask_rules_oracle(
-    payload: RulesQueryRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: RulesQueryRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     answer = await run_in_threadpool(query_rules, payload.query, payload.edition)
     return {"answer_markdown": answer}
 
 
 @router.post("/compare", response_model=RulesCompareResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def compare_rule_editions(
-    payload: RulesCompareRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: RulesCompareRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     comparison = await run_in_threadpool(compare_rules, payload.query)
     return {"comparison_markdown": comparison}
@@ -90,8 +98,11 @@ async def validate_rules(
 
 
 @router.post("/autofix", response_model=RulesAutofixResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def autofix_rules(
-    payload: CharacterValidationRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: CharacterValidationRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     result = await run_in_threadpool(autofix_character_build, payload.character)
     return result

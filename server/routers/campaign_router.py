@@ -4,7 +4,7 @@ import secrets
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 from pymongo.errors import DuplicateKeyError
@@ -24,9 +24,11 @@ from backend.services.encounter_service import calculate_danger_indicator
 from backend.services.session_service import SessionService
 from backend.services.stats_service import calculate_skills, get_modifier
 from backend.services.vtt_service import VTTService
+from server.config import settings
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
+from server.rate_limiter import limiter
 
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 session_service = SessionService()
@@ -1130,7 +1132,9 @@ async def delete_campaign_entity(
 
 
 @router.post("/{name}/entities/extract", response_model=CampaignEntitySchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def extract_campaign_entity(
+    request: Request,
     name: str,
     payload: PasteExtractionRequest,
     current_user: dict = Depends(get_current_user),
@@ -1198,7 +1202,9 @@ async def update_campaign_skeleton(
 
 
 @router.post("/{name}/skeleton/generate-outlines", response_model=CampaignSkeletonSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def generate_campaign_outlines(
+    request: Request,
     name: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     campaign_member: dict = Depends(require_campaign_role("dm")),

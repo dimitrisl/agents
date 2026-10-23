@@ -26,7 +26,8 @@ dependencies = [
     "passlib[bcrypt] (>=1.7.4,<2.0.0)",
     "pydantic-settings (>=2.14.2,<3.0.0)",
     "email-validator (>=2.3.0,<3.0.0)",
-    "python-multipart (>=0.0.32,<0.0.33)"
+    "python-multipart (>=0.0.32,<0.0.33)",
+    "slowapi (>=0.1.10,<0.2.0)"
 ]
 
 

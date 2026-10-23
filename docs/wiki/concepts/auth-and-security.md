@@ -36,3 +36,30 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 ### 3. File System & Path Traversal Guards (`backend/utils/path_safety.py`)
 - All file reads, uploads, and image writes must pass through `safe_path(filepath, scope="portraits"|"uploads")`.
 - Validates that the resolved absolute path resides strictly within the designated directory using `os.path.commonpath`. Any attempts to use `../` or absolute root paths raise an immediate `HTTP 400 Bad Request`.
+
+---
+
+## ⏱️ Rate Limiting & DoS / Quota Exhaustion Defenses (`server/rate_limiter.py`)
+
+To protect the server from credential brute-forcing and safeguard the Gemini API quota/wallet against infinite loops or abuse, **SlowAPI** is integrated:
+
+### 1. Key Extraction & Isolation
+- **Unauthenticated / Auth Endpoints:** Rate limited strictly per client IP address (`ip:<ip_address>`), resolving `X-Forwarded-For` when behind reverse proxies.
+- **Authenticated / AI Endpoints:** Rate limited per user (`user:<user_id>`), fast-extracted from JWT Bearer tokens without requiring synchronous DB lookups.
+- **Fallback:** Defaults to client IP when no valid token is provided.
+
+### 2. Configured Thresholds
+- **Auth Login (`/auth/login`, `/auth/demo`):** 5 requests / minute per IP.
+- **Auth Registration (`/auth/register`):** 3 requests / minute per IP.
+- **AI Endpoints (`/forge/*`, `/rules/query`, `/rules/compare`, `/rules/autofix`, `/dm/*`, `/homebrew/forge`):** 10 requests / minute per authenticated user.
+- **Session Audio AI Processing (`/campaigns/{name}/sessions/audio`):** 2 requests / minute per DM.
+- **Global Fallback:** 100 requests / minute per user/IP.
+
+### 3. Standard 429 Responses & Headers
+- On limit exhaustion, returns `HTTP 429 Too Many Requests` with:
+  - `Retry-After: <seconds>`
+  - `X-RateLimit-Limit: <limit>`
+  - `X-RateLimit-Remaining: 0`
+  - `X-RateLimit-Reset: <timestamp>`
+  - JSON payload: `{"detail": "Rate limit exceeded: ...", "error": "Rate limit exceeded: ..."}`
+- Testing hook: `settings.RATE_LIMIT_ENABLED = False` or `limiter.enabled = False` bypasses rate limits in test environments; `limiter.reset()` clears windows between tests.

@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
@@ -20,8 +20,10 @@ from backend.services.forge_service import (
     generate_playstyle_guide,
 )
 from backend.utils.image_utils import generate_portrait_url
+from server.config import settings
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
+from server.rate_limiter import limiter
 
 router = APIRouter(prefix="/forge", tags=["Forge (AI)"])
 
@@ -79,8 +81,11 @@ class PortraitRequest(BaseModel):
 
 
 @router.post("/generate", response_model=CharacterSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def generate_forge_character(
-    payload: ForgeCharacterRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: ForgeCharacterRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     char_dict = await run_in_threadpool(
         forge_character,
@@ -109,8 +114,11 @@ async def generate_forge_character(
 
 
 @router.post("/enrich-manual", response_model=CharacterSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def enrich_manual_character(
-    payload: ManualEnrichRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: ManualEnrichRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     char_dict = await run_in_threadpool(
         forge_character_manual,
@@ -145,8 +153,11 @@ async def enrich_manual_character(
 
 
 @router.post("/level-up-analysis", response_model=LevelUpAnalysisSchema)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def get_level_up_analysis(
-    payload: LevelUpRequest, current_user: dict = Depends(get_current_user)
+    request: Request,
+    payload: LevelUpRequest,
+    current_user: dict = Depends(get_current_user),
 ):
     char_data = payload.character.model_dump()
     try:
@@ -163,8 +174,11 @@ async def get_level_up_analysis(
 
 
 @router.post("/playstyle-guide", response_model=PlaystyleGuideResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def get_playstyle_guide(
-    character: CharacterSchema, current_user: dict = Depends(get_current_user)
+    request: Request,
+    character: CharacterSchema,
+    current_user: dict = Depends(get_current_user),
 ):
     char_data = character.model_dump()
     guide_text = await run_in_threadpool(generate_playstyle_guide, char_data)
@@ -172,7 +186,9 @@ async def get_playstyle_guide(
 
 
 @router.post("/portrait", response_model=PortraitResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
 async def generate_ai_portrait(
+    request: Request,
     payload: PortraitRequest,
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
