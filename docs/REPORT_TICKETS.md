@@ -483,3 +483,24 @@ gh pr checks 169
 - [`tests/test_vtt_scenes_and_fog_156_157.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/tests/test_vtt_scenes_and_fog_156_157.py)
 - [`tests/test_qa_veteran_player_scenarios.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/tests/test_qa_veteran_player_scenarios.py)
 - [`tests/test_qa_veteran_dm_scenarios.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/tests/test_qa_veteran_dm_scenarios.py)
+
+---
+
+## 5. Live Exploratory Testing & Bug Remediation (Veteran DM & Player Journey)
+
+Κατά τη διάρκεια του ζωντανού διερευνητικού ελέγχου (Live Exploratory QA) σε ρόλο έμπειρου Dungeon Master και έμπειρου Παίκτη, εκτελέστηκε πλήρης κύκλος 75 σεναρίων ακραίων καταστάσεων και πραγματικής χρήσης σε πραγματικό περιβάλλον backend (port 8001 / WebSocket / Atlas DB).
+
+### Κρίσιμο Σφάλμα που Εντοπίστηκε και Επιλύθηκε (Bug Remediation)
+1. **MongoDB Atlas Sparse Index Collision (`invite_code: null`)**:
+   - **Αιτία**: Κατά τη δημιουργία καμπάνιας χωρίς invite code, το Pydantic schema έκανε dump `"invite_code": None`. Στη MongoDB, το μοναδικό sparse ευρετήριο `uniq_campaigns_invite_code` καταχωρίζει το `null` ως τιμή. Έτσι, κατά τη δημιουργία δεύτερης καμπάνιας χωρίς κωδικό, η βάση απέρριπτε την εισαγωγή με `DuplicateKeyError: E11000 duplicate key error collection: campaigns index: uniq_campaigns_invite_code dup key: { invite_code: null }`.
+   - **Επίλυση**: Στο [`server/routers/campaign_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/campaign_router.py), προστέθηκε ρητός καθαρισμός `if camp_dict.get("invite_code") is None: camp_dict.pop("invite_code", None)`. Με την απουσία του πεδίου, το sparse ευρετήριο της MongoDB αγνοεί πλήρως το έγγραφο, επιτρέποντας απεριόριστες καμπάνιες χωρίς κωδικό πρόσκλησης.
+   - **Αποσαφήνιση Σφαλμάτων**: Στο `DuplicateKeyError` exception handler, διαχωρίζεται πλέον το σφάλμα επικάλυψης κωδικού πρόσκλησης (`Campaign invite code collision.`) από το σφάλμα διπλότυπου ονόματος καμπάνιας.
+2. **Pydantic Configuration Alias Compatibility**:
+   - Στο [`server/config.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/config.py), αντικαταστάθηκε το `alias="MONGO_DB_NAME"` με `validation_alias=AliasChoices("DATABASE_NAME", "MONGO_DB_NAME")`, ώστε τόσο το `DATABASE_NAME` όσο και το `MONGO_DB_NAME` να αναγνωρίζονται ισότιμα από το περιβάλλον εκτέλεσης.
+
+### Αποτελέσματα Live Σεναρίων (75/75 Passed - 100%)
+- **Σενάριο 1 (Player Journey)**: Εγγραφή, σύνδεση, PDF abuse (επέκταση, magic bytes, όριο 10MB), Foundry v2 (level 4, STR 18, +6 attack bonus auto-calc), Foundry v3 multiclass (Bard 3 / Sorcerer 1, level 4 sum, expertise, spells), D&D Beyond SSRF & invalid ID rejection.
+- **Σενάριο 2 (DM Persistent Scenes & Assets)**: Δημιουργία καμπάνιας, invite code, ένταξη παίκτη με χαρακτήρα, auto-init Default scene, δημιουργία σκηνής Catacombs, update DM notes, duplicate scene, αποτροπή διαγραφής ενεργής σκηνής (409 Conflict), ενεργοποίηση Catacombs, διαγραφή ανενεργού αντιγράφου, έλεγχος scene activation history audit log, upload asset και επαλήθευση απομόνωσης multi-tenancy (404 Not Found από ξένη καμπάνια).
+- **Σενάριο 3 (Real-Time WebSocket VTT Sync & Fog Redaction)**: Σύνδεση DM και Παίκτη, `presence_sync`, ενεργοποίηση Fog of War, reveal ορθογωνίου (Beholder 2x2), απόκρυψη κρυμμένου τέρατος (Vampire Spawn) από το payload του Παίκτη ενώ το token του Παίκτη παραμένει ορατό, επαναφορά ομίχλης, Reveal All.
+- **Σενάριο 4 (Whispers & Moderation)**: Ανταλλαγή ψιθύρων, απόρριψη αναφοράς με κενό λόγο (400 Bad Request), επιτυχής υποβολή αναφοράς, απόρριψη αναφοράς από μη εξουσιοδοτημένο τρίτο χρήστη (403 Forbidden).
+- **Σενάριο 5 (Administrator Lifecycle & Cascade)**: RBAC 403 σε μη διαχειριστή, προαγωγή DM σε Admin μέσω `promote_admin.py`, ανάκτηση λίστας χρηστών και καταμέτρησης χαρακτήρων, λίστα whisper reports, ανάκτηση λεπτομερειών με $\pm 10$ context inspection, επίλυση αναφοράς με σημείωμα, Deletion Preview με μπλοκάρισμα αυτοδιαγραφής (`can_delete=False`), δημιουργία θυσιαστικού χρήστη (χαρακτήρας + καμπάνια), υπολογισμός επιπτώσεων (`can_delete=True`), εκτέλεση cascading διαγραφής (διαγραφή καμπανιών, αποσύνδεση μελών, εκκαθάριση χαρακτήρων), και μόνιμο μπλοκάρισμα αυθεντικοποίησης του διαγραμμένου χρήστη.
