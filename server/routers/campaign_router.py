@@ -260,6 +260,8 @@ async def save_campaign(
     # VTT state is owned by VTTService (atomic updates); a campaign save must never
     # overwrite it, nor write a null that would block later dotted updates.
     camp_dict.pop("vtt_state", None)
+    if camp_dict.get("invite_code") is None:
+        camp_dict.pop("invite_code", None)
     if existing:
         member = await db["campaign_members"].find_one(
             {"campaign_id": payload.campaign_name, "user_id": current_user["id"]}
@@ -287,6 +289,11 @@ async def save_campaign(
         try:
             await db["campaigns"].insert_one(doc_to_insert)
         except DuplicateKeyError as e:
+            if "invite_code" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Campaign invite code collision.",
+                ) from e
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Campaign '{payload.campaign_name}' already exists.",

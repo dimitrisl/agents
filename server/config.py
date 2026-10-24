@@ -1,7 +1,7 @@
 import logging
 import secrets
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("PhyrexianForge.Config")
@@ -44,7 +44,10 @@ class Settings(BaseSettings):
     DEBUG_MODE: bool = False
 
     MONGO_URI: str = "mongodb://localhost:27017"
-    DATABASE_NAME: str = Field(default="phyrexian_forge", alias="MONGO_DB_NAME")
+    DATABASE_NAME: str = Field(
+        default="phyrexian_forge",
+        validation_alias=AliasChoices("DATABASE_NAME", "MONGO_DB_NAME"),
+    )
 
     GEMINI_API_KEY: str = ""
 
