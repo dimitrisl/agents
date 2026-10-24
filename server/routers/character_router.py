@@ -792,13 +792,18 @@ async def import_pdf(
             detail=f"Could not read PDF contents: {exc}",
         )
 
-    if not sheet_text:
+    if not sheet_text or not sheet_text.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Could not extract text from PDF.",
         )
 
     if len(sheet_text) > settings.MAX_PDF_TEXT_CHARS:
+        logger.warning(
+            "Extracted PDF sheet text (%d chars) exceeds MAX_PDF_TEXT_CHARS (%d); truncating.",
+            len(sheet_text),
+            settings.MAX_PDF_TEXT_CHARS,
+        )
         sheet_text = sheet_text[: settings.MAX_PDF_TEXT_CHARS]
 
     parsed_char = await run_in_threadpool(parse_character_from_text, sheet_text)

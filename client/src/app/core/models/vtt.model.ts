@@ -38,6 +38,14 @@ export interface VTTScene {
   last_activated_at?: string;
 }
 
+export interface VTTSceneHistory {
+  campaign_name: string;
+  scene_id: string;
+  scene_name: string;
+  activated_at: string;
+  activated_by_user_id: string;
+}
+
 export interface VTTState {
   is_active: boolean;
   active_scene_id?: string;

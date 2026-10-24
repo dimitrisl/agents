@@ -14,7 +14,11 @@ from backend.core.schemas import (
     WhisperReportUpdateRequest,
 )
 from backend.services.campaign_service import _maybe_await
-from backend.services.user_admin_service import build_deletion_preview, delete_user_cascade
+from backend.services.user_admin_service import (
+    _find_dm_campaigns_for_user,
+    build_deletion_preview,
+    delete_user_cascade,
+)
 from server.db_async import get_database
 from server.dependencies.auth import require_admin
 
@@ -49,27 +53,36 @@ async def list_admin_users(
     cursor = db["users"].find(query).sort("created_at", -1).skip(skip).limit(limit)
 
     users_list = []
+    users_raw = []
     if hasattr(cursor, "__aiter__"):
         async for u in cursor:
-            uid = u.get("id") or f"local_user_{u.get('username')}"
-            char_count = await _maybe_await(db["characters"].count_documents({"owner_id": uid}))
-            dm_camp_count = await _maybe_await(db["campaigns"].count_documents({"owner_id": uid}))
-            member_camp_count = await _maybe_await(
-                db["campaign_members"].count_documents({"user_id": uid})
+            users_raw.append(u)
+    else:
+        items = await _maybe_await(cursor)
+        if isinstance(items, list):
+            users_raw.extend(items)
+
+    for u in users_raw:
+        uid = u.get("id") or f"local_user_{u.get('username')}"
+        char_count = await _maybe_await(db["characters"].count_documents({"owner_id": uid}))
+        dm_camps = await _find_dm_campaigns_for_user(db, uid)
+        dm_camp_count = len(dm_camps)
+        member_camp_count = await _maybe_await(
+            db["campaign_members"].count_documents({"user_id": uid})
+        )
+        users_list.append(
+            AdminUserSchema(
+                id=uid,
+                username=u.get("username", "Unknown"),
+                email=u.get("email"),
+                name=u.get("name"),
+                created_at=u.get("created_at"),
+                is_admin=bool(u.get("is_admin", False)),
+                character_count=char_count,
+                dm_campaign_count=dm_camp_count,
+                member_campaign_count=member_camp_count,
             )
-            users_list.append(
-                AdminUserSchema(
-                    id=uid,
-                    username=u.get("username", "Unknown"),
-                    email=u.get("email"),
-                    name=u.get("name"),
-                    created_at=u.get("created_at"),
-                    is_admin=bool(u.get("is_admin", False)),
-                    character_count=char_count,
-                    dm_campaign_count=dm_camp_count,
-                    member_campaign_count=member_camp_count,
-                )
-            )
+        )
 
     return AdminUserListResponse(users=users_list, total=total)
 

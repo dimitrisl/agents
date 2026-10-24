@@ -380,3 +380,61 @@ def test_whisper_report_context_endpoint_and_bidirectional_context(admin_client,
     assert data["context_whispers"][1]["id"] == "w_b2"
     assert data["context_whispers"][2]["id"] == "wh_target"
     assert data["context_whispers"][3]["id"] == "w_a1"
+
+
+def test_list_admin_users_counts_legacy_dm_campaigns(admin_client, mock_db):
+    user_doc = {
+        "id": "legacy_dm_1",
+        "username": "legacydm",
+        "email": "legacy@example.com",
+        "name": "Legacy DM",
+        "created_at": "2026-01-01T00:00:00Z",
+        "is_admin": False,
+    }
+    mock_db["users"].count_documents = AsyncMock(return_value=1)
+
+    # Motor async cursor mock for users.find
+    cursor_users = MagicMock()
+    cursor_users.sort = MagicMock(return_value=cursor_users)
+    cursor_users.skip = MagicMock(return_value=cursor_users)
+    cursor_users.limit = MagicMock(return_value=cursor_users)
+    cursor_users.__aiter__ = MagicMock(return_value=[user_doc].__iter__())  # or async iter
+
+    async def async_iter(items):
+        for item in items:
+            yield item
+
+    cursor_users.__aiter__ = lambda self: async_iter([user_doc])
+    mock_db["users"].find = MagicMock(return_value=cursor_users)
+
+    # No campaigns by owner_id
+    cursor_camps = MagicMock()
+    cursor_camps.__aiter__ = lambda self: async_iter([])
+    # But campaign_members has role == "dm" for "Legacy Lost Mine"
+    cursor_members = MagicMock()
+    cursor_members.__aiter__ = lambda self: async_iter(
+        [{"campaign_id": "Legacy Lost Mine", "role": "dm"}]
+    )
+
+    def mock_find(query, *args, **kwargs):
+        if "owner_id" in query:
+            return cursor_camps
+        elif query.get("role") == "dm":
+            return cursor_members
+        return MagicMock(__aiter__=lambda self: async_iter([]))
+
+    mock_db["campaigns"].find = MagicMock(side_effect=mock_find)
+    mock_db["campaigns"].find_one = AsyncMock(return_value={"campaign_name": "Legacy Lost Mine"})
+    mock_db["campaign_members"].find = MagicMock(side_effect=mock_find)
+    mock_db["characters"].count_documents = AsyncMock(return_value=2)
+    mock_db["campaign_members"].count_documents = AsyncMock(return_value=1)
+
+    res = admin_client.get("/api/v1/admin/users")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 1
+    assert len(data["users"]) == 1
+    u = data["users"][0]
+    assert u["username"] == "legacydm"
+    assert u["dm_campaign_count"] == 1
+    assert u["character_count"] == 2

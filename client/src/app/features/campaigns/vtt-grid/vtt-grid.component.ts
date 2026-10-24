@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { WebSocketService } from '../../../core/services/websocket.service';
-import { VTTScene, VTTState, VTTToken } from '../../../core/models/vtt.model';
+import { VTTScene, VTTSceneHistory, VTTState, VTTToken } from '../../../core/models/vtt.model';
 import { InitiativeCombatant } from '../../../core/models/initiative.model';
 import { FormsModule } from '@angular/forms';
 import {
@@ -90,6 +90,25 @@ import { environment } from '../../../../environments/environment';
                   🔒 Hide
                 </button>
                 <button
+                  forgeButton
+                  [variant]="fogBrushMode === 'rect_reveal' ? 'primary' : 'ghost'"
+                  size="sm"
+                  (click)="setFogBrush('rect_reveal')"
+                  title="Box Reveal Fog (drag rectangle to clear fog)"
+                >
+                  🔲 Box Reveal
+                </button>
+                <button
+                  forgeButton
+                  [variant]="fogBrushMode === 'rect_hide' ? 'primary' : 'ghost'"
+                  size="sm"
+                  (click)="setFogBrush('rect_hide')"
+                  title="Box Hide Fog (drag rectangle to conceal fog)"
+                >
+                  ⬛ Box Hide
+                </button>
+                <button
+                  *ngIf="fogBrushMode === 'reveal' || fogBrushMode === 'hide'"
                   forgeButton
                   variant="ghost"
                   size="sm"
@@ -241,137 +260,242 @@ import { environment } from '../../../../environments/environment';
             ⚠️ {{ sceneError }}
           </div>
 
-          <!-- Loading state -->
-          <div *ngIf="loadingScenes" class="flex justify-center py-6">
-            <div class="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+          <!-- Tab Selector -->
+          <div class="flex gap-2 border-b border-hairline pb-2">
+            <button
+              forgeButton
+              [variant]="sceneModalTab === 'scenes' ? 'primary' : 'ghost'"
+              size="sm"
+              type="button"
+              (click)="setSceneModalTab('scenes')"
+            >
+              🗺️ Scenes ({{ scenes.length }})
+            </button>
+            <button
+              forgeButton
+              [variant]="sceneModalTab === 'history' ? 'primary' : 'ghost'"
+              size="sm"
+              type="button"
+              (click)="setSceneModalTab('history')"
+            >
+              📜 Scene History
+            </button>
           </div>
 
-          <!-- Scene List -->
-          <div *ngIf="!loadingScenes" class="flex flex-col gap-2 max-h-[280px] overflow-y-auto">
-            <div
-              *ngFor="let scene of scenes"
-              class="flex items-center justify-between p-3 rounded-lg border border-hairline bg-surface/40 hover:bg-surface/70 transition-colors"
-              [class.border-gold]="scene.is_active_scene"
-            >
-              <div class="flex flex-col gap-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="font-semibold text-ink truncate">{{ scene.name }}</span>
-                  <span *ngIf="scene.is_active_scene" class="text-micro font-bold px-1.5 py-0.5 rounded bg-gold/20 text-gold border border-gold/40">
-                    ACTIVE
-                  </span>
+          <!-- Scenes Tab Content -->
+          <ng-container *ngIf="sceneModalTab === 'scenes'">
+            <!-- Loading state -->
+            <div *ngIf="loadingScenes" class="flex justify-center py-6">
+              <div class="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+            </div>
+
+            <!-- Scene List -->
+            <div *ngIf="!loadingScenes" class="flex flex-col gap-2 max-h-[280px] overflow-y-auto">
+              <div
+                *ngFor="let scene of scenes"
+                class="flex flex-col p-3 rounded-lg border border-hairline bg-surface/40 hover:bg-surface/70 transition-colors"
+                [class.border-gold]="scene.is_active_scene"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex flex-col gap-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="font-semibold text-ink truncate">{{ scene.name }}</span>
+                      <span *ngIf="scene.is_active_scene" class="text-micro font-bold px-1.5 py-0.5 rounded bg-gold/20 text-gold border border-gold/40">
+                        ACTIVE
+                      </span>
+                    </div>
+                    <div class="text-micro text-muted">
+                      Grid: {{ scene.grid.width }}x{{ scene.grid.height }} ({{ scene.grid.cell_size }}px) · Tokens: {{ scene.tokens.length || 0 }} · Fog: {{ scene.fog.enabled ? 'Enabled' : 'Disabled' }}
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <button
+                      *ngIf="!scene.is_active_scene"
+                      forgeButton
+                      variant="primary"
+                      size="sm"
+                      (click)="activateScene(scene)"
+                      title="Activate this scene for players"
+                    >
+                      Activate
+                    </button>
+                    <button
+                      forgeButton
+                      [variant]="expandedSceneNotesId === scene.scene_id ? 'primary' : 'ghost'"
+                      size="sm"
+                      type="button"
+                      (click)="toggleSceneNotes(scene)"
+                      title="Edit Scene Name & DM Notes"
+                    >
+                      📝 Notes
+                    </button>
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      (click)="duplicateScene(scene)"
+                      title="Duplicate scene"
+                    >
+                      📑 Clone
+                    </button>
+                    <button
+                      *ngIf="!scene.is_active_scene"
+                      forgeButton
+                      variant="danger"
+                      size="sm"
+                      (click)="deleteScene(scene)"
+                      title="Delete scene"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-                <div class="text-micro text-muted">
-                  Grid: {{ scene.grid.width }}x{{ scene.grid.height }} ({{ scene.grid.cell_size }}px) · Tokens: {{ scene.tokens.length || 0 }} · Fog: {{ scene.fog.enabled ? 'Enabled' : 'Disabled' }}
+
+                <!-- Inline DM Notes Editor -->
+                <div *ngIf="expandedSceneNotesId === scene.scene_id" class="mt-3 pt-3 border-t border-hairline flex flex-col gap-2">
+                  <div>
+                    <label class="block text-micro font-semibold text-muted mb-1">Scene Name</label>
+                    <input
+                      forgeInput
+                      type="text"
+                      [(ngModel)]="scene.name"
+                      class="w-full text-body-sm"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-micro font-semibold text-muted mb-1">DM Notes (Secret)</label>
+                    <textarea
+                      forgeInput
+                      rows="3"
+                      [(ngModel)]="scene.dm_notes"
+                      placeholder="DM notes, secrets, monster tactics, traps..."
+                      class="w-full text-body-sm font-sans"
+                    ></textarea>
+                  </div>
+                  <div class="flex justify-end gap-2 mt-1">
+                    <button
+                      forgeButton
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      (click)="expandedSceneNotesId = null"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      forgeButton
+                      variant="primary"
+                      size="sm"
+                      type="button"
+                      (click)="saveSceneNotes(scene)"
+                    >
+                      💾 Save Notes
+                    </button>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div class="flex items-center gap-1.5 shrink-0">
+            <!-- Create New Scene Form -->
+            <div class="border-t border-hairline pt-3 mt-1 flex flex-col gap-3">
+              <h4 class="font-semibold text-body-sm text-ink">Create New Scene</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-label text-muted font-semibold mb-1">Scene Name</label>
+                  <input
+                    forgeInput
+                    type="text"
+                    placeholder="e.g. Dungeon Level 2"
+                    [(ngModel)]="newSceneName"
+                    class="w-full text-body"
+                  />
+                </div>
+                <div>
+                  <label class="block text-label text-muted font-semibold mb-1">Map Image URL (Optional)</label>
+                  <input
+                    forgeInput
+                    type="text"
+                    placeholder="https://..."
+                    [(ngModel)]="newSceneMapUrl"
+                    class="w-full text-body"
+                  />
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-label text-muted font-semibold mb-1">Width (Cells)</label>
+                  <input
+                    forgeInput
+                    type="number"
+                    min="5"
+                    max="50"
+                    [(ngModel)]="newSceneWidth"
+                    class="w-full text-body"
+                  />
+                </div>
+                <div>
+                  <label class="block text-label text-muted font-semibold mb-1">Height (Cells)</label>
+                  <input
+                    forgeInput
+                    type="number"
+                    min="5"
+                    max="50"
+                    [(ngModel)]="newSceneHeight"
+                    class="w-full text-body"
+                  />
+                </div>
+                <div>
+                  <label class="block text-label text-muted font-semibold mb-1">Cell Size (px)</label>
+                  <input
+                    forgeInput
+                    type="number"
+                    min="20"
+                    max="200"
+                    [(ngModel)]="newSceneCellSize"
+                    class="w-full text-body"
+                  />
+                </div>
+              </div>
+              <div class="flex justify-end gap-2 mt-1">
                 <button
-                  *ngIf="!scene.is_active_scene"
                   forgeButton
                   variant="primary"
                   size="sm"
-                  (click)="activateScene(scene)"
-                  title="Activate this scene for players"
+                  type="button"
+                  [disabled]="!newSceneName.trim()"
+                  (click)="createScene()"
                 >
-                  Activate
-                </button>
-                <button
-                  forgeButton
-                  variant="ghost"
-                  size="sm"
-                  (click)="duplicateScene(scene)"
-                  title="Duplicate scene"
-                >
-                  📑 Clone
-                </button>
-                <button
-                  *ngIf="!scene.is_active_scene"
-                  forgeButton
-                  variant="danger"
-                  size="sm"
-                  (click)="deleteScene(scene)"
-                  title="Delete scene"
-                >
-                  🗑️
+                  + Create Scene
                 </button>
               </div>
             </div>
-          </div>
+          </ng-container>
 
-          <!-- Create New Scene Form -->
-          <div class="border-t border-hairline pt-3 mt-1 flex flex-col gap-3">
-            <h4 class="font-semibold text-body-sm text-ink">Create New Scene</h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-label text-muted font-semibold mb-1">Scene Name</label>
-                <input
-                  forgeInput
-                  type="text"
-                  placeholder="e.g. Dungeon Level 2"
-                  [(ngModel)]="newSceneName"
-                  class="w-full text-body"
-                />
+          <!-- Scene History Tab Content -->
+          <ng-container *ngIf="sceneModalTab === 'history'">
+            <div class="flex flex-col gap-2 max-h-[350px] overflow-y-auto">
+              <div *ngIf="loadingHistory" class="flex justify-center py-6">
+                <div class="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <div>
-                <label class="block text-label text-muted font-semibold mb-1">Map Image URL (Optional)</label>
-                <input
-                  forgeInput
-                  type="text"
-                  placeholder="https://..."
-                  [(ngModel)]="newSceneMapUrl"
-                  class="w-full text-body"
-                />
+              <div *ngIf="!loadingHistory && sceneHistory.length === 0" class="text-micro text-muted p-4 text-center">
+                No scene activation history recorded yet.
               </div>
-            </div>
-            <div class="grid grid-cols-3 gap-3">
-              <div>
-                <label class="block text-label text-muted font-semibold mb-1">Width (Cells)</label>
-                <input
-                  forgeInput
-                  type="number"
-                  min="5"
-                  max="50"
-                  [(ngModel)]="newSceneWidth"
-                  class="w-full text-body"
-                />
-              </div>
-              <div>
-                <label class="block text-label text-muted font-semibold mb-1">Height (Cells)</label>
-                <input
-                  forgeInput
-                  type="number"
-                  min="5"
-                  max="50"
-                  [(ngModel)]="newSceneHeight"
-                  class="w-full text-body"
-                />
-              </div>
-              <div>
-                <label class="block text-label text-muted font-semibold mb-1">Cell Size (px)</label>
-                <input
-                  forgeInput
-                  type="number"
-                  min="20"
-                  max="200"
-                  [(ngModel)]="newSceneCellSize"
-                  class="w-full text-body"
-                />
-              </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-1">
-              <button
-                forgeButton
-                variant="primary"
-                size="sm"
-                type="button"
-                [disabled]="!newSceneName.trim()"
-                (click)="createScene()"
+              <div
+                *ngFor="let h of sceneHistory"
+                class="flex items-center justify-between p-2.5 rounded-lg border border-hairline bg-surface/30 text-body-sm"
               >
-                + Create Scene
-              </button>
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-semibold text-ink">🎬 {{ h.scene_name }}</span>
+                  <span class="text-micro text-muted">Scene ID: {{ h.scene_id }}</span>
+                </div>
+                <div class="text-right text-micro text-muted">
+                  <div>{{ h.activated_at | date:'medium' }}</div>
+                  <div class="text-[10px]">by user: {{ h.activated_by_user_id }}</div>
+                </div>
+              </div>
             </div>
-          </div>
+          </ng-container>
 
           <div class="flex justify-end border-t border-hairline pt-3 mt-2">
             <button forgeButton variant="secondary" size="sm" type="button" (click)="showSceneModal = false">
@@ -563,9 +687,13 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   // Scene management state (#156)
   showSceneModal = false;
+  sceneModalTab: 'scenes' | 'history' = 'scenes';
   scenes: VTTScene[] = [];
+  sceneHistory: VTTSceneHistory[] = [];
   loadingScenes = false;
+  loadingHistory = false;
   sceneError: string | null = null;
+  expandedSceneNotesId: string | null = null;
   newSceneName = '';
   newSceneMapUrl = '';
   newSceneCellSize = 50;
@@ -573,10 +701,14 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   newSceneHeight = 30;
 
   // Fog of war state (#157)
-  fogBrushMode: 'reveal' | 'hide' | null = null;
+  fogBrushMode: 'reveal' | 'hide' | 'rect_reveal' | 'rect_hide' | null = null;
   fogBrushSize = 1; // 1 or 3
   private isPaintingFog = false;
   private paintedFogCells = new Set<string>();
+  rectStartCol: number | null = null;
+  rectStartRow: number | null = null;
+  rectCurrentCol: number | null = null;
+  rectCurrentRow: number | null = null;
 
   constructor() {
     effect(() => {
@@ -785,8 +917,12 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     this.wsService.sendVttFogToggle(!current);
   }
 
-  setFogBrush(mode: 'reveal' | 'hide' | null): void {
+  setFogBrush(mode: 'reveal' | 'hide' | 'rect_reveal' | 'rect_hide' | null): void {
     this.fogBrushMode = this.fogBrushMode === mode ? null : mode;
+    this.rectStartCol = null;
+    this.rectStartRow = null;
+    this.rectCurrentCol = null;
+    this.rectCurrentRow = null;
   }
 
   toggleBrushSize(): void {
@@ -844,24 +980,106 @@ export class VttGridComponent implements OnInit, AfterViewInit {
         }
       }
     }
+
+    // Render interactive rectangle fog selection preview (#157)
+    if (
+      this.rectStartCol !== null &&
+      this.rectCurrentCol !== null &&
+      this.rectStartRow !== null &&
+      this.rectCurrentRow !== null
+    ) {
+      const minCol = Math.min(this.rectStartCol, this.rectCurrentCol);
+      const maxCol = Math.max(this.rectStartCol, this.rectCurrentCol);
+      const minRow = Math.min(this.rectStartRow, this.rectCurrentRow);
+      const maxRow = Math.max(this.rectStartRow, this.rectCurrentRow);
+      const px = minCol * cellSize;
+      const py = minRow * cellSize;
+      const pw = (maxCol - minCol + 1) * cellSize;
+      const ph = (maxRow - minRow + 1) * cellSize;
+
+      ctx.save();
+      ctx.strokeStyle = this.fogBrushMode === 'rect_reveal' ? '#38bdf8' : '#f43f5e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(px, py, pw, ph);
+      ctx.fillStyle =
+        this.fogBrushMode === 'rect_reveal'
+          ? 'rgba(56, 189, 248, 0.25)'
+          : 'rgba(244, 63, 94, 0.25)';
+      ctx.fillRect(px, py, pw, ph);
+      ctx.restore();
+    }
   }
 
   onFogMouseDown(event: MouseEvent): void {
     if (this.role !== 'dm' || !this.fogBrushMode) return;
     event.preventDefault();
     this.isPaintingFog = true;
-    this.paintedFogCells.clear();
-    this.addCellAtMouse(event);
+
+    if (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') {
+      const cell = this.getCellCoordsAtMouse(event);
+      if (cell) {
+        this.rectStartCol = cell.cx;
+        this.rectStartRow = cell.cy;
+        this.rectCurrentCol = cell.cx;
+        this.rectCurrentRow = cell.cy;
+        this.renderFogCanvas();
+      }
+    } else {
+      this.paintedFogCells.clear();
+      this.addCellAtMouse(event);
+    }
   }
 
   onFogMouseMove(event: MouseEvent): void {
     if (!this.isPaintingFog || !this.fogBrushMode) return;
-    this.addCellAtMouse(event);
+    if (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') {
+      const cell = this.getCellCoordsAtMouse(event);
+      if (cell) {
+        this.rectCurrentCol = cell.cx;
+        this.rectCurrentRow = cell.cy;
+        this.renderFogCanvas();
+      }
+    } else {
+      this.addCellAtMouse(event);
+    }
   }
 
   onFogMouseUp(): void {
     if (!this.isPaintingFog || !this.fogBrushMode) return;
     this.isPaintingFog = false;
+
+    if (
+      (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') &&
+      this.rectStartCol !== null &&
+      this.rectCurrentCol !== null &&
+      this.rectStartRow !== null &&
+      this.rectCurrentRow !== null
+    ) {
+      const minCol = Math.min(this.rectStartCol, this.rectCurrentCol);
+      const maxCol = Math.max(this.rectStartCol, this.rectCurrentCol);
+      const minRow = Math.min(this.rectStartRow, this.rectCurrentRow);
+      const maxRow = Math.max(this.rectStartRow, this.rectCurrentRow);
+      const rectPayload = {
+        x: minCol,
+        y: minRow,
+        w: maxCol - minCol + 1,
+        h: maxRow - minRow + 1,
+      };
+
+      if (this.fogBrushMode === 'rect_reveal') {
+        this.wsService.sendVttFogReveal(undefined, rectPayload);
+      } else {
+        this.wsService.sendVttFogHide(undefined, rectPayload);
+      }
+
+      this.rectStartCol = null;
+      this.rectStartRow = null;
+      this.rectCurrentCol = null;
+      this.rectCurrentRow = null;
+      this.renderFogCanvas();
+      return;
+    }
 
     if (this.paintedFogCells.size > 0) {
       const cells: number[][] = [];
@@ -877,6 +1095,21 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       }
       this.paintedFogCells.clear();
     }
+  }
+
+  private getCellCoordsAtMouse(event: MouseEvent): { cx: number; cy: number } | null {
+    const canvas = this.fogCanvasRef?.nativeElement;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const cellSize = this.vttState()?.grid?.cell_size || 50;
+    const gridW = this.vttState()?.grid?.width || 30;
+    const gridH = this.vttState()?.grid?.height || 30;
+
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const cx = Math.max(0, Math.min(gridW - 1, Math.floor(mouseX / cellSize)));
+    const cy = Math.max(0, Math.min(gridH - 1, Math.floor(mouseY / cellSize)));
+    return { cx, cy };
   }
 
   private addCellAtMouse(event: MouseEvent): void {
@@ -908,8 +1141,68 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   openSceneModal(): void {
     this.sceneError = null;
+    this.sceneModalTab = 'scenes';
+    this.expandedSceneNotesId = null;
     this.loadScenes();
     this.showSceneModal = true;
+  }
+
+  setSceneModalTab(tab: 'scenes' | 'history'): void {
+    this.sceneModalTab = tab;
+    this.sceneError = null;
+    if (tab === 'history') {
+      this.loadSceneHistory();
+    } else {
+      this.loadScenes();
+    }
+  }
+
+  toggleSceneNotes(scene: VTTScene): void {
+    this.expandedSceneNotesId =
+      this.expandedSceneNotesId === scene.scene_id ? null : scene.scene_id;
+  }
+
+  loadSceneHistory(): void {
+    if (!this.campaignName) return;
+    this.loadingHistory = true;
+    this.http
+      .get<VTTSceneHistory[]>(
+        `${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/history`
+      )
+      .subscribe({
+        next: (history) => {
+          this.sceneHistory = history;
+          this.loadingHistory = false;
+        },
+        error: (err) => {
+          this.sceneError = err.error?.detail || 'Failed to load scene history.';
+          this.loadingHistory = false;
+        },
+      });
+  }
+
+  saveSceneNotes(scene: VTTScene): void {
+    if (!this.campaignName) return;
+    const body = {
+      name: scene.name,
+      dm_notes: scene.dm_notes,
+    };
+    this.http
+      .put<VTTScene>(
+        `${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/${scene.scene_id}`,
+        body
+      )
+      .subscribe({
+        next: (updated) => {
+          scene.name = updated.name;
+          scene.dm_notes = updated.dm_notes;
+          this.expandedSceneNotesId = null;
+          this.loadScenes();
+        },
+        error: (err) => {
+          this.sceneError = err.error?.detail || 'Failed to update scene notes.';
+        },
+      });
   }
 
   loadScenes(): void {

@@ -3,7 +3,7 @@
 **Κλάδος (Branch)**: `feat/unified-backlog-151-163`
 **Pull Request**: [#169 (feat: unified backlog resolution)](https://github.com/dimitrisl/agents/pull/169) $\rightarrow$ Base: `dev`
 **Κατάσταση CI/CD**: **4 / 4 Checks Passed** (Pytest, Ruff, Angular Tests, Angular Build, Rebase Check)
-**Σύνολο Tests**: **444 Backend Pytest Passed** (100%), **339 Frontend Jest Tests Passed** (100%)
+**Σύνολο Tests**: **449 Backend Pytest Passed** (100%), **343 Frontend Jest Tests Passed** (100%)
 
 ---
 
@@ -99,11 +99,11 @@ graph TD
   - `client/src/app/features/player/player.component.html`
   - `client/src/app/features/player/action-dock/action-dock.component.ts`
   - `client/src/app/features/player/action-dock/action-dock.component.html`
-  - `client/src/app/features/player/command-palette/command-palette.component.ts`
+  - `client/src/app/shared/components/command-palette/command-palette.component.ts`
 - **Τι υλοποιήθηκε αναλυτικά**:
   - Στο `action-dock.component.ts` δηλώθηκε `@Output() importCharacter = new EventEmitter<void>()` και κουμπί εισαγωγής στο dock.
   - Στο `command-palette.component.ts` προστέθηκε η εντολή `"Import Character (PDF / D&D Beyond / Foundry)"`.
-  - Στο `player.component.ts` υλοποιήθηκε το state `showImportModal`, `activeImportTab: 'pdf' | 'ddb' | 'foundry'`, `isImporting: boolean`, `importErrors: string[]`, `importWarnings: string[]`.
+  - Στο `player.component.ts` υλοποιήθηκε το state `showImportModal`, `importTab: 'pdf' | 'dndbeyond' | 'foundry'`, `isImporting: boolean`, `importError: string | null`, `importWarnings: string[]`.
   - Υλοποιήθηκαν οι μέθοδοι:
     - `onImportPdf(event: Event)`: αποστολή multipart FormData στο `/characters/import-pdf`.
     - `onImportDndBeyond()`: JSON POST στο `/characters/import-dndbeyond`.
@@ -135,7 +135,7 @@ graph TD
     - Επιβάλλεται `@limiter.limit("5/minute")` με `request: Request`.
     - Το τελικό schema απόκρισης είναι `ImportCharacterResponse` που κληρονομεί από το `CharacterSchema` και περιλαμβάνει `warnings: List[str] = []`.
 - **Έλεγχος & Tests**:
-  - `poetry run pytest tests/test_pdf_import_endpoint_152.py` (5/5 passed).
+  - `poetry run pytest tests/test_pdf_import_endpoint_152.py` (9/9 passed).
 
 ---
 
@@ -176,7 +176,7 @@ graph TD
 - **Ζητούμενο**:
   - Role-Based Access Control: Έλεγχος δικαιωμάτων διαχειριστή (`is_admin: True`) υποχρεωτικά από τη βάση δεδομένων και όχι μόνο από claims του JWT token.
   - Προστασία από stale tokens μετά από επανεγγραφή: Απόρριψη tokens των οποίων το `iat` (issued at) είναι προγενέστερο του `user.created_at`.
-  - CLI script για προώθηση/υποβιβασμό διαχειριστών: `scripts/promote_admin.py <username> [--demote]`.
+  - CLI script για προώθηση/υποβιβασμό διαχειριστών: `scripts/promote_admin.py <username> [--revoke]`.
   - Endpoints διαχείρισης χρηστών:
     - `GET /api/v1/admin/users`: Λίστα χρηστών με πλήθος χαρακτήρων και campaigns.
     - `GET /api/v1/admin/users/{user_id}/deletion-preview`: Προεπισκόπηση διαγραφής (πόσες καμπάνιες DM θα διαγραφούν, πόσοι χαρακτήρες θα διαγραφούν, πόσοι παίκτες θα αποσυνδεθούν).
@@ -239,16 +239,19 @@ graph TD
 - **Τι υλοποιήθηκε αναλυτικά**:
   - Στο `server/db_async.py`:
     ```python
-    await db["campaign_whispers"].create_index(
-        "created_at",
-        expireAfterSeconds=365 * 86400,
-        partialFilterExpression={"has_open_report": False},
-        name="whisper_ttl_unreported",
+    (
+        "campaign_whispers",
+        [("created_at", pymongo.ASCENDING)],
+        {
+            "name": "ttl_campaign_whispers_created_at",
+            "expireAfterSeconds": settings.WHISPER_RETENTION_DAYS * 86400,
+            "partialFilterExpression": {"has_open_report": {"$eq": False}},
+        },
     )
     ```
   - Στο `admin_router.py`, η συνάρτηση `_fetch_context_whispers` εκτελεί αμφίδρομο query (`created_at < target` με limit 10 ταξινομημένα φθίνοντα, και `created_at > target` με limit 10 ταξινομημένα αύξοντα), συνενώνοντας τα σε ένα συνεκτικό χρονολόγιο 21 μηνυμάτων.
 - **Έλεγχος & Tests**:
-  - `poetry run pytest tests/test_admin_and_whispers_154_155.py` (11/11 passed).
+  - `poetry run pytest tests/test_admin_and_whispers_154_155.py` (12/12 passed).
   - `npm test -- --watch=false src/app/features/dm/dm-inbox/dm-inbox.component.spec.ts`
 
 ---
@@ -257,8 +260,8 @@ graph TD
 - **Ζητούμενο**:
   - Μετάβαση από μονολιθικό VTT state σε Persistent Scenes (Βιβλιοθήκη Σκηνών ανά καμπάνια).
   - Συλλογές MongoDB:
-    - `campaign_scenes`: Κάθε σκηνή περιλαμβάνει `scene_id`, `scene_name`, `campaign_name`, `grid` (columns, rows, cell_size_px, background_image_url), `tokens`, `fog` και timestamps.
-    - `campaign_scene_history`: Audit log ενεργοποίησης σκηνών (`activated_at`, `activated_by`).
+    - `campaign_scenes`: Κάθε σκηνή περιλαμβάνει `scene_id`, `campaign_name`, `name` (default: `"Default"`), `dm_notes`, `grid` (`width`, `height`, `cell_size`, `background_image_url`), `tokens`, `fog` και timestamps.
+    - `campaign_scene_history`: Audit log ενεργοποίησης σκηνών (`activated_at`, `activated_by_user_id`).
   - Endpoints διαχείρισης σκηνών (`/campaigns/{name}/scenes`):
     - `GET /scenes`: Ανάκτηση όλων των σκηνών της καμπάνιας.
     - `POST /scenes`: Δημιουργία νέας σκηνής.
@@ -277,7 +280,7 @@ graph TD
   - `scripts/migrate_vtt_scenes.py`
   - `tests/test_vtt_scenes_and_fog_156_157.py`
 - **Τι υλοποιήθηκε αναλυτικά**:
-  - Υλοποιήθηκε lazy migration στο `VTTService`: αν μια καμπάνια δεν έχει ενεργή σκηνή, μετατρέπεται αυτόματα το υφιστάμενο `vtt_state` σε σκηνή `"Default Scene"`.
+  - Υλοποιήθηκε lazy migration στο `VTTService`: αν μια καμπάνια δεν έχει ενεργή σκηνή, μετατρέπεται αυτόματα το υφιστάμενο `vtt_state` σε σκηνή `"Default"`.
   - Στο `assets_router.py`:
     ```python
     asset = await db["campaign_assets"].find_one({"filename": filename})
@@ -292,8 +295,8 @@ graph TD
 ### Ticket #157: Fullstack - VTT Fog of War & Hidden Token Redaction
 - **Ζητούμενο**:
   - Σύστημα Fog of War:
-    - Κατάσταση `VTTFog`: `enabled: bool`, `revealed_indices: List[int]`.
-    - Λειτουργίες: Toggle Fog, Reveal Brush (1x1 & 3x3), Hide Brush (1x1 & 3x3), Reveal All, Hide All.
+    - Κατάσταση `VTTFog`: `enabled: bool`, `revealed: List[int]`.
+    - Λειτουργίες: Toggle Fog, Reveal Brush (1x1 & 3x3), Hide Brush (1x1 & 3x3), Box Reveal (`rect_reveal`), Box Hide (`rect_hide`), Reveal All, Hide All.
     - Μέγιστο όριο κελιών ανά batch request: 2.500 κελιά.
     - Bounds checking: Όλα τα indices πρέπει να εμπίπτουν στα όρια `0 <= index < cols * rows`.
     - Αυτόματο remapping των δεικτών ομίχλης σε αλλαγή διαστάσεων πλέγματος (grid resize) ώστε να μην παραμορφώνεται η αποκαλυφθείσα περιοχή.
@@ -309,15 +312,15 @@ graph TD
 - **Αρχεία που τροποποιήθηκαν**:
   - `backend/services/vtt_service.py` (`remap_fog_indices`, `redact_for_player`, fog CRUD)
   - `server/routers/websocket_router.py` (Redacted per-player broadcast)
-  - `client/src/app/features/vtt/models/vtt.model.ts`
+  - `client/src/app/core/models/vtt.model.ts`
   - `client/src/app/core/services/websocket.service.ts`
-  - `client/src/app/features/vtt/components/vtt-grid/vtt-grid.component.ts` & `.html`
+  - `client/src/app/features/campaigns/vtt-grid/vtt-grid.component.ts` & `.spec.ts`
   - `tests/test_vtt_scenes_and_fog_156_157.py`
 - **Τι υλοποιήθηκε αναλυτικά**:
   - Στο `VTTService.redact_for_player`:
     Υπολογίζονται όλα τα κελιά που καταλαμβάνει το token:
     $$\{ (r+dy) \times \text{cols} + (c+dx) \mid 0 \le dx, dy < \text{size} \}$$
-    Εάν κανένα κελί δεν ανήκει στο `revealed_indices` και το token δεν ανήκει στον παίκτη, το token φιλτράρεται.
+    Εάν κανένα κελί δεν ανήκει στο `revealed` και το token δεν ανήκει στον παίκτη, το token φιλτράρεται.
   - Στο WebSocket endpoint, κάθε φορά που αλλάζει το VTT state, ο DM λαμβάνει το πλήρες state, ενώ κάθε παίκτης λαμβάνει το εξατομικευμένο redacted state.
 - **Έλεγχος & Tests**:
   - `poetry run pytest tests/test_vtt_scenes_and_fog_156_157.py` (13/13 passed).
@@ -395,17 +398,17 @@ poetry run pytest tests/test_qa_veteran_player_scenarios.py -v
 poetry run pytest tests/test_qa_veteran_dm_scenarios.py -v
 ```
 
-### Βήμα 4: Πλήρης Εκτέλεση Ολόκληρου του Backend Pytest Suite
+#### Βήμα 4: Πλήρης Εκτέλεση Ολόκληρου του Backend Pytest Suite
 ```bash
 poetry run pytest
-# Αναμενόμενο: 444 passed, 3 warnings in ~25s
+# Αναμενόμενο: 449 passed, 5 warnings in ~25s
 ```
 
 ### Βήμα 5: Frontend Unit Tests (Jest)
 ```bash
 cd client
 npm test -- --watch=false
-# Αναμενόμενο: Test Suites: 25 passed, 25 total. Tests: 339 passed, 339 total
+# Αναμενόμενο: Test Suites: 26 passed, 26 total. Tests: 343 passed, 343 total
 ```
 
 ### Βήμα 6: Frontend Production Build
@@ -431,7 +434,7 @@ gh pr checks 169
 ## 4. Ευρετήριο Τροποποιημένων & Νέων Αρχείων
 
 ### Backend Core & Schemas
-- [`backend/core/schemas.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/schemas.py): Προσθήκη Pydantic μοντέλων: `AdminUserSchema`, `UserDeletionPreview`, `UserDeletionReport`, `WhisperReportCreateRequest`, `WhisperReportUpdateRequest`, `WhisperReportSchema`, `VTTFogSchema`, `VTTSceneSchema`, `VTTSceneHistorySchema`, `CampaignAssetSchema`, `ImportCharacterResponse`.
+- [`backend/core/schemas.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/schemas.py): Προσθήκη Pydantic μοντέλων: `AdminUserSchema`, `UserDeletionPreview`, `UserDeletionReport`, `WhisperReportCreateRequest`, `WhisperReportUpdateRequest`, `WhisperReportSchema`, `VTTFogSchema`, `VTTSceneSchema`, `VTTSceneHistorySchema`, `CampaignAssetSchema`.
 
 ### Backend Services
 - [`backend/services/character_import_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/character_import_service.py): Υλοποίηση D&D Beyond API import με SSRF isolation και deterministic parser.
@@ -446,17 +449,17 @@ gh pr checks 169
 
 ### Server API Routers & Config
 - [`server/config.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/config.py): Προσθήκη ορίων `MAX_PDF_IMPORT_BYTES`, `MAX_PDF_IMPORT_PAGES`, `MAX_FOUNDRY_IMPORT_BYTES`, `DNDBEYOND_IMPORT_RATE_LIMIT`.
-- [`server/db_async.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/db_async.py): TTL index στο `campaign_whispers`, ευρετήρια σε `whisper_reports`, `campaign_scenes`, `campaign_assets`.
+- [`server/db_async.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/db_async.py): TTL index στο `campaign_whispers` (`ttl_campaign_whispers_created_at`), ευρετήρια σε `whisper_reports`, `campaign_scenes`, `campaign_assets`.
 - [`server/dependencies/auth.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/dependencies/auth.py): `require_admin` με realtime DB check και token `iat` invalidation.
 - [`server/routers/auth_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/auth_router.py): Διάχυση πεδίου `is_admin`.
 - [`server/routers/admin_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/admin_router.py): Endpoints χρηστών, deletion preview, whisper reports και context inspection ($\pm 10$).
 - [`server/routers/campaign_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/campaign_router.py): Whisper reporting, archived message filtering, scene management endpoints.
-- [`server/routers/character_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/character_router.py): Endpoints `/import-pdf`, `/import-dndbeyond`, `/import-foundry`.
+- [`server/routers/character_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/character_router.py): Endpoints `/import-pdf`, `/import-dndbeyond`, `/import-foundry`, response model `ImportCharacterResponse`.
 - [`server/routers/assets_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/assets_router.py): Αυστηρό asset multi-tenancy verification.
 - [`server/routers/websocket_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/websocket_router.py): Ασφαλής δρομολόγηση ψιθύρων βάσει `user_id`, DM fog broadcasting και redacted per-player VTT sync.
 
 ### Scripts
-- [`scripts/promote_admin.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/scripts/promote_admin.py): CLI script προώθησης/υποβιβασμού διαχειριστή.
+- [`scripts/promote_admin.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/scripts/promote_admin.py): CLI script προώθησης/υποβιβασμού διαχειριστή (`--revoke`).
 - [`scripts/backfill_whisper_created_at.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/scripts/backfill_whisper_created_at.py): Backfill BSON `created_at` σε παλιούς ψίθυρους.
 - [`scripts/migrate_vtt_scenes.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/scripts/migrate_vtt_scenes.py): Migration υφιστάμενων VTT states σε default σκηνές.
 
@@ -465,13 +468,13 @@ gh pr checks 169
 - [`client/src/app/features/admin/admin.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/admin/admin.component.ts) & [`.html`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/admin/admin.component.html): Admin dashboard, Users table, Deletion modal, Reports inspection.
 - [`client/src/app/features/player/player.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/player.component.ts) & [`.html`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/player.component.html): Character Import modal (PDF, D&D Beyond, Foundry), whisper report button, badges.
 - [`client/src/app/features/player/action-dock/action-dock.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/action-dock/action-dock.component.ts) & [`.html`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/action-dock/action-dock.component.html): Import trigger button.
-- [`client/src/app/features/player/command-palette/command-palette.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/command-palette/command-palette.component.ts): Import character command.
+- [`client/src/app/shared/components/command-palette/command-palette.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/shared/components/command-palette/command-palette.component.ts): Import character command.
 - [`client/src/app/features/dm/dm-inbox/dm-inbox.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/dm/dm-inbox/dm-inbox.component.ts) & [`.html`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/dm/dm-inbox/dm-inbox.component.html): Deleted user badges & Report whisper action.
 - [`client/src/app/features/dm/dm.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/dm/dm.component.ts) & [`.html`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/dm/dm.component.html): Report modal integration.
-- [`client/src/app/features/vtt/components/vtt-grid/vtt-grid.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/vtt/components/vtt-grid/vtt-grid.component.ts) & [`.html`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/vtt/components/vtt-grid/vtt-grid.component.html): HTML5 Canvas fog rendering overlay & toolbar.
-- [`client/src/app/features/vtt/models/vtt.model.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/vtt/models/vtt.model.ts): Models για `VTTFog`, `VTTScene`, `VTTState`.
+- [`client/src/app/features/campaigns/vtt-grid/vtt-grid.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/campaigns/vtt-grid/vtt-grid.component.ts): HTML5 Canvas fog rendering overlay, rectangle selection modes, scene library & notes.
+- [`client/src/app/core/models/vtt.model.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/core/models/vtt.model.ts): Models για `VTTFog`, `VTTScene`, `VTTSceneHistory`, `VTTState`.
 - [`client/src/app/core/services/websocket.service.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/core/services/websocket.service.ts): Fog events (`vtt_fog_toggle`, `vtt_fog_reveal`, `vtt_fog_hide`, κ.λπ.).
-- Unit test specs: `admin.component.spec.ts`, `dm-inbox.component.spec.ts`.
+- Unit test specs: `admin.component.spec.ts`, `dm-inbox.component.spec.ts`, `vtt-grid.component.spec.ts`.
 
 ### Automated Test Suites
 - [`tests/test_pdf_import_endpoint_152.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/tests/test_pdf_import_endpoint_152.py)
