@@ -1,8 +1,8 @@
-import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
@@ -81,6 +81,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     ForgeButtonDirective,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
@@ -121,6 +122,7 @@ export class DmComponent implements OnInit, OnDestroy {
   campaignName = '';
   campaignNotes = '';
   inviteCode = '';
+  isMobileViewport = signal<boolean>(false);
   /** The ruleset this campaign was forged under. Empty until one is selected. */
   campaignEdition = '';
 
@@ -282,6 +284,12 @@ export class DmComponent implements OnInit, OnDestroy {
   private campaignInitialLoad = new Set<string>();
 
   ngOnInit() {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobileViewport.set(mq.matches);
+      mq.addEventListener('change', (e) => this.isMobileViewport.set(e.matches));
+    }
+
     this.loadCampaigns();
 
     this.encounterSub = this.encounterSyncSubject.pipe(

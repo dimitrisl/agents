@@ -72,7 +72,7 @@
               (onClick)="onCampaignClick(camp)"
             >
               <ng-container trailing>
-                @if (camp.role === 'dm') {
+                @if (!isMobile() && camp.role === 'dm') {
                   <forge-badge tone="accent" size="sm">DM</forge-badge>
                 } @else {
                   <forge-badge tone="muted" size="sm">Player</forge-badge>

@@ -33,9 +33,15 @@ export class CampaignPickerComponent implements OnInit {
   campaigns = signal<Campaign[]>([]);
   loading = signal(true);
   showJoinModal = signal(false);
+  isMobile = signal(false);
 
   ngOnInit() {
     this.fetchCampaigns();
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobile.set(mq.matches);
+      mq.addEventListener('change', (e) => this.isMobile.set(e.matches));
+    }
   }
 
   fetchCampaigns() {
@@ -53,6 +59,10 @@ export class CampaignPickerComponent implements OnInit {
   }
 
   onCampaignClick(camp: Campaign) {
+    if (this.isMobile()) {
+      this.router.navigate(['/player']);
+      return;
+    }
     if (camp.role === 'dm') {
       this.router.navigate(['/dm'], { queryParams: { c: camp.campaign_name } });
     } else {

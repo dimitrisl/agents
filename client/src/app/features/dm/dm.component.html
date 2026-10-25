@@ -1,5 +1,15 @@
 <forge-page>
-  @if (campaignsStatus === 'loading') {
+  @if (isMobileViewport()) {
+    <forge-empty-state
+      icon="🏰"
+      title="Desktop Workspace Only"
+      description="The DM Workspace is designed for desktop screens (min 1024px) for map management, tactical combat, and encounter preparation. On mobile and tablet devices, please use the Player Companion."
+    >
+      <button forgeButton variant="primary" type="button" routerLink="/player">
+        Switch to Player Companion
+      </button>
+    </forge-empty-state>
+  } @else if (campaignsStatus === 'loading') {
     <forge-empty-state
       icon="⏳"
       title="Opening the Workspace"
