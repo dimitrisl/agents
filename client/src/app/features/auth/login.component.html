@@ -33,7 +33,8 @@
     @case ('choice') {
       <app-choice-view
         [logoTemplate]="forgeLogo"
-        (chooseTutorial)="mode = 'tutorial'"
+        (chooseTutorial)="openTutorial('none')"
+        (chooseWhatIsDnd)="openTutorial('intro')"
         (chooseAuth)="mode = 'auth'"
       />
     }
@@ -41,7 +42,9 @@
     @case ('tutorial') {
       <app-tutorial-view
         [step]="tutorialStep"
+        [role]="tutorialRole"
         (stepChange)="tutorialStep = $event"
+        (roleChange)="tutorialRole = $event"
         (back)="mode = 'choice'"
         (finish)="mode = 'auth'"
       />

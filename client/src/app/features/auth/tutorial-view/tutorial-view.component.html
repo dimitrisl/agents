@@ -6,6 +6,8 @@
       </svg>
       @if (role === 'none') {
         Choose Your Path
+      } @else if (role === 'intro') {
+        📽️ What is D&amp;D? (Slide {{ step + 1 }} of 5)
       } @else {
         {{ role === 'player' ? '🗡️ Οδηγός Παίκτη' : '🏰 Οδηγός Dungeon Master' }}: Βήμα {{ step + 1 }} από 5
       }
@@ -28,6 +30,25 @@
   <section class="mb-6 rounded-[12px] border border-hairline bg-panel p-5 text-left">
     @if (role === 'none') {
       <div class="flex flex-col gap-4">
+        <!-- WHAT IS D&D? INTRO PRESENTATION -->
+        <button
+          class="w-full flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-hairline hover:border-gold hover:bg-tile/40 transition-all group cursor-pointer text-left"
+          (click)="selectRole('intro')"
+        >
+          <div class="w-13 h-13 rounded-2xl bg-gold/20 text-gold flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
+            📽️
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-display text-lg text-ink font-bold group-hover:text-gold transition-colors flex items-center gap-2">
+              What is D&amp;D?
+              <forge-badge tone="gold" class="text-micro font-sans font-semibold">Intro Deck</forge-badge>
+            </div>
+            <div class="text-sm text-muted mt-1 leading-snug">
+              Δεν έχεις ξαναπαίξει ποτέ; Δες σε 2 λεπτά ένα διασκεδαστικό "PowerPoint" για το πώς λειτουργεί το παιχνίδι!
+            </div>
+          </div>
+        </button>
+
         <button
           class="w-full flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-hairline hover:border-accent hover:bg-tile/40 transition-all group cursor-pointer text-left"
           (click)="selectRole('player')"
@@ -62,6 +83,360 @@
           </div>
         </button>
       </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- WHAT IS D&D? "POWERPOINT" INTRO DECK       -->
+    <!-- ========================================== -->
+    @if (role === 'intro') {
+      <!-- Slide 1: The Big Picture -->
+      @if (step === 0) {
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-3">
+            <div class="flex items-center gap-2">
+              <forge-badge tone="gold" class="text-micro font-sans font-bold tracking-wider uppercase">Slide 1 / 5</forge-badge>
+              <span class="text-xs text-muted font-mono uppercase tracking-wider">The Big Picture</span>
+            </div>
+            <span class="text-xs text-gold font-medium">🎬 Intro 101</span>
+          </div>
+
+          <div>
+            <h3 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              🎬 Τι στο καλό είναι το Dungeons &amp; Dragons;
+            </h3>
+            <p class="text-sm text-muted mt-1">
+              Όχι, δεν είναι περίπλοκα μαθηματικά για σπασίκλες. Σκέψου το σαν μια διαδραστική ταινία φαντασίας όπου <strong>εσύ είσαι ο πρωταγωνιστής</strong>!
+            </p>
+          </div>
+
+          <!-- Video Game vs D&D Comparison Deck -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="p-3.5 rounded-xl bg-black/40 border border-hairline/70 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-2 text-ink font-bold text-sm mb-2">
+                  <span class="text-base">🎮</span> Στα Video Games
+                </div>
+                <ul class="text-xs text-muted space-y-1.5 list-disc list-inside">
+                  <li>Έχεις 4 κουμπιά στο χειριστήριο.</li>
+                  <li>Κολλάς σε αόρατους τοίχους.</li>
+                  <li>Αν θες να δωροδοκήσεις έναν φρουρό με μια πίτσα, ο υπολογιστής απλά λέει <em>"Action not allowed"</em>.</li>
+                </ul>
+              </div>
+              <div class="mt-3 pt-2 border-t border-hairline/40 text-[11px] text-muted italic">
+                🔒 Περιορισμένος από τον κώδικα
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-gold/10 border border-gold/40 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-2 text-gold font-bold text-sm mb-2">
+                  <span class="text-base">🐉</span> Στο Dungeons &amp; Dragons
+                </div>
+                <ul class="text-xs text-ink/90 space-y-1.5 list-disc list-inside">
+                  <li><strong>Μηδέν περιορισμοί!</strong></li>
+                  <li>Μπορείς να πεις κυριολεκτικά: <em>"Πετάω τη σούπα στα μάτια του ορκ και πηδάω από το μπαλκόνι!"</em></li>
+                  <li>Ό,τι φανταστείς, μπορείς να το δοκιμάσεις!</li>
+                </ul>
+              </div>
+              <div class="mt-3 pt-2 border-t border-gold/20 text-[11px] text-gold font-medium">
+                ✨ Μόνο όριο: η φαντασία σου (και τα ζάρια)
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide Presentation Takeaway -->
+          <div class="p-3 rounded-lg bg-panel border border-hairline text-xs text-ink flex items-start gap-2.5">
+            <span class="text-base shrink-0">💡</span>
+            <div>
+              <strong class="text-gold">Takeaway Διαφάνειας:</strong>
+              Το D&amp;D είναι επιτραπέζιο + θέατρο αυτοσχεδιασμού + επική ταινία δράσης με την παρέα σου. Όλα γίνονται με τη φαντασία σας (και το Phyrexian Forge)!
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Slide 2: The Crew -->
+      @if (step === 1) {
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-3">
+            <div class="flex items-center gap-2">
+              <forge-badge tone="gold" class="text-micro font-sans font-bold tracking-wider uppercase">Slide 2 / 5</forge-badge>
+              <span class="text-xs text-muted font-mono uppercase tracking-wider">The Roles</span>
+            </div>
+            <span class="text-xs text-gold font-medium">🎭 Ποιος κάνει τι;</span>
+          </div>
+
+          <div>
+            <h3 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              🎭 Ποιοι Κάθονται στο Τραπέζι;
+            </h3>
+            <p class="text-sm text-muted mt-1">
+              Κανείς δεν παίζει αντίπαλος. Είστε όλοι στην ίδια ομάδα — ακόμα κι ο Dungeon Master!
+            </p>
+          </div>
+
+          <div class="space-y-3 pt-1">
+            <!-- DM Card -->
+            <div class="p-3.5 rounded-xl bg-black/40 border border-gold/30 hover:border-gold/50 transition-colors">
+              <div class="flex items-center gap-2.5 text-gold font-bold text-sm mb-1.5">
+                <span class="text-xl">🏰</span> Ο Dungeon Master (DM) — «Ο Σκηνοθέτης»
+              </div>
+              <p class="text-xs text-ink/90 leading-relaxed">
+                Περιγράφει τον κόσμο (<em>"Μπαίνετε σε μια σκοτεινή κατακόμβη που μυρίζει θειάφι..."</em>), ελέγχει τα τέρατα, τους εμπόρους και τις παγίδες.
+              </p>
+              <div class="mt-2 text-micro text-gold/80 bg-gold/10 px-2 py-1 rounded inline-block">
+                💡 <strong>Μύθος:</strong> Ο DM ΔΕΝ είναι εχθρός σας! Θέλει να σας δυσκολέψει τόσο ώστε να νιώσετε αληθινοί θρύλοι όταν νικήσετε.
+              </div>
+            </div>
+
+            <!-- Party Card -->
+            <div class="p-3.5 rounded-xl bg-black/40 border border-accent/30 hover:border-accent/50 transition-colors">
+              <div class="flex items-center gap-2.5 text-accent font-bold text-sm mb-1.5">
+                <span class="text-xl">🗡️</span> Εσύ &amp; η Παρέα σου (The Party) — «Οι Πρωταγωνιστές»
+              </div>
+              <p class="text-xs text-ink/90 leading-relaxed">
+                Ο καθένας ελέγχει έναν ήρωα: έναν σκληροτράχηλο πολεμιστή, μια σοφή ξωτικιά, έναν μάγο με μπάλες φωτιάς ή έναν πανούργο κλέφτη.
+              </p>
+              <div class="mt-2 text-micro text-accent/80 bg-accent/10 px-2 py-1 rounded inline-block">
+                🤝 <strong>Συνεργασία:</strong> Μόνος σου δεν ζεις ούτε 2 γύρους. Μαζί ως ομάδα είστε ανίκητοι!
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide Presentation Takeaway -->
+          <div class="p-3 rounded-lg bg-panel border border-hairline text-xs text-ink flex items-start gap-2.5">
+            <span class="text-base shrink-0">🍿</span>
+            <div>
+              <strong class="text-gold">Takeaway Διαφάνειας:</strong>
+              Ο DM στήνει τη σκηνή, η παρέα δημιουργεί το απόλυτο χάος, και όλοι μαζί φτιάχνετε μια ιστορία που κανείς δεν ήξερε εκ των προτέρων πώς θα εξελιχθεί!
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Slide 3: The d20 -->
+      @if (step === 2) {
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-3">
+            <div class="flex items-center gap-2">
+              <forge-badge tone="gold" class="text-micro font-sans font-bold tracking-wider uppercase">Slide 3 / 5</forge-badge>
+              <span class="text-xs text-muted font-mono uppercase tracking-wider">The Dice</span>
+            </div>
+            <span class="text-xs text-gold font-medium">🎲 Το 20πλευρο Ζάρι</span>
+          </div>
+
+          <div>
+            <h3 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              🎲 Το Μαγικό Ζάρι d20: Ο Απόλυτος Διαιτητής
+            </h3>
+            <p class="text-sm text-muted mt-1">
+              Πώς ξέρουμε αν πέτυχε η ιδέα σου; Όταν υπάρχει ρίσκο, ρίχνεις το <strong>20πλευρο ζάρι (d20)</strong>!
+            </p>
+          </div>
+
+          <!-- The Live Dialogue Box -->
+          <div class="p-3 rounded-xl bg-black/50 border border-hairline text-xs space-y-1.5 font-mono">
+            <div class="text-accent flex items-center gap-2">
+              <span class="font-bold">Εσύ:</span>
+              <span class="text-ink">"Πηδάω πάνω στον δράκο για να του κόψω το κέρατο!"</span>
+            </div>
+            <div class="text-gold flex items-center gap-2">
+              <span class="font-bold">DM:</span>
+              <span class="text-ink">"Χαχα φοβερό! Ρίξε ένα d20 να δούμε τι θα γίνει..."</span>
+            </div>
+          </div>
+
+          <!-- The 3 Outcomes Matrix -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+            <div class="p-3 rounded-xl bg-crimson/10 border border-crimson/40 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-1.5 text-crimson font-bold text-xs mb-1">
+                  <span>💀</span> 1 • Nat 1 (Epic Fail)
+                </div>
+                <p class="text-[11px] text-ink/80 leading-snug">
+                  Γλιστράς σε μια πεπονόφλουδα και πέφτεις ανάσκελα με τη μούρη στη λάσπη. <em>Όλοι στο τραπέζι κλαίνε από τα γέλια! 😂</em>
+                </p>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-black/40 border border-hairline flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-1.5 text-ink font-bold text-xs mb-1">
+                  <span>⚖️</span> 10-14 • Μέτρια Επιτυχία
+                </div>
+                <p class="text-[11px] text-muted leading-snug">
+                  Προσγειώνεσαι πάνω του, αλλά ο δράκος κουνιέται άγρια και κρατιέσαι οριακά από τα λέπια!
+                </p>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-gold/15 border border-gold/50 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-1.5 text-gold font-bold text-xs mb-1">
+                  <span>👑</span> 20 • Nat 20 (CRIT!)
+                </div>
+                <p class="text-[11px] text-ink font-medium leading-snug">
+                  Κόβεις το κέρατο στον αέρα με ανάποδο σάλτο! <em>Όλη η παρέα σηκώνεται όρθια και ουρλιάζει έξαλλα! 🎉</em>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide Presentation Takeaway -->
+          <div class="p-3 rounded-lg bg-panel border border-hairline text-xs text-ink flex items-start gap-2.5">
+            <span class="text-base shrink-0">✨</span>
+            <div>
+              <strong class="text-gold">Takeaway Διαφάνειας:</strong>
+              Δεν υπάρχει «έχασες». Στο D&amp;D ακόμα και οι πιο θεαματικές αποτυχίες γίνονται οι καλύτερες ιστορίες που θα θυμάστε μετά από χρόνια!
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Slide 4: Zero Homework -->
+      @if (step === 3) {
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-3">
+            <div class="flex items-center gap-2">
+              <forge-badge tone="gold" class="text-micro font-sans font-bold tracking-wider uppercase">Slide 4 / 5</forge-badge>
+              <span class="text-xs text-muted font-mono uppercase tracking-wider">No Homework</span>
+            </div>
+            <span class="text-xs text-gold font-medium">📜 Χωρίς Διάβασμα</span>
+          </div>
+
+          <div>
+            <h3 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              📜 Ο Ήρωάς σου: Μηδέν Διάβασμα, 100% Δράση
+            </h3>
+            <p class="text-sm text-muted mt-1">
+              Χρειάζεται να διαβάσεις βιβλία 300 σελίδων για να παίξεις; <strong>Απολύτως ΟΧΙ!</strong>
+            </p>
+          </div>
+
+          <div class="space-y-3 pt-1">
+            <!-- Myth vs Reality Box -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div class="p-3 rounded-xl bg-black/40 border border-hairline text-xs">
+                <div class="text-crimson font-bold mb-1 flex items-center gap-1.5">
+                  <span>❌</span> Ο Φόβος του Αρχάριου
+                </div>
+                <p class="text-muted leading-relaxed">
+                  "Πρέπει να μάθω απέξω 100 κανόνες, να κάνω περίπλοκα μαθηματικά και να κρατάω 50 σελίδες σημειώσεων."
+                </p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-accent/10 border border-accent/40 text-xs">
+                <div class="text-accent font-bold mb-1 flex items-center gap-1.5">
+                  <span>✅</span> Η Πραγματικότητα στο Forge
+                </div>
+                <p class="text-ink leading-relaxed">
+                  Έχεις απλά την οθόνη του κινητού σου! Το Phyrexian Forge υπολογίζει τα πάντα αυτόματα με 1 άγγιγμα.
+                </p>
+              </div>
+            </div>
+
+            <!-- What You Actually Need -->
+            <div class="p-3.5 rounded-xl bg-black/40 border border-hairline text-xs space-y-2">
+              <div class="font-bold text-ink flex items-center gap-2 text-sm text-gold">
+                <span>📱</span> Τι βλέπεις στην οθόνη σου:
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                <div class="p-2 rounded bg-tile/50 border border-hairline">
+                  <div class="text-accent font-bold">1. Ποιος είσαι</div>
+                  <div class="text-muted">π.χ. Grommash, Βάρβαρος Ορκ με ένα γιγάντιο τσεκούρι.</div>
+                </div>
+                <div class="p-2 rounded bg-tile/50 border border-hairline">
+                  <div class="text-accent font-bold">2. Τι μπορείς να κάνεις</div>
+                  <div class="text-muted">Έχεις 2-3 κουμπιά (π.χ. «Επίθεση», «Οργή», «Άλμα»).</div>
+                </div>
+                <div class="p-2 rounded bg-tile/50 border border-hairline">
+                  <div class="text-accent font-bold">3. Ένα απλό tap</div>
+                  <div class="text-muted">Πατάς το κουμπί και το app ρίχνει το ζάρι και προσθέτει τα μπόνους!</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slide Presentation Takeaway -->
+          <div class="p-3 rounded-lg bg-panel border border-hairline text-xs text-ink flex items-start gap-2.5">
+            <span class="text-base shrink-0">🤖</span>
+            <div>
+              <strong class="text-gold">Takeaway Διαφάνειας:</strong>
+              Εσύ φέρνεις τη φαντασία, την τρέλα και τη διάθεση της παρέας σου — το Phyrexian Forge αναλαμβάνει όλα τα υπόλοιπα.
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Slide 5: Ready to Roll / Final Slide -->
+      @if (step === 4) {
+        <div class="space-y-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-3">
+            <div class="flex items-center gap-2">
+              <forge-badge tone="gold" class="text-micro font-sans font-bold tracking-wider uppercase">Slide 5 / 5</forge-badge>
+              <span class="text-xs text-muted font-mono uppercase tracking-wider">Ready to Roll</span>
+            </div>
+            <span class="text-xs text-gold font-medium">🚀 Let's Play</span>
+          </div>
+
+          <div>
+            <h3 class="font-display text-xl font-bold text-ink flex items-center gap-2">
+              🚀 Συγχαρητήρια, Μόλις Έμαθες D&amp;D!
+            </h3>
+            <p class="text-sm text-muted mt-1">
+              Πίτσα, καλή παρέα και μια επική περιπέτεια σε περιμένουν. Ποιο είναι το επόμενο βήμα σου;
+            </p>
+          </div>
+
+          <!-- Direct Pathways Inside Slide -->
+          <div class="space-y-2.5 pt-1">
+            <button
+              class="w-full flex items-center justify-between p-3.5 rounded-xl bg-black/40 border border-accent/40 hover:border-accent hover:bg-tile/40 transition-all text-left group cursor-pointer"
+              (click)="selectRole('player')"
+            >
+              <div class="flex items-center gap-3">
+                <span class="text-2xl group-hover:scale-110 transition-transform">🗡️</span>
+                <div>
+                  <div class="font-display text-sm font-bold text-ink group-hover:text-accent transition-colors">
+                    1. Θέλω να φτιάξω Παίκτη (Player Guide)
+                  </div>
+                  <div class="text-[11px] text-muted">
+                    Μάθε σε 1 λεπτό πώς φτιάχνεις ήρωα με AI Portrait &amp; αυτόματα Stats!
+                  </div>
+                </div>
+              </div>
+              <span class="text-accent text-xs font-semibold group-hover:translate-x-1 transition-transform">Δες τον Οδηγό →</span>
+            </button>
+
+            <button
+              class="w-full flex items-center justify-between p-3.5 rounded-xl bg-black/40 border border-gold/40 hover:border-gold hover:bg-tile/40 transition-all text-left group cursor-pointer"
+              (click)="selectRole('dm')"
+            >
+              <div class="flex items-center gap-3">
+                <span class="text-2xl group-hover:scale-110 transition-transform">🏰</span>
+                <div>
+                  <div class="font-display text-sm font-bold text-ink group-hover:text-gold transition-colors">
+                    2. Θέλω να γίνω Dungeon Master (DM Guide)
+                  </div>
+                  <div class="text-[11px] text-muted">
+                    Μάθε πώς στήνεις μάχες, τέρατα, πρωτοβουλία και μυστικές ζαριές πίσω από την οθόνη.
+                  </div>
+                </div>
+              </div>
+              <span class="text-gold text-xs font-semibold group-hover:translate-x-1 transition-transform">Δες τον Οδηγό →</span>
+            </button>
+          </div>
+
+          <!-- Slide Presentation Takeaway -->
+          <div class="p-3.5 rounded-xl bg-gold/10 border border-gold/40 text-xs text-ink flex items-start gap-2.5">
+            <span class="text-xl shrink-0">🥂</span>
+            <div>
+              <strong class="text-gold">Καλή Περιπέτεια!</strong>
+              Σου ευχόμαστε πολλά 20άρια (Natural 20s), επικά γέλια και να θυμάσαι: <em>ποτέ μην εμπιστεύεσαι ένα σεντούκι που φαίνεται υπερβολικά λαχταριστό</em> (είναι μάλλον Mimic!).
+            </div>
+          </div>
+        </div>
+      }
     }
 
     <!-- ========================================== -->
