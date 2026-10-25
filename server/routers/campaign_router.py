@@ -1,4 +1,6 @@
 import datetime
+import logging
+import os
 import re
 import secrets
 import uuid
@@ -17,7 +19,12 @@ from backend.core.schemas import (
     PasteExtractionRequest,
     SessionOutlineSchema,
     SuccessResponseSchema,
+    VTTGridSchema,
+    VTTSceneHistorySchema,
+    VTTSceneSchema,
     VTTStateSchema,
+    VTTTokenSchema,
+    WhisperReportCreateRequest,
 )
 from backend.services.dice_service import roll_dice
 from backend.services.encounter_service import calculate_danger_indicator
@@ -30,6 +37,7 @@ from server.dependencies.auth import get_current_user
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
 from server.rate_limiter import limiter
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 session_service = SessionService()
 
@@ -252,6 +260,8 @@ async def save_campaign(
     # VTT state is owned by VTTService (atomic updates); a campaign save must never
     # overwrite it, nor write a null that would block later dotted updates.
     camp_dict.pop("vtt_state", None)
+    if camp_dict.get("invite_code") is None:
+        camp_dict.pop("invite_code", None)
     if existing:
         member = await db["campaign_members"].find_one(
             {"campaign_id": payload.campaign_name, "user_id": current_user["id"]}
@@ -279,6 +289,11 @@ async def save_campaign(
         try:
             await db["campaigns"].insert_one(doc_to_insert)
         except DuplicateKeyError as e:
+            if "invite_code" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Campaign invite code collision.",
+                ) from e
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Campaign '{payload.campaign_name}' already exists.",
@@ -745,7 +760,10 @@ async def get_campaign_messages(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     cursor_w = (
-        db["campaign_whispers"].find({"campaign_name": name}).sort("timestamp", -1).limit(100)
+        db["campaign_whispers"]
+        .find({"campaign_name": name, "archived_at": None})
+        .sort("timestamp", -1)
+        .limit(100)
     )
     all_whispers = []
     async for w in cursor_w:
@@ -765,13 +783,45 @@ async def get_campaign_messages(
 
         filtered_whispers = []
         for w in whispers:
-            if (
-                w.get("recipient") == "All"
-                or w.get("sender") == char_name
-                or w.get("recipient") == char_name
-            ):
+            if w.get("recipient") == "All":
                 filtered_whispers.append(w)
+            elif w.get("sender_user_id") or w.get("recipient_user_id"):
+                if (
+                    w.get("sender_user_id") == current_user["id"]
+                    or w.get("recipient_user_id") == current_user["id"]
+                ):
+                    filtered_whispers.append(w)
+            else:
+                if w.get("sender") == char_name or w.get("recipient") == char_name:
+                    filtered_whispers.append(w)
         whispers = filtered_whispers
+
+    # Compute sender_deleted and recipient_deleted flags
+    uids = set()
+    for w in whispers:
+        if w.get("sender_user_id"):
+            uids.add(w["sender_user_id"])
+        if w.get("recipient_user_id"):
+            uids.add(w["recipient_user_id"])
+
+    existing_uids = set()
+    if uids:
+        cursor_u = db["users"].find({"id": {"$in": list(uids)}}, {"id": 1})
+        if hasattr(cursor_u, "__aiter__"):
+            async for u in cursor_u:
+                existing_uids.add(u["id"])
+
+    for w in whispers:
+        w["sender_deleted"] = bool(
+            w.get("sender_user_id") and w["sender_user_id"] not in existing_uids
+        )
+        w["recipient_deleted"] = bool(
+            w.get("recipient_user_id") and w["recipient_user_id"] not in existing_uids
+        )
+        if isinstance(w.get("created_at"), datetime.datetime):
+            w["created_at"] = w["created_at"].isoformat()
+        if isinstance(w.get("archived_at"), datetime.datetime):
+            w["archived_at"] = w["archived_at"].isoformat()
 
     cursor_r = (
         db["campaign_roll_requests"].find({"campaign_name": name}).sort("created_at", -1).limit(100)
@@ -802,15 +852,61 @@ async def send_whisper(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
+    sender_user_id = current_user["id"]
+    sender_username = current_user.get("username")
+    sender_character_id = None
+    sender_character_name = None
     sender_name = "DM"
+
     if member.get("role") == "player":
         if member.get("character_id"):
             char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
-            sender_name = (
-                char_doc.get("char_name") if char_doc else current_user.get("username", "Player")
-            )
+            if char_doc:
+                sender_character_id = char_doc.get("char_id")
+                sender_character_name = char_doc.get("char_name")
+                sender_name = sender_character_name or sender_username or "Player"
+            else:
+                sender_name = sender_username or "Player"
         else:
-            sender_name = current_user.get("username", "Player")
+            sender_name = sender_username or "Player"
+    else:
+        sender_name = "DM"
+
+    recipient_user_id = None
+    recipient_username = None
+    recipient_character_id = None
+    recipient_character_name = None
+
+    if payload.recipient == "DM":
+        recipient_user_id = camp.get("owner_id")
+        if not recipient_user_id:
+            dm_member = await db["campaign_members"].find_one({"campaign_id": name, "role": "dm"})
+            if dm_member:
+                recipient_user_id = dm_member.get("user_id")
+        if recipient_user_id:
+            u = await db["users"].find_one({"id": recipient_user_id})
+            recipient_username = u.get("username") if u else None
+    elif payload.recipient != "All":
+        target_char = await db["characters"].find_one(
+            {"active_campaign": name, "char_name": payload.recipient}
+        )
+        if not target_char:
+            target_char = await db["characters"].find_one(
+                {
+                    "active_campaign": name,
+                    "char_name": {"$regex": f"^{re.escape(payload.recipient)}$", "$options": "i"},
+                }
+            )
+        if target_char:
+            recipient_character_id = target_char.get("char_id")
+            recipient_character_name = target_char.get("char_name")
+            recipient_user_id = target_char.get("owner_id")
+            if recipient_user_id:
+                u = await db["users"].find_one({"id": recipient_user_id})
+                recipient_username = u.get("username") if u else None
+
+    now_dt = datetime.datetime.now(datetime.timezone.utc)
+    now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
 
     new_whisper = {
         "id": str(uuid.uuid4()),
@@ -818,7 +914,20 @@ async def send_whisper(
         "sender": sender_name,
         "recipient": payload.recipient,
         "message": payload.message,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_str,
+        "sender_user_id": sender_user_id,
+        "sender_username": sender_username,
+        "sender_character_id": sender_character_id,
+        "sender_character_name": sender_character_name,
+        "recipient_user_id": recipient_user_id,
+        "recipient_username": recipient_username,
+        "recipient_character_id": recipient_character_id,
+        "recipient_character_name": recipient_character_name,
+        "created_at": now_dt,
+        "archived_at": None,
+        "has_open_report": False,
+        "sender_deleted": False,
+        "recipient_deleted": False,
     }
 
     db_whisper = new_whisper.copy()
@@ -830,13 +939,97 @@ async def send_whisper(
     if new_whisper["recipient"] != "All":
         audience = [new_whisper["recipient"], new_whisper["sender"]]
 
-    await manager.broadcast(name, {"type": "whisper", "payload": new_whisper}, characters=audience)
+    target_uids = (
+        [u for u in [sender_user_id, recipient_user_id] if u]
+        if new_whisper["recipient"] != "All"
+        else None
+    )
+
+    # Serialization-friendly dict for broadcast/response
+    ws_whisper = new_whisper.copy()
+    ws_whisper["created_at"] = now_dt.isoformat()
+
+    await manager.broadcast(
+        name,
+        {"type": "whisper", "payload": ws_whisper},
+        characters=audience,
+        user_ids=target_uids,
+    )
 
     return {
         "success": True,
         "message": f"Whisper sent to {new_whisper['recipient']}",
-        "whisper": new_whisper,
+        "whisper": ws_whisper,
     }
+
+
+@router.post("/{name}/whispers/{whisper_id}/report", response_model=SuccessResponseSchema)
+async def report_whisper(
+    name: str,
+    whisper_id: str,
+    payload: WhisperReportCreateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
+):
+    if not payload.reason or not payload.reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Report reason cannot be empty.",
+        )
+
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    whisper = await db["campaign_whispers"].find_one({"campaign_name": name, "id": whisper_id})
+    if not whisper:
+        raise HTTPException(status_code=404, detail="Whisper not found")
+
+    # Caller must be permitted to see the whisper
+    is_dm = member.get("role") == "dm"
+    is_sender = whisper.get("sender_user_id") == current_user["id"]
+    is_recipient = whisper.get("recipient_user_id") == current_user["id"]
+    is_public = whisper.get("recipient") == "All"
+
+    # Legacy character name match fallback
+    char_name = None
+    if member.get("character_id"):
+        char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
+        if char_doc:
+            char_name = char_doc.get("char_name")
+    is_legacy_match = bool(
+        char_name and (whisper.get("sender") == char_name or whisper.get("recipient") == char_name)
+    )
+
+    if not (is_dm or is_sender or is_recipient or is_public or is_legacy_match):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to report this whisper.",
+        )
+
+    report_id = str(uuid.uuid4())
+    now = datetime.datetime.now(datetime.timezone.utc)
+    report_doc = {
+        "report_id": report_id,
+        "whisper_id": whisper_id,
+        "campaign_name": name,
+        "reported_by_user_id": current_user["id"],
+        "reported_by_username": current_user.get("username"),
+        "reason": payload.reason.strip(),
+        "created_at": now,
+        "status": "open",
+        "resolution_note": None,
+        "resolved_at": None,
+        "resolved_by_user_id": None,
+    }
+    await db["whisper_reports"].insert_one(report_doc)
+    await db["campaign_whispers"].update_one(
+        {"campaign_name": name, "id": whisper_id},
+        {"$set": {"has_open_report": True}},
+    )
+
+    return {"success": True, "message": "Report submitted successfully."}
 
 
 class CampaignNotesRequest(BaseModel):
@@ -949,27 +1142,9 @@ async def delete_campaign(
             detail="Only the campaign creator can delete this campaign.",
         )
 
-    # 1. Delete campaign document
-    await db["campaigns"].delete_one({"campaign_name": name})
+    from backend.services.campaign_service import delete_campaign_cascade
 
-    # 2. Delete all related documents across collections
-    await db["campaign_members"].delete_many({"campaign_id": name})
-    await db["campaign_whispers"].delete_many({"campaign_name": name})
-    await db["campaign_roll_requests"].delete_many({"campaign_name": name})
-    await db["campaign_encounters"].delete_many({"campaign_name": name})
-    await db["campaign_entities"].delete_many({"campaign_name": name})
-    await db["session_logs"].delete_many({"campaign_name": name})
-    await db["campaign_skeletons"].delete_many({"campaign_name": name})
-    await db["homebrew_content"].delete_many({"campaign_name": name})
-
-    # 3. Unset active_campaign for all characters currently in this campaign
-    await db["characters"].update_many(
-        {"active_campaign": name}, {"$unset": {"active_campaign": ""}}
-    )
-
-    from server.routers.websocket_router import manager
-
-    await manager.broadcast(name, {"type": "campaign_deleted"})
+    await delete_campaign_cascade(db, name, broadcast=True)
 
     return {"success": True, "message": "Campaign deleted successfully."}
 
@@ -1265,3 +1440,348 @@ async def generate_campaign_outlines(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# VTT Persistent Scenes Management (#156, #157)
+# ==========================================
+
+
+class SceneCreateRequest(BaseModel):
+    name: str = "New Scene"
+    dm_notes: str = ""
+    grid: Optional[VTTGridSchema] = None
+    tokens: Optional[List[VTTTokenSchema]] = None
+
+
+class SceneUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    dm_notes: Optional[str] = None
+    grid: Optional[VTTGridSchema] = None
+    tokens: Optional[List[VTTTokenSchema]] = None
+    order: Optional[int] = None
+
+
+@router.get("/{name}/scenes", response_model=List[VTTSceneSchema])
+async def list_campaign_scenes(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Retrieve all scenes for a campaign (DM only)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    vtt_srv = VTTService()
+    active_scene_id = await vtt_srv._ensure_state(db, name)
+
+    cursor = db["campaign_scenes"].find({"campaign_name": name}).sort("order", 1)
+    scenes = []
+    if hasattr(cursor, "__aiter__"):
+        async for s in cursor:
+            s.pop("_id", None)
+            s["is_active_scene"] = s.get("scene_id") == active_scene_id
+            scenes.append(VTTSceneSchema(**s))
+
+    return scenes
+
+
+@router.post("/{name}/scenes", response_model=VTTSceneSchema, status_code=status.HTTP_201_CREATED)
+async def create_campaign_scene(
+    name: str,
+    payload: SceneCreateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Create a new offline/unactivated scene for a campaign (DM only)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    scene_id = str(uuid.uuid4())
+    count = await db["campaign_scenes"].count_documents({"campaign_name": name})
+
+    grid_dict = payload.grid.model_dump() if payload.grid else VTTGridSchema().model_dump()
+    tokens_list = [t.model_dump() for t in payload.tokens] if payload.tokens else []
+
+    scene_doc = {
+        "scene_id": scene_id,
+        "campaign_name": name,
+        "name": payload.name.strip() or "New Scene",
+        "dm_notes": payload.dm_notes or "",
+        "grid": grid_dict,
+        "tokens": tokens_list,
+        "fog": {"enabled": False, "revealed": []},
+        "order": count,
+        "created_at": now,
+        "updated_at": now,
+        "last_activated_at": None,
+    }
+
+    await db["campaign_scenes"].insert_one(scene_doc)
+    scene_doc.pop("_id", None)
+    scene_doc["is_active_scene"] = False
+    return VTTSceneSchema(**scene_doc)
+
+
+@router.put("/{name}/scenes/{scene_id}", response_model=VTTSceneSchema)
+async def update_campaign_scene(
+    name: str,
+    scene_id: str,
+    payload: SceneUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Update a scene's properties, grid, tokens, or order (DM only)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    scene = await db["campaign_scenes"].find_one({"campaign_name": name, "scene_id": scene_id})
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    update_data: Dict[str, Any] = {"updated_at": now}
+
+    if payload.name is not None:
+        update_data["name"] = payload.name.strip()
+    if payload.dm_notes is not None:
+        update_data["dm_notes"] = payload.dm_notes
+    if payload.order is not None:
+        update_data["order"] = payload.order
+    if payload.tokens is not None:
+        update_data["tokens"] = [t.model_dump() for t in payload.tokens]
+
+    if payload.grid is not None:
+        new_grid_dict = payload.grid.model_dump()
+        update_data["grid"] = new_grid_dict
+
+        # Remap fog indices if grid dimensions changed
+        old_grid = scene.get("grid") or {}
+        old_w = old_grid.get("width", 30)
+        old_h = old_grid.get("height", 30)
+        new_w = new_grid_dict.get("width", old_w)
+        new_h = new_grid_dict.get("height", old_h)
+
+        if old_w != new_w or old_h != new_h:
+            cur_fog = (scene.get("fog") or {}).get("revealed", [])
+            remapped = VTTService.remap_fog_indices(cur_fog, old_w, old_h, new_w, new_h)
+            update_data["fog.revealed"] = remapped
+
+    await db["campaign_scenes"].update_one(
+        {"scene_id": scene_id},
+        {"$set": update_data},
+    )
+    if "grid" in update_data:
+        VTTService.set_grid_dims(scene_id, new_w, new_h)
+
+    updated = await db["campaign_scenes"].find_one({"scene_id": scene_id})
+    updated.pop("_id", None)
+    active_scene_id = (camp.get("vtt_state") or {}).get("active_scene_id")
+    is_active = scene_id == active_scene_id
+    updated["is_active_scene"] = is_active
+
+    # Broadcast ONLY if the modified scene is currently active!
+    if is_active:
+        from server.routers.websocket_router import manager
+
+        vtt_srv = VTTService()
+        new_state = await vtt_srv.get_vtt_state(db, name)
+        state_dump = new_state.model_dump()
+        connections = manager.active_connections.get(name) or []
+        for conn in list(connections):
+            payload_to_send = (
+                state_dump
+                if conn.is_dm
+                else VTTService.redact_for_player(new_state, conn.character).model_dump()
+            )
+            try:
+                await conn.websocket.send_json({"type": "vtt_sync", "payload": payload_to_send})
+            except Exception:
+                pass
+
+    return VTTSceneSchema(**updated)
+
+
+@router.post(
+    "/{name}/scenes/{scene_id}/duplicate",
+    response_model=VTTSceneSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_campaign_scene(
+    name: str,
+    scene_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Clone an existing scene into a new offline scene (DM only)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    scene = await db["campaign_scenes"].find_one({"campaign_name": name, "scene_id": scene_id})
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    new_scene_id = str(uuid.uuid4())
+    count = await db["campaign_scenes"].count_documents({"campaign_name": name})
+
+    cloned_doc = {
+        "scene_id": new_scene_id,
+        "campaign_name": name,
+        "name": f"{scene.get('name', 'Scene')} (Copy)",
+        "dm_notes": scene.get("dm_notes", ""),
+        "grid": scene.get("grid") or VTTGridSchema().model_dump(),
+        "tokens": scene.get("tokens") or [],
+        "fog": scene.get("fog") or {"enabled": False, "revealed": []},
+        "order": count,
+        "created_at": now,
+        "updated_at": now,
+        "last_activated_at": None,
+    }
+
+    await db["campaign_scenes"].insert_one(cloned_doc)
+    cloned_doc.pop("_id", None)
+    cloned_doc["is_active_scene"] = False
+    return VTTSceneSchema(**cloned_doc)
+
+
+@router.delete("/{name}/scenes/{scene_id}", response_model=SuccessResponseSchema)
+async def delete_campaign_scene(
+    name: str,
+    scene_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Delete a scene. Active scenes cannot be deleted (returns 409)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    active_scene_id = (camp.get("vtt_state") or {}).get("active_scene_id")
+    if scene_id == active_scene_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete the currently active scene. Activate another scene first.",
+        )
+
+    scene = await db["campaign_scenes"].find_one({"campaign_name": name, "scene_id": scene_id})
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    # Clean up uploaded map file if no other scene in this campaign references it
+    map_url = (scene.get("grid") or {}).get("background_image_url") or ""
+    if f"/campaigns/{name}/assets/" in map_url:
+        filename = map_url.rsplit("/", 1)[-1]
+        other_scene = await db["campaign_scenes"].find_one(
+            {
+                "campaign_name": name,
+                "scene_id": {"$ne": scene_id},
+                "grid.background_image_url": map_url,
+            }
+        )
+        if not other_scene:
+            # Safe to unlink file and asset doc
+            file_path = os.path.join("data", "uploads", filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    logger.warning("Failed removing map asset file %s: %s", file_path, e)
+            await db["campaign_assets"].delete_one({"campaign_name": name, "filename": filename})
+
+    await db["campaign_scenes"].delete_one({"scene_id": scene_id})
+    return {"success": True, "message": f"Scene {scene_id} deleted."}
+
+
+@router.post("/{name}/scenes/{scene_id}/activate", response_model=SuccessResponseSchema)
+async def activate_campaign_scene(
+    name: str,
+    scene_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Activate a scene for all players, recording activation history and broadcasting vtt_sync."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    scene = await db["campaign_scenes"].find_one({"campaign_name": name, "scene_id": scene_id})
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    await db["campaigns"].update_one(
+        {"campaign_name": name},
+        {"$set": {"vtt_state.active_scene_id": scene_id, "vtt_state.is_active": True}},
+    )
+    await db["campaign_scenes"].update_one(
+        {"scene_id": scene_id},
+        {"$set": {"last_activated_at": now}},
+    )
+
+    history_entry = {
+        "campaign_name": name,
+        "scene_id": scene_id,
+        "scene_name": scene.get("name", "Untitled"),
+        "activated_at": now,
+        "activated_by_user_id": current_user["id"],
+    }
+    await db["campaign_scene_history"].insert_one(history_entry)
+
+    # Broadcast vtt_sync to all room participants
+    from server.routers.websocket_router import manager
+
+    vtt_srv = VTTService()
+    new_state = await vtt_srv.get_vtt_state(db, name)
+    state_dump = new_state.model_dump()
+    connections = manager.active_connections.get(name) or []
+    for conn in list(connections):
+        payload_to_send = (
+            state_dump
+            if conn.is_dm
+            else VTTService.redact_for_player(new_state, conn.character).model_dump()
+        )
+        try:
+            await conn.websocket.send_json({"type": "vtt_sync", "payload": payload_to_send})
+        except Exception:
+            pass
+
+    return {"success": True, "message": f"Scene '{scene.get('name')}' activated."}
+
+
+@router.get("/{name}/scenes/history", response_model=List[VTTSceneHistorySchema])
+async def get_campaign_scenes_history(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_role("dm")),
+):
+    """Retrieve scene activation history for the campaign (DM only)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    cursor = (
+        db["campaign_scene_history"]
+        .find({"campaign_name": name})
+        .sort("activated_at", -1)
+        .limit(50)
+    )
+    history = []
+    if hasattr(cursor, "__aiter__"):
+        async for h in cursor:
+            h.pop("_id", None)
+            history.append(VTTSceneHistorySchema(**h))
+
+    return history

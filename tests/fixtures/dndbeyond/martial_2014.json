@@ -1,0 +1,122 @@
+{
+  "id": 1001,
+  "success": true,
+  "data": {
+    "name": "Krag the Barbarian",
+    "gender": "Male",
+    "age": 28,
+    "alignmentId": 3,
+    "race": {
+      "fullName": "Half-Orc",
+      "baseName": "Half-Orc",
+      "weightSpeeds": {
+        "normal": {
+          "walk": 30
+        }
+      },
+      "racialTraits": [
+        {
+          "definition": {
+            "name": "Relentless Endurance",
+            "snippet": "When reduced to 0 HP, drop to 1 HP instead once per long rest."
+          }
+        }
+      ]
+    },
+    "background": {
+      "definition": {
+        "name": "Outlander"
+      }
+    },
+    "classes": [
+      {
+        "level": 5,
+        "definition": {
+          "name": "Barbarian",
+          "hitDice": 12
+        },
+        "subclassDefinition": {
+          "name": "Path of the Berserker"
+        },
+        "classFeatures": [
+          {
+            "definition": {
+              "name": "Rage",
+              "snippet": "Enter rage as bonus action for extra damage and resistance."
+            }
+          },
+          {
+            "definition": {
+              "name": "Extra Attack",
+              "snippet": "You can attack twice whenever you take the Attack action on your turn."
+            }
+          }
+        ]
+      }
+    ],
+    "stats": [
+      { "id": 1, "value": 16 },
+      { "id": 2, "value": 14 },
+      { "id": 3, "value": 16 },
+      { "id": 4, "value": 8 },
+      { "id": 5, "value": 12 },
+      { "id": 6, "value": 10 }
+    ],
+    "bonusStats": [],
+    "overrideStats": [],
+    "modifiers": {
+      "race": [
+        { "type": "proficiency", "subType": "athletics" },
+        { "type": "proficiency", "subType": "intimidation" },
+        { "type": "proficiency", "subType": "strength-saving-throws" },
+        { "type": "proficiency", "subType": "constitution-saving-throws" }
+      ]
+    },
+    "baseHitPoints": 45,
+    "bonusHitPoints": 0,
+    "removedHitPoints": 5,
+    "temporaryHitPoints": 0,
+    "currencies": {
+      "cp": 10,
+      "sp": 20,
+      "ep": 0,
+      "gp": 150,
+      "pp": 2
+    },
+    "inventory": [
+      {
+        "definition": {
+          "name": "Greataxe",
+          "filterType": "Weapon",
+          "damage": {
+            "diceString": "1d12",
+            "damageType": "slashing"
+          },
+          "properties": [
+            { "name": "Heavy" },
+            { "name": "Two-Handed" }
+          ]
+        },
+        "equipped": true,
+        "quantity": 1
+      },
+      {
+        "definition": {
+          "name": "Explorer's Pack",
+          "filterType": "Adventuring Gear"
+        },
+        "equipped": false,
+        "quantity": 1
+      }
+    ],
+    "traits": {
+      "personalityTraits": "I was raised by wolves.",
+      "ideals": "Freedom above all.",
+      "bonds": "My tribe.",
+      "flaws": "I strike first and think later."
+    },
+    "notes": {
+      "backstory": "Exiled from his ancestral clan after an honor duel."
+    }
+  }
+}

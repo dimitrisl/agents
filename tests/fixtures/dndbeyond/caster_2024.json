@@ -1,0 +1,145 @@
+{
+  "id": 1002,
+  "success": true,
+  "data": {
+    "name": "Eldrin Moonshadow",
+    "gender": "Non-binary",
+    "age": 120,
+    "alignmentId": 2,
+    "race": {
+      "fullName": "High Elf",
+      "baseName": "Elf",
+      "weightSpeeds": {
+        "normal": {
+          "walk": 30
+        }
+      },
+      "racialTraits": [
+        {
+          "definition": {
+            "name": "Fey Ancestry",
+            "snippet": "Advantage on saves against being charmed, magic can't put you to sleep."
+          }
+        }
+      ]
+    },
+    "background": {
+      "definition": {
+        "name": "Sage"
+      }
+    },
+    "classes": [
+      {
+        "level": 3,
+        "definition": {
+          "name": "Wizard",
+          "hitDice": 6
+        },
+        "subclassDefinition": {
+          "name": "Evocation"
+        },
+        "classFeatures": [
+          {
+            "definition": {
+              "name": "Arcane Recovery",
+              "snippet": "Recover spell slots on short rest."
+            }
+          }
+        ]
+      }
+    ],
+    "stats": [
+      { "id": 1, "value": 8 },
+      { "id": 2, "value": 14 },
+      { "id": 3, "value": 14 },
+      { "id": 4, "value": 17 },
+      { "id": 5, "value": 12 },
+      { "id": 6, "value": 10 }
+    ],
+    "bonusStats": [],
+    "overrideStats": [],
+    "modifiers": {
+      "class": [
+        { "type": "proficiency", "subType": "intelligence-saving-throws" },
+        { "type": "proficiency", "subType": "wisdom-saving-throws" },
+        { "type": "proficiency", "subType": "arcana" },
+        { "type": "proficiency", "subType": "history" }
+      ]
+    },
+    "baseHitPoints": 18,
+    "bonusHitPoints": 0,
+    "removedHitPoints": 0,
+    "temporaryHitPoints": 0,
+    "currencies": {
+      "cp": 0,
+      "sp": 0,
+      "ep": 0,
+      "gp": 75,
+      "pp": 0
+    },
+    "inventory": [
+      {
+        "definition": {
+          "name": "Dagger",
+          "filterType": "Weapon",
+          "damage": {
+            "diceString": "1d4",
+            "damageType": "piercing"
+          },
+          "properties": [
+            { "name": "Finesse" },
+            { "name": "Light" },
+            { "name": "Thrown" }
+          ]
+        },
+        "equipped": true,
+        "quantity": 2
+      }
+    ],
+    "classSpells": [
+      {
+        "spells": [
+          {
+            "definition": {
+              "name": "Fire Bolt",
+              "level": 0
+            }
+          },
+          {
+            "definition": {
+              "name": "Mage Hand",
+              "level": 0
+            }
+          },
+          {
+            "definition": {
+              "name": "Magic Missile",
+              "level": 1
+            }
+          },
+          {
+            "definition": {
+              "name": "Shield",
+              "level": 1
+            }
+          },
+          {
+            "definition": {
+              "name": "Misty Step",
+              "level": 2
+            }
+          }
+        ]
+      }
+    ],
+    "traits": {
+      "personalityTraits": "I'm convinced that people are always trying to steal my secrets.",
+      "ideals": "Knowledge.",
+      "bonds": "My spellbook.",
+      "flaws": "I overlook obvious solutions in favor of complicated ones."
+    },
+    "notes": {
+      "backstory": "Studied ancient arcana at the high academy."
+    }
+  }
+}

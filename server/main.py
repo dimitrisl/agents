@@ -17,6 +17,7 @@ from server.rate_limiter import (
     rate_limit_exceeded_handler,
 )
 from server.routers import (
+    admin_router,
     assets_router,
     auth_router,
     campaign_router,
@@ -81,6 +82,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(auth_router.router, prefix=settings.API_V1_STR)
+app.include_router(admin_router.router, prefix=settings.API_V1_STR)
 app.include_router(character_router.router, prefix=settings.API_V1_STR)
 app.include_router(forge_router.router, prefix=settings.API_V1_STR)
 app.include_router(campaign_router.router, prefix=settings.API_V1_STR)

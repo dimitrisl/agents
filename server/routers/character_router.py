@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import os
 import re
@@ -12,32 +13,54 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import CharacterSchema, SuccessResponseSchema
+from backend.services.character_import_service import (
+    CharacterImportService,
+    DndBeyondImportError,
+    DndBeyondInvalidUrlError,
+    DndBeyondNotFoundError,
+    DndBeyondPrivateError,
+    DndBeyondUpstreamError,
+)
 from backend.services.forge_service import process_character_update
 from backend.services.homebrew_service import HomebrewService
 from backend.services.rules_service import parse_character_from_text
 from backend.utils.image_utils import PORTRAIT_DIR, _secure_filename
+from backend.utils.import_utils import FoundryImportError, import_vtt_character
 from backend.utils.path_safety import safe_path
 from backend.utils.pdf_exporter import export_character_to_pdf
-from backend.utils.pdf_importer import extract_text_and_fields_from_pdf
+from backend.utils.pdf_importer import (
+    PDFPageLimitExceededError,
+    extract_text_and_fields_from_pdf,
+)
 from server.config import settings
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
+from server.rate_limiter import limiter
 
 homebrew_service = HomebrewService()
 
 
 router = APIRouter(prefix="/characters", tags=["Characters"])
 logger = logging.getLogger("PhyrexianForge.CharacterRouter")
+
+
+class ImportCharacterResponse(CharacterSchema):
+    warnings: List[str] = Field(default_factory=list)
+
+
+class DndBeyondImportRequest(BaseModel):
+    url_or_id: str
 
 
 class UnreadableCharacterSchema(BaseModel):
@@ -717,8 +740,10 @@ async def export_pdf(
     )
 
 
-@router.post("/import-pdf", response_model=CharacterSchema)
+@router.post("/import-pdf", response_model=ImportCharacterResponse)
+@limiter.limit("5/minute")
 async def import_pdf(
+    request: Request,
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -729,15 +754,57 @@ async def import_pdf(
             detail="Uploaded file must be a PDF.",
         )
 
-    contents = await file.read()
-    file_io = io.BytesIO(contents)
-    sheet_text = await run_in_threadpool(extract_text_and_fields_from_pdf, file_io)
+    # Chunked read to enforce size limit before memory exhaustion
+    total_bytes = 0
+    buffer = io.BytesIO()
+    while chunk := await file.read(1024 * 1024):
+        total_bytes += len(chunk)
+        if total_bytes > settings.MAX_PDF_IMPORT_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"PDF file size exceeds maximum limit of {settings.MAX_PDF_IMPORT_BYTES // (1024 * 1024)} MB.",
+            )
+        buffer.write(chunk)
 
-    if not sheet_text:
+    buffer.seek(0)
+    magic_bytes = buffer.read(5)
+    if magic_bytes != b"%PDF-":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PDF file format (missing PDF header magic bytes).",
+        )
+    buffer.seek(0)
+
+    try:
+        sheet_text = await run_in_threadpool(
+            extract_text_and_fields_from_pdf,
+            buffer,
+            max_pages=settings.MAX_PDF_IMPORT_PAGES,
+        )
+    except PDFPageLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Could not read PDF contents: {exc}",
+        )
+
+    if not sheet_text or not sheet_text.strip():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Could not extract text from PDF.",
         )
+
+    if len(sheet_text) > settings.MAX_PDF_TEXT_CHARS:
+        logger.warning(
+            "Extracted PDF sheet text (%d chars) exceeds MAX_PDF_TEXT_CHARS (%d); truncating.",
+            len(sheet_text),
+            settings.MAX_PDF_TEXT_CHARS,
+        )
+        sheet_text = sheet_text[: settings.MAX_PDF_TEXT_CHARS]
 
     parsed_char = await run_in_threadpool(parse_character_from_text, sheet_text)
     if not parsed_char:
@@ -747,19 +814,117 @@ async def import_pdf(
         )
 
     parsed_char["owner_id"] = current_user["id"]
-
-    # Assign a new unique char_id for imported characters if they don't have one
-    char_id = parsed_char.get("char_id")
-    if char_id:
-        existing_char = await db["characters"].find_one({"char_id": char_id})
-        if existing_char and existing_char.get("owner_id") != current_user["id"]:
-            parsed_char["char_id"] = str(uuid.uuid4())
-    else:
-        parsed_char["char_id"] = str(uuid.uuid4())
+    parsed_char["user_id"] = current_user["id"]
+    parsed_char.setdefault("race", "Unknown")
+    parsed_char.setdefault("background", "Unknown")
+    parsed_char.setdefault("alignment", "Neutral")
+    # Always assign fresh UUID for imported character to avoid collisions/overwrites
+    parsed_char["char_id"] = str(uuid.uuid4())
 
     homebrew_items = await _get_homebrew_for_character(db, parsed_char.get("active_campaign"))
     parsed_char = await run_in_threadpool(
         partial(process_character_update, parsed_char, homebrew_content=homebrew_items)
     )
     await _save_owned_character(db, parsed_char, current_user["id"])
-    return CharacterSchema.model_validate(parsed_char, strict=False)
+    return ImportCharacterResponse(**parsed_char, warnings=[])
+
+
+@router.post("/import-dndbeyond", response_model=ImportCharacterResponse)
+@limiter.limit(settings.DNDBEYOND_IMPORT_RATE_LIMIT)
+async def import_dndbeyond(
+    request: Request,
+    payload: DndBeyondImportRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    try:
+        ddb_data = await CharacterImportService.fetch_dndbeyond_character(payload.url_or_id)
+        char_dict, warnings = CharacterImportService.parse_dndbeyond_character(ddb_data)
+        saved_char = await CharacterImportService.finalize_and_save_imported_character(
+            char_dict, current_user["id"], db, sync_stats=True
+        )
+        return ImportCharacterResponse(**saved_char.model_dump(), warnings=warnings)
+    except DndBeyondInvalidUrlError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except DndBeyondPrivateError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except DndBeyondNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except DndBeyondUpstreamError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        )
+    except DndBeyondImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Failed to import character from D&D Beyond: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while importing from D&D Beyond: {str(e)}",
+        )
+
+
+@router.post("/import-foundry", response_model=ImportCharacterResponse)
+@limiter.limit("10/minute")
+async def import_foundry(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    if not (file.filename or "").lower().endswith(".json"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be a JSON file.",
+        )
+
+    total_bytes = 0
+    buffer = io.BytesIO()
+    while chunk := await file.read(1024 * 1024):
+        total_bytes += len(chunk)
+        if total_bytes > settings.MAX_FOUNDRY_IMPORT_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Foundry export exceeds maximum limit of {settings.MAX_FOUNDRY_IMPORT_BYTES // (1024 * 1024)} MB.",
+            )
+        buffer.write(chunk)
+
+    try:
+        buffer.seek(0)
+        vtt_data = json.loads(buffer.read().decode("utf-8"))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file contains invalid JSON: {exc}",
+        )
+
+    try:
+        char_dict, warnings = import_vtt_character(vtt_data)
+        saved_char = await CharacterImportService.finalize_and_save_imported_character(
+            char_dict, current_user["id"], db, sync_stats=True
+        )
+        return ImportCharacterResponse(**saved_char.model_dump(), warnings=warnings)
+    except FoundryImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        logger.error(f"Failed to import Foundry character: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while importing Foundry character: {str(exc)}",
+        )

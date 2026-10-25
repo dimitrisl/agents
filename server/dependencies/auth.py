@@ -43,13 +43,12 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] = None) -> str:
     to_encode = data.copy()
+    now = datetime.datetime.now(datetime.timezone.utc)
     if expires_delta:
-        expire = datetime.datetime.now(datetime.timezone.utc) + expires_delta
+        expire = now + expires_delta
     else:
-        expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-    to_encode.update({"exp": expire})
+        expire = now + datetime.timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire, "iat": now.timestamp()})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
@@ -80,6 +79,29 @@ async def get_current_user_from_token(
     if user is None:
         raise credentials_exception
 
+    # Reject tokens issued before user's created_at (prevents deleted user's JWT from authenticating re-registered username)
+    token_iat = payload.get("iat")
+    user_created_raw = user.get("created_at")
+    if token_iat is not None and user_created_raw:
+        try:
+            if isinstance(user_created_raw, str):
+                created_dt = datetime.datetime.fromisoformat(
+                    user_created_raw.replace("Z", "+00:00")
+                )
+            elif isinstance(user_created_raw, datetime.datetime):
+                created_dt = user_created_raw
+            else:
+                created_dt = None
+            if created_dt is not None:
+                if created_dt.tzinfo is None:
+                    created_dt = created_dt.replace(tzinfo=datetime.timezone.utc)
+                if float(token_iat) + 1.0 < created_dt.timestamp():
+                    raise credentials_exception
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     user.pop("password_hash", None)
     return user
 
@@ -88,3 +110,18 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme), db: AsyncIOMotorDatabase = Depends(get_database)
 ) -> dict:
     return await get_current_user_from_token(token, db)
+
+
+async def require_admin(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> dict:
+    """Verify admin status directly from the database (never from JWT claims)."""
+    user_doc = await db["users"].find_one({"id": current_user["id"]})
+    if not user_doc or not bool(user_doc.get("is_admin", False)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required.",
+        )
+    user_doc.pop("password_hash", None)
+    return user_doc

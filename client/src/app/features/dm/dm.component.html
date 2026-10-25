@@ -256,7 +256,7 @@
   </div>
 
   <!-- VTT Grid inline below the main grid -->
-  <app-vtt-grid role="dm" [combatants]="combatants"></app-vtt-grid>
+  <app-vtt-grid role="dm" [combatants]="combatants" [campaignName]="campaignName"></app-vtt-grid>
 
   <app-dm-inbox
     [open]="showDmInbox"
@@ -270,6 +270,7 @@
     [(replyMessage)]="inboxReplyMessage"
     [isSendingReply]="isSendingInboxReply"
     (sendReply)="sendInboxReply()"
+    (reportWhisper)="onReportWhisper($event)"
   ></app-dm-inbox>
   }
 

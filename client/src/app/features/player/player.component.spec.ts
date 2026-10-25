@@ -335,4 +335,63 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(charState.activeCharacter()?.spell_slots?.['level_2'].used).toBe(0);
     });
   });
+
+  describe('Character Import & Whisper Reporting (#151, #153, #155)', () => {
+    it('opens import modal and handles D&D Beyond import flow', () => {
+      component.openImportModal();
+      expect(component.showImportModal()).toBe(true);
+
+      component.dndBeyondUrl = 'https://www.dndbeyond.com/characters/99999999';
+      component.onImportDndBeyond();
+
+      expect(component.isImporting()).toBe(true);
+      const req = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('/characters/import-dndbeyond'));
+      expect(req.request.body).toEqual({ url_or_id: 'https://www.dndbeyond.com/characters/99999999' });
+
+      req.flush({
+        ...HERO,
+        char_id: 'imported_ddb_hero',
+        char_name: 'DDB Hero',
+        warnings: [],
+      });
+
+      // CharacterStateService loadCharacters
+      const loadReq = http.expectOne((r) => r.url.endsWith('/characters'));
+      loadReq.flush({ characters: [{ ...HERO, char_id: 'imported_ddb_hero', char_name: 'DDB Hero' }], unreadable: [] });
+
+      expect(component.isImporting()).toBe(false);
+      expect(component.showImportModal()).toBe(false);
+      const charState = TestBed.inject(CharacterStateService);
+      expect(charState.activeCharacter()?.char_name).toBe('DDB Hero');
+    });
+
+    it('submits whisper moderation report to campaign endpoint', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: 'CurseOfStrahd',
+      });
+
+      jest.spyOn(window, 'prompt').mockReturnValue('Harassment in secret whisper');
+
+      const whisper: Whisper = {
+        id: 'whisp-123',
+        sender: 'DM',
+        recipient: 'Lyra',
+        message: 'Toxic content',
+        timestamp: '12:00',
+        has_open_report: false,
+      };
+
+      component.reportWhisper(whisper);
+
+      const req = http.expectOne((r) =>
+        r.method === 'POST' && r.url.endsWith('/campaigns/CurseOfStrahd/whispers/whisp-123/report')
+      );
+      expect(req.request.body).toEqual({ reason: 'Harassment in secret whisper' });
+      req.flush({ success: true, message: 'Report submitted.' });
+
+      expect(whisper.has_open_report).toBe(true);
+    });
+  });
 });

@@ -30,6 +30,7 @@ class CampaignConnection:
     websocket: WebSocket
     role: str = "player"
     character: Optional[str] = None
+    user_id: Optional[str] = None
 
     @property
     def is_dm(self) -> bool:
@@ -39,6 +40,11 @@ class CampaignConnection:
         if not self.character:
             return False
         return self.character.strip().lower() in names
+
+    def is_user(self, user_ids: Set[str]) -> bool:
+        if not self.user_id:
+            return False
+        return self.user_id in user_ids
 
 
 class ConnectionManager:
@@ -52,12 +58,15 @@ class ConnectionManager:
         websocket: WebSocket,
         role: str = "player",
         character: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> CampaignConnection:
-        connection = CampaignConnection(websocket=websocket, role=role, character=character)
+        connection = CampaignConnection(
+            websocket=websocket, role=role, character=character, user_id=user_id
+        )
         self.active_connections.setdefault(campaign_id, []).append(connection)
         logger.info(
             f"WebSocket client connected to campaign channel '{campaign_id}' "
-            f"(role={role}, character={character or '-'})"
+            f"(role={role}, character={character or '-'}, user_id={user_id or '-'})"
         )
 
         # Send presence_sync to the new connection
@@ -124,6 +133,7 @@ class ConnectionManager:
         campaign_id: str,
         message: dict,
         characters: Optional[Iterable[str]] = None,
+        user_ids: Optional[Iterable[str]] = None,
         dm_only: bool = False,
     ):
         """Fan a message out to a campaign room.
@@ -132,10 +142,10 @@ class ConnectionManager:
         receive everything — the DM is the one running the table — while a socket
         that never announced a character only sees untargeted traffic.
 
+        `user_ids` restricts delivery directly to the authenticated user IDs.
+
         `dm_only` is the one exception to "the DM sees everything": it means no
-        player socket may see this at all. A secret roll is the DM's own knowledge,
-        so it must never travel down the hero's connection to be filtered away in
-        their browser — that is not secrecy, that is a view-source away.
+        player socket may see this at all.
         """
         campaign_id = unquote(campaign_id)
         connections = self.active_connections.get(campaign_id)
@@ -146,12 +156,29 @@ class ConnectionManager:
         if characters is not None:
             targets = {name.strip().lower() for name in characters if name}
 
+        target_uids: Optional[Set[str]] = None
+        if user_ids is not None:
+            target_uids = {str(uid) for uid in user_ids if uid}
+
         dead_connections: List[CampaignConnection] = []
         for connection in list(connections):
             if dm_only and not connection.is_dm:
                 continue
-            if targets is not None and not (connection.is_dm or connection.is_character(targets)):
-                continue
+
+            # Check targeting
+            if targets is not None or target_uids is not None:
+                if not connection.is_dm:
+                    if target_uids is not None:
+                        if connection.user_id:
+                            if not connection.is_user(target_uids):
+                                continue
+                        else:
+                            if targets is not None and not connection.is_character(targets):
+                                continue
+                    elif targets is not None:
+                        if not connection.is_character(targets):
+                            continue
+
             try:
                 await connection.websocket.send_json(message)
             except Exception as e:
@@ -160,6 +187,17 @@ class ConnectionManager:
 
         for connection in dead_connections:
             await self.disconnect(campaign_id, connection.websocket)
+
+    async def disconnect_user(self, user_id: str) -> None:
+        """Closes and disconnects all active sockets for a specific user across all campaigns."""
+        for campaign_id, connections in list(self.active_connections.items()):
+            to_remove = [c for c in connections if c.user_id == user_id]
+            for conn in to_remove:
+                try:
+                    await conn.websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                except Exception:
+                    pass
+                await self.disconnect(campaign_id, conn.websocket)
 
 
 manager = ConnectionManager()
@@ -222,7 +260,13 @@ async def campaign_websocket_endpoint(
             # We don't reject the connection, we just ignore the spoofed character
             # so they connect as a generic player/DM.
 
-    await manager.connect(decoded_id, websocket, role=db_role, character=verified_character)
+    await manager.connect(
+        decoded_id,
+        websocket,
+        role=db_role,
+        character=verified_character,
+        user_id=user.get("id"),
+    )
     try:
         while True:
             data = await websocket.receive_text()
@@ -246,6 +290,11 @@ async def campaign_websocket_endpoint(
                 "vtt_remove_token",
                 "vtt_update_grid",
                 "vtt_request_sync",
+                "vtt_fog_toggle",
+                "vtt_fog_reveal",
+                "vtt_fog_hide",
+                "vtt_fog_reveal_all",
+                "vtt_fog_hide_all",
             ):
                 # Handle VTT events
                 try:
@@ -283,16 +332,33 @@ async def campaign_websocket_endpoint(
                             new_state = await vtt_service.update_grid(
                                 db, decoded_id, vtt_payload.get("grid", {})
                             )
+                        elif event_type == "vtt_fog_toggle":
+                            new_state = await vtt_service.toggle_fog(
+                                db, decoded_id, vtt_payload.get("enabled", False)
+                            )
+                        elif event_type == "vtt_fog_reveal":
+                            new_state = await vtt_service.reveal_fog(db, decoded_id, vtt_payload)
+                        elif event_type == "vtt_fog_hide":
+                            new_state = await vtt_service.hide_fog(db, decoded_id, vtt_payload)
+                        elif event_type == "vtt_fog_reveal_all":
+                            new_state = await vtt_service.reveal_all_fog(db, decoded_id)
+                        elif event_type == "vtt_fog_hide_all":
+                            new_state = await vtt_service.hide_all_fog(db, decoded_id)
 
                     if new_state:
                         state_dump = new_state.model_dump()
-                        player_state = VTTService.redact_for_player(new_state).model_dump()
 
                         connections = manager.active_connections.get(decoded_id)
                         if connections:
                             dead_connections = []
                             for connection in list(connections):
-                                payload_to_send = state_dump if connection.is_dm else player_state
+                                payload_to_send = (
+                                    state_dump
+                                    if connection.is_dm
+                                    else VTTService.redact_for_player(
+                                        new_state, player_character_name=connection.character
+                                    ).model_dump()
+                                )
                                 try:
                                     await connection.websocket.send_json(
                                         {"type": "vtt_sync", "payload": payload_to_send}

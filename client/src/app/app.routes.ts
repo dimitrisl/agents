@@ -8,6 +8,7 @@ import { SettingsComponent } from './features/settings/settings.component';
 import { AdminComponent } from './features/admin/admin.component';
 import { CampaignPickerComponent } from './features/campaigns/campaign-picker.component';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -17,7 +18,7 @@ export const routes: Routes = [
   { path: 'dm', component: DmComponent, canActivate: [authGuard] },
   { path: 'rules', component: RulesComponent, canActivate: [authGuard] },
   { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
-  { path: 'admin', component: AdminComponent, canActivate: [authGuard] },
+  { path: 'admin', component: AdminComponent, canActivate: [authGuard, adminGuard] },
   { path: '', redirectTo: '/campaigns', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' },
 ];

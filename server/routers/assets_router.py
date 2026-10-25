@@ -1,8 +1,9 @@
 import os
 import uuid
-from typing import Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -21,9 +22,10 @@ os.makedirs(ASSETS_DIR, exist_ok=True)
 async def upload_asset(
     name: str,
     file: UploadFile = File(...),
+    kind: str = Form("map"),
     db: AsyncIOMotorDatabase = Depends(get_database),
     campaign_member: dict = Depends(require_campaign_member()),
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Upload an asset (image) for a campaign."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -58,7 +60,51 @@ async def upload_asset(
             os.remove(file_path)
         raise
 
-    return {"url": f"/api/v1/campaigns/{name}/assets/{unique_filename}"}
+    asset_doc = {
+        "filename": unique_filename,
+        "campaign_name": name,
+        "uploaded_by_user_id": campaign_member.get("user_id", ""),
+        "kind": kind if kind in ("map", "token") else "map",
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db["campaign_assets"].insert_one(asset_doc)
+
+    return {
+        "url": f"/api/v1/campaigns/{name}/assets/{unique_filename}",
+        "filename": unique_filename,
+        "kind": asset_doc["kind"],
+    }
+
+
+@router.get("")
+async def list_assets(
+    name: str,
+    kind: Optional[str] = Query(None),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    campaign_member: dict = Depends(require_campaign_member()),
+) -> List[Dict[str, Any]]:
+    """List uploaded assets for a campaign."""
+    query: Dict[str, Any] = {"campaign_name": name}
+    if kind:
+        query["kind"] = kind
+
+    cursor = db["campaign_assets"].find(query).sort("created_at", -1)
+    assets = await cursor.to_list(length=200)
+    result = []
+    for a in assets:
+        result.append(
+            {
+                "filename": a["filename"],
+                "campaign_name": a["campaign_name"],
+                "uploaded_by_user_id": a.get("uploaded_by_user_id", ""),
+                "kind": a.get("kind", "map"),
+                "created_at": a.get("created_at").isoformat()
+                if isinstance(a.get("created_at"), datetime)
+                else str(a.get("created_at")),
+                "url": f"/api/v1/campaigns/{name}/assets/{a['filename']}",
+            }
+        )
+    return result
 
 
 @router.get("/{filename}")
@@ -76,6 +122,10 @@ async def get_asset(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
 
     if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    asset = await db["campaign_assets"].find_one({"filename": filename})
+    if not asset or asset.get("campaign_name") != name:
         raise HTTPException(status_code=404, detail="Asset not found")
 
     return FileResponse(file_path)
