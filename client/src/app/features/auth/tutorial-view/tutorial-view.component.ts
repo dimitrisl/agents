@@ -1,13 +1,28 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { ForgeButtonDirective, ForgeCardComponent, ForgeStatBoxComponent, ForgeBadgeComponent, ForgeListRowComponent } from '../../../shared/ui';
+import { CommonModule } from '@angular/common';
+import {
+  ForgeBadgeComponent,
+  ForgeButtonDirective,
+  ForgeCardComponent,
+  ForgeListRowComponent,
+  ForgeStatBoxComponent,
+} from '../../../shared/ui';
 
-const ACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-accent shadow-[0_0_10px_var(--theme-accent)] transition-all';
+const ACTIVE_DOT_CLASSES =
+  'h-3 w-3 rounded-full bg-accent shadow-[0_0_10px_var(--theme-accent)] transition-all';
 const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
 
 @Component({
   selector: 'app-tutorial-view',
   standalone: true,
-  imports: [ForgeButtonDirective, ForgeCardComponent, ForgeStatBoxComponent, ForgeBadgeComponent, ForgeListRowComponent],
+  imports: [
+    CommonModule,
+    ForgeBadgeComponent,
+    ForgeButtonDirective,
+    ForgeCardComponent,
+    ForgeListRowComponent,
+    ForgeStatBoxComponent,
+  ],
   templateUrl: './tutorial-view.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
