@@ -30,6 +30,14 @@ def test_currency_schema_defaults_and_validation():
     assert clamped.sp == 0
     assert clamped.gp == 50
 
+    # Explicit None and string inputs convert safely via mode="before"
+    none_and_str = CurrencySchema(cp=None, sp="12", ep="invalid", gp=None, pp=3)  # type: ignore
+    assert none_and_str.cp == 0
+    assert none_and_str.sp == 12
+    assert none_and_str.ep == 0
+    assert none_and_str.gp == 0
+    assert none_and_str.pp == 3
+
 
 def test_class_resource_schema_normalization():
     """Verify ClassResourceSchema clamps current to max and normalizes recharge."""
@@ -48,6 +56,12 @@ def test_class_resource_schema_normalization():
     # Invalid recharge string normalizes to long
     res3 = ClassResourceSchema(name="Channel Divinity", current=1, max=1, recharge="daily")
     assert res3.recharge == "long"
+
+    # Explicit None for current and max normalizes safely without TypeError
+    res4 = ClassResourceSchema(name="Second Wind", current=None, max=None, recharge=None)  # type: ignore
+    assert res4.max == 1
+    assert res4.current == 1
+    assert res4.recharge == "long"
 
 
 def test_equipment_item_quantity_defaults_and_validation():

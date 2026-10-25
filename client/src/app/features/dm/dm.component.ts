@@ -285,12 +285,14 @@ export class DmComponent implements OnInit, OnDestroy {
   onlineCharacters = new Set<string>();
 
   private campaignInitialLoad = new Set<string>();
+  private mq?: MediaQueryList;
+  private readonly mqListener = (e: MediaQueryListEvent) => this.isMobileViewport.set(e.matches);
 
   ngOnInit() {
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      const mq = window.matchMedia('(max-width: 1023px)');
-      this.isMobileViewport.set(mq.matches);
-      mq.addEventListener('change', (e) => this.isMobileViewport.set(e.matches));
+      this.mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobileViewport.set(this.mq.matches);
+      this.mq.addEventListener('change', this.mqListener);
     }
 
     this.loadCampaigns();
@@ -403,6 +405,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.mq?.removeEventListener('change', this.mqListener);
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
     this.encounterSub?.unsubscribe();

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -25,7 +25,7 @@ import { ForgeButtonDirective } from '../../shared/ui';
   templateUrl: './campaign-picker.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CampaignPickerComponent implements OnInit {
+export class CampaignPickerComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private router = inject(Router);
   readonly auth = inject(AuthService);
@@ -35,13 +35,20 @@ export class CampaignPickerComponent implements OnInit {
   showJoinModal = signal(false);
   isMobile = signal(false);
 
+  private mq?: MediaQueryList;
+  private readonly mqListener = (e: MediaQueryListEvent) => this.isMobile.set(e.matches);
+
   ngOnInit() {
     this.fetchCampaigns();
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      const mq = window.matchMedia('(max-width: 1023px)');
-      this.isMobile.set(mq.matches);
-      mq.addEventListener('change', (e) => this.isMobile.set(e.matches));
+      this.mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobile.set(this.mq.matches);
+      this.mq.addEventListener('change', this.mqListener);
     }
+  }
+
+  ngOnDestroy() {
+    this.mq?.removeEventListener('change', this.mqListener);
   }
 
   fetchCampaigns() {

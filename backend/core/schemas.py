@@ -116,12 +116,16 @@ class CurrencySchema(BaseModel):
     gp: int = 0
     pp: int = 0
 
-    @field_validator("cp", "sp", "ep", "gp", "pp")
+    @field_validator("cp", "sp", "ep", "gp", "pp", mode="before")
     @classmethod
-    def validate_non_negative(cls, v: int) -> int:
-        if v is None or v < 0:
+    def validate_non_negative(cls, v: Any) -> int:
+        if v is None:
             return 0
-        return int(v)
+        try:
+            val = int(v)
+            return max(0, val)
+        except (ValueError, TypeError):
+            return 0
 
 
 class ClassResourceSchema(BaseModel):
@@ -134,11 +138,21 @@ class ClassResourceSchema(BaseModel):
     @classmethod
     def normalize_resource(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            max_val = max(1, int(data.get("max", 1)))
-            cur_val = max(0, min(max_val, int(data.get("current", max_val))))
+            raw_max = data.get("max")
+            try:
+                max_val = max(1, int(raw_max if raw_max is not None else 1))
+            except (ValueError, TypeError):
+                max_val = 1
+
+            raw_cur = data.get("current")
+            try:
+                cur_val = max(0, min(max_val, int(raw_cur if raw_cur is not None else max_val)))
+            except (ValueError, TypeError):
+                cur_val = max_val
+
             data["max"] = max_val
             data["current"] = cur_val
-            recharge_val = str(data.get("recharge", "long")).lower()
+            recharge_val = str(data.get("recharge") or "long").lower()
             data["recharge"] = "short" if recharge_val == "short" else "long"
         return data
 
@@ -300,13 +314,7 @@ class CharacterSchema(BaseModel):
         if v is None:
             return CurrencySchema()
         if isinstance(v, dict):
-            return CurrencySchema(
-                cp=max(0, int(v.get("cp", 0) or 0)),
-                sp=max(0, int(v.get("sp", 0) or 0)),
-                ep=max(0, int(v.get("ep", 0) or 0)),
-                gp=max(0, int(v.get("gp", 0) or 0)),
-                pp=max(0, int(v.get("pp", 0) or 0)),
-            )
+            return CurrencySchema(**v)
         return v
 
     @field_validator("class_resources", mode="before")

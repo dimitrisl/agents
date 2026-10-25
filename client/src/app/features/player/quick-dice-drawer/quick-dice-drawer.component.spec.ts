@@ -54,6 +54,20 @@ describe('QuickDiceDrawerComponent', () => {
     expect(component.lastRoll()).not.toBeNull();
   });
 
+  it('should apply rollMode to 1d20 in a mixed pool (e.g. 1d20 + 1d4) and auto-reset rollMode', () => {
+    const diceService = TestBed.inject(DiceService);
+    const rollD20Spy = jest.spyOn(diceService, 'rollD20');
+    component.setRollMode('advantage');
+    component.addDie(20);
+    component.addDie(4);
+
+    component.executeRoll();
+
+    expect(rollD20Spy).toHaveBeenCalledWith(0, 'advantage');
+    expect(component.lastRoll()?.expression).toContain('1d4+1d20 (ADVANTAGE)');
+    expect(component.rollMode).toBe('normal');
+  });
+
   it('should emit openChange on close', () => {
     const emitSpy = jest.spyOn(component.openChange, 'emit');
     component.close();

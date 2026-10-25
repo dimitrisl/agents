@@ -319,29 +319,33 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private campaignInitialLoad = new Set<string>();
+  private mq?: MediaQueryList;
+  private readonly mqListener = (e: MediaQueryListEvent) => this.isMobileViewport.set(e.matches);
+  private readonly visibilityListener = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      const char = this.charState.activeCharacter();
+      if (char && char.active_campaign) {
+        this.wsService.connect(char.active_campaign, { character: char.char_name });
+        this.loadCampaignMessageHistory(char.active_campaign, char.char_name, true);
+      }
+    }
+  };
+  private queryParamsSub?: Subscription;
 
   ngOnInit() {
     this.charState.ensureLoaded().subscribe();
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-      const mq = window.matchMedia('(max-width: 1023px)');
-      this.isMobileViewport.set(mq.matches);
-      mq.addEventListener('change', (e) => this.isMobileViewport.set(e.matches));
+      this.mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobileViewport.set(this.mq.matches);
+      this.mq.addEventListener('change', this.mqListener);
     }
 
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          const char = this.charState.activeCharacter();
-          if (char && char.active_campaign) {
-            this.wsService.connect(char.active_campaign, { character: char.char_name });
-            this.loadCampaignMessageHistory(char.active_campaign, char.char_name, true);
-          }
-        }
-      });
+      document.addEventListener('visibilitychange', this.visibilityListener);
     }
 
-    this.route.queryParams.subscribe((params) => {
+    this.queryParamsSub = this.route.queryParams.subscribe((params) => {
       if (params['import'] === '1') {
         this.openImportModal();
       }
@@ -414,6 +418,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnDestroy() {
+    this.mq?.removeEventListener('change', this.mqListener);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityListener);
+    }
+    this.queryParamsSub?.unsubscribe();
     if (this.wsSub) {
       this.wsSub.unsubscribe();
     }
@@ -1575,8 +1584,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.hpSave$.next({ char: updated, version: this.localSaveVersion });
     }
 
-    // Trigger Concentration Check if character was concentrating
-    if (char.concentrating_on && remainingDamage > 0) {
+    // Trigger Concentration Check if character was concentrating (even when Temp HP absorbs the hit)
+    if (char.concentrating_on && amount > 0) {
       const dc = Math.max(10, Math.floor(amount / 2));
       this.concentrationDc.set(dc);
       this.showConcentrationPrompt.set(true);
@@ -1620,37 +1629,42 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char) return;
     const roll = this.dice.roll({ numDice: 1, sides: 20, modifier: 0 });
     const currentSaves = { ...(char.death_saves || { successes: 0, failures: 0 }) };
+    let newHp = char.hp_current;
 
     if (roll.raw === 20) {
       this.haptics.critSuccess();
-      char.hp_current = 1;
-      char.death_saves = { successes: 0, failures: 0 };
+      newHp = 1;
+      currentSaves.successes = 0;
+      currentSaves.failures = 0;
       this.rollToast.showMessage('🌟 NATURAL 20 ON DEATH SAVE!', 'You regain consciousness with 1 HP!');
     } else if (roll.raw === 1) {
       this.haptics.critFail();
       currentSaves.failures = Math.min(3, currentSaves.failures + 2);
-      char.death_saves = currentSaves;
       this.rollToast.showMessage('💀 CRITICAL FAILURE!', 'Natural 1: You take 2 Death Save Failures!');
     } else if (roll.raw >= 10) {
       this.haptics.lightTap();
       currentSaves.successes = Math.min(3, currentSaves.successes + 1);
-      char.death_saves = currentSaves;
       this.rollToast.showMessage('✨ DEATH SAVE SUCCESS!', `Rolled ${roll.raw} (Successes: ${currentSaves.successes}/3)`);
     } else {
       this.haptics.critFail();
       currentSaves.failures = Math.min(3, currentSaves.failures + 1);
-      char.death_saves = currentSaves;
       this.rollToast.showMessage('❌ DEATH SAVE FAILURE!', `Rolled ${roll.raw} (Failures: ${currentSaves.failures}/3)`);
     }
 
+    const updated: CharacterSchema = {
+      ...char,
+      hp_current: newHp,
+      death_saves: currentSaves,
+    };
+    this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
   }
 
   rollConcentrationSave() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const conMod = conModifier(char);
-    const roll = this.dice.rollD20(conMod, 'normal');
+    const saveMod = char.stats ? savingThrowModifier(char, 'CON') : conModifier(char);
+    const roll = this.dice.rollD20(saveMod, this.rollMode);
     const dc = this.concentrationDc();
 
     if (roll.total >= dc) {
@@ -1667,7 +1681,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   dropConcentration() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    char.concentrating_on = undefined;
+    const updated: CharacterSchema = { ...char, concentrating_on: undefined };
+    this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
     this.showConcentrationPrompt.set(false);
   }
@@ -1683,17 +1698,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   onConsumePotion(event: { item: EquipmentItem; dice: string; bonus: number; name: string }) {
     const char = this.charState.activeCharacter();
     if (!char) return;
+    this.haptics.lightTap();
     const numDice = parseInt(event.dice.split('d')[0], 10) || 2;
     const roll = this.dice.roll({ numDice, sides: 4, modifier: event.bonus });
-    this.applyHeal(roll.total);
 
+    const currentHp = char.hp_current ?? char.hp_max;
+    const newHp = Math.min(char.hp_max, currentHp + roll.total);
+
+    const currentEquipment = char.equipment || [];
     const currentQty = event.item.quantity ?? 1;
-    if (currentQty <= 1) {
-      const idx = (char.equipment || []).indexOf(event.item);
-      if (idx >= 0) char.equipment?.splice(idx, 1);
-    } else {
-      event.item.quantity = currentQty - 1;
-    }
+    const updatedEquipment =
+      currentQty <= 1
+        ? currentEquipment.filter((eq) => eq !== event.item)
+        : currentEquipment.map((eq) =>
+            eq === event.item ? { ...eq, quantity: currentQty - 1 } : eq
+          );
+
+    const updated: CharacterSchema = {
+      ...char,
+      hp_current: newHp,
+      death_saves: currentHp === 0 ? { successes: 0, failures: 0 } : char.death_saves,
+      equipment: updatedEquipment,
+    };
+    this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
     this.rollToast.showMessage('🧪 DRANK POTION', `Healed for +${roll.total} HP! (${event.name})`);
   }
@@ -1711,7 +1738,23 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     modifier: number;
     broadcast: boolean;
   }) {
-    // Already toasted in quick-dice-drawer component
+    const char = this.charState.activeCharacter();
+    if (!event.broadcast || !char?.active_campaign) return;
+
+    this.http
+      .post<{ whisper: Whisper }>(campaignUrl(char.active_campaign, 'whisper'), {
+        sender: char.char_name,
+        recipient: 'DM',
+        message: `${event.title}: ${event.expression} = ${event.total} [${event.rolls.join(', ')}]`,
+      })
+      .subscribe({
+        next: (res) => {
+          if (res?.whisper) {
+            this.addWhisper(res.whisper, false);
+          }
+        },
+        error: () => undefined,
+      });
   }
 
   adjustHp(delta: number) {

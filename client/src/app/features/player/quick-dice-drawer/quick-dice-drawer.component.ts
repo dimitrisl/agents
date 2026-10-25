@@ -169,19 +169,32 @@ export class QuickDiceDrawerComponent {
     let total = 0;
     const allRolls: number[] = [];
     const formulaParts: string[] = [];
+    let isCritSuccess = false;
+    let isCritFail = false;
 
     for (const d of this.availableDice) {
       const c = pool[d] || 0;
       if (c > 0) {
-        const subRoll = this.dice.roll({ numDice: c, sides: d, modifier: 0 });
-        total += subRoll.total;
-        allRolls.push(...subRoll.rolls);
-        formulaParts.push(`${c}d${d}`);
+        if (d === 20 && c === 1 && this.rollMode !== 'normal') {
+          const d20Roll = this.dice.rollD20(0, this.rollMode);
+          total += d20Roll.total;
+          allRolls.push(...d20Roll.rolls);
+          formulaParts.push(`1d20${this.dice.modeLabel(d20Roll.mode)}`);
+          isCritSuccess = d20Roll.raw === 20;
+          isCritFail = d20Roll.raw === 1;
+        } else {
+          const subRoll = this.dice.roll({ numDice: c, sides: d, modifier: 0 });
+          total += subRoll.total;
+          allRolls.push(...subRoll.rolls);
+          formulaParts.push(`${c}d${d}`);
+        }
       }
     }
 
     total += this.modifier();
-    this.haptics.lightTap();
+    if (isCritSuccess) this.haptics.critSuccess();
+    else if (isCritFail) this.haptics.critFail();
+    else this.haptics.lightTap();
 
     const expr = `${formulaParts.join('+')}${this.modifier() !== 0 ? (this.modifier() > 0 ? '+' + this.modifier() : this.modifier()) : ''}`;
 
@@ -190,6 +203,8 @@ export class QuickDiceDrawerComponent {
       total,
       rolls: allRolls,
       modifier: this.modifier(),
+      isCritSuccess,
+      isCritFail,
     });
 
     this.toast.showMessage('🎲 CUSTOM ROLL', `${expr} ➡️ **${total}** (${allRolls.join(', ')})`);
@@ -202,6 +217,10 @@ export class QuickDiceDrawerComponent {
       modifier: this.modifier(),
       broadcast: this.broadcastToTable(),
     });
+
+    if (pool[20] === 1 && this.autoResetRollMode() && this.rollMode !== 'normal') {
+      this.setRollMode('normal');
+    }
   }
 
   close() {
