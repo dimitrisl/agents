@@ -18,6 +18,11 @@ export const routes: Routes = [
   { path: 'dm', component: DmComponent, canActivate: [authGuard] },
   { path: 'rules', component: RulesComponent, canActivate: [authGuard] },
   { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
+  {
+    path: 'faq',
+    loadComponent: () => import('./features/faq/faq.component').then((m) => m.FaqComponent),
+    canActivate: [authGuard],
+  },
   { path: 'admin', component: AdminComponent, canActivate: [authGuard, adminGuard] },
   { path: '', redirectTo: '/campaigns', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' },

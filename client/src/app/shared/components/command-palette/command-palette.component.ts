@@ -45,6 +45,7 @@ export class CommandPaletteComponent {
     { icon: '\u{1F3F0}', title: 'Dungeon Master Workspace', category: 'Navigation', route: '/dm' },
     { icon: '\u{1F4DA}', title: 'Arcane Rules Library', category: 'Navigation', route: '/rules' },
     { icon: '\u2699\uFE0F', title: 'System Settings', category: 'Navigation', route: '/settings' },
+    { icon: '❓', title: 'Frequently Asked Questions & Guide', category: 'Navigation', route: '/faq' },
     { icon: '\u{1F511}', title: 'Quick Admin Panel', category: 'Navigation', route: '/admin' },
   ];
 
