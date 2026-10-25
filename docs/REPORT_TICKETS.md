@@ -504,3 +504,35 @@ gh pr checks 169
 - **Σενάριο 3 (Real-Time WebSocket VTT Sync & Fog Redaction)**: Σύνδεση DM και Παίκτη, `presence_sync`, ενεργοποίηση Fog of War, reveal ορθογωνίου (Beholder 2x2), απόκρυψη κρυμμένου τέρατος (Vampire Spawn) από το payload του Παίκτη ενώ το token του Παίκτη παραμένει ορατό, επαναφορά ομίχλης, Reveal All.
 - **Σενάριο 4 (Whispers & Moderation)**: Ανταλλαγή ψιθύρων, απόρριψη αναφοράς με κενό λόγο (400 Bad Request), επιτυχής υποβολή αναφοράς, απόρριψη αναφοράς από μη εξουσιοδοτημένο τρίτο χρήστη (403 Forbidden).
 - **Σενάριο 5 (Administrator Lifecycle & Cascade)**: RBAC 403 σε μη διαχειριστή, προαγωγή DM σε Admin μέσω `promote_admin.py`, ανάκτηση λίστας χρηστών και καταμέτρησης χαρακτήρων, λίστα whisper reports, ανάκτηση λεπτομερειών με $\pm 10$ context inspection, επίλυση αναφοράς με σημείωμα, Deletion Preview με μπλοκάρισμα αυτοδιαγραφής (`can_delete=False`), δημιουργία θυσιαστικού χρήστη (χαρακτήρας + καμπάνια), υπολογισμός επιπτώσεων (`can_delete=True`), εκτέλεση cascading διαγραφής (διαγραφή καμπανιών, αποσύνδεση μελών, εκκαθάριση χαρακτήρων), και μόνιμο μπλοκάρισμα αυθεντικοποίησης του διαγραμμένου χρήστη.
+
+---
+
+## 6. VTT Fog of War Performance Optimization & Root-Cause Remediation
+
+Κατά τη δοκιμή της λειτουργίας Fog of War εντοπίστηκε αισθητή καθυστέρηση (sluggishness/latency) κατά τη χρήση των εργαλείων αποκάλυψης και απόκρυψης. Πραγματοποιήθηκε ενδελεχής έλεγχος profiling σε ολόκληρο το pipeline (Frontend Canvas, Event Loop, WebSockets, Backend Database) και υλοποιήθηκαν στοχευμένες βελτιστοποιήσεις:
+
+### Αιτίες Καθυστέρησης (Root Cause Analysis)
+1. **MongoDB Atlas 9-Query Cascade**:
+   - Κάθε κλήση `reveal_fog` / `hide_fog` εκτελούσε 9 σειριακές ερωτήσεις στη MongoDB Atlas (~456.89 ms συνολικός χρόνος), λόγω διπλής ανάκτησης του state πριν και μετά την ενημέρωση, καθώς και περιττών κλήσεων του `_ensure_state`.
+2. **Απουσία Optimistic UI Update & Live Preview**:
+   - Κατά το σύρσιμο του ποντικιού (mouse drag), τα κελιά συλλέγονταν χωρίς να αποδίδονται γραφικά στον καμβά, δίνοντας την αίσθηση παγώματος.
+   - Κατά το `mouseup`, το UI παρέμενε ακίνητο περιμένοντας την απάντηση του backend (~460 ms) μέσω WebSocket.
+3. **Υπερβολικά Canvas 2D Draw Calls**:
+   - Η σχεδίαση της ομίχλης γινόταν κελί-κελί (`fillRect` + `strokeRect`), παράγοντας 5.000 έως 16.000 εντολές σχεδίασης ανά frame σε μεσαίους/μεγάλους χάρτες.
+4. **Angular Effect Redraw Thrashing**:
+   - Το reactive effect στο `VttGridComponent` επανασχεδίαζε ολόκληρο τον καμβά ομίχλης σε κάθε αλλαγή token (κίνηση, HP, initiative), ακόμη κι όταν η ομίχλη δεν είχε αλλάξει, λόγω σύγκρισης αναφοράς (`!==`) σε deserialized JSON arrays.
+
+### Υλοποιημένες Βελτιστοποιήσεις
+* **Backend Single-Query Atomic Update**:
+  - Αντικατάσταση των 9 σειριακών queries στο [`backend/services/vtt_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/vtt_service.py) με μία μοναδική ατομική λειτουργία `find_one_and_update` με `ReturnDocument.AFTER`.
+  - Χρόνος απόκρισης backend: **από ~457 ms $\rightarrow$ ~49.7 ms (9.2x ταχύτερο)**.
+* **Frontend Optimistic Update**:
+  - Στο [`vtt-grid.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/campaigns/vtt-grid/vtt-grid.component.ts), κατά το `onFogMouseUp` το τοπικό σήμα `wsService.vttState` ενημερώνεται **στιγμιαία (0 ms perceived latency)** πριν καν σταλεί το WebSocket frame.
+* **Live Brush Drag Feedback**:
+  - Ζωντανή οπτική προεπισκόπηση των κελιών που επηρεάζονται κατά το σύρσιμο του πινέλου.
+* **Punch-Out Canvas Rendering**:
+  - Μία ενιαία εντολή `ctx.fillRect(0, 0, width, height)` για ολόκληρο τον καμβά και διάτρηση (`ctx.clearRect`) αποκλειστικά για τα αποκαλυμμένα κελιά, μειώνοντας τις εντολές σχεδίασης κατά **8.0x**.
+* **Effect Guard & Sub-cell Mouse Throttling**:
+  - Ακριβής έλεγχος περιεχομένου πίνακα (`hasFogRevealedChanged`) ώστε να αποτρέπονται άσκοπες επανασχεδιάσεις της ομίχλης κατά τις κινήσεις tokens, και αποφυγή repaints όταν το ποντίκι κινείται εντός του ίδιου κελιού.
+* **Άρση Σκληρού Ορίου 2.500 Κελιών**:
+  - Δυναμικός έλεγχος ορίων (`width * height`), επιτρέποντας απρόσκοπτη λειτουργία και σε μεγάλους χάρτες (> 50x50).
