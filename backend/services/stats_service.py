@@ -816,12 +816,29 @@ def sync_character_stats(
 
     normalized_ft = []
     for ft in char_data.get("features_traits", []):
+        entry = None
         if isinstance(ft, str):
-            normalized_ft.append({"name": ft, "description": "Imported feature"})
+            entry = {"name": ft, "description": "Imported feature"}
         elif hasattr(ft, "model_dump"):
-            normalized_ft.append(ft.model_dump())
+            entry = ft.model_dump()
         elif isinstance(ft, dict):
-            normalized_ft.append(ft)
+            entry = dict(ft)
+
+        if not entry:
+            continue
+
+        name_lower = str(entry.get("name") or "").strip().lower()
+        desc_lower = str(entry.get("description") or "").strip().lower()
+
+        # Discard invalid level-up metadata choices captured as traits
+        if (
+            name_lower in ("roll", "average", "manual")
+            or "selected for level_up_class" in desc_lower
+            or "selected for hp_method" in desc_lower
+        ):
+            continue
+
+        normalized_ft.append(entry)
     char_data["features_traits"] = normalized_ft
 
     is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))

@@ -371,9 +371,16 @@
   <!-- FEATURES SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="features-heading">
     <div class="flex items-center justify-between gap-3">
-      <h3 id="features-heading" class="font-display text-title text-ink">
-        Class Features &amp; Racial Traits
-      </h3>
+      <button
+        type="button"
+        class="flex items-center gap-2 font-display text-title text-ink cursor-pointer bg-transparent border-none p-0 text-left hover:text-accent transition-colors"
+        (click)="toggleFeaturesSection()"
+      >
+        <span class="text-xs transition-transform duration-200 inline-block" [class.rotate-90]="!featuresSectionCollapsed()">▶</span>
+        <h3 id="features-heading">Class Features &amp; Racial Traits</h3>
+        <span class="text-xs font-mono text-muted">({{ features.length }})</span>
+      </button>
+
       <div class="flex items-center gap-2">
         <button
           *ngIf="editMode"
@@ -386,7 +393,7 @@
           + Add
         </button>
         <button
-          *ngIf="features.length > 0"
+          *ngIf="features.length > 0 && !featuresSectionCollapsed()"
           forgeButton
           variant="ghost"
           size="sm"
@@ -398,69 +405,71 @@
       </div>
     </div>
 
-    <div *ngIf="editMode && addingFeature()" class="flex items-center gap-2">
-      <input
-        forgeInput
-        type="text"
-        class="flex-1"
-        [(ngModel)]="newFeatureName"
-        placeholder="Enter feature or trait name..."
-        (keyup.enter)="confirmAddFeature()"
-      />
-      <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddFeature()">Add</button>
-      <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddFeature()">Cancel</button>
-    </div>
-
-    <div
-      *ngIf="features.length > 0; else noFeatures"
-      class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
-    >
-      <div *ngFor="let feature of features; let index = index">
-        <div class="flex">
-          <button
-            type="button"
-            class="flex-1 grid min-h-12 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
-            [attr.aria-expanded]="isFeatureExpanded(index)"
-            [attr.aria-controls]="'feature-body-' + index"
-            (click)="toggleFeature(index)"
-          >
-            <span class="min-w-0 font-display text-body text-ink">{{ feature.name }}</span>
-
-            <forge-badge *ngIf="feature.source" tone="muted">{{ feature.source }}</forge-badge>
-
-            <svg
-              class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
-              [class.rotate-180]="isFeatureExpanded(index)"
-              viewBox="0 0 20 20"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M5 7.5L10 12.5L15 7.5"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-          <button *ngIf="editMode" type="button" class="px-4 text-crimson hover:text-crimson/80" (click)="deleteFeature(index, $event)" title="Delete feature">✕</button>
-        </div>
-
-        <p
-          *ngIf="isFeatureExpanded(index)"
-          [id]="'feature-body-' + index"
-          class="bg-tile px-4 py-3 text-body leading-relaxed text-muted"
-        >
-          {{ feature.description }}
-        </p>
+    <div *ngIf="!featuresSectionCollapsed()">
+      <div *ngIf="editMode && addingFeature()" class="flex items-center gap-2 mb-3">
+        <input
+          forgeInput
+          type="text"
+          class="flex-1"
+          [(ngModel)]="newFeatureName"
+          placeholder="Enter feature or trait name..."
+          (keyup.enter)="confirmAddFeature()"
+        />
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddFeature()">Add</button>
+        <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddFeature()">Cancel</button>
       </div>
-    </div>
 
-    <ng-template #noFeatures>
-      <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
-        No features or traits recorded yet.
-      </p>
-    </ng-template>
+      <div
+        *ngIf="features.length > 0; else noFeatures"
+        class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
+      >
+        <div *ngFor="let feature of features; let index = index">
+          <div class="flex">
+            <button
+              type="button"
+              class="flex-1 grid min-h-12 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+              [attr.aria-expanded]="isFeatureExpanded(index)"
+              [attr.aria-controls]="'feature-body-' + index"
+              (click)="toggleFeature(index)"
+            >
+              <span class="min-w-0 font-display text-body text-ink">{{ feature.name }}</span>
+
+              <forge-badge *ngIf="feature.source" tone="muted">{{ feature.source }}</forge-badge>
+
+              <svg
+                class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
+                [class.rotate-180]="isFeatureExpanded(index)"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M5 7.5L10 12.5L15 7.5"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button *ngIf="editMode" type="button" class="px-4 text-crimson hover:text-crimson/80" (click)="deleteFeature(index, $event)" title="Delete feature">✕</button>
+          </div>
+
+          <p
+            *ngIf="isFeatureExpanded(index)"
+            [id]="'feature-body-' + index"
+            class="bg-tile px-4 py-3 text-body leading-relaxed text-muted"
+          >
+            {{ feature.description }}
+          </p>
+        </div>
+      </div>
+
+      <ng-template #noFeatures>
+        <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
+          No features or traits recorded yet.
+        </p>
+      </ng-template>
+    </div>
   </section>
 </div>

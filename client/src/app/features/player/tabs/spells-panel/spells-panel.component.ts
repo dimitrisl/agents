@@ -66,8 +66,21 @@ export class SpellsPanelComponent {
     return this.spellLevels.filter((level) => this.getSpellSlotMax(level) > 0);
   }
 
+  featuresSectionCollapsed = signal<boolean>(false);
+
+  toggleFeaturesSection(): void {
+    this.featuresSectionCollapsed.update((v) => !v);
+  }
+
   get features(): FeatureTrait[] {
-    return this.char.features_traits ?? [];
+    const raw = this.char.features_traits ?? [];
+    return raw.filter((f) => {
+      const name = (f.name || '').trim().toLowerCase();
+      const desc = (f.description || '').trim().toLowerCase();
+      if (name === 'roll' || name === 'average' || name === 'manual') return false;
+      if (desc.includes('selected for level_up_class') || desc.includes('selected for hp_method')) return false;
+      return true;
+    });
   }
 
   get classResources(): ClassResource[] {
