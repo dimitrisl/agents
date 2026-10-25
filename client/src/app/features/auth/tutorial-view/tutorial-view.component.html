@@ -1,22 +1,22 @@
 <forge-card class="text-center" [hoverable]="false" padding="lg">
   <div class="mb-4 flex items-center justify-between">
     <h2 class="font-display text-title text-accent flex items-center gap-2">
-      <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg class="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
       </svg>
       @if (role === 'none') {
         Choose Your Path
       } @else {
-        {{ role === 'player' ? 'Player Guide' : 'DM Guide' }}: Step {{ step + 1 }} of 5
+        {{ role === 'player' ? '🗡️ Οδηγός Παίκτη (Noob Friendly)' : '🏰 Οδηγός Dungeon Master' }}: Βήμα {{ step + 1 }} από 5
       }
     </h2>
-    <button forgeButton variant="ghost" size="sm" (click)="finish.emit()">
-      Skip
+    <button forgeButton variant="ghost" size="sm" (click)="finish.emit()" title="Skip guide">
+      Skip ✕
     </button>
   </div>
 
   @if (role !== 'none') {
-    <div class="my-6 flex justify-center gap-2">
+    <div class="my-5 flex justify-center gap-2">
       <span [class]="dotClasses(0)"></span>
       <span [class]="dotClasses(1)"></span>
       <span [class]="dotClasses(2)"></span>
@@ -25,210 +25,462 @@
     </div>
   }
 
-  <section class="mb-6 rounded-[10px] border border-hairline bg-panel p-5">
+  <section class="mb-6 rounded-[12px] border border-hairline bg-panel p-5 text-left">
     @if (role === 'none') {
       <div class="flex flex-col gap-4">
-        <button class="w-full flex items-center gap-4 p-4 rounded-md bg-black/40 border border-hairline hover:border-accent transition-colors group" (click)="selectRole('player')">
-          <div class="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center group-hover:scale-110 transition-transform">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+        <button
+          class="w-full flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-hairline hover:border-accent hover:bg-tile/40 transition-all group cursor-pointer text-left"
+          (click)="selectRole('player')"
+        >
+          <div class="w-13 h-13 rounded-2xl bg-accent/20 text-accent flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
+            🗡️
           </div>
-          <div class="text-left flex-1">
-            <div class="font-display text-lg text-gold group-hover:text-accent transition-colors">I am a Player</div>
-            <div class="text-sm text-muted">Create heroes, track stats, and manage inventory.</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-display text-lg text-ink font-bold group-hover:text-accent transition-colors flex items-center gap-2">
+              I am a Player
+              <forge-badge tone="accent" class="text-micro font-sans font-semibold">Προτεινόμενο για Noobs</forge-badge>
+            </div>
+            <div class="text-sm text-muted mt-1 leading-snug">
+              Δεν έχεις ξαναπαίξει D&amp;D; Μάθε σε 1 λεπτό πώς παίζεις με το κινητό σου χωρίς να διαβάσεις κανόνες!
+            </div>
           </div>
         </button>
 
-        <button class="w-full flex items-center gap-4 p-4 rounded-md bg-black/40 border border-hairline hover:border-accent transition-colors group" (click)="selectRole('dm')">
-          <div class="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center group-hover:scale-110 transition-transform">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+        <button
+          class="w-full flex items-center gap-4 p-4 rounded-xl bg-black/40 border border-hairline hover:border-gold hover:bg-tile/40 transition-all group cursor-pointer text-left"
+          (click)="selectRole('dm')"
+        >
+          <div class="w-13 h-13 rounded-2xl bg-gold/20 text-gold flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
+            🏰
           </div>
-          <div class="text-left flex-1">
-            <div class="font-display text-lg text-gold group-hover:text-accent transition-colors">I am a Dungeon Master</div>
-            <div class="text-sm text-muted">Command campaigns, track initiatives, and shape the realm.</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-display text-lg text-ink font-bold group-hover:text-gold transition-colors">
+              I am a Dungeon Master
+            </div>
+            <div class="text-sm text-muted mt-1 leading-snug">
+              Συντονίζω το τραπέζι, τις μάχες, τα τέρατα, την πρωτοβουλία και την ιστορία του κόσμου.
+            </div>
           </div>
         </button>
       </div>
     }
 
+    <!-- ========================================== -->
+    <!-- PLAYER GUIDE (ANALYTIKO & NOOB FRIENDLY) -->
+    <!-- ========================================== -->
     @if (role === 'player') {
+      <!-- STEP 0: ΠΩΣ ΠΑΙΖΕΤΑΙ ΤΟ D&D ΧΩΡΙΣ ΜΑΘΗΜΑΤΙΚΑ -->
       @if (step === 0) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline flex items-center justify-between gap-2">
-          <forge-stat-box label="STR" value="16" modifier="+3" valueTone="muted" class="flex-1"></forge-stat-box>
-          <span class="text-accent font-display text-2xl">+</span>
-          <forge-stat-box label="Prof" value="+3" valueTone="muted" class="flex-1"></forge-stat-box>
-          <span class="text-accent font-display text-2xl">=</span>
-          <forge-stat-box label="Athletics" value="+6" valueTone="success" class="flex-1"></forge-stat-box>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-2">
+            <forge-badge tone="accent" class="text-micro">ΒΗΜΑ 1 / 5 · ΒΑΣΙΚΕΣ ΑΡΧΕΣ</forge-badge>
+            <span class="text-micro font-semibold text-muted">1-Tap Calculations</span>
+          </div>
+
+          <!-- Visual Demonstration Card -->
+          <div class="rounded-xl bg-black/40 p-4 border border-hairline flex flex-col gap-3">
+            <div class="flex items-center justify-between text-micro font-semibold uppercase text-muted">
+              <span>⚔️ Παράδειγμα: Χτύπημα με Σπαθί</span>
+              <span class="text-emerald font-bold">Αυτόματος Υπολογισμός</span>
+            </div>
+            <div class="flex items-center justify-center gap-2.5 py-2">
+              <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/20 border border-accent/40 font-display text-2xl font-bold text-accent shadow-glow">
+                18
+              </div>
+              <span class="text-xl font-bold text-muted">+</span>
+              <div class="flex flex-col items-center">
+                <span class="text-micro font-bold uppercase text-muted">Bonus Όπλου</span>
+                <span class="text-base font-bold text-ink">+5</span>
+              </div>
+              <span class="text-xl font-bold text-muted">=</span>
+              <div class="flex flex-col items-center">
+                <span class="text-micro font-bold uppercase text-emerald">Συνολικό Χτύπημα</span>
+                <span class="text-base font-bold text-emerald">23 (Hit!)</span>
+              </div>
+            </div>
+            <div class="rounded-lg bg-surface/80 p-2.5 text-micro text-muted flex items-start gap-2">
+              <span class="text-accent text-sm">💡</span>
+              <span>Το ζάρι ρίχνεται στην οθόνη και το app προσθέτει τα bonus του ήρωά σου αυτόματα!</span>
+            </div>
+          </div>
+
+          <!-- Structured Noob Explanation -->
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">
+              1. Ξέχνα τα Μαθηματικά &amp; τα Βιβλία 300 Σελίδων!
+            </h3>
+            <div class="flex flex-col gap-2.5 text-sm text-ink/90 leading-relaxed">
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🎯</span>
+                <p>
+                  <strong>Τι είναι το D&amp;D;</strong> Είναι ένα παιχνίδι φαντασίας όπου εσύ και η παρέα σου ζείτε μια ιστορία. Ο Dungeon Master περιγράφει τον κόσμο και εσύ απλά λες τι θέλει να κάνει ο ήρωάς σου (π.χ. <em>«Επιτίθεμαι στον ορκ»</em> ή <em>«Προσπαθώ να παραβιάσω την κλειδαριά»</em>).
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🎲</span>
+                <p>
+                  <strong>Πότε ρίχνεις ζάρι;</strong> Κάθε φορά που μια ενέργεια έχει ρίσκο, πατάς το 20-πλευρο ζάρι (d20). Όσο πιο ψηλό το αποτέλεσμα, τόσο μεγαλύτερη η επιτυχία σου!
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">✨</span>
+                <p>
+                  <strong>Χρειάζεται να υπολογίζεις πράξεις;</strong> <strong>Όχι!</strong> Η εφαρμογή γνωρίζει όλους τους επίσημους κανόνες (5e &amp; 5.5e), προσθέτει τα σωστά νούμερα αυτόματα και σου δίνει το τελικό αποτέλεσμα σε ένα δευτερόλεπτο.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Rules Automated</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Math-induced headaches are gone. The Forge automatically calculates your stats, saves, and skills in real-time.
-        </p>
       }
 
+      <!-- STEP 1: ΔΗΜΙΟΥΡΓΙΑ ΗΡΩΑ ΜΕ AI -->
       @if (step === 1) {
-        <div class="mb-6 rounded-md bg-black/40 border border-hairline p-4 flex flex-col gap-3">
-          <div class="flex items-center gap-3">
-             <div class="w-12 h-12 rounded-full bg-tile border border-accent flex items-center justify-center text-accent shrink-0">
-               <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-             </div>
-             <div class="text-left flex-1 min-w-0">
-               <div class="font-display text-ink text-lg truncate">Gorthor The Fierce</div>
-               <div class="text-label text-muted truncate">Level 5 Barbarian</div>
-             </div>
-             <forge-badge tone="accent">Ready</forge-badge>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-2">
+            <forge-badge tone="accent" class="text-micro">ΒΗΜΑ 2 / 5 · Ο ΗΡΩΑΣ ΣΟΥ</forge-badge>
+            <span class="text-micro font-semibold text-muted">AI Character Forge</span>
           </div>
-          <div class="grid grid-cols-2 gap-2">
-             <forge-stat-box label="HP" value="55" valueTone="success"></forge-stat-box>
-             <forge-stat-box label="AC" value="15" valueTone="accent"></forge-stat-box>
+
+          <!-- Visual Demonstration Card -->
+          <div class="rounded-xl bg-black/40 p-4 border border-hairline flex flex-col gap-2.5">
+            <div class="flex flex-col gap-1 rounded-lg bg-tile/90 p-3 border border-dashed border-hairline">
+              <span class="text-micro font-bold uppercase text-accent">Γράφεις απλά την ιδέα σου:</span>
+              <p class="text-xs italic text-ink font-serif">«Ένας νάνος πολεμιστής που αγαπάει τη μαγειρική και χτυπάει με βαρύ τηγάνι»</p>
+            </div>
+            <div class="flex items-center justify-center text-accent text-xs font-bold gap-1">
+              <span>⚡</span> Το AI σφυρηλατεί σε 10 δευτερόλεπτα:
+            </div>
+            <div class="flex items-center gap-3 rounded-lg bg-panel p-3 border border-accent/40">
+              <div class="h-12 w-12 rounded-xl bg-accent/20 border border-accent/40 flex items-center justify-center text-2xl shrink-0 shadow-glow">
+                🍳
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="font-display font-bold text-ink truncate text-sm">Balgor the Iron Chef</div>
+                <div class="text-micro font-semibold uppercase text-muted">Level 1 Dwarf Fighter · HP 12 · AC 16</div>
+              </div>
+              <forge-badge tone="success">100% Ready</forge-badge>
+            </div>
+          </div>
+
+          <!-- Structured Noob Explanation -->
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">
+              2. Φτιάξε Ήρωα σε 10'' με Τεχνητή Νοημοσύνη!
+            </h3>
+            <div class="flex flex-col gap-2.5 text-sm text-ink/90 leading-relaxed">
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">👤</span>
+                <p>
+                  <strong>Δεν ξέρεις από builds, φυλές και ξόρκια;</strong> Κανένα πρόβλημα! Στο <strong>Character Forge</strong> δεν χρειάζεται να διαλέξεις ένα-ένα στατιστικά. Απλά περιγράφεις την ιδέα σου με δικά σου λόγια.
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🤖</span>
+                <p>
+                  <strong>Πλήρης &amp; Νόμιμος Χαρακτήρας:</strong> Το AI υπολογίζει όλα τα Hit Points, Armor Class, όπλα, εξοπλισμό, καθώς και ένα πλούσιο προσωπικό ιστορικό (Backstory) μαζί με fantasy πορτρέτο!
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🎨</span>
+                <p>
+                  <strong>Πλήρης Ελευθερία:</strong> Αν θέλεις να αλλάξεις οτιδήποτε, μπορείς να το επεξεργαστείς ελεύθερα είτε άμεσα είτε καθώς ο ήρωάς σου ανεβαίνει επίπεδα (Level-Up).
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Your Dashboard</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Your entire character sheet, digitalized. Manage hit points, inventory, and spells with a clean interface.
-        </p>
       }
 
+      <!-- STEP 2: ΤΟ ΚΙΝΗΤΟ ΣΟΥ ΣΤΟ ΤΡΑΠΕΖΙ -->
       @if (step === 2) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline flex flex-col gap-2">
-          <forge-list-row title="Shadowdancer Bow" description="Equipped • 1d8 Piercing">
-             <forge-badge trailing tone="gold">Rare</forge-badge>
-          </forge-list-row>
-          <forge-list-row title="Fireball" description="Level 3 Evocation">
-             <forge-badge trailing tone="danger">Casting</forge-badge>
-          </forge-list-row>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-2">
+            <forge-badge tone="accent" class="text-micro">ΒΗΜΑ 3 / 5 · ΣΤΟ ΤΡΑΠΕΖΙ</forge-badge>
+            <span class="text-micro font-semibold text-muted">Mobile Companion</span>
+          </div>
+
+          <!-- Visual Demonstration Card -->
+          <div class="rounded-xl bg-black/40 p-4 border border-hairline flex flex-col gap-2.5">
+            <div class="grid grid-cols-2 gap-2 text-left">
+              <div class="rounded-lg bg-tile p-2.5 border border-hairline">
+                <span class="text-micro font-bold uppercase text-muted">❤️ Ζωή (HP)</span>
+                <div class="text-base font-bold text-ink mt-0.5">28 / 28</div>
+                <span class="text-[10px] text-muted">Κουμπιά − / + για ζημιά ή γιατρειά</span>
+              </div>
+              <div class="rounded-lg bg-tile p-2.5 border border-hairline">
+                <span class="text-micro font-bold uppercase text-muted">🛡️ Πανοπλία (AC)</span>
+                <div class="text-base font-bold text-accent mt-0.5">AC 16</div>
+                <span class="text-[10px] text-muted">Πόσο δύσκολα σε πετυχαίνουν</span>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5 mt-0.5 text-left">
+              <forge-list-row title="⚔️ Σπαθί (Longsword)" description="1-Tap: Ρίψη ζαριού &amp; υπολογισμός ζημιάς">
+                <forge-badge trailing tone="accent">1d8+3</forge-badge>
+              </forge-list-row>
+              <forge-list-row title="🧪 Φίλτρο Θεραπείας (Potion)" description="1-Tap: Αυτόματη γιατρειά &amp; αφαίρεση">
+                <forge-badge trailing tone="success">+2d4+2 HP</forge-badge>
+              </forge-list-row>
+            </div>
+          </div>
+
+          <!-- Structured Noob Explanation -->
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">
+              3. Το Κινητό σου είναι το Μοναδικό σου Εργαλείο!
+            </h3>
+            <div class="flex flex-col gap-2.5 text-sm text-ink/90 leading-relaxed">
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">📱</span>
+                <p>
+                  <strong>Τέρμα τα σκισμένα χαρτιά:</strong> Στο τραπέζι ανοίγεις απλά τη σελίδα από το κινητό σου. Μετατρέπεται αυτόματα σε <strong>Mobile Companion</strong> με μεγάλα κουμπιά σχεδιασμένα για τον αντίχειρα.
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">❤️</span>
+                <p>
+                  <strong>Τι είναι το HP &amp; το AC;</strong> Το <strong>HP (Hit Points)</strong> είναι η υγεία σου — όταν τρως ζημιά πατάς «−», όταν σε θεραπεύουν πατάς «+». Το <strong>AC (Armor Class)</strong> είναι η προστασία σου.
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">⚡</span>
+                <p>
+                  <strong>Δράσεις με 1 Άγγιγμα:</strong> Επιτίθεσαι, ρίχνεις ξόρκια, πίνεις potions και κάνεις Short/Long Rest χωρίς να ψάχνεις σημειώσεις.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Arsenal & Magic</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Equip magical loot and manage your spell slots effortlessly. The Forge tracks every detail.
-        </p>
       }
 
+      <!-- STEP 3: ΕΙΔΟΠΟΙΗΣΕΙΣ ΣΕΙΡΑΣ ΣΤΗ ΜΑΧΗ -->
       @if (step === 3) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline">
-          <div class="bg-accent/10 border border-accent/30 rounded-lg p-3 relative flex gap-3 text-left">
-             <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-black shrink-0">
-               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-             </div>
-             <div class="text-sm text-ink leading-relaxed">
-               <span class="text-accent font-semibold">Gemini AI:</span> I have drafted an epic backstory for your Barbarian, detailing the tragic fall of your tribe...
-             </div>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-2">
+            <forge-badge tone="accent" class="text-micro">ΒΗΜΑ 4 / 5 · ΣΤΗ ΜΑΧΗ</forge-badge>
+            <span class="text-micro font-semibold text-muted">Live Turn Alerts</span>
+          </div>
+
+          <!-- Visual Demonstration Card -->
+          <div class="rounded-xl bg-black/40 p-4 border border-hairline flex flex-col gap-2.5 text-left">
+            <div class="rounded-xl border border-emerald/50 bg-emerald/15 p-3 flex items-center gap-3 animate-pulse">
+              <span class="text-2xl shrink-0">⚔️</span>
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-emerald text-sm">Ήρθε η Σειρά σου! (It's Your Turn!)</div>
+                <div class="text-micro text-ink/80">Δόνηση (Haptic Feedback) ενεργοποιήθηκε στο κινητό σου</div>
+              </div>
+              <forge-badge tone="success">Active</forge-badge>
+            </div>
+            <div class="rounded-xl border border-gold/40 bg-gold/10 p-3 flex items-center gap-3 opacity-90">
+              <span class="text-xl shrink-0">⏳</span>
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-gold text-sm">Είσαι ο Επόμενος (On Deck)</div>
+                <div class="text-micro text-ink/80">Προετοίμασε την κίνησή σου για να μη χάνεται χρόνος!</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Structured Noob Explanation -->
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">
+              4. Δεν θα Αναρωτηθείς Ποτέ «Ποιος Παίζει Τώρα;»
+            </h3>
+            <div class="flex flex-col gap-2.5 text-sm text-ink/90 leading-relaxed">
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">⚔️</span>
+                <p>
+                  <strong>Πώς λειτουργεί η μάχη στο D&amp;D;</strong> Στη μάχη υπάρχει μια σειρά προτεραιότητας (Initiative) και ο καθένας δρα όταν έρθει ο γύρος του.
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">📳</span>
+                <p>
+                  <strong>Δόνηση &amp; Πράσινο Banner:</strong> Μόλις ο DM προχωρήσει τη σειρά και έρθει η ώρα σου, το κινητό σου **δονείται** απαλά και ανάβει πράσινο banner για να ξέρεις ότι είναι η σειρά σου να λάμψεις!
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🧠</span>
+                <p>
+                  <strong>Zero Stress:</strong> Όταν είσαι επόμενος (On Deck), το app σου το υπενθυμίζει διακριτικά, ώστε το παιχνίδι να κυλάει γρήγορα και συναρπαστικά.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">AI Companion</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Harness the power of AI to write backstories, generate unique item descriptions, and craft beautiful hero portraits.
-        </p>
       }
 
+      <!-- STEP 4: ΣΥΝΔΕΣΗ ΜΕ ΤΟ ΤΡΑΠΕΖΙ -->
       @if (step === 4) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline flex justify-center items-center gap-4">
-          <div class="w-16 h-16 rounded bg-panel border border-accent text-accent flex flex-col items-center justify-center shadow-[0_0_15px_var(--theme-accent)]">
-            <span class="text-[10px] uppercase tracking-widest mt-1">d20</span>
-            <span class="text-2xl font-bold font-display leading-none">18</span>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-hairline/60 pb-2">
+            <forge-badge tone="accent" class="text-micro">ΒΗΜΑ 5 / 5 · ΖΩΝΤΑΝΗ ΣΥΝΔΕΣΗ</forge-badge>
+            <span class="text-micro font-semibold text-muted">Join Campaign &amp; Whispers</span>
           </div>
-          <div class="flex flex-col items-start gap-1">
-            <span class="text-sm text-muted">Attack Roll</span>
-            <span class="text-xl font-display text-success">Hit! (Total: 24)</span>
+
+          <!-- Visual Demonstration Card -->
+          <div class="rounded-xl bg-black/40 p-4 border border-hairline flex flex-col gap-2.5 text-left">
+            <div class="flex items-center justify-between rounded-lg bg-tile p-3 border border-hairline">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">🔑</span>
+                <div>
+                  <div class="text-micro font-bold uppercase text-muted">Join Campaign</div>
+                  <div class="font-mono font-bold text-accent tracking-wider text-sm">Κωδικός: AB12CD</div>
+                </div>
+              </div>
+              <forge-badge tone="accent">Συνδέθηκες!</forge-badge>
+            </div>
+            <div class="rounded-lg bg-surface/80 p-3 border border-hairline flex flex-col gap-1.5">
+              <div class="flex items-center justify-between text-micro text-muted">
+                <span class="font-bold text-accent">🎲 Αίτημα Ζαριάς από τον DM:</span>
+                <span class="text-gold font-semibold">Χρονόμετρο 30s</span>
+              </div>
+              <p class="text-xs text-ink">«Ρίξε ένα Wisdom (Perception) Check για να δεις αν ακούς βήματα έξω από την πόρτα...»</p>
+            </div>
+          </div>
+
+          <!-- Structured Noob Explanation -->
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">
+              5. Μπες στο Τραπέζι με 1 Κωδικό &amp; Είσαι Έτοιμος!
+            </h3>
+            <div class="flex flex-col gap-2.5 text-sm text-ink/90 leading-relaxed">
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🔑</span>
+                <p>
+                  <strong>Σύνδεση σε 5 δευτερόλεπτα:</strong> Ο Dungeon Master σου δίνει έναν 6-ψήφιο κωδικό πρόσκλησης. Πατάς <strong>Join Campaign</strong>, τον εισάγεις και ο ήρωάς σου συνδέεται ζωντανά στο τραπέζι.
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">🎲</span>
+                <p>
+                  <strong>Ζωντανές Ζαριές (Roll Requests):</strong> Όταν ο DM ζητάει μια ζαριά από σένα, ανοίγει αμέσως παράθυρο στο κινητό σου. Πατάς ρίψη και το αποτέλεσμα εμφανίζεται ακαριαία στην οθόνη του DM!
+                </p>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-accent shrink-0 mt-0.5">💬</span>
+                <p>
+                  <strong>Μυστικά Whispers:</strong> Μπορείς να ανταλλάσσεις ιδιωτικά μηνύματα με τον DM που δεν βλέπει κανένας άλλος παίκτης στο τραπέζι.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Integrated Dice</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Roll in real-time with automatic modifier additions. The whole party sees the results instantly.
-        </p>
       }
     }
 
+    <!-- ========================================== -->
+    <!-- DUNGEON MASTER GUIDE -->
+    <!-- ========================================== -->
     @if (role === 'dm') {
       @if (step === 0) {
-        <div class="mb-6 rounded-md bg-black/40 border border-hairline flex flex-col overflow-hidden">
-          <div class="bg-panel px-4 py-2 text-label text-muted border-b border-hairline text-left uppercase tracking-wider">Initiative Tracker</div>
-          <forge-list-row title="1. Elara (Paladin)" description="Initiative: 22">
-             <forge-badge trailing tone="success">HP 72/85</forge-badge>
-          </forge-list-row>
-          <forge-list-row title="2. Crypt Warden" description="Initiative: 18">
-             <forge-badge trailing tone="danger">Hostile</forge-badge>
-          </forge-list-row>
-          <forge-list-row title="3. Gorthor" description="Initiative: 15">
-             <forge-badge trailing tone="accent">HP 55/55</forge-badge>
-          </forge-list-row>
+        <div class="flex flex-col gap-4">
+          <div class="mb-2 rounded-md bg-black/40 border border-hairline flex flex-col overflow-hidden">
+            <div class="bg-panel px-4 py-2 text-label text-muted border-b border-hairline text-left uppercase tracking-wider">Initiative Tracker</div>
+            <forge-list-row title="1. Elara (Paladin)" description="Initiative: 22">
+              <forge-badge trailing tone="success">HP 72/85</forge-badge>
+            </forge-list-row>
+            <forge-list-row title="2. Crypt Warden" description="Initiative: 18">
+              <forge-badge trailing tone="danger">Hostile</forge-badge>
+            </forge-list-row>
+            <forge-list-row title="3. Gorthor" description="Initiative: 15">
+              <forge-badge trailing tone="accent">HP 55/55</forge-badge>
+            </forge-list-row>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">1. Διαχείριση Σειράς Μάχης (Initiative)</h3>
+            <p class="text-sm text-ink/90 leading-relaxed">
+              Ρίξε πρωτοβουλία για όλους με 1 κλικ, διαχειρίσου τους γύρους και στείλε αυτόματες ειδοποιήσεις δόνησης στα κινητά των παικτών όταν έρθει η σειρά τους!
+            </p>
+          </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Combat Sequences</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Keep the battle flowing. Live party trackers and initiative sequencing keep everything organized and visible.
-        </p>
       }
 
       @if (step === 1) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline grid grid-cols-2 gap-3">
-          <div class="border border-success/30 bg-success/10 rounded p-2 text-center">
-             <div class="text-success font-display">Elara</div>
-             <div class="text-xl font-bold">72 / 85</div>
+        <div class="flex flex-col gap-4">
+          <div class="mb-2 rounded-md bg-black/40 p-4 border border-hairline grid grid-cols-2 gap-3">
+            <div class="border border-success/30 bg-success/10 rounded p-2 text-center">
+              <div class="text-success font-display">Elara</div>
+              <div class="text-xl font-bold">72 / 85</div>
+            </div>
+            <div class="border border-crimson/30 bg-crimson/10 rounded p-2 text-center">
+              <div class="text-crimson font-display">Sylvis</div>
+              <div class="text-xl font-bold">12 / 45</div>
+            </div>
+            <div class="border border-accent/30 bg-accent/10 rounded p-2 text-center">
+              <div class="text-accent font-display">Gorthor</div>
+              <div class="text-xl font-bold">55 / 55</div>
+            </div>
+            <div class="border border-hairline bg-panel rounded p-2 flex items-center justify-center">
+              <span class="text-muted text-sm">+ Add NPC</span>
+            </div>
           </div>
-          <div class="border border-crimson/30 bg-crimson/10 rounded p-2 text-center">
-             <div class="text-crimson font-display">Sylvis</div>
-             <div class="text-xl font-bold">12 / 45</div>
-          </div>
-          <div class="border border-accent/30 bg-accent/10 rounded p-2 text-center">
-             <div class="text-accent font-display">Gorthor</div>
-             <div class="text-xl font-bold">55 / 55</div>
-          </div>
-          <div class="border border-hairline bg-panel rounded p-2 flex items-center justify-center">
-             <span class="text-muted text-sm">+ Add NPC</span>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">2. Ζωντανή Κατάσταση Party (Live Status)</h3>
+            <p class="text-sm text-ink/90 leading-relaxed">
+              Τέρμα η ερώτηση «πόση ζωή έχεις;». Βλέπεις ζωντανά τα HP όλων, τις καταστάσεις (Conditions), το AC και το Passive Perception σε πραγματικό χρόνο.
+            </p>
           </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Live Party Status</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          No more asking "what\'s your HP?". Monitor your entire party\'s vital stats and active conditions in real-time.
-        </p>
       }
 
       @if (step === 2) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline flex flex-col gap-3">
-          <div class="flex items-center gap-2 p-2 rounded bg-panel border border-hairline text-left text-muted">
-             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-             <span class="text-sm truncate">Search rules, spells, monsters...</span>
+        <div class="flex flex-col gap-4">
+          <div class="mb-2 rounded-md bg-black/40 p-4 border border-hairline flex flex-col gap-3">
+            <div class="flex items-center gap-2 p-2 rounded bg-panel border border-hairline text-left text-muted">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <span class="text-sm truncate">Αναζήτηση κανόνων, ξορκιών, τεράτων...</span>
+            </div>
+            <div class="border-l-2 border-accent pl-3 text-left">
+              <div class="font-display text-gold">Condition: Paralyzed</div>
+              <div class="text-xs text-ink mt-1 leading-relaxed">A paralyzed creature is incapacitated and can't move or speak.</div>
+            </div>
           </div>
-          <div class="border-l-2 border-accent pl-3 text-left">
-             <div class="font-display text-gold">Condition: Paralyzed</div>
-             <div class="text-xs text-ink mt-1 leading-relaxed">A paralyzed creature is incapacitated and can't move or speak.</div>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">3. Ψηφιακό Ευρετήριο Κανόνων &amp; AI Arbiter</h3>
+            <p class="text-sm text-ink/90 leading-relaxed">
+              Όλοι οι κανόνες D&amp;D 2014 και 2024 είναι ευρετηριασμένοι. Ρώτησε τον AI Arbiter για δύσκολες περιπτώσεις rulings μέσα σε δευτερόλεπτα.
+            </p>
           </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Digital Oracle</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Never flip through heavy books again. The entire 2014 & 2024 ruleset is completely indexed and at your fingertips.
-        </p>
       }
 
       @if (step === 3) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline flex flex-col gap-2">
-          <forge-list-row title="The Obsidian Citadel" description="Location • Dungeon">
-             <forge-badge trailing tone="muted">Lore</forge-badge>
-          </forge-list-row>
-          <forge-list-row title="Lord Malakor" description="NPC • Villain">
-             <forge-badge trailing tone="danger">Hostile</forge-badge>
-          </forge-list-row>
+        <div class="flex flex-col gap-4">
+          <div class="mb-2 rounded-md bg-black/40 border border-hairline flex flex-col gap-2">
+            <forge-list-row title="The Obsidian Citadel" description="Location • Dungeon">
+              <forge-badge trailing tone="muted">Lore</forge-badge>
+            </forge-list-row>
+            <forge-list-row title="Lord Malakor" description="NPC • Villain">
+              <forge-badge trailing tone="danger">Hostile</forge-badge>
+            </forge-list-row>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">4. Βάση Κόσμου &amp; Paste &amp; Go Extractor</h3>
+            <p class="text-sm text-ink/90 leading-relaxed">
+              Οργάνωσε τον κόσμο σου: NPCs, Villains, Factions και Τοποθεσίες. Με το Paste &amp; Go, επικόλλησε σημειώσεις και το AI θα εξάγει αυτόματα δομημένες οντότητες!
+            </p>
+          </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Campaign Entities</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Organize your world. Keep track of NPCs, locations, and lore in a structured, easily searchable database.
-        </p>
       }
 
       @if (step === 4) {
-        <div class="mb-6 rounded-md bg-black/40 p-4 border border-hairline flex flex-col gap-2">
-           <div class="flex items-center gap-2 p-2 rounded bg-panel border border-hairline text-left">
-             <span class="text-accent font-bold text-sm">Whisper to Sylvis:</span>
-             <span class="text-sm text-ink truncate">You spot a hidden trapdoor...</span>
-           </div>
-           <div class="flex items-center gap-2 p-2 rounded bg-panel border border-hairline text-left">
-             <span class="text-gold font-bold text-sm">Roll (Secret):</span>
-             <span class="text-sm text-ink truncate">Stealth check [Nat 20]</span>
-           </div>
+        <div class="flex flex-col gap-4">
+          <div class="mb-2 rounded-md bg-black/40 p-4 border border-hairline flex flex-col gap-2">
+            <div class="flex items-center gap-2 p-2 rounded bg-panel border border-hairline text-left">
+              <span class="text-accent font-bold text-sm">Whisper σε Sylvis:</span>
+              <span class="text-sm text-ink truncate">Παρατηρείς μια κρυφή καταπακτή...</span>
+            </div>
+            <div class="flex items-center gap-2 p-2 rounded bg-panel border border-hairline text-left">
+              <span class="text-gold font-bold text-sm">Κρυφή Ζαριά:</span>
+              <span class="text-sm text-ink truncate">Stealth check πίσω από το DM Screen</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="font-display text-lg font-bold text-gold mb-2">5. Μυστικά Whispers &amp; Κρυφές Ζαριές</h3>
+            <p class="text-sm text-ink/90 leading-relaxed">
+              Στείλε ιδιωτικά μηνύματα σε μεμονωμένους παίκτες, ρίξε κρυφές ζαριές πίσω από την οθόνη του DM και συντόνισε την ιστορία με απόλυτη μυστικότητα.
+            </p>
+          </div>
         </div>
-        <h3 class="mb-2 font-display text-title text-gold">Secrets & Whispers</h3>
-        <p class="text-body leading-relaxed text-ink text-sm">
-          Send private messages to individual players, roll secretly, and manage the hidden story behind the screen.
-        </p>
       }
     }
   </section>
