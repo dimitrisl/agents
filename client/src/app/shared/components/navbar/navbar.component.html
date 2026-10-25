@@ -91,6 +91,17 @@
         <span>Settings</span>
       </a>
       <a
+        routerLink="/faq"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        #faqLink="routerLinkActive"
+        class="nav-link"
+        [attr.aria-current]="faqLink.isActive ? 'page' : null"
+      >
+        <span class="nav-icon" aria-hidden="true">❓</span>
+        <span>FAQ & Guide</span>
+      </a>
+      <a
         *ngIf="isAdmin()"
         routerLink="/admin"
         routerLinkActive="active"

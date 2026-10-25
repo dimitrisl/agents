@@ -19,6 +19,7 @@
     class="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end"
   >
     <label
+      *ngIf="characters.length > 0"
       for="hero-vault-select"
       class="relative flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-hairline bg-panel px-3 py-2 shadow-sm transition-colors hover:bg-tile focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2 focus-within:ring-offset-deep md:w-[320px]"
     >
@@ -53,9 +54,6 @@
         [ngModel]="activeCharacterId"
         (ngModelChange)="selectCharacter.emit($event)"
       >
-        <option *ngIf="characters.length === 0" [value]="null" disabled>
-          No heroes found
-        </option>
         <option *ngFor="let c of characters" [value]="c.char_id">
           {{ c.char_name }} (Lvl {{ c.char_level }} {{ c.char_class }})
         </option>
@@ -72,6 +70,7 @@
         ✦ New Hero
       </button>
       <button
+        *ngIf="activeCharacter"
         forgeButton
         variant="secondary"
         type="button"
@@ -80,6 +79,7 @@
         ✎ Edit Sheet
       </button>
       <button
+        *ngIf="activeCharacter"
         forgeButton
         variant="secondary"
         type="button"
@@ -88,6 +88,7 @@
         {{ editMode ? "💾 Done Editing" : "⚡ Quick Edit" }}
       </button>
       <button
+        *ngIf="activeCharacter"
         forgeButton
         variant="secondary"
         type="button"

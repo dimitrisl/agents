@@ -1,0 +1,174 @@
+<forge-page>
+  <header
+    class="flex flex-col gap-4 border-b border-hairline pb-4 lg:flex-row lg:items-center lg:justify-between"
+  >
+    <div class="min-w-0 lg:max-w-160">
+      <p class="text-micro font-semibold uppercase text-accent">
+        Knowledge Base & Guides
+      </p>
+      <h1 class="mt-1 font-display text-[2rem] leading-tight text-ink sm:text-[2.25rem]">
+        ❓ Συχνές Ερωτήσεις & Οδηγός Χρήσης
+      </h1>
+      <p class="mt-1 text-body text-muted">
+        Αναλυτικός οδηγός για όλες τις δυνατότητες του Phyrexian Forge: Companion Mode, Forge, VTT, Session Logs & Κανόνες.
+      </p>
+    </div>
+
+    <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
+      <button
+        forgeButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="expandAll()"
+      >
+        ➕ Άνοιγμα Όλων
+      </button>
+      <button
+        forgeButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        (click)="collapseAll()"
+      >
+        ➖ Σύμπτυξη
+      </button>
+    </div>
+  </header>
+
+  <!-- Filter & Search Bar -->
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <!-- Search Input -->
+      <div class="relative flex-1 max-w-md">
+        <input
+          forgeInput
+          type="text"
+          placeholder="Αναζήτηση ερώτησης ή όρου (π.χ. Advantage, Concentration, VTT, Import)…"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          class="w-full"
+        />
+        <button
+          *ngIf="searchQuery()"
+          type="button"
+          (click)="searchQuery.set('')"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-sm"
+          title="Clear search"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Quick Counter -->
+      <forge-badge tone="accent" class="self-start sm:self-auto shrink-0">
+        {{ filteredFaqItems().length }} Ερωτήσεις
+      </forge-badge>
+    </div>
+
+    <!-- Category Pills -->
+    <div class="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
+      <button
+        *ngFor="let cat of categories"
+        forgeButton
+        [variant]="selectedCategory() === cat.id ? 'primary' : 'ghost'"
+        size="sm"
+        type="button"
+        (click)="selectCategory(cat.id)"
+        class="whitespace-nowrap"
+      >
+        {{ cat.label }}
+      </button>
+    </div>
+  </div>
+
+  <!-- FAQ Accordion List -->
+  <div class="flex flex-col gap-4">
+    @if (filteredFaqItems().length === 0) {
+      <forge-empty-state
+        icon="🔍"
+        title="Δεν βρέθηκαν αποτελέσματα"
+        description="Δοκιμάστε διαφορετικούς όρους αναζήτησης ή επιλέξτε την κατηγορία 'Όλα τα Θέματα'."
+      >
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="searchQuery.set(''); selectedCategory.set('all')"
+          class="mt-2"
+        >
+          Επαναφορά Φίλτρων
+        </button>
+      </forge-empty-state>
+    } @else {
+      <div
+        *ngFor="let item of filteredFaqItems()"
+        class="group rounded-2xl border border-hairline bg-panel transition-all hover:border-accent/40 hover:bg-tile/40 overflow-hidden"
+      >
+        <button
+          type="button"
+          (click)="toggleQuestion(item.id)"
+          class="flex w-full items-start justify-between gap-4 p-5 text-left transition-colors cursor-pointer"
+          [attr.aria-expanded]="isQuestionOpen(item.id)"
+        >
+          <div class="flex flex-col gap-2 min-w-0">
+            <div class="flex items-center gap-2">
+              <forge-badge [tone]="item.badgeTone" class="shrink-0 text-micro">
+                {{ item.categoryLabel }}
+              </forge-badge>
+            </div>
+            <h3 class="font-display text-body-lg font-bold text-ink transition-colors group-hover:text-accent">
+              {{ item.question }}
+            </h3>
+          </div>
+
+          <span
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-tile text-ink transition-transform duration-200"
+            [class.rotate-180]="isQuestionOpen(item.id)"
+            aria-hidden="true"
+          >
+            ▼
+          </span>
+        </button>
+
+        <div
+          *ngIf="isQuestionOpen(item.id)"
+          class="border-t border-hairline/60 bg-black/15 p-5 text-body text-ink/90 leading-relaxed animate-in fade-in duration-150"
+        >
+          <div [innerHTML]="item.answerHtml" class="faq-answer-content"></div>
+
+          <div *ngIf="item.tags.length > 0" class="mt-4 flex flex-wrap items-center gap-1.5 pt-3 border-t border-hairline/40">
+            <span class="text-micro text-muted mr-1 font-semibold uppercase">Tags:</span>
+            <span
+              *ngFor="let tag of item.tags"
+              class="rounded-md bg-white/5 px-2 py-0.5 text-micro text-muted"
+            >
+              #{{ tag }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Help footer card -->
+  <forge-card [hoverable]="false" class="mt-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-2">
+      <div>
+        <h4 class="font-display text-title text-ink">Έχετε κάποια άλλη απορία ή βρήκατε bug;</h4>
+        <p class="text-label text-muted mt-1">
+          Μπορείτε να ρωτήσετε απευθείας στο chat ή να απευθυνθείτε στον διαχειριστή.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <a routerLink="/rules" forgeButton variant="secondary" size="sm">
+          📚 Rules Library
+        </a>
+        <a routerLink="/player" forgeButton variant="primary" size="sm">
+          🗡️ Επιστροφή στο Dashboard
+        </a>
+      </div>
+    </div>
+  </forge-card>
+</forge-page>
