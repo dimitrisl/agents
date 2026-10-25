@@ -20,7 +20,8 @@ from backend.services.user_admin_service import (
     delete_user_cascade,
 )
 from server.db_async import get_database
-from server.dependencies.auth import require_admin
+from server.dependencies.auth import is_user_recently_active, require_admin
+from server.routers.websocket_router import manager
 
 logger = logging.getLogger("PhyrexianForge.AdminRouter")
 
@@ -62,8 +63,11 @@ async def list_admin_users(
         if isinstance(items, list):
             users_raw.extend(items)
 
+    ws_online_uids = manager.get_online_user_ids()
     for u in users_raw:
         uid = u.get("id") or f"local_user_{u.get('username')}"
+        uname = u.get("username", "Unknown")
+        is_online = (uid in ws_online_uids) or is_user_recently_active(uid, uname)
         char_count = await _maybe_await(db["characters"].count_documents({"owner_id": uid}))
         dm_camps = await _find_dm_campaigns_for_user(db, uid)
         dm_camp_count = len(dm_camps)
@@ -73,11 +77,12 @@ async def list_admin_users(
         users_list.append(
             AdminUserSchema(
                 id=uid,
-                username=u.get("username", "Unknown"),
+                username=uname,
                 email=u.get("email"),
                 name=u.get("name"),
                 created_at=u.get("created_at"),
                 is_admin=bool(u.get("is_admin", False)),
+                is_online=is_online,
                 character_count=char_count,
                 dm_campaign_count=dm_camp_count,
                 member_campaign_count=member_camp_count,

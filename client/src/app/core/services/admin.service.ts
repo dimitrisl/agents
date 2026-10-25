@@ -10,6 +10,7 @@ export interface AdminUser {
   name?: string;
   created_at?: string;
   is_admin: boolean;
+  is_online?: boolean;
   character_count: number;
   dm_campaign_count: number;
   member_campaign_count: number;

@@ -1,6 +1,7 @@
 import datetime
 import hashlib
-from typing import Optional
+import time
+from typing import Dict, Optional
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -14,6 +15,27 @@ from server.db_async import get_database
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+
+# Tracks recent authenticated activity (user_id / username -> unix timestamp)
+ACTIVE_USER_TIMESTAMPS: Dict[str, float] = {}
+ONLINE_TTL_SECONDS = 300.0
+
+
+def record_user_activity(user_id: Optional[str], username: Optional[str] = None) -> None:
+    now = time.time()
+    if user_id:
+        ACTIVE_USER_TIMESTAMPS[user_id] = now
+    if username:
+        ACTIVE_USER_TIMESTAMPS[username] = now
+
+
+def is_user_recently_active(user_id: Optional[str], username: Optional[str] = None) -> bool:
+    now = time.time()
+    if user_id and (now - ACTIVE_USER_TIMESTAMPS.get(user_id, 0.0)) <= ONLINE_TTL_SECONDS:
+        return True
+    if username and (now - ACTIVE_USER_TIMESTAMPS.get(username, 0.0)) <= ONLINE_TTL_SECONDS:
+        return True
+    return False
 
 
 class TokenData(BaseModel):
@@ -103,6 +125,7 @@ async def get_current_user_from_token(
             pass
 
     user.pop("password_hash", None)
+    record_user_activity(user.get("id"), user.get("username"))
     return user
 
 

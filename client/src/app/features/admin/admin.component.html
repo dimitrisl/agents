@@ -53,7 +53,7 @@
             </p>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <input
               forgeInput
               type="text"
@@ -62,6 +62,16 @@
               (ngModelChange)="onSearchChange($event)"
               class="w-64"
             />
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="loadUsers()"
+              title="Refresh user list and online status"
+            >
+              🔄 Refresh
+            </button>
             <forge-badge tone="muted" class="shrink-0">
               {{ totalUsers() }} total
             </forge-badge>
@@ -85,6 +95,7 @@
                 <thead class="bg-tile text-micro uppercase text-muted">
                   <tr>
                     <th scope="col" class="px-4 py-3 font-semibold">Username</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Status</th>
                     <th scope="col" class="px-4 py-3 font-semibold">Email / Name</th>
                     <th scope="col" class="px-4 py-3 font-semibold">Role</th>
                     <th scope="col" class="px-4 py-3 font-semibold text-center">Characters</th>
@@ -101,15 +112,24 @@
                     <td class="px-4 py-3">
                       <div class="flex min-w-0 items-center gap-3">
                         <span
-                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile text-label font-bold uppercase text-muted"
+                          class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile text-label font-bold uppercase text-muted"
                           aria-hidden="true"
                         >
                           {{ user.username.charAt(0) }}
+                          <span
+                            class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-panel"
+                            [ngClass]="user.is_online ? 'bg-emerald-400' : 'bg-zinc-500'"
+                          ></span>
                         </span>
                         <span class="min-w-0 truncate font-semibold text-ink">
                           {{ user.username }}
                         </span>
                       </div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <forge-badge [tone]="user.is_online ? 'success' : 'muted'">
+                        {{ user.is_online ? '● Online' : '○ Offline' }}
+                      </forge-badge>
                     </td>
                     <td class="px-4 py-3 text-muted">
                       {{ user.email || user.name || '—' }}
@@ -143,6 +163,56 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Pagination Footer -->
+            <div
+              class="flex flex-col gap-3 border-t border-hairline pt-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div class="flex items-center gap-3 text-label text-muted">
+                <span>
+                  Showing <strong class="text-ink">{{ showingRangeStart() }}–{{ showingRangeEnd() }}</strong>
+                  of <strong class="text-ink">{{ totalUsers() }}</strong> users
+                </span>
+                <label class="flex items-center gap-1.5">
+                  <span>Per page:</span>
+                  <select
+                    class="rounded-lg border border-hairline bg-tile px-2 py-1 text-micro text-ink"
+                    [ngModel]="pageSize()"
+                    (ngModelChange)="onPageSizeChange($event)"
+                  >
+                    <option [ngValue]="10">10</option>
+                    <option [ngValue]="25">25</option>
+                    <option [ngValue]="50">50</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [disabled]="currentPage() <= 1 || isLoadingUsers()"
+                  (click)="prevPage()"
+                >
+                  ← Previous
+                </button>
+                <span class="px-2 text-label font-semibold text-ink">
+                  Page {{ currentPage() }} of {{ totalPages() }}
+                </span>
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [disabled]="currentPage() >= totalPages() || isLoadingUsers()"
+                  (click)="nextPage()"
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           }
         </div>
