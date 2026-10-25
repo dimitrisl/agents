@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, HostListener, signal } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
@@ -81,7 +81,6 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,
     ForgeButtonDirective,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
@@ -123,6 +122,10 @@ export class DmComponent implements OnInit, OnDestroy {
   campaignNotes = '';
   inviteCode = '';
   isMobileViewport = signal<boolean>(false);
+
+  goToPlayer(): void {
+    this.router.navigate(['/player']);
+  }
   /** The ruleset this campaign was forged under. Empty until one is selected. */
   campaignEdition = '';
 

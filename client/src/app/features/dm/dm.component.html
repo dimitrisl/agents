@@ -5,7 +5,7 @@
       title="Desktop Workspace Only"
       description="The DM Workspace is designed for desktop screens (min 1024px) for map management, tactical combat, and encounter preparation. On mobile and tablet devices, please use the Player Companion."
     >
-      <button forgeButton variant="primary" type="button" routerLink="/player">
+      <button forgeButton variant="primary" type="button" (click)="goToPlayer()">
         Switch to Player Companion
       </button>
     </forge-empty-state>
