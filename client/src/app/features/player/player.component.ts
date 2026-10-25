@@ -6,7 +6,9 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
-  effect, signal,
+  computed,
+  effect,
+  signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -19,6 +21,8 @@ import { HomebrewService } from '../../core/services/homebrew.service';
 import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
+import { WakeLockService } from '../../core/services/wake-lock.service';
+import { HapticsService } from '../../core/services/haptics.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
 import { CampaignMessages, RollRequest, Whisper, campaignUrl } from '../../core/models/campaign.model';
 import { buildInboxFeed, type InboxEntry } from '../../core/models/campaign-inbox';
@@ -88,6 +92,7 @@ import { EditSheetModalComponent } from './modals/edit-sheet-modal/edit-sheet-mo
 import { ConditionsModalComponent } from './modals/conditions-modal/conditions-modal.component';
 import { PlayerHomebrewModalComponent } from './modals/player-homebrew-modal/player-homebrew-modal.component';
 import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
+import { QuickDiceDrawerComponent } from './quick-dice-drawer/quick-dice-drawer.component';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -137,6 +142,7 @@ interface RollTarget {
     ConditionsModalComponent,
     PlayerHomebrewModalComponent,
     VttGridComponent,
+    QuickDiceDrawerComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -158,6 +164,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.sheetSubTab.set(tabId);
     }
   }
+
+  // --- Companion Mode State (#170, #175) ---
+  isMobileViewport = signal(false);
+  companionModeOverride = signal<boolean | null>(null);
+  isCompanionMode = computed(() => {
+    if (this.companionModeOverride() !== null) {
+      return !!this.companionModeOverride();
+    }
+    return this.isMobileViewport();
+  });
+  mobileActiveTab = signal<'hero' | 'combat' | 'skills' | 'spells' | 'table'>('hero');
+  showQuickDiceDrawer = signal(false);
+  showConcentrationPrompt = signal(false);
+  concentrationDc = signal(10);
   editMode = signal(false);
   showEditModal = signal(false);
   showConditionsModal = signal(false);
@@ -245,7 +265,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     private router: Router,
     private route: ActivatedRoute,
     private wsService: WebSocketService,
-    private homebrewService: HomebrewService
+    private homebrewService: HomebrewService,
+    public wakeLock: WakeLockService,
+    public haptics: HapticsService
   ) {
     this.hpSave$
       .pipe(
@@ -301,6 +323,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   ngOnInit() {
     this.charState.ensureLoaded().subscribe();
 
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobileViewport.set(mq.matches);
+      mq.addEventListener('change', (e) => this.isMobileViewport.set(e.matches));
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          const char = this.charState.activeCharacter();
+          if (char && char.active_campaign) {
+            this.wsService.connect(char.active_campaign, { character: char.char_name });
+            this.loadCampaignMessageHistory(char.active_campaign, char.char_name, true);
+          }
+        }
+      });
+    }
+
     this.route.queryParams.subscribe((params) => {
       if (params['import'] === '1') {
         this.openImportModal();
@@ -334,7 +374,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.enqueueRollPrompt(req);
         }
       } else if (msg.type === 'encounter_update') {
+        const wasMyTurn = this.isMyTurn;
         this.encounterState = msg['payload'];
+        if (!wasMyTurn && this.isMyTurn) {
+          this.haptics.turnAlert();
+          this.rollToast.showMessage('⚔️ IT\'S YOUR TURN!', 'The DM advanced initiative to your turn!');
+        }
 
       } else if (msg.type === 'party_update') {
         const payload = msg['payload'];
@@ -517,6 +562,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       );
     }
 
+    if (char.class_resources) {
+      char.class_resources.forEach((r) => {
+        if (r.recharge === 'short') {
+          r.current = r.max;
+        }
+      });
+    }
+
     this.saveCurrentChar();
     this.showShortRestModal.set(false);
 
@@ -553,6 +606,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     if (char.spell_slots) {
       char.spell_slots = restoreAllSpellSlots(char.spell_slots);
+    }
+    if (char.class_resources) {
+      char.class_resources.forEach((r) => {
+        r.current = r.max;
+      });
     }
     this.saveCurrentChar();
     this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${rest.hitDiceRecovered} Hit Dice restored for ${char.char_name}.`);
@@ -1444,6 +1502,216 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       error: () =>
         this.rollToast.showMessage('⚠️ SAVE FAILED', `Could not save ${char.char_name} to vault.`)
     });
+  }
+
+  // --- In-Person Companion & Turn Methods (#170, #175) ---
+  get isMyTurn(): boolean {
+    const char = this.charState.activeCharacter();
+    if (!char || !this.encounterState?.combatants?.length) return false;
+    const active = this.encounterState.combatants.find(
+      (c: any) => c.id === this.encounterState.activeCombatantId
+    );
+    return active ? (active.name || '').toLowerCase() === (char.char_name || '').toLowerCase() : false;
+  }
+
+  get isOnDeck(): boolean {
+    const char = this.charState.activeCharacter();
+    if (!char || !this.encounterState?.combatants?.length || this.isMyTurn) return false;
+    const combatants = this.encounterState.combatants;
+    const activeIdx = combatants.findIndex((c: any) => c.id === this.encounterState.activeCombatantId);
+    if (activeIdx < 0) return false;
+    const nextIdx = (activeIdx + 1) % combatants.length;
+    const next = combatants[nextIdx];
+    return next ? (next.name || '').toLowerCase() === (char.char_name || '').toLowerCase() : false;
+  }
+
+  toggleCompanionMode() {
+    this.haptics.lightTap();
+    if (this.companionModeOverride() === null) {
+      this.companionModeOverride.set(!this.isMobileViewport());
+    } else {
+      this.companionModeOverride.set(!this.companionModeOverride());
+    }
+  }
+
+  selectMobileTab(tab: 'hero' | 'combat' | 'skills' | 'spells' | 'table') {
+    this.haptics.lightTap();
+    this.mobileActiveTab.set(tab);
+    if (tab === 'combat') this.selectSheetSubTab('combat');
+    else if (tab === 'skills') this.selectSheetSubTab('skills');
+    else if (tab === 'spells') this.selectSheetSubTab('spells');
+    else if (tab === 'table') {
+      this.selectSheetSubTab('roleplay');
+      this.unreadMessages = 0;
+    }
+  }
+
+  applyDamage(amount: number) {
+    const char = this.charState.activeCharacter();
+    if (!char || amount <= 0) return;
+    this.haptics.damageTaken();
+
+    const currentTemp = char.hp_temp || 0;
+    let remainingDamage = amount;
+    let newTemp = currentTemp;
+
+    if (currentTemp > 0) {
+      if (remainingDamage >= currentTemp) {
+        remainingDamage -= currentTemp;
+        newTemp = 0;
+      } else {
+        newTemp = currentTemp - remainingDamage;
+        remainingDamage = 0;
+      }
+    }
+
+    const currentHp = char.hp_current ?? char.hp_max;
+    const newHp = Math.max(0, currentHp - remainingDamage);
+    const updated = { ...char, hp_current: newHp, hp_temp: newTemp };
+    this.charState.activeCharacter.set(updated);
+
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+
+    // Trigger Concentration Check if character was concentrating
+    if (char.concentrating_on && remainingDamage > 0) {
+      const dc = Math.max(10, Math.floor(amount / 2));
+      this.concentrationDc.set(dc);
+      this.showConcentrationPrompt.set(true);
+    }
+  }
+
+  applyHeal(amount: number) {
+    const char = this.charState.activeCharacter();
+    if (!char || amount <= 0) return;
+    this.haptics.lightTap();
+
+    const currentHp = char.hp_current ?? char.hp_max;
+    const newHp = Math.min(char.hp_max, currentHp + amount);
+    const updated = {
+      ...char,
+      hp_current: newHp,
+      death_saves: currentHp === 0 ? { successes: 0, failures: 0 } : char.death_saves,
+    };
+    this.charState.activeCharacter.set(updated);
+
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+  }
+
+  setTempHp(amount: number) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.haptics.lightTap();
+    const updated = { ...char, hp_temp: Math.max(0, amount) };
+    this.charState.activeCharacter.set(updated);
+    if (this.isInVault(updated)) {
+      this.localSaveVersion++;
+      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
+    }
+  }
+
+  rollDeathSave() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const roll = this.dice.roll({ numDice: 1, sides: 20, modifier: 0 });
+    const currentSaves = { ...(char.death_saves || { successes: 0, failures: 0 }) };
+
+    if (roll.raw === 20) {
+      this.haptics.critSuccess();
+      char.hp_current = 1;
+      char.death_saves = { successes: 0, failures: 0 };
+      this.rollToast.showMessage('🌟 NATURAL 20 ON DEATH SAVE!', 'You regain consciousness with 1 HP!');
+    } else if (roll.raw === 1) {
+      this.haptics.critFail();
+      currentSaves.failures = Math.min(3, currentSaves.failures + 2);
+      char.death_saves = currentSaves;
+      this.rollToast.showMessage('💀 CRITICAL FAILURE!', 'Natural 1: You take 2 Death Save Failures!');
+    } else if (roll.raw >= 10) {
+      this.haptics.lightTap();
+      currentSaves.successes = Math.min(3, currentSaves.successes + 1);
+      char.death_saves = currentSaves;
+      this.rollToast.showMessage('✨ DEATH SAVE SUCCESS!', `Rolled ${roll.raw} (Successes: ${currentSaves.successes}/3)`);
+    } else {
+      this.haptics.critFail();
+      currentSaves.failures = Math.min(3, currentSaves.failures + 1);
+      char.death_saves = currentSaves;
+      this.rollToast.showMessage('❌ DEATH SAVE FAILURE!', `Rolled ${roll.raw} (Failures: ${currentSaves.failures}/3)`);
+    }
+
+    this.saveCurrentChar();
+  }
+
+  rollConcentrationSave() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const conMod = conModifier(char);
+    const roll = this.dice.rollD20(conMod, 'normal');
+    const dc = this.concentrationDc();
+
+    if (roll.total >= dc) {
+      this.haptics.critSuccess();
+      this.rollToast.showMessage('🧠 CONCENTRATION MAINTAINED', `Rolled ${roll.total} vs DC ${dc} — concentration held!`);
+      this.showConcentrationPrompt.set(false);
+    } else {
+      this.haptics.critFail();
+      this.rollToast.showMessage('💥 CONCENTRATION BROKEN', `Rolled ${roll.total} vs DC ${dc} — concentration dropped.`);
+      this.dropConcentration();
+    }
+  }
+
+  dropConcentration() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    char.concentrating_on = undefined;
+    this.saveCurrentChar();
+    this.showConcentrationPrompt.set(false);
+  }
+
+  onCastSpell(event: { spellName: string; level: number; isRitual: boolean }) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.haptics.lightTap();
+    const lvlText = event.level === 0 ? 'Cantrip' : (event.isRitual ? 'Ritual' : `Level ${event.level}`);
+    this.rollToast.showMessage('✨ CAST SPELL', `${char.char_name} cast ${event.spellName} (${lvlText})`);
+  }
+
+  onConsumePotion(event: { item: EquipmentItem; dice: string; bonus: number; name: string }) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const numDice = parseInt(event.dice.split('d')[0], 10) || 2;
+    const roll = this.dice.roll({ numDice, sides: 4, modifier: event.bonus });
+    this.applyHeal(roll.total);
+
+    const currentQty = event.item.quantity ?? 1;
+    if (currentQty <= 1) {
+      const idx = (char.equipment || []).indexOf(event.item);
+      if (idx >= 0) char.equipment?.splice(idx, 1);
+    } else {
+      event.item.quantity = currentQty - 1;
+    }
+    this.saveCurrentChar();
+    this.rollToast.showMessage('🧪 DRANK POTION', `Healed for +${roll.total} HP! (${event.name})`);
+  }
+
+  sendQuickWhisper(text: string) {
+    this.whisperReply = text;
+    this.sendWhisperReply();
+  }
+
+  onCustomRoll(event: {
+    title: string;
+    expression: string;
+    total: number;
+    rolls: number[];
+    modifier: number;
+    broadcast: boolean;
+  }) {
+    // Already toasted in quick-dice-drawer component
   }
 
   adjustHp(delta: number) {

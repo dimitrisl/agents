@@ -21,8 +21,24 @@ export interface Weapon {
   damage?: string;
 }
 
+export interface CurrencyBlock {
+  cp: number;
+  sp: number;
+  ep: number;
+  gp: number;
+  pp: number;
+}
+
+export interface ClassResource {
+  name: string;
+  current: number;
+  max: number;
+  recharge: 'short' | 'long';
+}
+
 export interface EquipmentItem {
   name: string;
+  quantity?: number;
   equipped?: boolean;
   attuned?: boolean;
   ac_bonus?: number;
@@ -129,6 +145,8 @@ export interface CharacterSchema {
   playstyle_guide?: string;
   dnd_edition?: string;
   active_campaign?: string;
+  currency?: CurrencyBlock;
+  class_resources?: ClassResource[];
   base_stats?: StatBlock;
   base_speed?: number;
   equip_hp_bonus?: number;

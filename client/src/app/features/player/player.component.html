@@ -26,7 +26,357 @@
   </div>
 
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+
+    <!-- GLOBAL INITIATIVE TURN ALERT BANNER (#175) -->
+    <div
+      *ngIf="isMyTurn"
+      class="mb-4 p-3.5 bg-gradient-to-r from-emerald-950/80 to-panel border-2 border-emerald-500 rounded-2xl shadow-lg flex items-center justify-between animate-pulse"
+      role="alert"
+      aria-live="assertive"
+    >
+      <div class="flex items-center gap-3">
+        <span class="text-2xl" aria-hidden="true">⚔️</span>
+        <div>
+          <p class="font-display font-black text-emerald-400 text-sm sm:text-base uppercase tracking-wider">
+            It's Your Turn! (Round {{ encounterState?.round || 1 }})
+          </p>
+          <p class="text-xs text-muted">You are the active combatant. Make your attack or spell!</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        (click)="selectMobileTab('combat')"
+        class="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-surface font-extrabold text-xs shadow-md transition-all cursor-pointer"
+      >
+        Actions
+      </button>
+    </div>
+
+    <!-- ON DECK BANNER (#175) -->
+    <div
+      *ngIf="isOnDeck"
+      class="mb-4 p-2.5 bg-gold/10 border border-gold/40 rounded-xl flex items-center justify-between text-xs text-gold font-bold shadow-sm"
+    >
+      <span class="flex items-center gap-2">
+        <span>⏳</span> You're On Deck! Prepare your action for the next turn.
+      </span>
+    </div>
+
+    <!-- CONCENTRATION CHECK PROMPT (#171) -->
+    <div
+      *ngIf="showConcentrationPrompt()"
+      class="mb-4 p-3 bg-red-950/40 border border-crimson/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-scaleIn"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🧠</span>
+        <div>
+          <p class="text-xs font-bold text-crimson uppercase">Concentration Check Required!</p>
+          <p class="text-micro text-muted">
+            You took damage while concentrating on <strong>{{ char.concentrating_on }}</strong>. Target: DC {{ concentrationDc() }} CON Save.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="rollConcentrationSave()"
+          class="text-xs font-bold"
+        >
+          🎲 Roll CON Save (DC {{ concentrationDc() }})
+        </button>
+        <button
+          type="button"
+          (click)="dropConcentration()"
+          class="text-xs text-muted hover:text-crimson px-2 py-1"
+        >
+          Drop Spell
+        </button>
+      </div>
+    </div>
+
+    <!-- STICKY MOBILE COMPANION VITALS BAR (#170) -->
+    <div
+      *ngIf="isCompanionMode()"
+      class="sticky top-0 z-30 -mx-4 -mt-2 mb-4 bg-surface/95 backdrop-blur-md border-b border-hairline py-2 px-4 shadow-md flex items-center justify-between gap-2"
+    >
+      <!-- Hero info & HP tap target -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-sm text-ink truncate leading-tight">{{ char.char_name }}</h2>
+          <div class="flex items-center gap-2 text-[10px] text-muted">
+            <span>{{ char.char_class }} Lv {{ char.char_level }}</span>
+            <span *ngIf="char.concentrating_on" class="text-gold font-bold flex items-center gap-0.5 truncate max-w-[100px]">
+              🧠 {{ char.concentrating_on }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Vitals -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- HP Badge (tap to damage/heal) -->
+        <button
+          type="button"
+          (click)="selectMobileTab('hero')"
+          class="flex items-baseline gap-1 px-2.5 py-1 rounded-lg bg-panel border border-hairline cursor-pointer active:scale-95 transition-all"
+          title="Hit points (tap to view hero overview)"
+        >
+          <span class="text-xs text-crimson font-bold">♥</span>
+          <span class="font-mono font-bold text-xs text-ink">{{ char.hp_current ?? char.hp_max }}/{{ char.hp_max }}</span>
+          <span *ngIf="char.hp_temp" class="text-[10px] font-bold text-gold">+{{ char.hp_temp }}</span>
+        </button>
+
+        <!-- AC Badge -->
+        <span class="px-2 py-1 rounded-lg bg-tile border border-hairline text-xs font-bold text-accent" title="Armor Class">
+          🛡️ {{ char.armor_class }}
+        </span>
+
+        <!-- Wake Lock Button (#170) -->
+        <button
+          type="button"
+          (click)="wakeLock.toggle()"
+          class="p-1.5 rounded-lg border text-xs transition-all cursor-pointer"
+          [ngClass]="wakeLock.isEnabled() ? 'bg-gold/20 border-gold/50 text-gold' : 'bg-surface border-hairline text-muted'"
+          [title]="wakeLock.isEnabled() ? 'Screen Wake Lock active (Screen will stay on)' : 'Keep Screen Awake'"
+        >
+          🔆
+        </button>
+
+        <!-- Dice Button (#172) -->
+        <button
+          type="button"
+          (click)="showQuickDiceDrawer.set(true)"
+          class="p-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-xs font-bold cursor-pointer active:scale-95"
+          title="Open Quick-Dice Tray"
+        >
+          🎲
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT VIEWPORT: COMPANION MODE vs DESKTOP MODE -->
+
+    <!-- 1. COMPANION MODE (Mobile / Tablet Tabletop Companion) -->
+    <div *ngIf="isCompanionMode()" class="pb-24">
+      <!-- HERO OVERVIEW TAB -->
+      <div *ngIf="mobileActiveTab() === 'hero'" class="flex flex-col gap-4">
+        <div *ngIf="char.active_campaign" class="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
+          <span>Member of Campaign: <strong>{{ char.active_campaign }}</strong></span>
+          <button (click)="showHomebrewModal.set(true)" class="ml-auto bg-gold text-surface px-3 py-1 rounded text-xs font-bold hover:bg-gold/90 transition-colors">Browse Homebrew</button>
+        </div>
+
+        <app-character-overview-card
+          [char]="char"
+          [editMode]="editMode()"
+          [edition]="char.dnd_edition || charState.dndEdition()"
+          [portraitUrl]="getPortraitUrl(char)"
+          [availableHitDice]="getAvailableHitDice()"
+          [classHitDieSize]="getClassHitDieSize()"
+          [passivePerception]="charState.passivePerception()"
+          [abilityEntries]="getStatsArray(char.stats)"
+          [getModifierString]="getModifierString"
+          (portrait)="showPortraitModal.set(true)"
+          (hpChange)="adjustHp($event)"
+          (tempChange)="adjustTempHp($event)"
+          (deathSaveChange)="setDeathSave($event.type, $event.value)"
+          (rollDeathSave)="rollDeathSave()"
+          (applyDamage)="applyDamage($event)"
+          (applyHeal)="applyHeal($event)"
+          (setTempHp)="setTempHp($event)"
+          (abilityCheck)="rollAbilityCheck($event)"
+          (savingThrow)="rollSavingThrow($event)"
+          (manageConditions)="openConditionsModal()"
+        ></app-character-overview-card>
+
+        <app-action-dock
+          [canLevelUp]="char.char_level < 20"
+          [isGeneratingStrategy]="isGeneratingStrategy()"
+          (shortRest)="openShortRestModal()"
+          (longRest)="triggerLongRest()"
+          (levelUp)="onLevelUp()"
+          (audit)="onValidateCharacter()"
+          (strategy)="onGenerateStrategy()"
+          (exportPdf)="onExportPdf()"
+          (importCharacter)="openImportModal()"
+        ></app-action-dock>
+      </div>
+
+      <!-- COMBAT & INVENTORY TAB -->
+      <div *ngIf="mobileActiveTab() === 'combat'" class="flex flex-col gap-4">
+        <forge-card padding="none" [hoverable]="false">
+          <div class="p-4">
+            <app-combat-panel
+              [char]="char"
+              [editMode]="editMode()"
+              [rollMode]="rollMode"
+              [encounterState]="encounterState"
+              (addWeapon)="addWeapon()"
+              (deleteWeapon)="deleteWeapon($event)"
+              (toggleEquipped)="toggleEquipped($event)"
+              (addEquipment)="addEquipment()"
+              (deleteEquipment)="deleteEquipment($event)"
+              (consumePotion)="onConsumePotion($event)"
+              (save)="saveCurrentChar()"
+            ></app-combat-panel>
+          </div>
+        </forge-card>
+
+        <app-action-dock
+          [canLevelUp]="char.char_level < 20"
+          [isGeneratingStrategy]="isGeneratingStrategy()"
+          (shortRest)="openShortRestModal()"
+          (longRest)="triggerLongRest()"
+          (levelUp)="onLevelUp()"
+          (audit)="onValidateCharacter()"
+          (strategy)="onGenerateStrategy()"
+          (exportPdf)="onExportPdf()"
+          (importCharacter)="openImportModal()"
+        ></app-action-dock>
+      </div>
+
+      <!-- SKILLS TAB -->
+      <div *ngIf="mobileActiveTab() === 'skills'" class="flex flex-col gap-4">
+        <forge-card padding="none" [hoverable]="false">
+          <div class="p-4">
+            <app-skills-panel
+              [allSkills]="allSkills"
+              [editMode]="editMode()"
+              [isProficient]="isProficient"
+              [getSkillModString]="getSkillModString"
+              [getAttributeFullName]="getAttributeFullName"
+              (rollSkill)="rollSkillCheck($event)"
+              (toggleProficiency)="toggleSkillProficiency($event)"
+            ></app-skills-panel>
+          </div>
+        </forge-card>
+      </div>
+
+      <!-- SPELLS TAB -->
+      <div *ngIf="mobileActiveTab() === 'spells'" class="flex flex-col gap-4">
+        <forge-card padding="none" [hoverable]="false">
+          <div class="p-4">
+            <app-spells-panel
+              [char]="char"
+              [editMode]="editMode()"
+              [getSpellSlotUsed]="getSpellSlotUsed"
+              [getSpellSlotMax]="getSpellSlotMax"
+              (useSpellSlot)="useSpellSlot($event)"
+              (restoreSpellSlot)="restoreSpellSlot($event)"
+              (castSpell)="onCastSpell($event)"
+              (save)="saveCurrentChar()"
+            ></app-spells-panel>
+          </div>
+        </forge-card>
+      </div>
+
+      <!-- TABLE & INBOX TAB -->
+      <div *ngIf="mobileActiveTab() === 'table'" class="flex flex-col gap-4">
+        <!-- Direct In-Page DM Inbox Feed for mobile table -->
+        <section *ngIf="char.active_campaign" class="p-4 bg-panel rounded-2xl border border-hairline flex flex-col gap-3">
+          <header class="flex items-center justify-between pb-2 border-b border-hairline">
+            <div>
+              <p class="text-micro font-semibold uppercase text-accent">Table Messages</p>
+              <h2 class="font-display text-title text-ink">{{ char.active_campaign }}</h2>
+            </div>
+          </header>
+
+          <div class="whisper-list max-h-[300px] overflow-y-auto" role="log">
+            <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
+              Nothing yet. Whispers and roll requests from the DM appear here as they happen.
+            </div>
+
+            @for (entry of inboxFeed; track entry.key) {
+              @if (entry.kind === 'whisper') {
+                <article class="whisper-message" [class.broadcast]="entry.whisper.recipient === 'All'" [class.own]="isOwnWhisper(entry.whisper)">
+                  <div class="whisper-meta">
+                    <span class="message-kind">{{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}</span>
+                    <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(entry.whisper.timestamp) }}</time>
+                  </div>
+                  <p class="whisper-text">{{ entry.whisper.message }}</p>
+                </article>
+              } @else {
+                <article class="roll-request-message" [class.pending]="entry.request.status === 'pending'">
+                  <div class="whisper-meta">
+                    <span class="message-kind">🎲 {{ entry.request.is_secret ? 'Secret' : 'DM' }} {{ entry.request.roll_type }}</span>
+                    <time class="shrink-0 text-micro text-muted">{{ formatRollRequestTime(entry.request.created_at) }}</time>
+                  </div>
+                  <p class="whisper-text">{{ entry.request.stat }}{{ entry.request.reason ? ' · ' + entry.request.reason : '' }}</p>
+                  <button *ngIf="entry.request.status !== 'resolved' && entry.request.status !== 'cancelled'" forgeButton variant="secondary" size="sm" type="button" (click)="openRollPrompt(entry.request)">
+                    Roll
+                  </button>
+                </article>
+              }
+            }
+          </div>
+
+          <!-- Quick Whisper Chips (#175) -->
+          <div class="flex flex-wrap gap-1.5 pt-2 border-t border-hairline">
+            <button
+              type="button"
+              (click)="sendQuickWhisper('👁️ I make a secret perception / insight check.')"
+              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 active:scale-95 text-xs text-muted hover:text-ink border border-hairline cursor-pointer"
+            >
+              👁️ Secret Perception
+            </button>
+            <button
+              type="button"
+              (click)="sendQuickWhisper('🗡️ I attempt Sleight of Hand / Stealth quietly.')"
+              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 active:scale-95 text-xs text-muted hover:text-ink border border-hairline cursor-pointer"
+            >
+              🗡️ Sleight of Hand
+            </button>
+            <button
+              type="button"
+              (click)="sendQuickWhisper('🔍 I investigate the area secretly.')"
+              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 active:scale-95 text-xs text-muted hover:text-ink border border-hairline cursor-pointer"
+            >
+              🔍 Investigation
+            </button>
+          </div>
+
+          <!-- Whisper Input -->
+          <form class="whisper-reply" (ngSubmit)="sendWhisperReply()">
+            <textarea
+              forgeTextarea
+              rows="2"
+              name="whisperReply"
+              placeholder="Send quiet whisper to DM…"
+              [(ngModel)]="whisperReply"
+            ></textarea>
+            <div class="whisper-reply-actions">
+              <span class="text-micro text-muted">Private to the DM</span>
+              <button
+                forgeButton
+                variant="secondary"
+                tone="accent"
+                size="sm"
+                type="submit"
+                [disabled]="!whisperReply.trim() || isSendingWhisperReply"
+              >
+                {{ isSendingWhisperReply ? 'Sending…' : 'Send' }}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Roleplay Panel -->
+        <forge-card padding="none" [hoverable]="false">
+          <div class="p-4">
+            <app-roleplay-panel
+              [char]="char"
+              [editMode]="editMode()"
+              (save)="saveCurrentChar()"
+            ></app-roleplay-panel>
+          </div>
+        </forge-card>
+      </div>
+    </div>
+
+    <!-- 2. DESKTOP MODE (Default Two-Column Layout) -->
+    <div *ngIf="!isCompanionMode()" class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
         <div *ngIf="char.active_campaign" class="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
           <span>Member of Campaign: <strong>{{ char.active_campaign }}</strong></span>
@@ -47,6 +397,10 @@
           (hpChange)="adjustHp($event)"
           (tempChange)="adjustTempHp($event)"
           (deathSaveChange)="setDeathSave($event.type, $event.value)"
+          (rollDeathSave)="rollDeathSave()"
+          (applyDamage)="applyDamage($event)"
+          (applyHeal)="applyHeal($event)"
+          (setTempHp)="setTempHp($event)"
           (abilityCheck)="rollAbilityCheck($event)"
           (savingThrow)="rollSavingThrow($event)"
           (manageConditions)="openConditionsModal()"
@@ -95,6 +449,7 @@
                 (toggleEquipped)="toggleEquipped($event)"
                 (addEquipment)="addEquipment()"
                 (deleteEquipment)="deleteEquipment($event)"
+                (consumePotion)="onConsumePotion($event)"
                 (save)="saveCurrentChar()"
               ></app-combat-panel>
 
@@ -108,6 +463,7 @@
                 [getSpellSlotMax]="getSpellSlotMax"
                 (useSpellSlot)="useSpellSlot($event)"
                 (restoreSpellSlot)="restoreSpellSlot($event)"
+                (castSpell)="onCastSpell($event)"
                 (save)="saveCurrentChar()"
               ></app-spells-panel>
 
@@ -137,12 +493,94 @@
       </section>
     </div>
 
-    <!-- VTT Grid inline below the stats -->
-    <app-vtt-grid role="player" [characterName]="charState.activeCharacter()?.char_name" [campaignName]="charState.activeCharacter()?.active_campaign"></app-vtt-grid>
+    <!-- VTT Grid ONLY when NOT in Companion Mode (#170) -->
+    <app-vtt-grid
+      *ngIf="!isCompanionMode()"
+      role="player"
+      [characterName]="charState.activeCharacter()?.char_name"
+      [campaignName]="charState.activeCharacter()?.active_campaign"
+    ></app-vtt-grid>
+
+    <!-- THUMB-ZONE BOTTOM NAVIGATION BAR (#170) -->
+    <nav
+      *ngIf="isCompanionMode()"
+      class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-md border-t border-hairline px-2 py-1 flex items-center justify-around pb-[env(safe-area-inset-bottom)] shadow-2xl"
+      aria-label="Companion Navigation"
+    >
+      <button
+        type="button"
+        (click)="selectMobileTab('hero')"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'hero' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+      >
+        <span class="text-lg">🛡️</span>
+        <span class="text-[10px] uppercase font-bold">Hero</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="selectMobileTab('combat')"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'combat' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+      >
+        <span class="text-lg">⚔️</span>
+        <span class="text-[10px] uppercase font-bold">Combat</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="selectMobileTab('skills')"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'skills' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+      >
+        <span class="text-lg">🎯</span>
+        <span class="text-[10px] uppercase font-bold">Skills</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="selectMobileTab('spells')"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'spells' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+      >
+        <span class="text-lg">✨</span>
+        <span class="text-[10px] uppercase font-bold">Spells</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="selectMobileTab('table')"
+        class="relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'table' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+      >
+        <span class="text-lg">💬</span>
+        <span class="text-[10px] uppercase font-bold">Table</span>
+        <span *ngIf="unreadMessages > 0" class="absolute top-0 right-1 w-2.5 h-2.5 bg-accent rounded-full animate-ping"></span>
+      </button>
+
+      <button
+        type="button"
+        (click)="showQuickDiceDrawer.set(true)"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-gold hover:text-gold/80 transition-all cursor-pointer active:scale-95"
+      >
+        <span class="text-lg">🎲</span>
+        <span class="text-[10px] uppercase font-bold">Dice</span>
+      </button>
+    </nav>
+
+    <!-- QUICK-DICE DRAWER MODAL (#172) -->
+    <app-quick-dice-drawer
+      [open]="showQuickDiceDrawer()"
+      (openChange)="showQuickDiceDrawer.set($event)"
+      [rollMode]="rollMode"
+      (rollModeChange)="rollMode = $event"
+      [activeCampaign]="char.active_campaign"
+      (customRoll)="onCustomRoll($event)"
+    ></app-quick-dice-drawer>
+
   </ng-container>
 
   <ng-template #emptyState>
-
     <forge-empty-state
       icon="D20"
       [title]="charState.characters().length > 0 ? 'No Heroes for ' + charState.dndEdition() : 'No Heroes Found'"
@@ -255,8 +693,9 @@
     (openChange)="onRollPromptOpenChange($event)"
   ></app-roll-request-modal>
 
+  <!-- Desktop Whisper Floating Dock (#26) - only shown when NOT companion mode -->
   <ng-container *ngIf="charState.activeCharacter() as char">
-    <div *ngIf="char.active_campaign" class="whisper-dock">
+    <div *ngIf="char.active_campaign && !isCompanionMode()" class="whisper-dock">
       <section
         *ngIf="showWhisperInbox()"
         class="whisper-panel animated-fade"
@@ -451,7 +890,7 @@
           size="sm"
           (click)="importTab.set('dndbeyond')"
         >
-          🌐 D&D Beyond
+          ⚡ D&amp;D Beyond
         </button>
         <button
           type="button"
@@ -460,116 +899,106 @@
           size="sm"
           (click)="importTab.set('foundry')"
         >
-          ⚡ Foundry VTT
+          🎲 Foundry VTT
         </button>
       </div>
 
-      <!-- Error banner -->
-      <div
-        *ngIf="importError()"
-        class="rounded-lg border border-red-500/40 bg-red-950/20 p-3 text-body-sm text-red-300"
-      >
-        ⚠️ {{ importError() }}
-      </div>
-
-      <!-- Warnings banner -->
-      <div
-        *ngIf="importWarnings().length > 0"
-        class="rounded-lg border border-gold/40 bg-gold/10 p-3 text-body-sm text-ink"
-      >
-        <p class="font-semibold text-gold mb-1">Import Warnings / Fallbacks:</p>
-        <ul class="list-disc list-inside space-y-1">
-          <li *ngFor="let w of importWarnings()">{{ w }}</li>
-        </ul>
-      </div>
-
-      <!-- Loading State -->
-      <div *ngIf="isImporting()" class="flex flex-col items-center justify-center py-8">
-        <div class="w-10 h-10 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-3 text-body-sm text-muted">Importing and syncing character data...</p>
-      </div>
-
-      <!-- PDF Tab -->
-      <div *ngIf="!isImporting() && importTab() === 'pdf'" class="flex flex-col gap-3">
+      <!-- Tab 1: PDF Import -->
+      <div *ngIf="importTab() === 'pdf'" class="flex flex-col gap-3 py-2">
         <p class="text-body-sm text-muted">
-          Upload an official or fillable D&D 5e character sheet PDF (up to 10 MB). Stats, skills, spells, and equipment will be extracted automatically.
+          Upload an official or community 5e fillable character sheet PDF (up to 10MB, max 10 pages).
         </p>
-        <label
-          class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-hairline hover:border-gold/60 rounded-lg cursor-pointer bg-black/10 transition-colors"
-        >
-          <span class="text-3xl mb-2">📄</span>
-          <span class="text-body font-semibold text-ink">Choose PDF file to upload</span>
-          <span class="text-micro text-muted mt-1">.pdf format only (max 10 MB, 10 pages)</span>
+        <div class="flex items-center gap-3">
           <input
+            #pdfFileInput
             type="file"
-            accept=".pdf"
+            accept=".pdf,application/pdf"
             class="hidden"
             (change)="onImportPdf($event)"
           />
-        </label>
+          <button
+            forgeButton
+            variant="secondary"
+            size="md"
+            type="button"
+            [disabled]="isImporting()"
+            (click)="pdfFileInput.click()"
+          >
+            {{ isImporting() ? 'Importing PDF…' : 'Select PDF File' }}
+          </button>
+          <span *ngIf="isImporting()" class="text-xs text-accent animate-pulse font-medium">Extracting fields and spells…</span>
+        </div>
       </div>
 
-      <!-- D&D Beyond Tab -->
-      <div *ngIf="!isImporting() && importTab() === 'dndbeyond'" class="flex flex-col gap-3">
+      <!-- Tab 2: D&D Beyond Import -->
+      <div *ngIf="importTab() === 'dndbeyond'" class="flex flex-col gap-3 py-2">
         <p class="text-body-sm text-muted">
-          Enter a public D&D Beyond character share URL or numeric Character ID.
+          Enter a public D&amp;D Beyond character share URL (e.g. <code class="text-xs text-accent">https://www.dndbeyond.com/characters/12345678</code>) or numeric ID:
         </p>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-label text-muted font-semibold">Character URL or ID</label>
+        <div class="flex flex-col sm:flex-row gap-2">
           <input
-            type="text"
             forgeInput
+            type="text"
+            class="flex-1"
+            placeholder="https://www.dndbeyond.com/characters/..."
             [(ngModel)]="dndBeyondUrl"
-            placeholder="e.g. https://www.dndbeyond.com/characters/12345678 or 12345678"
-            class="w-full text-body"
-            (keydown.enter)="onImportDndBeyond()"
+            [disabled]="isImporting()"
+            (keyup.enter)="onImportDndBeyond()"
           />
-        </div>
-        <div class="flex justify-end mt-2">
           <button
             forgeButton
             variant="primary"
-            size="sm"
+            size="md"
             type="button"
-            [disabled]="!dndBeyondUrl.trim() || isImporting()"
+            [disabled]="isImporting() || !dndBeyondUrl.trim()"
             (click)="onImportDndBeyond()"
           >
-            Import from D&D Beyond
+            {{ isImporting() ? 'Fetching…' : 'Import' }}
           </button>
         </div>
       </div>
 
-      <!-- Foundry VTT Tab -->
-      <div *ngIf="!isImporting() && importTab() === 'foundry'" class="flex flex-col gap-3">
+      <!-- Tab 3: Foundry VTT Import -->
+      <div *ngIf="importTab() === 'foundry'" class="flex flex-col gap-3 py-2">
         <p class="text-body-sm text-muted">
-          Export your character as JSON from Foundry VTT (dnd5e system) and upload the exported file here.
+          Upload a Foundry VTT character actor export JSON file (<code class="text-xs text-accent">fvtt-Actor-*.json</code>, max 5MB).
         </p>
-        <label
-          class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-hairline hover:border-gold/60 rounded-lg cursor-pointer bg-black/10 transition-colors"
-        >
-          <span class="text-3xl mb-2">⚡</span>
-          <span class="text-body font-semibold text-ink">Choose Foundry JSON file</span>
-          <span class="text-micro text-muted mt-1">.json export file (max 5 MB)</span>
+        <div class="flex items-center gap-3">
           <input
+            #foundryFileInput
             type="file"
-            accept=".json"
+            accept=".json,application/json"
             class="hidden"
             (change)="onImportFoundry($event)"
           />
-        </label>
+          <button
+            forgeButton
+            variant="secondary"
+            size="md"
+            type="button"
+            [disabled]="isImporting()"
+            (click)="foundryFileInput.click()"
+          >
+            {{ isImporting() ? 'Importing JSON…' : 'Select Foundry JSON' }}
+          </button>
+          <span *ngIf="isImporting()" class="text-xs text-accent animate-pulse font-medium">Parsing dnd5e system actor…</span>
+        </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="flex justify-end gap-2 border-t border-hairline pt-3 mt-2">
-        <button
-          forgeButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="closeImportModal()"
-        >
-          {{ importWarnings().length > 0 ? 'Done' : 'Close' }}
-        </button>
+      <!-- Error message -->
+      <div *ngIf="importError()" class="p-3 bg-red-900/30 border border-crimson rounded-lg text-xs text-crimson font-medium">
+        ⚠️ {{ importError() }}
+      </div>
+
+      <!-- Warnings banner -->
+      <div *ngIf="importWarnings().length > 0" class="p-3 bg-gold/10 border border-gold/30 rounded-lg flex flex-col gap-1">
+        <span class="text-xs font-bold text-gold">⚠️ Import Warnings:</span>
+        <ul class="list-disc list-inside text-xs text-muted space-y-0.5">
+          <li *ngFor="let w of importWarnings()">{{ w }}</li>
+        </ul>
+        <div class="flex justify-end mt-2">
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="closeImportModal()">Dismiss</button>
+        </div>
       </div>
     </div>
   </forge-modal>

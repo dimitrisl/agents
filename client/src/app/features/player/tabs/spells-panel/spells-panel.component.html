@@ -1,4 +1,5 @@
 <div class="flex flex-col gap-6">
+  <!-- Spellcasting Stats Overview -->
   <section aria-labelledby="spellcasting-stats-heading">
     <h3 id="spellcasting-stats-heading" class="sr-only">Spellcasting statistics</h3>
     <div class="grid grid-cols-1 overflow-hidden rounded-xl bg-tile sm:grid-cols-3">
@@ -23,6 +24,134 @@
     </div>
   </section>
 
+  <!-- CLASS RESOURCES SECTION (#173) -->
+  <section class="flex flex-col gap-3" aria-labelledby="class-resources-heading">
+    <div class="flex items-center justify-between">
+      <h3 id="class-resources-heading" class="font-display text-title text-ink flex items-center gap-2">
+        <span>⚡ Class Resources &amp; Pools</span>
+      </h3>
+      <button
+        forgeButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="openAddResourceModal()"
+      >
+        + Add Pool
+      </button>
+    </div>
+
+    <div *ngIf="classResources.length > 0; else noResources" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <article *ngFor="let res of classResources; let rIndex = index" class="p-3 bg-tile rounded-xl border border-hairline flex flex-col justify-between gap-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <h4 class="font-display font-semibold text-body text-ink truncate">{{ res.name }}</h4>
+            <span class="text-micro text-muted uppercase">Recharge: {{ res.recharge }} rest</span>
+          </div>
+          <button
+            *ngIf="editMode"
+            type="button"
+            class="text-crimson hover:text-crimson/80 text-xs px-1 cursor-pointer"
+            (click)="deleteResource(rIndex, $event)"
+            title="Delete resource"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            (click)="decrementResource(res, $event)"
+            class="w-9 h-9 rounded-lg bg-surface hover:bg-surface/80 active:scale-95 border border-hairline font-bold text-ink flex items-center justify-center cursor-pointer disabled:opacity-30"
+            [disabled]="res.current === 0"
+          >
+            −
+          </button>
+
+          <!-- Interactive Pips (if max <= 10) or Number Display -->
+          <div *ngIf="res.max <= 10" class="flex flex-wrap gap-1.5 justify-center flex-1">
+            <span
+              *ngFor="let i of [1,2,3,4,5,6,7,8,9,10].slice(0, res.max)"
+              class="w-3.5 h-3.5 rounded-full transition-all"
+              [ngClass]="i <= res.current ? 'bg-accent shadow-sm scale-105' : 'bg-surface border border-hairline'"
+            ></span>
+          </div>
+          <div *ngIf="res.max > 10" class="flex items-baseline gap-1 justify-center flex-1">
+            <span class="text-metric font-extrabold text-ink">{{ res.current }}</span>
+            <span class="text-xs text-muted">/ {{ res.max }}</span>
+          </div>
+
+          <button
+            type="button"
+            (click)="incrementResource(res, $event)"
+            class="w-9 h-9 rounded-lg bg-surface hover:bg-surface/80 active:scale-95 border border-hairline font-bold text-ink flex items-center justify-center cursor-pointer disabled:opacity-30"
+            [disabled]="res.current >= res.max"
+          >
+            +
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <ng-template #noResources>
+      <div class="p-3 bg-panel rounded-xl text-center text-xs text-muted">
+        No custom class pools tracked yet (e.g. Rage, Ki, Sorcery Points, Bardic Inspiration). Tap "+ Add Pool" above to create one.
+      </div>
+    </ng-template>
+  </section>
+
+  <!-- ADD RESOURCE MODAL -->
+  <forge-modal
+    [open]="showAddResourceModal()"
+    (closed)="closeAddResourceModal()"
+    title="⚡ Add Class Resource Pool"
+    maxWidth="360px"
+  >
+    <div class="flex flex-col gap-4 p-2">
+      <div>
+        <label class="block text-micro font-semibold uppercase text-muted mb-1">Resource Name</label>
+        <input
+          forgeInput
+          type="text"
+          class="w-full"
+          [(ngModel)]="newResourceName"
+          placeholder="e.g. Rage, Ki Points, Bardic Inspiration"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-micro font-semibold uppercase text-muted mb-1">Max Charges</label>
+          <input
+            forgeInput
+            type="number"
+            class="w-full"
+            min="1"
+            max="100"
+            [(ngModel)]="newResourceMax"
+          />
+        </div>
+        <div>
+          <label class="block text-micro font-semibold uppercase text-muted mb-1">Recharge On</label>
+          <select
+            [(ngModel)]="newResourceRecharge"
+            class="w-full bg-surface border border-hairline rounded-lg px-2 py-2 text-body-sm font-semibold text-ink"
+          >
+            <option value="short">Short Rest</option>
+            <option value="long">Long Rest</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-hairline">
+        <button forgeButton variant="ghost" size="sm" type="button" (click)="closeAddResourceModal()">Cancel</button>
+        <button forgeButton variant="primary" size="sm" type="button" (click)="confirmAddResource()" [disabled]="!newResourceName.trim()">Save Pool</button>
+      </div>
+    </div>
+  </forge-modal>
+
+  <!-- SPELL SLOTS SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="spell-slots-heading">
     <h3 id="spell-slots-heading" class="font-display text-title text-ink">Spell Slots</h3>
 
@@ -93,17 +222,63 @@
     </ng-template>
   </section>
 
-  <section class="flex flex-col gap-3" aria-labelledby="known-spells-heading" *ngIf="spellGroups.length > 0 || editMode">
-    <h3 id="known-spells-heading" class="font-display text-title text-ink">Known Spells</h3>
+  <!-- KNOWN SPELLS WITH SEARCH, FILTER PILLS & 1-TAP CAST (#173) -->
+  <section class="flex flex-col gap-3" aria-labelledby="known-spells-heading" *ngIf="rawSpellGroups.length > 0 || editMode">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h3 id="known-spells-heading" class="font-display text-title text-ink">Known Spells</h3>
+    </div>
+
+    <!-- Search & Filter Bar (#173) -->
+    <div class="flex flex-col sm:flex-row gap-2 bg-tile/50 p-2 rounded-xl border border-hairline">
+      <div class="relative flex-1">
+        <input
+          forgeInput
+          type="text"
+          class="w-full pl-8"
+          placeholder="Search spells by name..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+        <span class="absolute left-2.5 top-2.5 text-muted text-xs">🔍</span>
+      </div>
+
+      <div class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+        <button
+          type="button"
+          (click)="selectedFilter.set('all')"
+          class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer"
+          [ngClass]="selectedFilter() === 'all' ? 'bg-accent text-surface' : 'bg-surface text-muted hover:text-ink border border-hairline'"
+        >
+          All
+        </button>
+        <button
+          type="button"
+          (click)="selectedFilter.set('prepared')"
+          class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1"
+          [ngClass]="selectedFilter() === 'prepared' ? 'bg-gold text-surface' : 'bg-surface text-muted hover:text-gold border border-hairline'"
+        >
+          <span>⭐ Prepared</span>
+        </button>
+        <button
+          type="button"
+          (click)="selectedFilter.set('cantrips')"
+          class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer"
+          [ngClass]="selectedFilter() === 'cantrips' ? 'bg-tile text-ink border border-accent/40' : 'bg-surface text-muted hover:text-ink border border-hairline'"
+        >
+          Cantrips
+        </button>
+      </div>
+    </div>
 
     <div class="flex flex-col gap-6">
-      <div *ngFor="let group of spellGroups" class="flex flex-col gap-2">
+      <div *ngFor="let group of filteredSpellGroups" class="flex flex-col gap-2">
         <div class="flex items-center justify-between px-2">
           <h4 class="text-micro font-semibold uppercase text-muted">{{ group.label }}</h4>
           <button *ngIf="editMode" type="button" class="text-micro font-semibold text-accent" (click)="addSpell(group.label)">
             + Add
           </button>
         </div>
+
         <div *ngIf="editMode && addingSpellGroup() === group.label" class="flex items-center gap-2 px-2">
           <input
             forgeInput
@@ -116,21 +291,74 @@
           <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddSpell(group.label)">Add</button>
           <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddSpell()">Cancel</button>
         </div>
-        <div class="flex flex-col gap-1">
-          <div *ngFor="let spell of group.spells; let idx = index" class="rounded-lg overflow-hidden flex items-center">
+
+        <div class="flex flex-col gap-1.5">
+          <div *ngFor="let spell of group.spells; let idx = index" class="rounded-xl overflow-hidden flex items-center bg-panel border border-hairline/60 hover:border-accent/40 transition-colors p-1">
             <div class="flex-1 min-w-0">
               <forge-list-row [title]="spell" (onClick)="selectedSpell.set(spell)">
-                <ng-container trailing *ngIf="isPrepared(spell)">
-                  <forge-badge tone="accent" size="sm">Prepared</forge-badge>
+                <ng-container trailing>
+                  <forge-badge *ngIf="isPrepared(spell)" tone="accent" size="sm">Prepared</forge-badge>
                 </ng-container>
               </forge-list-row>
             </div>
-            <button *ngIf="editMode" type="button" class="p-3 text-crimson hover:text-crimson/80" (click)="deleteSpell(group.label, idx, $event)" title="Delete spell">✕</button>
+
+            <!-- 1-Tap Cast Button (#173) -->
+            <button
+              type="button"
+              (click)="initiateCast(spell, group.level, $event)"
+              class="mr-2 px-3 py-1.5 rounded-lg bg-accent/15 hover:bg-accent/25 active:scale-95 border border-accent/30 text-accent font-bold text-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              title="Cast spell and expend slot"
+            >
+              <span>✨ Cast</span>
+            </button>
+
+            <button *ngIf="editMode" type="button" class="p-2 text-crimson hover:text-crimson/80" (click)="deleteSpell(group.label, idx, $event)" title="Delete spell">✕</button>
           </div>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- UPCAST / CAST LEVEL SELECTOR MODAL (#173) -->
+  <forge-modal
+    [open]="!!upcastTarget()"
+    (closed)="closeUpcast()"
+    [title]="'✨ Cast: ' + (upcastTarget()?.spellName || 'Spell')"
+    maxWidth="380px"
+  >
+    <div class="flex flex-col gap-4 p-2" *ngIf="upcastTarget() as target">
+      <p class="text-xs text-muted">
+        Select which available spell slot level to expend to cast <strong>{{ target.spellName }}</strong> (Base Level {{ target.baseLevel }}):
+      </p>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          *ngFor="let lvl of getAvailableUpcastLevels(target.baseLevel)"
+          type="button"
+          (click)="confirmUpcast(lvl)"
+          class="p-3 rounded-xl border border-hairline bg-tile hover:bg-tile/80 active:scale-95 transition-all flex flex-col items-center justify-center cursor-pointer"
+        >
+          <span class="font-display font-bold text-sm text-ink">
+            {{ lvl === target.baseLevel ? 'Level ' + lvl : 'Upcast Lv ' + lvl }}
+          </span>
+          <span class="text-[10px] text-accent font-bold mt-0.5">
+            {{ slotsRemaining(lvl) }} slot{{ slotsRemaining(lvl) > 1 ? 's' : '' }} left
+          </span>
+        </button>
+      </div>
+
+      <div class="pt-2 border-t border-hairline flex items-center justify-between">
+        <button
+          type="button"
+          (click)="confirmUpcast(target.baseLevel, true)"
+          class="text-xs text-gold hover:underline font-bold py-1 cursor-pointer flex items-center gap-1"
+        >
+          <span>🕯️ Cast as Ritual (No Slot)</span>
+        </button>
+        <button forgeButton variant="ghost" size="sm" type="button" (click)="closeUpcast()">Cancel</button>
+      </div>
+    </div>
+  </forge-modal>
 
   <!-- Spell Detail Modal -->
   <app-spell-detail-modal
@@ -140,6 +368,7 @@
     (close)="selectedSpell.set(null)"
   ></app-spell-detail-modal>
 
+  <!-- FEATURES SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="features-heading">
     <div class="flex items-center justify-between gap-3">
       <h3 id="features-heading" class="font-display text-title text-ink">

@@ -109,8 +109,43 @@ class Weapon(BaseModel):
         return data
 
 
+class CurrencySchema(BaseModel):
+    cp: int = 0
+    sp: int = 0
+    ep: int = 0
+    gp: int = 0
+    pp: int = 0
+
+    @field_validator("cp", "sp", "ep", "gp", "pp")
+    @classmethod
+    def validate_non_negative(cls, v: int) -> int:
+        if v is None or v < 0:
+            return 0
+        return int(v)
+
+
+class ClassResourceSchema(BaseModel):
+    name: str
+    current: int = 0
+    max: int = 1
+    recharge: str = "long"  # "short" or "long"
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_resource(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            max_val = max(1, int(data.get("max", 1)))
+            cur_val = max(0, min(max_val, int(data.get("current", max_val))))
+            data["max"] = max_val
+            data["current"] = cur_val
+            recharge_val = str(data.get("recharge", "long")).lower()
+            data["recharge"] = "short" if recharge_val == "short" else "long"
+        return data
+
+
 class EquipmentItem(BaseModel):
     name: str
+    quantity: int = 1
     equipped: bool = False
     attuned: bool = False
     ac_bonus: int = 0
@@ -118,6 +153,17 @@ class EquipmentItem(BaseModel):
     val1: int = 0
     mod2: str = "None"
     val2: int = 0
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def validate_quantity(cls, v: Any) -> int:
+        if v is None:
+            return 1
+        try:
+            val = int(v)
+            return max(0, val)
+        except (ValueError, TypeError):
+            return 1
 
 
 class FeatureTrait(BaseModel):
@@ -245,6 +291,30 @@ class CharacterSchema(BaseModel):
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
+    currency: CurrencySchema = Field(default_factory=CurrencySchema)
+    class_resources: List[ClassResourceSchema] = Field(default_factory=list)
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def normalize_currency(cls, v: Any) -> Any:
+        if v is None:
+            return CurrencySchema()
+        if isinstance(v, dict):
+            return CurrencySchema(
+                cp=max(0, int(v.get("cp", 0) or 0)),
+                sp=max(0, int(v.get("sp", 0) or 0)),
+                ep=max(0, int(v.get("ep", 0) or 0)),
+                gp=max(0, int(v.get("gp", 0) or 0)),
+                pp=max(0, int(v.get("pp", 0) or 0)),
+            )
+        return v
+
+    @field_validator("class_resources", mode="before")
+    @classmethod
+    def normalize_class_resources(cls, v: Any) -> List[Any]:
+        if not isinstance(v, list):
+            return []
+        return v
 
     @computed_field
     @property

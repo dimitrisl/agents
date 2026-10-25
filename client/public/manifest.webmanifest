@@ -1,0 +1,17 @@
+{
+  "name": "Phyrexian Forge Player Companion",
+  "short_name": "Companion",
+  "description": "In-person digital tabletop companion character sheet",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121214",
+  "theme_color": "#0d0e12",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/anvil.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

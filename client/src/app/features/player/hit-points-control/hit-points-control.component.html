@@ -1,12 +1,22 @@
 <section class="py-3" aria-labelledby="hit-points-heading">
-  <p
-    id="hit-points-heading"
-    class="text-micro font-semibold uppercase text-muted text-center"
-  >
-    {{ current === 0 ? 'Unconscious' : 'Hit Points' }}
-  </p>
+  <div class="flex items-center justify-between">
+    <p
+      id="hit-points-heading"
+      class="text-micro font-semibold uppercase text-muted"
+    >
+      {{ current === 0 ? '⚠️ Unconscious' : 'Hit Points' }}
+    </p>
+    <button
+      type="button"
+      (click)="openQuickPad()"
+      class="text-micro font-bold uppercase tracking-wider text-accent hover:underline flex items-center gap-1 cursor-pointer"
+      title="Open touch HP numpad"
+    >
+      <span>⚡ Quick Pad</span>
+    </button>
+  </div>
 
-  <div class="mt-2 flex items-center justify-center gap-6">
+  <div class="mt-2 flex items-center justify-center gap-4 sm:gap-6">
     <div class="flex flex-col gap-2">
       <button
         forgeButton
@@ -19,7 +29,7 @@
         Damage
       </button>
       <button
-        class="text-micro font-semibold uppercase text-muted hover:text-gold transition-colors"
+        class="text-micro font-semibold uppercase text-muted hover:text-gold transition-colors py-1"
         (click)="applyTempHpChange(1)"
         aria-label="Add temp HP"
       >
@@ -27,33 +37,34 @@
       </button>
     </div>
 
-    <div class="flex flex-col items-center min-w-[120px]">
+    <!-- Clickable HP Display -->
+    <div
+      class="flex flex-col items-center min-w-[130px] p-2 rounded-xl hover:bg-tile/40 transition-colors cursor-pointer group"
+      (click)="openQuickPad()"
+      title="Tap to open Quick HP calculator"
+      role="button"
+      tabindex="0"
+    >
       <div class="flex items-baseline justify-center relative">
         <span
-          class="text-metric font-extrabold absolute -left-6 top-1"
+          class="text-metric font-extrabold absolute -left-6 top-1 transition-transform group-hover:scale-110"
           [ngClass]="current === 0 ? 'text-crimson' : 'text-accent'"
           aria-hidden="true"
           >♥</span
         >
         <span class="sr-only">Current hit points</span>
-        <span class="text-[2rem] font-extrabold text-ink" [ngClass]="{'text-crimson': current === 0}">{{ current }}</span>
+        <span class="text-[2.25rem] font-extrabold text-ink leading-none" [ngClass]="{'text-crimson': current === 0}">{{ current }}</span>
         <span class="px-1 text-title font-semibold text-muted">/</span>
         <span class="text-title font-semibold text-muted">{{ max }}</span>
       </div>
 
-      <input
-        type="number"
-        class="mt-2 w-16 bg-surface border border-hairline rounded text-center text-body-sm font-semibold text-ink placeholder:text-muted/50"
-        placeholder="1"
-        min="1"
-        [(ngModel)]="modifierAmount"
-        aria-label="Amount to heal or damage"
-      />
-
-      <!-- Temp HP inline -->
-      <div class="flex items-center gap-2 mt-2" *ngIf="temp > 0">
-        <span class="text-body-sm font-semibold text-gold">{{ temp }} Temp</span>
+      <!-- Temp HP inline badge -->
+      <div class="flex items-center gap-1.5 mt-1.5" *ngIf="temp > 0">
+        <span class="px-2 py-0.5 rounded-full bg-gold/15 border border-gold/30 text-micro font-bold text-gold">
+          🛡️ +{{ temp }} Temp
+        </span>
       </div>
+      <span class="text-[10px] text-muted opacity-0 group-hover:opacity-100 transition-opacity mt-1">Tap for keypad</span>
     </div>
 
     <div class="flex flex-col gap-2">
@@ -69,7 +80,7 @@
       </button>
       <button
         *ngIf="temp > 0"
-        class="text-micro font-semibold uppercase text-muted hover:text-crimson transition-colors"
+        class="text-micro font-semibold uppercase text-muted hover:text-crimson transition-colors py-1"
         (click)="applyTempHpChange(-1)"
         aria-label="Remove temp HP"
       >
@@ -81,7 +92,7 @@
   <!-- Normal HP Bar -->
   <div
     *ngIf="current > 0"
-    class="mt-3 h-1 overflow-hidden rounded-full bg-tile"
+    class="mt-3 h-2 overflow-hidden rounded-full bg-tile"
     role="meter"
     [attr.aria-valuemin]="0"
     [attr.aria-valuemax]="max"
@@ -89,51 +100,170 @@
     aria-label="Hit point total"
   >
     <div
-      class="h-full rounded-full bg-accent transition-[width] duration-200"
+      class="h-full rounded-full transition-[width] duration-200"
+      [ngClass]="{
+        'bg-accent': percentage > 50,
+        'bg-gold': percentage <= 50 && percentage > 25,
+        'bg-crimson': percentage <= 25
+      }"
       [style.width.%]="percentage"
     ></div>
   </div>
 
   <!-- Death Saves UI -->
   <div *ngIf="current === 0" class="mt-4 flex flex-col items-center">
-    <p class="text-micro font-bold text-red-400 mb-2 uppercase tracking-wider">Death Saves</p>
-    <div class="flex items-center gap-6 bg-red-900/10 border border-red-500/20 rounded-xl px-5 py-3">
+    <div class="w-full flex items-center justify-between mb-2">
+      <p class="text-micro font-bold text-red-400 uppercase tracking-wider">Death Saves</p>
+      <button
+        forgeButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        (click)="triggerRollDeathSave()"
+        class="text-micro font-bold"
+      >
+        🎲 Roll Death Save
+      </button>
+    </div>
+
+    <div class="w-full flex items-center justify-around bg-red-900/10 border border-red-500/20 rounded-xl px-4 py-3">
       <!-- Successes -->
-      <div class="flex flex-col items-center gap-2">
+      <div class="flex flex-col items-center gap-1.5">
         <span class="text-micro font-semibold text-ink uppercase">Successes</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
-            class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
-            [ngClass]="(deathSaves?.successes || 0) >= i ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted hover:border-emerald-500'"
+            class="min-w-[44px] min-h-[44px] rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
+            [ngClass]="(deathSaves?.successes || 0) >= i ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-900/40' : 'bg-surface/50 border-hairline hover:border-emerald-500/60'"
             (click)="toggleDeathSave('successes', i)"
             aria-label="Toggle death save success"
           >
-            <svg *ngIf="(deathSaves?.successes || 0) >= i" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <svg *ngIf="(deathSaves?.successes || 0) >= i" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
             </svg>
+            <span *ngIf="(deathSaves?.successes || 0) < i" class="text-xs text-muted font-bold">{{ i }}</span>
           </button>
         </div>
       </div>
 
       <!-- Divider -->
-      <div class="w-px h-10 bg-red-500/20"></div>
+      <div class="w-px h-12 bg-red-500/20 mx-2"></div>
 
       <!-- Failures -->
-      <div class="flex flex-col items-center gap-2">
+      <div class="flex flex-col items-center gap-1.5">
         <span class="text-micro font-semibold text-ink uppercase">Failures</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
-            class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
-            [ngClass]="(deathSaves?.failures || 0) >= i ? 'bg-red-500 border-red-500 text-white' : 'border-muted hover:border-red-500'"
+            class="min-w-[44px] min-h-[44px] rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
+            [ngClass]="(deathSaves?.failures || 0) >= i ? 'bg-crimson border-red-500 text-white shadow-red-900/40' : 'bg-surface/50 border-hairline hover:border-crimson/60'"
             (click)="toggleDeathSave('failures', i)"
             aria-label="Toggle death save failure"
           >
-            <svg *ngIf="(deathSaves?.failures || 0) >= i" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <svg *ngIf="(deathSaves?.failures || 0) >= i" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
             </svg>
+            <span *ngIf="(deathSaves?.failures || 0) < i" class="text-xs text-muted font-bold">{{ i }}</span>
           </button>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Touch HP Quick-Pad Modal -->
+  <forge-modal
+    [open]="showQuickPad()"
+    (closed)="closeQuickPad()"
+    title="⚡ Touch HP Calculator"
+    maxWidth="380px"
+  >
+    <div class="flex flex-col gap-4 p-2">
+      <!-- Current State Summary -->
+      <div class="flex items-center justify-between px-3 py-2 bg-tile/70 rounded-lg text-body-sm">
+        <span class="text-muted">Current Status:</span>
+        <span class="font-bold text-ink">
+          {{ current }} / {{ max }} HP
+          <span *ngIf="temp > 0" class="text-gold ml-1">(+{{ temp }} Temp)</span>
+        </span>
+      </div>
+
+      <!-- Big Number Display -->
+      <div class="flex flex-col items-center justify-center p-3 bg-surface rounded-xl border border-hairline">
+        <span class="text-micro font-semibold uppercase text-muted mb-1">Adjustment Amount</span>
+        <span class="text-4xl font-mono font-bold text-accent tracking-wider">{{ numpadValue() }}</span>
+      </div>
+
+      <!-- Quick Pills -->
+      <div class="flex items-center justify-between gap-1.5">
+        <button
+          *ngFor="let p of [1, 5, 10, 15, 25]"
+          type="button"
+          (click)="addPill(p)"
+          class="flex-1 py-1.5 px-1 rounded-lg bg-tile hover:bg-tile/80 active:bg-accent/20 border border-hairline text-xs font-bold text-ink transition-colors"
+        >
+          +{{ p }}
+        </button>
+      </div>
+
+      <!-- Touch Numpad Grid -->
+      <div class="grid grid-cols-3 gap-2">
+        <button
+          *ngFor="let digit of ['1','2','3','4','5','6','7','8','9']"
+          type="button"
+          (click)="appendDigit(digit)"
+          class="h-12 min-h-[48px] rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-lg font-bold text-ink transition-all flex items-center justify-center"
+        >
+          {{ digit }}
+        </button>
+        <button
+          type="button"
+          (click)="clearNumpad()"
+          class="h-12 min-h-[48px] rounded-xl bg-tile/50 hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted transition-all uppercase"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          (click)="appendDigit('0')"
+          class="h-12 min-h-[48px] rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-lg font-bold text-ink transition-all flex items-center justify-center"
+        >
+          0
+        </button>
+        <button
+          type="button"
+          (click)="backspace()"
+          class="h-12 min-h-[48px] rounded-xl bg-tile/50 hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-muted transition-all flex items-center justify-center"
+          aria-label="Backspace"
+        >
+          ⌫
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-3 gap-2 pt-2 border-t border-hairline">
+        <button
+          type="button"
+          (click)="executeDamage()"
+          class="h-12 min-h-[48px] rounded-xl bg-crimson/20 hover:bg-crimson/30 active:scale-95 border border-crimson/40 text-crimson font-bold text-sm transition-all flex flex-col items-center justify-center"
+        >
+          <span>🩸 Damage</span>
+          <span class="text-[10px] opacity-80">-{{ numpadValue() }}</span>
+        </button>
+        <button
+          type="button"
+          (click)="executeHeal()"
+          class="h-12 min-h-[48px] rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 border border-emerald-500/40 text-emerald-400 font-bold text-sm transition-all flex flex-col items-center justify-center"
+        >
+          <span>💚 Heal</span>
+          <span class="text-[10px] opacity-80">+{{ numpadValue() }}</span>
+        </button>
+        <button
+          type="button"
+          (click)="executeSetTemp()"
+          class="h-12 min-h-[48px] rounded-xl bg-gold/20 hover:bg-gold/30 active:scale-95 border border-gold/40 text-gold font-bold text-sm transition-all flex flex-col items-center justify-center"
+        >
+          <span>🛡️ Set Temp</span>
+          <span class="text-[10px] opacity-80">{{ numpadValue() }}</span>
+        </button>
+      </div>
+    </div>
+  </forge-modal>
 </section>
