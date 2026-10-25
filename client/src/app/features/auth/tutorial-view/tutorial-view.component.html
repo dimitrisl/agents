@@ -7,7 +7,7 @@
       @if (role === 'none') {
         Choose Your Path
       } @else {
-        {{ role === 'player' ? '🗡️ Οδηγός Παίκτη (Noob Friendly)' : '🏰 Οδηγός Dungeon Master' }}: Βήμα {{ step + 1 }} από 5
+        {{ role === 'player' ? '🗡️ Οδηγός Παίκτη' : '🏰 Οδηγός Dungeon Master' }}: Βήμα {{ step + 1 }} από 5
       }
     </h2>
     <button forgeButton variant="ghost" size="sm" (click)="finish.emit()" title="Skip guide">
@@ -36,9 +36,8 @@
             🗡️
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-display text-lg text-ink font-bold group-hover:text-accent transition-colors flex items-center gap-2">
+            <div class="font-display text-lg text-ink font-bold group-hover:text-accent transition-colors">
               I am a Player
-              <forge-badge tone="accent" class="text-micro font-sans font-semibold">Προτεινόμενο για Noobs</forge-badge>
             </div>
             <div class="text-sm text-muted mt-1 leading-snug">
               Δεν έχεις ξαναπαίξει D&amp;D; Μάθε σε 1 λεπτό πώς παίζεις με το κινητό σου χωρίς να διαβάσεις κανόνες!
