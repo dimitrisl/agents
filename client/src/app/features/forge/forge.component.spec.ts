@@ -11,6 +11,7 @@ describe('ForgeComponent', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, RouterTestingModule, ForgeComponent],
       schemas: [NO_ERRORS_SCHEMA],
@@ -22,6 +23,7 @@ describe('ForgeComponent', () => {
   });
 
   afterEach(() => {
+    localStorage.clear();
     httpMock.verify();
   });
 
@@ -122,5 +124,97 @@ describe('ForgeComponent', () => {
     ]);
     expect(component.manualSubclass).toBe('None');
     expect(component.manualSpells).toEqual(['Fire Bolt', 'Shield']);
+  });
+
+  it('should manage forging progress modal and state during AI character generation', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+    expect(component.isForgingModalOpen).toBe(false);
+    expect(component.loading).toBe(false);
+
+    component.aiRace = 'Elf';
+    component.aiClass = 'Ranger';
+    component.aiLevel = 2;
+    component.aiConcept = 'Forest scout with a loyal falcon';
+
+    component.generateAiCharacter();
+
+    expect(component.loading).toBe(true);
+    expect(component.isForgingModalOpen).toBe(true);
+    expect(component.forgeProgress).toBeGreaterThanOrEqual(3);
+    expect(component.forgingError).toBeNull();
+
+    const genReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/generate`);
+    expect(genReq.request.method).toBe('POST');
+    expect(genReq.request.body.race).toBe('Elf');
+    expect(genReq.request.body.char_class).toBe('Ranger');
+
+    genReq.flush({
+      char_name: 'Aeris',
+      race: 'Elf',
+      char_class: 'Ranger',
+      char_level: 2,
+      stats: { STR: 10, DEX: 16, CON: 14, INT: 10, WIS: 14, CHA: 10 },
+      hp_max: 20,
+      armor_class: 15,
+    });
+
+    expect(component.tempForgedChar).toBeTruthy();
+    expect(component.tempForgedChar?.char_name).toBe('Aeris');
+    expect(component.forgeProgress).toBe(100);
+    expect(component.forgeCurrentPhaseIndex).toBe(5);
+
+    // Verify temp hero was persisted to localStorage
+    const saved = localStorage.getItem('phyrexian_forge_temp_hero');
+    expect(saved).toBeTruthy();
+    expect(JSON.parse(saved!).char_name).toBe('Aeris');
+
+    // Discarding clears temp hero from state and localStorage
+    component.discardHero();
+    expect(component.tempForgedChar).toBeNull();
+    expect(localStorage.getItem('phyrexian_forge_temp_hero')).toBeNull();
+  });
+
+  it('should persist and restore AI form draft across page reloads', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+    component.aiRace = 'Tiefling';
+    component.aiClass = 'Warlock';
+    component.aiLevel = 4;
+    component.aiConcept = 'Fiend pact scholar of dark secrets';
+    component.saveAiDraft();
+
+    const draftStr = localStorage.getItem('phyrexian_forge_ai_draft');
+    expect(draftStr).toBeTruthy();
+    expect(JSON.parse(draftStr!).aiClass).toBe('Warlock');
+
+    // Reset component values and restore
+    component.aiClass = 'Fighter';
+    component.restoreAiDraft();
+    expect(component.aiClass).toBe('Warlock');
+    expect(component.aiRace).toBe('Tiefling');
+    expect(component.aiConcept).toBe('Fiend pact scholar of dark secrets');
+  });
+
+  it('should handle forging errors gracefully without unhandled crashes', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+    component.generateAiCharacter();
+    const genReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/generate`);
+    genReq.flush({ detail: 'Rate limit exceeded' }, { status: 429, statusText: 'Too Many Requests' });
+
+    expect(component.loading).toBe(false);
+    expect(component.forgingError).toContain('Rate limit exceeded');
+    expect(component.isForgingModalOpen).toBe(true);
+
+    component.closeForgingModal();
+    expect(component.isForgingModalOpen).toBe(false);
+    expect(component.forgingError).toBeNull();
   });
 });

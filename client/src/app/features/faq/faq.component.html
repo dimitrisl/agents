@@ -88,17 +88,17 @@
       <forge-empty-state
         icon="🔍"
         title="Δεν βρέθηκαν αποτελέσματα"
-        description="Δοκιμάστε διαφορετικούς όρους αναζήτησης ή επιλέξτε την κατηγορία 'Όλα τα Θέματα'."
+        description="Δοκιμάστε διαφορετικούς όρους αναζήτησης ή επιλέξτε έναν από τους άξονες παραπάνω."
       >
         <button
           forgeButton
           variant="secondary"
           size="sm"
           type="button"
-          (click)="searchQuery.set(''); selectedCategory.set('all')"
+          (click)="searchQuery.set('')"
           class="mt-2"
         >
-          Επαναφορά Φίλτρων
+          Καθαρισμός Αναζήτησης
         </button>
       </forge-empty-state>
     } @else {
