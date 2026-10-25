@@ -17,12 +17,19 @@ export class LoginComponent {
 
   mode: 'choice' | 'tutorial' | 'auth' = 'choice';
   tutorialStep = 0;
+  tutorialRole: 'none' | 'player' | 'dm' | 'intro' = 'none';
   username = '';
   password = '';
   isRegister = false;
   error = '';
 
   constructor(private authService: AuthService, private router: Router) {}
+
+  openTutorial(role: 'none' | 'player' | 'dm' | 'intro' = 'none') {
+    this.tutorialRole = role;
+    this.tutorialStep = 0;
+    this.mode = 'tutorial';
+  }
 
   onSubmit() {
     if (!this.username || !this.password) {

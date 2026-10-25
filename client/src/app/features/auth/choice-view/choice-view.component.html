@@ -38,5 +38,19 @@
       </div>
       <span class="text-label font-normal opacity-80">Enter the Forge with your credentials</span>
     </button>
+
+    <button
+      forgeButton
+      variant="ghost"
+      size="lg"
+      class="flex-col border border-hairline hover:border-gold hover:bg-tile/40 transition-all"
+      (click)="chooseWhatIsDnd.emit()"
+    >
+      <div class="flex items-center gap-2 text-gold font-bold">
+        <span class="text-lg">📽️</span>
+        What is D&amp;D?
+      </div>
+      <span class="text-label font-normal opacity-80 text-muted">A fun 2-minute "PowerPoint" intro for beginners</span>
+    </button>
   </div>
 </forge-card>

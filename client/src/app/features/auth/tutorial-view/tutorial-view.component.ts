@@ -5,11 +5,12 @@ import {
   ForgeButtonDirective,
   ForgeCardComponent,
   ForgeListRowComponent,
-  ForgeStatBoxComponent,
 } from '../../../shared/ui';
 
 const ACTIVE_DOT_CLASSES =
   'h-3 w-3 rounded-full bg-accent shadow-[0_0_10px_var(--theme-accent)] transition-all';
+const ACTIVE_DOT_CLASSES_GOLD =
+  'h-3 w-3 rounded-full bg-gold shadow-[0_0_10px_var(--color-gold,#d4af37)] transition-all';
 const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
 
 @Component({
@@ -21,7 +22,6 @@ const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
     ForgeButtonDirective,
     ForgeCardComponent,
     ForgeListRowComponent,
-    ForgeStatBoxComponent,
   ],
   templateUrl: './tutorial-view.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,14 +31,15 @@ const INACTIVE_DOT_CLASSES = 'h-3 w-3 rounded-full bg-tile transition-all';
 })
 export class TutorialViewComponent {
   @Input() step = 0;
+  @Input() role: 'none' | 'player' | 'dm' | 'intro' = 'none';
   @Output() stepChange = new EventEmitter<number>();
+  @Output() roleChange = new EventEmitter<'none' | 'player' | 'dm' | 'intro'>();
   @Output() back = new EventEmitter<void>();
   @Output() finish = new EventEmitter<void>();
 
-  role: 'none' | 'player' | 'dm' = 'none';
-
-  selectRole(role: 'player' | 'dm'): void {
+  selectRole(role: 'player' | 'dm' | 'intro'): void {
     this.role = role;
+    this.roleChange.emit(role);
     this.stepChange.emit(0);
   }
 
@@ -50,6 +51,7 @@ export class TutorialViewComponent {
         this.stepChange.emit(this.step - 1);
       } else {
         this.role = 'none';
+        this.roleChange.emit('none');
       }
     }
   }
@@ -59,6 +61,9 @@ export class TutorialViewComponent {
   }
 
   dotClasses(index: number): string {
-    return this.step === index ? ACTIVE_DOT_CLASSES : INACTIVE_DOT_CLASSES;
+    if (this.step !== index) {
+      return INACTIVE_DOT_CLASSES;
+    }
+    return this.role === 'intro' || this.role === 'dm' ? ACTIVE_DOT_CLASSES_GOLD : ACTIVE_DOT_CLASSES;
   }
 }

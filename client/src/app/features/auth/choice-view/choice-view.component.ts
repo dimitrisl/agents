@@ -16,4 +16,5 @@ export class ChoiceViewComponent {
   @Input({ required: true }) logoTemplate!: TemplateRef<unknown>;
   @Output() chooseTutorial = new EventEmitter<void>();
   @Output() chooseAuth = new EventEmitter<void>();
+  @Output() chooseWhatIsDnd = new EventEmitter<void>();
 }
