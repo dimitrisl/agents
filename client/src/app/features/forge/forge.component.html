@@ -32,6 +32,24 @@
     </div>
   </header>
 
+  @if (generationInterruptedNotice) {
+    <div class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/10 p-4 text-label text-gold">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">ℹ️</span>
+        <span>
+          Η προηγούμενη παραγωγή διακόπηκε επειδή απομακρυνθήκατε από τη σελίδα. Τα στοιχεία της φόρμας σας έχουν διατηρηθεί άθικτα.
+        </span>
+      </div>
+      <button
+        type="button"
+        class="text-gold hover:text-ink text-sm font-bold px-2 py-1"
+        (click)="generationInterruptedNotice = false"
+      >
+        ✕
+      </button>
+    </div>
+  }
+
   @if (!tempForgedChar) {
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside
@@ -112,6 +130,7 @@
                 variant="underline"
                 [tabs]="forgeTabs"
                 [(activeId)]="activeTab"
+                [mobileColumns]="2"
               ></forge-tabs>
             </div>
 
@@ -130,15 +149,25 @@
                 [subclassLockHint]="aiSubclassLockHint"
                 [loading]="loading"
                 [(aiRace)]="aiRace"
+                (aiRaceChange)="saveAiDraft()"
                 [(aiClass)]="aiClass"
+                (aiClassChange)="saveAiDraft()"
                 [(aiBackground)]="aiBackground"
+                (aiBackgroundChange)="saveAiDraft()"
                 [(aiLevel)]="aiLevel"
+                (aiLevelChange)="saveAiDraft()"
                 [(aiGender)]="aiGender"
+                (aiGenderChange)="saveAiDraft()"
                 [(aiSubclass)]="aiSubclass"
+                (aiSubclassChange)="saveAiDraft()"
                 [(aiConcept)]="aiConcept"
+                (aiConceptChange)="saveAiDraft()"
                 [(aiName)]="aiName"
+                (aiNameChange)="saveAiDraft()"
                 [(aiAlignment)]="aiAlignment"
+                (aiAlignmentChange)="saveAiDraft()"
                 [(aiUseRolled)]="aiUseRolled"
+                (aiUseRolledChange)="saveAiDraft()"
                 (updateSubclasses)="updateSubclasses()"
                 (generate)="generateAiCharacter()"
               ></app-ai-form>
@@ -209,4 +238,115 @@
       (regeneratePortrait)="regeneratePortrait()"
     ></app-hero-preview>
   }
+
+  <!-- Forging Progress Modal / Overlay -->
+  <div
+    *ngIf="isForgingModalOpen"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="forging-modal-title"
+  >
+    <div
+      class="w-full max-w-lg rounded-2xl border border-accent/40 bg-panel p-6 shadow-2xl relative overflow-hidden flex flex-col gap-5 text-center"
+    >
+      <!-- Glowing ambient effects -->
+      <div class="absolute -top-24 -left-24 w-48 h-48 bg-accent/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-gold/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Header / Icon -->
+      <div class="flex flex-col items-center gap-2 relative z-10">
+        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 border border-accent/40 text-3xl shadow-glow animate-pulse">
+          {{ forgePhases[forgeCurrentPhaseIndex].icon || '✨' }}
+        </div>
+        <p class="text-micro font-bold uppercase tracking-wider text-accent">
+          Phyrexian Character Forge
+        </p>
+        <h2 id="forging-modal-title" class="font-display text-xl sm:text-2xl font-bold text-ink leading-tight">
+          {{ forgePhases[forgeCurrentPhaseIndex].title || 'Σφυρηλάτηση Ήρωα...' }}
+        </h2>
+        <p class="text-label text-muted max-w-md min-h-[2.5rem] flex items-center justify-center transition-all">
+          {{ forgePhases[forgeCurrentPhaseIndex].subtitle }}
+        </p>
+      </div>
+
+      <!-- Progress Bar & Percentage -->
+      <div class="flex flex-col gap-2 relative z-10">
+        <div class="flex items-center justify-between text-micro font-semibold text-muted">
+          <span>Πρόοδος Σφυρηλάτησης</span>
+          <span class="text-accent font-mono text-sm font-bold">{{ forgeProgress }}%</span>
+        </div>
+        <div class="h-3 w-full overflow-hidden rounded-full bg-tile border border-hairline relative">
+          <div
+            class="h-full rounded-full bg-gradient-to-r from-accent via-accent-hover to-gold transition-all duration-200 relative shadow-glow"
+            [style.width.%]="forgeProgress"
+          >
+            <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phased Steps Checklist -->
+      <div class="flex flex-col gap-1.5 text-left border-t border-hairline/60 pt-3 relative z-10">
+        <div
+          *ngFor="let phase of forgePhases.slice(0, 5); let i = index"
+          class="flex items-center gap-2.5 px-2 py-1 rounded-lg text-micro transition-colors"
+          [ngClass]="{
+            'text-accent font-semibold bg-accent/10': i === forgeCurrentPhaseIndex && !forgingError,
+            'text-muted/60 line-through': i < forgeCurrentPhaseIndex || forgeProgress === 100,
+            'text-muted/40': i > forgeCurrentPhaseIndex
+          }"
+        >
+          <span class="w-5 text-center shrink-0">
+            @if (i < forgeCurrentPhaseIndex || forgeProgress === 100) {
+              <span class="text-emerald font-bold">✓</span>
+            } @else if (i === forgeCurrentPhaseIndex && !forgingError) {
+              <span class="inline-block animate-spin text-accent">✦</span>
+            } @else {
+              <span class="text-muted/40">○</span>
+            }
+          </span>
+          <span class="truncate">{{ phase.title }}</span>
+        </div>
+      </div>
+
+      <!-- Warning Callout -->
+      @if (!forgingError) {
+        <div class="rounded-xl border border-hairline bg-tile/60 p-3 text-micro text-muted flex items-start gap-2 text-left relative z-10">
+          <span class="text-gold shrink-0 text-sm">⚠️</span>
+          <span>
+            <strong>Μην κλείσετε και μην απομακρυνθείτε από τη σελίδα</strong> όσο η τεχνητή νοημοσύνη σφυρηλατεί τα στατιστικά, το lore και το πορτρέτο του ήρωα.
+          </span>
+        </div>
+      } @else {
+        <!-- Error State inside modal -->
+        <div class="rounded-xl border border-red/40 bg-red/10 p-3 text-micro text-red flex flex-col gap-2 text-left relative z-10">
+          <div class="flex items-center gap-2 font-bold">
+            <span>❌</span>
+            <span>{{ forgingError }}</span>
+          </div>
+          <div class="flex justify-end gap-2 mt-1">
+            <button
+              forgeButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="closeForgingModal()"
+            >
+              Κλείσιμο
+            </button>
+            <button
+              forgeButton
+              variant="primary"
+              size="sm"
+              type="button"
+              (click)="generateAiCharacter()"
+            >
+              🔄 Δοκιμή Ξανά
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
 </forge-page>

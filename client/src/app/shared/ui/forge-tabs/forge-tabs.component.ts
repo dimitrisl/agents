@@ -90,6 +90,7 @@ export class ForgeTabsComponent implements AfterViewInit, OnChanges {
   @Input() activeId!: string;
   @Input() instanceId = `forge-tabs-${nextInstanceId++}`;
   @Input() variant: ForgeTabsVariant = 'pill';
+  @Input() mobileColumns?: number;
 
   @Output() activeIdChange = new EventEmitter<string>();
 
@@ -142,12 +143,17 @@ export class ForgeTabsComponent implements AfterViewInit, OnChanges {
   }
 
   get tablistClasses(): string {
+    const base = this.mobileColumns === 2
+      ? 'grid grid-cols-2 gap-1.5 sm:flex sm:gap-2 sm:overflow-x-auto sm:whitespace-nowrap'
+      : 'flex gap-2 overflow-x-auto whitespace-nowrap';
+
     return this.variant === 'underline'
-      ? 'flex gap-2 overflow-x-auto border-b border-hairline pb-0 whitespace-nowrap [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-      : 'flex gap-2 overflow-x-auto border-b border-hairline pb-0.5 whitespace-nowrap [-webkit-overflow-scrolling:touch]';
+      ? `${base} border-b border-hairline pb-0 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`
+      : `${base} border-b border-hairline pb-0.5 [-webkit-overflow-scrolling:touch]`;
   }
 
   get fadeClasses(): string {
+    if (this.mobileColumns === 2) return '';
     if (this.overflowStart && this.overflowEnd) return 'forge-tabs-fade-both';
     if (this.overflowEnd) return 'forge-tabs-fade-end';
     if (this.overflowStart) return 'forge-tabs-fade-start';
@@ -155,8 +161,12 @@ export class ForgeTabsComponent implements AfterViewInit, OnChanges {
   }
 
   get buttonBaseClasses(): string {
+    const mobileWidth = this.mobileColumns === 2
+      ? 'w-full text-center justify-center flex items-center min-w-0'
+      : 'shrink-0';
+
     const shared =
-      'shrink-0 border-b-2 px-3 py-3 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 sm:px-4';
+      `${mobileWidth} sm:shrink-0 sm:w-auto border-b-2 px-2 py-2.5 sm:px-4 sm:py-3 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50`;
 
     return this.variant === 'underline'
       ? shared

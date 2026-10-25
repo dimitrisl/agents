@@ -17,34 +17,45 @@ describe('FaqComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create and display FAQ items', () => {
+  it('should create without an "all" category and default to the expanded DM axis', () => {
     expect(component).toBeTruthy();
-    expect(component.faqItems.length).toBeGreaterThan(5);
-    expect(component.filteredFaqItems().length).toBe(component.faqItems.length);
+    expect(component.categories.some((c) => c.id === 'all')).toBe(false);
+    expect(component.selectedCategory()).toBe('dm');
+    expect(component.filteredFaqItems().length).toBe(7);
+    expect(component.filteredFaqItems().every((i) => i.category === 'dm')).toBe(true);
   });
 
-  it('should filter items by category', () => {
+  it('should filter items by category (including player, dm, and companion axes)', () => {
+    component.selectCategory('player');
+    expect(component.filteredFaqItems().length).toBe(3);
+    expect(component.filteredFaqItems().every((i) => i.category === 'player')).toBe(true);
+
+    component.selectCategory('dm');
+    expect(component.filteredFaqItems().length).toBe(7);
+    expect(component.filteredFaqItems().every((i) => i.category === 'dm')).toBe(true);
+
     component.selectCategory('companion');
     const filtered = component.filteredFaqItems();
-    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.length).toBe(2);
     expect(filtered.every((i) => i.category === 'companion')).toBe(true);
   });
 
-  it('should search items by keyword in question or tags', () => {
+  it('should search items across all categories by keyword in question or tags', () => {
+    component.selectCategory('dm');
     component.searchQuery.set('concentration');
     const filtered = component.filteredFaqItems();
     expect(filtered.length).toBeGreaterThan(0);
-    expect(filtered.some((i) => i.id === 'companion-3')).toBe(true);
+    expect(filtered.some((i) => i.id === 'companion-2')).toBe(true);
   });
 
-  it('should toggle question open/close state and expand/collapse all', () => {
-    expect(component.isQuestionOpen('companion-1')).toBe(true);
+  it('should toggle question open/close state and expand/collapse all filtered items', () => {
+    expect(component.isQuestionOpen('dm-1')).toBe(true);
 
-    component.toggleQuestion('companion-1');
-    expect(component.isQuestionOpen('companion-1')).toBe(false);
+    component.toggleQuestion('dm-1');
+    expect(component.isQuestionOpen('dm-1')).toBe(false);
 
     component.expandAll();
-    expect(component.openQuestions().size).toBe(component.faqItems.length);
+    expect(component.openQuestions().size).toBe(component.filteredFaqItems().length);
 
     component.collapseAll();
     expect(component.openQuestions().size).toBe(0);

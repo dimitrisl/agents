@@ -11,6 +11,7 @@ import { ForgeTab, ForgeTabsComponent } from '../../../shared/ui';
 export class CharacterTabsComponent {
   @Input() tabs: ForgeTab[] = [];
   @Input() activeId!: string;
+  @Input() mobileColumns: number = 2;
 
   @Output() activeIdChange = new EventEmitter<string>();
 }

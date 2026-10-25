@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, of } from 'rxjs';
 import { switchMap, tap, catchError } from 'rxjs/operators';
@@ -10,6 +10,7 @@ import { CharacterSchema } from '../../core/models/character.model';
 import { environment } from '../../../environments/environment';
 import {
   ForgeBadgeComponent,
+  ForgeButtonDirective,
   ForgeCardComponent,
   ForgePageComponent,
   ForgeTab,
@@ -24,12 +25,17 @@ import {
   isSpellcasterClass,
 } from '../../core/rules/recommendations';
 
+const TEMP_HERO_STORAGE_KEY = 'phyrexian_forge_temp_hero';
+const AI_DRAFT_STORAGE_KEY = 'phyrexian_forge_ai_draft';
+const PENDING_GEN_STORAGE_KEY = 'phyrexian_forge_pending_generation';
+
 @Component({
   selector: 'app-forge',
   standalone: true,
   imports: [
     CommonModule,
     ForgeBadgeComponent,
+    ForgeButtonDirective,
     ForgeCardComponent,
     ForgePageComponent,
     ForgeTabsComponent,
@@ -39,12 +45,54 @@ import {
   ],
   templateUrl: './forge.component.html',
 })
-export class ForgeComponent implements OnInit {
+export class ForgeComponent implements OnInit, OnDestroy {
   readonly subclassLockHint = 'Subclasses unlock at higher levels depending on class and edition';
   Math = Math;
   activeTab: 'ai' | 'manual' = 'ai';
   loading = false;
   tempForgedChar: CharacterSchema | null = null;
+  generationInterruptedNotice = false;
+
+  // Forging Progress Modal State
+  isForgingModalOpen = false;
+  forgeProgress = 0;
+  forgeCurrentPhaseIndex = 0;
+  forgingError: string | null = null;
+  private progressInterval: any = null;
+  private wakeLockSentinel: any = null;
+
+  readonly forgePhases = [
+    {
+      icon: '🎲',
+      title: 'Υπολογισμός Ability Scores & Modifiers',
+      subtitle: 'Ρίψη ζαριών 4d6 (drop lowest) και βελτιστοποίηση πρωτευόντων στατιστικών...',
+    },
+    {
+      icon: '⚔️',
+      title: 'Επιλογή Κλάσης, Archetype & Hit Points',
+      subtitle: 'Υπολογισμός Hit Dice, Armor Class, Saving Throws & Proficiencies...',
+    },
+    {
+      icon: '✨',
+      title: 'Σύνθεση Ξορκιών & Class Features',
+      subtitle: 'Επιλογή Cantrips, Spells, Weapon Masteries και οργάνωση Grimoire...',
+    },
+    {
+      icon: '📜',
+      title: 'Δημιουργία Backstory & Flavor',
+      subtitle: 'Σύνταξη ιστορικού, Ideals, Bonds, Flaws και χαρακτηριστικών...',
+    },
+    {
+      icon: '🎨',
+      title: 'Σχεδιασμός Πορτρέτου & Επαλήθευση Κανόνων',
+      subtitle: 'Σύνθεση fantasy portrait και τελικός έλεγχος κανόνων D&D 5e / 5.5e...',
+    },
+    {
+      icon: '✅',
+      title: 'Ο Ήρωας Σφυρηλατήθηκε!',
+      subtitle: 'Προετοιμασία διαδραστικού φύλλου προεπισκόπησης...',
+    },
+  ];
 
   readonly forgeTabs: ForgeTab[] = [
     { id: 'ai', label: '✨ AI Forge' },
@@ -150,11 +198,148 @@ export class ForgeComponent implements OnInit {
     private router: Router
   ) {}
 
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.loading || this.isForgingModalOpen) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
   ngOnInit() {
+    this.restoreAiDraft();
+    this.restoreTempHero();
+    this.checkPendingGenerationRecovery();
     this.updateSubclasses();
     this.updateManualSubclasses();
     this.fetchFeats();
     this.fetchSpells();
+  }
+
+  ngOnDestroy(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+    }
+    this.releaseWakeLock();
+  }
+
+  saveAiDraft(): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const draft = {
+        aiRace: this.aiRace,
+        aiClass: this.aiClass,
+        aiBackground: this.aiBackground,
+        aiLevel: this.aiLevel,
+        aiGender: this.aiGender,
+        aiSubclass: this.aiSubclass,
+        aiConcept: this.aiConcept,
+        aiName: this.aiName,
+        aiAlignment: this.aiAlignment,
+        aiUseRolled: this.aiUseRolled,
+      };
+      localStorage.setItem(AI_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {}
+  }
+
+  restoreAiDraft(): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const saved = localStorage.getItem(AI_DRAFT_STORAGE_KEY);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        if (draft.aiRace) this.aiRace = draft.aiRace;
+        if (draft.aiClass) this.aiClass = draft.aiClass;
+        if (draft.aiBackground) this.aiBackground = draft.aiBackground;
+        if (draft.aiLevel) this.aiLevel = draft.aiLevel;
+        if (draft.aiGender) this.aiGender = draft.aiGender;
+        if (draft.aiSubclass) this.aiSubclass = draft.aiSubclass;
+        if (draft.aiConcept) this.aiConcept = draft.aiConcept;
+        if (draft.aiName) this.aiName = draft.aiName;
+        if (draft.aiAlignment) this.aiAlignment = draft.aiAlignment;
+        if (typeof draft.aiUseRolled === 'boolean') this.aiUseRolled = draft.aiUseRolled;
+      }
+    } catch {}
+  }
+
+  saveTempHero(char: CharacterSchema): void {
+    this.tempForgedChar = char;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(TEMP_HERO_STORAGE_KEY, JSON.stringify(char));
+      }
+    } catch {}
+  }
+
+  restoreTempHero(): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const saved = localStorage.getItem(TEMP_HERO_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.stats && typeof parsed.stats === 'object') {
+          this.tempForgedChar = parsed;
+        }
+      }
+    } catch {}
+  }
+
+  clearTempHero(): void {
+    this.tempForgedChar = null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(TEMP_HERO_STORAGE_KEY);
+      }
+    } catch {}
+  }
+
+  startPendingGeneration(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PENDING_GEN_STORAGE_KEY, Date.now().toString());
+      }
+    } catch {}
+  }
+
+  clearPendingGeneration(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(PENDING_GEN_STORAGE_KEY);
+      }
+    } catch {}
+  }
+
+  checkPendingGenerationRecovery(): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const pendingTimeStr = localStorage.getItem(PENDING_GEN_STORAGE_KEY);
+      if (pendingTimeStr && !this.tempForgedChar) {
+        const elapsed = Date.now() - parseInt(pendingTimeStr, 10);
+        if (elapsed < 3 * 60 * 1000) {
+          this.generationInterruptedNotice = true;
+        }
+        this.clearPendingGeneration();
+      }
+    } catch {}
+  }
+
+  private async requestWakeLock(): Promise<void> {
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      try {
+        this.wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+      } catch {
+        // WakeLock may be rejected on low battery or inactive tabs; ignore safely
+      }
+    }
+  }
+
+  private releaseWakeLock(): void {
+    if (this.wakeLockSentinel) {
+      try {
+        this.wakeLockSentinel.release().catch(() => {});
+      } catch {}
+      this.wakeLockSentinel = null;
+    }
   }
 
   toggleEditionAndRefresh() {
@@ -394,9 +579,100 @@ export class ForgeComponent implements OnInit {
     return base;
   }
 
+  startForgingProgress(): void {
+    this.isForgingModalOpen = true;
+    this.forgeProgress = 3;
+    this.forgeCurrentPhaseIndex = 0;
+    this.forgingError = null;
+    this.requestWakeLock();
+    this.startPendingGeneration();
+
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+    }
+
+    const startTime = Date.now();
+    this.progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < 3000) {
+        // Phase 0: 3% -> 20%
+        this.forgeCurrentPhaseIndex = 0;
+        this.forgeProgress = Math.min(20, Math.floor(3 + (elapsed / 3000) * 17));
+      } else if (elapsed < 6500) {
+        // Phase 1: 20% -> 42%
+        this.forgeCurrentPhaseIndex = 1;
+        this.forgeProgress = Math.min(42, Math.floor(20 + ((elapsed - 3000) / 3500) * 22));
+      } else if (elapsed < 10000) {
+        // Phase 2: 42% -> 65%
+        this.forgeCurrentPhaseIndex = 2;
+        this.forgeProgress = Math.min(65, Math.floor(42 + ((elapsed - 6500) / 3500) * 23));
+      } else if (elapsed < 13500) {
+        // Phase 3: 65% -> 82%
+        this.forgeCurrentPhaseIndex = 3;
+        this.forgeProgress = Math.min(82, Math.floor(65 + ((elapsed - 10000) / 3500) * 17));
+      } else if (elapsed < 17000) {
+        // Phase 4: 82% -> 92%
+        this.forgeCurrentPhaseIndex = 4;
+        this.forgeProgress = Math.min(92, Math.floor(82 + ((elapsed - 13500) / 3500) * 10));
+      } else {
+        // Decelerating smoothly towards 95% while waiting for LLM
+        this.forgeCurrentPhaseIndex = 4;
+        if (this.forgeProgress < 95) {
+          this.forgeProgress = Math.min(95, Math.round((this.forgeProgress + 0.2) * 10) / 10);
+        }
+      }
+    }, 150);
+  }
+
+  finishForgingProgress(char: CharacterSchema): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+    this.forgeProgress = 100;
+    this.forgeCurrentPhaseIndex = 5;
+    this.saveTempHero(char);
+    this.clearPendingGeneration();
+    this.releaseWakeLock();
+
+    setTimeout(() => {
+      this.loading = false;
+      this.isForgingModalOpen = false;
+    }, 600);
+  }
+
+  handleForgingError(err?: any): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+    this.loading = false;
+    this.clearPendingGeneration();
+    this.releaseWakeLock();
+    this.forgingError =
+      err?.error?.detail ||
+      'Παρουσιάστηκε σφάλμα κατά τη σφυρηλάτηση ή εξαντλήθηκε το όριο αιτημάτων. Παρακαλούμε δοκιμάστε ξανά.';
+  }
+
+  closeForgingModal(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+    this.loading = false;
+    this.isForgingModalOpen = false;
+    this.forgingError = null;
+    this.releaseWakeLock();
+    this.clearPendingGeneration();
+  }
+
   generateAiCharacter() {
     if (this.loading) return;
     this.loading = true;
+    this.saveAiDraft();
+    this.startForgingProgress();
+
     this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/generate`, {
       concept: this.aiConcept,
       target_level: this.aiLevel,
@@ -411,8 +687,6 @@ export class ForgeComponent implements OnInit {
       edition: this.charState.dndEdition()
     }).subscribe({
       next: (char) => {
-        this.loading = false;
-
         // Dynamically assign an AI portrait matching chosen options if missing
         if (!char.char_portrait) {
           const promptRace = char.race || this.aiRace || 'Heroic';
@@ -422,11 +696,10 @@ export class ForgeComponent implements OnInit {
           char.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
         }
 
-        this.tempForgedChar = char;
+        this.finishForgingProgress(char);
       },
-      error: () => {
-        this.loading = false;
-        alert('Failed to generate character.');
+      error: (err) => {
+        this.handleForgingError(err);
       }
     });
   }
@@ -434,6 +707,8 @@ export class ForgeComponent implements OnInit {
   createManualCharacter() {
     if (this.loading) return;
     this.loading = true;
+    this.startForgingProgress();
+
     const finalStats: Record<string, number> = {};
     this.statKeys.forEach((k) => (finalStats[k] = this.getFinalStat(k)));
 
@@ -454,8 +729,6 @@ export class ForgeComponent implements OnInit {
       chosen_spells: this.manualSpells.length > 0 ? this.manualSpells : null,
     }).subscribe({
       next: (char) => {
-        this.loading = false;
-
         if (!char.char_portrait) {
           const promptRace = char.race || this.manualRace || 'Heroic';
           const promptClass = char.char_class || this.manualClass || 'Warrior';
@@ -464,11 +737,10 @@ export class ForgeComponent implements OnInit {
           char.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
         }
 
-        this.tempForgedChar = char;
+        this.finishForgingProgress(char);
       },
-      error: () => {
-        this.loading = false;
-        alert('Failed to create manual character.');
+      error: (err) => {
+        this.handleForgingError(err);
       }
     });
   }
@@ -490,6 +762,7 @@ export class ForgeComponent implements OnInit {
       next: (res) => {
         if (res && res.portrait_url && this.tempForgedChar) {
           this.tempForgedChar.char_portrait = res.portrait_url;
+          this.saveTempHero(this.tempForgedChar);
         }
       },
       error: () => {}
@@ -512,7 +785,7 @@ export class ForgeComponent implements OnInit {
           this.charState.characters.set([...this.charState.characters(), heroToSave]);
         }
 
-        this.tempForgedChar = null;
+        this.clearTempHero();
         this.router.navigate(['/player']);
       },
       error: (err) => {
@@ -524,14 +797,14 @@ export class ForgeComponent implements OnInit {
         this.charState.activeCharacter.set(heroToSave);
         const list = this.charState.characters();
         this.charState.characters.set([...list, heroToSave]);
-        this.tempForgedChar = null;
+        this.clearTempHero();
         this.router.navigate(['/player']);
       }
     });
   }
 
   discardHero() {
-    this.tempForgedChar = null;
+    this.clearTempHero();
   }
 
   getClassColor(charClass: string): string {

@@ -3,7 +3,7 @@
   <button
     *ngIf="overflowStart"
     type="button"
-    class="absolute left-0 top-0 bottom-0 w-8 z-10 flex items-center justify-center bg-gradient-to-r from-surface to-transparent text-ink opacity-0 group-hover:opacity-100 transition-opacity"
+    class="hidden sm:flex absolute left-0 top-0 bottom-0 w-8 z-10 items-center justify-center bg-gradient-to-r from-surface to-transparent text-ink opacity-0 group-hover:opacity-100 transition-opacity"
     (click)="scrollBy(-150)"
   >
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 bg-surface rounded-full shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -32,7 +32,7 @@
         (click)="selectTab(tab)"
         (keydown)="onKeydown($event, index)"
       >
-        {{ tab.label }}
+        <span class="truncate">{{ tab.label }}</span>
       </button>
     }
   </div>
@@ -41,7 +41,7 @@
   <button
     *ngIf="overflowEnd"
     type="button"
-    class="absolute right-0 top-0 bottom-0 w-8 z-10 flex items-center justify-center bg-gradient-to-l from-surface to-transparent text-ink opacity-0 group-hover:opacity-100 transition-opacity"
+    class="hidden sm:flex absolute right-0 top-0 bottom-0 w-8 z-10 items-center justify-center bg-gradient-to-l from-surface to-transparent text-ink opacity-0 group-hover:opacity-100 transition-opacity"
     (click)="scrollBy(150)"
   >
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 bg-surface rounded-full shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
