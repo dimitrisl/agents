@@ -199,6 +199,15 @@ class ConnectionManager:
                     pass
                 await self.disconnect(campaign_id, conn.websocket)
 
+    def get_online_user_ids(self) -> Set[str]:
+        """Returns the set of user_ids that currently hold at least one open WebSocket."""
+        uids: Set[str] = set()
+        for connections in self.active_connections.values():
+            for conn in connections:
+                if conn.user_id:
+                    uids.add(str(conn.user_id))
+        return uids
+
 
 manager = ConnectionManager()
 

@@ -502,6 +502,7 @@ class AdminUserSchema(BaseModel):
     name: Optional[str] = None
     created_at: Optional[str] = None
     is_admin: bool = False
+    is_online: bool = False
     character_count: int = 0
     dm_campaign_count: int = 0
     member_campaign_count: int = 0

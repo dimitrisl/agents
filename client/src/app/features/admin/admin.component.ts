@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, computed, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -43,6 +43,16 @@ export class AdminComponent implements OnInit {
   users = signal<AdminUser[]>([]);
   totalUsers = signal<number>(0);
   isLoadingUsers = signal<boolean>(false);
+  currentPage = signal<number>(1);
+  pageSize = signal<number>(10);
+
+  totalPages = computed(() => Math.max(1, Math.ceil(this.totalUsers() / this.pageSize())));
+  showingRangeStart = computed(() =>
+    this.totalUsers() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1
+  );
+  showingRangeEnd = computed(() =>
+    Math.min(this.totalUsers(), this.currentPage() * this.pageSize())
+  );
 
   reports = signal<WhisperReport[]>([]);
   isLoadingReports = signal<boolean>(false);
@@ -72,7 +82,8 @@ export class AdminComponent implements OnInit {
 
   loadUsers(): void {
     this.isLoadingUsers.set(true);
-    this.adminService.getUsers(this.searchQuery()).subscribe({
+    const skip = (this.currentPage() - 1) * this.pageSize();
+    this.adminService.getUsers(this.searchQuery(), skip, this.pageSize()).subscribe({
       next: (resp) => {
         this.users.set(resp.users);
         this.totalUsers.set(resp.total);
@@ -87,7 +98,28 @@ export class AdminComponent implements OnInit {
 
   onSearchChange(term: string): void {
     this.searchQuery.set(term);
+    this.currentPage.set(1);
     this.loadUsers();
+  }
+
+  onPageSizeChange(size: number): void {
+    this.pageSize.set(Number(size) || 10);
+    this.currentPage.set(1);
+    this.loadUsers();
+  }
+
+  prevPage(): void {
+    if (this.currentPage() > 1) {
+      this.currentPage.set(this.currentPage() - 1);
+      this.loadUsers();
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage() < this.totalPages()) {
+      this.currentPage.set(this.currentPage() + 1);
+      this.loadUsers();
+    }
   }
 
   openDeleteModal(user: AdminUser): void {
