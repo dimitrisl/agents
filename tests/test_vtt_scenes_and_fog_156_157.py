@@ -65,9 +65,16 @@ def test_extract_valid_cell_indices_bounds_check():
 
 def test_extract_valid_cell_indices_limit_exceeded():
     svc = VTTService()
-    # 60x60 = 3600 cells > 2500
+    # 60x60 = 3600 cells > 50x50 = 2500 total grid cells
     with pytest.raises(ValueError, match="exceeds maximum limit"):
-        svc._extract_valid_cell_indices({"rect": {"x": 0, "y": 0, "w": 60, "h": 60}}, 100, 100)
+        svc._extract_valid_cell_indices({"rect": {"x": 0, "y": 0, "w": 60, "h": 60}}, 50, 50)
+
+
+def test_extract_valid_cell_indices_large_map_above_2500_succeeds():
+    svc = VTTService()
+    # 60x60 = 3600 cells on a 70x70 grid (total 4900 > 2500 cells) now succeeds without hardcoded 2500 limit
+    indices = svc._extract_valid_cell_indices({"rect": {"x": 0, "y": 0, "w": 60, "h": 60}}, 70, 70)
+    assert len(indices) == 3600
 
 
 def test_fog_redaction_for_player_and_dm():
@@ -438,3 +445,136 @@ async def test_vtt_service_fog_operations(mock_db):
     # Hide all
     s5 = await svc.hide_all_fog(mock_db, "FogCamp")
     assert s5.fog.revealed == []
+
+
+@pytest.mark.anyio
+async def test_vtt_service_fog_after_scene_switch(mock_db):
+    scene_1_id = "scene_1"
+    scene_2_id = "scene_2"
+    scenes = {
+        scene_1_id: {
+            "scene_id": scene_1_id,
+            "campaign_name": "MultiSceneCamp",
+            "name": "Scene 1",
+            "grid": {"width": 10, "height": 10, "cell_size": 50},
+            "tokens": [],
+            "fog": {"enabled": True, "revealed": []},
+        },
+        scene_2_id: {
+            "scene_id": scene_2_id,
+            "campaign_name": "MultiSceneCamp",
+            "name": "Scene 2",
+            "grid": {"width": 20, "height": 20, "cell_size": 50},
+            "tokens": [],
+            "fog": {"enabled": True, "revealed": []},
+        },
+    }
+    camp_doc = {
+        "campaign_name": "MultiSceneCamp",
+        "vtt_state": {
+            "is_active": True,
+            "active_scene_id": scene_1_id,
+        },
+    }
+
+    async def find_camp(query, *args, **kwargs):
+        if query.get("campaign_name") == "MultiSceneCamp":
+            return camp_doc
+        return None
+
+    async def find_scene(query, *args, **kwargs):
+        sid = query.get("scene_id")
+        return scenes.get(sid)
+
+    async def update_scene(query, update, *args, **kwargs):
+        sid = query.get("scene_id")
+        doc = scenes.get(sid)
+        if not doc:
+            return MagicMock(matched_count=0)
+        if "$addToSet" in update:
+            for k, v in update["$addToSet"].items():
+                if k == "fog.revealed":
+                    existing = doc["fog"].get("revealed", [])
+                    doc["fog"]["revealed"] = list(set(existing + v["$each"]))
+        return MagicMock(matched_count=1)
+
+    mock_db["campaigns"].find_one = AsyncMock(side_effect=find_camp)
+    mock_db["campaign_scenes"].find_one = AsyncMock(side_effect=find_scene)
+    mock_db["campaign_scenes"].update_one = AsyncMock(side_effect=update_scene)
+
+    svc = VTTService()
+    # 1. Reveal fog on Scene 1
+    s1 = await svc.reveal_fog(mock_db, "MultiSceneCamp", {"cells": [[0, 0]]})
+    assert s1.active_scene_id == scene_1_id
+    assert 0 in s1.fog.revealed
+    assert 0 in scenes[scene_1_id]["fog"]["revealed"]
+
+    # 2. Switch active scene to Scene 2 in campaign doc (simulating activate_scene API call)
+    camp_doc["vtt_state"]["active_scene_id"] = scene_2_id
+
+    # 3. Reveal fog on Scene 2 at cell (15, 15) which is only valid on 20x20 Scene 2
+    s2 = await svc.reveal_fog(mock_db, "MultiSceneCamp", {"cells": [[15, 15]]})
+    assert s2.active_scene_id == scene_2_id
+    idx = 15 * 20 + 15
+    assert idx in s2.fog.revealed
+    assert idx in scenes[scene_2_id]["fog"]["revealed"]
+    assert idx not in scenes[scene_1_id]["fog"]["revealed"]
+
+
+@pytest.mark.anyio
+async def test_vtt_service_fog_after_grid_resize(mock_db):
+    scene_id = "scene_resize_1"
+    camp_doc = {
+        "campaign_name": "ResizeCamp",
+        "vtt_state": {
+            "is_active": True,
+            "active_scene_id": scene_id,
+        },
+    }
+    scene_doc = {
+        "scene_id": scene_id,
+        "campaign_name": "ResizeCamp",
+        "name": "Resizable Scene",
+        "grid": {"width": 10, "height": 10, "cell_size": 50},
+        "tokens": [],
+        "fog": {"enabled": True, "revealed": []},
+    }
+
+    async def find_camp(query, *args, **kwargs):
+        if query.get("campaign_name") == "ResizeCamp":
+            return camp_doc
+        return None
+
+    async def find_scene(query, *args, **kwargs):
+        if query.get("scene_id") == scene_id:
+            return scene_doc
+        return None
+
+    async def update_scene(query, update, *args, **kwargs):
+        if "$set" in update:
+            for k, v in update["$set"].items():
+                if k.startswith("grid."):
+                    field = k.split(".")[1]
+                    scene_doc["grid"][field] = v
+        if "$addToSet" in update:
+            for k, v in update["$addToSet"].items():
+                if k == "fog.revealed":
+                    existing = scene_doc["fog"].get("revealed", [])
+                    scene_doc["fog"]["revealed"] = list(set(existing + v["$each"]))
+        return MagicMock(matched_count=1)
+
+    mock_db["campaigns"].find_one = AsyncMock(side_effect=find_camp)
+    mock_db["campaign_scenes"].find_one = AsyncMock(side_effect=find_scene)
+    mock_db["campaign_scenes"].update_one = AsyncMock(side_effect=update_scene)
+
+    svc = VTTService()
+    # 1. Reveal fog on 10x10
+    await svc.reveal_fog(mock_db, "ResizeCamp", {"cells": [[0, 0]]})
+
+    # 2. Update grid to 30x30 via svc.update_grid
+    await svc.update_grid(mock_db, "ResizeCamp", {"width": 30, "height": 30})
+
+    # 3. Reveal fog at (25, 25) which is valid on 30x30
+    s2 = await svc.reveal_fog(mock_db, "ResizeCamp", {"cells": [[25, 25]]})
+    idx = 25 * 30 + 25
+    assert idx in s2.fog.revealed

@@ -4,6 +4,8 @@ import logging
 import uuid
 from typing import Any, List, Optional
 
+from pymongo import ReturnDocument
+
 from backend.core.schemas import (
     VTTFogSchema,
     VTTGridSchema,
@@ -20,12 +22,38 @@ async def _maybe_await(val: Any) -> Any:
     return val
 
 
+async def _atomic_find_and_update(col: Any, filter_query: dict, update_query: dict) -> Any:
+    """Atomic find_one_and_update returning the updated document with ReturnDocument.AFTER."""
+    if col is None:
+        return None
+    if hasattr(col, "find_one_and_update"):
+        try:
+            res = await _maybe_await(
+                col.find_one_and_update(
+                    filter_query,
+                    update_query,
+                    return_document=ReturnDocument.AFTER,
+                )
+            )
+            if res is not None and isinstance(res, dict):
+                return res
+        except Exception as e:
+            logger.debug(f"find_one_and_update fallback due to: {e}")
+
+    # Fallback for drivers or mocks without find_one_and_update support
+    await _maybe_await(col.update_one(filter_query, update_query))
+    return await _maybe_await(col.find_one(filter_query))
+
+
 class _AsyncMockFacade:
     def __init__(self, coll):
         self._coll = coll
 
     async def find_one(self, *args, **kwargs):
         return self._coll.find_one(*args, **kwargs)
+
+    async def find_one_and_update(self, *args, **kwargs):
+        return self._coll.find_one_and_update(*args, **kwargs)
 
     async def update_one(self, *args, **kwargs):
         return self._coll.update_one(*args, **kwargs)
@@ -69,6 +97,93 @@ def _col(db: Any, name: str) -> Any:
 
 
 class VTTService:
+    _grid_dim_cache: dict[str, tuple[tuple[int, int], float]] = {}
+
+    @classmethod
+    def set_grid_dims(cls, scene_id: str, width: int, height: int) -> None:
+        cls._grid_dim_cache[scene_id] = (
+            (int(width), int(height)),
+            datetime.datetime.now(datetime.timezone.utc).timestamp(),
+        )
+
+    @classmethod
+    def invalidate_grid_dims(cls, scene_id: Optional[str] = None) -> None:
+        if scene_id:
+            cls._grid_dim_cache.pop(scene_id, None)
+        else:
+            cls._grid_dim_cache.clear()
+
+    def _state_from_scene(
+        self, scene: dict, is_active: bool = True, active_scene_id: Optional[str] = None
+    ) -> VTTStateSchema:
+        return VTTStateSchema(
+            is_active=is_active,
+            active_scene_id=active_scene_id or scene.get("scene_id"),
+            scene_name=scene.get("name", "Default"),
+            grid=VTTGridSchema(**(scene.get("grid") or {})),
+            tokens=[VTTTokenSchema(**t) for t in (scene.get("tokens") or [])],
+            fog=VTTFogSchema(**(scene.get("fog") or {})),
+        )
+
+    def _state_from_camp(self, camp: dict) -> VTTStateSchema:
+        vtt_st = camp.get("vtt_state") or {}
+        is_active = bool(vtt_st.get("is_active", False))
+        try:
+            st = VTTStateSchema(**vtt_st)
+            st.is_active = is_active
+            return st
+        except Exception:
+            return VTTStateSchema(is_active=is_active)
+
+    async def _get_campaign_vtt_context(
+        self, db: Any, campaign_name: str
+    ) -> tuple[Optional[str], bool, Optional[dict]]:
+        """Fetch fresh active_scene_id and is_active from campaigns in a single query."""
+        camp = await _maybe_await(_col(db, "campaigns").find_one({"campaign_name": campaign_name}))
+        if not camp or not isinstance(camp, dict):
+            return None, False, None
+
+        vtt_st = camp.get("vtt_state") or {}
+        is_active = bool(vtt_st.get("is_active", False))
+        active_scene_id = vtt_st.get("active_scene_id")
+
+        if not active_scene_id:
+            active_scene_id = await self._ensure_state(db, campaign_name)
+
+        return active_scene_id, is_active, camp
+
+    async def _get_grid_dims(
+        self,
+        db: Any,
+        campaign_name: str,
+        active_scene_id: Optional[str],
+        camp: Optional[dict] = None,
+    ) -> tuple[int, int]:
+        if active_scene_id:
+            cached = VTTService._grid_dim_cache.get(active_scene_id)
+            if cached is not None:
+                dims, ts = cached
+                if datetime.datetime.now(datetime.timezone.utc).timestamp() - ts < 30:
+                    return dims
+
+            scene = await _maybe_await(
+                _col(db, "campaign_scenes").find_one({"scene_id": active_scene_id})
+            )
+            if isinstance(scene, dict):
+                grid = scene.get("grid") or {}
+                dims = (int(grid.get("width", 30)), int(grid.get("height", 30)))
+                VTTService.set_grid_dims(active_scene_id, dims[0], dims[1])
+                return dims
+
+        if camp is None:
+            camp = await _maybe_await(
+                _col(db, "campaigns").find_one({"campaign_name": campaign_name})
+            )
+        if isinstance(camp, dict) and camp.get("vtt_state"):
+            grid = camp["vtt_state"].get("grid") or {}
+            return (int(grid.get("width", 30)), int(grid.get("height", 30)))
+        return (30, 30)
+
     @staticmethod
     def remap_fog_indices(
         revealed: List[int],
@@ -160,6 +275,12 @@ class VTTService:
                 _col(db, "campaign_scenes").find_one({"scene_id": active_scene_id})
             )
             if isinstance(scene, dict):
+                grid = scene.get("grid") or {}
+                VTTService.set_grid_dims(
+                    active_scene_id,
+                    int(grid.get("width", 30)),
+                    int(grid.get("height", 30)),
+                )
                 return active_scene_id
 
         # Check if any scene already exists for this campaign
@@ -168,6 +289,12 @@ class VTTService:
         )
         if isinstance(first_scene, dict):
             scene_id = first_scene["scene_id"]
+            grid = first_scene.get("grid") or {}
+            VTTService.set_grid_dims(
+                scene_id,
+                int(grid.get("width", 30)),
+                int(grid.get("height", 30)),
+            )
             has_dict = isinstance(camp.get("vtt_state"), dict)
             update_body = (
                 {
@@ -213,6 +340,11 @@ class VTTService:
             "last_activated_at": now,
         }
         await _maybe_await(_col(db, "campaign_scenes").insert_one(default_scene))
+        VTTService.set_grid_dims(
+            scene_id,
+            int(grid_dict.get("width", 30)),
+            int(grid_dict.get("height", 30)),
+        )
         has_dict = isinstance(camp.get("vtt_state"), dict)
         update_body = (
             {
@@ -240,35 +372,43 @@ class VTTService:
         return scene_id
 
     async def get_vtt_state(self, db: Any, campaign_name: str) -> VTTStateSchema:
-        """Returns the hydrated VTTStateSchema for the active scene."""
-        active_scene_id = await self._ensure_state(db, campaign_name)
+        """Returns the hydrated VTTStateSchema for the active scene without redundant DB queries."""
         camp = await _maybe_await(_col(db, "campaigns").find_one({"campaign_name": campaign_name}))
         is_active = False
+        active_scene_id = None
         if isinstance(camp, dict) and camp.get("vtt_state"):
             is_active = bool(camp["vtt_state"].get("is_active", False))
+            active_scene_id = camp["vtt_state"].get("active_scene_id")
 
         if active_scene_id:
             scene = await _maybe_await(
                 _col(db, "campaign_scenes").find_one({"scene_id": active_scene_id})
             )
             if isinstance(scene, dict):
-                return VTTStateSchema(
-                    is_active=is_active,
-                    active_scene_id=active_scene_id,
-                    scene_name=scene.get("name", "Default"),
-                    grid=VTTGridSchema(**(scene.get("grid") or {})),
-                    tokens=[VTTTokenSchema(**t) for t in (scene.get("tokens") or [])],
-                    fog=VTTFogSchema(**(scene.get("fog") or {})),
+                grid = scene.get("grid") or {}
+                VTTService.set_grid_dims(
+                    active_scene_id,
+                    int(grid.get("width", 30)),
+                    int(grid.get("height", 30)),
+                )
+                return self._state_from_scene(
+                    scene, is_active=is_active, active_scene_id=active_scene_id
+                )
+
+        # Fallback to _ensure_state if scene was not yet initialized or active
+        active_scene_id = await self._ensure_state(db, campaign_name)
+        if active_scene_id:
+            scene = await _maybe_await(
+                _col(db, "campaign_scenes").find_one({"scene_id": active_scene_id})
+            )
+            if isinstance(scene, dict):
+                return self._state_from_scene(
+                    scene, is_active=is_active, active_scene_id=active_scene_id
                 )
 
         # Fallback for mock environments without scenes
         if isinstance(camp, dict) and camp.get("vtt_state"):
-            try:
-                st = VTTStateSchema(**camp["vtt_state"])
-                st.is_active = is_active
-                return st
-            except Exception:
-                pass
+            return self._state_from_camp(camp)
         return VTTStateSchema(is_active=is_active)
 
     async def toggle_vtt(self, db: Any, campaign_name: str, is_active: bool) -> VTTStateSchema:
@@ -358,6 +498,7 @@ class VTTService:
                             {"$set": update_dict},
                         )
                     )
+                    VTTService.set_grid_dims(active_scene_id, new_w, new_h)
             else:
                 await _maybe_await(
                     _col(db, "campaigns").update_one(
@@ -446,8 +587,9 @@ class VTTService:
                 for dx in range(rw):
                     extracted_coords.append((rx + dx, ry + dy))
 
-        if len(extracted_coords) > 2500:
-            raise ValueError("Fog update exceeds maximum limit of 2500 cells per event")
+        max_limit = width * height
+        if len(extracted_coords) > max_limit:
+            raise ValueError(f"Fog update exceeds maximum limit of {max_limit} cells per event")
 
         indices = []
         seen = set()
@@ -464,96 +606,149 @@ class VTTService:
         return indices
 
     async def toggle_fog(self, db: Any, campaign_name: str, enabled: bool) -> VTTStateSchema:
-        active_scene_id = await self._ensure_state(db, campaign_name)
+        active_scene_id, is_active, _ = await self._get_campaign_vtt_context(db, campaign_name)
         if active_scene_id:
-            await _maybe_await(
-                _col(db, "campaign_scenes").update_one(
-                    {"scene_id": active_scene_id},
-                    {"$set": {"fog.enabled": bool(enabled)}},
-                )
+            updated = await _atomic_find_and_update(
+                _col(db, "campaign_scenes"),
+                {"scene_id": active_scene_id},
+                {"$set": {"fog.enabled": bool(enabled)}},
             )
-        else:
-            await _maybe_await(
-                _col(db, "campaigns").update_one(
-                    {"campaign_name": campaign_name},
-                    {"$set": {"vtt_state.fog.enabled": bool(enabled)}},
-                )
-            )
+            if updated:
+                return self._state_from_scene(updated, is_active=is_active)
+
+        updated_camp = await _atomic_find_and_update(
+            _col(db, "campaigns"),
+            {"campaign_name": campaign_name},
+            {"$set": {"vtt_state.fog.enabled": bool(enabled)}},
+        )
+        if updated_camp:
+            return self._state_from_camp(updated_camp)
         return await self.get_vtt_state(db, campaign_name)
 
     async def reveal_fog(self, db: Any, campaign_name: str, payload: dict) -> VTTStateSchema:
-        state = await self.get_vtt_state(db, campaign_name)
-        indices = self._extract_valid_cell_indices(payload, state.grid.width, state.grid.height)
-        if indices:
-            if state.active_scene_id:
-                await _maybe_await(
-                    _col(db, "campaign_scenes").update_one(
-                        {"scene_id": state.active_scene_id},
-                        {"$addToSet": {"fog.revealed": {"$each": indices}}},
-                    )
+        active_scene_id, is_active, camp = await self._get_campaign_vtt_context(db, campaign_name)
+        width, height = await self._get_grid_dims(db, campaign_name, active_scene_id, camp=camp)
+        indices = self._extract_valid_cell_indices(payload, width, height)
+
+        if not indices:
+            if active_scene_id:
+                scene = await _maybe_await(
+                    _col(db, "campaign_scenes").find_one({"scene_id": active_scene_id})
                 )
-            else:
-                await _maybe_await(
-                    _col(db, "campaigns").update_one(
-                        {"campaign_name": campaign_name},
-                        {"$addToSet": {"vtt_state.fog.revealed": {"$each": indices}}},
+                if scene:
+                    return self._state_from_scene(scene, is_active=is_active)
+            return await self.get_vtt_state(db, campaign_name)
+
+        if active_scene_id:
+            updated = await _atomic_find_and_update(
+                _col(db, "campaign_scenes"),
+                {"scene_id": active_scene_id},
+                {"$addToSet": {"fog.revealed": {"$each": indices}}},
+            )
+            if updated:
+                grid = updated.get("grid") or {}
+                if "width" in grid and "height" in grid:
+                    VTTService.set_grid_dims(
+                        active_scene_id, int(grid["width"]), int(grid["height"])
                     )
-                )
+                return self._state_from_scene(updated, is_active=is_active)
+
+        updated_camp = await _atomic_find_and_update(
+            _col(db, "campaigns"),
+            {"campaign_name": campaign_name},
+            {"$addToSet": {"vtt_state.fog.revealed": {"$each": indices}}},
+        )
+        if updated_camp:
+            return self._state_from_camp(updated_camp)
         return await self.get_vtt_state(db, campaign_name)
 
     async def hide_fog(self, db: Any, campaign_name: str, payload: dict) -> VTTStateSchema:
-        state = await self.get_vtt_state(db, campaign_name)
-        indices = self._extract_valid_cell_indices(payload, state.grid.width, state.grid.height)
-        if indices:
-            if state.active_scene_id:
-                await _maybe_await(
-                    _col(db, "campaign_scenes").update_one(
-                        {"scene_id": state.active_scene_id},
-                        {"$pull": {"fog.revealed": {"$in": indices}}},
-                    )
+        active_scene_id, is_active, camp = await self._get_campaign_vtt_context(db, campaign_name)
+        width, height = await self._get_grid_dims(db, campaign_name, active_scene_id, camp=camp)
+        indices = self._extract_valid_cell_indices(payload, width, height)
+
+        if not indices:
+            if active_scene_id:
+                scene = await _maybe_await(
+                    _col(db, "campaign_scenes").find_one({"scene_id": active_scene_id})
                 )
-            else:
-                await _maybe_await(
-                    _col(db, "campaigns").update_one(
-                        {"campaign_name": campaign_name},
-                        {"$pull": {"vtt_state.fog.revealed": {"$in": indices}}},
+                if scene:
+                    return self._state_from_scene(scene, is_active=is_active)
+            return await self.get_vtt_state(db, campaign_name)
+
+        if active_scene_id:
+            updated = await _atomic_find_and_update(
+                _col(db, "campaign_scenes"),
+                {"scene_id": active_scene_id},
+                {"$pull": {"fog.revealed": {"$in": indices}}},
+            )
+            if updated:
+                grid = updated.get("grid") or {}
+                if "width" in grid and "height" in grid:
+                    VTTService.set_grid_dims(
+                        active_scene_id, int(grid["width"]), int(grid["height"])
                     )
-                )
+                return self._state_from_scene(updated, is_active=is_active)
+
+        updated_camp = await _atomic_find_and_update(
+            _col(db, "campaigns"),
+            {"campaign_name": campaign_name},
+            {"$pull": {"vtt_state.fog.revealed": {"$in": indices}}},
+        )
+        if updated_camp:
+            return self._state_from_camp(updated_camp)
         return await self.get_vtt_state(db, campaign_name)
 
     async def reveal_all_fog(self, db: Any, campaign_name: str) -> VTTStateSchema:
-        state = await self.get_vtt_state(db, campaign_name)
-        all_indices = list(range(state.grid.width * state.grid.height))
-        if state.active_scene_id:
-            await _maybe_await(
-                _col(db, "campaign_scenes").update_one(
-                    {"scene_id": state.active_scene_id},
-                    {"$set": {"fog.revealed": all_indices}},
-                )
+        active_scene_id, is_active, camp = await self._get_campaign_vtt_context(db, campaign_name)
+        width, height = await self._get_grid_dims(db, campaign_name, active_scene_id, camp=camp)
+        all_indices = list(range(width * height))
+
+        if active_scene_id:
+            updated = await _atomic_find_and_update(
+                _col(db, "campaign_scenes"),
+                {"scene_id": active_scene_id},
+                {"$set": {"fog.revealed": all_indices}},
             )
-        else:
-            await _maybe_await(
-                _col(db, "campaigns").update_one(
-                    {"campaign_name": campaign_name},
-                    {"$set": {"vtt_state.fog.revealed": all_indices}},
-                )
-            )
+            if updated:
+                grid = updated.get("grid") or {}
+                if "width" in grid and "height" in grid:
+                    VTTService.set_grid_dims(
+                        active_scene_id, int(grid["width"]), int(grid["height"])
+                    )
+                return self._state_from_scene(updated, is_active=is_active)
+
+        updated_camp = await _atomic_find_and_update(
+            _col(db, "campaigns"),
+            {"campaign_name": campaign_name},
+            {"$set": {"vtt_state.fog.revealed": all_indices}},
+        )
+        if updated_camp:
+            return self._state_from_camp(updated_camp)
         return await self.get_vtt_state(db, campaign_name)
 
     async def hide_all_fog(self, db: Any, campaign_name: str) -> VTTStateSchema:
-        state = await self.get_vtt_state(db, campaign_name)
-        if state.active_scene_id:
-            await _maybe_await(
-                _col(db, "campaign_scenes").update_one(
-                    {"scene_id": state.active_scene_id},
-                    {"$set": {"fog.revealed": []}},
-                )
+        active_scene_id, is_active, _ = await self._get_campaign_vtt_context(db, campaign_name)
+
+        if active_scene_id:
+            updated = await _atomic_find_and_update(
+                _col(db, "campaign_scenes"),
+                {"scene_id": active_scene_id},
+                {"$set": {"fog.revealed": []}},
             )
-        else:
-            await _maybe_await(
-                _col(db, "campaigns").update_one(
-                    {"campaign_name": campaign_name},
-                    {"$set": {"vtt_state.fog.revealed": []}},
-                )
-            )
+            if updated:
+                grid = updated.get("grid") or {}
+                if "width" in grid and "height" in grid:
+                    VTTService.set_grid_dims(
+                        active_scene_id, int(grid["width"]), int(grid["height"])
+                    )
+                return self._state_from_scene(updated, is_active=is_active)
+
+        updated_camp = await _atomic_find_and_update(
+            _col(db, "campaigns"),
+            {"campaign_name": campaign_name},
+            {"$set": {"vtt_state.fog.revealed": []}},
+        )
+        if updated_camp:
+            return self._state_from_camp(updated_camp)
         return await self.get_vtt_state(db, campaign_name)

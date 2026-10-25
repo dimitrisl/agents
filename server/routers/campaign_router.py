@@ -1578,6 +1578,8 @@ async def update_campaign_scene(
         {"scene_id": scene_id},
         {"$set": update_data},
     )
+    if "grid" in update_data:
+        VTTService.set_grid_dims(scene_id, new_w, new_h)
 
     updated = await db["campaign_scenes"].find_one({"scene_id": scene_id})
     updated.pop("_id", None)

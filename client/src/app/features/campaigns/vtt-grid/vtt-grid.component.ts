@@ -710,11 +710,72 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   rectCurrentCol: number | null = null;
   rectCurrentRow: number | null = null;
 
+  // Cached bounding rect on mousedown to avoid layout thrashing during mousemove
+  private cachedCanvasRect: DOMRect | null = null;
+
+  // Guard effect cache to prevent redraws on token moves/HP changes
+  private lastFogEnabled?: boolean;
+  private lastFogRevealed?: number[];
+  private lastFogRevealedSet?: Set<number>;
+  private lastGridWidth?: number;
+  private lastGridHeight?: number;
+  private lastGridCellSize?: number;
+
+  private hasFogRevealedChanged(current?: number[]): boolean {
+    if (!current && !this.lastFogRevealed) return false;
+    if (!current || !this.lastFogRevealed) return true;
+    if (current === this.lastFogRevealed) return false;
+    if (current.length !== this.lastFogRevealed.length) return true;
+
+    // Fast check: element-by-element equality in order
+    const last = this.lastFogRevealed;
+    const len = current.length;
+    let match = true;
+    for (let i = 0; i < len; i++) {
+      if (current[i] !== last[i]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return false;
+
+    // Fallback: check set membership in case array order changed
+    const lastSet = this.lastFogRevealedSet || new Set(last);
+    for (let i = 0; i < len; i++) {
+      if (!lastSet.has(current[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   constructor() {
     effect(() => {
-      // Trigger redraw when vttState changes
-      const _ = this.vttState();
-      requestAnimationFrame(() => this.renderFogCanvas());
+      // Guard component effect: Only trigger renderFogCanvas when fog or grid dimensions change
+      const state = this.vttState();
+      const fogEnabled = state?.fog?.enabled;
+      const fogRevealed = state?.fog?.revealed;
+      const gridW = state?.grid?.width;
+      const gridH = state?.grid?.height;
+      const cellSize = state?.grid?.cell_size;
+
+      const revealedChanged = this.hasFogRevealedChanged(fogRevealed);
+
+      if (
+        fogEnabled !== this.lastFogEnabled ||
+        revealedChanged ||
+        gridW !== this.lastGridWidth ||
+        gridH !== this.lastGridHeight ||
+        cellSize !== this.lastGridCellSize
+      ) {
+        this.lastFogEnabled = fogEnabled;
+        this.lastFogRevealed = fogRevealed ? [...fogRevealed] : undefined;
+        this.lastFogRevealedSet = fogRevealed ? new Set(fogRevealed) : undefined;
+        this.lastGridWidth = gridW;
+        this.lastGridHeight = gridH;
+        this.lastGridCellSize = cellSize;
+        requestAnimationFrame(() => this.renderFogCanvas());
+      }
     });
   }
 
@@ -960,24 +1021,41 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    const revealedSet = new Set(fog.revealed || []);
+    // Punch-Out rendering: Fill entire canvas once with fog color
+    ctx.fillStyle = this.role === 'dm' ? 'rgba(15, 23, 42, 0.70)' : '#0a0d14';
+    ctx.fillRect(0, 0, totalW, totalH);
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = y * width + x;
-        if (!revealedSet.has(idx)) {
-          const px = x * cellSize;
-          const py = y * cellSize;
-          if (this.role === 'dm') {
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.70)';
-            ctx.fillRect(px, py, cellSize, cellSize);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
-            ctx.strokeRect(px, py, cellSize, cellSize);
-          } else {
-            ctx.fillStyle = '#0a0d14';
-            ctx.fillRect(px, py, cellSize, cellSize);
-          }
-        }
+    // Punch out transparent holes for revealed cells (no redundant strokeRect calls)
+    const revealed = fog.revealed || [];
+    for (let i = 0; i < revealed.length; i++) {
+      const idx = revealed[i];
+      if (idx >= 0 && idx < width * height) {
+        const rx = (idx % width) * cellSize;
+        const ry = Math.floor(idx / width) * cellSize;
+        ctx.clearRect(rx, ry, cellSize, cellSize);
+      }
+    }
+
+    // Live brush drag preview: render transient painted cells while dragging
+    if (this.isPaintingFog && this.paintedFogCells.size > 0) {
+      if (this.fogBrushMode === 'reveal') {
+        this.paintedFogCells.forEach((coord) => {
+          const [cx, cy] = coord.split(',').map(Number);
+          ctx.clearRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+          ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+        });
+      } else if (this.fogBrushMode === 'hide') {
+        ctx.fillStyle = this.role === 'dm' ? 'rgba(15, 23, 42, 0.70)' : '#0a0d14';
+        this.paintedFogCells.forEach((coord) => {
+          const [cx, cy] = coord.split(',').map(Number);
+          ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+        });
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
+        this.paintedFogCells.forEach((coord) => {
+          const [cx, cy] = coord.split(',').map(Number);
+          ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+        });
       }
     }
 
@@ -1016,6 +1094,12 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     event.preventDefault();
     this.isPaintingFog = true;
 
+    // Cache canvas.getBoundingClientRect() on mousedown to avoid layout thrashing during mousemove
+    const canvas = this.fogCanvasRef?.nativeElement;
+    if (canvas) {
+      this.cachedCanvasRect = canvas.getBoundingClientRect();
+    }
+
     if (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') {
       const cell = this.getCellCoordsAtMouse(event);
       if (cell) {
@@ -1028,6 +1112,7 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     } else {
       this.paintedFogCells.clear();
       this.addCellAtMouse(event);
+      this.renderFogCanvas();
     }
   }
 
@@ -1035,19 +1120,29 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     if (!this.isPaintingFog || !this.fogBrushMode) return;
     if (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') {
       const cell = this.getCellCoordsAtMouse(event);
-      if (cell) {
+      if (cell && (cell.cx !== this.rectCurrentCol || cell.cy !== this.rectCurrentRow)) {
         this.rectCurrentCol = cell.cx;
         this.rectCurrentRow = cell.cy;
         this.renderFogCanvas();
       }
     } else {
+      const prevSize = this.paintedFogCells.size;
       this.addCellAtMouse(event);
+      if (this.paintedFogCells.size !== prevSize) {
+        // Live brush drag preview
+        this.renderFogCanvas();
+      }
     }
   }
 
   onFogMouseUp(): void {
     if (!this.isPaintingFog || !this.fogBrushMode) return;
     this.isPaintingFog = false;
+    this.cachedCanvasRect = null;
+
+    const state = this.vttState();
+    const gridW = state?.grid?.width || 30;
+    const gridH = state?.grid?.height || 30;
 
     if (
       (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') &&
@@ -1067,7 +1162,39 @@ export class VttGridComponent implements OnInit, AfterViewInit {
         h: maxRow - minRow + 1,
       };
 
-      if (this.fogBrushMode === 'rect_reveal') {
+      const isReveal = this.fogBrushMode === 'rect_reveal';
+      const affectedIndices: number[] = [];
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          if (c >= 0 && c < gridW && r >= 0 && r < gridH) {
+            affectedIndices.push(r * gridW + c);
+          }
+        }
+      }
+
+      // Optimistic update on mouseup: 0 ms perceived latency
+      this.wsService.vttState.update((s) => {
+        if (!s) return s;
+        const currentRevealed = new Set(s.fog?.revealed || []);
+        if (isReveal) {
+          affectedIndices.forEach((idx) => currentRevealed.add(idx));
+        } else {
+          affectedIndices.forEach((idx) => currentRevealed.delete(idx));
+        }
+        return {
+          ...s,
+          fog: {
+            enabled: s.fog?.enabled ?? true,
+            revealed: Array.from(currentRevealed),
+          },
+        };
+      });
+
+      const updatedRevealed = this.vttState()?.fog?.revealed;
+      this.lastFogRevealed = updatedRevealed ? [...updatedRevealed] : undefined;
+      this.lastFogRevealedSet = updatedRevealed ? new Set(updatedRevealed) : undefined;
+
+      if (isReveal) {
         this.wsService.sendVttFogReveal(undefined, rectPayload);
       } else {
         this.wsService.sendVttFogHide(undefined, rectPayload);
@@ -1083,24 +1210,53 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
     if (this.paintedFogCells.size > 0) {
       const cells: number[][] = [];
+      const affectedIndices: number[] = [];
+      const isReveal = this.fogBrushMode === 'reveal';
+
       this.paintedFogCells.forEach((coord) => {
         const [x, y] = coord.split(',').map(Number);
         cells.push([x, y]);
+        if (x >= 0 && x < gridW && y >= 0 && y < gridH) {
+          affectedIndices.push(y * gridW + x);
+        }
       });
 
-      if (this.fogBrushMode === 'reveal') {
+      // Optimistic update on mouseup: 0 ms perceived latency
+      this.wsService.vttState.update((s) => {
+        if (!s) return s;
+        const currentRevealed = new Set(s.fog?.revealed || []);
+        if (isReveal) {
+          affectedIndices.forEach((idx) => currentRevealed.add(idx));
+        } else {
+          affectedIndices.forEach((idx) => currentRevealed.delete(idx));
+        }
+        return {
+          ...s,
+          fog: {
+            enabled: s.fog?.enabled ?? true,
+            revealed: Array.from(currentRevealed),
+          },
+        };
+      });
+
+      const updatedRevealed = this.vttState()?.fog?.revealed;
+      this.lastFogRevealed = updatedRevealed ? [...updatedRevealed] : undefined;
+      this.lastFogRevealedSet = updatedRevealed ? new Set(updatedRevealed) : undefined;
+
+      if (isReveal) {
         this.wsService.sendVttFogReveal(cells);
       } else if (this.fogBrushMode === 'hide') {
         this.wsService.sendVttFogHide(cells);
       }
       this.paintedFogCells.clear();
+      this.renderFogCanvas();
     }
   }
 
   private getCellCoordsAtMouse(event: MouseEvent): { cx: number; cy: number } | null {
     const canvas = this.fogCanvasRef?.nativeElement;
     if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
+    const rect = this.cachedCanvasRect || canvas.getBoundingClientRect();
     const cellSize = this.vttState()?.grid?.cell_size || 50;
     const gridW = this.vttState()?.grid?.width || 30;
     const gridH = this.vttState()?.grid?.height || 30;
@@ -1115,7 +1271,7 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   private addCellAtMouse(event: MouseEvent): void {
     const canvas = this.fogCanvasRef?.nativeElement;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
+    const rect = this.cachedCanvasRect || canvas.getBoundingClientRect();
     const cellSize = this.vttState()?.grid?.cell_size || 50;
     const gridW = this.vttState()?.grid?.width || 30;
     const gridH = this.vttState()?.grid?.height || 30;
