@@ -1,0 +1,140 @@
+<forge-modal
+  [open]="open"
+  (closed)="close()"
+  title="🎲 Quick-Dice Tray"
+  maxWidth="420px"
+>
+  <div class="flex flex-col gap-4 p-2">
+    <!-- Roll Mode Selector Row -->
+    <div class="flex items-center justify-between gap-1 bg-surface p-1.5 rounded-xl border border-hairline">
+      <button
+        type="button"
+        (click)="setRollMode('normal')"
+        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all"
+        [ngClass]="rollMode === 'normal' ? 'bg-tile text-ink shadow-sm' : 'text-muted hover:text-ink'"
+      >
+        Normal
+      </button>
+      <button
+        type="button"
+        (click)="setRollMode('advantage')"
+        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+        [ngClass]="rollMode === 'advantage' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-muted hover:text-emerald-400'"
+      >
+        <span>▲ Adv</span>
+      </button>
+      <button
+        type="button"
+        (click)="setRollMode('disadvantage')"
+        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+        [ngClass]="rollMode === 'disadvantage' ? 'bg-crimson/20 text-crimson border border-crimson/40' : 'text-muted hover:text-crimson'"
+      >
+        <span>▼ Dis</span>
+      </button>
+    </div>
+
+    <!-- Active Formula & Live Pool Display -->
+    <div class="flex flex-col items-center justify-center p-3 bg-tile/70 rounded-xl border border-hairline min-h-[70px]">
+      <span class="text-micro font-semibold uppercase text-muted mb-0.5">Dice Formula</span>
+      <span class="text-2xl font-mono font-bold text-accent tracking-wide text-center truncate max-w-full">
+        {{ diceFormula }}
+      </span>
+    </div>
+
+    <!-- Dice Buttons Grid (Fat-finger friendly) -->
+    <div class="grid grid-cols-4 gap-2">
+      <button
+        *ngFor="let sides of [4, 6, 8, 10, 12, 20, 100]"
+        type="button"
+        (click)="addDie(sides)"
+        class="relative h-14 min-h-[50px] rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline transition-all flex flex-col items-center justify-center cursor-pointer group"
+      >
+        <span class="font-display font-extrabold text-lg text-ink">d{{ sides }}</span>
+        <span *ngIf="dicePool()[sides] > 0" class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-accent text-surface text-[10px] font-black rounded-full shadow-md animate-scaleIn">
+          {{ dicePool()[sides] }}
+        </span>
+      </button>
+
+      <!-- Clear Button in grid -->
+      <button
+        type="button"
+        (click)="clearPool()"
+        class="h-14 min-h-[50px] rounded-xl bg-surface hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted uppercase transition-all flex items-center justify-center cursor-pointer"
+        title="Clear dice pool"
+      >
+        Clear
+      </button>
+    </div>
+
+    <!-- Modifier Controls -->
+    <div class="flex items-center justify-between px-3 py-2 bg-surface rounded-xl border border-hairline">
+      <span class="text-xs font-semibold text-muted uppercase">Modifier</span>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          (click)="adjustModifier(-1)"
+          class="w-8 h-8 rounded-lg bg-tile hover:bg-tile/80 active:scale-95 text-ink font-bold flex items-center justify-center border border-hairline cursor-pointer"
+        >
+          −
+        </button>
+        <span class="font-mono font-bold text-base text-ink min-w-[32px] text-center">
+          {{ modifier() >= 0 ? '+' + modifier() : modifier() }}
+        </span>
+        <button
+          type="button"
+          (click)="adjustModifier(1)"
+          class="w-8 h-8 rounded-lg bg-tile hover:bg-tile/80 active:scale-95 text-ink font-bold flex items-center justify-center border border-hairline cursor-pointer"
+        >
+          +
+        </button>
+      </div>
+    </div>
+
+    <!-- Options: Broadcast to DM & Auto-Reset Mode -->
+    <div class="flex items-center justify-between text-xs text-muted px-1">
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" [ngModel]="broadcastToTable()" (ngModelChange)="broadcastToTable.set($event)" class="accent-accent w-4 h-4 rounded">
+        <span>Broadcast roll to DM</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" [ngModel]="autoResetRollMode()" (ngModelChange)="autoResetRollMode.set($event)" class="accent-accent w-4 h-4 rounded">
+        <span>Reset Adv after roll</span>
+      </label>
+    </div>
+
+    <!-- Roll Action Button -->
+    <button
+      forgeButton
+      variant="primary"
+      size="lg"
+      type="button"
+      (click)="executeRoll()"
+      class="w-full h-12 text-base font-bold shadow-md uppercase tracking-wider flex items-center justify-center gap-2"
+    >
+      <span>🎲 Roll Dice</span>
+    </button>
+
+    <!-- Last Roll Result Card -->
+    <div
+      *ngIf="lastRoll() as lr"
+      class="mt-1 p-3 rounded-xl border bg-panel transition-all"
+      [ngClass]="{
+        'border-emerald-500/50 bg-emerald-950/20': lr.isCritSuccess,
+        'border-crimson/50 bg-red-950/20': lr.isCritFail,
+        'border-accent/40': !lr.isCritSuccess && !lr.isCritFail
+      }"
+    >
+      <div class="flex items-center justify-between">
+        <span class="text-micro font-bold uppercase text-muted">Last Roll Result</span>
+        <span *ngIf="lr.isCritSuccess" class="text-xs font-black text-emerald-400">💥 NATURAL 20!</span>
+        <span *ngIf="lr.isCritFail" class="text-xs font-black text-crimson">💀 CRITICAL FAIL!</span>
+      </div>
+      <div class="flex items-baseline justify-between mt-1">
+        <span class="text-xs font-mono text-muted">
+          {{ lr.expression }} <span *ngIf="lr.rolls.length > 0">({{ lr.rolls.join(', ') }})</span>
+        </span>
+        <span class="text-3xl font-display font-black text-ink">{{ lr.total }}</span>
+      </div>
+    </div>
+  </div>
+</forge-modal>

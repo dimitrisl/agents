@@ -406,11 +406,21 @@ async def apply_level_up(
                 char_doc.setdefault("skill_expertise", []).append(choice_val)
             elif "skill" in choice_label.lower() or "proficiency" in choice_label.lower():
                 char_doc.setdefault("skill_proficiencies", []).append(choice_val)
+            elif (
+                choice_key.startswith("level_up")
+                or choice_key in ("hp_method", "hp_roll", "subclass", "hit_die_roll")
+                or "level_up" in choice_label.lower()
+                or "hp_method" in choice_label.lower()
+                or str(choice_val).lower() in ("roll", "average", "manual")
+            ):
+                # Metadata / mechanical level-up choices: do not append to features_traits
+                pass
             else:
-                # Fallback: just add it as a feature
-                char_doc.setdefault("features_traits", []).append(
-                    {"name": choice_val, "description": f"Selected for {choice_label}"}
-                )
+                # Fallback: only add if it's a real feature
+                if choice_val and str(choice_val).lower() not in ("roll", "average", "manual"):
+                    char_doc.setdefault("features_traits", []).append(
+                        {"name": choice_val, "description": f"Selected for {choice_label}"}
+                    )
 
     # Sync stats deterministically
     from backend.services.homebrew_service import HomebrewService

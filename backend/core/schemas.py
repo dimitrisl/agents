@@ -109,8 +109,57 @@ class Weapon(BaseModel):
         return data
 
 
+class CurrencySchema(BaseModel):
+    cp: int = 0
+    sp: int = 0
+    ep: int = 0
+    gp: int = 0
+    pp: int = 0
+
+    @field_validator("cp", "sp", "ep", "gp", "pp", mode="before")
+    @classmethod
+    def validate_non_negative(cls, v: Any) -> int:
+        if v is None:
+            return 0
+        try:
+            val = int(v)
+            return max(0, val)
+        except (ValueError, TypeError):
+            return 0
+
+
+class ClassResourceSchema(BaseModel):
+    name: str
+    current: int = 0
+    max: int = 1
+    recharge: str = "long"  # "short" or "long"
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_resource(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            raw_max = data.get("max")
+            try:
+                max_val = max(1, int(raw_max if raw_max is not None else 1))
+            except (ValueError, TypeError):
+                max_val = 1
+
+            raw_cur = data.get("current")
+            try:
+                cur_val = max(0, min(max_val, int(raw_cur if raw_cur is not None else max_val)))
+            except (ValueError, TypeError):
+                cur_val = max_val
+
+            data["max"] = max_val
+            data["current"] = cur_val
+            recharge_val = str(data.get("recharge") or "long").lower()
+            data["recharge"] = "short" if recharge_val == "short" else "long"
+        return data
+
+
 class EquipmentItem(BaseModel):
     name: str
+    quantity: int = 1
     equipped: bool = False
     attuned: bool = False
     ac_bonus: int = 0
@@ -118,6 +167,17 @@ class EquipmentItem(BaseModel):
     val1: int = 0
     mod2: str = "None"
     val2: int = 0
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def validate_quantity(cls, v: Any) -> int:
+        if v is None:
+            return 1
+        try:
+            val = int(v)
+            return max(0, val)
+        except (ValueError, TypeError):
+            return 1
 
 
 class FeatureTrait(BaseModel):
@@ -245,6 +305,24 @@ class CharacterSchema(BaseModel):
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
+    currency: CurrencySchema = Field(default_factory=CurrencySchema)
+    class_resources: List[ClassResourceSchema] = Field(default_factory=list)
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def normalize_currency(cls, v: Any) -> Any:
+        if v is None:
+            return CurrencySchema()
+        if isinstance(v, dict):
+            return CurrencySchema(**v)
+        return v
+
+    @field_validator("class_resources", mode="before")
+    @classmethod
+    def normalize_class_resources(cls, v: Any) -> List[Any]:
+        if not isinstance(v, list):
+            return []
+        return v
 
     @computed_field
     @property

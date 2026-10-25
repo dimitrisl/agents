@@ -80,11 +80,17 @@ export class CommandPaletteComponent {
   }
 
   filterCommands() {
+    const isMobile =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 1023px)').matches;
+
+    const baseCommands = isMobile ? this.commands.filter((c) => c.route !== '/dm') : this.commands;
     const query = this.searchQuery.toLowerCase().trim();
     if (!query) {
-      this.filteredCommands = [...this.commands];
+      this.filteredCommands = [...baseCommands];
     } else {
-      this.filteredCommands = this.commands.filter(
+      this.filteredCommands = baseCommands.filter(
         (c) => c.title.toLowerCase().includes(query) || c.category.toLowerCase().includes(query)
       );
     }

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -121,6 +121,11 @@ export class DmComponent implements OnInit, OnDestroy {
   campaignName = '';
   campaignNotes = '';
   inviteCode = '';
+  isMobileViewport = signal<boolean>(false);
+
+  goToPlayer(): void {
+    this.router.navigate(['/player']);
+  }
   /** The ruleset this campaign was forged under. Empty until one is selected. */
   campaignEdition = '';
 
@@ -280,8 +285,16 @@ export class DmComponent implements OnInit, OnDestroy {
   onlineCharacters = new Set<string>();
 
   private campaignInitialLoad = new Set<string>();
+  private mq?: MediaQueryList;
+  private readonly mqListener = (e: MediaQueryListEvent) => this.isMobileViewport.set(e.matches);
 
   ngOnInit() {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      this.mq = window.matchMedia('(max-width: 1023px)');
+      this.isMobileViewport.set(this.mq.matches);
+      this.mq.addEventListener('change', this.mqListener);
+    }
+
     this.loadCampaigns();
 
     this.encounterSub = this.encounterSyncSubject.pipe(
@@ -392,6 +405,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.mq?.removeEventListener('change', this.mqListener);
     this.wsSub?.unsubscribe();
     this.openedSub?.unsubscribe();
     this.encounterSub?.unsubscribe();

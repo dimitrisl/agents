@@ -1,14 +1,25 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CharacterSchema, FeatureTrait } from '../../../../core/models/character.model';
-import { ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeListRowComponent } from '../../../../shared/ui';
+import { CharacterSchema, ClassResource, FeatureTrait } from '../../../../core/models/character.model';
+import { HapticsService } from '../../../../core/services/haptics.service';
+import { RollToastService } from '../../../../core/services/roll-toast.service';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeListRowComponent, ForgeModalComponent } from '../../../../shared/ui';
 import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell-detail-modal.component';
 
 @Component({
   selector: 'app-spells-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeListRowComponent, SpellDetailModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ForgeBadgeComponent,
+    ForgeButtonDirective,
+    ForgeInputDirective,
+    ForgeListRowComponent,
+    ForgeModalComponent,
+    SpellDetailModalComponent
+  ],
   templateUrl: './spells-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -24,6 +35,10 @@ export class SpellsPanelComponent {
   @Output() useSpellSlot = new EventEmitter<number>();
   @Output() restoreSpellSlot = new EventEmitter<number>();
   @Output() save = new EventEmitter<void>();
+  @Output() castSpell = new EventEmitter<{ spellName: string; level: number; isRitual: boolean }>();
+
+  private readonly haptics = inject(HapticsService);
+  private readonly toast = inject(RollToastService);
 
   readonly spellLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   selectedSpell = signal<string | null>(null);
@@ -32,16 +47,44 @@ export class SpellsPanelComponent {
   addingFeature = signal<boolean>(false);
   newFeatureName = '';
 
+  // Search & Filter Pills (#173)
+  searchQuery = signal<string>('');
+  selectedFilter = signal<'all' | 'prepared' | 'cantrips'>('all');
+
+  // Upcast Dialog State (#173)
+  upcastTarget = signal<{ spellName: string; baseLevel: number } | null>(null);
+
+  // Class Resources Modal State (#173)
+  showAddResourceModal = signal<boolean>(false);
+  newResourceName = '';
+  newResourceMax = 3;
+  newResourceRecharge: 'short' | 'long' = 'long';
+
   private readonly expandedFeatures = new Set<number>();
 
-  // Only levels the character actually has slots for. A level 1 cleric should
-  // not have to scan past eight empty "0 / 0" tiles to find its one slot row.
   get activeSpellLevels(): number[] {
     return this.spellLevels.filter((level) => this.getSpellSlotMax(level) > 0);
   }
 
+  featuresSectionCollapsed = signal<boolean>(false);
+
+  toggleFeaturesSection(): void {
+    this.featuresSectionCollapsed.update((v) => !v);
+  }
+
   get features(): FeatureTrait[] {
-    return this.char.features_traits ?? [];
+    const raw = this.char.features_traits ?? [];
+    return raw.filter((f) => {
+      const name = (f.name || '').trim().toLowerCase();
+      const desc = (f.description || '').trim().toLowerCase();
+      if (name === 'roll' || name === 'average' || name === 'manual') return false;
+      if (desc.includes('selected for level_up_class') || desc.includes('selected for hp_method')) return false;
+      return true;
+    });
+  }
+
+  get classResources(): ClassResource[] {
+    return this.char.class_resources ?? [];
   }
 
   get allFeaturesExpanded(): boolean {
@@ -52,8 +95,6 @@ export class SpellsPanelComponent {
     return level;
   }
 
-  // The tracker counts down like a real slot pool: "2 of 2 left" becomes "1 of 2"
-  // after casting, so the − button always lowers the number on screen.
   slotsRemaining(level: number): number {
     return this.getSpellSlotMax(level) - this.getSpellSlotUsed(level);
   }
@@ -84,7 +125,7 @@ export class SpellsPanelComponent {
     this.features.forEach((_feature, index) => this.expandedFeatures.add(index));
   }
 
-  get spellGroups(): { label: string; level: number; spells: string[] }[] {
+  get rawSpellGroups(): { label: string; level: number; spells: string[] }[] {
     const groups: { label: string; level: number; spells: string[] }[] = [];
     const spells = this.char.spells;
     if (!spells) return groups;
@@ -112,11 +153,143 @@ export class SpellsPanelComponent {
     return groups;
   }
 
+  get filteredSpellGroups(): { label: string; level: number; spells: string[] }[] {
+    const query = this.searchQuery().trim().toLowerCase();
+    const filter = this.selectedFilter();
+
+    return this.rawSpellGroups
+      .map(group => {
+        if (filter === 'cantrips' && group.level !== 0) {
+          return { ...group, spells: [] };
+        }
+
+        const matchingSpells = group.spells.filter(spell => {
+          if (filter === 'prepared' && !this.isPrepared(spell) && group.level > 0) {
+            return false;
+          }
+          if (query && !spell.toLowerCase().includes(query)) {
+            return false;
+          }
+          return true;
+        });
+
+        return { ...group, spells: matchingSpells };
+      })
+      .filter(group => group.spells.length > 0 || (this.editMode && !query && filter === 'all'));
+  }
+
   isPrepared(spellName: string): boolean {
     if (!this.char.prepared_spells) return false;
     return this.char.prepared_spells.includes(spellName);
   }
 
+  // --- 1-Tap Spell Casting Flow (#173) ---
+  initiateCast(spellName: string, baseLevel: number, event: Event) {
+    event.stopPropagation();
+    this.haptics.lightTap();
+
+    if (baseLevel === 0) {
+      // Cantrip: cast for free!
+      this.castSpell.emit({ spellName, level: 0, isRitual: false });
+      return;
+    }
+
+    // Check available slot levels >= baseLevel
+    const availableSlotLevels = this.spellLevels.filter(lvl => lvl >= baseLevel && this.slotsRemaining(lvl) > 0);
+
+    if (availableSlotLevels.length === 0) {
+      this.toast.showMessage('⚠️ NO SPELL SLOTS', `No available spell slots to cast ${spellName} (Level ${baseLevel}+).`);
+      return;
+    }
+
+    if (availableSlotLevels.length === 1 && availableSlotLevels[0] === baseLevel) {
+      // Exactly base level slot available: cast directly!
+      this.useSpellSlot.emit(baseLevel);
+      this.castSpell.emit({ spellName, level: baseLevel, isRitual: false });
+      return;
+    }
+
+    // Multiple slots or upcasting possible: open upcast selector
+    this.upcastTarget.set({ spellName, baseLevel });
+  }
+
+  confirmUpcast(slotLevel: number, isRitual = false) {
+    const target = this.upcastTarget();
+    if (!target) return;
+
+    this.haptics.lightTap();
+    if (!isRitual) {
+      this.useSpellSlot.emit(slotLevel);
+    }
+    this.castSpell.emit({ spellName: target.spellName, level: slotLevel, isRitual });
+    this.upcastTarget.set(null);
+  }
+
+  closeUpcast() {
+    this.upcastTarget.set(null);
+  }
+
+  getAvailableUpcastLevels(baseLevel: number): number[] {
+    return this.spellLevels.filter(lvl => lvl >= baseLevel && this.slotsRemaining(lvl) > 0);
+  }
+
+  // --- Class Resources (#173) ---
+  incrementResource(res: ClassResource, event: Event) {
+    event.stopPropagation();
+    this.haptics.lightTap();
+    if (res.current < res.max) {
+      res.current += 1;
+      this.save.emit();
+    }
+  }
+
+  decrementResource(res: ClassResource, event: Event) {
+    event.stopPropagation();
+    this.haptics.lightTap();
+    if (res.current > 0) {
+      res.current -= 1;
+      this.save.emit();
+    }
+  }
+
+  openAddResourceModal() {
+    this.newResourceName = '';
+    this.newResourceMax = 3;
+    this.newResourceRecharge = 'long';
+    this.showAddResourceModal.set(true);
+  }
+
+  closeAddResourceModal() {
+    this.showAddResourceModal.set(false);
+  }
+
+  confirmAddResource() {
+    const name = this.newResourceName.trim();
+    if (!name) return;
+
+    if (!this.char.class_resources) {
+      this.char.class_resources = [];
+    }
+    const maxVal = Math.max(1, this.newResourceMax || 1);
+    this.char.class_resources.push({
+      name,
+      current: maxVal,
+      max: maxVal,
+      recharge: this.newResourceRecharge,
+    });
+    this.save.emit();
+    this.closeAddResourceModal();
+  }
+
+  deleteResource(index: number, event: Event) {
+    event.stopPropagation();
+    if (this.char.class_resources) {
+      this.char.class_resources.splice(index, 1);
+      this.save.emit();
+    }
+  }
+
+  // --- Spell Management ---
   addSpell(levelLabel: string, explicitName?: string) {
     if (explicitName !== undefined) {
       this.newSpellName = explicitName;

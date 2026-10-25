@@ -26,6 +26,7 @@ import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeInputDirective,
+  ForgeModalComponent,
 } from '../../../../shared/ui';
 import { CombatDicePanelComponent } from './combat-dice-panel/combat-dice-panel.component';
 
@@ -45,6 +46,7 @@ const EMPTY_PROFILE: CombatProfile = {
     ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeInputDirective,
+    ForgeModalComponent,
     CombatDicePanelComponent,
   ],
   templateUrl: './combat-panel.component.html',
@@ -65,6 +67,16 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Output() addEquipment = new EventEmitter<void>();
   @Output() deleteEquipment = new EventEmitter<number>();
   @Output() save = new EventEmitter<void>();
+  @Output() consumePotion = new EventEmitter<{ item: EquipmentItem; dice: string; bonus: number; name: string }>();
+
+  showCoinModal = false;
+  selectedCoin: 'cp' | 'sp' | 'ep' | 'gp' | 'pp' = 'gp';
+  readonly coinTypes: ('pp' | 'gp' | 'ep' | 'sp' | 'cp')[] = ['pp', 'gp', 'ep', 'sp', 'cp'];
+  coinNumpadValue = '0';
+
+  selectCoin(c: 'pp' | 'gp' | 'ep' | 'sp' | 'cp') {
+    this.selectedCoin = c;
+  }
 
   private readonly dice = inject(DiceService);
   private readonly rollToast = inject(RollToastService);
@@ -320,5 +332,122 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       text += ` [DC ${this.getToppleDc(w)} CON Save]`;
     }
     return text;
+  }
+
+  // --- Currency & Wallet ---
+  get currency() {
+    return this.char.currency || { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+  }
+
+  openCoinModal(coin: 'cp' | 'sp' | 'ep' | 'gp' | 'pp' = 'gp') {
+    this.selectedCoin = coin;
+    this.coinNumpadValue = '0';
+    this.showCoinModal = true;
+  }
+
+  closeCoinModal() {
+    this.showCoinModal = false;
+  }
+
+  appendCoinDigit(digit: string) {
+    if (this.coinNumpadValue === '0') {
+      this.coinNumpadValue = digit;
+    } else if (this.coinNumpadValue.length < 6) {
+      this.coinNumpadValue += digit;
+    }
+  }
+
+  backspaceCoin() {
+    if (this.coinNumpadValue.length <= 1) {
+      this.coinNumpadValue = '0';
+    } else {
+      this.coinNumpadValue = this.coinNumpadValue.slice(0, -1);
+    }
+  }
+
+  clearCoinNumpad() {
+    this.coinNumpadValue = '0';
+  }
+
+  addCoinPill(amount: number) {
+    const cur = parseInt(this.coinNumpadValue, 10) || 0;
+    this.coinNumpadValue = String(cur + amount);
+  }
+
+  executeAddCoins() {
+    const amt = parseInt(this.coinNumpadValue, 10) || 0;
+    if (amt > 0) {
+      if (!this.char.currency) {
+        this.char.currency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+      }
+      this.char.currency[this.selectedCoin] = (this.char.currency[this.selectedCoin] || 0) + amt;
+      this.save.emit();
+      this.rollToast.showMessage('💰 LOOT ADDED', `Added ${amt} ${this.selectedCoin.toUpperCase()} (Total: ${this.char.currency[this.selectedCoin]}).`);
+    }
+    this.closeCoinModal();
+  }
+
+  executeSpendCoins() {
+    const amt = parseInt(this.coinNumpadValue, 10) || 0;
+    if (amt > 0) {
+      if (!this.char.currency) {
+        this.char.currency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+      }
+      const currentVal = this.char.currency[this.selectedCoin] || 0;
+      if (amt > currentVal) {
+        this.rollToast.showMessage('⚠️ INSUFFICIENT COINS', `You only have ${currentVal} ${this.selectedCoin.toUpperCase()}.`);
+        return;
+      }
+      this.char.currency[this.selectedCoin] = currentVal - amt;
+      this.save.emit();
+      this.rollToast.showMessage('🪙 COINS SPENT', `Spent ${amt} ${this.selectedCoin.toUpperCase()} (Remaining: ${this.char.currency[this.selectedCoin]}).`);
+    }
+    this.closeCoinModal();
+  }
+
+  // --- Attunement & Equipment ---
+  get attunedCount(): number {
+    return (this.char.equipment || []).filter(item => !!item.attuned).length;
+  }
+
+  toggleAttuned(item: EquipmentItem) {
+    if (!item.attuned && this.attunedCount >= 3) {
+      this.rollToast.showMessage('🔮 ATTUNEMENT LIMIT', 'You can only attune up to 3 magic items at a time (5e rules).');
+      return;
+    }
+    item.attuned = !item.attuned;
+    this.save.emit();
+  }
+
+  adjustQuantity(item: EquipmentItem, delta: number, event: Event) {
+    event.stopPropagation();
+    const currentQty = item.quantity ?? 1;
+    const newQty = Math.max(0, currentQty + delta);
+    item.quantity = newQty;
+    this.save.emit();
+  }
+
+  isHealingPotion(item: EquipmentItem): boolean {
+    const name = (item.name || '').toLowerCase();
+    return name.includes('potion of') && name.includes('healing');
+  }
+
+  drinkPotion(item: EquipmentItem, event: Event) {
+    event.stopPropagation();
+    const name = (item.name || '').toLowerCase();
+    let dice = '2d4';
+    let bonus = 2;
+    if (name.includes('supreme')) {
+      dice = '10d4';
+      bonus = 20;
+    } else if (name.includes('superior')) {
+      dice = '8d4';
+      bonus = 8;
+    } else if (name.includes('greater')) {
+      dice = '4d4';
+      bonus = 4;
+    }
+
+    this.consumePotion.emit({ item, dice, bonus, name: item.name });
   }
 }

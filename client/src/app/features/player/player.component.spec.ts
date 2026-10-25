@@ -394,4 +394,112 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(whisper.has_open_report).toBe(true);
     });
   });
+
+  describe('Mobile Player Companion Fixes (#170-#175)', () => {
+    it('triggers concentration check even when damage is fully absorbed by Temp HP', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({
+        ...HERO,
+        hp_current: 20,
+        hp_max: 20,
+        hp_temp: 15,
+        concentrating_on: 'Bless',
+      });
+
+      component.applyDamage(10);
+
+      expect(charState.activeCharacter()?.hp_temp).toBe(5);
+      expect(charState.activeCharacter()?.hp_current).toBe(20);
+      expect(component.showConcentrationPrompt()).toBe(true);
+      expect(component.concentrationDc()).toBe(10);
+    });
+
+    it('uses CON saving throw bonus (including proficiency) and rollMode in rollConcentrationSave', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      const dice = TestBed.inject(DiceService);
+      const rollSpy = jest.spyOn(dice, 'rollD20').mockReturnValue({
+        total: 18,
+        raw: 13,
+        rolls: [13, 8],
+        sides: 20,
+        modifier: 5,
+        expression: '1d20+5 (ADVANTAGE)',
+        mode: 'advantage',
+      });
+
+      charState.activeCharacter.set({
+        ...HERO,
+        stats: { ...HERO.stats, CON: 16 }, // +3 mod
+        saving_throws: ['CON'], // +2 prof = +5 total
+        proficiency_bonus: 2,
+        concentrating_on: 'Haste',
+      });
+      component.rollMode = 'advantage';
+      component.concentrationDc.set(15);
+      component.showConcentrationPrompt.set(true);
+
+      component.rollConcentrationSave();
+
+      expect(rollSpy).toHaveBeenCalledWith(5, 'advantage');
+      expect(component.showConcentrationPrompt()).toBe(false);
+    });
+
+    it('updates HP and equipment immutably in a single save on onConsumePotion', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      const potion = { name: 'Potion of Healing', quantity: 2, equipped: false };
+      charState.activeCharacter.set({
+        ...HERO,
+        hp_current: 10,
+        hp_max: 30,
+        equipment: [potion],
+      });
+
+      component.onConsumePotion({
+        item: potion,
+        dice: '2d4',
+        bonus: 2,
+        name: 'Potion of Healing',
+      });
+
+      const putReq = http.expectOne((r) => r.method === 'PUT' && r.url.includes('/characters/'));
+      putReq.flush(putReq.request.body);
+
+      const updated = charState.activeCharacter();
+      expect(updated?.hp_current).toBeGreaterThan(10);
+      expect(updated?.equipment?.[0]?.quantity).toBe(1);
+    });
+
+    it('broadcasts custom roll to campaign whisper endpoint when broadcast is true', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: 'DragonHeist',
+      });
+
+      component.onCustomRoll({
+        title: '🎲 1d20',
+        expression: '1d20+3',
+        total: 17,
+        rolls: [14],
+        modifier: 3,
+        broadcast: true,
+      });
+
+      const req = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/DragonHeist/whisper')
+      );
+      expect(req.request.body.sender).toBe(HERO.char_name);
+      expect(req.request.body.recipient).toBe('DM');
+      expect(req.request.body.message).toContain('1d20+3 = 17');
+      req.flush({
+        whisper: {
+          id: 'w-99',
+          sender: HERO.char_name,
+          recipient: 'DM',
+          message: req.request.body.message,
+          timestamp: '12:00',
+        },
+      });
+    });
+  });
 });

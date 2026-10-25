@@ -69,6 +69,10 @@
       (hpChange)="hpChange.emit($event)"
       (tempChange)="tempChange.emit($event)"
       (deathSaveChange)="deathSaveChange.emit($event)"
+      (rollDeathSave)="rollDeathSave.emit()"
+      (applyDamage)="applyDamage.emit($event)"
+      (applyHeal)="applyHeal.emit($event)"
+      (setTempHp)="setTempHp.emit($event)"
     ></app-hit-points-control>
 
     <!-- Conditions & Concentration -->

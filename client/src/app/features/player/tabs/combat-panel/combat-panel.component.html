@@ -264,11 +264,184 @@
     </div>
   </section>
 
+  <!-- CURRENCY & COIN WALLET (#174) -->
+  <section class="flex flex-col gap-2" aria-labelledby="combat-currency-heading">
+    <div class="flex items-center justify-between">
+      <h3 id="combat-currency-heading" class="font-display text-title text-ink flex items-center gap-2">
+        <span>💰 Currency &amp; Purse</span>
+      </h3>
+      <span class="text-micro text-muted">Tap coin to add or spend</span>
+    </div>
+
+    <div class="grid grid-cols-5 gap-2 bg-tile/70 p-2.5 rounded-xl border border-hairline">
+      <!-- PP -->
+      <button
+        type="button"
+        (click)="openCoinModal('pp')"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        title="Platinum Pieces"
+      >
+        <span class="text-[10px] font-black uppercase text-muted group-hover:text-ink">PP</span>
+        <span class="font-mono font-black text-sm text-ink">{{ currency.pp || 0 }}</span>
+      </button>
+
+      <!-- GP -->
+      <button
+        type="button"
+        (click)="openCoinModal('gp')"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-gold/40 transition-all cursor-pointer group shadow-sm"
+        title="Gold Pieces"
+      >
+        <span class="text-[10px] font-black uppercase text-gold">GP</span>
+        <span class="font-mono font-black text-base text-gold">{{ currency.gp || 0 }}</span>
+      </button>
+
+      <!-- EP -->
+      <button
+        type="button"
+        (click)="openCoinModal('ep')"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        title="Electrum Pieces"
+      >
+        <span class="text-[10px] font-black uppercase text-muted group-hover:text-ink">EP</span>
+        <span class="font-mono font-black text-sm text-ink">{{ currency.ep || 0 }}</span>
+      </button>
+
+      <!-- SP -->
+      <button
+        type="button"
+        (click)="openCoinModal('sp')"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        title="Silver Pieces"
+      >
+        <span class="text-[10px] font-black uppercase text-muted group-hover:text-ink">SP</span>
+        <span class="font-mono font-black text-sm text-ink">{{ currency.sp || 0 }}</span>
+      </button>
+
+      <!-- CP -->
+      <button
+        type="button"
+        (click)="openCoinModal('cp')"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        title="Copper Pieces"
+      >
+        <span class="text-[10px] font-black uppercase text-amber-600">CP</span>
+        <span class="font-mono font-black text-sm text-ink">{{ currency.cp || 0 }}</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- COIN CALCULATOR MODAL -->
+  <forge-modal
+    [open]="showCoinModal"
+    (closed)="closeCoinModal()"
+    [title]="'💰 Manage ' + selectedCoin.toUpperCase()"
+    maxWidth="360px"
+  >
+    <div class="flex flex-col gap-4 p-2">
+      <div class="flex items-center justify-between px-3 py-2 bg-tile rounded-lg">
+        <span class="text-xs text-muted uppercase">Current Balance</span>
+        <span class="font-mono font-bold text-lg text-ink">{{ currency[selectedCoin] || 0 }} {{ selectedCoin.toUpperCase() }}</span>
+      </div>
+
+      <!-- Coin Selector Chips -->
+      <div class="flex items-center justify-between gap-1">
+        <button
+          *ngFor="let c of coinTypes"
+          type="button"
+          (click)="selectCoin(c)"
+          class="flex-1 py-1 rounded text-xs font-bold uppercase transition-all"
+          [ngClass]="selectedCoin === c ? 'bg-gold text-surface' : 'bg-surface text-muted hover:text-ink border border-hairline'"
+        >
+          {{ c }}
+        </button>
+      </div>
+
+      <!-- Big Number Display -->
+      <div class="flex flex-col items-center justify-center p-3 bg-surface rounded-xl border border-hairline">
+        <span class="text-micro font-semibold uppercase text-muted mb-1">Transaction Amount</span>
+        <span class="text-3xl font-mono font-bold text-accent">{{ coinNumpadValue }} {{ selectedCoin.toUpperCase() }}</span>
+      </div>
+
+      <!-- Quick Pills -->
+      <div class="flex items-center justify-between gap-1">
+        <button
+          *ngFor="let p of [1, 5, 10, 50, 100]"
+          type="button"
+          (click)="addCoinPill(p)"
+          class="flex-1 py-1 rounded bg-tile hover:bg-tile/80 active:scale-95 border border-hairline text-xs font-bold text-ink"
+        >
+          +{{ p }}
+        </button>
+      </div>
+
+      <!-- Numpad Grid -->
+      <div class="grid grid-cols-3 gap-2">
+        <button
+          *ngFor="let digit of ['1','2','3','4','5','6','7','8','9']"
+          type="button"
+          (click)="appendCoinDigit(digit)"
+          class="h-11 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-ink"
+        >
+          {{ digit }}
+        </button>
+        <button
+          type="button"
+          (click)="clearCoinNumpad()"
+          class="h-11 rounded-xl bg-tile/50 hover:bg-tile text-xs font-bold text-muted uppercase"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          (click)="appendCoinDigit('0')"
+          class="h-11 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-ink"
+        >
+          0
+        </button>
+        <button
+          type="button"
+          (click)="backspaceCoin()"
+          class="h-11 rounded-xl bg-tile/50 hover:bg-tile text-base font-bold text-muted"
+        >
+          ⌫
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-hairline">
+        <button
+          type="button"
+          (click)="executeAddCoins()"
+          class="h-11 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-sm border border-emerald-500/40"
+        >
+          ➕ Add Loot
+        </button>
+        <button
+          type="button"
+          (click)="executeSpendCoins()"
+          class="h-11 rounded-xl bg-crimson/20 hover:bg-crimson/30 text-crimson font-bold text-sm border border-crimson/40"
+        >
+          ➖ Spend Coins
+        </button>
+      </div>
+    </div>
+  </forge-modal>
+
   <section class="flex flex-col gap-3" aria-labelledby="combat-equipment-heading">
     <div class="flex items-center justify-between gap-3">
-      <h3 id="combat-equipment-heading" class="font-display text-title text-ink">
-        Equipment &amp; Gear
-      </h3>
+      <div class="flex items-center gap-3">
+        <h3 id="combat-equipment-heading" class="font-display text-title text-ink">
+          Equipment &amp; Gear
+        </h3>
+        <!-- Attunement Tracker Counter (#174) -->
+        <span
+          class="px-2.5 py-0.5 rounded-full text-xs font-bold border transition-colors"
+          [ngClass]="attunedCount >= 3 ? 'bg-gold/15 border-gold/40 text-gold' : 'bg-surface border-hairline text-muted'"
+        >
+          🔮 Attuned: {{ attunedCount }}/3
+        </span>
+      </div>
       <button
         *ngIf="editMode"
         forgeButton
@@ -287,20 +460,70 @@
     >
       <div
         *ngFor="let item of char.equipment; let index = index"
-        class="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 transition-colors hover:bg-tile"
+        class="flex flex-wrap sm:flex-nowrap min-h-12 items-center justify-between gap-2 px-4 py-2 transition-colors hover:bg-tile"
       >
-        <span *ngIf="!editMode" class="min-w-0 truncate text-body text-ink">{{ item.name }}</span>
-        <input
-          *ngIf="editMode"
-          forgeInput
-          type="text"
-          class="min-w-0"
-          [(ngModel)]="item.name"
-          [attr.aria-label]="'Equipment name'"
-          (change)="save.emit()"
-        />
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <!-- Quantity Stepper -->
+          <div class="flex items-center gap-1 shrink-0 bg-surface px-1.5 py-0.5 rounded-lg border border-hairline">
+            <button
+              type="button"
+              (click)="adjustQuantity(item, -1, $event)"
+              class="text-muted hover:text-ink font-bold px-1 active:scale-95"
+              title="Decrease quantity"
+            >
+              −
+            </button>
+            <span class="font-mono text-xs font-bold text-ink min-w-[16px] text-center">
+              {{ item.quantity ?? 1 }}
+            </span>
+            <button
+              type="button"
+              (click)="adjustQuantity(item, 1, $event)"
+              class="text-muted hover:text-ink font-bold px-1 active:scale-95"
+              title="Increase quantity"
+            >
+              +
+            </button>
+          </div>
+
+          <span *ngIf="!editMode" class="min-w-0 truncate text-body font-medium text-ink">{{ item.name }}</span>
+          <input
+            *ngIf="editMode"
+            forgeInput
+            type="text"
+            class="min-w-0 flex-1"
+            [(ngModel)]="item.name"
+            [attr.aria-label]="'Equipment name'"
+            (change)="save.emit()"
+          />
+
+          <!-- 1-Tap Healing Potion Drink Button (#174) -->
+          <button
+            *ngIf="isHealingPotion(item)"
+            type="button"
+            (click)="drinkPotion(item, $event)"
+            class="ml-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 text-xs font-bold transition-all active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer"
+            title="Drink potion to restore HP"
+          >
+            <span>🧪 Drink</span>
+          </button>
+        </div>
 
         <div class="flex shrink-0 items-center gap-2">
+          <!-- Attunement Toggle Badge (#174) -->
+          <button
+            type="button"
+            class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [attr.aria-pressed]="!!item.attuned"
+            [attr.aria-label]="(item.attuned ? 'Unattune ' : 'Attune ') + item.name"
+            (click)="toggleAttuned(item)"
+          >
+            <forge-badge [interactive]="true" [tone]="item.attuned ? 'accent' : 'muted'">
+              🔮 {{ item.attuned ? 'Attuned' : 'Attune' }}
+            </forge-badge>
+          </button>
+
+          <!-- Equipped Toggle Badge -->
           <button
             type="button"
             class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
@@ -312,6 +535,7 @@
               {{ item.equipped ? 'Equipped' : 'Inventory' }}
             </forge-badge>
           </button>
+
           <button
             *ngIf="editMode"
             forgeButton

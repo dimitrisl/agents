@@ -42,6 +42,10 @@ export class CharacterOverviewCardComponent {
   @Output() hpChange = new EventEmitter<number>();
   @Output() tempChange = new EventEmitter<number>();
   @Output() deathSaveChange = new EventEmitter<{ type: 'successes' | 'failures'; value: number }>();
+  @Output() rollDeathSave = new EventEmitter<void>();
+  @Output() applyDamage = new EventEmitter<number>();
+  @Output() applyHeal = new EventEmitter<number>();
+  @Output() setTempHp = new EventEmitter<number>();
   @Output() manageConditions = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
