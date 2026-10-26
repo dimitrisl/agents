@@ -186,6 +186,7 @@
             (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
             (toggleCondition)="toggleCondition($event.member, $event.condition)"
             (privateRollRequest)="openSingleRollModal($event)"
+            (distributeLoot)="openLootModal()"
             (removeMember)="removePartyMember($event)"
           ></app-party-panel>
 
@@ -259,6 +260,7 @@
             role="tabpanel"
             aria-labelledby="dm-tabs-tab-homebrew"
             [campaignName]="campaignName"
+            (addMonsterToTracker)="addHomebrewMonsterToInitiative($event)"
           ></app-homebrew-panel>
         </div>
       </forge-card>
@@ -340,4 +342,14 @@
     (addExistingPartyMember)="addExistingPartyMember()"
     (copyInviteCode)="copyInviteCode()"
   ></app-add-member-modal>
+
+  <app-loot-distribute-modal
+    [open]="showLootModal"
+    [campaignName]="campaignName"
+    [partyMembers]="partyMembers"
+    [homebrewItems]="homebrewItems"
+    (openChange)="showLootModal = $event"
+    (closed)="showLootModal = false"
+    (distributed)="loadParty()"
+  ></app-loot-distribute-modal>
 </forge-page>

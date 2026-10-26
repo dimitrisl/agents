@@ -402,6 +402,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         if (char.active_campaign) {
           this.homebrewService.loadHomebrew(char.active_campaign).subscribe();
         }
+      } else if (msg.type === 'loot_distributed') {
+        const payload = msg['payload'];
+        if (payload?.character_ids?.includes(char.char_id)) {
+          this.charState.loadCharacters().subscribe();
+          const details: string[] = [];
+          if (payload.currency) {
+            const currParts: string[] = [];
+            if (payload.currency.pp) currParts.push(`${payload.currency.pp}pp`);
+            if (payload.currency.gp) currParts.push(`${payload.currency.gp}gp`);
+            if (payload.currency.ep) currParts.push(`${payload.currency.ep}ep`);
+            if (payload.currency.sp) currParts.push(`${payload.currency.sp}sp`);
+            if (payload.currency.cp) currParts.push(`${payload.currency.cp}cp`);
+            if (currParts.length) details.push(currParts.join(', '));
+          }
+          if (payload.items?.length) {
+            details.push(`${payload.items.length} item(s)`);
+          }
+          const summary = details.length ? `: ${details.join(' & ')}` : '';
+          this.rollToast.showMessage('💰 LOOT RECEIVED', `The DM awarded loot${summary}!`);
+        }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'];
         if (!this.isWhisperForCharacter(whisper, char.char_name)) return;
@@ -1248,7 +1268,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.http.post<any>(`${environment.apiBaseUrl}/campaigns/join`, {
       invite_code: this.joinInviteCode.toUpperCase(),
-      char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`
+      char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`,
+      character_id: char.char_id
     }).subscribe({
       next: (res) => {
         this.showJoinModal.set(false);

@@ -7,7 +7,7 @@ export interface HomebrewItem {
   _id?: string;
   campaign_id?: string;
   creator_dm_id?: string;
-  homebrew_type: 'weapon' | 'item' | 'spell' | 'feat' | 'feature';
+  homebrew_type: 'weapon' | 'item' | 'spell' | 'feat' | 'feature' | 'monster';
   name: string;
   [key: string]: any;
 }

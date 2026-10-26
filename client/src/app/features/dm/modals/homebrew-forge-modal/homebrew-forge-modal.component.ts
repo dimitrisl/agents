@@ -19,7 +19,7 @@ export class HomebrewForgeModalComponent {
   rollToast = inject(RollToastService);
 
   step = 1;
-  selectedType: 'weapon' | 'spell' | 'feat' = 'weapon';
+  selectedType: 'weapon' | 'spell' | 'feat' | 'monster' = 'weapon';
 
   // AI Form state
   aiPrompt = '';
@@ -33,7 +33,19 @@ export class HomebrewForgeModalComponent {
     damage_type: '',
     attack_bonus: '+0',
     level: 1,
-    school: ''
+    school: '',
+    size: 'Medium',
+    type: 'humanoid',
+    alignment: 'unaligned',
+    cr: '1',
+    ac: 10,
+    hp: 10,
+    speed: '30 ft.',
+    stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    senses: '',
+    languages: '',
+    actions_text: '',
+    traits_text: ''
   };
 
   nextStep() {
@@ -47,6 +59,16 @@ export class HomebrewForgeModalComponent {
       next: (result) => {
         // Auto-fill form
         this.formData = { ...this.formData, ...result };
+        if (result.actions && Array.isArray(result.actions)) {
+          this.formData['actions_text'] = result.actions
+            .map((a: any) => typeof a === 'string' ? a : `${a.name}: ${a.description}`)
+            .join('\n');
+        }
+        if (result.traits && Array.isArray(result.traits)) {
+          this.formData['traits_text'] = result.traits
+            .map((t: any) => typeof t === 'string' ? t : `${t.name}: ${t.description}`)
+            .join('\n');
+        }
         this.isForging = false;
       },
       error: () => {
@@ -58,7 +80,38 @@ export class HomebrewForgeModalComponent {
 
   save() {
     if (!this.campaignName) return;
-    const finalData = { ...this.formData, homebrew_type: this.selectedType };
+    const finalData: Record<string, any> = { ...this.formData, homebrew_type: this.selectedType };
+    if (this.selectedType === 'monster') {
+      finalData['ac'] = Number(finalData['ac']) || 10;
+      finalData['hp'] = Number(finalData['hp']) || 10;
+      if (!finalData['stats']) {
+        finalData['stats'] = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+      }
+      if (finalData['actions_text']) {
+        finalData['actions'] = finalData['actions_text']
+          .split('\n')
+          .filter((l: string) => l.trim())
+          .map((l: string) => {
+            const colonIdx = l.indexOf(':');
+            if (colonIdx > 0) {
+              return { name: l.substring(0, colonIdx).trim(), description: l.substring(colonIdx + 1).trim() };
+            }
+            return { name: 'Action', description: l.trim() };
+          });
+      }
+      if (finalData['traits_text']) {
+        finalData['traits'] = finalData['traits_text']
+          .split('\n')
+          .filter((l: string) => l.trim())
+          .map((l: string) => {
+            const colonIdx = l.indexOf(':');
+            if (colonIdx > 0) {
+              return { name: l.substring(0, colonIdx).trim(), description: l.substring(colonIdx + 1).trim() };
+            }
+            return { name: 'Trait', description: l.trim() };
+          });
+      }
+    }
     this.homebrewService.saveHomebrew(this.campaignName, finalData).subscribe({
       next: () => {
         this.rollToast.showMessage('✅ ITEM SAVED', 'Homebrew item saved successfully.');

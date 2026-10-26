@@ -790,4 +790,120 @@ afterEach(() => {
     expect(component.combatants.map(c => c.name)).toContain('Goblin');
     expect(component.combatants.map(c => c.name)).toContain('Goblin 2');
   });
+
+  describe('Initiative DEX Tie-Breaker', () => {
+    it('breaks ties using Dexterity score in descending order', () => {
+      // Both rolled initiative 15, but hero B has higher DEX (16 vs 12)
+      const combatantA = combatant('fighter', 15, { dex: 12 });
+      const combatantB = combatant('rogue', 15, { dex: 16 });
+      const combatantC = combatant('wizard', 20, { dex: 10 });
+      const combatantD = combatant('cleric', 15, { dex: 14 });
+
+      // Use sortCombatants via private access or adding to combatants
+      (component as any).combatants = (component as any).sortCombatants([
+        combatantA,
+        combatantB,
+        combatantC,
+        combatantD,
+      ]);
+
+      expect(component.combatants.map(c => c.id)).toEqual([
+        'wizard', // Initiative 20
+        'rogue',  // Initiative 15, DEX 16
+        'cleric', // Initiative 15, DEX 14
+        'fighter', // Initiative 15, DEX 12
+      ]);
+    });
+
+    it('defaults missing DEX to 10 during tie breaking', () => {
+      const combatantNoDex = combatant('no_dex', 14, { dex: undefined as any });
+      const combatantDex12 = combatant('dex_12', 14, { dex: 12 });
+      const combatantDex8 = combatant('dex_8', 14, { dex: 8 });
+
+      (component as any).combatants = (component as any).sortCombatants([
+        combatantDex8,
+        combatantNoDex,
+        combatantDex12,
+      ]);
+
+      expect(component.combatants.map(c => c.id)).toEqual([
+        'dex_12',    // 14, DEX 12
+        'no_dex',    // 14, DEX 10 (fallback)
+        'dex_8',     // 14, DEX 8
+      ]);
+    });
+  });
+
+  describe('Homebrew Monster in Initiative Tracker', () => {
+    it('adds a homebrew monster directly into the combatants list', () => {
+      const monsterItem = {
+        name: 'Gargoyle Brute',
+        homebrew_type: 'monster' as const,
+        size: 'Medium',
+        type: 'elemental',
+        alignment: 'chaotic evil',
+        cr: '2',
+        ac: 15,
+        hp: 42,
+        speed: '30 ft., fly 60 ft.',
+        stats: { str: 16, dex: 14, con: 16, int: 6, wis: 11, cha: 7 },
+        traits: [{ name: 'False Appearance', description: 'Indistinguishable from statue.' }],
+        actions: [{ name: 'Claws', description: '+5 to hit, 2d6+3 slashing.' }],
+      };
+
+      component.combatants = [];
+      component.addHomebrewMonsterToInitiative(monsterItem);
+
+      expect(component.combatants.length).toBe(1);
+      const added = component.combatants[0];
+      expect(added.name).toBe('Gargoyle Brute');
+      expect(added.hp).toBe(42);
+      expect(added.max_hp).toBe(42);
+      expect(added.ac).toBe(15);
+      expect(added.dex).toBe(14);
+      // initiative = 10 + dexMod (where dexMod for 14 is +2)
+      expect(added.initiative).toBe(12);
+      expect(added.is_player).toBe(false);
+      expect(added.statblock).toContain('Armor Class: 15');
+      expect(added.statblock).toContain('False Appearance');
+    });
+
+    it('correctly handles numeric string DEX values and calculates DEX modifier', () => {
+      const monsterItem = {
+        name: 'Goblin Sneak',
+        homebrew_type: 'monster' as const,
+        size: 'Small',
+        type: 'humanoid',
+        alignment: 'neutral evil',
+        cr: '1/4',
+        ac: 13,
+        hp: 7,
+        stats: { str: 8, dex: '16' as any, con: 12 },
+      };
+
+      component.combatants = [];
+      component.addHomebrewMonsterToInitiative(monsterItem);
+
+      expect(component.combatants.length).toBe(1);
+      const added = component.combatants[0];
+      expect(added.dex).toBe(16);
+      // initiative = 10 + dexMod (where dexMod for 16 is +3)
+      expect(added.initiative).toBe(13);
+    });
+  });
+
+  describe('Loot Distribution UI', () => {
+    it('opens the loot modal and loads campaign homebrew items', () => {
+      component.campaignName = 'Neverwinter';
+      component.showLootModal = false;
+
+      component.openLootModal();
+
+      expect(component.showLootModal).toBe(true);
+      const req = http.expectOne((r) => r.url.includes('/campaigns/Neverwinter/homebrew'));
+      req.flush([{ name: 'Vorpal Sword', homebrew_type: 'weapon' }]);
+      expect(component.homebrewItems.length).toBe(1);
+      expect(component.homebrewItems[0].name).toBe('Vorpal Sword');
+    });
+  });
 });

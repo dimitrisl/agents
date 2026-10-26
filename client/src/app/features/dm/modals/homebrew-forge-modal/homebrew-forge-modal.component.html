@@ -27,6 +27,10 @@
             <input type="radio" name="type" value="feat" [(ngModel)]="selectedType" class="hidden">
             <div class="font-bold text-lg">Feat</div>
           </label>
+          <label class="flex-1 border border-hairline rounded p-4 text-center cursor-pointer hover:border-accent" [class.bg-accent]="selectedType === 'monster'" [class.text-white]="selectedType === 'monster'">
+            <input type="radio" name="type" value="monster" [(ngModel)]="selectedType" class="hidden">
+            <div class="font-bold text-lg">Monster</div>
+          </label>
         </div>
         <div class="flex justify-end mt-4">
           <button class="bg-ink text-surface px-4 py-2 rounded" (click)="nextStep()">Continue</button>
@@ -75,6 +79,86 @@
             <div>
               <label class="text-xs font-bold text-muted uppercase">School</label>
               <input [(ngModel)]="formData['school']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Evocation">
+            </div>
+          </ng-container>
+
+          <!-- MONSTER FIELDS -->
+          <ng-container *ngIf="selectedType === 'monster'">
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Size</label>
+              <input [(ngModel)]="formData['size']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Medium">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Type</label>
+              <input [(ngModel)]="formData['type']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="humanoid, beast, undead...">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Alignment</label>
+              <input [(ngModel)]="formData['alignment']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="unaligned">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Challenge Rating (CR)</label>
+              <input [(ngModel)]="formData['cr']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="1">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Armor Class (AC)</label>
+              <input [(ngModel)]="formData['ac']" type="number" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="10">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Hit Points (HP)</label>
+              <input [(ngModel)]="formData['hp']" type="number" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="10">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Speed</label>
+              <input [(ngModel)]="formData['speed']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="30 ft.">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Senses</label>
+              <input [(ngModel)]="formData['senses']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Darkvision 60 ft., passive Perception 12">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-muted uppercase">Languages</label>
+              <input [(ngModel)]="formData['languages']" type="text" class="w-full bg-surface border border-hairline rounded p-2 text-ink" placeholder="Common, Goblin">
+            </div>
+
+            <!-- Ability Scores -->
+            <div class="col-span-2">
+              <label class="text-xs font-bold text-muted uppercase mb-1 block">Ability Scores</label>
+              <div class="grid grid-cols-6 gap-2" *ngIf="formData['stats']">
+                <div>
+                  <span class="text-micro font-bold text-muted block text-center">STR</span>
+                  <input [(ngModel)]="formData['stats'].str" type="number" class="w-full bg-surface border border-hairline rounded p-1 text-center text-ink text-sm">
+                </div>
+                <div>
+                  <span class="text-micro font-bold text-muted block text-center">DEX</span>
+                  <input [(ngModel)]="formData['stats'].dex" type="number" class="w-full bg-surface border border-hairline rounded p-1 text-center text-ink text-sm">
+                </div>
+                <div>
+                  <span class="text-micro font-bold text-muted block text-center">CON</span>
+                  <input [(ngModel)]="formData['stats'].con" type="number" class="w-full bg-surface border border-hairline rounded p-1 text-center text-ink text-sm">
+                </div>
+                <div>
+                  <span class="text-micro font-bold text-muted block text-center">INT</span>
+                  <input [(ngModel)]="formData['stats'].int" type="number" class="w-full bg-surface border border-hairline rounded p-1 text-center text-ink text-sm">
+                </div>
+                <div>
+                  <span class="text-micro font-bold text-muted block text-center">WIS</span>
+                  <input [(ngModel)]="formData['stats'].wis" type="number" class="w-full bg-surface border border-hairline rounded p-1 text-center text-ink text-sm">
+                </div>
+                <div>
+                  <span class="text-micro font-bold text-muted block text-center">CHA</span>
+                  <input [(ngModel)]="formData['stats'].cha" type="number" class="w-full bg-surface border border-hairline rounded p-1 text-center text-ink text-sm">
+                </div>
+              </div>
+            </div>
+
+            <div class="col-span-2">
+              <label class="text-xs font-bold text-muted uppercase">Traits (one per line, e.g. Pack Tactics: ...)</label>
+              <textarea [(ngModel)]="formData['traits_text']" rows="2" class="w-full bg-surface border border-hairline rounded p-2 text-ink"></textarea>
+            </div>
+            <div class="col-span-2">
+              <label class="text-xs font-bold text-muted uppercase">Actions (one per line, e.g. Bite: +4 to hit, 1d6+2 piercing)</label>
+              <textarea [(ngModel)]="formData['actions_text']" rows="2" class="w-full bg-surface border border-hairline rounded p-2 text-ink"></textarea>
             </div>
           </ng-container>
 

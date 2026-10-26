@@ -1,0 +1,177 @@
+<forge-modal
+  title="💰 Distribute Loot & Currency"
+  [open]="open"
+  maxWidth="640px"
+  (openChange)="openChange.emit($event)"
+  (closed)="closeModal()"
+>
+  <div class="flex flex-col gap-4">
+    <!-- Target Recipients Selection -->
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-bold uppercase tracking-wide text-muted">Recipients</label>
+        <button
+          type="button"
+          class="text-xs text-accent hover:underline font-semibold"
+          (click)="toggleSelectAll(!allSelected)"
+        >
+          {{ allSelected ? 'Deselect All' : 'Select All Party' }}
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 bg-tile rounded border border-hairline">
+        <label
+          *ngFor="let member of partyMembers"
+          class="flex items-center gap-2 text-sm p-1.5 rounded cursor-pointer hover:bg-panel transition-colors"
+          [class.bg-panel]="selectedCharIds[member.char_id || '']"
+        >
+          <input
+            type="checkbox"
+            [checked]="selectedCharIds[member.char_id || '']"
+            (change)="toggleRecipient(member.char_id || '')"
+            class="rounded border-hairline text-accent"
+          />
+          <span class="font-medium text-ink truncate">{{ member.name }}</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Currency Distribution -->
+    <div class="bg-tile p-3 rounded border border-hairline">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-bold uppercase tracking-wide text-muted">Award Currency</label>
+        <label class="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            [(ngModel)]="splitCurrency"
+            class="rounded border-hairline text-accent"
+          />
+          <span>Split evenly among recipients</span>
+        </label>
+      </div>
+
+      <div class="grid grid-cols-5 gap-2">
+        <div>
+          <span class="text-micro font-bold text-muted block text-center mb-0.5">PP</span>
+          <input
+            forgeInput
+            type="number"
+            min="0"
+            [(ngModel)]="pp"
+            class="text-center font-bold text-ink"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <span class="text-micro font-bold text-amber-500 block text-center mb-0.5">GP</span>
+          <input
+            forgeInput
+            type="number"
+            min="0"
+            [(ngModel)]="gp"
+            class="text-center font-bold text-ink"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <span class="text-micro font-bold text-cyan-600 block text-center mb-0.5">EP</span>
+          <input
+            forgeInput
+            type="number"
+            min="0"
+            [(ngModel)]="ep"
+            class="text-center font-bold text-ink"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <span class="text-micro font-bold text-slate-400 block text-center mb-0.5">SP</span>
+          <input
+            forgeInput
+            type="number"
+            min="0"
+            [(ngModel)]="sp"
+            class="text-center font-bold text-ink"
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <span class="text-micro font-bold text-amber-700 block text-center mb-0.5">CP</span>
+          <input
+            forgeInput
+            type="number"
+            min="0"
+            [(ngModel)]="cp"
+            class="text-center font-bold text-ink"
+            placeholder="0"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Award Equipment / Homebrew Items -->
+    <div class="space-y-3">
+      <label class="text-xs font-bold uppercase tracking-wide text-muted block">Award Items (Optional)</label>
+
+      <!-- Homebrew select if available -->
+      <div *ngIf="availableHomebrewItems.length > 0">
+        <label class="text-micro text-muted font-medium mb-1 block">From Campaign Homebrew:</label>
+        <select
+          [(ngModel)]="selectedHomebrewId"
+          class="w-full bg-surface border border-hairline rounded p-2 text-ink text-sm"
+        >
+          <option value="">-- None --</option>
+          <option *ngFor="let hb of availableHomebrewItems" [value]="hb._id">
+            [{{ hb.homebrew_type }}] {{ hb.name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Custom Item -->
+      <div class="grid grid-cols-2 gap-2">
+        <div class="col-span-2 sm:col-span-1">
+          <label class="text-micro text-muted font-medium mb-1 block">Custom Item Name:</label>
+          <input
+            forgeInput
+            type="text"
+            [(ngModel)]="customItemName"
+            placeholder="e.g. Potion of Healing"
+          />
+        </div>
+        <div class="col-span-2 sm:col-span-1">
+          <label class="text-micro text-muted font-medium mb-1 block">Reason / Source:</label>
+          <input
+            forgeInput
+            type="text"
+            [(ngModel)]="reason"
+            placeholder="e.g. Chest in Room 4"
+          />
+        </div>
+        <div class="col-span-2">
+          <label class="text-micro text-muted font-medium mb-1 block">Item Description:</label>
+          <input
+            forgeInput
+            type="text"
+            [(ngModel)]="customItemDesc"
+            placeholder="Optional item notes or mechanics"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex justify-end gap-2 pt-2 border-t border-hairline mt-2">
+      <button forgeButton variant="secondary" type="button" (click)="closeModal()">
+        Cancel
+      </button>
+      <button
+        forgeButton
+        type="button"
+        [disabled]="isDistributing || getSelectedIds().length === 0"
+        (click)="distribute()"
+      >
+        {{ isDistributing ? 'Distributing...' : '💰 Award Loot' }}
+      </button>
+    </div>
+  </div>
+</forge-modal>

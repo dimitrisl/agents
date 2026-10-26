@@ -55,6 +55,11 @@ def generate_homebrew_pdf(items: List[Dict[str, Any]]) -> io.BytesIO:
         elif htype == "Spell":
             details.append(f"Level: {item.get('level', 0)}")
             details.append(f"School: {item.get('school', 'N/A')}")
+        elif htype == "Monster":
+            details.append(f"CR: {item.get('cr', '1')}")
+            details.append(f"AC: {item.get('ac', 10)}")
+            details.append(f"HP: {item.get('hp', 10)}")
+            details.append(f"Speed: {item.get('speed', '30 ft.')}")
 
         meta_str = f"<b>Type:</b> {htype}"
         if details:
@@ -63,10 +68,33 @@ def generate_homebrew_pdf(items: List[Dict[str, Any]]) -> io.BytesIO:
         story.append(Paragraph(meta_str, meta_style))
 
         # Description
-        desc = item.get("description", "No description provided.")
-        import html
+        desc_parts = []
+        if item.get("description"):
+            desc_parts.append(item["description"])
+        elif htype != "Monster":
+            desc_parts.append("No description provided.")
 
-        desc = html.escape(desc).replace("\n", "<br/>")
+        if htype == "Monster":
+            traits = item.get("traits") or []
+            if traits:
+                desc_parts.append("<b>Traits:</b>")
+                for t in traits:
+                    desc_parts.append(
+                        f"• {t.get('name')}: {t.get('description')}"
+                        if isinstance(t, dict)
+                        else f"• {t}"
+                    )
+            actions = item.get("actions") or []
+            if actions:
+                desc_parts.append("<b>Actions:</b>")
+                for a in actions:
+                    desc_parts.append(
+                        f"• {a.get('name')}: {a.get('description')}"
+                        if isinstance(a, dict)
+                        else f"• {a}"
+                    )
+
+        desc = "<br/>".join(desc_parts) if desc_parts else "No description provided."
         story.append(Paragraph(desc, body_style))
 
         story.append(Spacer(1, 0.4 * inch))

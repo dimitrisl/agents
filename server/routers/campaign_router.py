@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import (
@@ -65,11 +65,13 @@ class PlayerCampaignSchema(BaseModel):
 
 class JoinCampaignRequest(BaseModel):
     invite_code: str
-    char_filename: str
+    char_filename: Optional[str] = None
+    character_id: Optional[str] = None
 
 
 class AddMemberRequest(BaseModel):
-    char_filename: str
+    char_filename: Optional[str] = None
+    character_id: Optional[str] = None
 
 
 class RollRequestSchema(BaseModel):
@@ -128,6 +130,23 @@ class CampaignMessagesResponse(BaseModel):
     roll_requests: List[Dict[str, Any]] = []
 
 
+class CurrencyDistributionSchema(BaseModel):
+    pp: int = Field(0, ge=0)
+    gp: int = Field(0, ge=0)
+    ep: int = Field(0, ge=0)
+    sp: int = Field(0, ge=0)
+    cp: int = Field(0, ge=0)
+
+
+class LootDistributionRequest(BaseModel):
+    character_ids: List[str]
+    currency: Optional[CurrencyDistributionSchema] = None
+    items: Optional[List[Dict[str, Any]]] = None
+    homebrew_item_ids: Optional[List[str]] = None
+    split_currency: bool = False
+    reason: Optional[str] = "Loot Reward"
+
+
 class RollRequestResponse(SuccessResponseSchema):
     request: Dict[str, Any]
 
@@ -144,11 +163,17 @@ async def _find_campaign_character(
     which is the reliable handle; the name is the fallback for a hero the DM typed in
     by hand rather than one that joined from the vault.
     """
-    char_id = (char_filename or "").replace(".json", "").rsplit("_", 1)[-1]
-    if char_id:
-        char = await db["characters"].find_one({"char_id": char_id})
+    raw = (char_filename or "").removesuffix(".json")
+    if raw:
+        char = await db["characters"].find_one({"char_id": raw, "active_campaign": name})
         if char:
             return char
+        parts = raw.split("_")
+        for i in range(1, len(parts)):
+            cand = "_".join(parts[i:])
+            char = await db["characters"].find_one({"char_id": cand, "active_campaign": name})
+            if char:
+                return char
 
     return await db["characters"].find_one({"char_name": char_name, "active_campaign": name})
 
@@ -416,6 +441,56 @@ async def update_party_member_state(
     return {"success": True, "message": f"Updated {state['char_name']}.", **state}
 
 
+async def _extract_character_id(
+    char_filename: Optional[str],
+    character_id: Optional[str],
+    user_id: str,
+    db: AsyncIOMotorDatabase,
+) -> tuple[str, Optional[dict]]:
+    """
+    Safely resolves character_id from explicit character_id or char_filename.
+    Returns (resolved_char_id, char_doc).
+    """
+    if character_id:
+        char = await db["characters"].find_one({"char_id": character_id, "owner_id": user_id})
+        if not char:
+            char = await db["characters"].find_one({"char_id": character_id})
+        return character_id, char
+
+    if not char_filename:
+        return "", None
+
+    raw = char_filename.removesuffix(".json") if char_filename.endswith(".json") else char_filename
+
+    # 1. Exact match against owned character char_id
+    char = await db["characters"].find_one({"char_id": raw, "owner_id": user_id})
+    if char and char.get("char_id") == raw:
+        return raw, char
+
+    # 2. Match standard UUID in filename if present
+    uuid_match = re.search(
+        r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", raw
+    )
+    if uuid_match:
+        candidate_id = uuid_match.group(1)
+        char = await db["characters"].find_one({"char_id": candidate_id, "owner_id": user_id})
+        if char and char.get("char_id") == candidate_id:
+            return candidate_id, char
+
+    # 3. Multi-part underscore candidates from longest to shortest
+    parts = raw.split("_")
+    for i in range(1, len(parts)):
+        candidate = "_".join(parts[i:])
+        char = await db["characters"].find_one({"char_id": candidate, "owner_id": user_id})
+        if char:
+            return candidate, char
+
+    # 4. Final fallback
+    fallback_id = parts[-1] if len(parts) > 1 else raw
+    char = await db["characters"].find_one({"char_id": fallback_id})
+    return fallback_id, char
+
+
 @router.post("/join", response_model=Dict[str, Any])
 @limiter.limit("5/minute")
 async def join_campaign_by_code(
@@ -431,9 +506,15 @@ async def join_campaign_by_code(
     if not camp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
 
-    char_id = payload.char_filename.replace(".json", "").split("_")[-1]
+    if not payload.char_filename and not payload.character_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either char_filename or character_id must be provided.",
+        )
 
-    char = await db["characters"].find_one({"char_id": char_id})
+    char_id, char = await _extract_character_id(
+        payload.char_filename, payload.character_id, current_user["id"], db
+    )
     if not char or char.get("owner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
 
@@ -462,8 +543,12 @@ async def join_campaign_by_code(
             detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
         ) from e
 
+    party_filename = (
+        payload.char_filename
+        or f"{char.get('char_name', '').lower().replace(' ', '_')}_{char_id}.json"
+    )
     await db["campaigns"].update_one(
-        {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": payload.char_filename}}
+        {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": party_filename}}
     )
 
     await db["characters"].update_one(
@@ -490,14 +575,24 @@ async def add_party_member(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    char_id = payload.char_filename.replace(".json", "").split("_")[-1]
+    if not payload.char_filename and not payload.character_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either char_filename or character_id must be provided.",
+        )
 
-    char = await db["characters"].find_one({"char_id": char_id})
+    char_id, char = await _extract_character_id(
+        payload.char_filename, payload.character_id, current_user["id"], db
+    )
     if not char or char.get("owner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
 
+    party_filename = (
+        payload.char_filename
+        or f"{char.get('char_name', '').lower().replace(' ', '_')}_{char_id}.json"
+    )
     await db["campaigns"].update_one(
-        {"campaign_name": name}, {"$addToSet": {"party": payload.char_filename}}
+        {"campaign_name": name}, {"$addToSet": {"party": party_filename}}
     )
 
     await db["characters"].update_one(
@@ -1785,3 +1880,154 @@ async def get_campaign_scenes_history(
             history.append(VTTSceneHistorySchema(**h))
 
     return history
+
+
+@router.post("/{name}/loot/distribute")
+async def distribute_loot(
+    name: str,
+    payload: LootDistributionRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """Distribute currency and/or items to selected campaign characters and broadcast via WebSocket."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    if not payload.character_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one character must be selected to receive loot.",
+        )
+
+    # Calculate currency per recipient
+    char_currency: Dict[str, int] = {}
+    total_currency_given = 0
+    if payload.currency:
+        num_targets = len(payload.character_ids)
+        if payload.split_currency and num_targets > 1:
+            char_currency = {
+                "pp": max(0, payload.currency.pp // num_targets),
+                "gp": max(0, payload.currency.gp // num_targets),
+                "ep": max(0, payload.currency.ep // num_targets),
+                "sp": max(0, payload.currency.sp // num_targets),
+                "cp": max(0, payload.currency.cp // num_targets),
+            }
+        else:
+            char_currency = {
+                "pp": max(0, payload.currency.pp),
+                "gp": max(0, payload.currency.gp),
+                "ep": max(0, payload.currency.ep),
+                "sp": max(0, payload.currency.sp),
+                "cp": max(0, payload.currency.cp),
+            }
+        total_currency_given = sum(char_currency.values())
+
+    # Fetch homebrew items if referenced
+    awarded_items: List[Dict[str, Any]] = []
+    if payload.items:
+        awarded_items.extend(payload.items)
+
+    if payload.homebrew_item_ids:
+        from bson import ObjectId
+        from bson.errors import InvalidId
+
+        for hb_id in payload.homebrew_item_ids:
+            try:
+                oid = ObjectId(hb_id)
+                hb_doc = await db["homebrew_content"].find_one({"_id": oid, "campaign_id": name})
+                if hb_doc:
+                    hb_doc["_id"] = str(hb_doc["_id"])
+                    awarded_items.append(hb_doc)
+            except InvalidId:
+                continue
+
+    if total_currency_given == 0 and not awarded_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one currency amount or item must be provided to distribute loot.",
+        )
+
+    # Split items by weapons vs general equipment
+    weapons_to_push = [
+        item
+        for item in awarded_items
+        if item.get("homebrew_type") == "weapon" or item.get("type") == "weapon"
+    ]
+    equipment_to_push = [item for item in awarded_items if item not in weapons_to_push]
+
+    updated_count = 0
+    updated_character_names = []
+
+    for char_id in payload.character_ids:
+        char = await db["characters"].find_one({"char_id": char_id})
+        if not char:
+            continue
+
+        # Character must belong to this campaign
+        if char.get("active_campaign") != name:
+            continue
+
+        update_ops: Dict[str, Any] = {}
+        inc_ops: Dict[str, int] = {"version": 1}
+
+        # Handle currency
+        if total_currency_given > 0:
+            if not isinstance(char.get("currency"), dict):
+                await db["characters"].update_one(
+                    {"char_id": char_id},
+                    {"$set": {"currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 0}}},
+                )
+            for coin, amount in char_currency.items():
+                if amount > 0:
+                    inc_ops[f"currency.{coin}"] = amount
+
+        if inc_ops:
+            update_ops["$inc"] = inc_ops
+
+        # Ensure arrays are initialized if missing or corrupted
+        if weapons_to_push and not isinstance(char.get("weapons"), list):
+            await db["characters"].update_one({"char_id": char_id}, {"$set": {"weapons": []}})
+        if equipment_to_push and not isinstance(char.get("equipment"), list):
+            await db["characters"].update_one({"char_id": char_id}, {"$set": {"equipment": []}})
+
+        push_ops: Dict[str, Any] = {}
+        if weapons_to_push:
+            push_ops["weapons"] = {"$each": weapons_to_push}
+        if equipment_to_push:
+            push_ops["equipment"] = {"$each": equipment_to_push}
+
+        if push_ops:
+            update_ops["$push"] = push_ops
+
+        if update_ops:
+            await db["characters"].update_one({"char_id": char_id}, update_ops)
+            updated_count += 1
+            updated_character_names.append(char.get("char_name", char_id))
+
+    # WebSocket broadcast
+    from server.routers.websocket_router import manager
+
+    item_names = [it.get("name", "Unknown Item") for it in awarded_items]
+    await manager.broadcast(
+        name,
+        {
+            "type": "loot_distributed",
+            "payload": {
+                "character_ids": payload.character_ids,
+                "character_names": updated_character_names,
+                "currency": char_currency,
+                "items": item_names,
+                "reason": payload.reason,
+            },
+        },
+    )
+
+    return {
+        "success": True,
+        "message": f"Loot distributed to {updated_count} character(s).",
+        "recipients": updated_character_names,
+        "currency_awarded": char_currency,
+        "items_awarded": item_names,
+    }

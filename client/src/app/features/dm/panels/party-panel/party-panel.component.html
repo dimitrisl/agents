@@ -12,6 +12,16 @@
         <button forgeButton variant="secondary" size="sm" type="button" (click)="addMember.emit()">
           ➕ Add Member
         </button>
+        <button
+          *ngIf="partyMembers.length > 0"
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="distributeLoot.emit()"
+        >
+          💰 Distribute Loot
+        </button>
       </div>
     </div>
 

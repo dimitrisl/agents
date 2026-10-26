@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HomebrewService, HomebrewItem } from '../../../../core/services/homebrew.service';
 import { HomebrewForgeModalComponent } from '../../modals/homebrew-forge-modal/homebrew-forge-modal.component';
@@ -12,6 +12,7 @@ import { HomebrewForgeModalComponent } from '../../modals/homebrew-forge-modal/h
 })
 export class HomebrewPanelComponent implements OnInit {
   @Input() campaignName: string | null = null;
+  @Output() addMonsterToTracker = new EventEmitter<HomebrewItem>();
   homebrewService = inject(HomebrewService);
 
   items$ = this.homebrewService.items$;
