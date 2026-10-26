@@ -32,15 +32,49 @@ class HomebrewFeature(HomebrewBase, FeatureTrait):
     homebrew_type: Literal["feature"] = "feature"
 
 
+class HomebrewMonster(HomebrewBase):
+    homebrew_type: Literal["monster"] = "monster"
+    size: str = "Medium"
+    type: str = "humanoid"
+    alignment: str = "unaligned"
+    cr: Union[str, float, int] = "1"
+    ac: int = 10
+    hp: int = 10
+    max_hp: Optional[int] = None
+    speed: Union[str, Dict[str, Any]] = "30 ft."
+    stats: Dict[str, int] = Field(
+        default_factory=lambda: {
+            "str": 10,
+            "dex": 10,
+            "con": 10,
+            "int": 10,
+            "wis": 10,
+            "cha": 10,
+        }
+    )
+    actions: List[Dict[str, Any]] = Field(default_factory=list)
+    traits: List[Dict[str, Any]] = Field(default_factory=list)
+    senses: Optional[str] = ""
+    languages: Optional[str] = ""
+    description: Optional[str] = ""
+
+
 # Discriminated union for generic parsing
 HomebrewEntity = Annotated[
-    Union[HomebrewWeapon, HomebrewItem, HomebrewSpell, HomebrewFeat, HomebrewFeature],
+    Union[
+        HomebrewWeapon,
+        HomebrewItem,
+        HomebrewSpell,
+        HomebrewFeat,
+        HomebrewFeature,
+        HomebrewMonster,
+    ],
     Field(discriminator="homebrew_type"),
 ]
 
 
 class HomebrewCreateRequest(BaseModel):
-    type: Literal["weapon", "item", "spell", "feat", "feature"]
+    type: Literal["weapon", "item", "spell", "feat", "feature", "monster"]
     prompt: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
 

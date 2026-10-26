@@ -9,6 +9,7 @@ from backend.core.homebrew_schemas import (
     HomebrewFeat,
     HomebrewFeature,
     HomebrewItem,
+    HomebrewMonster,
     HomebrewSpell,
     HomebrewWeapon,
 )
@@ -103,6 +104,7 @@ class HomebrewService:
             "spell": HomebrewSpell,
             "feat": HomebrewFeat,
             "feature": HomebrewFeature,
+            "monster": HomebrewMonster,
         }
 
         target_schema = schema_map.get(entity_type)

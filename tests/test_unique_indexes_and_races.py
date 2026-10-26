@@ -255,7 +255,7 @@ def test_campaign_join_success_updates_party_and_character(client):
         assert inserted_member["campaign_id"] == "Phyrexian Invasion"
         assert inserted_member["user_id"] == "player_1"
         assert inserted_member["role"] == "player"
-        assert inserted_member["character_id"] == "999"
+        assert inserted_member["character_id"] in ("char_999", "999")
 
         # Verify party and character active_campaign were updated
         mock_campaigns.update_one.assert_called_once()

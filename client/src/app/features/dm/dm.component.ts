@@ -11,7 +11,7 @@ import { Subscription } from 'rxjs';
 import { Subject, EMPTY } from 'rxjs';
 import { debounceTime, catchError, switchMap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
-import { HomebrewService } from '../../core/services/homebrew.service';
+import { HomebrewService, HomebrewItem } from '../../core/services/homebrew.service';
 import {
   Campaign,
   CampaignMessages,
@@ -53,6 +53,7 @@ import { RollRequestModalComponent } from './modals/roll-request-modal/roll-requ
 import { StatblockModalComponent } from './modals/statblock-modal/statblock-modal.component';
 import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campaign-modal.component';
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
+import { LootDistributeModalComponent } from './modals/loot-distribute-modal/loot-distribute-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
 
 import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
@@ -99,6 +100,7 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
     StatblockModalComponent,
     NewCampaignModalComponent,
     AddMemberModalComponent,
+    LootDistributeModalComponent,
     DmInboxComponent,
     VttGridComponent,
   ],
@@ -153,6 +155,8 @@ export class DmComponent implements OnInit, OnDestroy {
   newMemberAc = 16;
 
   selectedStatblockCombatant: InitiativeCombatant | null = null;
+  showLootModal = false;
+  homebrewItems: HomebrewItem[] = [];
 
   whisperRecipient = 'All';
   whisperMessage = '';
@@ -811,7 +815,10 @@ export class DmComponent implements OnInit, OnDestroy {
 
     const charFilename = `${char.char_name.toLowerCase().replace(/\s+/g, '_')}_${char.char_id}.json`;
 
-    this.http.post(campaignUrl(this.campaignName, 'party/members'), { char_filename: charFilename }).subscribe({
+    this.http.post(campaignUrl(this.campaignName, 'party/members'), {
+      char_filename: charFilename,
+      character_id: char.char_id
+    }).subscribe({
       next: () => {
         this.rollToast.showMessage('✅ MEMBER ADDED', `${char.char_name} has joined the campaign.`);
         this.loadParty();
@@ -823,6 +830,15 @@ export class DmComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  openLootModal() {
+    this.showLootModal = true;
+    if (this.campaignName) {
+      this.homebrewService.loadHomebrew(this.campaignName).subscribe(items => {
+        this.homebrewItems = items || [];
+      });
+    }
   }
 
   copyInviteCode() {
@@ -1257,9 +1273,14 @@ export class DmComponent implements OnInit, OnDestroy {
     this.rollToast.showMessage('🎲 INITIATIVE ROLLED', 'Rolled initiative for all active combatants!');
   }
 
-  /** Highest initiative first. Returns a new array — OnPush children need one. */
+  /** Highest initiative first; DEX score breaks ties in descending order. Returns a new array — OnPush children need one. */
   private sortCombatants(combatants: InitiativeCombatant[]): InitiativeCombatant[] {
-    return [...combatants].sort((a, b) => b.initiative - a.initiative);
+    return [...combatants].sort((a, b) => {
+      if (b.initiative !== a.initiative) {
+        return b.initiative - a.initiative;
+      }
+      return (b.dex ?? 10) - (a.dex ?? 10);
+    });
   }
 
   private buildCombatant(
@@ -1656,6 +1677,62 @@ export class DmComponent implements OnInit, OnDestroy {
     this.combatants = this.sortCombatants([...this.combatants, ...added]);
     this.persistEncounter();
     this.rollToast.showMessage('⚔️ MONSTERS ADDED', `Added ${this.encounterResult.monsters.length} monster groups to the Initiative Tracker.`);
+  }
+
+  addHomebrewMonsterToInitiative(monster: HomebrewItem) {
+    const baseName = monster.name;
+    const existingCount = this.combatants.filter(c =>
+      c.name.toLowerCase() === baseName.toLowerCase() ||
+      new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+\\d+$`, 'i').test(c.name)
+    ).length;
+    const monsterName = existingCount > 0 ? `${baseName} ${existingCount + 1}` : baseName;
+
+    const rawDex = monster['stats']?.['dex'] ?? monster['dex'];
+    const numDex = Number(rawDex);
+    const dex = !isNaN(numDex) && rawDex !== '' && rawDex !== null && rawDex !== undefined ? numDex : 10;
+    const dexMod = Math.floor((dex - 10) / 2);
+    const hp = Number(monster['hp']) || 10;
+    const ac = Number(monster['ac']) || 10;
+
+    let statblock = monster['statblock'] || '';
+    if (!statblock) {
+      const parts: string[] = [];
+      parts.push(`${monster['size'] || 'Medium'} ${monster['type'] || 'monster'}, ${monster['alignment'] || 'unaligned'}`);
+      parts.push(`Armor Class: ${ac}`);
+      parts.push(`Hit Points: ${hp}`);
+      parts.push(`Speed: ${monster['speed'] || '30 ft.'}`);
+      if (monster['stats']) {
+        parts.push(`STR: ${monster['stats'].str ?? 10} | DEX: ${monster['stats'].dex ?? 10} | CON: ${monster['stats'].con ?? 10} | INT: ${monster['stats'].int ?? 10} | WIS: ${monster['stats'].wis ?? 10} | CHA: ${monster['stats'].cha ?? 10}`);
+      }
+      if (monster['traits'] && Array.isArray(monster['traits'])) {
+        parts.push('\nTraits:');
+        monster['traits'].forEach((t: any) => parts.push(`• ${typeof t === 'string' ? t : (t.name ? t.name + ': ' + t.description : JSON.stringify(t))}`));
+      }
+      if (monster['actions'] && Array.isArray(monster['actions'])) {
+        parts.push('\nActions:');
+        monster['actions'].forEach((a: any) => parts.push(`• ${typeof a === 'string' ? a : (a.name ? a.name + ': ' + a.description : JSON.stringify(a))}`));
+      }
+      if (monster['description']) {
+        parts.push(`\n${monster['description']}`);
+      }
+      statblock = parts.join('\n');
+    }
+
+    const added = this.buildCombatant({
+      name: monsterName,
+      initiative: 10 + dexMod,
+      hp,
+      max_hp: hp,
+      ac,
+      dex,
+      is_player: false,
+      statblock,
+      size: monster['size'] || 'Medium'
+    });
+
+    this.combatants = this.sortCombatants([...this.combatants, added]);
+    this.persistEncounter();
+    this.rollToast.showMessage('⚔️ MONSTER ADDED', `Added ${monsterName} to Initiative Tracker!`);
   }
 
   generateNpc() {
