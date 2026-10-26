@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -10,7 +10,7 @@ import {
 import type { PartyMember } from '../../../../core/models/party.model';
 import type { HomebrewItem } from '../../../../core/services/homebrew.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
-import { environment } from '../../../../../environments/environment';
+import { campaignUrl } from '../../../../core/config/api-urls';
 
 @Component({
   selector: 'app-loot-distribute-modal',
@@ -28,6 +28,7 @@ import { environment } from '../../../../../environments/environment';
 export class LootDistributeModalComponent {
   private http = inject(HttpClient);
   private rollToast = inject(RollToastService);
+  private cdr = inject(ChangeDetectorRef);
 
   @Input() open = false;
   @Input() partyMembers: PartyMember[] = [];
@@ -52,7 +53,9 @@ export class LootDistributeModalComponent {
   isDistributing = false;
 
   get availableHomebrewItems(): HomebrewItem[] {
-    return this.homebrewItems.filter(hb => hb.homebrew_type !== 'monster');
+    return this.homebrewItems.filter(
+      hb => hb.homebrew_type === 'weapon' || hb.homebrew_type === 'item'
+    );
   }
 
   get allSelected(): boolean {
@@ -73,8 +76,11 @@ export class LootDistributeModalComponent {
   }
 
   getSelectedIds(): string[] {
+    const validIds = new Set(
+      this.partyMembers.map(m => m.char_id).filter((id): id is string => !!id)
+    );
     return Object.entries(this.selectedCharIds)
-      .filter(([_, sel]) => sel)
+      .filter(([id, sel]) => sel && validIds.has(id))
       .map(([id]) => id);
   }
 
@@ -128,17 +134,19 @@ export class LootDistributeModalComponent {
       payload.homebrew_item_ids = [this.selectedHomebrewId];
     }
 
-    const url = `${environment.apiBaseUrl}/campaigns/${this.campaignName}/loot/distribute`;
+    const url = campaignUrl(this.campaignName, 'loot/distribute');
     this.http.post<any>(url, payload).subscribe({
       next: (res) => {
         this.isDistributing = false;
         this.rollToast.showMessage('💰 LOOT DISTRIBUTED', res.message || 'Loot awarded successfully!');
         this.distributed.emit();
         this.closeModal();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.isDistributing = false;
         this.rollToast.showMessage('❌ DISTRIBUTION FAILED', err.error?.detail || 'Failed to distribute loot.');
+        this.cdr.markForCheck();
       },
     });
   }
@@ -147,6 +155,8 @@ export class LootDistributeModalComponent {
     this.openChange.emit(false);
     this.closed.emit();
     // Reset form
+    this.selectedCharIds = {};
+    this.splitCurrency = false;
     this.pp = 0;
     this.gp = 0;
     this.ep = 0;
@@ -155,5 +165,6 @@ export class LootDistributeModalComponent {
     this.customItemName = '';
     this.customItemDesc = '';
     this.selectedHomebrewId = '';
+    this.cdr.markForCheck();
   }
 }

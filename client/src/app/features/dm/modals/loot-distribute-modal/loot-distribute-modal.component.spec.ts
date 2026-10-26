@@ -135,16 +135,33 @@ describe('LootDistributeModalComponent', () => {
     expect(distributedEmitted).toBe(true);
   });
 
-  it('filters out monsters from availableHomebrewItems', () => {
+  it('filters out monsters, spells, feats, and features from availableHomebrewItems', () => {
     component.homebrewItems = [
       { _id: 'hb_1', name: 'Flame Tongue', homebrew_type: 'weapon' },
       { _id: 'hb_2', name: 'Goblin Boss', homebrew_type: 'monster' },
       { _id: 'hb_3', name: 'Bag of Holding', homebrew_type: 'item' },
+      { _id: 'hb_4', name: 'Solar Flare', homebrew_type: 'spell' },
+      { _id: 'hb_5', name: 'Shadow Touched', homebrew_type: 'feat' },
     ];
 
     expect(component.availableHomebrewItems.map((h) => h.name)).toEqual([
       'Flame Tongue',
       'Bag of Holding',
     ]);
+  });
+
+  it('excludes stale character IDs not in partyMembers and resets selection on closeModal', () => {
+    component.selectedCharIds = {
+      char_1: true,
+      removed_char: true,
+    };
+
+    expect(component.getSelectedIds()).toEqual(['char_1']);
+
+    component.splitCurrency = true;
+    component.closeModal();
+
+    expect(component.selectedCharIds).toEqual({});
+    expect(component.splitCurrency).toBe(false);
   });
 });

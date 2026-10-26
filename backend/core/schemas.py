@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
@@ -25,7 +25,7 @@ class StatBlock(BaseModel):
 
 class Weapon(BaseModel):
     name: str
-    attack_bonus: str
+    attack_bonus: str = "+0"
     damage_dice: str = ""
     damage_bonus: str = "+0"
     range: Optional[str] = None
@@ -34,6 +34,7 @@ class Weapon(BaseModel):
     magic_bonus: int = 0
     ability_modifier: Optional[str] = None  # Explicit scaling stat (e.g., 'STR', 'DEX')
     damage: Optional[str] = None  # Added for legacy support/internal formula storage
+    description: Optional[str] = ""
 
     @field_validator("properties", "range", mode="before")
     @classmethod
@@ -167,6 +168,7 @@ class EquipmentItem(BaseModel):
     val1: int = 0
     mod2: str = "None"
     val2: int = 0
+    description: Optional[str] = ""
 
     @field_validator("quantity", mode="before")
     @classmethod
@@ -635,6 +637,9 @@ class InitiativeCombatantSchema(BaseModel):
     is_player: bool
     portrait: Optional[str] = None
     statblock: Optional[str] = None
+    size: Optional[Union[str, int]] = "Medium"
+    cr: Optional[Union[str, float, int]] = None
+    xp: Optional[int] = None
     conditions: List[CombatantConditionSchema] = Field(default_factory=list)
     deathSaves: Optional[DeathSavesSchema] = None
 

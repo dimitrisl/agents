@@ -106,7 +106,7 @@ export class FaqComponent {
           <li><strong>🛡️ AC Breakdown &amp; 👁️ Passive Perception:</strong> Άμεση προβολή του Armor Class (με tooltip που εξηγεί τη φόρμουλα υπολογισμού) και του Passive Perception κάθε ήρωα για κρυφούς ελέγχους.</li>
           <li><strong>🎲 DM Quick Check (Κρυφή Ζαριά DM):</strong> 6 κουμπιά (<code>STR, DEX, CON, INT, WIS, CHA</code>) πάνω στην κάρτα κάθε παίκτη που επιτρέπουν στον DM να ρίξει αμέσως Ability Check για λογαριασμό του ήρωα (χρησιμοποιώντας το πραγματικό modifier του φύλλου του) πίσω από το DM Screen!</li>
           <li><strong>🩸 Διαχείριση 14 Conditions:</strong> Ενεργοποίηση/απενεργοποίηση καταστάσεων (<em>Poisoned, Concentrating, Stunned, Unconscious, Blinded, Charmed, Frightened, Grappled, Incapacitated, Invisible, Paralyzed, Petrified, Prone, Restrained</em>) με αμφίδρομο συγχρονισμό.</li>
-          <li><strong>➕ Add Member Modal (3 Τρόποι Προσθήκης):</strong> Προσθήκη μέλους στο party είτε από υπάρχοντα χαρακτήρα του Vault, είτε ως Custom NPC/Companion (ορίζοντας Name, Class, Level, HP, AC), είτε μέσω Invite Code.</li>
+          <li><strong>➕ Add Member Modal (2 Τρόποι Προσθήκης):</strong> Προσθήκη μέλους στο party είτε επιλέγοντας υπάρχοντα ήρωα από το Vault (<em>Select Player Hero from Vault</em>), είτε κοινοποιώντας το 6-ψήφιο <em>Invite Code</em> στους παίκτες.</li>
         </ul>
       `,
       tags: ['dm', 'party tracker', 'online', 'hp', 'quick check', 'conditions', 'passive perception'],

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
 import { BehaviorSubject, Observable, shareReplay, tap } from 'rxjs';
+import { campaignUrl } from '../config/api-urls';
 
 export interface HomebrewItem {
   _id?: string;
@@ -17,39 +17,38 @@ export interface HomebrewItem {
 })
 export class HomebrewService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiBaseUrl}/campaigns`;
 
   private itemsSubject = new BehaviorSubject<HomebrewItem[]>([]);
   public items$ = this.itemsSubject.asObservable();
 
   loadHomebrew(campaignName: string): Observable<HomebrewItem[]> {
-    return this.http.get<HomebrewItem[]>(`${this.apiUrl}/${campaignName}/homebrew`).pipe(
+    return this.http.get<HomebrewItem[]>(campaignUrl(campaignName, 'homebrew')).pipe(
       tap(items => this.itemsSubject.next(items))
     );
   }
 
   forgeWithAI(campaignName: string, prompt: string, type: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${campaignName}/homebrew/forge`, { prompt, type });
+    return this.http.post(campaignUrl(campaignName, 'homebrew/forge'), { prompt, type });
   }
 
   saveHomebrew(campaignName: string, item: Partial<HomebrewItem>): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${campaignName}/homebrew`, { type: item.homebrew_type, data: item }).pipe(
+    return this.http.post(campaignUrl(campaignName, 'homebrew'), { type: item.homebrew_type, data: item }).pipe(
       tap(() => this.loadHomebrew(campaignName).subscribe())
     );
   }
 
   deleteHomebrew(campaignName: string, itemId: string): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/${campaignName}/homebrew/${itemId}`).pipe(
+    return this.http.delete(campaignUrl(campaignName, `homebrew/${encodeURIComponent(itemId)}`)).pipe(
       tap(() => this.loadHomebrew(campaignName).subscribe())
     );
   }
 
   exportHomebrew(campaignName: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${campaignName}/homebrew/export`);
+    return this.http.get(campaignUrl(campaignName, 'homebrew/export'));
   }
 
   exportHomebrewPdf(campaignName: string): Observable<Blob> {
-    const url = `${this.apiUrl}/${campaignName}/homebrew/export/pdf`;
+    const url = campaignUrl(campaignName, 'homebrew/export/pdf');
     const download$ = this.http.get(url, { responseType: 'blob' }).pipe(
       tap((blob: Blob) => {
         if (typeof window !== 'undefined' && window.URL && typeof window.URL.createObjectURL === 'function') {
@@ -72,7 +71,7 @@ export class HomebrewService {
   }
 
   importHomebrew(campaignName: string, items: any[]): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${campaignName}/homebrew/import`, { items }).pipe(
+    return this.http.post(campaignUrl(campaignName, 'homebrew/import'), { items }).pipe(
       tap(() => this.loadHomebrew(campaignName).subscribe())
     );
   }

@@ -1,3 +1,4 @@
+import html
 import io
 from typing import Any, Dict, List
 
@@ -6,6 +7,21 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+
+def _esc(val: Any) -> str:
+    if val is None:
+        return ""
+    return html.escape(str(val)).replace("\n", "<br/>")
+
+
+def _format_properties(props: Any) -> str:
+    if not props:
+        return "None"
+    if isinstance(props, list):
+        cleaned = [str(p).strip() for p in props if p is not None and str(p).strip()]
+        return _esc(", ".join(cleaned)) if cleaned else "None"
+    return _esc(props)
 
 
 def generate_homebrew_pdf(items: List[Dict[str, Any]]) -> io.BytesIO:
@@ -44,22 +60,23 @@ def generate_homebrew_pdf(items: List[Dict[str, Any]]) -> io.BytesIO:
 
     for item in items:
         # Title
-        story.append(Paragraph(item.get("name", "Unknown Item"), card_title_style))
+        story.append(Paragraph(_esc(item.get("name") or "Unknown Item"), card_title_style))
 
         # Meta info
-        htype = item.get("homebrew_type", "Item").capitalize()
+        raw_type = str(item.get("homebrew_type") or "Item").capitalize()
+        htype = _esc(raw_type)
         details = []
-        if htype == "Weapon":
-            details.append(f"Damage: {item.get('damage_dice', 'N/A')}")
-            details.append(f"Properties: {', '.join(item.get('properties', []))}")
-        elif htype == "Spell":
-            details.append(f"Level: {item.get('level', 0)}")
-            details.append(f"School: {item.get('school', 'N/A')}")
-        elif htype == "Monster":
-            details.append(f"CR: {item.get('cr', '1')}")
-            details.append(f"AC: {item.get('ac', 10)}")
-            details.append(f"HP: {item.get('hp', 10)}")
-            details.append(f"Speed: {item.get('speed', '30 ft.')}")
+        if raw_type == "Weapon":
+            details.append(f"Damage: {_esc(item.get('damage_dice') or 'N/A')}")
+            details.append(f"Properties: {_format_properties(item.get('properties'))}")
+        elif raw_type == "Spell":
+            details.append(f"Level: {_esc(item.get('level', 0))}")
+            details.append(f"School: {_esc(item.get('school') or 'N/A')}")
+        elif raw_type == "Monster":
+            details.append(f"CR: {_esc(item.get('cr', '1'))}")
+            details.append(f"AC: {_esc(item.get('ac', 10))}")
+            details.append(f"HP: {_esc(item.get('hp', 10))}")
+            details.append(f"Speed: {_esc(item.get('speed') or '30 ft.')}")
 
         meta_str = f"<b>Type:</b> {htype}"
         if details:
@@ -70,29 +87,31 @@ def generate_homebrew_pdf(items: List[Dict[str, Any]]) -> io.BytesIO:
         # Description
         desc_parts = []
         if item.get("description"):
-            desc_parts.append(item["description"])
-        elif htype != "Monster":
+            desc_parts.append(_esc(item["description"]))
+        elif raw_type != "Monster":
             desc_parts.append("No description provided.")
 
-        if htype == "Monster":
+        if raw_type == "Monster":
             traits = item.get("traits") or []
             if traits:
                 desc_parts.append("<b>Traits:</b>")
                 for t in traits:
-                    desc_parts.append(
-                        f"• {t.get('name')}: {t.get('description')}"
-                        if isinstance(t, dict)
-                        else f"• {t}"
-                    )
+                    if isinstance(t, dict):
+                        t_name = _esc(t.get("name") or "Trait")
+                        t_desc = _esc(t.get("description") or t.get("desc") or "")
+                        desc_parts.append(f"• {t_name}: {t_desc}")
+                    else:
+                        desc_parts.append(f"• {_esc(t)}")
             actions = item.get("actions") or []
             if actions:
                 desc_parts.append("<b>Actions:</b>")
                 for a in actions:
-                    desc_parts.append(
-                        f"• {a.get('name')}: {a.get('description')}"
-                        if isinstance(a, dict)
-                        else f"• {a}"
-                    )
+                    if isinstance(a, dict):
+                        a_name = _esc(a.get("name") or "Action")
+                        a_desc = _esc(a.get("description") or a.get("desc") or "")
+                        desc_parts.append(f"• {a_name}: {a_desc}")
+                    else:
+                        desc_parts.append(f"• {_esc(a)}")
 
         desc = "<br/>".join(desc_parts) if desc_parts else "No description provided."
         story.append(Paragraph(desc, body_style))

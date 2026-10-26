@@ -453,8 +453,6 @@ async def _extract_character_id(
     """
     if character_id:
         char = await db["characters"].find_one({"char_id": character_id, "owner_id": user_id})
-        if not char:
-            char = await db["characters"].find_one({"char_id": character_id})
         return character_id, char
 
     if not char_filename:
@@ -487,8 +485,21 @@ async def _extract_character_id(
 
     # 4. Final fallback
     fallback_id = parts[-1] if len(parts) > 1 else raw
-    char = await db["characters"].find_one({"char_id": fallback_id})
+    char = await db["characters"].find_one({"char_id": fallback_id, "owner_id": user_id})
     return fallback_id, char
+
+
+def _build_canonical_party_filename(
+    char: dict, char_id: str, provided_filename: Optional[str]
+) -> str:
+    safe_name = re.sub(r"\s+", "_", (char.get("char_name") or "").strip().lower())
+    canonical = f"{safe_name}_{char_id}.json" if safe_name else f"{char_id}.json"
+    if not provided_filename:
+        return canonical
+    raw_fn = provided_filename.removesuffix(".json")
+    if raw_fn == char_id or raw_fn.endswith(f"_{char_id}"):
+        return f"{raw_fn}.json"
+    return canonical
 
 
 @router.post("/join", response_model=Dict[str, Any])
@@ -543,10 +554,7 @@ async def join_campaign_by_code(
             detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
         ) from e
 
-    party_filename = (
-        payload.char_filename
-        or f"{char.get('char_name', '').lower().replace(' ', '_')}_{char_id}.json"
-    )
+    party_filename = _build_canonical_party_filename(char, char_id, payload.char_filename)
     await db["campaigns"].update_one(
         {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": party_filename}}
     )
@@ -587,10 +595,7 @@ async def add_party_member(
     if not char or char.get("owner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
 
-    party_filename = (
-        payload.char_filename
-        or f"{char.get('char_name', '').lower().replace(' ', '_')}_{char_id}.json"
-    )
+    party_filename = _build_canonical_party_filename(char, char_id, payload.char_filename)
     await db["campaigns"].update_one(
         {"campaign_name": name}, {"$addToSet": {"party": party_filename}}
     )
@@ -1891,43 +1896,45 @@ async def distribute_loot(
     member: dict = Depends(require_campaign_role("dm")),
 ):
     """Distribute currency and/or items to selected campaign characters and broadcast via WebSocket."""
+    from pydantic import ValidationError
+
+    from backend.core.schemas import EquipmentItem, FeatureTrait, SpellSchema, Weapon
+    from backend.services.stats_service import calculate_weapon_stats
+
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    if not payload.character_ids:
+    unique_char_ids = list(dict.fromkeys(cid for cid in (payload.character_ids or []) if cid))
+    if not unique_char_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one character must be selected to receive loot.",
         )
 
-    # Calculate currency per recipient
-    char_currency: Dict[str, int] = {}
-    total_currency_given = 0
-    if payload.currency:
-        num_targets = len(payload.character_ids)
-        if payload.split_currency and num_targets > 1:
-            char_currency = {
-                "pp": max(0, payload.currency.pp // num_targets),
-                "gp": max(0, payload.currency.gp // num_targets),
-                "ep": max(0, payload.currency.ep // num_targets),
-                "sp": max(0, payload.currency.sp // num_targets),
-                "cp": max(0, payload.currency.cp // num_targets),
-            }
-        else:
-            char_currency = {
-                "pp": max(0, payload.currency.pp),
-                "gp": max(0, payload.currency.gp),
-                "ep": max(0, payload.currency.ep),
-                "sp": max(0, payload.currency.sp),
-                "cp": max(0, payload.currency.cp),
-            }
-        total_currency_given = sum(char_currency.values())
+    raw_currency = {
+        "pp": max(0, payload.currency.pp) if payload.currency else 0,
+        "gp": max(0, payload.currency.gp) if payload.currency else 0,
+        "ep": max(0, payload.currency.ep) if payload.currency else 0,
+        "sp": max(0, payload.currency.sp) if payload.currency else 0,
+        "cp": max(0, payload.currency.cp) if payload.currency else 0,
+    }
 
-    # Fetch homebrew items if referenced
+    # Fetch and validate items
     awarded_items: List[Dict[str, Any]] = []
     if payload.items:
-        awarded_items.extend(payload.items)
+        for item in payload.items:
+            if not isinstance(item, dict) or not str(item.get("name") or "").strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="All distributed items must have a valid name.",
+                )
+            if item.get("homebrew_type") == "monster" or item.get("type") == "monster":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Monsters cannot be distributed as loot.",
+                )
+            awarded_items.append(item)
 
     if payload.homebrew_item_ids:
         from bson import ObjectId
@@ -1938,10 +1945,67 @@ async def distribute_loot(
                 oid = ObjectId(hb_id)
                 hb_doc = await db["homebrew_content"].find_one({"_id": oid, "campaign_id": name})
                 if hb_doc:
+                    if hb_doc.get("homebrew_type") == "monster" or hb_doc.get("type") == "monster":
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Monsters cannot be distributed as loot.",
+                        )
                     hb_doc["_id"] = str(hb_doc["_id"])
                     awarded_items.append(hb_doc)
             except InvalidId:
                 continue
+
+    if sum(raw_currency.values()) == 0 and not awarded_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one currency amount or item must be provided to distribute loot.",
+        )
+
+    # Validate and classify items by schema before writing
+    validated_weapons: List[Dict[str, Any]] = []
+    validated_equipment: List[Dict[str, Any]] = []
+    validated_spells: List[SpellSchema] = []
+    validated_features: List[Dict[str, Any]] = []
+
+    try:
+        for item in awarded_items:
+            htype = item.get("homebrew_type") or item.get("type") or "item"
+            if htype == "weapon":
+                validated_weapons.append(Weapon.model_validate(item).model_dump())
+            elif htype == "spell":
+                validated_spells.append(SpellSchema.model_validate(item))
+            elif htype in ("feat", "feature"):
+                validated_features.append(
+                    FeatureTrait.model_validate(
+                        {
+                            "name": item["name"],
+                            "description": item.get("description", ""),
+                            "source": item.get("source") or "Homebrew",
+                        }
+                    ).model_dump()
+                )
+            else:
+                validated_equipment.append(EquipmentItem.model_validate(item).model_dump())
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid loot item schema: {e.errors()}",
+        ) from e
+
+    # Resolve valid campaign characters first so currency split uses valid recipients
+    valid_chars: List[dict] = []
+    for char_id in unique_char_ids:
+        char = await db["characters"].find_one({"char_id": char_id})
+        if char and char.get("active_campaign") == name:
+            valid_chars.append(char)
+
+    divisor = len(valid_chars) if (payload.split_currency and len(valid_chars) > 1) else 1
+    char_currency: Dict[str, int] = (
+        {coin: amount // divisor for coin, amount in raw_currency.items()}
+        if payload.currency
+        else {}
+    )
+    total_currency_given = sum(char_currency.values())
 
     if total_currency_given == 0 and not awarded_items:
         raise HTTPException(
@@ -1949,26 +2013,12 @@ async def distribute_loot(
             detail="At least one currency amount or item must be provided to distribute loot.",
         )
 
-    # Split items by weapons vs general equipment
-    weapons_to_push = [
-        item
-        for item in awarded_items
-        if item.get("homebrew_type") == "weapon" or item.get("type") == "weapon"
-    ]
-    equipment_to_push = [item for item in awarded_items if item not in weapons_to_push]
-
     updated_count = 0
-    updated_character_names = []
+    updated_character_ids: List[str] = []
+    updated_character_names: List[str] = []
 
-    for char_id in payload.character_ids:
-        char = await db["characters"].find_one({"char_id": char_id})
-        if not char:
-            continue
-
-        # Character must belong to this campaign
-        if char.get("active_campaign") != name:
-            continue
-
+    for char in valid_chars:
+        char_id = char["char_id"]
         update_ops: Dict[str, Any] = {}
         inc_ops: Dict[str, int] = {"version": 1}
 
@@ -1986,43 +2036,83 @@ async def distribute_loot(
         if inc_ops:
             update_ops["$inc"] = inc_ops
 
+        # Compute per-character weapon stats using character's ability scores & proficiency bonus
+        char_weapons_to_push: List[Dict[str, Any]] = []
+        if validated_weapons:
+            char_stats = char.get("stats") or {}
+            char_prof = char.get("proficiency_bonus") or 2
+            for w_base in validated_weapons:
+                w_calc = calculate_weapon_stats(
+                    dict(w_base), char_stats, char_prof, homebrew_content=awarded_items
+                )
+                char_weapons_to_push.append(Weapon.model_validate(w_calc).model_dump())
+
         # Ensure arrays are initialized if missing or corrupted
-        if weapons_to_push and not isinstance(char.get("weapons"), list):
+        if char_weapons_to_push and not isinstance(char.get("weapons"), list):
             await db["characters"].update_one({"char_id": char_id}, {"$set": {"weapons": []}})
-        if equipment_to_push and not isinstance(char.get("equipment"), list):
+        if validated_equipment and not isinstance(char.get("equipment"), list):
             await db["characters"].update_one({"char_id": char_id}, {"$set": {"equipment": []}})
+        if validated_features and not isinstance(char.get("features_traits"), list):
+            await db["characters"].update_one(
+                {"char_id": char_id}, {"$set": {"features_traits": []}}
+            )
 
         push_ops: Dict[str, Any] = {}
-        if weapons_to_push:
-            push_ops["weapons"] = {"$each": weapons_to_push}
-        if equipment_to_push:
-            push_ops["equipment"] = {"$each": equipment_to_push}
+        if char_weapons_to_push:
+            push_ops["weapons"] = {"$each": char_weapons_to_push}
+        if validated_equipment:
+            push_ops["equipment"] = {"$each": validated_equipment}
+        if validated_features:
+            push_ops["features_traits"] = {"$each": validated_features}
 
         if push_ops:
             update_ops["$push"] = push_ops
 
+        if validated_spells:
+            if not isinstance(char.get("spells"), dict):
+                await db["characters"].update_one({"char_id": char_id}, {"$set": {"spells": {}}})
+            if not isinstance(char.get("prepared_spells"), list):
+                await db["characters"].update_one(
+                    {"char_id": char_id}, {"$set": {"prepared_spells": []}}
+                )
+            add_to_set_ops: Dict[str, Any] = {}
+            prep_names: List[str] = []
+            for spell in validated_spells:
+                lvl_key = "cantrips" if spell.level == 0 else f"level_{spell.level}"
+                add_to_set_ops.setdefault(f"spells.{lvl_key}", {"$each": []})["$each"].append(
+                    spell.name
+                )
+                prep_names.append(spell.name)
+            if prep_names:
+                add_to_set_ops["prepared_spells"] = {"$each": prep_names}
+            if add_to_set_ops:
+                update_ops["$addToSet"] = add_to_set_ops
+
         if update_ops:
             await db["characters"].update_one({"char_id": char_id}, update_ops)
             updated_count += 1
+            updated_character_ids.append(char_id)
             updated_character_names.append(char.get("char_name", char_id))
 
-    # WebSocket broadcast
-    from server.routers.websocket_router import manager
-
     item_names = [it.get("name", "Unknown Item") for it in awarded_items]
-    await manager.broadcast(
-        name,
-        {
-            "type": "loot_distributed",
-            "payload": {
-                "character_ids": payload.character_ids,
-                "character_names": updated_character_names,
-                "currency": char_currency,
-                "items": item_names,
-                "reason": payload.reason,
+
+    # WebSocket broadcast only when at least one character was actually updated
+    if updated_count > 0:
+        from server.routers.websocket_router import manager
+
+        await manager.broadcast(
+            name,
+            {
+                "type": "loot_distributed",
+                "payload": {
+                    "character_ids": updated_character_ids,
+                    "character_names": updated_character_names,
+                    "currency": char_currency,
+                    "items": item_names,
+                    "reason": payload.reason,
+                },
             },
-        },
-    )
+        )
 
     return {
         "success": True,

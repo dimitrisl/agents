@@ -50,11 +50,19 @@ async def forge_homebrew(
         raise HTTPException(status_code=400, detail="Prompt is required for AI Forging.")
 
     try:
-        return await homebrew_service.forge_with_ai(payload.prompt, payload.type)
+        result = await homebrew_service.forge_with_ai(payload.prompt, payload.type)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to forge item: {str(e)}")
+
+    if result is None:
+        raise HTTPException(
+            status_code=502, detail="AI provider failed to generate structured homebrew item."
+        )
+    return result
 
 
 @router.post("")

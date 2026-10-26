@@ -1,5 +1,6 @@
 import { Component, Input, Output, EventEmitter, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { map } from 'rxjs';
 import { HomebrewService, HomebrewItem } from '../../../../core/services/homebrew.service';
 import { CharacterStateService } from '../../../../core/services/character-state.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
@@ -60,7 +61,9 @@ export class PlayerHomebrewModalComponent implements OnInit {
   charState = inject(CharacterStateService);
   toast = inject(RollToastService);
 
-  items$ = this.homebrewService.items$;
+  items$ = this.homebrewService.items$.pipe(
+    map(items => items.filter(item => item.homebrew_type !== 'monster'))
+  );
   isEquipping = false;
 
   ngOnInit() {

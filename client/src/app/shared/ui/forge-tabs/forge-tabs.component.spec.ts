@@ -28,12 +28,15 @@ describe('ForgeTabsComponent', () => {
     expect(component.tablistClasses).not.toContain('grid');
   });
 
-  it('should support 2-column mobile grid layout when mobileColumns is 2', () => {
+  it('should support 2-column mobile grid layout when mobileColumns is 2 and keep sm+ fade classes', () => {
     component.mobileColumns = 2;
+    (component as any).overflowEnd = true;
     fixture.detectChanges();
     expect(component.tablistClasses).toContain('grid grid-cols-2');
     expect(component.tablistClasses).toContain('sm:flex');
     expect(component.buttonBaseClasses).toContain('w-full');
+    expect(component.fadeClasses).toContain('forge-tabs-fade-end');
+    expect(component.fadeClasses).toContain('forge-tabs-no-mobile-fade');
   });
 
   it('should emit activeIdChange when selecting a tab', () => {
