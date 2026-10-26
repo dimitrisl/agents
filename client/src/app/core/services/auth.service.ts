@@ -116,6 +116,9 @@ export class AuthService {
   logout() {
     localStorage.removeItem(this.TOKEN_STORAGE_KEY);
     localStorage.removeItem(this.USER_STORAGE_KEY);
+    localStorage.removeItem('phyrexian_forge_temp_hero');
+    localStorage.removeItem('phyrexian_forge_ai_draft');
+    localStorage.removeItem('phyrexian_forge_pending_generation');
     this.token.set(null);
     this.currentUser.set(null);
     this.authStatus.set('anonymous');

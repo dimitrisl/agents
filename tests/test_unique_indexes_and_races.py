@@ -7,6 +7,14 @@ from pymongo.errors import DuplicateKeyError
 from server.db_async import INDEX_DEFINITIONS, get_database, init_indexes
 from server.dependencies.auth import get_current_user
 from server.main import app
+from server.rate_limiter import limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture

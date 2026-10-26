@@ -5,14 +5,7 @@ from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
-from backend.core.homebrew_schemas import (
-    HomebrewFeat,
-    HomebrewFeature,
-    HomebrewItem,
-    HomebrewMonster,
-    HomebrewSpell,
-    HomebrewWeapon,
-)
+from backend.core.homebrew_schemas import AI_HOMEBREW_SCHEMA_MAP
 from backend.core.providers.factory import get_llm_provider
 
 
@@ -94,20 +87,10 @@ class HomebrewService:
         )
         return result.deleted_count > 0
 
-    async def forge_with_ai(self, prompt: str, entity_type: str) -> Dict[str, Any]:
+    async def forge_with_ai(self, prompt: str, entity_type: str) -> Optional[Dict[str, Any]]:
         """Uses LLM to generate a strictly typed structure for a homebrew item."""
 
-        # Map the requested type to its Pydantic schema class
-        schema_map = {
-            "weapon": HomebrewWeapon,
-            "item": HomebrewItem,
-            "spell": HomebrewSpell,
-            "feat": HomebrewFeat,
-            "feature": HomebrewFeature,
-            "monster": HomebrewMonster,
-        }
-
-        target_schema = schema_map.get(entity_type)
+        target_schema = AI_HOMEBREW_SCHEMA_MAP.get(entity_type)
         if not target_schema:
             raise ValueError(f"Invalid homebrew type: {entity_type}")
 
@@ -128,6 +111,15 @@ class HomebrewService:
             temperature=0.4,
         )
 
+        if response is None:
+            return None
+
         if isinstance(response, BaseModel):
-            return response.model_dump()
-        return response
+            data = response.model_dump()
+        elif isinstance(response, dict):
+            data = dict(response)
+        else:
+            return None
+
+        data["homebrew_type"] = entity_type
+        return data

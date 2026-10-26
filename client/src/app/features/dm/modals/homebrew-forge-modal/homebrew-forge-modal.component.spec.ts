@@ -70,5 +70,74 @@ describe('HomebrewForgeModalComponent', () => {
         languages: 'Undercommon',
       })
     );
+    const savedPayload = saveSpy.mock.calls[0][1];
+    expect(savedPayload['actions_text']).toBeUndefined();
+    expect(savedPayload['traits_text']).toBeUndefined();
+  });
+
+  it('handles null AI response gracefully and resets isForging', () => {
+    jest.spyOn(component.homebrewService, 'forgeWithAI').mockReturnValue({
+      subscribe: (observer: any) => {
+        observer.next(null);
+        return { unsubscribe: () => {} };
+      },
+    } as any);
+    const toastSpy = jest.spyOn(component.rollToast, 'showMessage');
+
+    component.campaignName = 'Underdark';
+    component.aiPrompt = 'A shadowy blade';
+    component.forgeWithAI();
+
+    expect(component.isForging).toBe(false);
+    expect(toastSpy).toHaveBeenCalledWith(
+      '❌ FORGE FAILED',
+      expect.stringContaining('empty or invalid')
+    );
+  });
+
+  it('clears stale monster actions when actions_text is emptied and omits monster fields when saving weapon', () => {
+    const saveSpy = jest.spyOn(component.homebrewService, 'saveHomebrew').mockReturnValue({
+      subscribe: (observer: any) => {
+        observer.next({});
+        return { unsubscribe: () => {} };
+      },
+    } as any);
+
+    component.campaignName = 'Underdark';
+    component.selectedType = 'monster';
+    component.formData = {
+      ...component.formData,
+      name: 'Shadow Hound',
+      actions: [{ name: 'Stale Bite', description: 'Old' }],
+      actions_text: '   ',
+      traits_text: '',
+    };
+
+    component.save();
+    expect(saveSpy).toHaveBeenLastCalledWith(
+      'Underdark',
+      expect.objectContaining({
+        name: 'Shadow Hound',
+        homebrew_type: 'monster',
+        actions: [],
+        traits: [],
+      })
+    );
+
+    component.selectedType = 'weapon';
+    component.formData = {
+      ...component.formData,
+      name: 'Frostbrand',
+      damage_dice: '1d8',
+      attack_bonus: '+1',
+    };
+    component.save();
+
+    const weaponPayload = saveSpy.mock.calls[1][1];
+    expect(weaponPayload['homebrew_type']).toBe('weapon');
+    expect(weaponPayload['damage_dice']).toBe('1d8');
+    expect(weaponPayload['ac']).toBeUndefined();
+    expect(weaponPayload['stats']).toBeUndefined();
+    expect(weaponPayload['actions_text']).toBeUndefined();
   });
 });

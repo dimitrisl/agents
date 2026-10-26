@@ -238,34 +238,44 @@ async def add_homebrew_to_character(
 
     # Add to character based on type
     htype = item_doc.get("homebrew_type")
+    if htype == "monster":
+        raise HTTPException(
+            status_code=400, detail="Monsters cannot be added to a character sheet."
+        )
+    if htype not in {"weapon", "item", "spell", "feat", "feature"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported homebrew type: {htype}")
+
+    from backend.core.schemas import EquipmentItem, FeatureTrait, Weapon
 
     # Use CharacterSchema to structure
     char = CharacterSchema(**char_doc)
 
     if htype == "weapon":
-        char.weapons.append(item_doc)
+        char.weapons.append(Weapon.model_validate(item_doc))
     elif htype == "item":
-        char.equipment.append(item_doc)
+        char.equipment.append(EquipmentItem.model_validate(item_doc))
     elif htype == "spell":
-        # Add to known spells based on level? Or just a generic list?
-        # For now, put it in equipment to at least show it, or features.
-        # Actually spells go to the spellbook, but `spell_list` is complex.
-        # Let's add it to prepared_spells and spell lists.
         level = item_doc.get("level", 0)
         lvl_key = "cantrips" if level == 0 else f"level_{level}"
-        if hasattr(char.spells, lvl_key):
-            getattr(char.spells, lvl_key).append(item_doc.get("name"))
-        char.prepared_spells.append(item_doc.get("name"))
-    elif htype == "feat":
-        item_doc["source"] = "Homebrew"
-        item_doc["name"] = item_doc.get("name", "Unknown Feat")
-        item_doc["description"] = item_doc.get("description", "")
-        char.features_traits.append(item_doc)
-    elif htype == "feature":
-        item_doc["source"] = "Homebrew"
-        item_doc["name"] = item_doc.get("name", "Unknown Feature")
-        item_doc["description"] = item_doc.get("description", "")
-        char.features_traits.append(item_doc)
+        spell_name = item_doc.get("name")
+        if spell_name:
+            if hasattr(char.spells, lvl_key):
+                lvl_list = getattr(char.spells, lvl_key)
+                if spell_name not in lvl_list:
+                    lvl_list.append(spell_name)
+            if spell_name not in char.prepared_spells:
+                char.prepared_spells.append(spell_name)
+    elif htype in ("feat", "feature"):
+        default_name = "Unknown Feat" if htype == "feat" else "Unknown Feature"
+        char.features_traits.append(
+            FeatureTrait.model_validate(
+                {
+                    "name": item_doc.get("name", default_name),
+                    "description": item_doc.get("description", ""),
+                    "source": "Homebrew",
+                }
+            )
+        )
 
     # Process updates (handles stats, max hp, etc.)
     char_dict = char.model_dump(by_alias=True)

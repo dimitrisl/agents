@@ -200,7 +200,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent): void {
-    if (this.loading || this.isForgingModalOpen) {
+    if (this.loading || (this.isForgingModalOpen && !this.forgingError)) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -665,6 +665,14 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.forgingError = null;
     this.releaseWakeLock();
     this.clearPendingGeneration();
+  }
+
+  retryForging(): void {
+    if (this.activeTab === 'manual') {
+      this.createManualCharacter();
+    } else {
+      this.generateAiCharacter();
+    }
   }
 
   generateAiCharacter() {

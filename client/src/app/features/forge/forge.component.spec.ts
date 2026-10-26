@@ -213,8 +213,27 @@ describe('ForgeComponent', () => {
     expect(component.forgingError).toContain('Rate limit exceeded');
     expect(component.isForgingModalOpen).toBe(true);
 
+    // onBeforeUnload should not block navigation when modal is showing an error
+    const unloadEvent = { preventDefault: jest.fn(), returnValue: undefined } as any;
+    component.onBeforeUnload(unloadEvent);
+    expect(unloadEvent.preventDefault).not.toHaveBeenCalled();
+
     component.closeForgingModal();
     expect(component.isForgingModalOpen).toBe(false);
     expect(component.forgingError).toBeNull();
+  });
+
+  it('dispatches retryForging to createManualCharacter on manual tab and generateAiCharacter on ai tab', () => {
+    const manualSpy = jest.spyOn(component, 'createManualCharacter').mockImplementation(() => {});
+    const aiSpy = jest.spyOn(component, 'generateAiCharacter').mockImplementation(() => {});
+
+    component.activeTab = 'manual';
+    component.retryForging();
+    expect(manualSpy).toHaveBeenCalledTimes(1);
+    expect(aiSpy).not.toHaveBeenCalled();
+
+    component.activeTab = 'ai';
+    component.retryForging();
+    expect(aiSpy).toHaveBeenCalledTimes(1);
   });
 });

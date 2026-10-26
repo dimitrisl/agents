@@ -1251,11 +1251,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private isRollRequestForCharacter(request: RollRequest | undefined, char: CharacterSchema): boolean {
     if (!request) return false;
-    const requestedCharId = request.char_filename?.replace('.json', '').split('_').pop();
-    return (
-      (!!requestedCharId && requestedCharId === char.char_id) ||
-      request.char_name === char.char_name
-    );
+    const raw = (request.char_filename || '').replace(/\.json$/i, '');
+    const charId = char.char_id || '';
+    const matchesFilename =
+      !!charId &&
+      !!raw &&
+      (raw === charId || raw.endsWith(`_${charId}`) || raw.split('_').pop() === charId);
+    return matchesFilename || request.char_name === char.char_name;
   }
 
   private isRollRequestForCharacterName(request: RollRequest | undefined, characterName: string): boolean {
@@ -1268,7 +1270,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.http.post<any>(`${environment.apiBaseUrl}/campaigns/join`, {
       invite_code: this.joinInviteCode.toUpperCase(),
-      char_filename: `${char.char_name.toLowerCase()}_${char.char_id}.json`,
+      char_filename: `${char.char_name.toLowerCase().replace(/\s+/g, '_')}_${char.char_id}.json`,
       character_id: char.char_id
     }).subscribe({
       next: (res) => {

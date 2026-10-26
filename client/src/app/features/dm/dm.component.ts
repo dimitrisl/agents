@@ -1701,16 +1701,25 @@ export class DmComponent implements OnInit, OnDestroy {
       parts.push(`Armor Class: ${ac}`);
       parts.push(`Hit Points: ${hp}`);
       parts.push(`Speed: ${monster['speed'] || '30 ft.'}`);
+      if (monster['cr'] !== undefined && monster['cr'] !== null && monster['cr'] !== '') {
+        parts.push(`CR: ${monster['cr']}`);
+      }
       if (monster['stats']) {
         parts.push(`STR: ${monster['stats'].str ?? 10} | DEX: ${monster['stats'].dex ?? 10} | CON: ${monster['stats'].con ?? 10} | INT: ${monster['stats'].int ?? 10} | WIS: ${monster['stats'].wis ?? 10} | CHA: ${monster['stats'].cha ?? 10}`);
       }
-      if (monster['traits'] && Array.isArray(monster['traits'])) {
-        parts.push('\nTraits:');
-        monster['traits'].forEach((t: any) => parts.push(`• ${typeof t === 'string' ? t : (t.name ? t.name + ': ' + t.description : JSON.stringify(t))}`));
+      if (monster['senses']) {
+        parts.push(`Senses: ${monster['senses']}`);
       }
-      if (monster['actions'] && Array.isArray(monster['actions'])) {
+      if (monster['languages']) {
+        parts.push(`Languages: ${monster['languages']}`);
+      }
+      if (monster['traits'] && Array.isArray(monster['traits']) && monster['traits'].length > 0) {
+        parts.push('\nTraits:');
+        monster['traits'].forEach((t: any) => parts.push(`• ${typeof t === 'string' ? t : (t.name ? t.name + ': ' + (t.description ?? t.desc ?? '') : JSON.stringify(t))}`));
+      }
+      if (monster['actions'] && Array.isArray(monster['actions']) && monster['actions'].length > 0) {
         parts.push('\nActions:');
-        monster['actions'].forEach((a: any) => parts.push(`• ${typeof a === 'string' ? a : (a.name ? a.name + ': ' + a.description : JSON.stringify(a))}`));
+        monster['actions'].forEach((a: any) => parts.push(`• ${typeof a === 'string' ? a : (a.name ? a.name + ': ' + (a.description ?? a.desc ?? '') : JSON.stringify(a))}`));
       }
       if (monster['description']) {
         parts.push(`\n${monster['description']}`);
@@ -1727,7 +1736,8 @@ export class DmComponent implements OnInit, OnDestroy {
       dex,
       is_player: false,
       statblock,
-      size: monster['size'] || 'Medium'
+      size: monster['size'] || 'Medium',
+      cr: monster['cr'] ?? '1'
     });
 
     this.combatants = this.sortCombatants([...this.combatants, added]);

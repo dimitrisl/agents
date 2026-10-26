@@ -9,6 +9,14 @@ from backend.core.homebrew_schemas import HomebrewEntity, HomebrewMonster
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.main import app
+from server.rate_limiter import limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture
@@ -551,3 +559,315 @@ def test_distribute_loot_cross_campaign_isolation(client):
         mock_chars.update_one.assert_not_called()
     finally:
         app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------
+# Regression Tests for Review Findings (#1, #2, #3, #4, #6, #11, #12)
+# ---------------------------------------------------------
+
+
+def test_ai_homebrew_schemas_gemini_compatible():
+    """Finding #1: All AI_HOMEBREW_SCHEMA_MAP models pass google.genai._transformers.t_schema."""
+    from google.genai import _transformers
+
+    from backend.core.homebrew_schemas import AI_HOMEBREW_SCHEMA_MAP, HomebrewItem, HomebrewWeapon
+
+    for htype, schema_cls in AI_HOMEBREW_SCHEMA_MAP.items():
+        transformed = _transformers.t_schema(None, schema_cls)
+        assert transformed is not None, f"Failed to transform schema for {htype}"
+
+    w = HomebrewWeapon(
+        campaign_id="Camp",
+        creator_dm_id="dm_1",
+        name="Sunblade",
+        damage_dice="1d8",
+        description="A blade of pure sunlight.",
+    )
+    assert w.description == "A blade of pure sunlight."
+    assert w.attack_bonus == "+0"
+
+    it = HomebrewItem(
+        campaign_id="Camp",
+        creator_dm_id="dm_1",
+        name="Cloak of Stars",
+        description="Shimmers with starlight.",
+    )
+    assert it.description == "Shimmers with starlight."
+
+
+def test_forge_homebrew_returns_502_when_ai_returns_none(client, monkeypatch):
+    """Finding #1: /homebrew/forge raises 502 instead of 200 null when AI provider returns None."""
+    from server.routers import homebrew_router
+
+    mock_members = MagicMock()
+    mock_members.find_one = AsyncMock(
+        return_value={"campaign_id": "CurseOfStrahd", "user_id": "dm_1", "role": "dm"}
+    )
+
+    monkeypatch.setattr(
+        homebrew_router.homebrew_service, "forge_with_ai", AsyncMock(return_value=None)
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: {"id": "dm_1", "username": "dm"}
+    app.dependency_overrides[get_database] = lambda: {"campaign_members": mock_members}
+
+    try:
+        response = client.post(
+            "/api/v1/campaigns/CurseOfStrahd/homebrew/forge",
+            json={"type": "monster", "prompt": "A shadowy wolf"},
+        )
+        assert response.status_code == 502
+        assert "AI provider failed" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_distribute_loot_validates_schemas_and_deduplicates_recipients(client):
+    """Findings #2 & #4: distribute_loot deduplicates recipients, divides by valid chars, and routes weapons/spells/feats."""
+    mock_camp = MagicMock()
+    mock_camp.find_one = AsyncMock(return_value={"campaign_name": "DragonHeist"})
+    mock_members = MagicMock()
+    mock_members.find_one = AsyncMock(
+        return_value={"campaign_id": "DragonHeist", "user_id": "dm_1", "role": "dm"}
+    )
+
+    char_docs = {
+        "char_1": {
+            "char_id": "char_1",
+            "char_name": "Fighter",
+            "active_campaign": "DragonHeist",
+            "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+            "proficiency_bonus": 3,
+            "currency": {"cp": 0, "sp": 0, "ep": 0, "gp": 10, "pp": 0},
+            "equipment": [],
+            "weapons": [],
+            "features_traits": [],
+            "spells": {},
+            "prepared_spells": [],
+            "version": 1,
+        },
+        "char_wrong_camp": {
+            "char_id": "char_wrong_camp",
+            "char_name": "Outsider",
+            "active_campaign": "OtherCampaign",
+        },
+    }
+
+    async def mock_find_one(query):
+        return char_docs.get(query.get("char_id"))
+
+    mock_chars = MagicMock()
+    mock_chars.find_one = AsyncMock(side_effect=mock_find_one)
+    mock_chars.update_one = AsyncMock()
+
+    app.dependency_overrides[get_current_user] = lambda: {"id": "dm_1", "username": "dm"}
+    app.dependency_overrides[get_database] = lambda: {
+        "campaigns": mock_camp,
+        "campaign_members": mock_members,
+        "characters": mock_chars,
+    }
+
+    try:
+        # Duplicate char_1 + invalid char_wrong_camp -> only 1 valid recipient, so 100 gp is NOT divided by 3
+        response = client.post(
+            "/api/v1/campaigns/DragonHeist/loot/distribute",
+            json={
+                "character_ids": ["char_1", "char_1", "char_wrong_camp"],
+                "currency": {"gp": 100},
+                "split_currency": True,
+                "items": [
+                    {
+                        "name": "Flame Tongue Longsword",
+                        "homebrew_type": "weapon",
+                        "damage_dice": "1d8",
+                        "magic_bonus": 1,
+                        "description": "Deals extra fire damage.",
+                    },
+                    {
+                        "name": "Chrono Step",
+                        "homebrew_type": "spell",
+                        "level": 2,
+                        "school": "Conjuration",
+                        "description": "Teleport 30 ft.",
+                    },
+                    {
+                        "name": "Dragonmark Boon",
+                        "homebrew_type": "feat",
+                        "description": "Grants +1 luck.",
+                    },
+                ],
+            },
+        )
+        assert response.status_code == 200
+        res = response.json()
+        assert res["currency_awarded"]["gp"] == 100
+        assert res["recipients"] == ["Fighter"]
+        assert mock_chars.update_one.call_count == 1
+
+        update_op = mock_chars.update_one.call_args[0][1]
+        assert update_op["$inc"]["currency.gp"] == 100
+        pushed_weapon = update_op["$push"]["weapons"]["$each"][0]
+        assert pushed_weapon["name"] == "Flame Tongue Longsword"
+        # STR 16 (+3) + prof (3) + magic_bonus (1) = +7 attack, +4 damage
+        assert pushed_weapon["attack_bonus"] == "+7"
+        assert pushed_weapon["damage_bonus"] == "+4"
+        assert "_id" not in pushed_weapon
+        assert "homebrew_type" not in pushed_weapon
+
+        pushed_feat = update_op["$push"]["features_traits"]["$each"][0]
+        assert pushed_feat["name"] == "Dragonmark Boon"
+        assert pushed_feat["source"] == "Homebrew"
+
+        assert "Chrono Step" in update_op["$addToSet"]["spells.level_2"]["$each"]
+        assert "Chrono Step" in update_op["$addToSet"]["prepared_spells"]["$each"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_distribute_loot_rejects_monsters_and_unnamed_items(client):
+    """Findings #2 & #4: distribute_loot rejects monsters and items without a name with HTTP 400."""
+    mock_camp = MagicMock()
+    mock_camp.find_one = AsyncMock(return_value={"campaign_name": "DragonHeist"})
+    mock_members = MagicMock()
+    mock_members.find_one = AsyncMock(
+        return_value={"campaign_id": "DragonHeist", "user_id": "dm_1", "role": "dm"}
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: {"id": "dm_1", "username": "dm"}
+    app.dependency_overrides[get_database] = lambda: {
+        "campaigns": mock_camp,
+        "campaign_members": mock_members,
+    }
+
+    try:
+        res_monster = client.post(
+            "/api/v1/campaigns/DragonHeist/loot/distribute",
+            json={
+                "character_ids": ["char_1"],
+                "items": [{"name": "Goblin Boss", "homebrew_type": "monster"}],
+            },
+        )
+        assert res_monster.status_code == 400
+        assert "Monsters cannot be distributed" in res_monster.json()["detail"]
+
+        res_unnamed = client.post(
+            "/api/v1/campaigns/DragonHeist/loot/distribute",
+            json={
+                "character_ids": ["char_1"],
+                "items": [{"name": "   ", "type": "item"}],
+            },
+        )
+        assert res_unnamed.status_code == 400
+        assert "valid name" in res_unnamed.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_generate_homebrew_pdf_escapes_html_and_formats_weapon_properties():
+    """Finding #3: generate_homebrew_pdf escapes XML/HTML entities and formats string/list weapon properties."""
+    from backend.utils.homebrew_pdf import _format_properties, generate_homebrew_pdf
+
+    assert _format_properties("Versatile, Light") == "Versatile, Light"
+    assert _format_properties(["Finesse", "Light"]) == "Finesse, Light"
+    assert _format_properties(None) == "None"
+
+    items = [
+        {
+            "name": "Blade of <Chaos> & Doom",
+            "homebrew_type": "weapon",
+            "damage_dice": "2d6 <fire>",
+            "properties": "Versatile (1d10), Heavy & Two-Handed",
+            "description": "Deals +5 damage when HP < 10 & target > Medium.\nSecond line.",
+        },
+        {
+            "name": "Shadow <Stalker>",
+            "homebrew_type": "monster",
+            "cr": "4",
+            "ac": 15,
+            "hp": 60,
+            "speed": "40 ft.",
+            "traits": [
+                {
+                    "name": "keen <senses> & stealth",
+                    "description": "Advantage on <Perception> & Stealth.",
+                }
+            ],
+            "actions": [{"name": "Claw & <Bite>", "description": "+6 to hit, 2d6+3 <slashing>."}],
+        },
+    ]
+
+    pdf_buf = generate_homebrew_pdf(items)
+    content = pdf_buf.getvalue()
+    assert content.startswith(b"%PDF")
+    assert len(content) > 500
+
+
+def test_add_homebrew_monster_to_character_rejected(client, monkeypatch):
+    """Finding #6: POST /characters/{char_id}/homebrew/{item_id} rejects monster homebrew with 400."""
+    from server.routers import character_router
+
+    mock_chars = MagicMock()
+    mock_chars.find_one = AsyncMock(
+        return_value={
+            "char_id": "hero_1",
+            "owner_id": "player_1",
+            "char_name": "Aria",
+            "char_class": "Fighter",
+            "race": "Elf",
+            "background": "Soldier",
+            "stats": {"STR": 14, "DEX": 16, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10},
+            "active_campaign": "CurseOfStrahd",
+        }
+    )
+
+    monkeypatch.setattr(
+        character_router.homebrew_service,
+        "get_homebrew_item",
+        AsyncMock(
+            return_value={
+                "_id": "507f1f77bcf86cd799439011",
+                "campaign_id": "CurseOfStrahd",
+                "name": "Zombie Wolf",
+                "homebrew_type": "monster",
+            }
+        ),
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: {"id": "player_1", "username": "player"}
+    app.dependency_overrides[get_database] = lambda: {"characters": mock_chars}
+
+    try:
+        response = client.post("/api/v1/characters/hero_1/homebrew/507f1f77bcf86cd799439011")
+        assert response.status_code == 400
+        assert "Monsters cannot be added" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_encounter_state_preserves_size_cr_and_xp():
+    """Finding #12: InitiativeCombatantSchema preserves size, cr, and xp fields."""
+    from backend.core.schemas import EncounterStateSchema
+
+    state = EncounterStateSchema(
+        round=1,
+        activeCombatantId="c1",
+        combatants=[
+            {
+                "id": "c1",
+                "name": "Barovian Shadow Wolf",
+                "initiative": 15,
+                "hp": 45,
+                "max_hp": 45,
+                "ac": 14,
+                "dex": 14,
+                "is_player": False,
+                "size": "Large",
+                "cr": "3",
+                "xp": 700,
+            }
+        ],
+    )
+    dumped = state.model_dump()
+    assert dumped["combatants"][0]["size"] == "Large"
+    assert dumped["combatants"][0]["cr"] == "3"
+    assert dumped["combatants"][0]["xp"] == 700

@@ -38,6 +38,8 @@ export interface InitiativeCombatant {
   portrait?: string;
   statblock?: string;
   size?: string | number;
+  cr?: string | number;
+  xp?: number;
   conditions: CombatantCondition[];
   /** Only ever set for a player at 0 HP; cleared the moment they are healed. */
   deathSaves?: DeathSaves;

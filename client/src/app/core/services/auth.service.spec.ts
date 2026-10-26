@@ -81,14 +81,20 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('should clear state, clear local storage, and navigate to login', () => {
+    it('should clear state, clear local storage including forge keys, and navigate to login', () => {
       localStorage.setItem('token', 'fake-token');
+      localStorage.setItem('phyrexian_forge_temp_hero', '{"char_name":"Hero"}');
+      localStorage.setItem('phyrexian_forge_ai_draft', '{"aiClass":"Wizard"}');
+      localStorage.setItem('phyrexian_forge_pending_generation', '123456789');
       service.logout();
 
       expect(service.token()).toBeNull();
       expect(service.currentUser()).toBeNull();
       expect(service.authStatus()).toBe('anonymous');
       expect(localStorage.getItem('token')).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_temp_hero')).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_ai_draft')).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_pending_generation')).toBeNull();
       expect(charStateSpy.reset).toHaveBeenCalled();
       expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
     });

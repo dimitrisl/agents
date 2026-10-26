@@ -82,6 +82,13 @@ class ForgeTabButtonDirective implements FocusableOption {
           transparent 100%
         );
       }
+
+      @media (max-width: 639.98px) {
+        .forge-tabs-no-mobile-fade {
+          -webkit-mask-image: none !important;
+          mask-image: none !important;
+        }
+      }
     `,
   ],
 })
@@ -153,11 +160,13 @@ export class ForgeTabsComponent implements AfterViewInit, OnChanges {
   }
 
   get fadeClasses(): string {
-    if (this.mobileColumns === 2) return '';
-    if (this.overflowStart && this.overflowEnd) return 'forge-tabs-fade-both';
-    if (this.overflowEnd) return 'forge-tabs-fade-end';
-    if (this.overflowStart) return 'forge-tabs-fade-start';
-    return '';
+    let fade = '';
+    if (this.overflowStart && this.overflowEnd) fade = 'forge-tabs-fade-both';
+    else if (this.overflowEnd) fade = 'forge-tabs-fade-end';
+    else if (this.overflowStart) fade = 'forge-tabs-fade-start';
+
+    if (!fade) return '';
+    return this.mobileColumns === 2 ? `${fade} forge-tabs-no-mobile-fade` : fade;
   }
 
   get buttonBaseClasses(): string {
