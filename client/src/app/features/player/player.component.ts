@@ -1933,6 +1933,45 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
+  onSavePortraitUrl(url: string) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    char.char_portrait = url.trim() || undefined;
+    this.saveCurrentChar(true);
+    this.showPortraitModal.set(false);
+    this.rollToast.showMessage(
+      '🖼️ PORTRAIT UPDATED',
+      url.trim() ? `Updated portrait for ${char.char_name}.` : `Reset portrait for ${char.char_name} to default.`
+    );
+  }
+
+  onUploadPortraitFile(file: File) {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.char_id) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<any>(`${environment.apiBaseUrl}/characters/${char.char_id}/portrait-upload`, formData)
+      .subscribe({
+        next: (res) => {
+          if (res?.portrait_url) {
+            char.char_portrait = res.portrait_url;
+            if (typeof res.version === 'number') {
+              char.version = res.version;
+            }
+            this.charState.activeCharacter.set({ ...char });
+            this.showPortraitModal.set(false);
+            this.rollToast.showMessage('🖼️ PORTRAIT UPLOADED', `Uploaded new portrait for ${char.char_name}!`);
+          }
+        },
+        error: (err) => {
+          const detail = err?.error?.detail || 'Failed to upload portrait.';
+          this.rollToast.showMessage('⚠️ UPLOAD FAILED', detail);
+        }
+      });
+  }
+
   onLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char) return;
