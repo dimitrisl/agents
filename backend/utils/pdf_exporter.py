@@ -122,7 +122,14 @@ class PDFMappingProvider:
             if i < len(weapons):
                 w = weapons[i]
                 field_data[w_map["name"]] = w.get("name", "")
-                field_data[w_map["atk"]] = w.get("attack_bonus", "")
+                atk = str(w.get("attack_bonus", ""))
+                if atk and not atk.startswith("+") and not atk.startswith("-"):
+                    try:
+                        atk_val = int(atk)
+                        atk = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
+                    except ValueError:
+                        pass
+                field_data[w_map["atk"]] = atk
                 field_data[w_map["dmg"]] = w.get("damage") or rebuild_damage_formula(
                     w.get("damage_dice"), w.get("damage_bonus")
                 )
@@ -174,12 +181,31 @@ class PDFMappingProvider:
 
         # 9. Spells & Slot Totals
         char_spells = char_data.get("spells", {})
+        prepared_spells = set(
+            str(s).strip().lower() for s in char_data.get("prepared_spells", []) if s
+        )
         spell_mapping = self.mapping.get("spells", {})
+        spell_checks = self.mapping.get("spell_checks", {})
+
         for lvl, pdf_keys in spell_mapping.items():
             if lvl in char_spells:
-                for i, spell in enumerate(char_spells[lvl]):
+                s_list = char_spells[lvl]
+                for i, spell in enumerate(s_list):
                     if i < len(pdf_keys):
-                        field_data[pdf_keys[i]] = spell
+                        s_name = spell.get("name", "") if isinstance(spell, dict) else str(spell)
+                        pdf_key = pdf_keys[i]
+                        field_data[pdf_key] = s_name
+
+                        cb_key = spell_checks.get(pdf_key)
+                        if cb_key:
+                            # If explicitly in prepared_spells or no explicit prepared_spells set
+                            # (for known casters like Ranger, Bard, Sorcerer, all known spells are prepared)
+                            is_prep = (
+                                True
+                                if not prepared_spells
+                                else (s_name.strip().lower() in prepared_spells)
+                            )
+                            field_data[cb_key] = "Yes" if is_prep else "/Off"
 
         slot_totals = self.mapping.get("slot_totals", {})
         char_slots = char_data.get("spell_slots", {})
@@ -214,12 +240,73 @@ class PDFMappingProvider:
 
         field_data[spellcasting["class"]] = char_class
         field_data[spellcasting["ability"]] = spell_stat
-        field_data[spellcasting["dc"]] = str(
-            char_data.get("spell_save_dc", 8 + spell_mod + prof_bonus)
-        )
-        field_data[spellcasting["bonus"]] = char_data.get(
-            "spell_attack_bonus", format_mod(spell_mod + prof_bonus)
-        )
+        spell_dc = char_data.get("spell_save_dc", 8 + spell_mod + prof_bonus)
+        spell_atk = char_data.get("spell_attack_bonus", format_mod(spell_mod + prof_bonus))
+        field_data[spellcasting["dc"]] = str(spell_dc)
+        field_data[spellcasting["bonus"]] = str(spell_atk)
+
+        # 11. Attacks & Spellcasting on Page 1
+        atk_spell_lines = []
+        if len(weapons) > 3:
+            for extra_w in weapons[3:]:
+                w_name = extra_w.get("name", "")
+                w_atk = extra_w.get("attack_bonus", "")
+                w_dmg = extra_w.get("damage", "")
+                atk_spell_lines.append(f"{w_name}: {w_atk} ({w_dmg})")
+
+        if spell_stat:
+            atk_spell_lines.append(
+                f"Spellcasting: {char_class} ({spell_stat}) | DC {spell_dc} | Atk {spell_atk}"
+            )
+
+        # Highlight key combat/subclass traits
+        combat_traits = []
+        for feat in char_data.get("features_traits", []):
+            f_name = feat.get("name", "") if isinstance(feat, dict) else str(feat)
+            f_lower = f_name.lower()
+            if any(
+                k in f_lower
+                for k in [
+                    "planar warrior",
+                    "distant strike",
+                    "spectral defense",
+                    "sneak attack",
+                    "action surge",
+                    "second wind",
+                    "divine smite",
+                    "rage",
+                    "favored enemy",
+                    "archery",
+                ]
+            ):
+                combat_traits.append(f_name)
+        if combat_traits:
+            atk_spell_lines.append("Features: " + ", ".join(combat_traits))
+
+        # Known / Prepared Spells Summary by level
+        for lvl_k, lvl_label in [
+            ("cantrips", "Cantrips"),
+            ("level_1", "1st Level"),
+            ("level_2", "2nd Level"),
+            ("level_3", "3rd Level"),
+            ("level_4", "4th Level"),
+            ("level_5", "5th Level"),
+            ("level_6", "6th Level"),
+            ("level_7", "7th Level"),
+            ("level_8", "8th Level"),
+            ("level_9", "9th Level"),
+        ]:
+            s_list = char_spells.get(lvl_k, [])
+            if s_list:
+                s_names = [s.get("name", "") if isinstance(s, dict) else str(s) for s in s_list]
+                slots_str = ""
+                slot_info = char_slots.get(lvl_k, {})
+                s_max = slot_info.get("max", 0) if isinstance(slot_info, dict) else (slot_info or 0)
+                if s_max:
+                    slots_str = f" ({s_max} slots)"
+                atk_spell_lines.append(f"{lvl_label}{slots_str}: " + ", ".join(s_names))
+
+        field_data["AttacksSpellcasting"] = "\n".join(atk_spell_lines)
 
         return field_data
 

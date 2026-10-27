@@ -70,3 +70,48 @@ def test_export_to_pdf_missing_template(sample_char_data):
     # Should return None if template doesn't exist
     result = export_character_to_pdf(sample_char_data, "non_existent_template.pdf")
     assert result is None
+
+
+def test_pdf_export_spells_mapping_and_attacks_spellcasting():
+    provider = PDFMappingProvider("standard_5e")
+    char_data = {
+        "char_name": "Ulad Bhor",
+        "char_class": "Ranger",
+        "char_level": 11,
+        "stats": {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12},
+        "proficiency_bonus": 4,
+        "features_traits": ["Fighting Style: Archery", "Planar Warrior (Horizon Walker)"],
+        "weapons": [{"name": "Longbow +1", "attack_bonus": "+12", "damage": "1d8 + 6"}],
+        "spells": {
+            "level_1": ["Cure Wounds", "Speak with Animals"],
+            "level_2": ["Misty Step", "Silence"],
+            "level_3": ["Haste", "Lightning Arrow"],
+        },
+        "spell_slots": {
+            "level_1": {"max": 4, "used": 0},
+            "level_2": {"max": 3, "used": 0},
+            "level_3": {"max": 3, "used": 0},
+        },
+    }
+
+    fields = provider.get_field_data(char_data)
+
+    # Attacks & Spellcasting on Page 1
+    assert "AttacksSpellcasting" in fields
+    assert "Spellcasting: Ranger (WIS)" in fields["AttacksSpellcasting"]
+    assert "Haste" in fields["AttacksSpellcasting"]
+    assert "Planar Warrior" in fields["AttacksSpellcasting"]
+
+    # Level 2 spells: Row 1 is Spells 1046 (Misty Step), Row 2 is Spells 1034 (Silence)
+    assert fields["Spells 1046"] == "Misty Step"
+    assert fields["Spells 1034"] == "Silence"
+    assert fields["Check Box 313"] == "Yes"  # Checkbox for Misty Step (Spells 1046)
+
+    # Level 3 spells: Row 1 is Spells 1048 (Haste), Row 2 is Spells 1047 (Lightning Arrow)
+    assert fields["Spells 1048"] == "Haste"
+    assert fields["Spells 1047"] == "Lightning Arrow"
+    assert fields["Check Box 315"] == "Yes"  # Checkbox for Haste (Spells 1048)
+
+    # Weapons
+    assert fields["Wpn Name"] == "Longbow +1"
+    assert fields["Wpn1 AtkBonus"] == "+12"

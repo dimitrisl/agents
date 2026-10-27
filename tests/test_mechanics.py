@@ -168,3 +168,30 @@ def test_sync_character_stats_weapon_damage_edit():
     assert weapon["damage"] == "2d6 + 5 fire"
     assert weapon["damage_dice"] == "2d6 fire"
     assert weapon["damage_bonus"] == "+5"
+
+
+def test_calculate_weapon_stats_archery_and_magic():
+    # Longbow with DEX 20 (+5), Prof 4, Magic +1, Archery Style (+2) -> +12 to hit, 1d8 + 6 damage
+    weapon = {"name": "Longbow +1", "range": "150/600", "magic_bonus": 1}
+    stats = {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12}
+    traits = ["Fighting Style: Archery"]
+
+    res = calculate_weapon_stats(weapon, stats, proficiency_bonus=4, features_traits=traits)
+    assert res["attack_bonus"] == "+12"
+    assert res["damage_bonus"] == "+6"
+    assert "1d8 + 6" in res["damage"]
+
+
+def test_sync_character_stats_with_archery_fighting_style():
+    char_data = {
+        "char_level": 11,
+        "char_class": "Ranger",
+        "stats": {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12},
+        "proficiency_bonus": 4,
+        "features_traits": ["Fighting Style: Archery"],
+        "weapons": [{"name": "Longbow +1", "magic_bonus": 1}],
+    }
+    class_data = {"hit_die": "d10"}
+    synced = sync_character_stats(char_data, class_data)
+    assert synced["weapons"][0]["attack_bonus"] == "+12"
+    assert synced["weapons"][0]["damage_bonus"] == "+6"
