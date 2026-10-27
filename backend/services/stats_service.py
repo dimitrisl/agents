@@ -616,6 +616,7 @@ def calculate_weapon_stats(
     stats: Dict[str, int],
     proficiency_bonus: int,
     homebrew_content: List[Dict[str, Any]] = None,
+    features_traits: List[Any] = None,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
@@ -654,6 +655,7 @@ def calculate_weapon_stats(
             mod = get_modifier(stats[ability_override])
         else:
             mod = str_mod
+        is_ranged = False
     else:
         from backend.repositories.rules_repository import RulesRepository
 
@@ -669,9 +671,11 @@ def calculate_weapon_stats(
             is_ranged = "ranged" in category
             is_finesse = any("finesse" in p for p in props)
         else:
-            is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart"])
+            is_ranged = any(
+                word in name for word in ["bow", "crossbow", "sling", "dart", "blowgun"]
+            )
             is_finesse = any(
-                word in name for word in ["rapier", "dagger", "scimitar", "shortsword"]
+                word in name for word in ["rapier", "dagger", "scimitar", "shortsword", "whip"]
             )
 
         if is_ranged:
@@ -681,14 +685,47 @@ def calculate_weapon_stats(
         else:
             mod = str_mod
 
-    magic_bonus = int(weapon.get("magic_bonus", 0))
+    # Extract magic bonus from weapon or weapon name (e.g. "Longbow +1")
+    magic_bonus_raw = weapon.get("magic_bonus")
+    if magic_bonus_raw is not None and str(magic_bonus_raw).strip() != "":
+        try:
+            magic_bonus = int(magic_bonus_raw)
+        except (ValueError, TypeError):
+            magic_bonus = 0
+    else:
+        name_match = re.search(r"\+([1-9])\b", weapon.get("name", ""))
+        magic_bonus = int(name_match.group(1)) if name_match else 0
 
-    attack_bonus = mod + proficiency_bonus + magic_bonus
+    # Fighting styles & proficiency
+    has_archery = False
+    has_dueling = False
+    if features_traits:
+        for f in features_traits:
+            f_name = (f if isinstance(f, str) else f.get("name", "")).lower()
+            f_desc = ("" if isinstance(f, str) else f.get("description", "")).lower()
+            if (
+                "archery" in f_name
+                or "+2 bonus to attack rolls you make with ranged weapons" in f_desc
+            ):
+                has_archery = True
+            if "dueling" in f_name or "+2 bonus to damage rolls with that weapon" in f_desc:
+                has_dueling = True
+
+    archery_bonus = 2 if (has_archery and is_ranged) else 0
+    dueling_bonus = 2 if (has_dueling and not is_ranged) else 0
+
+    is_proficient = weapon.get("proficient", True)
+    prof_val = proficiency_bonus if is_proficient else 0
+
+    misc_atk = int(weapon.get("misc_attack_bonus", 0) or 0)
+    misc_dmg = int(weapon.get("misc_damage_bonus", 0) or 0)
+
+    attack_bonus = mod + prof_val + magic_bonus + archery_bonus + misc_atk
     weapon["attack_bonus"] = f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
 
-    damage_raw = weapon.get("damage") or rebuild_damage_formula(
-        weapon.get("damage_dice"), weapon.get("damage_bonus")
-    )
+    damage_raw = weapon.get("damage")
+    if not damage_raw and weapon.get("damage_dice"):
+        damage_raw = rebuild_damage_formula(weapon.get("damage_dice"), weapon.get("damage_bonus"))
     if not damage_raw:
         if "weapon_data" not in locals() or not weapon_data:
             from backend.repositories.rules_repository import RulesRepository
@@ -699,13 +736,15 @@ def calculate_weapon_stats(
             weapon_data = get_base_weapon(name, all_weapons)
         if weapon_data and weapon_data.get("damage"):
             damage_raw = weapon_data.get("damage")
+    if not damage_raw:
+        damage_raw = "1d4"
     dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw or "", re.I)
     if dice_match:
         dice_part = dice_match.group(1)
         type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
         dmg_type = type_match.group(1).strip() if type_match else ""
 
-        total_dmg_mod = mod + magic_bonus
+        total_dmg_mod = mod + magic_bonus + dueling_bonus + misc_dmg
         if total_dmg_mod < 0:
             total_dmg_mod = 0
 
@@ -1289,7 +1328,15 @@ def sync_character_stats(
                     w_dict.get("damage_dice"), w_dict.get("damage_bonus")
                 )
 
-        updated_weapons.append(calculate_weapon_stats(w_dict, stats, prof_bonus, homebrew_content))
+        updated_weapons.append(
+            calculate_weapon_stats(
+                w_dict,
+                stats,
+                prof_bonus,
+                homebrew_content,
+                features_traits=char_data.get("features_traits", []),
+            )
+        )
 
     if weapon_deltas and "deleted_rows" in weapon_deltas:
         deleted_indices = sorted(weapon_deltas["deleted_rows"], reverse=True)
@@ -1310,7 +1357,13 @@ def sync_character_stats(
                 "range": new_w_data.get("range", ""),
                 "is_custom": new_w_data.get("is_custom", False),
             }
-            new_w = calculate_weapon_stats(new_w, stats, prof_bonus, homebrew_content)
+            new_w = calculate_weapon_stats(
+                new_w,
+                stats,
+                prof_bonus,
+                homebrew_content,
+                features_traits=char_data.get("features_traits", []),
+            )
             updated_weapons.append(new_w)
 
     char_data["weapons"] = updated_weapons
