@@ -819,9 +819,10 @@ def sync_character_stats(
     classes = char_data.get("classes", [])
     if not classes:
         # Pydantic models dump lists of ClassEntry to dicts, but just in case
+        resolved_class = char_data.get("char_class") or char_data.get("class_name") or "Fighter"
         classes = [
             {
-                "class_name": char_data.get("char_class", "Fighter"),
+                "class_name": resolved_class,
                 "level": char_data.get("char_level", 1),
                 "subclass": char_data.get("subclass"),
             }
@@ -1377,7 +1378,20 @@ def sync_character_stats(
             class_lower = (char_class or "").lower()
             subclass_lower = (char_data.get("subclass") or "").lower()
             feats_str = str(char_data.get("features_traits", [])).lower()
-            if (
+            standard_spell_abilities = {
+                "wizard": "INT",
+                "artificer": "INT",
+                "cleric": "WIS",
+                "druid": "WIS",
+                "ranger": "WIS",
+                "paladin": "CHA",
+                "sorcerer": "CHA",
+                "warlock": "CHA",
+                "bard": "CHA",
+            }
+            if class_lower in standard_spell_abilities:
+                spell_ability = standard_spell_abilities[class_lower]
+            elif (
                 "eldritch knight" in subclass_lower
                 or "arcane trickster" in subclass_lower
                 or "eldritch knight" in feats_str
