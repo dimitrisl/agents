@@ -158,19 +158,24 @@ class RulesRepository:
 
         spells = []
 
-        # Try database first
+        # Try database first if sync connection is available
         try:
-            from backend.core.db import get_db
+            import pymongo
 
-            db = get_db()
-            if db is not None:
-                cursor = db["spells"].find({"edition": edition_val})
-                for s in cursor:
-                    if "_id" in s:
-                        del s["_id"]
-                    spells.append(s)
-        except Exception as e:
-            logger.error(f"Failed to load spells from MongoDB: {e}")
+            from server.config import settings
+
+            if settings.MONGO_URI and settings.DATABASE_NAME:
+                with pymongo.MongoClient(
+                    settings.MONGO_URI, serverSelectionTimeoutMS=500
+                ) as client:
+                    db = client[settings.DATABASE_NAME]
+                    cursor = db["spells"].find({"edition": edition_val})
+                    for s in cursor:
+                        if "_id" in s:
+                            del s["_id"]
+                        spells.append(s)
+        except Exception:
+            pass  # Fallback to local JSON files
 
         # Always load from local JSON files as baseline or fallback
         filename = f"spells_{edition_val}.json"

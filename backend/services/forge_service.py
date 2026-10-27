@@ -495,6 +495,7 @@ def _get_fallback_level_up_recommendations(
     available_subclasses: list[str],
     has_asi: bool,
     max_spell_level: int,
+    known_spells: list[str] | None = None,
 ) -> list[dict]:
     """Generates 3 distinct deterministic archetype builds if the LLM is unavailable."""
     primary_stats = {
@@ -513,12 +514,48 @@ def _get_fallback_level_up_recommendations(
         "Artificer": "INT",
     }
     prim_stat = primary_stats.get(target_class, "STR")
+    known_set = {k.strip().lower() for k in (known_spells or [])}
+
+    repo = _get_rules_repo()
+    all_class_spells = [
+        s
+        for s in repo.get_all_spells(edition)
+        if target_class.lower() in [c.lower() for c in s.get("classes", [])]
+        and s.get("name", "").strip().lower() not in known_set
+    ]
+
+    def _get_top_spells(school_keywords: list[str], fallback_list: list[str]) -> list[str]:
+        if max_spell_level <= 0:
+            return []
+        # Filter for unlearned spells of highest available level (current tier)
+        tier_spells = [
+            s["name"]
+            for s in all_class_spells
+            if s.get("level", 0) == max_spell_level
+            and (
+                not school_keywords
+                or any(kw in (s.get("school") or "").lower() for kw in school_keywords)
+            )
+        ]
+        if not tier_spells:
+            tier_spells = [
+                s["name"] for s in all_class_spells if s.get("level", 0) == max_spell_level
+            ]
+        if not tier_spells:
+            tier_spells = [
+                s["name"] for s in all_class_spells if 0 < s.get("level", 0) <= max_spell_level
+            ]
+        # Deduplicate and exclude known
+        tier_spells = [s for s in tier_spells if s.strip().lower() not in known_set]
+        if tier_spells:
+            return tier_spells[:2]
+        return [s for s in fallback_list if s.strip().lower() not in known_set][:2]
 
     is_horizon_walker = "horizon" in str(char_data.get("subclass", "")).lower()
     ranger_offensive = (
-        ["Lightning Arrow", "Zephyr Strike", "Spike Growth"]
+        ["Lightning Arrow", "Conjure Animals", "Zephyr Strike"]
         if is_horizon_walker
-        else ["Hunter's Mark", "Lightning Arrow", "Zephyr Strike"]
+        else ["Lightning Arrow", "Hunter's Mark", "Zephyr Strike"]
     )
 
     offensive_spells = {
@@ -541,7 +578,7 @@ def _get_fallback_level_up_recommendations(
         "Druid": ["Barkskin", "Pass without Trace", "Goodberry", "Healing Word"],
         "Bard": ["Healing Word", "Invisibility", "Lesser Restoration"],
         "Paladin": ["Aid", "Cure Wounds", "Lesser Restoration"],
-        "Ranger": ["Pass without Trace", "Cure Wounds", "Absorb Elements"],
+        "Ranger": ["Protection from Energy", "Pass without Trace", "Absorb Elements"],
         "Artificer": ["Shield", "Aid", "Absorb Elements"],
     }
 
@@ -553,7 +590,7 @@ def _get_fallback_level_up_recommendations(
         "Druid": ["Entangle", "Spike Growth", "Plant Growth", "Faerie Fire"],
         "Bard": ["Hypnotic Pattern", "Faerie Fire", "Suggestion", "Hold Person"],
         "Paladin": ["Bless", "Find Steed", "Crusader's Mantle"],
-        "Ranger": ["Spike Growth", "Conjure Animals", "Silence"],
+        "Ranger": ["Plant Growth", "Wind Wall", "Silence"],
         "Artificer": ["Web", "Haste", "Revivify", "Mending"],
     }
 
@@ -585,10 +622,12 @@ def _get_fallback_level_up_recommendations(
     feat_2 = "Sentinel or Tough (+2 CON alternative)" if has_asi else None
     feat_3 = f"Fey Touched (+1 {prim_stat}) or Alert" if has_asi else None
 
-    # Spells per build
-    spells_1 = offensive_spells.get(target_class, [])[:2] if max_spell_level > 0 else []
-    spells_2 = defensive_spells.get(target_class, [])[:2] if max_spell_level > 0 else []
-    spells_3 = utility_spells.get(target_class, [])[:2] if max_spell_level > 0 else []
+    # Spells per build (prioritize newly unlocked tier spells excluding known spells)
+    spells_1 = _get_top_spells(["evocation", "necromancy"], offensive_spells.get(target_class, []))
+    spells_2 = _get_top_spells(["abjuration"], defensive_spells.get(target_class, []))
+    spells_3 = _get_top_spells(
+        ["conjuration", "transmutation", "divination"], utility_spells.get(target_class, [])
+    )
 
     return [
         {
@@ -672,7 +711,7 @@ def generate_level_up_build_recommendations(
     edition = char_data.get("dnd_edition", EDITION_2014)
     classes = char_data.get("classes", [])
     current_total_level = char_data.get("char_level", 1)
-    target_total_level = target_level or (current_total_level + 1)
+    target_total_level = max(current_total_level + 1, target_level or (current_total_level + 1))
     target_class = target_class or char_data.get("char_class", "Fighter")
 
     # Current class level
@@ -704,6 +743,24 @@ def generate_level_up_build_recommendations(
         if max_slots.get(f"level_{i}", 0) > 0:
             max_spell_level = i
 
+    # Collect ALL known/prepared spells across all tiers
+    all_known_spells = []
+    sp_dict = char_data.get("spells") or {}
+    if isinstance(sp_dict, dict):
+        for lvl_list in sp_dict.values():
+            if isinstance(lvl_list, list):
+                for s in lvl_list:
+                    name = s.get("name") if isinstance(s, dict) else str(s)
+                    if name and name not in all_known_spells:
+                        all_known_spells.append(name)
+    elif isinstance(sp_dict, list):
+        for s in sp_dict:
+            name = s.get("name") if isinstance(s, dict) else str(s)
+            if name and name not in all_known_spells:
+                all_known_spells.append(name)
+
+    known_spells_str = ", ".join(all_known_spells) if all_known_spells else "None"
+
     # Fallback template generator helper
     def fallback_result():
         fallback_builds = _get_fallback_level_up_recommendations(
@@ -716,6 +773,7 @@ def generate_level_up_build_recommendations(
             available_subclasses=available_subclasses,
             has_asi=has_asi,
             max_spell_level=max_spell_level,
+            known_spells=all_known_spells,
         )
         return {
             "character_name": char_data.get("char_name", "Unknown"),
@@ -726,6 +784,57 @@ def generate_level_up_build_recommendations(
 
     # Format AI prompt
     try:
+        # Collect weapons with details
+        weapons_list = []
+        for w in char_data.get("weapons", []):
+            if isinstance(w, dict):
+                w_str = w.get("name", "Weapon")
+                dmg = (
+                    w.get("damage")
+                    or f"{w.get('damage_dice', '')} {w.get('damage_bonus', '')}".strip()
+                )
+                rng = w.get("range")
+                props = w.get("properties")
+                extra = []
+                if dmg:
+                    extra.append(f"Dmg: {dmg}")
+                if rng and rng != "Melee":
+                    extra.append(f"Range: {rng}")
+                if props:
+                    extra.append(props)
+                if extra:
+                    w_str += f" ({', '.join(extra)})"
+                weapons_list.append(w_str)
+        weapons_str = "; ".join(weapons_list) if weapons_list else "None specified"
+
+        # Collect equipment
+        eq_list = [
+            eq.get("name")
+            for eq in char_data.get("equipment", [])
+            if isinstance(eq, dict) and eq.get("name")
+        ]
+        equipment_str = ", ".join(eq_list[:15]) if eq_list else "Standard gear"
+
+        # Collect all features & traits
+        all_features = [
+            f.get("name")
+            for f in char_data.get("features_traits", [])
+            if isinstance(f, dict) and f.get("name")
+        ]
+        features_str = ", ".join(all_features) if all_features else "None"
+
+        # Collect fighting style
+        fighting_styles = [
+            f
+            for f in all_features
+            if "fighting style" in f.lower()
+            or any(
+                s in f.lower()
+                for s in ["archery", "dueling", "defense", "great weapon", "two-weapon"]
+            )
+        ]
+        fighting_styles_str = ", ".join(fighting_styles) if fighting_styles else "None"
+
         prompt = LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT.format(
             edition=edition,
             current_level=current_total_level,
@@ -738,16 +847,11 @@ def generate_level_up_build_recommendations(
             race=char_data.get("race", "Unknown"),
             background=char_data.get("background", "Unknown"),
             stats=char_data.get("stats", {}),
-            equipment=[
-                eq.get("name") for eq in char_data.get("equipment", []) if isinstance(eq, dict)
-            ][:10],
-            spells=[
-                s.get("name") if isinstance(s, dict) else str(s)
-                for s in char_data.get("spells", {}).get("cantrips", [])
-            ][:10],
-            features=[
-                f.get("name") for f in char_data.get("features_traits", []) if isinstance(f, dict)
-            ][:10],
+            weapons=weapons_str,
+            equipment=equipment_str,
+            fighting_styles=fighting_styles_str,
+            known_spells=known_spells_str,
+            features=features_str,
             needs_subclass="YES" if needs_sub else "NO",
             available_subclasses=", ".join(available_subclasses)
             if available_subclasses
@@ -950,20 +1054,51 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         if char_class == "Warlock" and target_level >= 17:
             max_spell_level = max(max_spell_level, 9)
 
+        # Collect all spells already known by the character to exclude them
+        known_spells_lower = set()
+        sp_dict = char_data.get("spells") or {}
+        if isinstance(sp_dict, dict):
+            for lvl_list in sp_dict.values():
+                if isinstance(lvl_list, list):
+                    for s in lvl_list:
+                        name = s.get("name") if isinstance(s, dict) else str(s)
+                        if name:
+                            known_spells_lower.add(name.strip().lower())
+        elif isinstance(sp_dict, list):
+            for s in sp_dict:
+                name = s.get("name") if isinstance(s, dict) else str(s)
+                if name:
+                    known_spells_lower.add(name.strip().lower())
+
         all_spells = rules_repo.get_all_spells(edition)
+        spells_level_map = {s["name"]: s.get("level", 0) for s in all_spells if "name" in s}
+
         spells = []
         magical_secrets_spells = []
         char_class_lower = char_class.lower()
         for s in all_spells:
+            s_name = s.get("name", "")
+            if not s_name or s_name.strip().lower() in known_spells_lower:
+                continue
             s_level = s.get("level", 0)
-            if s_level <= max_spell_level:
-                magical_secrets_spells.append(s["name"])
+            if 0 < s_level <= max_spell_level:
+                magical_secrets_spells.append(s_name)
                 s_classes = [c.lower() for c in s.get("classes", [])]
                 if not s_classes or char_class_lower in s_classes:
-                    spells.append(s["name"])
+                    spells.append(s_name)
 
-        spells = sorted(spells)
-        magical_secrets_spells = sorted(magical_secrets_spells)
+        # Sort spells: highest level (newest tier) first, then alphabetical
+        spells.sort(key=lambda n: (-spells_level_map.get(n, 0), n))
+        magical_secrets_spells.sort(key=lambda n: (-spells_level_map.get(n, 0), n))
+
+        # Dynamic AI recommendation focused on the highest unlocked tier
+        top_candidates = [s for s in spells if spells_level_map.get(s, 0) == max_spell_level][:3]
+        if top_candidates:
+            ai_spell_rec = f"Top new choices for Tier {max_spell_level} (Level {target_level}+): {', '.join(top_candidates)}."
+        elif spells:
+            ai_spell_rec = f"Consider high-synergy picks like {spells[0]}."
+        else:
+            ai_spell_rec = f"Explore unlearned spells for your {char_class}."
 
         # Bard Magical Secrets overrides
         if char_class == "Bard" and target_level in [10, 14, 18]:
@@ -972,7 +1107,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_1",
                     "label": "Magical Secrets: Choose 1st Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
+                    "ai_recommendation": f"Pick high-impact spells up to Level {max_spell_level} from any class list.",
                 }
             )
             choices.append(
@@ -980,7 +1115,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_2",
                     "label": "Magical Secrets: Choose 2nd Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
+                    "ai_recommendation": f"Pick high-impact spells up to Level {max_spell_level} from any class list.",
                 }
             )
         elif char_class == "Bard" and target_level == 6 and current_subclass == "College of Lore":
@@ -989,7 +1124,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_1",
                     "label": "Additional Magical Secrets: Choose 1st Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Lore Bards get Magical Secrets early!",
+                    "ai_recommendation": f"Lore Bards get Magical Secrets early! Choose up to Level {max_spell_level} spells.",
                 }
             )
             choices.append(
@@ -997,7 +1132,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_2",
                     "label": "Additional Magical Secrets: Choose 2nd Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Lore Bards get Magical Secrets early!",
+                    "ai_recommendation": f"Lore Bards get Magical Secrets early! Choose up to Level {max_spell_level} spells.",
                 }
             )
         else:
@@ -1006,7 +1141,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell",
                     "label": f"Learn/Prepare a {char_class} Spell",
                     "options": spells,
-                    "ai_recommendation": "Explore the official spell list.",
+                    "ai_recommendation": ai_spell_rec,
                 }
             )
 

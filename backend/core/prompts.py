@@ -157,7 +157,7 @@ Ruleset specific notes:
 
 LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT = """
 Act as an elite D&D {edition} Tactical Advisor and Character Optimizer.
-Analyze the following character who is advancing from Level {current_level} to Level {target_level} in {target_class}.
+Analyze the following character who is advancing from Level {current_level} to Level {target_level} in {target_class} (Target {target_class} Level: {target_class_level}).
 Generate up to 3 distinct, highly synergistic, and thematic build paths (e.g. 1 Offensive / Striker, 1 Defensive / Anchor, 1 Utility / Control or Synergistic Flavor).
 
 Character Profile:
@@ -170,30 +170,47 @@ Character Profile:
 - Race / Species: {race}
 - Background: {background}
 - Ability Scores: {stats}
-- Equipment / Weapons: {equipment}
-- Current Spells: {spells}
-- Notable Features: {features}
+- Primary Weapons & Attacks: {weapons}
+- Equipment & Magic Items: {equipment}
+- Fighting Style(s): {fighting_styles}
+- Current Known Spells: {known_spells}
+- All Current Features, Feats & Traits: {features}
 
 Progression Rules Context:
 - Subclass needed now: {needs_subclass} (Available: {available_subclasses})
 - Feat / ASI choice available: {has_asi}
 - Spellcasting max spell level available: {max_spell_level}
 
-Requirements:
-- Action Economy & Synergy Rules: Respect existing class and subclass action economy! For example, if a Ranger is a Horizon Walker, their Planar Warrior feature already consumes their bonus action every turn to convert weapon attacks to force damage and deal extra damage. DO NOT recommend spells or feats that heavily conflict with their bonus action (such as Hunter's Mark); instead suggest complementary spells like Zephyr Strike, Pass without Trace, Spike Growth, Absorb Elements, or Haste.
+CRITICAL RULES FOR RECOMMENDATIONS:
+1. BUILD DIRECTLY UPON EXISTING LOADOUT & SYNERGIES (MANDATORY):
+   - Take EVERYTHING the character already has (Weapons: {weapons}, Gear: {equipment}, Fighting Styles: {fighting_styles}, Feats/Features: {features}, and Known Spells: {known_spells}) and build directly upon it!
+   - Every suggestion must elevate, empower, and synergize with what the character currently uses. For instance:
+     * If the character wields a Longbow +1 with Archery Fighting Style and Planar Warrior, suggest options (feats like Sharpshooter, spells like Lightning Arrow or Conjure Animals) that capitalize on and empower their ranged combat and planar force damage.
+     * Never suggest items, spells, or abilities they already possess or that make their existing loadout redundant.
+     * Highlight in the playstyle summary and tactics exactly how the new recommendations synergize with their existing weapons, magic items, and features.
+2. FOCUS STRICTLY FROM CURRENT LEVEL ONWARDS (MANDATORY):
+   - All advice, build recommendations, tactics, and suggested options MUST be tailored strictly from Level {target_level} and future levels onwards!
+   - Do NOT recommend beginner, low-level, or entry-level choices (e.g., Level 1 spells or level 1 features) that belong to early levels 1-2.
+3. NEW SPELLS ONLY (DO NOT RE-SUGGEST KNOWN SPELLS):
+   - The character ALREADY knows the following spells: {known_spells}.
+   - You MUST NOT recommend any spell the character already knows!
+   - 'recommended_spells' must contain ONLY NEW, unlearned spells that are of the character's highest available spell level (Spell Level {max_spell_level}) or potent unlearned spells for their current tier ({target_class_level}+) that scale well into future levels.
+4. ACTION ECONOMY & SUBCLASS SYNERGY:
+   - Respect existing class and subclass action economy! For example, if a Ranger is a Horizon Walker, their Planar Warrior feature already consumes their bonus action every turn to convert weapon attacks to force damage and deal extra damage. DO NOT recommend spells or feats that heavily conflict with their bonus action (such as Hunter's Mark); instead suggest complementary non-bonus-action spells or reaction spells suited for high levels (e.g. Lightning Arrow, Conjure Animals, Protection from Energy, Wind Wall).
+
 Return ONLY a valid JSON object matching this schema:
 {{
   "builds": [
     {{
-      "build_name": "Title of build (e.g., 'The Iron Bulwark (Tank / Protector)')",
+      "build_name": "Title of build (e.g., 'The Planar Striker (Offensive / Damage)')",
       "theme": "Core tactical theme in 1 punchy sentence",
-      "playstyle_summary": "2-3 sentences explaining combat role, positioning, and action economy",
+      "playstyle_summary": "2-3 sentences explaining combat role, positioning, and action economy for Level {target_level}+, explicitly referencing synergies with their current weapons and gear",
       "pros": ["Major strength 1", "Major strength 2", "Major strength 3"],
       "cons": ["Trade-off or limitation 1", "Trade-off or limitation 2"],
       "recommended_subclass": "Name of subclass or null if not applicable",
       "recommended_feat_or_asi": "Specific feat or stat increase or null if no ASI",
-      "recommended_spells": ["Spell 1", "Spell 2"],
-      "key_tactics": ["Tactical action tip 1", "Tactical action tip 2"]
+      "recommended_spells": ["New Spell 1", "New Spell 2"],
+      "key_tactics": ["Tactical action tip 1 for Level {target_level}+", "Tactical action tip 2"]
     }}
   ]
 }}
