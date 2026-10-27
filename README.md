@@ -29,20 +29,46 @@ Comprehensive technical and architectural documentation is organized in the cent
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start & Installation
 
 ### Prerequisites
-- Python 3.13+ with Poetry
-- Node.js 18+ and npm (for Angular frontend)
+- **Python 3.11 - 3.13** ([python.org](https://www.python.org/))
+- **Poetry** ([python-poetry.org](https://python-poetry.org/))
+- **Node.js 18+ & npm** ([nodejs.org](https://nodejs.org/))
+- **MongoDB** running locally on port `27017` (or configured via `MONGO_URI` in `.env`)
 
-### Installation & Commands
+---
+
+### ⚡ One-Click Automated Setup
+
+#### 🐧 Linux & 🍎 macOS
 ```bash
-# Install backend dependencies
-poetry install
+# 1. Run the automated setup script (installs Python & npm dependencies, generates .env)
+./setup.sh
 
-# Run backend test suite
+# 2. Start both Backend (FastAPI :8000) and Frontend (Angular :4200)
+./start.sh
+```
+
+#### 🪟 Windows (PowerShell or Command Prompt)
+```powershell
+# In PowerShell:
+.\setup.ps1
+.\start.ps1
+
+# Or simply double-click setup.bat and start.bat
+```
+
+---
+
+### 🧪 Manual Commands & Testing
+```bash
+# Run backend test suite (486 tests)
 poetry run pytest tests/ -v
 
-# Run code formatting and lint checks
+# Run frontend test suite (423 tests across 39 suites)
+cd client && npm test -- --watch=false
+
+# Run pre-commit hooks and code formatters
 poetry run pre-commit run --all-files
 ```
