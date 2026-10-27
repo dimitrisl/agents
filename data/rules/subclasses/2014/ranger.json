@@ -36,6 +36,30 @@
                             "notation": "2d8"
                         }
                     ]
+                },
+                "distant_strike": {
+                    "name": "Distant Strike",
+                    "kind": "utility",
+                    "rollable": false,
+                    "hint": "Attack action: teleport up to 10ft before each attack. Attack 2 different foes to make a 3rd attack.",
+                    "steps": [
+                        {
+                            "level": 11,
+                            "notation": "10ft Teleport & 3rd Attack"
+                        }
+                    ]
+                },
+                "spectral_defense": {
+                    "name": "Spectral Defense",
+                    "kind": "defense",
+                    "rollable": false,
+                    "hint": "Reaction: when you take damage from an attack, give yourself resistance to all of that attack's damage.",
+                    "steps": [
+                        {
+                            "level": 15,
+                            "notation": "Reaction Resistance"
+                        }
+                    ]
                 }
             }
         },

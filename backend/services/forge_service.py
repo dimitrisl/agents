@@ -538,6 +538,61 @@ KNOWN_SUBCLASS_FEATURES = {
     ("Wizard", "Evocation", 14): "Overchannel",
 }
 
+SUBCLASS_FEATURES_DETAILS = {
+    ("Ranger", "Horizon Walker", 3): {
+        "name": "Detect Portal & Planar Warrior (Horizon Walker)",
+        "description": "Detect Portal: As an action, detect distance/direction to portals within 1 mile. Planar Warrior: Bonus action to convert weapon attack damage to force damage and deal +1d8 extra force damage.",
+    },
+    ("Ranger", "Horizon Walker", 7): {
+        "name": "Ethereal Step (Horizon Walker)",
+        "description": "As a bonus action, you can cast Etherealness without expending a spell slot, lasting until the end of the current turn (1/short or long rest).",
+    },
+    ("Ranger", "Horizon Walker", 11): {
+        "name": "Distant Strike (Horizon Walker)",
+        "description": "When you take the Attack action, teleport up to 10 feet before each attack. If you attack at least two different creatures, you can make a third attack against a different creature. In addition, Planar Warrior scales to 2d8 force damage.",
+    },
+    ("Ranger", "Horizon Walker", 15): {
+        "name": "Spectral Defense (Horizon Walker)",
+        "description": "When you take damage from an attack, you can use your reaction to give yourself resistance to all of that attack's damage on this turn.",
+    },
+    ("Ranger", "Hunter", 3): {
+        "name": "Hunter's Prey (Colossus Slayer)",
+        "description": "Once per turn, deal an extra 1d8 damage to a creature below its maximum hit points.",
+    },
+    ("Ranger", "Hunter", 7): {
+        "name": "Defensive Tactics (Hunter)",
+        "description": "Bolster your defense with Escape the Horde, Multiattack Defense, or Steel Will.",
+    },
+    ("Ranger", "Hunter", 11): {
+        "name": "Multiattack: Volley / Whirlwind Attack",
+        "description": "Ranged volley within 10ft of a point, or melee whirlwind attack against all adjacent creatures.",
+    },
+    ("Ranger", "Hunter", 15): {
+        "name": "Superior Hunter's Defense",
+        "description": "Gain Evasion, Stand Against the Tide, or Uncanny Dodge to negate lethal attacks.",
+    },
+    ("Fighter", "Champion", 3): {
+        "name": "Improved Critical (Champion)",
+        "description": "Your weapon attacks score a critical hit on a roll of 19 or 20.",
+    },
+    ("Fighter", "Champion", 7): {
+        "name": "Remarkable Athlete (Champion)",
+        "description": "Add half your proficiency bonus to any STR, DEX, or CON check that doesn't already use it. Running long jump distance increases by STR modifier in feet.",
+    },
+    ("Fighter", "Champion", 10): {
+        "name": "Additional Fighting Style (Champion)",
+        "description": "Choose a second option from the Fighting Style class feature.",
+    },
+    ("Fighter", "Champion", 15): {
+        "name": "Superior Critical (Champion)",
+        "description": "Your weapon attacks score a critical hit on a roll of 18-20.",
+    },
+    ("Fighter", "Champion", 18): {
+        "name": "Survivor (Champion)",
+        "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left.",
+    },
+}
+
 
 def _generate_dynamic_future_milestones(
     target_class: str,
@@ -1296,6 +1351,46 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     if not classes and char_class.lower() == char_data.get("char_class", "").lower():
         current_subclass = char_data.get("subclass")
+
+    # Resolve subclass specific features for generic placeholder entries
+    subclass_to_use = current_subclass or user_choices.get("subclass")
+    if subclass_to_use:
+        resolved_features = []
+        for feat in static_features:
+            flwr = feat.get("name", "").lower()
+            if any(
+                ph in flwr
+                for ph in [
+                    "archetype feature",
+                    "tradition feature",
+                    "subclass feature",
+                    "domain feature",
+                ]
+            ):
+                sub_detail = None
+                for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
+                    if (
+                        c.lower() == char_class.lower()
+                        and sc.lower() in subclass_to_use.lower()
+                        and lvl == target_level
+                    ):
+                        sub_detail = detail
+                        break
+                if sub_detail:
+                    resolved_features.append(sub_detail)
+                else:
+                    resolved_features.append(
+                        {
+                            "name": f"{subclass_to_use} Subclass Feature",
+                            "description": feat.get(
+                                "description",
+                                f"Special feature granted by the {subclass_to_use} subclass at Level {target_level}.",
+                            ),
+                        }
+                    )
+            else:
+                resolved_features.append(feat)
+        static_features = resolved_features
 
     if not current_subclass:
         subclasses = rules_repo.get_subclasses(char_class, edition)
