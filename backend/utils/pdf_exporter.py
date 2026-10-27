@@ -53,9 +53,8 @@ class PDFMappingProvider:
         # 1. Identity
         for pdf_key, data_key in self.mapping.get("identity", {}).items():
             if data_key == "char_class_level":
-                field_data[pdf_key] = (
-                    f"{char_data.get('char_class', '')} {char_data.get('char_level', '')}"
-                )
+                char_c = char_data.get("char_class") or char_data.get("class_name", "")
+                field_data[pdf_key] = f"{char_c} {char_data.get('char_level', '')}".strip()
             elif data_key == "proficiency_bonus_mod":
                 field_data[pdf_key] = format_mod(prof_bonus)
             else:
@@ -180,7 +179,50 @@ class PDFMappingProvider:
             field_data[blocks["Proficiencies and Languages"]] = "\n".join(combined)
 
         # 9. Spells & Slot Totals
-        char_spells = char_data.get("spells", {})
+        raw_spells = char_data.get("spells", {})
+        if isinstance(raw_spells, list):
+            char_spells = {
+                "cantrips": [],
+                "level_1": [],
+                "level_2": [],
+                "level_3": [],
+                "level_4": [],
+                "level_5": [],
+                "level_6": [],
+                "level_7": [],
+                "level_8": [],
+                "level_9": [],
+            }
+            try:
+                from backend.repositories.rules_repository import RulesRepository
+
+                all_spells_list = RulesRepository().get_all_spells("2014")
+                spell_level_lookup = {
+                    s["name"].lower(): s.get("level", 1)
+                    for s in all_spells_list
+                    if isinstance(s, dict) and "name" in s
+                }
+            except Exception:
+                spell_level_lookup = {}
+
+            for item in raw_spells:
+                s_name = item.get("name", "") if isinstance(item, dict) else str(item)
+                if not s_name:
+                    continue
+                lvl = (
+                    item.get("level")
+                    if isinstance(item, dict)
+                    else spell_level_lookup.get(s_name.strip().lower(), 1)
+                )
+                lvl_key = "cantrips" if lvl == 0 else f"level_{lvl}"
+                if lvl_key in char_spells:
+                    char_spells[lvl_key].append(item)
+                else:
+                    char_spells["level_1"].append(item)
+        elif isinstance(raw_spells, dict):
+            char_spells = raw_spells
+        else:
+            char_spells = {}
         prepared_spells = set(
             str(s).strip().lower() for s in char_data.get("prepared_spells", []) if s
         )
@@ -222,7 +264,7 @@ class PDFMappingProvider:
                 field_data[pdf_field] = str(slot_info)
 
         # 10. Spellcasting Stats
-        char_class = char_data.get("char_class", "")
+        char_class = char_data.get("char_class") or char_data.get("class_name") or ""
         spellcasting = self.mapping.get("spellcasting", {})
         spell_ability_map = {
             "Wizard": "INT",
