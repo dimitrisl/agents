@@ -35,11 +35,14 @@ jobs:
           key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction
 
       - name: Run Ruff Linting Check
         run: poetry run ruff check .
 
       - name: Run Pytest Test Suite with Coverage
-        run: poetry run pytest --cov=backend --cov=server --cov-report=term-missing
+        run: |
+          mkdir -p data/portraits
+          poetry run pytest --cov=backend --cov=server --cov-report=term-missing
+        env:
+          GEMINI_API_KEY: "dummy_key_for_tests"
