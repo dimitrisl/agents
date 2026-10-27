@@ -41,6 +41,7 @@ export class LevelUpModalComponent {
   isLoadingRecommendations = false;
   recommendationsError: string | null = null;
   showRecommendations = false;
+  planningLevel: number | null = null;
 
   get characterClasses() {
     return this.character?.classes || [{ class_name: this.character?.char_class || 'Fighter', level: this.character?.char_level || 1 }];
@@ -61,6 +62,25 @@ export class LevelUpModalComponent {
     return cls ? cls.level + 1 : 1;
   }
 
+  get planningClassLevel(): number {
+    return this.planningLevel ?? this.targetClassLevel;
+  }
+
+  get upcomingLevelOptions(): number[] {
+    const start = this.targetClassLevel;
+    const opts: number[] = [];
+    for (let l = start; l <= Math.min(20, start + 5); l++) {
+      opts.push(l);
+    }
+    return opts;
+  }
+
+  selectPlanningLevel(lvl: number) {
+    if (this.planningLevel === lvl) return;
+    this.planningLevel = lvl;
+    this.fetchRecommendations();
+  }
+
   toggleRecommendations() {
     this.showRecommendations = !this.showRecommendations;
     if (this.showRecommendations && this.buildRecommendations.length === 0 && !this.isLoadingRecommendations) {
@@ -77,7 +97,7 @@ export class LevelUpModalComponent {
     this.http.post<LevelUpRecommendationsResponse>(`${environment.apiBaseUrl}/forge/level-up-recommendations`, {
       character: this.character,
       target_class: this.levelUpClass,
-      target_level: this.targetClassLevel,
+      target_level: this.planningClassLevel,
     }).subscribe({
       next: (res) => {
         this.buildRecommendations = res?.builds || [];
@@ -94,6 +114,7 @@ export class LevelUpModalComponent {
 
   onClassChange(val: string) {
     // When changing class, reset other choices like hp_method to avoid mismatched hp increases
+    this.planningLevel = null;
     this.userChoices = { 'level_up_class': val };
     this.userChoicesChange.emit(this.userChoices);
     if (this.showRecommendations) {

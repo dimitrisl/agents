@@ -188,14 +188,20 @@ CRITICAL RULES FOR RECOMMENDATIONS:
      * If the character wields a Longbow +1 with Archery Fighting Style and Planar Warrior, suggest options (feats like Sharpshooter, spells like Lightning Arrow or Conjure Animals) that capitalize on and empower their ranged combat and planar force damage.
      * Never suggest items, spells, or abilities they already possess or that make their existing loadout redundant.
      * Highlight in the playstyle summary and tactics exactly how the new recommendations synergize with their existing weapons, magic items, and features.
-2. FOCUS STRICTLY FROM CURRENT LEVEL ONWARDS (MANDATORY):
-   - All advice, build recommendations, tactics, and suggested options MUST be tailored strictly from Level {target_level} and future levels onwards!
-   - Do NOT recommend beginner, low-level, or entry-level choices (e.g., Level 1 spells or level 1 features) that belong to early levels 1-2.
-3. NEW SPELLS ONLY (DO NOT RE-SUGGEST KNOWN SPELLS):
+2. FUTURE MILESTONES & NEXT LEVELS ROADMAP (MANDATORY):
+   - The user is advancing and planning ahead for upcoming levels!
+   - In 'future_milestones', provide a 3 to 5 item chronological progression roadmap showing what this build aims for across the upcoming levels (e.g., Level 10, 11, 12, 13, 15...):
+     * Specific class and subclass feature upgrades (e.g. Level 11: Planar Warrior scales to 2d8 force damage & Distant Strike provides 10ft teleport before each attack + bonus 3rd attack).
+     * Upcoming Feat / ASI milestone (e.g. Level 12: Feat - Sharpshooter for -5/+10 damage synergy with Longbow +1 & Archery).
+     * Upcoming spell tier unlocks (e.g. Level 13: Tier 4 Spells - Guardian of Nature for advantage on ranged attacks & Freedom of Movement; Level 17: Tier 5 Spells - Swift Quiver for 4 attacks per turn).
+3. RECOMMENDED FEAT / ASI:
+   - If the current target level has an ASI/Feat, recommend the ideal feat/ASI for it.
+   - If the current target level does NOT have an ASI, specify the recommended feat/ASI for the NEXT upcoming ASI level (e.g., "Sharpshooter (at Level 12 ASI)" or "+2 WIS (at Level 12 ASI)"). Do NOT leave it null or blank!
+4. NEW SPELLS ONLY (DO NOT RE-SUGGEST KNOWN SPELLS):
    - The character ALREADY knows the following spells: {known_spells}.
    - You MUST NOT recommend any spell the character already knows!
    - 'recommended_spells' must contain ONLY NEW, unlearned spells that are of the character's highest available spell level (Spell Level {max_spell_level}) or potent unlearned spells for their current tier ({target_class_level}+) that scale well into future levels.
-4. ACTION ECONOMY & SUBCLASS SYNERGY:
+5. ACTION ECONOMY & SUBCLASS SYNERGY:
    - Respect existing class and subclass action economy! For example, if a Ranger is a Horizon Walker, their Planar Warrior feature already consumes their bonus action every turn to convert weapon attacks to force damage and deal extra damage. DO NOT recommend spells or feats that heavily conflict with their bonus action (such as Hunter's Mark); instead suggest complementary non-bonus-action spells or reaction spells suited for high levels (e.g. Lightning Arrow, Conjure Animals, Protection from Energy, Wind Wall).
 
 Return ONLY a valid JSON object matching this schema:
@@ -207,10 +213,17 @@ Return ONLY a valid JSON object matching this schema:
       "playstyle_summary": "2-3 sentences explaining combat role, positioning, and action economy for Level {target_level}+, explicitly referencing synergies with their current weapons and gear",
       "pros": ["Major strength 1", "Major strength 2", "Major strength 3"],
       "cons": ["Trade-off or limitation 1", "Trade-off or limitation 2"],
-      "recommended_subclass": "Name of subclass or null if not applicable",
-      "recommended_feat_or_asi": "Specific feat or stat increase or null if no ASI",
+      "recommended_subclass": "Name of subclass or null if already chosen",
+      "recommended_feat_or_asi": "Specific feat or stat increase (e.g., 'Sharpshooter (at Level 12 ASI)')",
       "recommended_spells": ["New Spell 1", "New Spell 2"],
-      "key_tactics": ["Tactical action tip 1 for Level {target_level}+", "Tactical action tip 2"]
+      "key_tactics": ["Tactical action tip 1 for Level {target_level}+", "Tactical action tip 2"],
+      "future_milestones": [
+        "Level 10: Hide in Plain Sight & Tier 3 Spells (Lightning Arrow, Conjure Animals)",
+        "Level 11: Planar Warrior 2d8 force damage & Distant Strike (3rd attack + 10ft teleport before each attack)",
+        "Level 12: Feat - Sharpshooter (-5/+10 damage synergy with Longbow +1 and Archery style)",
+        "Level 13: Tier 4 Spells - Guardian of Nature (advantage on ranged attacks) & Freedom of Movement",
+        "Level 15: Spectral Defense (Reaction: halve all damage from incoming attack)"
+      ]
     }}
   ]
 }}

@@ -472,6 +472,7 @@ class LevelUpBuildRecommendation(BaseModel):
     recommended_feat_or_asi: Optional[str] = None
     recommended_spells: List[str] = Field(default_factory=list)
     key_tactics: List[str] = Field(default_factory=list)
+    future_milestones: List[str] = Field(default_factory=list)
 
 
 class LevelUpRecommendationsRequest(BaseModel):

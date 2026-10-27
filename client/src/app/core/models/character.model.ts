@@ -198,6 +198,7 @@ export interface LevelUpBuildRecommendation {
   recommended_feat_or_asi?: string | null;
   recommended_spells: string[];
   key_tactics: string[];
+  future_milestones?: string[];
 }
 
 export interface LevelUpRecommendationsResponse {

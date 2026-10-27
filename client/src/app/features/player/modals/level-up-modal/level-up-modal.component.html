@@ -39,6 +39,19 @@
       </button>
     </div>
 
+    <!-- Upcoming Levels Planning Switcher -->
+    <div *ngIf="showRecommendations" class="mt-3 flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-hairline/60">
+      <span class="text-micro font-semibold uppercase text-muted">Plan for Level:</span>
+      <button
+        *ngFor="let lvl of upcomingLevelOptions"
+        type="button"
+        class="px-2.5 py-1 rounded-md text-micro font-semibold transition-all border"
+        [ngClass]="lvl === planningClassLevel ? 'border-gold bg-gold text-surface shadow-sm' : 'border-hairline bg-surface/70 text-muted hover:text-ink hover:border-gold/40'"
+        (click)="selectPlanningLevel(lvl)">
+        Lvl {{ lvl }}{{ lvl === targetClassLevel ? ' (Next)' : '' }}
+      </button>
+    </div>
+
     <!-- Loading State -->
     <div *ngIf="showRecommendations && isLoadingRecommendations" class="mt-4 flex flex-col items-center justify-center rounded-lg border border-hairline bg-tile/50 p-6 text-center">
       <div class="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent"></div>
@@ -90,13 +103,26 @@
               <span class="text-gold font-medium">{{ build.recommended_subclass }}</span>
             </div>
             <div *ngIf="build.recommended_feat_or_asi" class="flex items-start gap-1.5">
-              <span class="font-semibold text-ink shrink-0">⭐ Feat/ASI:</span>
+              <span class="font-semibold text-ink shrink-0">⭐ Feat / ASI:</span>
               <span class="text-emerald font-medium">{{ build.recommended_feat_or_asi }}</span>
             </div>
             <div *ngIf="build.recommended_spells?.length" class="flex items-start gap-1.5">
               <span class="font-semibold text-ink shrink-0">✨ Spells:</span>
               <span class="text-sky font-medium">{{ build.recommended_spells.join(', ') }}</span>
             </div>
+          </div>
+
+          <!-- Next Levels Progression Roadmap -->
+          <div *ngIf="build.future_milestones?.length" class="mb-3 flex flex-col gap-1.5 rounded border border-gold/25 bg-surface/90 p-2.5 text-micro">
+            <span class="text-micro font-bold uppercase tracking-wider text-gold flex items-center gap-1">
+              <span>🗺️</span> Progression for Next Levels:
+            </span>
+            <ul class="space-y-1 mt-0.5">
+              <li *ngFor="let ms of build.future_milestones" class="text-micro text-ink flex items-start gap-1.5 leading-snug">
+                <span class="text-gold font-bold shrink-0">›</span>
+                <span>{{ ms }}</span>
+              </li>
+            </ul>
           </div>
 
           <!-- Pros & Cons -->

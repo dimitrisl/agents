@@ -622,12 +622,69 @@ def _get_fallback_level_up_recommendations(
     feat_2 = "Sentinel or Tough (+2 CON alternative)" if has_asi else None
     feat_3 = f"Fey Touched (+1 {prim_stat}) or Alert" if has_asi else None
 
+    next_asi_lvl = 12
+    for m in [4, 6, 8, 10, 12, 14, 16, 19]:
+        if m > target_class_level:
+            next_asi_lvl = m
+            break
+
+    if not feat_1:
+        feat_1 = (
+            f"War Caster or +2 to {prim_stat} (at Level {next_asi_lvl} ASI)"
+            if is_caster
+            else f"Sharpshooter or +2 to {prim_stat} (at Level {next_asi_lvl} ASI)"
+        )
+    if not feat_2:
+        feat_2 = f"Alert or Tough (+2 CON) (at Level {next_asi_lvl} ASI)"
+    if not feat_3:
+        feat_3 = f"Skill Expert or Fey Touched (at Level {next_asi_lvl} ASI)"
+
     # Spells per build (prioritize newly unlocked tier spells excluding known spells)
     spells_1 = _get_top_spells(["evocation", "necromancy"], offensive_spells.get(target_class, []))
     spells_2 = _get_top_spells(["abjuration"], defensive_spells.get(target_class, []))
     spells_3 = _get_top_spells(
         ["conjuration", "transmutation", "divination"], utility_spells.get(target_class, [])
     )
+
+    if target_class == "Ranger":
+        future_ms_1 = [
+            f"Level 10: Hide in Plain Sight & Tier 3 Spells ({', '.join(spells_1) or 'Lightning Arrow'})",
+            "Level 11: Planar Warrior scales to 2d8 force damage & Distant Strike (bonus 3rd attack + teleport)",
+            f"Level 12: Major Feat Milestone - {feat_1}",
+            "Level 13: Tier 4 Spells - Guardian of Nature (advantage on ranged attacks) & Freedom of Movement",
+            "Level 15: Spectral Defense (Reaction: grant resistance to all damage from an attack)",
+            "Level 17: Tier 5 Spells - Swift Quiver (4 longbow attacks per turn)",
+        ]
+        future_ms_2 = [
+            f"Level 10: Natural Explorer (3rd terrain) & Tier 3 Spells ({', '.join(spells_2) or 'Wind Wall'})",
+            "Level 11: Distant Strike (extreme battlefield mobility and repositioning)",
+            f"Level 12: Defensive Feat Milestone - {feat_2}",
+            "Level 13: Tier 4 Spells - Freedom of Movement (immune to paralysis, restraints, difficult terrain)",
+            "Level 15: Spectral Defense (evade lethal blows across planes)",
+        ]
+        future_ms_3 = [
+            f"Level 10: Camouflage & Utility Spells ({', '.join(spells_3) or 'Plant Growth'})",
+            "Level 11: Distant Strike (tactical scouting and hit-and-run engagement)",
+            f"Level 12: Utility Feat Milestone - {feat_3}",
+            "Level 13: Tier 4 Spells - Locate Creature & Freedom of Movement",
+            "Level 15: Spectral Defense (planar survivability)",
+        ]
+    else:
+        future_ms_1 = [
+            f"Level {target_class_level}: Specialization and class tier features",
+            f"Level {next_asi_lvl}: Major ASI / Feat Milestone ({feat_1})",
+            f"Level {min(20, target_class_level + 3)}: Advanced tier abilities and tactical scaling",
+        ]
+        future_ms_2 = [
+            f"Level {target_class_level}: Defensive core and class features",
+            f"Level {next_asi_lvl}: Defensive Feat Milestone ({feat_2})",
+            f"Level {min(20, target_class_level + 3)}: Advanced tier abilities and resilience",
+        ]
+        future_ms_3 = [
+            f"Level {target_class_level}: Utility toolkit and tactical expansion",
+            f"Level {next_asi_lvl}: Utility Feat Milestone ({feat_3})",
+            f"Level {min(20, target_class_level + 3)}: High-tier versatile spell and ability unlocks",
+        ]
 
     return [
         {
@@ -650,6 +707,7 @@ def _get_fallback_level_up_recommendations(
                 "Target high-threat priority enemies to break enemy action economy early",
                 "Coordinate with frontline allies for flanking and advantage",
             ],
+            "future_milestones": future_ms_1,
         },
         {
             "build_name": "The Resilient Anchor (Defensive / Protector)",
@@ -671,6 +729,7 @@ def _get_fallback_level_up_recommendations(
                 "Anchor chokepoints and position between threats and party casters",
                 "Activate defensive buffs before stepping into contested terrain",
             ],
+            "future_milestones": future_ms_2,
         },
         {
             "build_name": "The Versatile Tactician (Control / Utility)",
@@ -692,6 +751,7 @@ def _get_fallback_level_up_recommendations(
                 "Open combat with area denial or crowd control on enemy clusters",
                 "Keep mobility options available to peel away from heavy melee threats",
             ],
+            "future_milestones": future_ms_3,
         },
     ]
 
@@ -889,6 +949,7 @@ def generate_level_up_build_recommendations(
                     else None,
                     "recommended_spells": [str(s) for s in b.get("recommended_spells", []) if s],
                     "key_tactics": [str(t) for t in b.get("key_tactics", []) if t],
+                    "future_milestones": [str(m) for m in b.get("future_milestones", []) if m],
                 }
             )
 
