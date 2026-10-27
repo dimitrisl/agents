@@ -245,10 +245,12 @@
               [allSkills]="allSkills"
               [editMode]="editMode()"
               [isProficient]="isProficient"
+              [isExpertise]="isExpertise"
               [getSkillModString]="getSkillModString"
               [getAttributeFullName]="getAttributeFullName"
               (rollSkill)="rollSkillCheck($event)"
               (toggleProficiency)="toggleSkillProficiency($event)"
+              (toggleExpertise)="toggleSkillExpertise($event)"
             ></app-skills-panel>
           </div>
         </forge-card>
@@ -430,10 +432,12 @@
                 [allSkills]="allSkills"
                 [editMode]="editMode()"
                 [isProficient]="isProficient"
+                [isExpertise]="isExpertise"
                 [getSkillModString]="getSkillModString"
                 [getAttributeFullName]="getAttributeFullName"
                 (rollSkill)="rollSkillCheck($event)"
                 (toggleProficiency)="toggleSkillProficiency($event)"
+                (toggleExpertise)="toggleSkillExpertise($event)"
               ></app-skills-panel>
 
               <app-combat-panel

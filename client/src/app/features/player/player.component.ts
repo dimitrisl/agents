@@ -47,6 +47,7 @@ import {
   HitDieOption,
   hitDieSize,
   isProficientIn,
+  hasExpertiseIn,
   levelUp,
   planShortRest,
   regainSpellSlot,
@@ -677,15 +678,61 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return isProficientIn(this.charState.activeCharacter(), skillName);
   }
 
+  isExpertise = (skillName: string): boolean => {
+    return hasExpertiseIn(this.charState.activeCharacter(), skillName);
+  }
+
   toggleSkillProficiency(skillName: string) {
     const char = this.charState.activeCharacter();
     if (!char) return;
     if (!char.skill_proficiencies) char.skill_proficiencies = [];
+    if (!char.skill_expertise) char.skill_expertise = [];
+
     const index = char.skill_proficiencies.indexOf(skillName);
     if (index > -1) {
       char.skill_proficiencies.splice(index, 1);
+      const expIdx = char.skill_expertise.indexOf(skillName);
+      if (expIdx > -1) {
+        char.skill_expertise.splice(expIdx, 1);
+      }
+      this.rollToast.showMessage('⚪ PROFICIENCY REMOVED', `${skillName} is no longer proficient.`);
     } else {
       char.skill_proficiencies.push(skillName);
+      this.rollToast.showMessage('⭐ PROFICIENCY ADDED', `${skillName} is now proficient.`);
+    }
+
+    if (char.skills) {
+      const skillDef = ALL_SKILLS.find((s) => s.name === skillName);
+      if (skillDef) {
+        char.skills[skillName] = skillModifier(char, skillDef);
+      }
+    }
+    this.saveCurrentChar();
+  }
+
+  toggleSkillExpertise(skillName: string) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (!char.skill_proficiencies) char.skill_proficiencies = [];
+    if (!char.skill_expertise) char.skill_expertise = [];
+
+    const expIndex = char.skill_expertise.indexOf(skillName);
+    if (expIndex > -1) {
+      char.skill_expertise.splice(expIndex, 1);
+      this.rollToast.showMessage('⚪ EXPERTISE REMOVED', `${skillName} expertise removed.`);
+    } else {
+      char.skill_expertise.push(skillName);
+      if (!char.skill_proficiencies.includes(skillName)) {
+        char.skill_proficiencies.push(skillName);
+      }
+      this.rollToast.showMessage('🌟 EXPERTISE ADDED', `${skillName} now has Expertise.`);
+    }
+
+    if (char.skills) {
+      const skillDef = ALL_SKILLS.find((s) => s.name === skillName);
+      if (skillDef) {
+        char.skills[skillName] = skillModifier(char, skillDef);
+      }
     }
     this.saveCurrentChar();
   }
