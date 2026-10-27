@@ -188,15 +188,17 @@ CRITICAL RULES FOR RECOMMENDATIONS:
      * If the character wields a Longbow +1 with Archery Fighting Style and Planar Warrior, suggest options (feats like Sharpshooter, spells like Lightning Arrow or Conjure Animals) that capitalize on and empower their ranged combat and planar force damage.
      * Never suggest items, spells, or abilities they already possess or that make their existing loadout redundant.
      * Highlight in the playstyle summary and tactics exactly how the new recommendations synergize with their existing weapons, magic items, and features.
-2. FUTURE MILESTONES & NEXT LEVELS ROADMAP (MANDATORY):
-   - The user is advancing and planning ahead for upcoming levels!
-   - In 'future_milestones', provide a 3 to 5 item chronological progression roadmap showing what this build aims for across the upcoming levels (e.g., Level 10, 11, 12, 13, 15...):
-     * Specific class and subclass feature upgrades (e.g. Level 11: Planar Warrior scales to 2d8 force damage & Distant Strike provides 10ft teleport before each attack + bonus 3rd attack).
-     * Upcoming Feat / ASI milestone (e.g. Level 12: Feat - Sharpshooter for -5/+10 damage synergy with Longbow +1 & Archery).
-     * Upcoming spell tier unlocks (e.g. Level 13: Tier 4 Spells - Guardian of Nature for advantage on ranged attacks & Freedom of Movement; Level 17: Tier 5 Spells - Swift Quiver for 4 attacks per turn).
+2. DYNAMIC FUTURE MILESTONES & NEXT LEVELS ROADMAP (MANDATORY):
+   - The character is advancing to {target_class} Level {target_class_level} (Total Level {target_level}) and planning ahead!
+   - In 'future_milestones', provide a 3 to 6 item chronological progression roadmap STARTING SPECIFICALLY AT Level {target_class_level} and projecting across upcoming levels up to Level {max_projected_level}:
+     * DYNAMIC LEVEL RULES: Under NO circumstances should you output static or hardcoded levels. Milestones MUST start at Level {target_class_level} and progress towards upcoming levels (up to Level {max_projected_level}). E.g. if {target_class_level} is 5, project 5, 6, 7, 8, 9, 10. If {target_class_level} is 17, project 17, 18, 19, 20.
+     * Include authentic official {edition} milestones for {target_class} and subclass {subclass}:
+       - Class features & Subclass feature upgrades unlocked at those exact levels according to SRD rules.
+       - Upcoming Feat / ASI milestones (Fighter: 4, 6, 8, 12, 14, 16, 19; Rogue: 4, 8, 10, 12, 16, 19; Others: 4, 8, 12, 16, 19).
+       - Spell tier unlocks (e.g. Tier 3 spells at level 5 for full casters or level 9 for half casters; Tier 4 at 7/13; Tier 5 at 9/17; Tier 9 at 17 for full casters).
 3. RECOMMENDED FEAT / ASI:
-   - If the current target level has an ASI/Feat, recommend the ideal feat/ASI for it.
-   - If the current target level does NOT have an ASI, specify the recommended feat/ASI for the NEXT upcoming ASI level (e.g., "Sharpshooter (at Level 12 ASI)" or "+2 WIS (at Level 12 ASI)"). Do NOT leave it null or blank!
+   - If Level {target_class_level} grants an ASI/Feat, recommend the ideal feat or stat increase for Level {target_class_level}.
+   - If Level {target_class_level} does NOT grant an ASI, identify the NEXT upcoming ASI level for {target_class} (Level {next_asi_level}) and specify the recommended feat or ASI for that upcoming level (e.g. "Sharpshooter (at Level {next_asi_level} ASI)" or "+2 {primary_stat} (at Level {next_asi_level} ASI)"). Do NOT leave it null or blank!
 4. NEW SPELLS ONLY (DO NOT RE-SUGGEST KNOWN SPELLS):
    - The character ALREADY knows the following spells: {known_spells}.
    - You MUST NOT recommend any spell the character already knows!
@@ -208,21 +210,20 @@ Return ONLY a valid JSON object matching this schema:
 {{
   "builds": [
     {{
-      "build_name": "Title of build (e.g., 'The Planar Striker (Offensive / Damage)')",
+      "build_name": "Title of build (e.g., 'The Striker (Offensive / Damage)')",
       "theme": "Core tactical theme in 1 punchy sentence",
       "playstyle_summary": "2-3 sentences explaining combat role, positioning, and action economy for Level {target_level}+, explicitly referencing synergies with their current weapons and gear",
       "pros": ["Major strength 1", "Major strength 2", "Major strength 3"],
       "cons": ["Trade-off or limitation 1", "Trade-off or limitation 2"],
       "recommended_subclass": "Name of subclass or null if already chosen",
-      "recommended_feat_or_asi": "Specific feat or stat increase (e.g., 'Sharpshooter (at Level 12 ASI)')",
+      "recommended_feat_or_asi": "Specific feat or stat increase (e.g., 'Sharpshooter (at Level {next_asi_level} ASI)')",
       "recommended_spells": ["New Spell 1", "New Spell 2"],
       "key_tactics": ["Tactical action tip 1 for Level {target_level}+", "Tactical action tip 2"],
       "future_milestones": [
-        "Level 10: Hide in Plain Sight & Tier 3 Spells (Lightning Arrow, Conjure Animals)",
-        "Level 11: Planar Warrior 2d8 force damage & Distant Strike (3rd attack + 10ft teleport before each attack)",
-        "Level 12: Feat - Sharpshooter (-5/+10 damage synergy with Longbow +1 and Archery style)",
-        "Level 13: Tier 4 Spells - Guardian of Nature (advantage on ranged attacks) & Freedom of Movement",
-        "Level 15: Spectral Defense (Reaction: halve all damage from incoming attack)"
+        "Level {target_class_level}: Key class feature & unlocked spell tier / combat feature",
+        "Level [next level]: Subclass feature or core progression improvement",
+        "Level [upcoming ASI level]: Major ASI / Feat Milestone (e.g., recommended feat or +2 to primary stat)",
+        "Level [high tier level]: Advanced tier abilities and tactical scaling"
       ]
     }}
   ]

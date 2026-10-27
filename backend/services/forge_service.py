@@ -485,6 +485,208 @@ def _needs_subclass(
     return target_class_level >= subclass_level
 
 
+SUBCLASS_FEATURE_LEVELS = {
+    "Barbarian": [3, 6, 10, 14],
+    "Bard": [3, 6, 14],
+    "Cleric": [1, 2, 6, 8, 17],
+    "Druid": [2, 6, 10, 14],
+    "Fighter": [3, 7, 10, 15, 18],
+    "Monk": [3, 6, 11, 17],
+    "Paladin": [3, 7, 15, 20],
+    "Ranger": [3, 7, 11, 15],
+    "Rogue": [3, 9, 13, 17],
+    "Sorcerer": [1, 6, 14, 18],
+    "Warlock": [1, 6, 10, 14],
+    "Wizard": [2, 6, 10, 14],
+    "Artificer": [3, 5, 9, 15],
+}
+
+KNOWN_SUBCLASS_FEATURES = {
+    ("Ranger", "Horizon Walker", 3): "Planar Warrior (1d8) & Detect Portal",
+    ("Ranger", "Horizon Walker", 7): "Ethereal Step",
+    ("Ranger", "Horizon Walker", 11): "Planar Warrior (2d8) & Distant Strike",
+    ("Ranger", "Horizon Walker", 15): "Spectral Defense (Reaction: damage resistance)",
+    ("Ranger", "Hunter", 3): "Hunter's Prey (Colossus Slayer)",
+    ("Ranger", "Hunter", 7): "Defensive Tactics",
+    ("Ranger", "Hunter", 11): "Multiattack (Volley / Whirlwind)",
+    ("Ranger", "Hunter", 15): "Superior Hunter's Defense",
+    ("Ranger", "Gloom Stalker", 3): "Dread Ambusher & Umbral Sight",
+    ("Ranger", "Gloom Stalker", 7): "Iron Mind",
+    ("Ranger", "Gloom Stalker", 11): "Stalker's Flurry",
+    ("Ranger", "Gloom Stalker", 15): "Shadowy Dodge",
+    ("Fighter", "Champion", 3): "Improved Critical (19-20)",
+    ("Fighter", "Champion", 7): "Remarkable Athlete",
+    ("Fighter", "Champion", 10): "Additional Fighting Style",
+    ("Fighter", "Champion", 15): "Superior Critical (18-20)",
+    ("Fighter", "Champion", 18): "Survivor",
+    ("Fighter", "Battle Master", 3): "Combat Superiority (Maneuvers)",
+    ("Fighter", "Battle Master", 7): "Know Your Enemy",
+    ("Fighter", "Battle Master", 10): "Improved Combat Superiority (d10)",
+    ("Fighter", "Battle Master", 15): "Relentless",
+    ("Fighter", "Battle Master", 18): "Superior Combat Superiority (d12)",
+    ("Rogue", "Thief", 3): "Fast Hands & Second-Story Work",
+    ("Rogue", "Thief", 9): "Supreme Sneak",
+    ("Rogue", "Thief", 13): "Use Magic Device",
+    ("Rogue", "Thief", 17): "Thief's Reflexes",
+    ("Rogue", "Assassin", 3): "Assassinate",
+    ("Rogue", "Assassin", 9): "Infiltration Expertise",
+    ("Rogue", "Assassin", 13): "Impostor",
+    ("Rogue", "Assassin", 17): "Death Strike",
+    ("Wizard", "Evocation", 2): "Sculpt Spells",
+    ("Wizard", "Evocation", 6): "Potent Cantrip",
+    ("Wizard", "Evocation", 10): "Empowered Evocation",
+    ("Wizard", "Evocation", 14): "Overchannel",
+}
+
+
+def _generate_dynamic_future_milestones(
+    target_class: str,
+    target_class_level: int,
+    subclass: str | None,
+    edition: str,
+    feat_rec: str,
+    archetype: str,
+    known_spells: list[str] | None = None,
+) -> list[str]:
+    from backend.services.stats_service import calculate_max_spell_slots
+
+    repo = _get_rules_repo()
+    known_set = {k.strip().lower() for k in (known_spells or [])}
+    cls_lower = (target_class or "Fighter").lower()
+
+    if cls_lower == "fighter":
+        asi_milestones = [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        asi_milestones = [4, 8, 10, 12, 16, 19]
+    else:
+        asi_milestones = [4, 8, 12, 16, 19]
+
+    subclass_milestones = SUBCLASS_FEATURE_LEVELS.get(target_class, [3, 7, 11, 15])
+    start_lvl = target_class_level
+    end_lvl = min(20, target_class_level + 5) if target_class_level < 18 else 20
+
+    school_map = {
+        "offensive": ["evocation", "necromancy"],
+        "defensive": ["abjuration"],
+        "utility": ["conjuration", "transmutation", "divination"],
+    }
+    preferred_schools = school_map.get(archetype, [])
+
+    all_class_spells = [
+        s
+        for s in repo.get_all_spells(edition)
+        if target_class.lower() in [c.lower() for c in s.get("classes", [])]
+        and s.get("name", "").strip().lower() not in known_set
+    ]
+
+    milestones = []
+    for lvl in range(start_lvl, end_lvl + 1):
+        details = []
+        raw_features = repo.get_features_at_level(target_class, lvl, edition)
+        feat_names = []
+        for f in raw_features:
+            fname = f.get("name", "")
+            flwr = fname.lower()
+            if "ability score improvement" in flwr:
+                continue
+            if any(
+                ph in flwr
+                for ph in [
+                    "archetype feature",
+                    "tradition feature",
+                    "domain feature",
+                    "college feature",
+                    "path feature",
+                    "circle feature",
+                    "origin feature",
+                    "patron feature",
+                    "monastic tradition",
+                ]
+            ):
+                continue
+            feat_names.append(fname)
+
+        if feat_names:
+            details.append(" & ".join(feat_names))
+
+        # Subclass feature
+        if lvl in subclass_milestones:
+            known_match = None
+            if subclass:
+                for (c, sc, feat_lvl), desc in KNOWN_SUBCLASS_FEATURES.items():
+                    if (
+                        c.lower() == target_class.lower()
+                        and sc.lower() in subclass.lower()
+                        and feat_lvl == lvl
+                    ):
+                        known_match = desc
+                        break
+            if known_match:
+                details.append(known_match)
+            else:
+                sub_mech = repo.get_subclass_mechanics(target_class, edition)
+                sub_info = sub_mech.get("subclasses", {}).get(subclass, {}) if subclass else {}
+                scaling_found = []
+                for k, val in sub_info.get("scaling", {}).items():
+                    for step in val.get("steps", []):
+                        if step.get("level") == lvl:
+                            scaling_found.append(
+                                f"{val.get('name', k)} ({step.get('notation', '')})"
+                            )
+                if scaling_found:
+                    details.append(f"{subclass}: {', '.join(scaling_found)}")
+                elif subclass and subclass not in ["None", "N/A", ""]:
+                    details.append(f"{subclass} Feature")
+                else:
+                    details.append("Subclass Feature")
+
+        # ASI milestone
+        if lvl in asi_milestones:
+            details.append(
+                f"Major ASI / Feat Milestone ({feat_rec})"
+                if feat_rec
+                else "Major ASI / Feat Milestone"
+            )
+
+        # Spell tier unlock
+        slots_curr = calculate_max_spell_slots(target_class, lvl, subclass, edition=edition)
+        slots_prev = (
+            calculate_max_spell_slots(target_class, max(1, lvl - 1), subclass, edition=edition)
+            if lvl > 1
+            else {}
+        )
+        max_curr = max(
+            [int(k.replace("level_", "")) for k, v in slots_curr.items() if v > 0] or [0]
+        )
+        max_prev = max(
+            [int(k.replace("level_", "")) for k, v in slots_prev.items() if v > 0] or [0]
+        )
+
+        if max_curr > max_prev or (lvl == start_lvl and max_curr > 0):
+            tier_spells = [
+                s["name"]
+                for s in all_class_spells
+                if s.get("level") == max_curr
+                and any(kw in (s.get("school") or "").lower() for kw in preferred_schools)
+            ]
+            if not tier_spells:
+                tier_spells = [s["name"] for s in all_class_spells if s.get("level") == max_curr]
+            sample = ", ".join(tier_spells[:2])
+            spell_tag = (
+                f"Tier {max_curr} Spells ({sample})" if sample else f"Tier {max_curr} Spells"
+            )
+            details.append(spell_tag)
+
+        if lvl == 20:
+            details.append("Epic Level 20 Capstone")
+
+        if not details:
+            details.append("Hit Points & Tactical Resource Expansion")
+
+        milestones.append(f"Level {lvl}: " + " & ".join(details))
+    return milestones
+
+
 def _get_fallback_level_up_recommendations(
     char_data: dict,
     target_class: str,
@@ -496,6 +698,7 @@ def _get_fallback_level_up_recommendations(
     has_asi: bool,
     max_spell_level: int,
     known_spells: list[str] | None = None,
+    current_subclass: str | None = None,
 ) -> list[dict]:
     """Generates 3 distinct deterministic archetype builds if the LLM is unavailable."""
     primary_stats = {
@@ -622,8 +825,16 @@ def _get_fallback_level_up_recommendations(
     feat_2 = "Sentinel or Tough (+2 CON alternative)" if has_asi else None
     feat_3 = f"Fey Touched (+1 {prim_stat}) or Alert" if has_asi else None
 
-    next_asi_lvl = 12
-    for m in [4, 6, 8, 10, 12, 14, 16, 19]:
+    cls_lower = (target_class or "").lower()
+    if cls_lower == "fighter":
+        asi_milestones = [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        asi_milestones = [4, 8, 10, 12, 16, 19]
+    else:
+        asi_milestones = [4, 8, 12, 16, 19]
+
+    next_asi_lvl = 19
+    for m in asi_milestones:
         if m > target_class_level:
             next_asi_lvl = m
             break
@@ -632,7 +843,7 @@ def _get_fallback_level_up_recommendations(
         feat_1 = (
             f"War Caster or +2 to {prim_stat} (at Level {next_asi_lvl} ASI)"
             if is_caster
-            else f"Sharpshooter or +2 to {prim_stat} (at Level {next_asi_lvl} ASI)"
+            else f"Sharpshooter or Great Weapon Master (at Level {next_asi_lvl} ASI)"
         )
     if not feat_2:
         feat_2 = f"Alert or Tough (+2 CON) (at Level {next_asi_lvl} ASI)"
@@ -646,45 +857,35 @@ def _get_fallback_level_up_recommendations(
         ["conjuration", "transmutation", "divination"], utility_spells.get(target_class, [])
     )
 
-    if target_class == "Ranger":
-        future_ms_1 = [
-            f"Level 10: Hide in Plain Sight & Tier 3 Spells ({', '.join(spells_1) or 'Lightning Arrow'})",
-            "Level 11: Planar Warrior scales to 2d8 force damage & Distant Strike (bonus 3rd attack + teleport)",
-            f"Level 12: Major Feat Milestone - {feat_1}",
-            "Level 13: Tier 4 Spells - Guardian of Nature (advantage on ranged attacks) & Freedom of Movement",
-            "Level 15: Spectral Defense (Reaction: grant resistance to all damage from an attack)",
-            "Level 17: Tier 5 Spells - Swift Quiver (4 longbow attacks per turn)",
-        ]
-        future_ms_2 = [
-            f"Level 10: Natural Explorer (3rd terrain) & Tier 3 Spells ({', '.join(spells_2) or 'Wind Wall'})",
-            "Level 11: Distant Strike (extreme battlefield mobility and repositioning)",
-            f"Level 12: Defensive Feat Milestone - {feat_2}",
-            "Level 13: Tier 4 Spells - Freedom of Movement (immune to paralysis, restraints, difficult terrain)",
-            "Level 15: Spectral Defense (evade lethal blows across planes)",
-        ]
-        future_ms_3 = [
-            f"Level 10: Camouflage & Utility Spells ({', '.join(spells_3) or 'Plant Growth'})",
-            "Level 11: Distant Strike (tactical scouting and hit-and-run engagement)",
-            f"Level 12: Utility Feat Milestone - {feat_3}",
-            "Level 13: Tier 4 Spells - Locate Creature & Freedom of Movement",
-            "Level 15: Spectral Defense (planar survivability)",
-        ]
-    else:
-        future_ms_1 = [
-            f"Level {target_class_level}: Specialization and class tier features",
-            f"Level {next_asi_lvl}: Major ASI / Feat Milestone ({feat_1})",
-            f"Level {min(20, target_class_level + 3)}: Advanced tier abilities and tactical scaling",
-        ]
-        future_ms_2 = [
-            f"Level {target_class_level}: Defensive core and class features",
-            f"Level {next_asi_lvl}: Defensive Feat Milestone ({feat_2})",
-            f"Level {min(20, target_class_level + 3)}: Advanced tier abilities and resilience",
-        ]
-        future_ms_3 = [
-            f"Level {target_class_level}: Utility toolkit and tactical expansion",
-            f"Level {next_asi_lvl}: Utility Feat Milestone ({feat_3})",
-            f"Level {min(20, target_class_level + 3)}: High-tier versatile spell and ability unlocks",
-        ]
+    sub_for_ms = current_subclass or char_data.get("subclass")
+
+    future_ms_1 = _generate_dynamic_future_milestones(
+        target_class=target_class,
+        target_class_level=target_class_level,
+        subclass=sub_1 or sub_for_ms,
+        edition=edition,
+        feat_rec=feat_1,
+        archetype="offensive",
+        known_spells=known_spells,
+    )
+    future_ms_2 = _generate_dynamic_future_milestones(
+        target_class=target_class,
+        target_class_level=target_class_level,
+        subclass=sub_2 or sub_for_ms,
+        edition=edition,
+        feat_rec=feat_2,
+        archetype="defensive",
+        known_spells=known_spells,
+    )
+    future_ms_3 = _generate_dynamic_future_milestones(
+        target_class=target_class,
+        target_class_level=target_class_level,
+        subclass=sub_3 or sub_for_ms,
+        edition=edition,
+        feat_rec=feat_3,
+        archetype="utility",
+        known_spells=known_spells,
+    )
 
     return [
         {
@@ -771,7 +972,6 @@ def generate_level_up_build_recommendations(
     edition = char_data.get("dnd_edition", EDITION_2014)
     classes = char_data.get("classes", [])
     current_total_level = char_data.get("char_level", 1)
-    target_total_level = max(current_total_level + 1, target_level or (current_total_level + 1))
     target_class = target_class or char_data.get("char_class", "Fighter")
 
     # Current class level
@@ -788,11 +988,48 @@ def generate_level_up_build_recommendations(
             class_current_level = current_total_level
             current_subclass = char_data.get("subclass")
 
-    target_class_level = class_current_level + 1
+    if target_level is not None and target_level > class_current_level:
+        target_class_level = min(20, target_level)
+    else:
+        target_class_level = min(20, class_current_level + 1)
+
+    level_gain = max(1, target_class_level - class_current_level)
+    target_total_level = min(20, current_total_level + level_gain)
 
     needs_sub = _needs_subclass(target_class, target_class_level, current_subclass, edition)
     available_subclasses = repo.get_subclasses(target_class, edition) if needs_sub else []
     has_asi = _has_asi(target_class, target_class_level)
+
+    cls_lower = (target_class or "").lower()
+    if cls_lower == "fighter":
+        asi_milestones = [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        asi_milestones = [4, 8, 10, 12, 16, 19]
+    else:
+        asi_milestones = [4, 8, 12, 16, 19]
+
+    next_asi_lvl = 19
+    for m in asi_milestones:
+        if m > target_class_level:
+            next_asi_lvl = m
+            break
+
+    primary_stats = {
+        "Barbarian": "STR",
+        "Bard": "CHA",
+        "Cleric": "WIS",
+        "Druid": "WIS",
+        "Fighter": "STR",
+        "Monk": "DEX",
+        "Paladin": "STR",
+        "Ranger": "DEX",
+        "Rogue": "DEX",
+        "Sorcerer": "CHA",
+        "Warlock": "CHA",
+        "Wizard": "INT",
+        "Artificer": "INT",
+    }
+    prim_stat = primary_stats.get(target_class, "STR")
 
     # Calculate max castable spell level for target class
     max_slots = calculate_max_spell_slots(
@@ -834,6 +1071,7 @@ def generate_level_up_build_recommendations(
             has_asi=has_asi,
             max_spell_level=max_spell_level,
             known_spells=all_known_spells,
+            current_subclass=current_subclass,
         )
         return {
             "character_name": char_data.get("char_name", "Unknown"),
@@ -901,6 +1139,9 @@ def generate_level_up_build_recommendations(
             target_level=target_total_level,
             target_class=target_class,
             target_class_level=target_class_level,
+            max_projected_level=min(20, target_class_level + 5),
+            next_asi_level=next_asi_lvl,
+            primary_stat=prim_stat,
             name=char_data.get("char_name", "Unknown"),
             char_class=char_data.get("char_class", "Unknown"),
             subclass=current_subclass or char_data.get("subclass", "None"),
@@ -931,9 +1172,25 @@ def generate_level_up_build_recommendations(
             return fallback_result()
 
         cleaned_builds = []
-        for b in raw_builds[:3]:
+        for idx, b in enumerate(raw_builds[:3]):
             if not isinstance(b, dict):
                 continue
+            ms = [str(m) for m in b.get("future_milestones", []) if m]
+            if not ms:
+                archetype_type = (
+                    "offensive" if idx == 0 else ("defensive" if idx == 1 else "utility")
+                )
+                ms = _generate_dynamic_future_milestones(
+                    target_class=target_class,
+                    target_class_level=target_class_level,
+                    subclass=str(b.get("recommended_subclass"))
+                    if b.get("recommended_subclass")
+                    else current_subclass,
+                    edition=edition,
+                    feat_rec=str(b.get("recommended_feat_or_asi") or ""),
+                    archetype=archetype_type,
+                    known_spells=all_known_spells,
+                )
             cleaned_builds.append(
                 {
                     "build_name": str(b.get("build_name") or "Custom Archetype"),
@@ -949,7 +1206,7 @@ def generate_level_up_build_recommendations(
                     else None,
                     "recommended_spells": [str(s) for s in b.get("recommended_spells", []) if s],
                     "key_tactics": [str(t) for t in b.get("key_tactics", []) if t],
-                    "future_milestones": [str(m) for m in b.get("future_milestones", []) if m],
+                    "future_milestones": ms,
                 }
             )
 
