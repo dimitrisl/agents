@@ -35,6 +35,10 @@ class Weapon(BaseModel):
     ability_modifier: Optional[str] = None  # Explicit scaling stat (e.g., 'STR', 'DEX')
     damage: Optional[str] = None  # Added for legacy support/internal formula storage
     description: Optional[str] = ""
+    proficient: Optional[bool] = True
+    misc_attack_bonus: Optional[int] = 0
+    misc_damage_bonus: Optional[int] = 0
+    damage_type: Optional[str] = ""
 
     @field_validator("properties", "range", mode="before")
     @classmethod
@@ -456,6 +460,31 @@ class LevelUpApplyRequest(BaseModel):
     character_id: str
     analysis: LevelUpAnalysisSchema
     user_choices: Optional[Dict[str, Any]] = None
+
+
+class LevelUpBuildRecommendation(BaseModel):
+    build_name: str
+    theme: str
+    playstyle_summary: str
+    pros: List[str] = Field(default_factory=list)
+    cons: List[str] = Field(default_factory=list)
+    recommended_subclass: Optional[str] = None
+    recommended_feat_or_asi: Optional[str] = None
+    recommended_spells: List[str] = Field(default_factory=list)
+    key_tactics: List[str] = Field(default_factory=list)
+
+
+class LevelUpRecommendationsRequest(BaseModel):
+    character: CharacterSchema
+    target_class: Optional[str] = None
+    target_level: Optional[int] = None
+
+
+class LevelUpRecommendationsResponse(BaseModel):
+    character_name: str
+    target_class: str
+    target_level: int
+    builds: List[LevelUpBuildRecommendation] = Field(default_factory=list)
 
 
 class BuildValidationSchema(BaseModel):

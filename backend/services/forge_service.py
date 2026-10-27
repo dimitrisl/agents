@@ -10,6 +10,7 @@ from backend.core.constants import (
 )
 from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
+    LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT,
     MANUAL_CHARACTER_ENRICH_PROMPT,
     PLAYSTYLE_GUIDE_PROMPT,
 )
@@ -422,6 +423,22 @@ def forge_character_manual(
 
 def generate_playstyle_guide(char_data: dict) -> str:
     """Generates a detailed strategic and roleplay guide for a character."""
+    # Extract flattened spell names
+    raw_spells = char_data.get("spells", {})
+    spell_names = []
+    if isinstance(raw_spells, dict):
+        for lvl_spells in raw_spells.values():
+            if isinstance(lvl_spells, list):
+                for s in lvl_spells:
+                    spell_names.append(s.get("name") if isinstance(s, dict) else str(s))
+    elif isinstance(raw_spells, list):
+        for s in raw_spells:
+            spell_names.append(s.get("name") if isinstance(s, dict) else str(s))
+
+    weapon_names = [
+        w.get("name") if isinstance(w, dict) else str(w) for w in char_data.get("weapons", [])
+    ]
+
     prompt = PLAYSTYLE_GUIDE_PROMPT.format(
         edition=char_data.get("dnd_edition", EDITION_2014),
         name=char_data.get("char_name", "Unknown"),
@@ -431,9 +448,360 @@ def generate_playstyle_guide(char_data: dict) -> str:
         race=char_data.get("race", "Unknown"),
         background=char_data.get("background", "Unknown"),
         stats=char_data.get("stats", {}),
-        features=[f.get("name") for f in char_data.get("features_traits", [])],
+        weapons=weapon_names or "Standard weapons",
+        spells=spell_names or "No spells recorded",
+        features=[
+            f.get("name") if isinstance(f, dict) else str(f)
+            for f in char_data.get("features_traits", [])
+        ],
     )
     return generate_ai_response(prompt)
+
+
+def _has_asi(target_class: str, target_class_level: int) -> bool:
+    cls_lower = (target_class or "").lower()
+    if cls_lower == "fighter":
+        return target_class_level in [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        return target_class_level in [4, 8, 10, 12, 16, 19]
+    return target_class_level in [4, 8, 12, 16, 19]
+
+
+def _needs_subclass(
+    target_class: str,
+    target_class_level: int,
+    current_subclass: str | None,
+    edition: str,
+) -> bool:
+    if current_subclass and current_subclass not in ["N/A", "None", ""]:
+        return False
+    subclass_level = 3
+    if edition == EDITION_2014:
+        cls_title = (target_class or "").title()
+        if cls_title in ["Cleric", "Sorcerer", "Warlock"]:
+            subclass_level = 1
+        elif cls_title in ["Wizard", "Druid"]:
+            subclass_level = 2
+    return target_class_level >= subclass_level
+
+
+def _get_fallback_level_up_recommendations(
+    char_data: dict,
+    target_class: str,
+    target_class_level: int,
+    target_total_level: int,
+    edition: str,
+    needs_subclass: bool,
+    available_subclasses: list[str],
+    has_asi: bool,
+    max_spell_level: int,
+) -> list[dict]:
+    """Generates 3 distinct deterministic archetype builds if the LLM is unavailable."""
+    primary_stats = {
+        "Barbarian": "STR",
+        "Bard": "CHA",
+        "Cleric": "WIS",
+        "Druid": "WIS",
+        "Fighter": "STR",
+        "Monk": "DEX",
+        "Paladin": "STR",
+        "Ranger": "DEX",
+        "Rogue": "DEX",
+        "Sorcerer": "CHA",
+        "Warlock": "CHA",
+        "Wizard": "INT",
+        "Artificer": "INT",
+    }
+    prim_stat = primary_stats.get(target_class, "STR")
+
+    is_horizon_walker = "horizon" in str(char_data.get("subclass", "")).lower()
+    ranger_offensive = (
+        ["Lightning Arrow", "Zephyr Strike", "Spike Growth"]
+        if is_horizon_walker
+        else ["Hunter's Mark", "Lightning Arrow", "Zephyr Strike"]
+    )
+
+    offensive_spells = {
+        "Wizard": ["Fireball", "Scorching Ray", "Magic Missile"],
+        "Sorcerer": ["Fireball", "Chaos Bolt", "Lightning Bolt"],
+        "Warlock": ["Hunger of Hadar", "Hellish Rebuke", "Hex"],
+        "Cleric": ["Spiritual Weapon", "Spirit Guardians", "Guiding Bolt"],
+        "Druid": ["Moonbeam", "Call Lightning", "Produce Flame"],
+        "Bard": ["Dissonant Whispers", "Shatter", "Vicious Mockery"],
+        "Paladin": ["Thunderous Smite", "Wrathful Smite", "Destructive Wave"],
+        "Ranger": ranger_offensive,
+        "Artificer": ["Catapult", "Shocking Grasp", "Heat Metal"],
+    }
+
+    defensive_spells = {
+        "Wizard": ["Shield", "Mirror Image", "Misty Step", "Absorb Elements"],
+        "Sorcerer": ["Shield", "Misty Step", "Mirror Image", "Absorb Elements"],
+        "Warlock": ["Armor of Agathys", "Misty Step", "Darkness"],
+        "Cleric": ["Aid", "Shield of Faith", "Sanctuary", "Lesser Restoration"],
+        "Druid": ["Barkskin", "Pass without Trace", "Goodberry", "Healing Word"],
+        "Bard": ["Healing Word", "Invisibility", "Lesser Restoration"],
+        "Paladin": ["Aid", "Cure Wounds", "Lesser Restoration"],
+        "Ranger": ["Pass without Trace", "Cure Wounds", "Absorb Elements"],
+        "Artificer": ["Shield", "Aid", "Absorb Elements"],
+    }
+
+    utility_spells = {
+        "Wizard": ["Counterspell", "Fly", "Detect Magic", "Find Familiar"],
+        "Sorcerer": ["Counterspell", "Haste", "Polymorph", "Fly"],
+        "Warlock": ["Hypnotic Pattern", "Fly", "Counterspell", "Dimension Door"],
+        "Cleric": ["Bless", "Revivify", "Dispel Magic", "Guidance"],
+        "Druid": ["Entangle", "Spike Growth", "Plant Growth", "Faerie Fire"],
+        "Bard": ["Hypnotic Pattern", "Faerie Fire", "Suggestion", "Hold Person"],
+        "Paladin": ["Bless", "Find Steed", "Crusader's Mantle"],
+        "Ranger": ["Spike Growth", "Conjure Animals", "Silence"],
+        "Artificer": ["Web", "Haste", "Revivify", "Mending"],
+    }
+
+    # Subclass choices per build
+    sub_1 = available_subclasses[0] if needs_subclass and available_subclasses else None
+    sub_2 = available_subclasses[1] if needs_subclass and len(available_subclasses) > 1 else sub_1
+    sub_3 = (
+        available_subclasses[2]
+        if needs_subclass and len(available_subclasses) > 2
+        else (available_subclasses[-1] if needs_subclass and available_subclasses else None)
+    )
+
+    # Feats per build
+    is_caster = target_class in [
+        "Wizard",
+        "Sorcerer",
+        "Warlock",
+        "Cleric",
+        "Druid",
+        "Bard",
+        "Artificer",
+    ]
+    feat_1 = f"+2 to {prim_stat}" if has_asi else None
+    if has_asi and is_caster:
+        feat_1 = f"War Caster (or +2 to {prim_stat})"
+    elif has_asi and not is_caster:
+        feat_1 = f"Great Weapon Master or Polearm Master (or +2 to {prim_stat})"
+
+    feat_2 = "Sentinel or Tough (+2 CON alternative)" if has_asi else None
+    feat_3 = f"Fey Touched (+1 {prim_stat}) or Alert" if has_asi else None
+
+    # Spells per build
+    spells_1 = offensive_spells.get(target_class, [])[:2] if max_spell_level > 0 else []
+    spells_2 = defensive_spells.get(target_class, [])[:2] if max_spell_level > 0 else []
+    spells_3 = utility_spells.get(target_class, [])[:2] if max_spell_level > 0 else []
+
+    return [
+        {
+            "build_name": f"The Focused Striker ({target_class} Specialization)",
+            "theme": f"Maximize core combat efficiency, offensive output, and primary {prim_stat} scaling.",
+            "playstyle_summary": "Focus on proactive engagements. Position to maximize your round-1 damage output and force enemies onto the defensive.",
+            "pros": [
+                f"Peak scaling for attack rolls and spell save DCs with high {prim_stat}",
+                "Consistent single-target and multi-target threat",
+                "Straightforward and devastating action economy",
+            ],
+            "cons": [
+                "Less defensive redundancy when cornered",
+                "Fewer utility options out of combat",
+            ],
+            "recommended_subclass": sub_1,
+            "recommended_feat_or_asi": feat_1,
+            "recommended_spells": spells_1,
+            "key_tactics": [
+                "Target high-threat priority enemies to break enemy action economy early",
+                "Coordinate with frontline allies for flanking and advantage",
+            ],
+        },
+        {
+            "build_name": "The Resilient Anchor (Defensive / Protector)",
+            "theme": "Prioritize survivability, concentration defense, and battlefield positioning.",
+            "playstyle_summary": "Act as the party's backbone. Use defensive features and reactions to mitigate damage and control enemy movement.",
+            "pros": [
+                "High survivability and superior concentration saving throw protection",
+                "Protects fragile backline allies from being overrun",
+                "Extremely durable against attrition and prolonged battles",
+            ],
+            "cons": [
+                "Moderate burst damage compared to pure offensive builds",
+                "Requires careful positioning in tight spaces",
+            ],
+            "recommended_subclass": sub_2,
+            "recommended_feat_or_asi": feat_2,
+            "recommended_spells": spells_2,
+            "key_tactics": [
+                "Anchor chokepoints and position between threats and party casters",
+                "Activate defensive buffs before stepping into contested terrain",
+            ],
+        },
+        {
+            "build_name": "The Versatile Tactician (Control / Utility)",
+            "theme": "Expand tactical toolkit with crowd control, mobility, and out-of-combat utility.",
+            "playstyle_summary": "Shape the battlefield. Use positioning, status effects, and versatile spells to disrupt enemy strategies.",
+            "pros": [
+                "Superior encounter manipulation and crowd control options",
+                "High versatility in social, exploration, and stealth pillars",
+                "Flexible reaction options to answer unexpected monster abilities",
+            ],
+            "cons": [
+                "Demands careful spell slot and resource pacing",
+                "Relies on party coordination to follow up on status effects",
+            ],
+            "recommended_subclass": sub_3,
+            "recommended_feat_or_asi": feat_3,
+            "recommended_spells": spells_3,
+            "key_tactics": [
+                "Open combat with area denial or crowd control on enemy clusters",
+                "Keep mobility options available to peel away from heavy melee threats",
+            ],
+        },
+    ]
+
+
+def generate_level_up_build_recommendations(
+    char_data: dict,
+    target_class: str | None = None,
+    target_level: int | None = None,
+) -> dict:
+    """
+    Analyzes the character and returns up to 3 distinct, highly synergistic build paths
+    for their upcoming level up.
+    """
+    from backend.services.stats_service import calculate_max_spell_slots
+
+    repo = _get_rules_repo()
+    edition = char_data.get("dnd_edition", EDITION_2014)
+    classes = char_data.get("classes", [])
+    current_total_level = char_data.get("char_level", 1)
+    target_total_level = target_level or (current_total_level + 1)
+    target_class = target_class or char_data.get("char_class", "Fighter")
+
+    # Current class level
+    class_current_level = 0
+    current_subclass = None
+    if classes:
+        for cls in classes:
+            if cls.get("class_name", "").lower() == target_class.lower():
+                class_current_level = cls.get("level", 0)
+                current_subclass = cls.get("subclass")
+                break
+    else:
+        if target_class.lower() == char_data.get("char_class", "Fighter").lower():
+            class_current_level = current_total_level
+            current_subclass = char_data.get("subclass")
+
+    target_class_level = class_current_level + 1
+
+    needs_sub = _needs_subclass(target_class, target_class_level, current_subclass, edition)
+    available_subclasses = repo.get_subclasses(target_class, edition) if needs_sub else []
+    has_asi = _has_asi(target_class, target_class_level)
+
+    # Calculate max castable spell level for target class
+    max_slots = calculate_max_spell_slots(
+        target_class, target_class_level, current_subclass, edition=edition
+    )
+    max_spell_level = 0
+    for i in range(1, 10):
+        if max_slots.get(f"level_{i}", 0) > 0:
+            max_spell_level = i
+
+    # Fallback template generator helper
+    def fallback_result():
+        fallback_builds = _get_fallback_level_up_recommendations(
+            char_data=char_data,
+            target_class=target_class,
+            target_class_level=target_class_level,
+            target_total_level=target_total_level,
+            edition=edition,
+            needs_subclass=needs_sub,
+            available_subclasses=available_subclasses,
+            has_asi=has_asi,
+            max_spell_level=max_spell_level,
+        )
+        return {
+            "character_name": char_data.get("char_name", "Unknown"),
+            "target_class": target_class,
+            "target_level": target_total_level,
+            "builds": fallback_builds,
+        }
+
+    # Format AI prompt
+    try:
+        prompt = LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT.format(
+            edition=edition,
+            current_level=current_total_level,
+            target_level=target_total_level,
+            target_class=target_class,
+            target_class_level=target_class_level,
+            name=char_data.get("char_name", "Unknown"),
+            char_class=char_data.get("char_class", "Unknown"),
+            subclass=current_subclass or char_data.get("subclass", "None"),
+            race=char_data.get("race", "Unknown"),
+            background=char_data.get("background", "Unknown"),
+            stats=char_data.get("stats", {}),
+            equipment=[
+                eq.get("name") for eq in char_data.get("equipment", []) if isinstance(eq, dict)
+            ][:10],
+            spells=[
+                s.get("name") if isinstance(s, dict) else str(s)
+                for s in char_data.get("spells", {}).get("cantrips", [])
+            ][:10],
+            features=[
+                f.get("name") for f in char_data.get("features_traits", []) if isinstance(f, dict)
+            ][:10],
+            needs_subclass="YES" if needs_sub else "NO",
+            available_subclasses=", ".join(available_subclasses)
+            if available_subclasses
+            else "None",
+            has_asi="YES" if has_asi else "NO",
+            max_spell_level=max_spell_level,
+        )
+
+        ai_response = generate_ai_json(prompt)
+        if not ai_response or not isinstance(ai_response, dict):
+            logger.warning("AI build recommendations returned non-dict response. Using fallback.")
+            return fallback_result()
+
+        raw_builds = ai_response.get("builds")
+        if not isinstance(raw_builds, list) or len(raw_builds) == 0:
+            logger.warning("AI build recommendations returned empty builds list. Using fallback.")
+            return fallback_result()
+
+        cleaned_builds = []
+        for b in raw_builds[:3]:
+            if not isinstance(b, dict):
+                continue
+            cleaned_builds.append(
+                {
+                    "build_name": str(b.get("build_name") or "Custom Archetype"),
+                    "theme": str(b.get("theme") or ""),
+                    "playstyle_summary": str(b.get("playstyle_summary") or ""),
+                    "pros": [str(p) for p in b.get("pros", []) if p],
+                    "cons": [str(c) for c in b.get("cons", []) if c],
+                    "recommended_subclass": str(b.get("recommended_subclass"))
+                    if b.get("recommended_subclass")
+                    else None,
+                    "recommended_feat_or_asi": str(b.get("recommended_feat_or_asi"))
+                    if b.get("recommended_feat_or_asi")
+                    else None,
+                    "recommended_spells": [str(s) for s in b.get("recommended_spells", []) if s],
+                    "key_tactics": [str(t) for t in b.get("key_tactics", []) if t],
+                }
+            )
+
+        if not cleaned_builds:
+            return fallback_result()
+
+        return {
+            "character_name": char_data.get("char_name", "Unknown"),
+            "target_class": target_class,
+            "target_level": target_total_level,
+            "builds": cleaned_builds,
+        }
+    except Exception as e:
+        logger.error(
+            f"Failed to generate AI build recommendations: {e}. Falling back to rule-based archetypes."
+        )
+        return fallback_result()
 
 
 def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:

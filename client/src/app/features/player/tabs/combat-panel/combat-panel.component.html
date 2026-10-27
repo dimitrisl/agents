@@ -91,14 +91,28 @@
       >
         <header class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
-            <span *ngIf="!editMode" class="block truncate font-display text-body font-semibold text-ink">
-              {{ weapon.name }}
-            </span>
+            <div class="flex items-center gap-2">
+              <span *ngIf="!editMode" class="block truncate font-display text-body font-semibold text-ink">
+                {{ weapon.name }}
+              </span>
+              <button
+                forgeButton
+                variant="ghost"
+                size="sm"
+                iconOnly
+                type="button"
+                class="!p-1 text-muted hover:text-gold shrink-0"
+                [attr.aria-label]="'Configure bonuses for ' + weapon.name"
+                title="Configure weapon bonus sources & breakdown"
+                (click)="toggleWeaponEditor(index)">
+                ⚙️
+              </button>
+            </div>
             <input
               *ngIf="editMode"
               forgeInput
               type="text"
-              class="w-full"
+              class="w-full mt-1"
               [(ngModel)]="weapon.name"
               aria-label="Weapon name"
               (change)="save.emit()"
@@ -128,21 +142,28 @@
           </button>
         </header>
 
-        <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
-          <div class="text-center">
+        <div class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4">
+          <div class="text-center min-w-[100px]">
             <span class="block text-micro font-semibold uppercase text-muted">To Hit</span>
             <span *ngIf="!editMode" class="block font-display text-metric font-bold text-accent">
-              {{ weapon.attack_bonus }}
+              {{ displayedAttackBonus(weapon) }}
             </span>
             <input
               *ngIf="editMode"
               forgeInput
               type="text"
-              class="mt-1 max-w-20"
+              class="mt-1 max-w-20 mx-auto text-center"
               [(ngModel)]="weapon.attack_bonus"
               aria-label="Attack bonus"
-              (change)="save.emit()"
+              (change)="onManualAttackBonusChange(weapon)"
             />
+            <button
+              type="button"
+              class="mt-1 block max-w-full truncate text-micro font-medium text-muted hover:text-gold text-center cursor-pointer transition-colors"
+              [title]="getWeaponBreakdown(weapon).attack.formulaText"
+              (click)="toggleWeaponEditor(index)">
+              ℹ️ {{ getWeaponBreakdown(weapon).attack.formulaText }}
+            </button>
           </div>
 
           <div class="min-w-0">
@@ -162,8 +183,175 @@
               class="mt-1 w-full"
               [(ngModel)]="weapon.damage_dice"
               aria-label="Damage dice"
-              (change)="save.emit()"
+              (change)="onManualDamageDiceChange(weapon)"
             />
+            <button
+              type="button"
+              class="mt-1 block max-w-full truncate text-micro font-medium text-muted hover:text-gold text-left cursor-pointer transition-colors"
+              [title]="getWeaponBreakdown(weapon).damage.formulaText"
+              (click)="toggleWeaponEditor(index)">
+              ℹ️ {{ getWeaponBreakdown(weapon).damage.formulaText }}
+            </button>
+          </div>
+        </div>
+
+        <!-- ⚙️ Expanded Weapon Breakdown & Configuration Panel -->
+        <div *ngIf="expandedWeaponIndex === index" class="mt-2 flex flex-col gap-3 rounded-lg border border-gold/40 bg-surface/90 p-3 text-sm">
+          <div class="flex items-center justify-between pb-1.5 border-b border-hairline">
+            <span class="font-display text-xs font-bold uppercase text-gold">⚙️ Bonus Sources & Formula Breakdown</span>
+            <button
+              forgeButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              class="!p-0.5 text-xs text-muted hover:text-ink"
+              (click)="toggleWeaponEditor(index)">
+              ✕ Close
+            </button>
+          </div>
+
+          <!-- Formula Summaries Box -->
+          <div class="flex flex-col gap-1.5 rounded bg-tile/80 p-2.5 text-micro">
+            <div class="flex items-start gap-1.5">
+              <span class="font-semibold text-accent shrink-0">🎯 Attack Formula:</span>
+              <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).attack.formulaText }}</span>
+            </div>
+            <div class="flex items-start gap-1.5">
+              <span class="font-semibold text-emerald shrink-0">🩸 Damage Formula:</span>
+              <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).damage.formulaText }}</span>
+            </div>
+          </div>
+
+          <!-- Config Form Controls -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <!-- Stat Selector -->
+            <div>
+              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Scaling Ability:</label>
+              <select
+                forgeSelect
+                class="w-full text-xs !py-1"
+                [ngModel]="weapon.ability_modifier || ''"
+                (ngModelChange)="onWeaponAbilityChange(weapon, $event)">
+                <option value="">Auto (Default: {{ getWeaponBreakdown(weapon).attack.statName }})</option>
+                <option value="STR">Strength (STR: {{ formatMod(char.stats.STR) }})</option>
+                <option value="DEX">Dexterity (DEX: {{ formatMod(char.stats.DEX) }})</option>
+                <option value="CON">Constitution (CON: {{ formatMod(char.stats.CON) }})</option>
+                <option value="INT">Intelligence (INT: {{ formatMod(char.stats.INT) }})</option>
+                <option value="WIS">Wisdom (WIS: {{ formatMod(char.stats.WIS) }})</option>
+                <option value="CHA">Charisma (CHA: {{ formatMod(char.stats.CHA) }})</option>
+                <option value="NONE">None (+0)</option>
+              </select>
+            </div>
+
+            <!-- Magic Bonus -->
+            <div>
+              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Magic Weapon Bonus:</label>
+              <select
+                forgeSelect
+                class="w-full text-xs !py-1"
+                [ngModel]="getWeaponMagicBonus(weapon)"
+                (ngModelChange)="onWeaponMagicChange(weapon, $event)">
+                <option [value]="0">+0 (Non-magical)</option>
+                <option [value]="1">+1 Weapon</option>
+                <option [value]="2">+2 Weapon</option>
+                <option [value]="3">+3 Weapon</option>
+                <option [value]="4">+4</option>
+                <option [value]="5">+5</option>
+              </select>
+            </div>
+
+            <!-- Proficiency Checkbox -->
+            <div class="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="prof-check-{{ index }}"
+                class="rounded border-hairline bg-tile text-gold focus:ring-gold"
+                [checked]="weapon.proficient !== false"
+                (change)="onWeaponProficiencyChange(weapon, $event)"
+              />
+              <label for="prof-check-{{ index }}" class="text-xs text-ink cursor-pointer font-medium">
+                Proficient with weapon (+{{ char.proficiency_bonus || 2 }})
+              </label>
+            </div>
+
+            <!-- Fighting Style Detection (Read-only status) -->
+            <div class="text-xs text-muted flex items-center pt-2">
+              <span *ngIf="getWeaponBreakdown(weapon).attack.fightingStyleName as style" class="text-emerald font-medium">
+                ✓ {{ style }} Style Applied (+{{ getWeaponBreakdown(weapon).attack.fightingStyleBonus }})
+              </span>
+              <span *ngIf="getWeaponBreakdown(weapon).damage.fightingStyleName as style" class="text-emerald font-medium">
+                ✓ {{ style }} Style Applied (+{{ getWeaponBreakdown(weapon).damage.fightingStyleBonus }})
+              </span>
+              <span *ngIf="!getWeaponBreakdown(weapon).attack.fightingStyleName && !getWeaponBreakdown(weapon).damage.fightingStyleName">
+                No fighting style bonus applicable
+              </span>
+            </div>
+
+            <!-- Misc Attack Bonus -->
+            <div>
+              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Misc Attack Bonus:</label>
+              <input
+                forgeInput
+                type="number"
+                class="w-full text-xs !py-1"
+                [ngModel]="weapon.misc_attack_bonus || 0"
+                (ngModelChange)="onWeaponMiscAttackChange(weapon, $event)"
+                placeholder="+0"
+              />
+            </div>
+
+            <!-- Misc Damage Bonus -->
+            <div>
+              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Misc Damage Bonus:</label>
+              <input
+                forgeInput
+                type="number"
+                class="w-full text-xs !py-1"
+                [ngModel]="weapon.misc_damage_bonus || 0"
+                (ngModelChange)="onWeaponMiscDamageChange(weapon, $event)"
+                placeholder="+0"
+              />
+            </div>
+
+            <!-- Damage Dice -->
+            <div>
+              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Base Damage Dice:</label>
+              <input
+                forgeInput
+                type="text"
+                class="w-full text-xs !py-1"
+                [ngModel]="getWeaponBaseDice(weapon)"
+                (ngModelChange)="onWeaponBaseDiceChange(weapon, $event)"
+                placeholder="e.g. 1d8, 1d6, 2d6"
+              />
+            </div>
+
+            <!-- Damage Type -->
+            <div>
+              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Damage Type:</label>
+              <input
+                forgeInput
+                type="text"
+                class="w-full text-xs !py-1"
+                [ngModel]="getWeaponBreakdown(weapon).damage.damageType"
+                (ngModelChange)="onWeaponDamageTypeChange(weapon, $event)"
+                placeholder="e.g. piercing, slashing, bludgeoning"
+              />
+            </div>
+          </div>
+
+          <!-- Sync Action Button -->
+          <div class="flex items-center justify-between pt-2 border-t border-hairline">
+            <span class="text-micro text-muted">Sync updates to-hit & damage on your sheet.</span>
+            <button
+              forgeButton
+              variant="primary"
+              size="sm"
+              type="button"
+              class="!py-1 !px-3 text-xs"
+              (click)="syncWeaponCalculations(weapon)">
+              ⚡ Recalculate & Sync to Sheet
+            </button>
           </div>
         </div>
 

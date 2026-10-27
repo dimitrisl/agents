@@ -105,8 +105,33 @@ export class ClassCombatService {
   }
 
   /** The riders a damage roll can stack, in the order they should be offered. */
-  ridersOf(profile: CombatProfile): ClassCombatAction[] {
-    return profile.actions.filter((action) => action.kind === 'rider');
+  ridersOf(profile: CombatProfile, char?: CharacterSchema): ClassCombatAction[] {
+    return profile.actions.filter((action) => {
+      if (action.kind !== 'rider') return false;
+      if (action.id === 'hunters-mark') {
+        // In 2024 Rangers always have it, but in 2014 they must actually have learned it
+        const is2024 = (char?.dnd_edition || '').includes('2024');
+        if (is2024) return true;
+        const allSpells = this.flattenSpells(char);
+        return allSpells.some((s) => s.toLowerCase().includes('hunter'));
+      }
+      return true;
+    });
+  }
+
+  private flattenSpells(char?: CharacterSchema): string[] {
+    if (!char?.spells) return [];
+    const names: string[] = [];
+    if (typeof char.spells === 'object') {
+      for (const list of Object.values(char.spells)) {
+        if (Array.isArray(list)) {
+          for (const s of list) {
+            names.push(typeof s === 'string' ? s : (s as any)?.name || '');
+          }
+        }
+      }
+    }
+    return names;
   }
 
   /**

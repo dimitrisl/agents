@@ -93,12 +93,18 @@ Level: {level}
 Race/Species: {race}
 Background: {background}
 Stats: {stats}
+Weapons: {weapons}
+Known/Prepared Spells: {spells}
 Features: {features}
 
 The guide should include:
-1. **Combat Strategy**: How to use their actions, bonus actions, and features optimally.
+1. **Combat Strategy**: How to use their actions, bonus actions, and features optimally based strictly on their actual weapons, spells, and class abilities.
 2. **Roleplay Tips**: How to portray their personality and background in the world.
-3. **Key Synergies**: How their features work together.
+3. **Key Synergies & Action Economy**: How their features work together, especially regarding action and bonus action economy (e.g. Planar Warrior, concentration spells, reaction spells like Absorb Elements).
+
+STRICT RULES:
+- ONLY reference and advise on the character's ACTUAL known/prepared spells listed above. Do NOT assume generic class spells (e.g., do NOT suggest Hunter's Mark if the character has not learned/prepared it).
+- Highlight specific action economy synergies (e.g., how Horizon Walker's Planar Warrior uses the bonus action every turn and converts weapon damage to force damage).
 
 Use beautiful markdown formatting with headings, bullet points, and emphasis.
 """
@@ -147,6 +153,50 @@ STRICT CLASS RULES:
 Ruleset specific notes:
 - If 2024 Edition, remember that Subclasses are now ALWAYS chosen at Level 3.
 - If Level 4, 8, 12, 16, 19, there is always a Choice (Feat or ASI).
+"""
+
+LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT = """
+Act as an elite D&D {edition} Tactical Advisor and Character Optimizer.
+Analyze the following character who is advancing from Level {current_level} to Level {target_level} in {target_class}.
+Generate up to 3 distinct, highly synergistic, and thematic build paths (e.g. 1 Offensive / Striker, 1 Defensive / Anchor, 1 Utility / Control or Synergistic Flavor).
+
+Character Profile:
+- Name: {name}
+- Class: {char_class}
+- Current Subclass: {subclass}
+- Current Total Level: {current_level}
+- Target Total Level: {target_level} (Target {target_class} Level: {target_class_level})
+- Edition: {edition}
+- Race / Species: {race}
+- Background: {background}
+- Ability Scores: {stats}
+- Equipment / Weapons: {equipment}
+- Current Spells: {spells}
+- Notable Features: {features}
+
+Progression Rules Context:
+- Subclass needed now: {needs_subclass} (Available: {available_subclasses})
+- Feat / ASI choice available: {has_asi}
+- Spellcasting max spell level available: {max_spell_level}
+
+Requirements:
+- Action Economy & Synergy Rules: Respect existing class and subclass action economy! For example, if a Ranger is a Horizon Walker, their Planar Warrior feature already consumes their bonus action every turn to convert weapon attacks to force damage and deal extra damage. DO NOT recommend spells or feats that heavily conflict with their bonus action (such as Hunter's Mark); instead suggest complementary spells like Zephyr Strike, Pass without Trace, Spike Growth, Absorb Elements, or Haste.
+Return ONLY a valid JSON object matching this schema:
+{{
+  "builds": [
+    {{
+      "build_name": "Title of build (e.g., 'The Iron Bulwark (Tank / Protector)')",
+      "theme": "Core tactical theme in 1 punchy sentence",
+      "playstyle_summary": "2-3 sentences explaining combat role, positioning, and action economy",
+      "pros": ["Major strength 1", "Major strength 2", "Major strength 3"],
+      "cons": ["Trade-off or limitation 1", "Trade-off or limitation 2"],
+      "recommended_subclass": "Name of subclass or null if not applicable",
+      "recommended_feat_or_asi": "Specific feat or stat increase or null if no ASI",
+      "recommended_spells": ["Spell 1", "Spell 2"],
+      "key_tactics": ["Tactical action tip 1", "Tactical action tip 2"]
+    }}
+  ]
+}}
 """
 
 # --- DM Tools ---

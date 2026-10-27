@@ -17,6 +17,43 @@
                     ]
                 }
             }
+        },
+        "Horizon Walker": {
+            "name": "Horizon Walker",
+            "scaling": {
+                "planar_warrior": {
+                    "name": "Planar Warrior",
+                    "kind": "rider",
+                    "hint": "Bonus action: all attack damage becomes force damage, plus extra force damage.",
+                    "damage_type": "force",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Gloom Stalker": {
+            "name": "Gloom Stalker",
+            "scaling": {
+                "dread_ambusher": {
+                    "name": "Dread Ambusher",
+                    "kind": "rider",
+                    "hint": "First turn of combat: +10ft walking speed, one extra weapon attack that deals extra weapon damage on hit.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        }
+                    ]
+                }
+            }
         }
     }
 }

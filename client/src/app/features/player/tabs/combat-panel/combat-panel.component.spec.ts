@@ -30,6 +30,9 @@ describe('CombatPanelComponent', () => {
       { name: 'Cloak of Protection', equipped: true, attuned: true },
       { name: 'Ring of Warmth', equipped: true, attuned: true },
     ],
+    weapons: [
+      { name: 'Battleaxe', attack_bonus: '+7', damage_dice: '1d8+4 slashing' },
+    ],
   };
 
   beforeEach(async () => {
@@ -131,5 +134,46 @@ describe('CombatPanelComponent', () => {
 
     component.adjustQuantity(item, -2, new MouseEvent('click'));
     expect(item.quantity).toBe(1);
+  });
+
+  it('should toggle weapon editor and calculate breakdown', () => {
+    expect(component.expandedWeaponIndex).toBeNull();
+    component.toggleWeaponEditor(0);
+    expect(component.expandedWeaponIndex).toBe(0);
+
+    const weapon = component.char.weapons![0];
+    const bd = component.getWeaponBreakdown(weapon);
+    expect(bd.attack.statName).toBe('STR');
+    expect(bd.attack.statMod).toBe(4);
+    expect(bd.attack.total).toBe(7); // STR (+4) + Prof (+3)
+    expect(bd.attack.formulaText).toContain('STR (+4) + Prof (+3)');
+  });
+
+  it('should sync weapon calculations to sheet and emit save', () => {
+    const saveSpy = jest.spyOn(component.save, 'emit');
+    const weapon = component.char.weapons![0];
+
+    component.syncWeaponCalculations(weapon);
+
+    expect(weapon.attack_bonus).toBe('+7');
+    expect(weapon.damage_dice).toBe('1d8+4 slashing');
+    expect(weapon.damage_bonus).toBe('+4');
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it('should display calculated attack bonus and handle manual adjustments', () => {
+    const saveSpy = jest.spyOn(component.save, 'emit');
+    const weapon = component.char.weapons![0];
+
+    // Initial breakdown: STR (+4) + Prof (+3) = +7
+    expect(component.displayedAttackBonus(weapon)).toBe('+7');
+
+    // Simulate player manual override to +9 in edit mode
+    weapon.attack_bonus = '+9';
+    component.onManualAttackBonusChange(weapon);
+
+    expect(weapon.misc_attack_bonus).toBe(2);
+    expect(component.displayedAttackBonus(weapon)).toBe('+9');
+    expect(saveSpy).toHaveBeenCalled();
   });
 });
