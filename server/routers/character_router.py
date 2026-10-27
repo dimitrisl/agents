@@ -23,7 +23,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
-from backend.core.schemas import CharacterSchema, SuccessResponseSchema
+from backend.core.schemas import CharacterSchema, PortraitResponse, SuccessResponseSchema
 from backend.services.character_import_service import (
     CharacterImportService,
     DndBeyondImportError,
@@ -215,6 +215,74 @@ async def update_character(
         )
 
     return CharacterSchema.model_validate(char_dict, strict=False)
+
+
+@router.post("/{char_id}/portrait-upload", response_model=PortraitResponse)
+@limiter.limit("15/minute")
+async def upload_character_portrait(
+    char_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    char_doc = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
+    if not char_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only image files are allowed.",
+        )
+
+    raw_filename = file.filename or ""
+    file_extension = os.path.splitext(raw_filename)[1].lower()
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+    if file_extension not in allowed_exts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported image extension '{file_extension}'. Allowed: {', '.join(sorted(allowed_exts))}",
+        )
+
+    os.makedirs(PORTRAIT_DIR, exist_ok=True)
+    unique_filename = f"{uuid.uuid4().hex}{file_extension}"
+    file_path = safe_path(os.path.join(PORTRAIT_DIR, unique_filename), scope="portraits")
+
+    max_bytes = 10 * 1024 * 1024  # 10 MB
+    total_bytes = 0
+    try:
+        with open(file_path, "wb") as buffer:
+            while chunk := await file.read(1024 * 1024):
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="Uploaded image exceeds maximum limit of 10 MB.",
+                    )
+                buffer.write(chunk)
+    except HTTPException:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
+
+    portrait_url = f"{settings.API_V1_STR}/portraits/{unique_filename}"
+    new_version = int(char_doc.get("version", 0) or 0) + 1
+
+    old_portrait = char_doc.get("char_portrait")
+    if old_portrait:
+        await _cleanup_character_portraits(db, char_id, old_portrait)
+
+    await db["characters"].update_one(
+        {"char_id": char_id, "owner_id": current_user["id"]},
+        {"$set": {"char_portrait": portrait_url, "version": new_version}},
+    )
+
+    return {
+        "success": True,
+        "portrait_url": portrait_url,
+        "version": new_version,
+    }
 
 
 @router.post("/{char_id}/homebrew/{item_id}", response_model=CharacterSchema)

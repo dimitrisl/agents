@@ -10,6 +10,7 @@ from backend.core.constants import (
 )
 from backend.core.prompts import (
     CHARACTER_FORGE_PROMPT,
+    LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT,
     MANUAL_CHARACTER_ENRICH_PROMPT,
     PLAYSTYLE_GUIDE_PROMPT,
 )
@@ -422,6 +423,22 @@ def forge_character_manual(
 
 def generate_playstyle_guide(char_data: dict) -> str:
     """Generates a detailed strategic and roleplay guide for a character."""
+    # Extract flattened spell names
+    raw_spells = char_data.get("spells", {})
+    spell_names = []
+    if isinstance(raw_spells, dict):
+        for lvl_spells in raw_spells.values():
+            if isinstance(lvl_spells, list):
+                for s in lvl_spells:
+                    spell_names.append(s.get("name") if isinstance(s, dict) else str(s))
+    elif isinstance(raw_spells, list):
+        for s in raw_spells:
+            spell_names.append(s.get("name") if isinstance(s, dict) else str(s))
+
+    weapon_names = [
+        w.get("name") if isinstance(w, dict) else str(w) for w in char_data.get("weapons", [])
+    ]
+
     prompt = PLAYSTYLE_GUIDE_PROMPT.format(
         edition=char_data.get("dnd_edition", EDITION_2014),
         name=char_data.get("char_name", "Unknown"),
@@ -431,9 +448,837 @@ def generate_playstyle_guide(char_data: dict) -> str:
         race=char_data.get("race", "Unknown"),
         background=char_data.get("background", "Unknown"),
         stats=char_data.get("stats", {}),
-        features=[f.get("name") for f in char_data.get("features_traits", [])],
+        weapons=weapon_names or "Standard weapons",
+        spells=spell_names or "No spells recorded",
+        features=[
+            f.get("name") if isinstance(f, dict) else str(f)
+            for f in char_data.get("features_traits", [])
+        ],
     )
     return generate_ai_response(prompt)
+
+
+def _has_asi(target_class: str, target_class_level: int) -> bool:
+    cls_lower = (target_class or "").lower()
+    if cls_lower == "fighter":
+        return target_class_level in [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        return target_class_level in [4, 8, 10, 12, 16, 19]
+    return target_class_level in [4, 8, 12, 16, 19]
+
+
+def _needs_subclass(
+    target_class: str,
+    target_class_level: int,
+    current_subclass: str | None,
+    edition: str,
+) -> bool:
+    if current_subclass and current_subclass not in ["N/A", "None", ""]:
+        return False
+    subclass_level = 3
+    if edition == EDITION_2014:
+        cls_title = (target_class or "").title()
+        if cls_title in ["Cleric", "Sorcerer", "Warlock"]:
+            subclass_level = 1
+        elif cls_title in ["Wizard", "Druid"]:
+            subclass_level = 2
+    return target_class_level >= subclass_level
+
+
+SUBCLASS_FEATURE_LEVELS = {
+    "Barbarian": [3, 6, 10, 14],
+    "Bard": [3, 6, 14],
+    "Cleric": [1, 2, 6, 8, 17],
+    "Druid": [2, 6, 10, 14],
+    "Fighter": [3, 7, 10, 15, 18],
+    "Monk": [3, 6, 11, 17],
+    "Paladin": [3, 7, 15, 20],
+    "Ranger": [3, 7, 11, 15],
+    "Rogue": [3, 9, 13, 17],
+    "Sorcerer": [1, 6, 14, 18],
+    "Warlock": [1, 6, 10, 14],
+    "Wizard": [2, 6, 10, 14],
+    "Artificer": [3, 5, 9, 15],
+}
+
+KNOWN_SUBCLASS_FEATURES = {
+    ("Ranger", "Horizon Walker", 3): "Planar Warrior (1d8) & Detect Portal",
+    ("Ranger", "Horizon Walker", 7): "Ethereal Step",
+    ("Ranger", "Horizon Walker", 11): "Planar Warrior (2d8) & Distant Strike",
+    ("Ranger", "Horizon Walker", 15): "Spectral Defense (Reaction: damage resistance)",
+    ("Ranger", "Hunter", 3): "Hunter's Prey (Colossus Slayer)",
+    ("Ranger", "Hunter", 7): "Defensive Tactics",
+    ("Ranger", "Hunter", 11): "Multiattack (Volley / Whirlwind)",
+    ("Ranger", "Hunter", 15): "Superior Hunter's Defense",
+    ("Ranger", "Gloom Stalker", 3): "Dread Ambusher & Umbral Sight",
+    ("Ranger", "Gloom Stalker", 7): "Iron Mind",
+    ("Ranger", "Gloom Stalker", 11): "Stalker's Flurry",
+    ("Ranger", "Gloom Stalker", 15): "Shadowy Dodge",
+    ("Fighter", "Champion", 3): "Improved Critical (19-20)",
+    ("Fighter", "Champion", 7): "Remarkable Athlete",
+    ("Fighter", "Champion", 10): "Additional Fighting Style",
+    ("Fighter", "Champion", 15): "Superior Critical (18-20)",
+    ("Fighter", "Champion", 18): "Survivor",
+    ("Fighter", "Battle Master", 3): "Combat Superiority (Maneuvers)",
+    ("Fighter", "Battle Master", 7): "Know Your Enemy",
+    ("Fighter", "Battle Master", 10): "Improved Combat Superiority (d10)",
+    ("Fighter", "Battle Master", 15): "Relentless",
+    ("Fighter", "Battle Master", 18): "Superior Combat Superiority (d12)",
+    ("Rogue", "Thief", 3): "Fast Hands & Second-Story Work",
+    ("Rogue", "Thief", 9): "Supreme Sneak",
+    ("Rogue", "Thief", 13): "Use Magic Device",
+    ("Rogue", "Thief", 17): "Thief's Reflexes",
+    ("Rogue", "Assassin", 3): "Assassinate",
+    ("Rogue", "Assassin", 9): "Infiltration Expertise",
+    ("Rogue", "Assassin", 13): "Impostor",
+    ("Rogue", "Assassin", 17): "Death Strike",
+    ("Wizard", "Evocation", 2): "Sculpt Spells",
+    ("Wizard", "Evocation", 6): "Potent Cantrip",
+    ("Wizard", "Evocation", 10): "Empowered Evocation",
+    ("Wizard", "Evocation", 14): "Overchannel",
+}
+
+SUBCLASS_FEATURES_DETAILS = {
+    ("Ranger", "Horizon Walker", 3): {
+        "name": "Detect Portal & Planar Warrior (Horizon Walker)",
+        "description": "Detect Portal: As an action, detect distance/direction to portals within 1 mile. Planar Warrior: Bonus action to convert weapon attack damage to force damage and deal +1d8 extra force damage.",
+    },
+    ("Ranger", "Horizon Walker", 7): {
+        "name": "Ethereal Step (Horizon Walker)",
+        "description": "As a bonus action, you can cast Etherealness without expending a spell slot, lasting until the end of the current turn (1/short or long rest).",
+    },
+    ("Ranger", "Horizon Walker", 11): {
+        "name": "Distant Strike (Horizon Walker)",
+        "description": "When you take the Attack action, teleport up to 10 feet before each attack. If you attack at least two different creatures, you can make a third attack against a different creature. In addition, Planar Warrior scales to 2d8 force damage.",
+    },
+    ("Ranger", "Horizon Walker", 15): {
+        "name": "Spectral Defense (Horizon Walker)",
+        "description": "When you take damage from an attack, you can use your reaction to give yourself resistance to all of that attack's damage on this turn.",
+    },
+    ("Ranger", "Hunter", 3): {
+        "name": "Hunter's Prey (Colossus Slayer)",
+        "description": "Once per turn, deal an extra 1d8 damage to a creature below its maximum hit points.",
+    },
+    ("Ranger", "Hunter", 7): {
+        "name": "Defensive Tactics (Hunter)",
+        "description": "Bolster your defense with Escape the Horde, Multiattack Defense, or Steel Will.",
+    },
+    ("Ranger", "Hunter", 11): {
+        "name": "Multiattack: Volley / Whirlwind Attack",
+        "description": "Ranged volley within 10ft of a point, or melee whirlwind attack against all adjacent creatures.",
+    },
+    ("Ranger", "Hunter", 15): {
+        "name": "Superior Hunter's Defense",
+        "description": "Gain Evasion, Stand Against the Tide, or Uncanny Dodge to negate lethal attacks.",
+    },
+    ("Fighter", "Champion", 3): {
+        "name": "Improved Critical (Champion)",
+        "description": "Your weapon attacks score a critical hit on a roll of 19 or 20.",
+    },
+    ("Fighter", "Champion", 7): {
+        "name": "Remarkable Athlete (Champion)",
+        "description": "Add half your proficiency bonus to any STR, DEX, or CON check that doesn't already use it. Running long jump distance increases by STR modifier in feet.",
+    },
+    ("Fighter", "Champion", 10): {
+        "name": "Additional Fighting Style (Champion)",
+        "description": "Choose a second option from the Fighting Style class feature.",
+    },
+    ("Fighter", "Champion", 15): {
+        "name": "Superior Critical (Champion)",
+        "description": "Your weapon attacks score a critical hit on a roll of 18-20.",
+    },
+    ("Fighter", "Champion", 18): {
+        "name": "Survivor (Champion)",
+        "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left.",
+    },
+}
+
+
+def _generate_dynamic_future_milestones(
+    target_class: str,
+    target_class_level: int,
+    subclass: str | None,
+    edition: str,
+    feat_rec: str,
+    archetype: str,
+    known_spells: list[str] | None = None,
+) -> list[str]:
+    from backend.services.stats_service import calculate_max_spell_slots
+
+    repo = _get_rules_repo()
+    known_set = {k.strip().lower() for k in (known_spells or [])}
+    cls_lower = (target_class or "Fighter").lower()
+
+    if cls_lower == "fighter":
+        asi_milestones = [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        asi_milestones = [4, 8, 10, 12, 16, 19]
+    else:
+        asi_milestones = [4, 8, 12, 16, 19]
+
+    subclass_milestones = SUBCLASS_FEATURE_LEVELS.get(target_class, [3, 7, 11, 15])
+    start_lvl = target_class_level
+    end_lvl = min(20, target_class_level + 5) if target_class_level < 18 else 20
+
+    school_map = {
+        "offensive": ["evocation", "necromancy"],
+        "defensive": ["abjuration"],
+        "utility": ["conjuration", "transmutation", "divination"],
+    }
+    preferred_schools = school_map.get(archetype, [])
+
+    all_class_spells = [
+        s
+        for s in repo.get_all_spells(edition)
+        if target_class.lower() in [c.lower() for c in s.get("classes", [])]
+        and s.get("name", "").strip().lower() not in known_set
+    ]
+
+    milestones = []
+    for lvl in range(start_lvl, end_lvl + 1):
+        details = []
+        raw_features = repo.get_features_at_level(target_class, lvl, edition)
+        feat_names = []
+        for f in raw_features:
+            fname = f.get("name", "")
+            flwr = fname.lower()
+            if "ability score improvement" in flwr:
+                continue
+            if any(
+                ph in flwr
+                for ph in [
+                    "archetype feature",
+                    "tradition feature",
+                    "domain feature",
+                    "college feature",
+                    "path feature",
+                    "circle feature",
+                    "origin feature",
+                    "patron feature",
+                    "monastic tradition",
+                ]
+            ):
+                continue
+            feat_names.append(fname)
+
+        if feat_names:
+            details.append(" & ".join(feat_names))
+
+        # Subclass feature
+        if lvl in subclass_milestones:
+            known_match = None
+            if subclass:
+                for (c, sc, feat_lvl), desc in KNOWN_SUBCLASS_FEATURES.items():
+                    if (
+                        c.lower() == target_class.lower()
+                        and sc.lower() in subclass.lower()
+                        and feat_lvl == lvl
+                    ):
+                        known_match = desc
+                        break
+            if known_match:
+                details.append(known_match)
+            else:
+                sub_mech = repo.get_subclass_mechanics(target_class, edition)
+                sub_info = sub_mech.get("subclasses", {}).get(subclass, {}) if subclass else {}
+                scaling_found = []
+                for k, val in sub_info.get("scaling", {}).items():
+                    for step in val.get("steps", []):
+                        if step.get("level") == lvl:
+                            scaling_found.append(
+                                f"{val.get('name', k)} ({step.get('notation', '')})"
+                            )
+                if scaling_found:
+                    details.append(f"{subclass}: {', '.join(scaling_found)}")
+                elif subclass and subclass not in ["None", "N/A", ""]:
+                    details.append(f"{subclass} Feature")
+                else:
+                    details.append("Subclass Feature")
+
+        # ASI milestone
+        if lvl in asi_milestones:
+            details.append(
+                f"Major ASI / Feat Milestone ({feat_rec})"
+                if feat_rec
+                else "Major ASI / Feat Milestone"
+            )
+
+        # Spell tier unlock
+        slots_curr = calculate_max_spell_slots(target_class, lvl, subclass, edition=edition)
+        slots_prev = (
+            calculate_max_spell_slots(target_class, max(1, lvl - 1), subclass, edition=edition)
+            if lvl > 1
+            else {}
+        )
+        max_curr = max(
+            [int(k.replace("level_", "")) for k, v in slots_curr.items() if v > 0] or [0]
+        )
+        max_prev = max(
+            [int(k.replace("level_", "")) for k, v in slots_prev.items() if v > 0] or [0]
+        )
+
+        if max_curr > max_prev or (lvl == start_lvl and max_curr > 0):
+            tier_spells = [
+                s["name"]
+                for s in all_class_spells
+                if s.get("level") == max_curr
+                and any(kw in (s.get("school") or "").lower() for kw in preferred_schools)
+            ]
+            if not tier_spells:
+                tier_spells = [s["name"] for s in all_class_spells if s.get("level") == max_curr]
+            sample = ", ".join(tier_spells[:2])
+            spell_tag = (
+                f"Tier {max_curr} Spells ({sample})" if sample else f"Tier {max_curr} Spells"
+            )
+            details.append(spell_tag)
+
+        if lvl == 20:
+            details.append("Epic Level 20 Capstone")
+
+        if not details:
+            details.append("Hit Points & Tactical Resource Expansion")
+
+        milestones.append(f"Level {lvl}: " + " & ".join(details))
+    return milestones
+
+
+def _get_fallback_level_up_recommendations(
+    char_data: dict,
+    target_class: str,
+    target_class_level: int,
+    target_total_level: int,
+    edition: str,
+    needs_subclass: bool,
+    available_subclasses: list[str],
+    has_asi: bool,
+    max_spell_level: int,
+    known_spells: list[str] | None = None,
+    current_subclass: str | None = None,
+) -> list[dict]:
+    """Generates 3 distinct deterministic archetype builds if the LLM is unavailable."""
+    primary_stats = {
+        "Barbarian": "STR",
+        "Bard": "CHA",
+        "Cleric": "WIS",
+        "Druid": "WIS",
+        "Fighter": "STR",
+        "Monk": "DEX",
+        "Paladin": "STR",
+        "Ranger": "DEX",
+        "Rogue": "DEX",
+        "Sorcerer": "CHA",
+        "Warlock": "CHA",
+        "Wizard": "INT",
+        "Artificer": "INT",
+    }
+    prim_stat = primary_stats.get(target_class, "STR")
+    known_set = {k.strip().lower() for k in (known_spells or [])}
+
+    repo = _get_rules_repo()
+    all_class_spells = [
+        s
+        for s in repo.get_all_spells(edition)
+        if target_class.lower() in [c.lower() for c in s.get("classes", [])]
+        and s.get("name", "").strip().lower() not in known_set
+    ]
+
+    def _get_top_spells(school_keywords: list[str], fallback_list: list[str]) -> list[str]:
+        if max_spell_level <= 0:
+            return []
+        # Filter for unlearned spells of highest available level (current tier)
+        tier_spells = [
+            s["name"]
+            for s in all_class_spells
+            if s.get("level", 0) == max_spell_level
+            and (
+                not school_keywords
+                or any(kw in (s.get("school") or "").lower() for kw in school_keywords)
+            )
+        ]
+        if not tier_spells:
+            tier_spells = [
+                s["name"] for s in all_class_spells if s.get("level", 0) == max_spell_level
+            ]
+        if not tier_spells:
+            tier_spells = [
+                s["name"] for s in all_class_spells if 0 < s.get("level", 0) <= max_spell_level
+            ]
+        # Deduplicate and exclude known
+        tier_spells = [s for s in tier_spells if s.strip().lower() not in known_set]
+        if tier_spells:
+            return tier_spells[:2]
+        return [s for s in fallback_list if s.strip().lower() not in known_set][:2]
+
+    is_horizon_walker = "horizon" in str(char_data.get("subclass", "")).lower()
+    ranger_offensive = (
+        ["Lightning Arrow", "Conjure Animals", "Zephyr Strike"]
+        if is_horizon_walker
+        else ["Lightning Arrow", "Hunter's Mark", "Zephyr Strike"]
+    )
+
+    offensive_spells = {
+        "Wizard": ["Fireball", "Scorching Ray", "Magic Missile"],
+        "Sorcerer": ["Fireball", "Chaos Bolt", "Lightning Bolt"],
+        "Warlock": ["Hunger of Hadar", "Hellish Rebuke", "Hex"],
+        "Cleric": ["Spiritual Weapon", "Spirit Guardians", "Guiding Bolt"],
+        "Druid": ["Moonbeam", "Call Lightning", "Produce Flame"],
+        "Bard": ["Dissonant Whispers", "Shatter", "Vicious Mockery"],
+        "Paladin": ["Thunderous Smite", "Wrathful Smite", "Destructive Wave"],
+        "Ranger": ranger_offensive,
+        "Artificer": ["Catapult", "Shocking Grasp", "Heat Metal"],
+    }
+
+    defensive_spells = {
+        "Wizard": ["Shield", "Mirror Image", "Misty Step", "Absorb Elements"],
+        "Sorcerer": ["Shield", "Misty Step", "Mirror Image", "Absorb Elements"],
+        "Warlock": ["Armor of Agathys", "Misty Step", "Darkness"],
+        "Cleric": ["Aid", "Shield of Faith", "Sanctuary", "Lesser Restoration"],
+        "Druid": ["Barkskin", "Pass without Trace", "Goodberry", "Healing Word"],
+        "Bard": ["Healing Word", "Invisibility", "Lesser Restoration"],
+        "Paladin": ["Aid", "Cure Wounds", "Lesser Restoration"],
+        "Ranger": ["Protection from Energy", "Pass without Trace", "Absorb Elements"],
+        "Artificer": ["Shield", "Aid", "Absorb Elements"],
+    }
+
+    utility_spells = {
+        "Wizard": ["Counterspell", "Fly", "Detect Magic", "Find Familiar"],
+        "Sorcerer": ["Counterspell", "Haste", "Polymorph", "Fly"],
+        "Warlock": ["Hypnotic Pattern", "Fly", "Counterspell", "Dimension Door"],
+        "Cleric": ["Bless", "Revivify", "Dispel Magic", "Guidance"],
+        "Druid": ["Entangle", "Spike Growth", "Plant Growth", "Faerie Fire"],
+        "Bard": ["Hypnotic Pattern", "Faerie Fire", "Suggestion", "Hold Person"],
+        "Paladin": ["Bless", "Find Steed", "Crusader's Mantle"],
+        "Ranger": ["Plant Growth", "Wind Wall", "Silence"],
+        "Artificer": ["Web", "Haste", "Revivify", "Mending"],
+    }
+
+    # Subclass choices per build
+    sub_1 = available_subclasses[0] if needs_subclass and available_subclasses else None
+    sub_2 = available_subclasses[1] if needs_subclass and len(available_subclasses) > 1 else sub_1
+    sub_3 = (
+        available_subclasses[2]
+        if needs_subclass and len(available_subclasses) > 2
+        else (available_subclasses[-1] if needs_subclass and available_subclasses else None)
+    )
+
+    # Feats per build
+    is_caster = target_class in [
+        "Wizard",
+        "Sorcerer",
+        "Warlock",
+        "Cleric",
+        "Druid",
+        "Bard",
+        "Artificer",
+    ]
+    feat_1 = f"+2 to {prim_stat}" if has_asi else None
+    if has_asi and is_caster:
+        feat_1 = f"War Caster (or +2 to {prim_stat})"
+    elif has_asi and not is_caster:
+        feat_1 = f"Great Weapon Master or Polearm Master (or +2 to {prim_stat})"
+
+    feat_2 = "Sentinel or Tough (+2 CON alternative)" if has_asi else None
+    feat_3 = f"Fey Touched (+1 {prim_stat}) or Alert" if has_asi else None
+
+    cls_lower = (target_class or "").lower()
+    if cls_lower == "fighter":
+        asi_milestones = [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        asi_milestones = [4, 8, 10, 12, 16, 19]
+    else:
+        asi_milestones = [4, 8, 12, 16, 19]
+
+    next_asi_lvl = 19
+    for m in asi_milestones:
+        if m > target_class_level:
+            next_asi_lvl = m
+            break
+
+    if not feat_1:
+        feat_1 = (
+            f"War Caster or +2 to {prim_stat} (at Level {next_asi_lvl} ASI)"
+            if is_caster
+            else f"Sharpshooter or Great Weapon Master (at Level {next_asi_lvl} ASI)"
+        )
+    if not feat_2:
+        feat_2 = f"Alert or Tough (+2 CON) (at Level {next_asi_lvl} ASI)"
+    if not feat_3:
+        feat_3 = f"Skill Expert or Fey Touched (at Level {next_asi_lvl} ASI)"
+
+    # Spells per build (prioritize newly unlocked tier spells excluding known spells)
+    spells_1 = _get_top_spells(["evocation", "necromancy"], offensive_spells.get(target_class, []))
+    spells_2 = _get_top_spells(["abjuration"], defensive_spells.get(target_class, []))
+    spells_3 = _get_top_spells(
+        ["conjuration", "transmutation", "divination"], utility_spells.get(target_class, [])
+    )
+
+    sub_for_ms = current_subclass or char_data.get("subclass")
+
+    future_ms_1 = _generate_dynamic_future_milestones(
+        target_class=target_class,
+        target_class_level=target_class_level,
+        subclass=sub_1 or sub_for_ms,
+        edition=edition,
+        feat_rec=feat_1,
+        archetype="offensive",
+        known_spells=known_spells,
+    )
+    future_ms_2 = _generate_dynamic_future_milestones(
+        target_class=target_class,
+        target_class_level=target_class_level,
+        subclass=sub_2 or sub_for_ms,
+        edition=edition,
+        feat_rec=feat_2,
+        archetype="defensive",
+        known_spells=known_spells,
+    )
+    future_ms_3 = _generate_dynamic_future_milestones(
+        target_class=target_class,
+        target_class_level=target_class_level,
+        subclass=sub_3 or sub_for_ms,
+        edition=edition,
+        feat_rec=feat_3,
+        archetype="utility",
+        known_spells=known_spells,
+    )
+
+    return [
+        {
+            "build_name": f"The Focused Striker ({target_class} Specialization)",
+            "theme": f"Maximize core combat efficiency, offensive output, and primary {prim_stat} scaling.",
+            "playstyle_summary": "Focus on proactive engagements. Position to maximize your round-1 damage output and force enemies onto the defensive.",
+            "pros": [
+                f"Peak scaling for attack rolls and spell save DCs with high {prim_stat}",
+                "Consistent single-target and multi-target threat",
+                "Straightforward and devastating action economy",
+            ],
+            "cons": [
+                "Less defensive redundancy when cornered",
+                "Fewer utility options out of combat",
+            ],
+            "recommended_subclass": sub_1,
+            "recommended_feat_or_asi": feat_1,
+            "recommended_spells": spells_1,
+            "key_tactics": [
+                "Target high-threat priority enemies to break enemy action economy early",
+                "Coordinate with frontline allies for flanking and advantage",
+            ],
+            "future_milestones": future_ms_1,
+        },
+        {
+            "build_name": "The Resilient Anchor (Defensive / Protector)",
+            "theme": "Prioritize survivability, concentration defense, and battlefield positioning.",
+            "playstyle_summary": "Act as the party's backbone. Use defensive features and reactions to mitigate damage and control enemy movement.",
+            "pros": [
+                "High survivability and superior concentration saving throw protection",
+                "Protects fragile backline allies from being overrun",
+                "Extremely durable against attrition and prolonged battles",
+            ],
+            "cons": [
+                "Moderate burst damage compared to pure offensive builds",
+                "Requires careful positioning in tight spaces",
+            ],
+            "recommended_subclass": sub_2,
+            "recommended_feat_or_asi": feat_2,
+            "recommended_spells": spells_2,
+            "key_tactics": [
+                "Anchor chokepoints and position between threats and party casters",
+                "Activate defensive buffs before stepping into contested terrain",
+            ],
+            "future_milestones": future_ms_2,
+        },
+        {
+            "build_name": "The Versatile Tactician (Control / Utility)",
+            "theme": "Expand tactical toolkit with crowd control, mobility, and out-of-combat utility.",
+            "playstyle_summary": "Shape the battlefield. Use positioning, status effects, and versatile spells to disrupt enemy strategies.",
+            "pros": [
+                "Superior encounter manipulation and crowd control options",
+                "High versatility in social, exploration, and stealth pillars",
+                "Flexible reaction options to answer unexpected monster abilities",
+            ],
+            "cons": [
+                "Demands careful spell slot and resource pacing",
+                "Relies on party coordination to follow up on status effects",
+            ],
+            "recommended_subclass": sub_3,
+            "recommended_feat_or_asi": feat_3,
+            "recommended_spells": spells_3,
+            "key_tactics": [
+                "Open combat with area denial or crowd control on enemy clusters",
+                "Keep mobility options available to peel away from heavy melee threats",
+            ],
+            "future_milestones": future_ms_3,
+        },
+    ]
+
+
+def generate_level_up_build_recommendations(
+    char_data: dict,
+    target_class: str | None = None,
+    target_level: int | None = None,
+) -> dict:
+    """
+    Analyzes the character and returns up to 3 distinct, highly synergistic build paths
+    for their upcoming level up.
+    """
+    from backend.services.stats_service import calculate_max_spell_slots
+
+    repo = _get_rules_repo()
+    edition = char_data.get("dnd_edition", EDITION_2014)
+    classes = char_data.get("classes", [])
+    current_total_level = char_data.get("char_level", 1)
+    target_class = target_class or char_data.get("char_class", "Fighter")
+
+    # Current class level
+    class_current_level = 0
+    current_subclass = None
+    if classes:
+        for cls in classes:
+            if cls.get("class_name", "").lower() == target_class.lower():
+                class_current_level = cls.get("level", 0)
+                current_subclass = cls.get("subclass")
+                break
+    else:
+        if target_class.lower() == char_data.get("char_class", "Fighter").lower():
+            class_current_level = current_total_level
+            current_subclass = char_data.get("subclass")
+
+    if target_level is not None and target_level > class_current_level:
+        target_class_level = min(20, target_level)
+    else:
+        target_class_level = min(20, class_current_level + 1)
+
+    level_gain = max(1, target_class_level - class_current_level)
+    target_total_level = min(20, current_total_level + level_gain)
+
+    needs_sub = _needs_subclass(target_class, target_class_level, current_subclass, edition)
+    available_subclasses = repo.get_subclasses(target_class, edition) if needs_sub else []
+    has_asi = _has_asi(target_class, target_class_level)
+
+    cls_lower = (target_class or "").lower()
+    if cls_lower == "fighter":
+        asi_milestones = [4, 6, 8, 12, 14, 16, 19]
+    elif cls_lower == "rogue":
+        asi_milestones = [4, 8, 10, 12, 16, 19]
+    else:
+        asi_milestones = [4, 8, 12, 16, 19]
+
+    next_asi_lvl = 19
+    for m in asi_milestones:
+        if m > target_class_level:
+            next_asi_lvl = m
+            break
+
+    primary_stats = {
+        "Barbarian": "STR",
+        "Bard": "CHA",
+        "Cleric": "WIS",
+        "Druid": "WIS",
+        "Fighter": "STR",
+        "Monk": "DEX",
+        "Paladin": "STR",
+        "Ranger": "DEX",
+        "Rogue": "DEX",
+        "Sorcerer": "CHA",
+        "Warlock": "CHA",
+        "Wizard": "INT",
+        "Artificer": "INT",
+    }
+    prim_stat = primary_stats.get(target_class, "STR")
+
+    # Calculate max castable spell level for target class
+    max_slots = calculate_max_spell_slots(
+        target_class, target_class_level, current_subclass, edition=edition
+    )
+    max_spell_level = 0
+    for i in range(1, 10):
+        if max_slots.get(f"level_{i}", 0) > 0:
+            max_spell_level = i
+
+    # Collect ALL known/prepared spells across all tiers
+    all_known_spells = []
+    sp_dict = char_data.get("spells") or {}
+    if isinstance(sp_dict, dict):
+        for lvl_list in sp_dict.values():
+            if isinstance(lvl_list, list):
+                for s in lvl_list:
+                    name = s.get("name") if isinstance(s, dict) else str(s)
+                    if name and name not in all_known_spells:
+                        all_known_spells.append(name)
+    elif isinstance(sp_dict, list):
+        for s in sp_dict:
+            name = s.get("name") if isinstance(s, dict) else str(s)
+            if name and name not in all_known_spells:
+                all_known_spells.append(name)
+
+    known_spells_str = ", ".join(all_known_spells) if all_known_spells else "None"
+
+    # Fallback template generator helper
+    def fallback_result():
+        fallback_builds = _get_fallback_level_up_recommendations(
+            char_data=char_data,
+            target_class=target_class,
+            target_class_level=target_class_level,
+            target_total_level=target_total_level,
+            edition=edition,
+            needs_subclass=needs_sub,
+            available_subclasses=available_subclasses,
+            has_asi=has_asi,
+            max_spell_level=max_spell_level,
+            known_spells=all_known_spells,
+            current_subclass=current_subclass,
+        )
+        return {
+            "character_name": char_data.get("char_name", "Unknown"),
+            "target_class": target_class,
+            "target_level": target_total_level,
+            "builds": fallback_builds,
+        }
+
+    # Format AI prompt
+    try:
+        # Collect weapons with details
+        weapons_list = []
+        for w in char_data.get("weapons", []):
+            if isinstance(w, dict):
+                w_str = w.get("name", "Weapon")
+                dmg = (
+                    w.get("damage")
+                    or f"{w.get('damage_dice', '')} {w.get('damage_bonus', '')}".strip()
+                )
+                rng = w.get("range")
+                props = w.get("properties")
+                extra = []
+                if dmg:
+                    extra.append(f"Dmg: {dmg}")
+                if rng and rng != "Melee":
+                    extra.append(f"Range: {rng}")
+                if props:
+                    extra.append(props)
+                if extra:
+                    w_str += f" ({', '.join(extra)})"
+                weapons_list.append(w_str)
+        weapons_str = "; ".join(weapons_list) if weapons_list else "None specified"
+
+        # Collect equipment
+        eq_list = [
+            eq.get("name")
+            for eq in char_data.get("equipment", [])
+            if isinstance(eq, dict) and eq.get("name")
+        ]
+        equipment_str = ", ".join(eq_list[:15]) if eq_list else "Standard gear"
+
+        # Collect all features & traits
+        all_features = [
+            f.get("name")
+            for f in char_data.get("features_traits", [])
+            if isinstance(f, dict) and f.get("name")
+        ]
+        features_str = ", ".join(all_features) if all_features else "None"
+
+        # Collect fighting style
+        fighting_styles = [
+            f
+            for f in all_features
+            if "fighting style" in f.lower()
+            or any(
+                s in f.lower()
+                for s in ["archery", "dueling", "defense", "great weapon", "two-weapon"]
+            )
+        ]
+        fighting_styles_str = ", ".join(fighting_styles) if fighting_styles else "None"
+
+        prompt = LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT.format(
+            edition=edition,
+            current_level=current_total_level,
+            target_level=target_total_level,
+            target_class=target_class,
+            target_class_level=target_class_level,
+            max_projected_level=min(20, target_class_level + 5),
+            next_asi_level=next_asi_lvl,
+            primary_stat=prim_stat,
+            name=char_data.get("char_name", "Unknown"),
+            char_class=char_data.get("char_class", "Unknown"),
+            subclass=current_subclass or char_data.get("subclass", "None"),
+            race=char_data.get("race", "Unknown"),
+            background=char_data.get("background", "Unknown"),
+            stats=char_data.get("stats", {}),
+            weapons=weapons_str,
+            equipment=equipment_str,
+            fighting_styles=fighting_styles_str,
+            known_spells=known_spells_str,
+            features=features_str,
+            needs_subclass="YES" if needs_sub else "NO",
+            available_subclasses=", ".join(available_subclasses)
+            if available_subclasses
+            else "None",
+            has_asi="YES" if has_asi else "NO",
+            max_spell_level=max_spell_level,
+        )
+
+        ai_response = generate_ai_json(prompt)
+        if not ai_response or not isinstance(ai_response, dict):
+            logger.warning("AI build recommendations returned non-dict response. Using fallback.")
+            return fallback_result()
+
+        raw_builds = ai_response.get("builds")
+        if not isinstance(raw_builds, list) or len(raw_builds) == 0:
+            logger.warning("AI build recommendations returned empty builds list. Using fallback.")
+            return fallback_result()
+
+        cleaned_builds = []
+        for idx, b in enumerate(raw_builds[:3]):
+            if not isinstance(b, dict):
+                continue
+            ms = [str(m) for m in b.get("future_milestones", []) if m]
+            if not ms:
+                archetype_type = (
+                    "offensive" if idx == 0 else ("defensive" if idx == 1 else "utility")
+                )
+                ms = _generate_dynamic_future_milestones(
+                    target_class=target_class,
+                    target_class_level=target_class_level,
+                    subclass=str(b.get("recommended_subclass"))
+                    if b.get("recommended_subclass")
+                    else current_subclass,
+                    edition=edition,
+                    feat_rec=str(b.get("recommended_feat_or_asi") or ""),
+                    archetype=archetype_type,
+                    known_spells=all_known_spells,
+                )
+            cleaned_builds.append(
+                {
+                    "build_name": str(b.get("build_name") or "Custom Archetype"),
+                    "theme": str(b.get("theme") or ""),
+                    "playstyle_summary": str(b.get("playstyle_summary") or ""),
+                    "pros": [str(p) for p in b.get("pros", []) if p],
+                    "cons": [str(c) for c in b.get("cons", []) if c],
+                    "recommended_subclass": str(b.get("recommended_subclass"))
+                    if b.get("recommended_subclass")
+                    else None,
+                    "recommended_feat_or_asi": str(b.get("recommended_feat_or_asi"))
+                    if b.get("recommended_feat_or_asi")
+                    else None,
+                    "recommended_spells": [str(s) for s in b.get("recommended_spells", []) if s],
+                    "key_tactics": [str(t) for t in b.get("key_tactics", []) if t],
+                    "future_milestones": ms,
+                }
+            )
+
+        if not cleaned_builds:
+            return fallback_result()
+
+        return {
+            "character_name": char_data.get("char_name", "Unknown"),
+            "target_class": target_class,
+            "target_level": target_total_level,
+            "builds": cleaned_builds,
+        }
+    except Exception as e:
+        logger.error(
+            f"Failed to generate AI build recommendations: {e}. Falling back to rule-based archetypes."
+        )
+        return fallback_result()
 
 
 def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
@@ -506,6 +1351,46 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     if not classes and char_class.lower() == char_data.get("char_class", "").lower():
         current_subclass = char_data.get("subclass")
+
+    # Resolve subclass specific features for generic placeholder entries
+    subclass_to_use = current_subclass or user_choices.get("subclass")
+    if subclass_to_use:
+        resolved_features = []
+        for feat in static_features:
+            flwr = feat.get("name", "").lower()
+            if any(
+                ph in flwr
+                for ph in [
+                    "archetype feature",
+                    "tradition feature",
+                    "subclass feature",
+                    "domain feature",
+                ]
+            ):
+                sub_detail = None
+                for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
+                    if (
+                        c.lower() == char_class.lower()
+                        and sc.lower() in subclass_to_use.lower()
+                        and lvl == target_level
+                    ):
+                        sub_detail = detail
+                        break
+                if sub_detail:
+                    resolved_features.append(sub_detail)
+                else:
+                    resolved_features.append(
+                        {
+                            "name": f"{subclass_to_use} Subclass Feature",
+                            "description": feat.get(
+                                "description",
+                                f"Special feature granted by the {subclass_to_use} subclass at Level {target_level}.",
+                            ),
+                        }
+                    )
+            else:
+                resolved_features.append(feat)
+        static_features = resolved_features
 
     if not current_subclass:
         subclasses = rules_repo.get_subclasses(char_class, edition)
@@ -582,20 +1467,51 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         if char_class == "Warlock" and target_level >= 17:
             max_spell_level = max(max_spell_level, 9)
 
+        # Collect all spells already known by the character to exclude them
+        known_spells_lower = set()
+        sp_dict = char_data.get("spells") or {}
+        if isinstance(sp_dict, dict):
+            for lvl_list in sp_dict.values():
+                if isinstance(lvl_list, list):
+                    for s in lvl_list:
+                        name = s.get("name") if isinstance(s, dict) else str(s)
+                        if name:
+                            known_spells_lower.add(name.strip().lower())
+        elif isinstance(sp_dict, list):
+            for s in sp_dict:
+                name = s.get("name") if isinstance(s, dict) else str(s)
+                if name:
+                    known_spells_lower.add(name.strip().lower())
+
         all_spells = rules_repo.get_all_spells(edition)
+        spells_level_map = {s["name"]: s.get("level", 0) for s in all_spells if "name" in s}
+
         spells = []
         magical_secrets_spells = []
         char_class_lower = char_class.lower()
         for s in all_spells:
+            s_name = s.get("name", "")
+            if not s_name or s_name.strip().lower() in known_spells_lower:
+                continue
             s_level = s.get("level", 0)
-            if s_level <= max_spell_level:
-                magical_secrets_spells.append(s["name"])
+            if 0 < s_level <= max_spell_level:
+                magical_secrets_spells.append(s_name)
                 s_classes = [c.lower() for c in s.get("classes", [])]
                 if not s_classes or char_class_lower in s_classes:
-                    spells.append(s["name"])
+                    spells.append(s_name)
 
-        spells = sorted(spells)
-        magical_secrets_spells = sorted(magical_secrets_spells)
+        # Sort spells: highest level (newest tier) first, then alphabetical
+        spells.sort(key=lambda n: (-spells_level_map.get(n, 0), n))
+        magical_secrets_spells.sort(key=lambda n: (-spells_level_map.get(n, 0), n))
+
+        # Dynamic AI recommendation focused on the highest unlocked tier
+        top_candidates = [s for s in spells if spells_level_map.get(s, 0) == max_spell_level][:3]
+        if top_candidates:
+            ai_spell_rec = f"Top new choices for Tier {max_spell_level} (Level {target_level}+): {', '.join(top_candidates)}."
+        elif spells:
+            ai_spell_rec = f"Consider high-synergy picks like {spells[0]}."
+        else:
+            ai_spell_rec = f"Explore unlearned spells for your {char_class}."
 
         # Bard Magical Secrets overrides
         if char_class == "Bard" and target_level in [10, 14, 18]:
@@ -604,7 +1520,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_1",
                     "label": "Magical Secrets: Choose 1st Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
+                    "ai_recommendation": f"Pick high-impact spells up to Level {max_spell_level} from any class list.",
                 }
             )
             choices.append(
@@ -612,7 +1528,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_2",
                     "label": "Magical Secrets: Choose 2nd Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Magical Secrets allows you to pick from ANY class list.",
+                    "ai_recommendation": f"Pick high-impact spells up to Level {max_spell_level} from any class list.",
                 }
             )
         elif char_class == "Bard" and target_level == 6 and current_subclass == "College of Lore":
@@ -621,7 +1537,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_1",
                     "label": "Additional Magical Secrets: Choose 1st Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Lore Bards get Magical Secrets early!",
+                    "ai_recommendation": f"Lore Bards get Magical Secrets early! Choose up to Level {max_spell_level} spells.",
                 }
             )
             choices.append(
@@ -629,7 +1545,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell_secret_2",
                     "label": "Additional Magical Secrets: Choose 2nd Spell (Any Class)",
                     "options": magical_secrets_spells,
-                    "ai_recommendation": "Lore Bards get Magical Secrets early!",
+                    "ai_recommendation": f"Lore Bards get Magical Secrets early! Choose up to Level {max_spell_level} spells.",
                 }
             )
         else:
@@ -638,7 +1554,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "type": "spell",
                     "label": f"Learn/Prepare a {char_class} Spell",
                     "options": spells,
-                    "ai_recommendation": "Explore the official spell list.",
+                    "ai_recommendation": ai_spell_rec,
                 }
             )
 

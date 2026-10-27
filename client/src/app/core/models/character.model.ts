@@ -19,6 +19,11 @@ export interface Weapon {
   magic_bonus?: number;
   ability_modifier?: string;
   damage?: string;
+  description?: string;
+  proficient?: boolean;
+  misc_attack_bonus?: number;
+  misc_damage_bonus?: number;
+  damage_type?: string;
 }
 
 export interface CurrencyBlock {
@@ -181,4 +186,24 @@ export interface LevelUpApplyRequest {
   character_id: string;
   analysis: LevelUpAnalysis;
   user_choices?: Record<string, any>;
+}
+
+export interface LevelUpBuildRecommendation {
+  build_name: string;
+  theme: string;
+  playstyle_summary: string;
+  pros: string[];
+  cons: string[];
+  recommended_subclass?: string | null;
+  recommended_feat_or_asi?: string | null;
+  recommended_spells: string[];
+  key_tactics: string[];
+  future_milestones?: string[];
+}
+
+export interface LevelUpRecommendationsResponse {
+  character_name: string;
+  target_class: string;
+  target_level: number;
+  builds: LevelUpBuildRecommendation[];
 }

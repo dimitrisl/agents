@@ -123,7 +123,7 @@ export class CharacterStateService {
   }
 
   /** Replaces a character in the local list, or appends it when it is new. */
-  private upsertCharacter(char: CharacterSchema): void {
+  upsertCharacter(char: CharacterSchema): void {
     if (!char?.char_id) return;
     const list = this.characters();
     const idx = list.findIndex((c) => c.char_id === char.char_id);

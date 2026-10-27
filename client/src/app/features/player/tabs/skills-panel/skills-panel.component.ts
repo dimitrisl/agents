@@ -21,11 +21,13 @@ export class SkillsPanelComponent {
   @Input() allSkills: SkillDefinition[] = [];
   @Input() editMode = false;
   @Input() isProficient!: (skillName: string) => boolean;
+  @Input() isExpertise: (skillName: string) => boolean = () => false;
   @Input() getSkillModString!: (skill: SkillDefinition) => string;
   @Input() getAttributeFullName!: (attr: string) => string;
 
   @Output() rollSkill = new EventEmitter<SkillDefinition>();
   @Output() toggleProficiency = new EventEmitter<string>();
+  @Output() toggleExpertise = new EventEmitter<string>();
 
   showProficientOnly = false;
   openGroups: { [key: string]: boolean } = {

@@ -47,6 +47,7 @@ import {
   HitDieOption,
   hitDieSize,
   isProficientIn,
+  hasExpertiseIn,
   levelUp,
   planShortRest,
   regainSpellSlot,
@@ -182,6 +183,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showEditModal = signal(false);
   showConditionsModal = signal(false);
   showPortraitModal = signal(false);
+  isUpdatingPortrait = signal(false);
   showJoinModal = signal(false);
   showHomebrewModal = signal(false);
   showShortRestModal = signal(false);
@@ -677,15 +679,61 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return isProficientIn(this.charState.activeCharacter(), skillName);
   }
 
+  isExpertise = (skillName: string): boolean => {
+    return hasExpertiseIn(this.charState.activeCharacter(), skillName);
+  }
+
   toggleSkillProficiency(skillName: string) {
     const char = this.charState.activeCharacter();
     if (!char) return;
     if (!char.skill_proficiencies) char.skill_proficiencies = [];
+    if (!char.skill_expertise) char.skill_expertise = [];
+
     const index = char.skill_proficiencies.indexOf(skillName);
     if (index > -1) {
       char.skill_proficiencies.splice(index, 1);
+      const expIdx = char.skill_expertise.indexOf(skillName);
+      if (expIdx > -1) {
+        char.skill_expertise.splice(expIdx, 1);
+      }
+      this.rollToast.showMessage('⚪ PROFICIENCY REMOVED', `${skillName} is no longer proficient.`);
     } else {
       char.skill_proficiencies.push(skillName);
+      this.rollToast.showMessage('⭐ PROFICIENCY ADDED', `${skillName} is now proficient.`);
+    }
+
+    if (char.skills) {
+      const skillDef = ALL_SKILLS.find((s) => s.name === skillName);
+      if (skillDef) {
+        char.skills[skillName] = skillModifier(char, skillDef);
+      }
+    }
+    this.saveCurrentChar();
+  }
+
+  toggleSkillExpertise(skillName: string) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (!char.skill_proficiencies) char.skill_proficiencies = [];
+    if (!char.skill_expertise) char.skill_expertise = [];
+
+    const expIndex = char.skill_expertise.indexOf(skillName);
+    if (expIndex > -1) {
+      char.skill_expertise.splice(expIndex, 1);
+      this.rollToast.showMessage('⚪ EXPERTISE REMOVED', `${skillName} expertise removed.`);
+    } else {
+      char.skill_expertise.push(skillName);
+      if (!char.skill_proficiencies.includes(skillName)) {
+        char.skill_proficiencies.push(skillName);
+      }
+      this.rollToast.showMessage('🌟 EXPERTISE ADDED', `${skillName} now has Expertise.`);
+    }
+
+    if (char.skills) {
+      const skillDef = ALL_SKILLS.find((s) => s.name === skillName);
+      if (skillDef) {
+        char.skills[skillName] = skillModifier(char, skillDef);
+      }
     }
     this.saveCurrentChar();
   }
@@ -1871,26 +1919,105 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   generateAiPortrait() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
+    this.isUpdatingPortrait.set(true);
     this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: char.char_id,
       prompt: this.portraitPrompt
-    }).subscribe((res) => {
-      this.showPortraitModal.set(false);
-      if (res.portrait_url) {
-        if (typeof res.version === 'number') {
-          char.version = res.version;
+    }).subscribe({
+      next: (res) => {
+        this.isUpdatingPortrait.set(false);
+        this.showPortraitModal.set(false);
+        if (res.portrait_url) {
+          if (typeof res.version === 'number') {
+            char.version = res.version;
+          }
+          char.char_portrait = res.portrait_url;
+          const copy = { ...char };
+          this.charState.activeCharacter.set(copy);
+          this.charState.upsertCharacter(copy);
+          this.saveCurrentChar();
+          this.rollToast.showMessage('🎨 PORTRAIT GENERATED', `New AI portrait created for ${char.char_name}!`);
         }
-        char.char_portrait = res.portrait_url;
-        this.saveCurrentChar();
+      },
+      error: (err) => {
+        this.isUpdatingPortrait.set(false);
+        const detail = err?.error?.detail || 'Failed to generate AI portrait.';
+        this.rollToast.showMessage('⚠️ GENERATION FAILED', detail);
       }
     });
+  }
+
+  onSavePortraitUrl(url: string) {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.char_id) return;
+    const cleanUrl = url.trim();
+    this.isUpdatingPortrait.set(true);
+
+    char.char_portrait = cleanUrl || undefined;
+    const copy = { ...char };
+    this.charState.activeCharacter.set(copy);
+    this.charState.upsertCharacter(copy);
+
+    this.charState.updateCharacter(char.char_id, copy).subscribe({
+      next: () => {
+        this.isUpdatingPortrait.set(false);
+        this.showPortraitModal.set(false);
+        this.rollToast.showMessage(
+          '🖼️ PORTRAIT UPDATED',
+          cleanUrl ? `Updated portrait for ${char.char_name}.` : `Reset portrait for ${char.char_name} to default.`
+        );
+      },
+      error: (err) => {
+        this.isUpdatingPortrait.set(false);
+        const detail = err?.error?.detail || 'Could not update portrait.';
+        this.rollToast.showMessage('⚠️ SAVE FAILED', detail);
+      }
+    });
+  }
+
+  onUploadPortraitFile(file: File) {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.char_id) return;
+
+    this.isUpdatingPortrait.set(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<any>(`${environment.apiBaseUrl}/characters/${char.char_id}/portrait-upload`, formData)
+      .subscribe({
+        next: (res) => {
+          this.isUpdatingPortrait.set(false);
+          if (res?.portrait_url) {
+            char.char_portrait = res.portrait_url;
+            if (typeof res.version === 'number') {
+              char.version = res.version;
+            }
+            const copy = { ...char };
+            this.charState.activeCharacter.set(copy);
+            this.charState.upsertCharacter(copy);
+            this.showPortraitModal.set(false);
+            this.rollToast.showMessage('🖼️ PORTRAIT UPLOADED', `Uploaded new portrait for ${char.char_name}!`);
+          }
+        },
+        error: (err) => {
+          this.isUpdatingPortrait.set(false);
+          const detail = err?.error?.detail || 'Failed to upload portrait.';
+          this.rollToast.showMessage('⚠️ UPLOAD FAILED', detail);
+        }
+      });
   }
 
   onLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char) return;
+    const initialClass =
+      char.classes && char.classes.length > 0
+        ? char.classes[0].class_name
+        : char.char_class || 'Fighter';
+    this.levelUpUserChoices = { 'level_up_class': initialClass };
     this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
-      character: char
+      character: char,
+      user_choices: this.levelUpUserChoices,
     }).subscribe((analysis) => {
       this.levelUpAnalysis = analysis;
       this.showLevelUpModal.set(true);

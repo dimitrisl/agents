@@ -9,7 +9,7 @@
   </label>
 
   <p class="text-body-sm text-muted">
-    Organized by primary attribute. Expand groups or filter by proficiency.
+    Click ⭐/⚪ to toggle proficiency, or EXP for expertise. Roll checks with 🎲 Roll.
   </p>
 
   <div class="flex flex-col gap-2">
@@ -30,25 +30,37 @@
           <ng-container *ngFor="let skill of getSkillsByAttribute(attr)">
             <div
               *ngIf="!showProficientOnly || isProficient(skill.name)"
-              class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-white/[0.03] px-3 py-2"
+              class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-white/[0.03] px-3 py-2 transition-colors hover:border-hairline-bright"
             >
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 min-w-0">
                   <button
                     type="button"
-                    class="text-micro transition-transform shrink-0"
+                    class="text-sm transition-transform shrink-0 cursor-pointer hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
                     [ngClass]="{
                       'text-gold': isProficient(skill.name),
-                      'cursor-pointer hover:scale-125': editMode,
-                      'cursor-default': !editMode
+                      'text-muted hover:text-ink': !isProficient(skill.name)
                     }"
-                    (click)="editMode ? toggleProficiency.emit(skill.name) : null"
-                    [attr.aria-label]="editMode ? 'Toggle proficiency for ' + skill.name : null"
-                    [title]="editMode ? 'Click to toggle proficiency' : ''"
+                    (click)="toggleProficiency.emit(skill.name)"
+                    [attr.aria-label]="(isProficient(skill.name) ? 'Remove' : 'Add') + ' proficiency for ' + skill.name"
+                    [title]="isProficient(skill.name) ? 'Proficient (click to remove)' : 'Untrained (click to train)'"
                   >
                     {{ isProficient(skill.name) ? '⭐' : '⚪' }}
                   </button>
                   <strong class="truncate text-body text-ink font-semibold" [title]="skill.name">{{ skill.name }}</strong>
+                  <button
+                    *ngIf="isProficient(skill.name)"
+                    type="button"
+                    class="cursor-pointer text-micro font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                    [ngClass]="{
+                      'bg-gold/20 text-gold border border-gold/40 shadow-sm': isExpertise(skill.name),
+                      'bg-white/5 text-muted border border-hairline hover:text-ink hover:border-muted': !isExpertise(skill.name)
+                    }"
+                    (click)="toggleExpertise.emit(skill.name)"
+                    [title]="isExpertise(skill.name) ? 'Expertise active (double PB) - click to remove' : 'Click to give Expertise (double PB)'"
+                  >
+                    {{ isExpertise(skill.name) ? '🌟 EXP' : 'EXP' }}
+                  </button>
                 </div>
               </div>
 

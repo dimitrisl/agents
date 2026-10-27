@@ -9,6 +9,8 @@ from backend.core.schemas import (
     CharacterSchema,
     LevelUpAnalysisSchema,
     LevelUpApplyRequest,
+    LevelUpRecommendationsRequest,
+    LevelUpRecommendationsResponse,
     PlaystyleGuideResponse,
     PortraitResponse,
 )
@@ -17,6 +19,7 @@ from backend.services.forge_service import (
     analyze_level_up,
     forge_character,
     forge_character_manual,
+    generate_level_up_build_recommendations,
     generate_playstyle_guide,
 )
 from backend.utils.image_utils import generate_portrait_url
@@ -171,6 +174,29 @@ async def get_level_up_analysis(
             detail="Failed to analyze level up options",
         )
     return LevelUpAnalysisSchema.model_validate(analysis, strict=False)
+
+
+@router.post("/level-up-recommendations", response_model=LevelUpRecommendationsResponse)
+@limiter.limit(settings.AI_RATE_LIMIT)
+async def get_level_up_recommendations(
+    request: Request,
+    payload: LevelUpRecommendationsRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    char_data = payload.character.model_dump()
+    try:
+        recommendations = await run_in_threadpool(
+            generate_level_up_build_recommendations,
+            char_data=char_data,
+            target_class=payload.target_class,
+            target_level=payload.target_level,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate level up recommendations: {e}"
+        )
+
+    return LevelUpRecommendationsResponse.model_validate(recommendations, strict=False)
 
 
 @router.post("/playstyle-guide", response_model=PlaystyleGuideResponse)

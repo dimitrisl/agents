@@ -93,12 +93,18 @@ Level: {level}
 Race/Species: {race}
 Background: {background}
 Stats: {stats}
+Weapons: {weapons}
+Known/Prepared Spells: {spells}
 Features: {features}
 
 The guide should include:
-1. **Combat Strategy**: How to use their actions, bonus actions, and features optimally.
+1. **Combat Strategy**: How to use their actions, bonus actions, and features optimally based strictly on their actual weapons, spells, and class abilities.
 2. **Roleplay Tips**: How to portray their personality and background in the world.
-3. **Key Synergies**: How their features work together.
+3. **Key Synergies & Action Economy**: How their features work together, especially regarding action and bonus action economy (e.g. Planar Warrior, concentration spells, reaction spells like Absorb Elements).
+
+STRICT RULES:
+- ONLY reference and advise on the character's ACTUAL known/prepared spells listed above. Do NOT assume generic class spells (e.g., do NOT suggest Hunter's Mark if the character has not learned/prepared it).
+- Highlight specific action economy synergies (e.g., how Horizon Walker's Planar Warrior uses the bonus action every turn and converts weapon damage to force damage).
 
 Use beautiful markdown formatting with headings, bullet points, and emphasis.
 """
@@ -147,6 +153,81 @@ STRICT CLASS RULES:
 Ruleset specific notes:
 - If 2024 Edition, remember that Subclasses are now ALWAYS chosen at Level 3.
 - If Level 4, 8, 12, 16, 19, there is always a Choice (Feat or ASI).
+"""
+
+LEVEL_UP_BUILD_RECOMMENDATIONS_PROMPT = """
+Act as an elite D&D {edition} Tactical Advisor and Character Optimizer.
+Analyze the following character who is advancing from Level {current_level} to Level {target_level} in {target_class} (Target {target_class} Level: {target_class_level}).
+Generate up to 3 distinct, highly synergistic, and thematic build paths (e.g. 1 Offensive / Striker, 1 Defensive / Anchor, 1 Utility / Control or Synergistic Flavor).
+
+Character Profile:
+- Name: {name}
+- Class: {char_class}
+- Current Subclass: {subclass}
+- Current Total Level: {current_level}
+- Target Total Level: {target_level} (Target {target_class} Level: {target_class_level})
+- Edition: {edition}
+- Race / Species: {race}
+- Background: {background}
+- Ability Scores: {stats}
+- Primary Weapons & Attacks: {weapons}
+- Equipment & Magic Items: {equipment}
+- Fighting Style(s): {fighting_styles}
+- Current Known Spells: {known_spells}
+- All Current Features, Feats & Traits: {features}
+
+Progression Rules Context:
+- Subclass needed now: {needs_subclass} (Available: {available_subclasses})
+- Feat / ASI choice available: {has_asi}
+- Spellcasting max spell level available: {max_spell_level}
+
+CRITICAL RULES FOR RECOMMENDATIONS:
+1. BUILD DIRECTLY UPON EXISTING LOADOUT & SYNERGIES (MANDATORY):
+   - Take EVERYTHING the character already has (Weapons: {weapons}, Gear: {equipment}, Fighting Styles: {fighting_styles}, Feats/Features: {features}, and Known Spells: {known_spells}) and build directly upon it!
+   - Every suggestion must elevate, empower, and synergize with what the character currently uses. For instance:
+     * If the character wields a Longbow +1 with Archery Fighting Style and Planar Warrior, suggest options (feats like Sharpshooter, spells like Lightning Arrow or Conjure Animals) that capitalize on and empower their ranged combat and planar force damage.
+     * Never suggest items, spells, or abilities they already possess or that make their existing loadout redundant.
+     * Highlight in the playstyle summary and tactics exactly how the new recommendations synergize with their existing weapons, magic items, and features.
+2. DYNAMIC FUTURE MILESTONES & NEXT LEVELS ROADMAP (MANDATORY):
+   - The character is advancing to {target_class} Level {target_class_level} (Total Level {target_level}) and planning ahead!
+   - In 'future_milestones', provide a 3 to 6 item chronological progression roadmap STARTING SPECIFICALLY AT Level {target_class_level} and projecting across upcoming levels up to Level {max_projected_level}:
+     * DYNAMIC LEVEL RULES: Under NO circumstances should you output static or hardcoded levels. Milestones MUST start at Level {target_class_level} and progress towards upcoming levels (up to Level {max_projected_level}). E.g. if {target_class_level} is 5, project 5, 6, 7, 8, 9, 10. If {target_class_level} is 17, project 17, 18, 19, 20.
+     * Include authentic official {edition} milestones for {target_class} and subclass {subclass}:
+       - Class features & Subclass feature upgrades unlocked at those exact levels according to SRD rules.
+       - Upcoming Feat / ASI milestones (Fighter: 4, 6, 8, 12, 14, 16, 19; Rogue: 4, 8, 10, 12, 16, 19; Others: 4, 8, 12, 16, 19).
+       - Spell tier unlocks (e.g. Tier 3 spells at level 5 for full casters or level 9 for half casters; Tier 4 at 7/13; Tier 5 at 9/17; Tier 9 at 17 for full casters).
+3. RECOMMENDED FEAT / ASI:
+   - If Level {target_class_level} grants an ASI/Feat, recommend the ideal feat or stat increase for Level {target_class_level}.
+   - If Level {target_class_level} does NOT grant an ASI, identify the NEXT upcoming ASI level for {target_class} (Level {next_asi_level}) and specify the recommended feat or ASI for that upcoming level (e.g. "Sharpshooter (at Level {next_asi_level} ASI)" or "+2 {primary_stat} (at Level {next_asi_level} ASI)"). Do NOT leave it null or blank!
+4. NEW SPELLS ONLY (DO NOT RE-SUGGEST KNOWN SPELLS):
+   - The character ALREADY knows the following spells: {known_spells}.
+   - You MUST NOT recommend any spell the character already knows!
+   - 'recommended_spells' must contain ONLY NEW, unlearned spells that are of the character's highest available spell level (Spell Level {max_spell_level}) or potent unlearned spells for their current tier ({target_class_level}+) that scale well into future levels.
+5. ACTION ECONOMY & SUBCLASS SYNERGY:
+   - Respect existing class and subclass action economy! For example, if a Ranger is a Horizon Walker, their Planar Warrior feature already consumes their bonus action every turn to convert weapon attacks to force damage and deal extra damage. DO NOT recommend spells or feats that heavily conflict with their bonus action (such as Hunter's Mark); instead suggest complementary non-bonus-action spells or reaction spells suited for high levels (e.g. Lightning Arrow, Conjure Animals, Protection from Energy, Wind Wall).
+
+Return ONLY a valid JSON object matching this schema:
+{{
+  "builds": [
+    {{
+      "build_name": "Title of build (e.g., 'The Striker (Offensive / Damage)')",
+      "theme": "Core tactical theme in 1 punchy sentence",
+      "playstyle_summary": "2-3 sentences explaining combat role, positioning, and action economy for Level {target_level}+, explicitly referencing synergies with their current weapons and gear",
+      "pros": ["Major strength 1", "Major strength 2", "Major strength 3"],
+      "cons": ["Trade-off or limitation 1", "Trade-off or limitation 2"],
+      "recommended_subclass": "Name of subclass or null if already chosen",
+      "recommended_feat_or_asi": "Specific feat or stat increase (e.g., 'Sharpshooter (at Level {next_asi_level} ASI)')",
+      "recommended_spells": ["New Spell 1", "New Spell 2"],
+      "key_tactics": ["Tactical action tip 1 for Level {target_level}+", "Tactical action tip 2"],
+      "future_milestones": [
+        "Level {target_class_level}: Key class feature & unlocked spell tier / combat feature",
+        "Level [next level]: Subclass feature or core progression improvement",
+        "Level [upcoming ASI level]: Major ASI / Feat Milestone (e.g., recommended feat or +2 to primary stat)",
+        "Level [high tier level]: Advanced tier abilities and tactical scaling"
+      ]
+    }}
+  ]
+}}
 """
 
 # --- DM Tools ---

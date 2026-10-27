@@ -30,6 +30,26 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
    - Limits weapon masteries known based on 2024 class tables (Paladin/Ranger/Rogue: 2; Barbarian: 2–4; Fighter: 3–6).
    - Calculates dynamic Topple Save DC: `8 + Proficiency Bonus + STR modifier`.
 
+5. **Weapon Attack & Damage Mathematical Breakdown:**
+   - **Attack Bonus:** `Proficiency Bonus (if proficient) + Ability Mod (STR or Finesse/Ranged DEX) + Magic Bonus (+1/+2/+3) + Fighting Style (Archery +2)`.
+   - **Damage Roll Breakdown:** Returns an itemized structure including base weapon damage dice, ability score modifier, magical bonus, and conditional fighting style additions (e.g., Dueling +2 when wielding a melee weapon in one hand with no other weapons).
+
+6. **Subclass Feature Resolution & Dynamic Scaling:**
+   - Ingests class matrices from `data/rules/classes.json` and evaluates level gates dynamically.
+   - **Horizon Walker Ranger:**
+     - *Planar Warrior:* Base 1d8 force damage on weapon hit, automatically scaling to **2d8** at Ranger Level 11.
+     - *Distant Strike (Level 11):* Resolves teleportation feature (up to 10 feet before each attack) and enables a 3rd attack against a distinct target.
+     - *Spectral Defense (Level 15):* Reaction ability granting resistance against all damage dealt by the incoming attack.
+   - Enforces backwards and forward compatibility between 2014 and 2024 rulesets.
+
+7. **Interactive Skills, Expertise & Passive Scores:**
+   - Skills support three distinct states: **Normal** (no bonus), **Proficient** (`+PB`), and **Expertise** (`+2 * PB`).
+   - Toggling state recalculates the total skill check modifier dynamically: `AbilityMod + (PB * Multiplier)`.
+   - Passive perception, passive insight, and passive investigation update automatically based on active proficiency/expertise:
+     - Passive Perception: `10 + WIS mod + (PB if proficient, 2*PB if expertise)`.
+     - Passive Insight: `10 + WIS mod + (PB if proficient, 2*PB if expertise)`.
+     - Passive Investigation: `10 + INT mod + (PB if proficient, 2*PB if expertise)`.
+
 ---
 
 ## 🛡️ Deterministic Validation: `validation_service.py`

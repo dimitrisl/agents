@@ -426,11 +426,14 @@ export class ManualFormComponent {
       .map((s) => s.name);
     chosen.push(...cantripRecs.slice(0, this.maxCantrips));
 
-    // Pick leveled spells up to maxPreparedSpells
+    // Pick leveled spells prioritizing unlocked higher-tier levels down to 1
+    const maxLvl = this.maxCastableLevel;
     const leveledRecs = (this.availableSpells || [])
-      .filter((s) => s.level > 0 && recs.includes(s.name))
-      .map((s) => s.name);
-    chosen.push(...leveledRecs.slice(0, this.maxPreparedSpells));
+      .filter((s) => typeof s.level === 'number' && s.level > 0 && s.level <= maxLvl && recs.includes(s.name));
+
+    // Sort descending by level so that the current/highest spell tiers are included first
+    const sortedLeveled = [...leveledRecs].sort((a, b) => (b.level || 0) - (a.level || 0));
+    chosen.push(...sortedLeveled.slice(0, this.maxPreparedSpells).map((s) => s.name));
 
     this.manualSpells = Array.from(new Set(chosen));
     this.manualSpellsChange.emit(this.manualSpells);

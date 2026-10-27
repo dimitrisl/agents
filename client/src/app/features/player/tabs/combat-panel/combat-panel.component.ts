@@ -27,8 +27,14 @@ import {
   ForgeButtonDirective,
   ForgeInputDirective,
   ForgeModalComponent,
+  ForgeSelectDirective,
 } from '../../../../shared/ui';
 import { CombatDicePanelComponent } from './combat-dice-panel/combat-dice-panel.component';
+import {
+  calculateWeaponBreakdown,
+  extractMagicBonus,
+  WeaponBreakdown,
+} from '../../../../core/rules/weapon-calc';
 
 const EMPTY_PROFILE: CombatProfile = {
   actions: [],
@@ -47,6 +53,7 @@ const EMPTY_PROFILE: CombatProfile = {
     ForgeButtonDirective,
     ForgeInputDirective,
     ForgeModalComponent,
+    ForgeSelectDirective,
     CombatDicePanelComponent,
   ],
   templateUrl: './combat-panel.component.html',
@@ -108,12 +115,13 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
 
     this.profileSub = this.classCombat.getProfile(this.char).subscribe(profile => {
       this.profile = profile;
-      this.riders = this.classCombat.ridersOf(this.profile);
+      this.riders = this.classCombat.ridersOf(this.profile, this.char);
 
       const known = new Set(this.riders.map((rider) => rider.id));
       for (const id of Array.from(this.activeRiderIds)) {
         if (!known.has(id)) this.activeRiderIds.delete(id);
       }
+
       this.cdr.markForCheck();
     });
   }
@@ -155,6 +163,111 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   // ----------------------------------------------------------------- weapons //
+
+  expandedWeaponIndex: number | null = null;
+
+  toggleWeaponEditor(index: number): void {
+    this.expandedWeaponIndex = this.expandedWeaponIndex === index ? null : index;
+  }
+
+  getWeaponBreakdown(weapon: Weapon): WeaponBreakdown {
+    return calculateWeaponBreakdown(weapon, this.char);
+  }
+
+  getWeaponMagicBonus(weapon: Weapon): number {
+    return extractMagicBonus(weapon);
+  }
+
+  getWeaponBaseDice(weapon: Weapon): string {
+    const raw = weapon.damage_dice || weapon.damage || '1d4';
+    const match = /(\d+d\d+)/.exec(raw);
+    return match ? match[1] : '1d4';
+  }
+
+  formatMod(score?: number): string {
+    const mod = Math.floor(((score ?? 10) - 10) / 2);
+    return mod >= 0 ? `+${mod}` : `${mod}`;
+  }
+
+  displayedAttackBonus(weapon: Weapon): string {
+    const total = this.getWeaponBreakdown(weapon).attack.total;
+    return this.dice.signed(total);
+  }
+
+  onWeaponAbilityChange(weapon: Weapon, val: string): void {
+    weapon.ability_modifier = val || undefined;
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onWeaponMagicChange(weapon: Weapon, val: any): void {
+    weapon.magic_bonus = parseInt(val, 10) || 0;
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onWeaponProficiencyChange(weapon: Weapon, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    weapon.proficient = checked;
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onWeaponMiscAttackChange(weapon: Weapon, val: any): void {
+    weapon.misc_attack_bonus = parseInt(val, 10) || 0;
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onWeaponMiscDamageChange(weapon: Weapon, val: any): void {
+    weapon.misc_damage_bonus = parseInt(val, 10) || 0;
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onWeaponBaseDiceChange(weapon: Weapon, val: string): void {
+    const bd = this.getWeaponBreakdown(weapon);
+    const type = weapon.damage_type || bd.damage.damageType;
+    const bonus = bd.damage.totalBonus;
+    const bonusStr = bonus !== 0 ? (bonus > 0 ? `+${bonus}` : `${bonus}`) : '';
+    weapon.damage_dice = `${val}${bonusStr} ${type}`.trim();
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onWeaponDamageTypeChange(weapon: Weapon, val: string): void {
+    weapon.damage_type = val;
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onManualAttackBonusChange(weapon: Weapon): void {
+    const parsed = this.dice.parseNotation(weapon.attack_bonus || '');
+    if (parsed) {
+      const target = parsed.modifier;
+      const base = calculateWeaponBreakdown({ ...weapon, misc_attack_bonus: 0 }, this.char);
+      weapon.misc_attack_bonus = target - base.attack.total;
+    }
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  onManualDamageDiceChange(weapon: Weapon): void {
+    const parsed = this.dice.parseNotation(weapon.damage_dice || '');
+    if (parsed) {
+      const targetBonus = parsed.modifier;
+      const base = calculateWeaponBreakdown({ ...weapon, misc_damage_bonus: 0 }, this.char);
+      weapon.misc_damage_bonus = targetBonus - base.damage.totalBonus;
+    }
+    this.syncWeaponCalculations(weapon, false);
+  }
+
+  syncWeaponCalculations(weapon: Weapon, showToast = true): void {
+    const bd = this.getWeaponBreakdown(weapon);
+    weapon.attack_bonus = this.dice.signed(bd.attack.total);
+    weapon.damage_dice = `${bd.damage.notation} ${bd.damage.damageType}`.trim();
+    weapon.damage_bonus = this.dice.signed(bd.damage.totalBonus);
+    weapon.magic_bonus = bd.attack.magicBonus;
+    this.save.emit();
+    if (showToast) {
+      this.rollToast.showMessage(
+        '⚡ WEAPON SYNCHRONIZED',
+        `${weapon.name}: To Hit is ${weapon.attack_bonus}, Damage is ${weapon.damage_dice}`
+      );
+    }
+  }
 
   weaponProperties(weapon: Weapon): string[] {
     return (weapon.properties || '')
@@ -270,7 +383,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   private attackBonus(weapon: Weapon): number {
-    return this.dice.parseNotation(weapon.attack_bonus || '')?.modifier ?? 0;
+    return this.getWeaponBreakdown(weapon).attack.total;
   }
 
   isTopple(mastery: string): boolean {
