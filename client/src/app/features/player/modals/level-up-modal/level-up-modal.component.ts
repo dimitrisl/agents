@@ -44,21 +44,51 @@ export class LevelUpModalComponent {
   planningLevel: number | null = null;
 
   get characterClasses() {
-    return this.character?.classes || [{ class_name: this.character?.char_class || 'Fighter', level: this.character?.char_level || 1 }];
+    if (this.character?.classes && this.character.classes.length > 0) {
+      return this.character.classes;
+    }
+    return [
+      {
+        class_name: this.character?.char_class || 'Fighter',
+        level: this.character?.char_level || 1,
+        subclass: this.character?.subclass,
+      },
+    ];
   }
 
   get availableClasses() {
-    const all = ["Artificer", "Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk", "Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard"];
-    const current = this.characterClasses.map(c => c.class_name);
-    return all.filter(c => !current.includes(c));
+    const all = [
+      "Artificer",
+      "Barbarian",
+      "Bard",
+      "Cleric",
+      "Druid",
+      "Fighter",
+      "Monk",
+      "Paladin",
+      "Ranger",
+      "Rogue",
+      "Sorcerer",
+      "Warlock",
+      "Wizard",
+    ];
+    const current = this.characterClasses.map((c) => (c.class_name || '').toLowerCase());
+    return all.filter((c) => !current.includes(c.toLowerCase()));
   }
 
   get levelUpClass() {
-    return this.userChoices['level_up_class'] || this.character?.char_class || 'Fighter';
+    return (
+      this.userChoices['level_up_class'] ||
+      this.characterClasses[0]?.class_name ||
+      this.character?.char_class ||
+      'Fighter'
+    );
   }
 
   get targetClassLevel() {
-    const cls = this.characterClasses.find(c => c.class_name === this.levelUpClass);
+    const cls = this.characterClasses.find(
+      (c) => (c.class_name || '').toLowerCase() === this.levelUpClass.toLowerCase()
+    );
     return cls ? cls.level + 1 : 1;
   }
 

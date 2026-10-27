@@ -1936,8 +1936,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   onLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char) return;
+    const initialClass =
+      char.classes && char.classes.length > 0
+        ? char.classes[0].class_name
+        : char.char_class || 'Fighter';
+    this.levelUpUserChoices = { 'level_up_class': initialClass };
     this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
-      character: char
+      character: char,
+      user_choices: this.levelUpUserChoices,
     }).subscribe((analysis) => {
       this.levelUpAnalysis = analysis;
       this.showLevelUpModal.set(true);
