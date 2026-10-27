@@ -183,6 +183,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showEditModal = signal(false);
   showConditionsModal = signal(false);
   showPortraitModal = signal(false);
+  isUpdatingPortrait = signal(false);
   showJoinModal = signal(false);
   showHomebrewModal = signal(false);
   showShortRestModal = signal(false);
@@ -1918,54 +1919,88 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   generateAiPortrait() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
+    this.isUpdatingPortrait.set(true);
     this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: char.char_id,
       prompt: this.portraitPrompt
-    }).subscribe((res) => {
-      this.showPortraitModal.set(false);
-      if (res.portrait_url) {
-        if (typeof res.version === 'number') {
-          char.version = res.version;
+    }).subscribe({
+      next: (res) => {
+        this.isUpdatingPortrait.set(false);
+        this.showPortraitModal.set(false);
+        if (res.portrait_url) {
+          if (typeof res.version === 'number') {
+            char.version = res.version;
+          }
+          char.char_portrait = res.portrait_url;
+          const copy = { ...char };
+          this.charState.activeCharacter.set(copy);
+          this.charState.upsertCharacter(copy);
+          this.saveCurrentChar();
+          this.rollToast.showMessage('🎨 PORTRAIT GENERATED', `New AI portrait created for ${char.char_name}!`);
         }
-        char.char_portrait = res.portrait_url;
-        this.saveCurrentChar();
+      },
+      error: (err) => {
+        this.isUpdatingPortrait.set(false);
+        const detail = err?.error?.detail || 'Failed to generate AI portrait.';
+        this.rollToast.showMessage('⚠️ GENERATION FAILED', detail);
       }
     });
   }
 
   onSavePortraitUrl(url: string) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
-    char.char_portrait = url.trim() || undefined;
-    this.saveCurrentChar(true);
-    this.showPortraitModal.set(false);
-    this.rollToast.showMessage(
-      '🖼️ PORTRAIT UPDATED',
-      url.trim() ? `Updated portrait for ${char.char_name}.` : `Reset portrait for ${char.char_name} to default.`
-    );
+    if (!char || !char.char_id) return;
+    const cleanUrl = url.trim();
+    this.isUpdatingPortrait.set(true);
+
+    char.char_portrait = cleanUrl || undefined;
+    const copy = { ...char };
+    this.charState.activeCharacter.set(copy);
+    this.charState.upsertCharacter(copy);
+
+    this.charState.updateCharacter(char.char_id, copy).subscribe({
+      next: () => {
+        this.isUpdatingPortrait.set(false);
+        this.showPortraitModal.set(false);
+        this.rollToast.showMessage(
+          '🖼️ PORTRAIT UPDATED',
+          cleanUrl ? `Updated portrait for ${char.char_name}.` : `Reset portrait for ${char.char_name} to default.`
+        );
+      },
+      error: (err) => {
+        this.isUpdatingPortrait.set(false);
+        const detail = err?.error?.detail || 'Could not update portrait.';
+        this.rollToast.showMessage('⚠️ SAVE FAILED', detail);
+      }
+    });
   }
 
   onUploadPortraitFile(file: File) {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
 
+    this.isUpdatingPortrait.set(true);
     const formData = new FormData();
     formData.append('file', file);
 
     this.http.post<any>(`${environment.apiBaseUrl}/characters/${char.char_id}/portrait-upload`, formData)
       .subscribe({
         next: (res) => {
+          this.isUpdatingPortrait.set(false);
           if (res?.portrait_url) {
             char.char_portrait = res.portrait_url;
             if (typeof res.version === 'number') {
               char.version = res.version;
             }
-            this.charState.activeCharacter.set({ ...char });
+            const copy = { ...char };
+            this.charState.activeCharacter.set(copy);
+            this.charState.upsertCharacter(copy);
             this.showPortraitModal.set(false);
             this.rollToast.showMessage('🖼️ PORTRAIT UPLOADED', `Uploaded new portrait for ${char.char_name}!`);
           }
         },
         error: (err) => {
+          this.isUpdatingPortrait.set(false);
           const detail = err?.error?.detail || 'Failed to upload portrait.';
           this.rollToast.showMessage('⚠️ UPLOAD FAILED', detail);
         }

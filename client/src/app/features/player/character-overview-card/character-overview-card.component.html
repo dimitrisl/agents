@@ -7,8 +7,8 @@
         aria-label="Change character portrait"
         (click)="portrait.emit()"
       >
-        @if (portraitUrl) {
-          <img [src]="portraitUrl" (error)="portraitUrl = ''" alt="Character portrait" class="h-full w-full object-cover" />
+        @if (portraitUrl && !imageLoadError) {
+          <img [src]="portraitUrl" (error)="imageLoadError = true" alt="Character portrait" class="h-full w-full object-cover" />
         } @else {
           <div class="flex h-full w-full flex-col items-center justify-center bg-accent/10 text-accent transition-colors group-hover:bg-accent/20">
             <span class="text-2xl font-bold font-display uppercase">{{ (char.char_name || '?').charAt(0) }}</span>

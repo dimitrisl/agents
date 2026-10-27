@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
@@ -27,7 +27,7 @@ import { AbilityScoreGridComponent } from '../ability-score-grid/ability-score-g
   ],
   templateUrl: './character-overview-card.component.html',
 })
-export class CharacterOverviewCardComponent {
+export class CharacterOverviewCardComponent implements OnChanges {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() editMode = false;
   @Input() edition = '';
@@ -37,6 +37,8 @@ export class CharacterOverviewCardComponent {
   @Input() passivePerception = 10;
   @Input() abilityEntries: { key: string; value: number }[] = [];
   @Input() getModifierString!: (val: number) => string;
+
+  imageLoadError = false;
 
   @Output() portrait = new EventEmitter<void>();
   @Output() hpChange = new EventEmitter<number>();
@@ -49,6 +51,12 @@ export class CharacterOverviewCardComponent {
   @Output() manageConditions = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['portraitUrl']) {
+      this.imageLoadError = false;
+    }
+  }
 
   get subclassUnlockLevel(): number {
     const is2024 = (this.char?.dnd_edition || this.edition || '').includes('2024');

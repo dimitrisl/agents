@@ -655,8 +655,9 @@
   <app-portrait-modal
     [open]="showPortraitModal()"
     (openChange)="showPortraitModal.set($event)"
-    [currentPortraitUrl]="getPortraitUrl(charState.activeCharacter())"
+    [currentPortraitUrl]="charState.activeCharacter()?.char_portrait || ''"
     [(portraitPrompt)]="portraitPrompt"
+    [isSubmitting]="isUpdatingPortrait()"
     (generateAiPortrait)="generateAiPortrait()"
     (savePortraitUrl)="onSavePortraitUrl($event)"
     (uploadPortraitFile)="onUploadPortraitFile($event)"

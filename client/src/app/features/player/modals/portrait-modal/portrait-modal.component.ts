@@ -38,6 +38,7 @@ export class PortraitModalComponent implements OnChanges {
   @Input() open = false;
   @Input() currentPortraitUrl: string = '';
   @Input() portraitPrompt = '';
+  @Input() isSubmitting = false;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() portraitPromptChange = new EventEmitter<string>();
@@ -68,31 +69,45 @@ export class PortraitModalComponent implements OnChanges {
       }
       this.uploadError = null;
       this.isDragging = false;
+      this.cdr.markForCheck();
+    }
+    if (changes['currentPortraitUrl'] && this.open) {
+      if (!this.urlInput || changes['currentPortraitUrl'].isFirstChange()) {
+        this.urlInput = this.currentPortraitUrl || '';
+      }
+      this.cdr.markForCheck();
+    }
+    if (changes['isSubmitting']) {
+      this.cdr.markForCheck();
     }
   }
 
   selectTab(tab: 'url' | 'upload' | 'ai'): void {
     this.activeTab = tab;
+    this.cdr.markForCheck();
   }
 
   onUrlChange(newVal: string): void {
     this.urlInput = newVal;
     this.urlPreviewFailed = false;
+    this.cdr.markForCheck();
   }
 
   onUrlError(): void {
     if (this.urlInput.trim()) {
       this.urlPreviewFailed = true;
+      this.cdr.markForCheck();
     }
   }
 
   applyUrl(): void {
     const trimmed = this.urlInput.trim();
-    if (!trimmed) return;
+    if (!trimmed || this.isSubmitting) return;
     this.savePortraitUrl.emit(trimmed);
   }
 
   clearPortrait(): void {
+    if (this.isSubmitting) return;
     this.savePortraitUrl.emit('');
   }
 
@@ -101,18 +116,22 @@ export class PortraitModalComponent implements OnChanges {
     if (input.files && input.files.length > 0) {
       this.handleFile(input.files[0]);
     }
+    input.value = '';
+    this.cdr.markForCheck();
   }
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.isDragging = true;
+    this.cdr.markForCheck();
   }
 
   onDragLeave(event: DragEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.isDragging = false;
+    this.cdr.markForCheck();
   }
 
   onDrop(event: DragEvent): void {
@@ -122,6 +141,7 @@ export class PortraitModalComponent implements OnChanges {
     if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
       this.handleFile(event.dataTransfer.files[0]);
     }
+    this.cdr.markForCheck();
   }
 
   clearSelectedFile(event?: Event): void {
@@ -138,11 +158,12 @@ export class PortraitModalComponent implements OnChanges {
   }
 
   applyUpload(): void {
-    if (!this.selectedFile) return;
+    if (!this.selectedFile || this.isSubmitting) return;
     this.uploadPortraitFile.emit(this.selectedFile);
   }
 
   applyAi(): void {
+    if (this.isSubmitting) return;
     this.generateAiPortrait.emit();
   }
 
