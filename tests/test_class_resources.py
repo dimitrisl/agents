@@ -31,7 +31,9 @@ class TestRulesPools:
 
     def test_steps_use_the_highest_level_reached(self):
         def rage(lvl):
-            return _by_name(rules_pools([{"class_name": "Barbarian", "level": lvl}], {}, "2014"))["Rage"]["max"]
+            return _by_name(rules_pools([{"class_name": "Barbarian", "level": lvl}], {}, "2014"))[
+                "Rage"
+            ]["max"]
 
         assert [rage(1), rage(3), rage(5), rage(6), rage(17)] == [2, 3, 3, 4, 6]
 

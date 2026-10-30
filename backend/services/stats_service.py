@@ -1807,7 +1807,8 @@ def sync_character_stats(
     from backend.services.class_resources_service import sync_class_resources
 
     current_resources = [
-        r.model_dump() if hasattr(r, "model_dump") else r for r in (char_data.get("class_resources") or [])
+        r.model_dump() if hasattr(r, "model_dump") else r
+        for r in (char_data.get("class_resources") or [])
     ]
     char_data["class_resources"] = sync_class_resources(
         current_resources, classes, char_data.get("stats") or {}, edition

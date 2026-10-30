@@ -63,7 +63,9 @@ def _pool_max(rule: Dict[str, Any], class_level: int, stats: Dict[str, Any]) -> 
     return 0
 
 
-def rules_pools(classes: List[Dict[str, Any]], stats: Dict[str, Any], edition: Optional[str]) -> List[Dict[str, Any]]:
+def rules_pools(
+    classes: List[Dict[str, Any]], stats: Dict[str, Any], edition: Optional[str]
+) -> List[Dict[str, Any]]:
     """Every pool the character's classes grant right now, with its max and recharge."""
     by_class = _load_rules().get(_edition_key(edition), {})
     pools: Dict[str, Dict[str, Any]] = {}
@@ -76,7 +78,11 @@ def rules_pools(classes: List[Dict[str, Any]], stats: Dict[str, Any], edition: O
             if maximum <= 0:
                 continue
             short_from = rule.get("recharge_short_from")
-            recharge = "short" if short_from and class_level >= short_from else rule.get("recharge", "long")
+            recharge = (
+                "short"
+                if short_from and class_level >= short_from
+                else rule.get("recharge", "long")
+            )
             pool = {
                 "name": rule["name"],
                 "max": maximum,
@@ -92,7 +98,10 @@ def rules_pools(classes: List[Dict[str, Any]], stats: Dict[str, Any], edition: O
 
 
 def sync_class_resources(
-    current: List[Dict[str, Any]], classes: List[Dict[str, Any]], stats: Dict[str, Any], edition: Optional[str]
+    current: List[Dict[str, Any]],
+    classes: List[Dict[str, Any]],
+    stats: Dict[str, Any],
+    edition: Optional[str],
 ) -> List[Dict[str, Any]]:
     """
     Merges the rules pools into the character's existing ``class_resources``.
