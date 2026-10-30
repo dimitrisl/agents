@@ -2,7 +2,7 @@ import { Component, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RollToastService } from '../../../core/services/roll-toast.service';
 import { Dice3dComponent } from '../dice-3d/dice-3d.component';
-import { ForgeBadgeComponent, ForgeButtonDirective } from '../../ui';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeIconComponent } from '../../ui';
 
 /** Longest we wait for the dice before showing the total regardless. */
 const REVEAL_FALLBACK = 6500;
@@ -10,7 +10,7 @@ const REVEAL_FALLBACK = 6500;
 @Component({
   selector: 'app-roll-toast',
   standalone: true,
-  imports: [CommonModule, Dice3dComponent, ForgeBadgeComponent, ForgeButtonDirective],
+  imports: [CommonModule, Dice3dComponent, ForgeBadgeComponent, ForgeButtonDirective, ForgeIconComponent],
   templateUrl: './roll-toast.component.html',
   styleUrl: './roll-toast.component.css',
 })

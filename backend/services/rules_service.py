@@ -141,6 +141,10 @@ def parse_character_from_text(
         sheet_text=sheet_text,
     )
     combat_data = generate_ai_json(step2_prompt)
+    if not combat_data:
+        logger.warning(
+            "Step 2 of chained parsing failed; weapons, equipment and spells will be empty."
+        )
 
     # Merge the results
     final_raw = {**core_data, **(combat_data or {})}

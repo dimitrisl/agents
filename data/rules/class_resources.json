@@ -1,0 +1,71 @@
+{
+  "_doc": "Limited-use class pools, filled in on every character save (stats_service.sync_character_stats). max: per_level (x class level, from 'from'), steps ([[class level, uses], ...], the highest reached applies) or ability (modifier + plus, at least min). recharge: short|long; recharge_short_from switches to short rests from that class level. aliases match pools a player already added by hand so they are adopted, not duplicated.",
+  "2014": {
+    "barbarian": [
+      { "id": "rage", "name": "Rage", "aliases": ["rages", "rage uses"], "recharge": "long", "max": { "steps": [[1, 2], [3, 3], [6, 4], [12, 5], [17, 6]] } }
+    ],
+    "bard": [
+      { "id": "bardic_inspiration", "name": "Bardic Inspiration", "recharge": "long", "recharge_short_from": 5, "max": { "ability": "CHA", "min": 1 } }
+    ],
+    "cleric": [
+      { "id": "channel_divinity", "name": "Channel Divinity", "recharge": "short", "max": { "steps": [[2, 1], [6, 2], [18, 3]] } }
+    ],
+    "druid": [
+      { "id": "wild_shape", "name": "Wild Shape", "recharge": "short", "max": { "steps": [[2, 2]] } }
+    ],
+    "fighter": [
+      { "id": "second_wind", "name": "Second Wind", "recharge": "short", "max": { "steps": [[1, 1]] } },
+      { "id": "action_surge", "name": "Action Surge", "recharge": "short", "max": { "steps": [[2, 1], [17, 2]] } },
+      { "id": "indomitable", "name": "Indomitable", "recharge": "long", "max": { "steps": [[9, 1], [13, 2], [17, 3]] } }
+    ],
+    "monk": [
+      { "id": "ki", "name": "Ki Points", "aliases": ["ki"], "recharge": "short", "max": { "per_level": 1, "from": 2 } }
+    ],
+    "paladin": [
+      { "id": "lay_on_hands", "name": "Lay on Hands (HP pool)", "aliases": ["lay on hands"], "recharge": "long", "max": { "per_level": 5, "from": 1 } },
+      { "id": "divine_sense", "name": "Divine Sense", "recharge": "long", "max": { "ability": "CHA", "plus": 1, "min": 1 } },
+      { "id": "channel_divinity", "name": "Channel Divinity", "recharge": "short", "max": { "steps": [[3, 1]] } }
+    ],
+    "sorcerer": [
+      { "id": "sorcery_points", "name": "Sorcery Points", "aliases": ["sorcery point", "font of magic"], "recharge": "long", "max": { "per_level": 1, "from": 2 } }
+    ],
+    "wizard": [
+      { "id": "arcane_recovery", "name": "Arcane Recovery", "recharge": "long", "max": { "steps": [[1, 1]] } }
+    ]
+  },
+  "2024": {
+    "barbarian": [
+      { "id": "rage", "name": "Rage", "aliases": ["rages", "rage uses"], "recharge": "long", "max": { "steps": [[1, 2], [3, 3], [6, 4], [12, 5], [17, 6]] } }
+    ],
+    "bard": [
+      { "id": "bardic_inspiration", "name": "Bardic Inspiration", "recharge": "long", "recharge_short_from": 5, "max": { "ability": "CHA", "min": 1 } }
+    ],
+    "cleric": [
+      { "id": "channel_divinity", "name": "Channel Divinity", "recharge": "short", "max": { "steps": [[2, 2], [6, 3], [18, 4]] } }
+    ],
+    "druid": [
+      { "id": "wild_shape", "name": "Wild Shape", "recharge": "short", "max": { "steps": [[2, 2], [6, 3], [17, 4]] } }
+    ],
+    "fighter": [
+      { "id": "second_wind", "name": "Second Wind", "recharge": "short", "max": { "steps": [[1, 2], [4, 3], [10, 4]] } },
+      { "id": "action_surge", "name": "Action Surge", "recharge": "short", "max": { "steps": [[2, 1], [17, 2]] } },
+      { "id": "indomitable", "name": "Indomitable", "recharge": "long", "max": { "steps": [[9, 1], [13, 2], [17, 3]] } }
+    ],
+    "monk": [
+      { "id": "focus_points", "name": "Focus Points", "aliases": ["ki", "ki points", "focus"], "recharge": "short", "max": { "per_level": 1, "from": 2 } }
+    ],
+    "paladin": [
+      { "id": "lay_on_hands", "name": "Lay on Hands (HP pool)", "aliases": ["lay on hands"], "recharge": "long", "max": { "per_level": 5, "from": 1 } },
+      { "id": "channel_divinity", "name": "Channel Divinity", "recharge": "short", "max": { "steps": [[3, 2], [11, 3]] } }
+    ],
+    "ranger": [
+      { "id": "favored_enemy", "name": "Favored Enemy (free Hunter's Mark)", "aliases": ["favored enemy"], "recharge": "long", "max": { "steps": [[1, 2], [5, 3], [9, 4], [13, 5], [17, 6]] } }
+    ],
+    "sorcerer": [
+      { "id": "sorcery_points", "name": "Sorcery Points", "aliases": ["sorcery point", "font of magic"], "recharge": "long", "max": { "per_level": 1, "from": 2 } }
+    ],
+    "wizard": [
+      { "id": "arcane_recovery", "name": "Arcane Recovery", "recharge": "long", "max": { "steps": [[1, 1]] } }
+    ]
+  }
+}

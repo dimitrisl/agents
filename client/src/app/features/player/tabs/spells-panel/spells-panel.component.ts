@@ -4,7 +4,30 @@ import { FormsModule } from '@angular/forms';
 import { CharacterSchema, ClassResource, FeatureTrait } from '../../../../core/models/character.model';
 import { HapticsService } from '../../../../core/services/haptics.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
-import { ForgeBadgeComponent, ForgeButtonDirective, ForgeInputDirective, ForgeListRowComponent, ForgeModalComponent } from '../../../../shared/ui';
+import {
+  MetamagicOption,
+  SLOT_CREATION_COST,
+  canCreateSlot,
+  knownMetamagic,
+  metamagicCost,
+  metamagicEdition,
+  metamagicKnownLimit,
+  metamagicOptions,
+  toggleMetamagicFeature,
+  createdSlots,
+  pointsFromSlot,
+  sorceryPointsPool,
+} from '../../../../core/rules';
+import {
+  ForgeBadgeComponent,
+  ForgeButtonDirective,
+  ForgeEmptyStateComponent,
+  ForgeIconComponent,
+  ForgeInputDirective,
+  ForgeListRowComponent,
+  ForgeModalComponent,
+  ForgeSelectDirective,
+} from '../../../../shared/ui';
 import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell-detail-modal.component';
 
 @Component({
@@ -15,9 +38,12 @@ import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell
     FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
+    ForgeEmptyStateComponent,
+    ForgeIconComponent,
     ForgeInputDirective,
     ForgeListRowComponent,
     ForgeModalComponent,
+    ForgeSelectDirective,
     SpellDetailModalComponent
   ],
   templateUrl: './spells-panel.component.html',
@@ -31,11 +57,18 @@ export class SpellsPanelComponent {
   @Input() getSpellSlotUsed!: (lvl: number) => number;
   @Input() getSpellSlotMax!: (lvl: number) => number;
   @Input() editMode = false;
+  /** Dice a spell rolls at a slot level ("9d6"), or null when unknown. */
+  @Input() castPreview: (spellName: string, slotLevel: number) => string | null = () => null;
 
   @Output() useSpellSlot = new EventEmitter<number>();
   @Output() restoreSpellSlot = new EventEmitter<number>();
   @Output() save = new EventEmitter<void>();
-  @Output() castSpell = new EventEmitter<{ spellName: string; level: number; isRitual: boolean }>();
+  /** `metamagic`: ids of the options applied to this cast; the container pays for them. */
+  @Output() castSpell = new EventEmitter<{ spellName: string; level: number; isRitual: boolean; metamagic?: string[] }>();
+  /** Sorcerer Flexible Casting: 'create' buys a slot with points, 'points' turns a slot into points. */
+  @Output() flexibleCasting = new EventEmitter<{ direction: 'create' | 'points'; level: number }>();
+  /** Spends sorcery points on a Metamagic option; `spellLevel` only matters for 2014 Twinned. */
+  @Output() metamagic = new EventEmitter<{ optionId: string; spellLevel: number }>();
 
   private readonly haptics = inject(HapticsService);
   private readonly toast = inject(RollToastService);
@@ -59,6 +92,11 @@ export class SpellsPanelComponent {
   newResourceName = '';
   newResourceMax = 3;
   newResourceRecharge: 'short' | 'long' = 'long';
+  newResourceCurrent = 0;
+  /** Adjustment on a rules pool's max (item, feat, house rule); may be negative. */
+  newResourceBonus = 0;
+  /** The pool the modal edits; null while it adds a new one. */
+  editingResource: ClassResource | null = null;
 
   private readonly expandedFeatures = new Set<number>();
 
@@ -87,8 +125,18 @@ export class SpellsPanelComponent {
     return this.char.class_resources ?? [];
   }
 
+  /** Indexes of features that have text to open; a name alone has nothing to expand. */
+  private get expandableFeatureIndexes(): number[] {
+    return this.features.map((f, i) => (this.hasDetails(f) ? i : -1)).filter((i) => i >= 0);
+  }
+
+  hasDetails(feature: FeatureTrait): boolean {
+    return !!(feature.description || '').trim();
+  }
+
   get allFeaturesExpanded(): boolean {
-    return this.features.length > 0 && this.expandedFeatures.size === this.features.length;
+    const expandable = this.expandableFeatureIndexes;
+    return expandable.length > 0 && expandable.every((i) => this.expandedFeatures.has(i));
   }
 
   trackByLevel(_index: number, level: number): number {
@@ -102,7 +150,84 @@ export class SpellsPanelComponent {
   slotPercentage(level: number): number {
     const max = this.getSpellSlotMax(level);
     if (!max) return 0;
-    return (this.slotsRemaining(level) / max) * 100;
+    return Math.min(100, (this.slotsRemaining(level) / max) * 100);
+  }
+
+  // --- Flexible Casting (Sorcerer) ---
+  get sorceryPool(): ClassResource | null {
+    return sorceryPointsPool(this.char);
+  }
+
+  /** Levels a slot can be bought at: 1st–5th, and only levels the sheet has. */
+  get creatableLevels(): number[] {
+    return this.activeSpellLevels.filter((lvl) => lvl in SLOT_CREATION_COST);
+  }
+
+  slotCost(level: number): number {
+    return SLOT_CREATION_COST[level];
+  }
+
+  canCreate(level: number): boolean {
+    return canCreateSlot(this.char, level);
+  }
+
+  pointsFrom(level: number): number {
+    return pointsFromSlot(this.char, level);
+  }
+
+  createdSlotCount(level: number): number {
+    return createdSlots(this.char, level);
+  }
+
+  // --- Metamagic (Sorcerer) ---
+  choosingMetamagic = signal<boolean>(false);
+  /** The option whose spell-level picker is open (2014 Twinned). */
+  twinPicking = signal<string | null>(null);
+
+  get metamagicOptionList(): MetamagicOption[] {
+    return metamagicOptions(metamagicEdition(this.char.dnd_edition));
+  }
+
+  get metamagicLimit(): number {
+    return metamagicKnownLimit(this.char, metamagicEdition(this.char.dnd_edition));
+  }
+
+  get knownMetamagicOptions(): MetamagicOption[] {
+    const options = this.metamagicOptionList;
+    const known = knownMetamagic(this.char, options);
+    return options.filter((o) => known.has(o.id));
+  }
+
+  isMetamagicKnown(option: MetamagicOption): boolean {
+    return this.knownMetamagicOptions.some((o) => o.id === option.id);
+  }
+
+  toggleMetamagic(option: MetamagicOption): void {
+    this.char.features_traits = toggleMetamagicFeature(this.char.features_traits, option);
+    this.save.emit();
+  }
+
+  metamagicMinCost(option: MetamagicOption): number {
+    return metamagicCost(option, 0);
+  }
+
+  /** Cantrip plus every level the sheet has slots for. */
+  get twinLevels(): number[] {
+    return [0, ...this.activeSpellLevels];
+  }
+
+  twinCost(option: MetamagicOption, spellLevel: number): number {
+    return metamagicCost(option, spellLevel);
+  }
+
+  useMetamagic(option: MetamagicOption, spellLevel?: number): void {
+    if (option.costBySpellLevel && spellLevel === undefined) {
+      this.twinPicking.update((open) => (open === option.id ? null : option.id));
+      return;
+    }
+    this.twinPicking.set(null);
+    this.haptics.lightTap();
+    this.metamagic.emit({ optionId: option.id, spellLevel: spellLevel ?? 1 });
   }
 
   isFeatureExpanded(index: number): boolean {
@@ -122,7 +247,7 @@ export class SpellsPanelComponent {
       this.expandedFeatures.clear();
       return;
     }
-    this.features.forEach((_feature, index) => this.expandedFeatures.add(index));
+    this.expandableFeatureIndexes.forEach((index) => this.expandedFeatures.add(index));
   }
 
   get rawSpellGroups(): { label: string; level: number; spells: string[] }[] {
@@ -183,34 +308,62 @@ export class SpellsPanelComponent {
     return this.char.prepared_spells.includes(spellName);
   }
 
-  // --- 1-Tap Spell Casting Flow (#173) ---
-  initiateCast(spellName: string, baseLevel: number, event: Event) {
+  // --- Spell Casting (#173) ---
+  /** Lowest slot level >= the spell's that still has a slot, or null. */
+  lowestOpenSlot(baseLevel: number): number | null {
+    if (baseLevel === 0) return 0;
+    return this.spellLevels.find((lvl) => lvl >= baseLevel && this.slotsRemaining(lvl) > 0) ?? null;
+  }
+
+  /**
+   * One click: cantrips cast for free; leveled spells spend the lowest open slot
+   * (the base level when there is one). The ▾ next to Cast is for upcasting.
+   */
+  castNow(spellName: string, baseLevel: number, event: Event) {
     event.stopPropagation();
     this.haptics.lightTap();
 
-    if (baseLevel === 0) {
-      // Cantrip: cast for free!
-      this.castSpell.emit({ spellName, level: 0, isRitual: false });
+    const slot = this.lowestOpenSlot(baseLevel);
+    if (slot === null) {
+      this.toast.showMessage('⚠️ NO SPELL SLOTS', `No spell slots of level ${baseLevel} or higher left for ${spellName}.`);
       return;
     }
+    if (slot > 0) this.useSpellSlot.emit(slot);
+    this.castSpell.emit({ spellName, level: slot, isRitual: false });
+  }
 
-    // Check available slot levels >= baseLevel
-    const availableSlotLevels = this.spellLevels.filter(lvl => lvl >= baseLevel && this.slotsRemaining(lvl) > 0);
-
-    if (availableSlotLevels.length === 0) {
-      this.toast.showMessage('⚠️ NO SPELL SLOTS', `No available spell slots to cast ${spellName} (Level ${baseLevel}+).`);
-      return;
-    }
-
-    if (availableSlotLevels.length === 1 && availableSlotLevels[0] === baseLevel) {
-      // Exactly base level slot available: cast directly!
-      this.useSpellSlot.emit(baseLevel);
-      this.castSpell.emit({ spellName, level: baseLevel, isRitual: false });
-      return;
-    }
-
-    // Multiple slots or upcasting possible: open upcast selector
+  openCastOptions(spellName: string, baseLevel: number, event: Event) {
+    event.stopPropagation();
+    this.castMetamagic.set([]);
     this.upcastTarget.set({ spellName, baseLevel });
+  }
+
+  /** Metamagic picked in the cast window, paid when the slot is chosen. */
+  castMetamagic = signal<string[]>([]);
+
+  isCastMetamagic(option: MetamagicOption): boolean {
+    return this.castMetamagic().includes(option.id);
+  }
+
+  toggleCastMetamagic(option: MetamagicOption): void {
+    this.castMetamagic.update((ids) =>
+      ids.includes(option.id) ? ids.filter((id) => id !== option.id) : [...ids, option.id]
+    );
+  }
+
+  /** What the picked options cost when cast with a slot of `slotLevel` (2014 Twinned pays the level). */
+  castMetamagicCost(slotLevel: number): number {
+    return this.knownMetamagicOptions
+      .filter((o) => this.isCastMetamagic(o))
+      .reduce((sum, o) => sum + metamagicCost(o, slotLevel), 0);
+  }
+
+  canPayCastMetamagic(slotLevel: number): boolean {
+    return this.castMetamagicCost(slotLevel) <= (this.sorceryPool?.current ?? 0);
+  }
+
+  canAddCastMetamagic(option: MetamagicOption, baseLevel: number): boolean {
+    return this.castMetamagicCost(baseLevel) + metamagicCost(option, baseLevel) <= (this.sorceryPool?.current ?? 0);
   }
 
   confirmUpcast(slotLevel: number, isRitual = false) {
@@ -221,7 +374,14 @@ export class SpellsPanelComponent {
     if (!isRitual) {
       this.useSpellSlot.emit(slotLevel);
     }
-    this.castSpell.emit({ spellName: target.spellName, level: slotLevel, isRitual });
+    const metamagic = this.castMetamagic();
+    this.castSpell.emit({
+      spellName: target.spellName,
+      level: slotLevel,
+      isRitual,
+      ...(metamagic.length ? { metamagic } : {}),
+    });
+    this.castMetamagic.set([]);
     this.upcastTarget.set(null);
   }
 
@@ -252,7 +412,34 @@ export class SpellsPanelComponent {
     }
   }
 
+  openEditResource(index: number, event: Event) {
+    event.stopPropagation();
+    const res = this.classResources[index];
+    if (!res) return;
+    this.editingResource = res;
+    this.newResourceName = res.name;
+    this.newResourceMax = res.max;
+    this.newResourceCurrent = res.current;
+    this.newResourceBonus = res.bonus ?? 0;
+    this.newResourceRecharge = res.recharge;
+    this.showAddResourceModal.set(true);
+  }
+
+  /** What the class rules alone give a rules pool. */
+  get resourceRulesMax(): number {
+    const res = this.editingResource;
+    return res ? res.max - (res.bonus ?? 0) : 0;
+  }
+
+  get resourceEditedMax(): number {
+    if (this.editingResource?.auto) {
+      return Math.max(1, this.resourceRulesMax + (Number(this.newResourceBonus) || 0));
+    }
+    return Math.max(1, Number(this.newResourceMax) || 1);
+  }
+
   openAddResourceModal() {
+    this.editingResource = null;
     this.newResourceName = '';
     this.newResourceMax = 3;
     this.newResourceRecharge = 'long';
@@ -260,10 +447,26 @@ export class SpellsPanelComponent {
   }
 
   closeAddResourceModal() {
+    this.editingResource = null;
     this.showAddResourceModal.set(false);
   }
 
   confirmAddResource() {
+    const editing = this.editingResource;
+    if (editing) {
+      const max = this.resourceEditedMax;
+      const current = Math.min(max, Math.max(0, Math.floor(Number(this.newResourceCurrent) || 0)));
+      // A rules pool keeps its name and recharge (the server sets them); the
+      // adjustment rides on top of the rules max on every level up.
+      const changes: Partial<ClassResource> = editing.auto
+        ? { max, current, bonus: max - this.resourceRulesMax }
+        : { name: this.newResourceName.trim() || editing.name, max, current, recharge: this.newResourceRecharge };
+      this.char.class_resources = this.classResources.map((r) => (r === editing ? { ...r, ...changes } : r));
+      this.save.emit();
+      this.closeAddResourceModal();
+      return;
+    }
+
     const name = this.newResourceName.trim();
     if (!name) return;
 

@@ -137,11 +137,14 @@
       <button
         forgeButton
         variant="ghost"
+        size="md"
+        iconOnly
         type="button"
-        class="!p-1 text-xs text-muted hover:text-rose-400"
+        class="hover:text-red"
+        aria-label="Remove selected file"
         [disabled]="isSubmitting"
         (click)="clearSelectedFile($event)">
-        ✕
+        <forge-icon name="close" />
       </button>
     </div>
 

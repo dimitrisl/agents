@@ -9,84 +9,88 @@
     <button
       type="button"
       (click)="openQuickPad()"
-      class="text-micro font-bold uppercase tracking-wider text-accent hover:underline flex items-center gap-1 cursor-pointer"
+      class="-mr-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro font-bold uppercase tracking-wider text-accent transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
       title="Open touch HP numpad"
     >
       <span>⚡ Quick Pad</span>
     </button>
   </div>
 
-  <div class="mt-2 flex items-center justify-center gap-4 sm:gap-6">
-    <div class="flex flex-col gap-2">
-      <button
-        forgeButton
-        variant="secondary"
-        size="sm"
-        type="button"
-        aria-label="Decrease hit points"
-        (click)="applyHpChange(-1)"
-      >
-        Damage
-      </button>
-      <button
-        class="text-micro font-semibold uppercase text-muted hover:text-gold transition-colors py-1"
-        (click)="applyTempHpChange(1)"
-        aria-label="Add temp HP"
-      >
-        +Temp
-      </button>
-    </div>
-
-    <!-- Clickable HP Display -->
-    <div
-      class="flex flex-col items-center min-w-[130px] p-2 rounded-xl hover:bg-tile/40 transition-colors cursor-pointer group"
-      (click)="openQuickPad()"
-      title="Tap to open Quick HP calculator"
-      role="button"
-      tabindex="0"
+  <!-- Damage · HP · Heal share one row so the two buttons always line up -->
+  <div class="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+    <button
+      forgeButton
+      variant="secondary"
+      tone="danger"
+      size="sm"
+      type="button"
+      class="w-full max-w-24 justify-self-end"
+      aria-label="Decrease hit points"
+      (click)="applyHpChange(-1)"
     >
-      <div class="flex items-baseline justify-center relative">
-        <span
-          class="text-metric font-extrabold absolute -left-6 top-1 transition-transform group-hover:scale-110"
-          [ngClass]="current === 0 ? 'text-crimson' : 'text-accent'"
-          aria-hidden="true"
-          >♥</span
-        >
-        <span class="sr-only">Current hit points</span>
-        <span class="text-[2.25rem] font-extrabold text-ink leading-none" [ngClass]="{'text-crimson': current === 0}">{{ current }}</span>
-        <span class="px-1 text-title font-semibold text-muted">/</span>
-        <span class="text-title font-semibold text-muted">{{ max }}</span>
-      </div>
+      <forge-icon name="minus" size="xs" />
+      Damage
+    </button>
 
-      <!-- Temp HP inline badge -->
-      <div class="flex items-center gap-1.5 mt-1.5" *ngIf="temp > 0">
-        <span class="px-2 py-0.5 rounded-full bg-gold/15 border border-gold/30 text-micro font-bold text-gold">
-          🛡️ +{{ temp }} Temp
-        </span>
-      </div>
-      <span class="text-[10px] text-muted opacity-0 group-hover:opacity-100 transition-opacity mt-1">Tap for keypad</span>
-    </div>
+    <!-- Clickable HP display: only the numbers, so it centres on the buttons -->
+    <button
+      type="button"
+      class="flex shrink-0 items-baseline justify-center whitespace-nowrap rounded-xl px-2 py-1 transition-colors hover:bg-tile/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+      title="Open the quick HP calculator"
+      [attr.aria-label]="'Hit points ' + current + ' of ' + max + '. Open the quick HP calculator'"
+      (click)="openQuickPad()"
+    >
+      <span class="text-[2.25rem] font-extrabold leading-none tabular-nums text-ink" [ngClass]="{ 'text-crimson': current === 0 }" aria-hidden="true">{{ current }}</span>
+      <span class="ml-1 text-title font-semibold tabular-nums text-muted" aria-hidden="true">/ {{ max }}</span>
+    </button>
 
-    <div class="flex flex-col gap-2">
-      <button
-        forgeButton
-        variant="secondary"
-        size="sm"
-        type="button"
-        aria-label="Increase hit points"
-        (click)="applyHpChange(1)"
-      >
-        Heal
-      </button>
-      <button
-        *ngIf="temp > 0"
-        class="text-micro font-semibold uppercase text-muted hover:text-crimson transition-colors py-1"
-        (click)="applyTempHpChange(-1)"
-        aria-label="Remove temp HP"
-      >
-        -Temp
-      </button>
-    </div>
+    <button
+      forgeButton
+      variant="secondary"
+      tone="success"
+      size="sm"
+      type="button"
+      class="w-full max-w-24 justify-self-start"
+      aria-label="Increase hit points"
+      (click)="applyHpChange(1)"
+    >
+      <forge-icon name="plus" size="xs" />
+      Heal
+    </button>
+  </div>
+
+  <!-- Temporary HP: its own centered stepper, always shown, so nothing shifts when it reaches 0 -->
+  <div class="mt-1 flex items-center justify-center gap-1.5" role="group" aria-label="Temporary hit points">
+    <button
+      forgeButton
+      variant="ghost"
+      size="sm"
+      iconOnly
+      type="button"
+      aria-label="Remove 1 temporary hit point"
+      [disabled]="temp <= 0"
+      (click)="applyTempHpChange(-1)"
+    >
+      <forge-icon name="minus" size="sm" />
+    </button>
+    <span
+      class="inline-flex min-w-28 items-center justify-center gap-1 rounded-full border px-2.5 py-0.5 text-micro font-bold uppercase transition-colors"
+      [ngClass]="temp > 0 ? 'border-gold/30 bg-gold/15 text-gold' : 'border-hairline text-muted'"
+      aria-live="polite"
+    >
+      <span aria-hidden="true">🛡️</span> {{ temp }} Temp HP
+    </span>
+    <button
+      forgeButton
+      variant="ghost"
+      size="sm"
+      iconOnly
+      type="button"
+      aria-label="Add 1 temporary hit point"
+      (click)="applyTempHpChange(1)"
+    >
+      <forge-icon name="plus" size="sm" />
+    </button>
   </div>
 
   <!-- Normal HP Bar -->
@@ -132,7 +136,7 @@
         <span class="text-micro font-semibold text-ink uppercase">Successes</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
-            class="min-w-[44px] min-h-[44px] rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
+            class="min-w-11 min-h-11 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
             [ngClass]="(deathSaves?.successes || 0) >= i ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-900/40' : 'bg-surface/50 border-hairline hover:border-emerald-500/60'"
             (click)="toggleDeathSave('successes', i)"
             aria-label="Toggle death save success"
@@ -153,7 +157,7 @@
         <span class="text-micro font-semibold text-ink uppercase">Failures</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
-            class="min-w-[44px] min-h-[44px] rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
+            class="min-w-11 min-h-11 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
             [ngClass]="(deathSaves?.failures || 0) >= i ? 'bg-crimson border-red-500 text-white shadow-red-900/40' : 'bg-surface/50 border-hairline hover:border-crimson/60'"
             (click)="toggleDeathSave('failures', i)"
             aria-label="Toggle death save failure"
@@ -209,28 +213,28 @@
           *ngFor="let digit of ['1','2','3','4','5','6','7','8','9']"
           type="button"
           (click)="appendDigit(digit)"
-          class="h-12 min-h-[48px] rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-lg font-bold text-ink transition-all flex items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-lg font-bold text-ink transition-all flex items-center justify-center"
         >
           {{ digit }}
         </button>
         <button
           type="button"
           (click)="clearNumpad()"
-          class="h-12 min-h-[48px] rounded-xl bg-tile/50 hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted transition-all uppercase"
+          class="h-12 min-h-12 rounded-xl bg-tile/50 hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted transition-all uppercase"
         >
           Clear
         </button>
         <button
           type="button"
           (click)="appendDigit('0')"
-          class="h-12 min-h-[48px] rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-lg font-bold text-ink transition-all flex items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-lg font-bold text-ink transition-all flex items-center justify-center"
         >
           0
         </button>
         <button
           type="button"
           (click)="backspace()"
-          class="h-12 min-h-[48px] rounded-xl bg-tile/50 hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-muted transition-all flex items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-tile/50 hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-muted transition-all flex items-center justify-center"
           aria-label="Backspace"
         >
           ⌫
@@ -242,7 +246,7 @@
         <button
           type="button"
           (click)="executeDamage()"
-          class="h-12 min-h-[48px] rounded-xl bg-crimson/20 hover:bg-crimson/30 active:scale-95 border border-crimson/40 text-crimson font-bold text-sm transition-all flex flex-col items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-crimson/20 hover:bg-crimson/30 active:scale-95 border border-crimson/40 text-crimson font-bold text-sm transition-all flex flex-col items-center justify-center"
         >
           <span>🩸 Damage</span>
           <span class="text-[10px] opacity-80">-{{ numpadValue() }}</span>
@@ -250,7 +254,7 @@
         <button
           type="button"
           (click)="executeHeal()"
-          class="h-12 min-h-[48px] rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 border border-emerald-500/40 text-emerald-400 font-bold text-sm transition-all flex flex-col items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 border border-emerald-500/40 text-emerald-400 font-bold text-sm transition-all flex flex-col items-center justify-center"
         >
           <span>💚 Heal</span>
           <span class="text-[10px] opacity-80">+{{ numpadValue() }}</span>
@@ -258,7 +262,7 @@
         <button
           type="button"
           (click)="executeSetTemp()"
-          class="h-12 min-h-[48px] rounded-xl bg-gold/20 hover:bg-gold/30 active:scale-95 border border-gold/40 text-gold font-bold text-sm transition-all flex flex-col items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-gold/20 hover:bg-gold/30 active:scale-95 border border-gold/40 text-gold font-bold text-sm transition-all flex flex-col items-center justify-center"
         >
           <span>🛡️ Set Temp</span>
           <span class="text-[10px] opacity-80">{{ numpadValue() }}</span>

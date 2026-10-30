@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { RollToastService, ActiveRollEvent } from './roll-toast.service';
 
 describe('RollToastService', () => {
@@ -126,4 +126,62 @@ describe('RollToastService', () => {
     jest.advanceTimersByTime(20000);
     expect(service.activeRoll()).toBeNull();
   });
+});
+
+function damageRoll(): ActiveRollEvent {
+  // Shortsword 1d6 (3) +7 = 10 · Love Poison 3d8 (8+5+2) = 15 · Sneak Attack 6d6 = 16
+  return {
+    title: 'RUDOLF DAMAGE',
+    expression: '',
+    raw: 0,
+    rolls: [3, 8, 5, 2, 6, 1, 1, 1, 4, 3],
+    sides: 6,
+    modifier: 7,
+    total: 41,
+    damageParts: [
+      { label: 'Shortsword', detail: '1d6 (3) +7', total: 10 },
+      { label: 'Love Poison', detail: '3d8 (8+5+2)', total: 15, saveHalf: { dc: 'DC 16 CON' } },
+      { label: 'Sneak Attack', detail: '6d6 (6+1+1+1+4+3)', total: 16 },
+    ],
+  };
+}
+
+describe('RollToastService save-for-half', () => {
+  let service: RollToastService;
+
+  beforeEach(() => {
+    service = TestBed.inject(RollToastService);
+  });
+
+  it('halves only the saved part, rounding down, without re-rolling', () => {
+    service.showRoll(damageRoll());
+    expect(service.displayTotal()).toBe(41);
+
+    service.togglePartHalved(1);
+    expect(service.displayTotal()).toBe(10 + 7 + 16); // 15 -> 7
+    expect(service.activeRoll()!.rolls).toEqual([3, 8, 5, 2, 6, 1, 1, 1, 4, 3]);
+
+    service.togglePartHalved(1);
+    expect(service.displayTotal()).toBe(41);
+  });
+
+  it('a new roll starts at full damage', () => {
+    service.showRoll(damageRoll());
+    service.togglePartHalved(1);
+    service.showRoll(damageRoll());
+    expect(service.displayTotal()).toBe(41);
+  });
+
+  it('stays open after the dice settle when a save is pending, closes normally otherwise', fakeAsync(() => {
+    service.showRoll(damageRoll());
+    service.notifySettled();
+    tick(15000);
+    expect(service.activeRoll()).not.toBeNull();
+    service.dismiss();
+
+    service.showRoll({ title: 'ATTACK', expression: '1d20+11', raw: 12, modifier: 11, total: 23 });
+    service.notifySettled();
+    tick(5000);
+    expect(service.activeRoll()).toBeNull();
+  }));
 });

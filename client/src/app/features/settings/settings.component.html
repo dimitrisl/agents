@@ -54,7 +54,7 @@
                   Temperature
                 </p>
                 <p class="mt-1 text-metric font-bold leading-none text-accent">
-                  {{ aiTemperature }}
+                  {{ loadingSettings ? '…' : aiTemperature }}
                 </p>
               </div>
             </div>
@@ -163,6 +163,14 @@
               </header>
 
               <div class="flex flex-col gap-4 p-4">
+                @if (loadingSettings) {
+                  <div class="flex flex-col gap-4" aria-busy="true">
+                    <forge-spinner size="sm" label="Loading your AI settings" class="self-start" />
+                    <forge-skeleton shape="block" class="h-14" />
+                    <forge-skeleton shape="block" class="h-11" />
+                    <forge-skeleton shape="block" class="h-11" />
+                  </div>
+                } @else {
                 <div class="min-w-0">
                   <div
                     class="flex flex-wrap items-center justify-between gap-2"
@@ -212,21 +220,82 @@
                     for="preferred-model"
                     class="mb-2 block text-label font-semibold text-muted"
                   >
-                    Preferred Gemini Model
+                    Preferred AI Model
                   </label>
                   <select
                     forgeSelect
                     id="preferred-model"
                     [(ngModel)]="preferredModel"
                   >
-                    <option value="gemini-2.5-flash">
-                      Gemini 2.5 Flash (Fast)
-                    </option>
-                    <option value="gemini-2.5-pro">
-                      Gemini 2.5 Pro (Deep Reasoning)
-                    </option>
+                    <optgroup label="Google Gemini">
+                      @for (model of geminiModels; track model.id) {
+                        <option [value]="model.id">{{ model.label }}</option>
+                      }
+                    </optgroup>
+                    <optgroup label="Anthropic Claude (your API key)">
+                      @for (model of claudeModels; track model.id) {
+                        <option [value]="model.id">{{ model.label }}</option>
+                      }
+                    </optgroup>
                   </select>
+                  @if (isFreeTierModel) {
+                    <p class="mt-2 text-label text-muted">
+                      Free tier: works with a free Google AI Studio key. Requests
+                      are rate-limited, and module parsing uses this model
+                      instead of Pro.
+                    </p>
+                  }
+                  @if (isClaudeModel) {
+                    <p class="mt-2 text-label text-muted">
+                      Billed to your own Anthropic account. Temperature is not
+                      used by Claude, and module PDFs and session audio still
+                      run on Gemini.
+                    </p>
+                  }
                 </div>
+
+                <div class="min-w-0">
+                  <label
+                    for="anthropic-api-key"
+                    class="mb-2 block text-label font-semibold text-muted"
+                  >
+                    Anthropic API Key
+                  </label>
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      forgeInput
+                      id="anthropic-api-key"
+                      type="password"
+                      autocomplete="off"
+                      spellcheck="false"
+                      class="min-w-0 flex-1"
+                      aria-describedby="anthropic-api-key-hint"
+                      [placeholder]="
+                        hasAnthropicKey
+                          ? 'Saved key ••••' + anthropicKeyHint + ' — type to replace'
+                          : 'sk-ant-...'
+                      "
+                      [(ngModel)]="anthropicKeyInput"
+                    />
+                    @if (hasAnthropicKey) {
+                      <button
+                        forgeButton
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        (click)="clearAnthropicKey()"
+                      >
+                        Remove key
+                      </button>
+                    }
+                  </div>
+                  <p id="anthropic-api-key-hint" class="mt-2 text-label text-muted">
+                    Needed for Claude models. Stored encrypted, only used for
+                    your requests, and never shown again after saving. Create
+                    one at console.anthropic.com.
+                  </p>
+                </div>
+                }
               </div>
             </section>
           </div>
@@ -249,6 +318,8 @@
               variant="primary"
               type="button"
               class="w-full sm:w-auto"
+              [loading]="saving"
+              [disabled]="loadingSettings"
               (click)="saveSettings()"
             >
               💾 Save Preferences

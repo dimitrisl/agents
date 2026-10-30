@@ -74,6 +74,23 @@ describe('AdminComponent', () => {
     expect(component.reports()).toEqual([MOCK_REPORT]);
   });
 
+  it('shows skeleton rows while users load, then the real rows', () => {
+    const fixture = TestBed.createComponent(AdminComponent);
+    fixture.detectChanges(); // ngOnInit -> both lists start loading
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(el.querySelectorAll('tbody forge-skeleton').length).toBeGreaterThan(0);
+    expect(el.querySelector('table')!.getAttribute('aria-busy')).toBe('true');
+
+    http.expectOne((r) => r.url.endsWith('/admin/users')).flush({ users: [MOCK_USER], total: 1 });
+    http.expectOne((r) => r.url.endsWith('/admin/reports')).flush([MOCK_REPORT]);
+    fixture.detectChanges();
+
+    expect(el.querySelectorAll('tbody forge-skeleton').length).toBe(0);
+    expect(el.querySelector('tbody')!.textContent).toContain('testuser');
+    expect(el.querySelector('tbody')!.textContent).toContain('test@example.com');
+  });
+
   it('filters users on search term change', () => {
     component.onSearchChange('hero');
 

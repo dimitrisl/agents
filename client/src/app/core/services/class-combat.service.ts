@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { map, retry } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { CharacterSchema } from '../models/character.model';
 import {
@@ -13,6 +13,7 @@ import {
 
 } from '../data/class-combat.data';
 import { abilityModifier, hitDieSize, proficiencyBonus } from '../rules';
+import { SILENT_HTTP_ERRORS } from '../interceptors/error.interceptor';
 
 
 export type { ClassCombatAction, CombatProfile } from '../data/class-combat.data';
@@ -59,12 +60,7 @@ export class ClassCombatService {
     const defaultCantripTier = ctx.level >= 17 ? 4 : ctx.level >= 11 ? 3 : ctx.level >= 5 ? 2 : 1;
 
     if (!ctx.charClass) {
-        return of({
-            actions: this.universalActions(char, ctx),
-            extraCritDice: 0,
-            critThreshold: 20,
-            cantripTier: defaultCantripTier,
-        });
+      return of(this.fallbackProfile(char));
     }
 
     const edParam = ctx.is2024 ? '2024 Edition' : '2014 Edition';
@@ -77,7 +73,10 @@ export class ClassCombatService {
 
     const url = `${environment.apiBaseUrl}/rules/combat-profile`;
 
-    return this.http.post<any>(url, payload).pipe(
+    // Silent: it retries, and the panel keeps the last profile on failure.
+    const context = new HttpContext().set(SILENT_HTTP_ERRORS, true);
+
+    return this.http.post<any>(url, payload, { context }).pipe(
       map(res => {
         const apiActions = res.actions || [];
         const mappedActions = apiActions.map((a: any) => ({
@@ -93,15 +92,22 @@ export class ClassCombatService {
           cantripTier: res.cantripTier || defaultCantripTier,
         }
       }),
-      catchError(() => {
-        return of({
-          actions: this.universalActions(char, ctx),
-          extraCritDice: 0,
-          critThreshold: 20,
-          cantripTier: defaultCantripTier,
-        });
-      })
+      // One quick retry covers a transient blip or a brief 429. A real failure is
+      // surfaced to the caller, which keeps the profile it already has rather than
+      // silently replacing it with one that has no class actions (no Sneak Attack).
+      retry({ count: 1, delay: 1500 })
     );
+  }
+
+  /** Class-independent actions only (Hit Die, cantrip tier), for when the API can't answer. */
+  fallbackProfile(char: CharacterSchema): CombatProfile {
+    const ctx = this.buildContext(char);
+    return {
+      actions: this.universalActions(char, ctx),
+      extraCritDice: 0,
+      critThreshold: 20,
+      cantripTier: ctx.level >= 17 ? 4 : ctx.level >= 11 ? 3 : ctx.level >= 5 ? 2 : 1,
+    };
   }
 
   /** The riders a damage roll can stack, in the order they should be offered. */

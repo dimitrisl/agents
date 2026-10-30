@@ -48,7 +48,8 @@ export function regainSpellSlot(slots: SpellSlots | undefined, level: number): S
   const slot = next[key];
   if (!slot) return next;
 
-  next[key] = { ...slot, used: Math.max(0, slot.used - 1) };
+  // A negative `used` is a slot made with sorcery points (flexible-casting.ts): restoring stops at 0.
+  next[key] = { ...slot, used: Math.max(Math.min(0, slot.used), slot.used - 1) };
   return next;
 }
 
@@ -72,7 +73,7 @@ export function restorePactSpellSlots(
   const next: SpellSlots = { ...slots };
   const slot = next[key];
   if (slot) {
-    next[key] = { ...slot, used: Math.max(0, slot.used - pactCount) };
+    next[key] = { ...slot, used: Math.max(Math.min(0, slot.used), slot.used - pactCount) };
   }
   return next;
 }

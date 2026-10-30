@@ -43,12 +43,16 @@
         <ng-content select="[brand]"></ng-content>
 
         <button
+          forgeButton
+          variant="secondary"
+          size="md"
+          iconOnly
           type="button"
-          class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-hairline bg-white/5 text-ink transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep lg:hidden"
+          class="lg:hidden"
           aria-label="Close navigation"
           (click)="closeDrawer()"
         >
-          ×
+          <forge-icon name="close" />
         </button>
       </div>
 

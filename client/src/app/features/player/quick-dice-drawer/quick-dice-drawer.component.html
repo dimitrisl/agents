@@ -34,7 +34,7 @@
     </div>
 
     <!-- Active Formula & Live Pool Display -->
-    <div class="flex flex-col items-center justify-center p-3 bg-tile/70 rounded-xl border border-hairline min-h-[70px]">
+    <div class="flex flex-col items-center justify-center p-3 bg-tile/70 rounded-xl border border-hairline min-h-17.5">
       <span class="text-micro font-semibold uppercase text-muted mb-0.5">Dice Formula</span>
       <span class="text-2xl font-mono font-bold text-accent tracking-wide text-center truncate max-w-full">
         {{ diceFormula }}
@@ -47,7 +47,7 @@
         *ngFor="let sides of [4, 6, 8, 10, 12, 20, 100]"
         type="button"
         (click)="addDie(sides)"
-        class="relative h-14 min-h-[50px] rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline transition-all flex flex-col items-center justify-center cursor-pointer group"
+        class="relative h-14 min-h-12.5 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline transition-all flex flex-col items-center justify-center cursor-pointer group"
       >
         <span class="font-display font-extrabold text-lg text-ink">d{{ sides }}</span>
         <span *ngIf="dicePool()[sides] > 0" class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-accent text-surface text-[10px] font-black rounded-full shadow-md animate-scaleIn">
@@ -59,7 +59,7 @@
       <button
         type="button"
         (click)="clearPool()"
-        class="h-14 min-h-[50px] rounded-xl bg-surface hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted uppercase transition-all flex items-center justify-center cursor-pointer"
+        class="h-14 min-h-12.5 rounded-xl bg-surface hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted uppercase transition-all flex items-center justify-center cursor-pointer"
         title="Clear dice pool"
       >
         Clear
@@ -77,7 +77,7 @@
         >
           −
         </button>
-        <span class="font-mono font-bold text-base text-ink min-w-[32px] text-center">
+        <span class="font-mono font-bold text-base text-ink min-w-8 text-center">
           {{ modifier() >= 0 ? '+' + modifier() : modifier() }}
         </span>
         <button

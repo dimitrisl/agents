@@ -16,6 +16,11 @@ import {
   ForgeInputDirective,
   ForgeModalComponent,
   ForgePageComponent,
+  ForgeSelectDirective,
+  ForgeSkeletonComponent,
+  ForgeSpinnerComponent,
+  ForgeTab,
+  ForgeTabsComponent,
 } from '../../shared/ui';
 
 @Component({
@@ -31,6 +36,10 @@ import {
     ForgeInputDirective,
     ForgeModalComponent,
     ForgePageComponent,
+    ForgeSelectDirective,
+    ForgeSkeletonComponent,
+    ForgeSpinnerComponent,
+    ForgeTabsComponent,
   ],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.css',
@@ -56,6 +65,25 @@ export class AdminComponent implements OnInit {
 
   reports = signal<WhisperReport[]>([]);
   isLoadingReports = signal<boolean>(false);
+
+  readonly adminTabs = computed<ForgeTab[]>(() => [
+    { id: 'users', label: `👤 Users (${this.totalUsers()})` },
+    { id: 'reports', label: `🚩 Whisper Reports (${this.reports().length})` },
+  ]);
+
+  readonly reportFilters = [
+    { id: 'all', label: 'All' },
+    { id: 'open', label: 'Open' },
+    { id: 'resolved', label: 'Resolved' },
+    { id: 'dismissed', label: 'Dismissed' },
+  ];
+
+  /** Placeholder rows while a list loads, so the table doesn't jump in. */
+  readonly skeletonRows = [0, 1, 2, 3, 4];
+
+  setTab(id: string): void {
+    this.currentTab.set(id === 'reports' ? 'reports' : 'users');
+  }
 
   // Deletion Modal state
   showDeleteModal = signal<boolean>(false);

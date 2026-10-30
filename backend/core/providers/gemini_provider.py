@@ -8,10 +8,25 @@ from fastapi import HTTPException
 from google import genai
 from pydantic import BaseModel
 
-from backend.core.config_loader import load_config
+from backend.core.config_loader import (
+    DEFAULT_GEMINI_MODEL,
+    get_ai_settings,
+    is_free_tier_model,
+    load_config,
+    provider_for_model,
+)
 from backend.core.providers.llm_provider import LLMProvider
 
 logger = logging.getLogger("DnDAssistant.GeminiProvider")
+
+
+def _raise_for_quota(error_msg: str) -> None:
+    """Free-tier keys hit per-minute/per-day limits; surface them as 429s."""
+    if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+        raise HTTPException(
+            status_code=429,
+            detail="AI quota reached (free tier limit). Please wait a minute and try again.",
+        )
 
 
 class GeminiProvider(LLMProvider):
@@ -28,13 +43,25 @@ class GeminiProvider(LLMProvider):
             self.client = genai.Client(api_key=self.api_key)
 
     def _get_model(self, use_pro: bool = False) -> str:
-        config = load_config()
-        ai_settings = config.get("ai_settings", {})
+        ai_settings = get_ai_settings()
 
-        if use_pro:
+        preferred = ai_settings.get("preferred_model", DEFAULT_GEMINI_MODEL)
+        if provider_for_model(preferred) != "gemini":
+            # User picked a Claude model; Gemini still serves file/audio work.
+            global_model = load_config().get("ai_settings", {}).get("preferred_model")
+            preferred = (
+                global_model
+                if provider_for_model(global_model) == "gemini"
+                else DEFAULT_GEMINI_MODEL
+            )
+
+        if use_pro and not is_free_tier_model(preferred):
             return ai_settings.get("pro_model", "gemini-2.5-pro")
 
-        preferred = ai_settings.get("preferred_model", "gemini-2.5-flash")
+        # Free-tier models are used as-is: the model list lookup below would
+        # spend an extra request of the free quota on every call.
+        if is_free_tier_model(preferred):
+            return preferred
         fallback = ai_settings.get("fallback_model", "gemini-2.5-flash")
 
         try:
@@ -43,6 +70,10 @@ class GeminiProvider(LLMProvider):
 
             model_info = self.client.models.list()
             model_names = [m.name for m in model_info]
+
+            for name in model_names:
+                if name == preferred or name == f"models/{preferred}":
+                    return preferred
 
             for name in model_names:
                 if preferred.lower() in name:
@@ -58,19 +89,20 @@ class GeminiProvider(LLMProvider):
             logger.warning(f"Failed to fetch model list, defaulting to {fallback}. Error: {e}")
             return fallback[7:] if fallback.startswith("models/") else fallback
 
-    @lru_cache(maxsize=100)
     def generate_text(self, prompt: str, temperature: Optional[float] = None) -> str:
         if not self.client:
             raise HTTPException(
                 status_code=500, detail="GEMINI_API_KEY is missing in your .env file."
             )
 
-        try:
-            if temperature is None:
-                config = load_config()
-                temperature = config.get("ai_settings", {}).get("temperature")
+        if temperature is None:
+            temperature = get_ai_settings().get("temperature")
+        # Model is part of the cache key: users can pick different models.
+        return self._generate_text_cached(prompt, self._get_model(), temperature)
 
-            model = self._get_model()
+    @lru_cache(maxsize=100)
+    def _generate_text_cached(self, prompt: str, model: str, temperature: Optional[float]) -> str:
+        try:
             response = self.client.models.generate_content(
                 model=model,
                 contents=prompt,
@@ -86,6 +118,7 @@ class GeminiProvider(LLMProvider):
                     status_code=503,
                     detail="The AI is currently experiencing high demand. Please wait a few seconds and try again.",
                 )
+            _raise_for_quota(error_msg)
             logger.error(f"Failed to generate response: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Failed to generate response: {error_msg}")
 
@@ -101,8 +134,7 @@ class GeminiProvider(LLMProvider):
 
         try:
             if temperature is None:
-                config = load_config()
-                temperature = config.get("ai_settings", {}).get("temperature")
+                temperature = get_ai_settings().get("temperature")
 
             full_prompt = (
                 prompt
@@ -167,6 +199,7 @@ class GeminiProvider(LLMProvider):
             )
             return response.text
         except Exception as e:
+            _raise_for_quota(str(e))
             raise HTTPException(status_code=500, detail=f"Failed to generate from files: {str(e)}")
 
     def upload_file(self, file_path: str) -> str:
@@ -198,8 +231,7 @@ class GeminiProvider(LLMProvider):
 
         try:
             if temperature is None:
-                config = load_config()
-                temperature = config.get("ai_settings", {}).get("temperature")
+                temperature = get_ai_settings().get("temperature")
 
             contents = []
             for file_id in file_ids:

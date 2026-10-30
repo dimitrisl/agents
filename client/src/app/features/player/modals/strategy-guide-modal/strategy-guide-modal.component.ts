@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ForgeButtonDirective, ForgeModalComponent } from '../../../../shared/ui';
+import { ForgeButtonDirective, ForgeMarkdownComponent, ForgeModalComponent } from '../../../../shared/ui';
 
 @Component({
   selector: 'app-strategy-guide-modal',
   standalone: true,
-  imports: [CommonModule, ForgeButtonDirective, ForgeModalComponent],
+  imports: [CommonModule, ForgeButtonDirective, ForgeMarkdownComponent, ForgeModalComponent],
   templateUrl: './strategy-guide-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

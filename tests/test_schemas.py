@@ -265,3 +265,27 @@ def test_spell_list_from_list_of_spells():
     assert "Guidance" in char.spells.cantrips
     assert "Bless" in char.spells.level_1
     assert "Spiritual Weapon" in char.spells.level_2
+
+
+def test_weapon_conditional_effects_survive_validation_and_sync():
+    """Situational bonuses must not be dropped by the schema or stat sync on save."""
+    from backend.core.schemas import Weapon
+
+    weapon = Weapon(
+        name="Rudolf's Shortsword +2",
+        damage_dice="1d6 piercing",
+        conditional_effects=[
+            {"label": "vs Undead", "dice": "1d6", "damage_type": "radiant"},
+            {"label": "vs Humanoid", "damage_bonus": "+2", "attack_bonus": None},
+            {"label": "vs Vampires", "note": "Instant death on a finishing hit", "dice": None},
+        ],
+    )
+    effects = weapon.conditional_effects
+    assert effects[0].dice == "1d6" and effects[0].damage_type == "radiant"
+    assert effects[1].damage_bonus == 2 and effects[1].attack_bonus == 0
+    assert effects[2].dice == "" and effects[2].note.startswith("Instant death")
+
+    from backend.services.stats_service import calculate_weapon_stats
+
+    synced = calculate_weapon_stats(weapon.model_dump(), {"STR": 10, "DEX": 20}, 4)
+    assert synced["conditional_effects"] == weapon.model_dump()["conditional_effects"]

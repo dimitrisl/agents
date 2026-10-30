@@ -55,6 +55,62 @@ describe('CharacterStateService', () => {
     });
   });
 
+  describe('remembering the active hero across a refresh', () => {
+    const FIRST: any = { char_id: 'edrann', char_name: 'Edrann', dnd_edition: '2014 Edition' };
+    const SECOND: any = { char_id: 'kael', char_name: 'Kael Tharion', dnd_edition: '2014 Edition' };
+
+    beforeEach(() => localStorage.removeItem('phyrexian_forge_active_char'));
+    afterEach(() => localStorage.removeItem('phyrexian_forge_active_char'));
+
+    function freshLoad(stored: string | null) {
+      if (stored) localStorage.setItem('phyrexian_forge_active_char', stored);
+      service.activeCharacter.set(null); // what a page refresh starts with
+      service.loadCharacters().subscribe();
+      httpMock.expectOne(`${environment.apiBaseUrl}/characters`).flush({ characters: [FIRST, SECOND] });
+    }
+
+    it('reopens the hero the player had selected, not the first one', () => {
+      freshLoad('kael');
+      expect(service.activeCharacter()?.char_id).toBe('kael');
+    });
+
+    it('falls back to the first hero when the remembered one is gone (deleted, other account)', () => {
+      freshLoad('someone-elses-hero');
+      expect(service.activeCharacter()?.char_id).toBe('edrann');
+    });
+
+    it('remembers a hero as soon as it becomes active', () => {
+      service.activeCharacter.set(SECOND);
+      TestBed.flushEffects();
+      expect(localStorage.getItem('phyrexian_forge_active_char')).toBe('kael');
+    });
+  });
+
+  describe('vaultStatus', () => {
+    it('goes idle -> loading -> loaded, and stays loaded during a background refresh', () => {
+      expect(service.vaultStatus()).toBe('idle');
+      service.loadCharacters().subscribe();
+      expect(service.vaultStatus()).toBe('loading');
+      httpMock.expectOne(`${environment.apiBaseUrl}/characters`).flush({ characters: [] });
+      expect(service.vaultStatus()).toBe('loaded');
+
+      service.loadCharacters().subscribe();
+      expect(service.vaultStatus()).toBe('loaded');
+      httpMock.expectOne(`${environment.apiBaseUrl}/characters`).flush({ characters: [] });
+    });
+
+    it('reports a failed first load as error, not as an empty vault', () => {
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      expect(service.vaultStatus()).toBe('error');
+
+      service.reset();
+      expect(service.vaultStatus()).toBe('idle');
+    });
+  });
+
   describe('ensureLoaded', () => {
     it('should only fetch once if called multiple times', () => {
       service.ensureLoaded().subscribe();

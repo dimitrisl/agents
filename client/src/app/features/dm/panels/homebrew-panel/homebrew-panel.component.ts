@@ -1,6 +1,9 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HomebrewService, HomebrewItem } from '../../../../core/services/homebrew.service';
+import { RollToastService } from '../../../../core/services/roll-toast.service';
+import { isReportedGlobally } from '../../../../core/interceptors/error.interceptor';
+import { ForgeConfirmService } from '../../../../shared/ui';
 import { HomebrewForgeModalComponent } from '../../modals/homebrew-forge-modal/homebrew-forge-modal.component';
 
 @Component({
@@ -14,6 +17,8 @@ export class HomebrewPanelComponent implements OnInit {
   @Input() campaignName: string | null = null;
   @Output() addMonsterToTracker = new EventEmitter<HomebrewItem>();
   homebrewService = inject(HomebrewService);
+  private rollToast = inject(RollToastService);
+  private readonly confirmDialog = inject(ForgeConfirmService);
 
   items$ = this.homebrewService.items$;
   showForgeModal = false;
@@ -24,10 +29,22 @@ export class HomebrewPanelComponent implements OnInit {
     }
   }
 
-  deleteItem(id: string) {
+  async deleteItem(id: string) {
     if (!this.campaignName) return;
-    if (confirm('Are you sure you want to delete this homebrew item?')) {
-      this.homebrewService.deleteHomebrew(this.campaignName, id).subscribe();
+    const confirmed = await this.confirmDialog.ask({
+      title: 'Delete homebrew item?',
+      message: "It will be removed from this campaign's homebrew. This cannot be undone.",
+      confirmLabel: 'Delete item',
+      tone: 'danger',
+    });
+    if (confirmed) {
+      this.homebrewService.deleteHomebrew(this.campaignName, id).subscribe({
+        error: (err) => {
+          if (!isReportedGlobally(err)) {
+            this.rollToast.showMessage('⚠️ DELETE FAILED', err?.error?.detail || 'Could not delete the homebrew item.');
+          }
+        },
+      });
     }
   }
 }

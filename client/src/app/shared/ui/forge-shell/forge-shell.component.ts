@@ -9,6 +9,8 @@ import {
 import { A11yModule } from '@angular/cdk/a11y';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { NgClass } from '@angular/common';
+import { ForgeButtonDirective } from '../forge-button/forge-button.directive';
+import { ForgeIconComponent } from '../forge-icon/forge-icon.component';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -18,7 +20,7 @@ const DESKTOP_QUERY = '(min-width: 1024px)';
 @Component({
   selector: 'forge-shell',
   standalone: true,
-  imports: [A11yModule, NgClass],
+  imports: [A11yModule, NgClass, ForgeButtonDirective, ForgeIconComponent],
   templateUrl: './forge-shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

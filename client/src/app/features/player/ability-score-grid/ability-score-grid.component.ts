@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
+import { isSaveProficient, savingThrowModifier } from '../../../core/rules';
 import { ForgeInputDirective } from '../../../shared/ui';
 
 @Component({
@@ -19,7 +20,13 @@ export class AbilityScoreGridComponent {
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
 
-  trackByStatKey(index: number, entry: { key: string; value: number }): string {
-    return entry.key;
+  isProficient(ability: string): boolean {
+    return isSaveProficient(this.char, ability);
+  }
+
+  /** Same number the Save button rolls: modifier plus proficiency when trained. */
+  saveModifier(ability: string): string {
+    const total = savingThrowModifier(this.char, ability);
+    return total >= 0 ? `+${total}` : `${total}`;
   }
 }

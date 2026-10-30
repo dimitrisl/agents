@@ -173,6 +173,7 @@
                       variant="primary"
                       type="button"
                       class="shrink-0"
+                      [loading]="oracleLoading"
                       (click)="searchOracle()"
                     >
                       Search Oracle
@@ -185,7 +186,20 @@
                 </div>
               </section>
 
-              @if (oracleAnswer) {
+              @if (oracleLoading) {
+                <section
+                  class="flex flex-col gap-3 rounded-xl bg-panel p-4"
+                  aria-busy="true"
+                >
+                  <div class="flex items-center gap-2 text-label text-muted">
+                    <forge-spinner size="sm" label="Consulting the Oracle" />
+                    <span>Consulting the Oracle…</span>
+                  </div>
+                  <forge-skeleton [lines]="4" />
+                </section>
+              }
+
+              @if (oracleAnswer && !oracleLoading) {
                 <section
                   class="overflow-hidden rounded-xl bg-panel"
                   aria-labelledby="rules-oracle-answer"
@@ -203,11 +217,7 @@
                   </header>
 
                   <div class="max-h-[min(34rem,55vh)] overflow-y-auto p-4">
-                    <p
-                      class="max-w-3xl whitespace-pre-wrap text-body leading-relaxed text-ink"
-                    >
-                      {{ oracleAnswer }}
-                    </p>
+                    <forge-markdown class="max-w-3xl" [content]="oracleAnswer" />
                   </div>
                 </section>
               } @else {
@@ -267,6 +277,7 @@
                       variant="primary"
                       type="button"
                       class="shrink-0"
+                      [loading]="compareLoading"
                       (click)="compareEditions()"
                     >
                       Compare Editions
@@ -279,7 +290,20 @@
                 </div>
               </section>
 
-              @if (compareAnswer) {
+              @if (compareLoading) {
+                <section
+                  class="flex flex-col gap-3 rounded-xl bg-panel p-4"
+                  aria-busy="true"
+                >
+                  <div class="flex items-center gap-2 text-label text-muted">
+                    <forge-spinner size="sm" label="Comparing 2014 and 2024 rules" />
+                    <span>Comparing 2014 and 2024 rules…</span>
+                  </div>
+                  <forge-skeleton [lines]="4" />
+                </section>
+              }
+
+              @if (compareAnswer && !compareLoading) {
                 <section
                   class="overflow-hidden rounded-xl bg-panel"
                   aria-labelledby="rules-compare-answer"
@@ -300,11 +324,7 @@
                   </header>
 
                   <div class="max-h-[min(34rem,55vh)] overflow-y-auto p-4">
-                    <p
-                      class="max-w-3xl whitespace-pre-wrap text-body leading-relaxed text-ink"
-                    >
-                      {{ compareAnswer }}
-                    </p>
+                    <forge-markdown class="max-w-3xl" [content]="compareAnswer" />
                   </div>
                 </section>
               } @else {
@@ -367,6 +387,7 @@
                       type="button"
                       class="w-full shrink-0 sm:w-auto"
                       [disabled]="!charState.activeCharacter()"
+                      [loading]="auditLoading"
                       (click)="validateActiveHero()"
                     >
                       🛡️ Run Build Audit
@@ -382,7 +403,20 @@
                 </div>
               </section>
 
-              @if (validationResult) {
+              @if (auditLoading) {
+                <section
+                  class="flex flex-col gap-3 rounded-xl bg-panel p-4"
+                  aria-busy="true"
+                >
+                  <div class="flex items-center gap-2 text-label text-muted">
+                    <forge-spinner size="sm" label="Auditing your build" />
+                    <span>Auditing your build…</span>
+                  </div>
+                  <forge-skeleton [lines]="4" />
+                </section>
+              }
+
+              @if (validationResult && !auditLoading) {
                 <section
                   class="overflow-hidden rounded-xl bg-panel"
                   aria-labelledby="rules-audit-result"

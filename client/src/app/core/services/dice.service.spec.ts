@@ -176,6 +176,20 @@ describe('DiceService', () => {
   });
 
   describe('rollDamage', () => {
+    it('carries saveHalf through to the part result, with the crit doubling its dice', () => {
+      const result = service.rollDamage(
+        [
+          { label: 'Shortsword', notation: '1d6+7' },
+          { label: 'Love Poison', notation: '3d8', saveHalf: { dc: 'DC 16 CON' } },
+        ],
+        { crit: true }
+      );
+      expect(result.parts[0].saveHalf).toBeUndefined();
+      expect(result.parts[1].saveHalf).toEqual({ dc: 'DC 16 CON' });
+      expect(result.parts[1].rolls.length).toBe(6);
+      expect(service.describePartDice(result.parts[1])).toMatch(/^6d8 \(\d(\+\d){5}\)$/);
+    });
+
     it('rolls multiple damage parts', () => {
       jest.spyOn(service, 'rollDie').mockImplementation(sides => sides === 8 ? 5 : 3);
 

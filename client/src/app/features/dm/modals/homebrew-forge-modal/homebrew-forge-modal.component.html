@@ -5,7 +5,17 @@
       <h2 class="text-xl font-bold text-ink flex items-center gap-2">
         <span class="text-accent">🔥</span> AI Homebrew Forge
       </h2>
-      <button class="text-muted hover:text-ink" (click)="closeModal.emit()">✕</button>
+      <button
+        forgeButton
+        variant="ghost"
+        size="md"
+        iconOnly
+        type="button"
+        aria-label="Close AI Homebrew Forge"
+        (click)="closeModal.emit()"
+      >
+        <forge-icon name="close" />
+      </button>
     </div>
 
     <!-- Body -->

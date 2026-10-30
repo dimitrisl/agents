@@ -1,36 +1,71 @@
 <forge-section variant="plain" density="compact" title="📜 Skill Proficiencies & Check Rollers">
-  <label actions class="inline-flex items-center gap-2 text-label font-semibold text-muted">
-    <input
-      type="checkbox"
-      class="h-4 w-4 accent-[var(--theme-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      [(ngModel)]="showProficientOnly"
-    />
-    Show Proficient Only (⭐)
-  </label>
+  <div actions class="flex flex-wrap items-center gap-3">
+    <label class="inline-flex items-center gap-2 text-label font-semibold text-muted">
+      <forge-toggle
+        [checked]="showProficientOnly"
+        (checkedChange)="setProficientOnly($event)"
+        ariaLabel="Show proficient skills only"
+      />
+      Proficient only (⭐)
+    </label>
+    <button
+      forgeButton
+      variant="ghost"
+      size="sm"
+      type="button"
+      [attr.aria-label]="allOpen ? 'Collapse all skill groups' : 'Expand all skill groups'"
+      (click)="toggleAll()"
+    >
+      <forge-icon
+        name="chevron-down"
+        size="sm"
+        class="transition-transform duration-150 motion-reduce:transition-none"
+        [class.rotate-180]="allOpen"
+      />
+      {{ allOpen ? 'Collapse all' : 'Expand all' }}
+    </button>
+  </div>
 
-  <p class="text-body-sm text-muted">
+  <p class="text-label text-muted">
     Click ⭐/⚪ to toggle proficiency, or EXP for expertise. Roll checks with 🎲 Roll.
   </p>
 
   <div class="flex flex-col gap-2">
-    <section *ngFor="let attr of skillAttributes" class="rounded-lg border border-hairline bg-black/20">
-      <button
-        type="button"
-        class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left font-display text-body font-bold text-ink transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-        [attr.aria-expanded]="openGroups[attr]"
-        [attr.aria-controls]="'skills-panel-' + attr"
-        (click)="toggleGroup(attr)"
-      >
-        <span>{{ getAttributeFullName(attr) }} ({{ attr }})</span>
-        <span aria-hidden="true">{{ openGroups[attr] ? '▼' : '►' }}</span>
-      </button>
+    @for (attr of skillAttributes; track attr) {
+      <section class="rounded-xl border border-hairline bg-panel">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+          [attr.aria-expanded]="openGroups[attr]"
+          [attr.aria-controls]="'skills-panel-' + attr"
+          (click)="toggleGroup(attr)"
+        >
+          <span class="font-display text-body font-bold text-ink">{{ getAttributeFullName(attr) }} ({{ attr }})</span>
+          <span class="flex shrink-0 items-center gap-2">
+            <forge-badge
+              [tone]="proficientCount(attr) > 0 ? 'gold' : 'muted'"
+              [attr.aria-label]="proficientCount(attr) + ' of ' + getSkillsByAttribute(attr).length + ' skills proficient'"
+            >
+              {{ proficientCount(attr) }}/{{ getSkillsByAttribute(attr).length }} ⭐
+            </forge-badge>
+            <forge-icon
+              name="chevron-down"
+              size="sm"
+              class="text-muted transition-transform duration-150 motion-reduce:transition-none"
+              [class.-rotate-90]="!openGroups[attr]"
+            />
+          </span>
+        </button>
 
-      <div *ngIf="openGroups[attr]" [id]="'skills-panel-' + attr" class="border-t border-hairline p-3">
-        <div class="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
-          <ng-container *ngFor="let skill of getSkillsByAttribute(attr)">
+        @if (openGroups[attr]) {
+          <div [id]="'skills-panel-' + attr" class="border-t border-hairline p-3">
+            @if (visibleSkills(attr).length === 0) {
+              <p class="px-1 text-label text-muted">No proficient skills in {{ getAttributeFullName(attr) }}.</p>
+            } @else {
+              <div class="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                @for (skill of visibleSkills(attr); track skill.name) {
             <div
-              *ngIf="!showProficientOnly || isProficient(skill.name)"
-              class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-white/[0.03] px-3 py-2 transition-colors hover:border-hairline-bright"
+              class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-tile px-3 py-2 transition-colors hover:border-hairline-hover"
             >
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 min-w-0">
@@ -48,19 +83,20 @@
                     {{ isProficient(skill.name) ? '⭐' : '⚪' }}
                   </button>
                   <strong class="truncate text-body text-ink font-semibold" [title]="skill.name">{{ skill.name }}</strong>
+                  @if (isProficient(skill.name)) {
                   <button
-                    *ngIf="isProficient(skill.name)"
                     type="button"
-                    class="cursor-pointer text-micro font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                    class="text-micro font-bold uppercase px-1.5 py-0.5 rounded transition-all"
                     [ngClass]="{
                       'bg-gold/20 text-gold border border-gold/40 shadow-sm': isExpertise(skill.name),
-                      'bg-white/5 text-muted border border-hairline hover:text-ink hover:border-muted': !isExpertise(skill.name)
+                      'bg-panel text-muted border border-hairline hover:text-ink hover:border-muted': !isExpertise(skill.name)
                     }"
                     (click)="toggleExpertise.emit(skill.name)"
                     [title]="isExpertise(skill.name) ? 'Expertise active (double PB) - click to remove' : 'Click to give Expertise (double PB)'"
                   >
                     {{ isExpertise(skill.name) ? '🌟 EXP' : 'EXP' }}
                   </button>
+                  }
                 </div>
               </div>
 
@@ -71,9 +107,12 @@
                 </button>
               </div>
             </div>
-          </ng-container>
-        </div>
-      </div>
-    </section>
+                }
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
   </div>
 </forge-section>

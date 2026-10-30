@@ -13,11 +13,12 @@ import {
 } from '@angular/core';
 import { Dialog, DialogModule, DialogRef } from '@angular/cdk/dialog';
 import { ForgeButtonDirective } from '../forge-button/forge-button.directive';
+import { ForgeIconComponent } from '../forge-icon/forge-icon.component';
 
 @Component({
   selector: 'forge-modal',
   standalone: true,
-  imports: [DialogModule, ForgeButtonDirective],
+  imports: [DialogModule, ForgeButtonDirective, ForgeIconComponent],
   templateUrl: './forge-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

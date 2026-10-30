@@ -1,9 +1,12 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, computed, effect, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, shareReplay, tap } from 'rxjs';
 import { CharacterSchema } from '../models/character.model';
 import { abilityModifier, proficiencyBonus } from '../rules';
 import { environment } from '../../../environments/environment';
+
+/** The hero the player last had open, restored after a page refresh. */
+const ACTIVE_CHARACTER_KEY = 'phyrexian_forge_active_char';
 
 @Injectable({
   providedIn: 'root',
@@ -50,7 +53,20 @@ export class CharacterStateService {
   private loaded = false;
   private inFlight$: Observable<any> | null = null;
 
+  /**
+   * 'idle' until the first fetch starts. Lets pages tell "still loading" and
+   * "could not load" apart from a genuinely empty vault.
+   */
+  readonly vaultStatus = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+
   constructor(private http: HttpClient) {
+    // Remember whichever hero becomes active, however it got selected
+    // (switcher, import, forge), so a refresh doesn't fall back to the first one.
+    effect(() => {
+      const id = this.activeCharacter()?.char_id;
+      if (id && id !== 'default_paladin') this.storeActiveId(id);
+    });
+
     if (typeof document !== 'undefined' && document.documentElement) {
       document.documentElement.setAttribute(
         'data-edition',
@@ -75,10 +91,13 @@ export class CharacterStateService {
 
   /** Forces a fresh fetch, bypassing the cache. */
   loadCharacters(): Observable<any> {
+    // A background refresh keeps showing the vault we already have.
+    if (this.vaultStatus() !== 'loaded') this.vaultStatus.set('loading');
     return this.http.get<any>(this.API_URL).pipe(
       tap({
         next: (resp) => {
           this.loaded = true;
+          this.vaultStatus.set('loaded');
           this.inFlight$ = null;
           const chars = resp.characters || [];
           this.unreadableCharacters.set(resp.unreadable || []);
@@ -87,14 +106,14 @@ export class CharacterStateService {
           const currentActive = this.activeCharacter();
 
           if (!currentActive) {
-            this.activeCharacter.set(available.length > 0 ? available[0] : null);
+            this.activeCharacter.set(this.preferredActive(available));
           } else {
             const charEd = currentActive.dnd_edition || '2014 Edition';
             const is2024 = this.dndEdition().includes('2024');
             const charIs2024 = charEd.includes('2024');
 
             if (is2024 !== charIs2024) {
-              this.activeCharacter.set(available.length > 0 ? available[0] : null);
+              this.activeCharacter.set(this.preferredActive(available));
             } else {
               const exists = chars?.find((c: any) => c.char_id === currentActive.char_id);
               if (exists) {
@@ -107,6 +126,7 @@ export class CharacterStateService {
         },
         error: () => {
           this.inFlight$ = null;
+          this.vaultStatus.set('error');
           this.characters.set([]);
           this.activeCharacter.set(null);
         }
@@ -114,9 +134,36 @@ export class CharacterStateService {
     );
   }
 
+  /**
+   * The remembered hero if it is in this vault (and edition), else the first one.
+   * Checking against the vault means another account in the same browser never
+   * inherits it.
+   */
+  private preferredActive(available: CharacterSchema[]): CharacterSchema | null {
+    const remembered = this.readActiveId();
+    return available.find((c) => c.char_id === remembered) ?? available[0] ?? null;
+  }
+
+  private readActiveId(): string | null {
+    try {
+      return localStorage.getItem(ACTIVE_CHARACTER_KEY);
+    } catch {
+      return null; // storage blocked (private mode, policies): just pick the first hero
+    }
+  }
+
+  private storeActiveId(id: string): void {
+    try {
+      localStorage.setItem(ACTIVE_CHARACTER_KEY, id);
+    } catch {
+      // Not remembering the hero is harmless.
+    }
+  }
+
   /** Clears every cached signal so the next consumer refetches (used on logout). */
   reset(): void {
     this.loaded = false;
+    this.vaultStatus.set('idle');
     this.inFlight$ = null;
     this.characters.set([]);
     this.activeCharacter.set(null);

@@ -39,15 +39,19 @@
   </div>
 
   @if (error) {
-    <div class="mb-4 text-body text-crimson">{{ error }}</div>
+    <div class="mb-4 text-body text-crimson" role="alert">{{ error }}</div>
   }
 
   <div class="mt-6 flex flex-col gap-3">
-    <button forgeButton variant="primary" size="md" fullWidth (click)="submitAuth.emit()">
-      {{ isRegister ? 'Create Account' : 'Enter Forge' }}
+    <button forgeButton variant="primary" size="md" fullWidth [loading]="submitting" (click)="submitAuth.emit()">
+      @if (submitting) {
+        {{ isRegister ? 'Creating account…' : 'Entering the Forge…' }}
+      } @else {
+        {{ isRegister ? 'Create Account' : 'Enter Forge' }}
+      }
     </button>
 
-    <button forgeButton variant="secondary" size="md" fullWidth (click)="toggleMode.emit()">
+    <button forgeButton variant="secondary" size="md" fullWidth [disabled]="submitting" (click)="toggleMode.emit()">
       {{ isRegister ? 'Already registered? Login' : 'New Hero? Register' }}
     </button>
   </div>

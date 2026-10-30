@@ -3,7 +3,7 @@
 
   <div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-hairline bg-tile p-4">
     <span class="text-body-sm font-semibold uppercase text-muted">Class to Level Up:</span>
-    <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-[200px]">
+    <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-50">
       <optgroup label="Current Classes">
         <option *ngFor="let cls of characterClasses" [value]="cls.class_name">{{ cls.class_name }} (Current: {{ cls.level }})</option>
       </optgroup>
@@ -27,7 +27,8 @@
         forgeButton
         variant="secondary"
         type="button"
-        class="!py-1.5 !px-3 text-xs shrink-0"
+        size="sm"
+        class="shrink-0"
         [disabled]="isLoadingRecommendations"
         (click)="toggleRecommendations()">
         <span *ngIf="!showRecommendations">✨ View 3 Build Suggestions</span>
@@ -62,7 +63,7 @@
     <!-- Error State -->
     <div *ngIf="showRecommendations && !isLoadingRecommendations && recommendationsError" class="mt-4 rounded border border-rose-500/30 bg-rose-500/10 p-3 text-center">
       <p class="text-body-sm text-rose-300">{{ recommendationsError }}</p>
-      <button forgeButton variant="secondary" type="button" class="mt-2 !py-1 !px-2 text-xs" (click)="fetchRecommendations()">
+      <button forgeButton variant="secondary" size="sm" type="button" class="mt-2" (click)="fetchRecommendations()">
         🔄 Retry
       </button>
     </div>
@@ -165,7 +166,7 @@
           forgeButton
           variant="secondary"
           type="button"
-          class="!py-1 !px-3"
+          size="sm"
           [class.ring-2]="userChoices['hp_method'] === 'average' || !userChoices['hp_method']"
           [class.ring-emerald]="userChoices['hp_method'] === 'average' || !userChoices['hp_method']"
           [disabled]="userChoices['hp_method'] === 'roll'"
@@ -176,7 +177,7 @@
           forgeButton
           variant="secondary"
           type="button"
-          class="!py-1 !px-3"
+          size="sm"
           [class.ring-2]="userChoices['hp_method'] === 'roll'"
           [class.ring-emerald]="userChoices['hp_method'] === 'roll'"
           [disabled]="userChoices['hp_method'] === 'roll'"

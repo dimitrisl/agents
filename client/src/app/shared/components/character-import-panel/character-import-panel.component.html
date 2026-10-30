@@ -1,0 +1,103 @@
+<div class="flex flex-col gap-4">
+  <forge-tabs
+    class="block min-w-0"
+    instanceId="character-import-tabs"
+    variant="underline"
+    [tabs]="tabs"
+    [activeId]="source"
+    [mobileColumns]="3"
+    (activeIdChange)="setSource($event)"
+  ></forge-tabs>
+
+  <p class="text-label text-muted">
+    The import is saved as a <strong class="text-ink">new hero</strong>. Heroes already in your vault are never
+    changed.
+  </p>
+
+  @switch (source) {
+    @case ('pdf') {
+      <div class="flex flex-col gap-3" role="tabpanel">
+        <p class="text-body text-muted">
+          Upload an official or community 5e fillable character sheet PDF (up to 10MB, max 10 pages).
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <input #pdfFile type="file" accept=".pdf,application/pdf" class="hidden" (change)="onFile($event, 'pdf')" />
+          <button forgeButton variant="primary" type="button" [loading]="busy" (click)="pdfFile.click()">
+            {{ busy ? 'Importing PDF…' : 'Select PDF file' }}
+          </button>
+          @if (busy) {
+            <span class="text-label text-muted">Reading the sheet: stats, weapons, equipment, spells…</span>
+          }
+        </div>
+      </div>
+    }
+    @case ('dndbeyond') {
+      <div class="flex flex-col gap-3" role="tabpanel">
+        <p class="text-body text-muted">
+          Paste a public D&amp;D Beyond character link (e.g.
+          <code class="text-label text-accent">https://www.dndbeyond.com/characters/12345678</code>) or its numeric ID.
+        </p>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <input
+            forgeInput
+            type="url"
+            class="flex-1"
+            placeholder="https://www.dndbeyond.com/characters/..."
+            aria-label="D&D Beyond character link or ID"
+            [(ngModel)]="dndBeyondUrl"
+            [disabled]="busy"
+            (keyup.enter)="submitDndBeyond()"
+          />
+          <button
+            forgeButton
+            variant="primary"
+            type="button"
+            [disabled]="!dndBeyondUrl.trim()"
+            [loading]="busy"
+            (click)="submitDndBeyond()"
+          >
+            {{ busy ? 'Fetching…' : 'Import' }}
+          </button>
+        </div>
+      </div>
+    }
+    @case ('foundry') {
+      <div class="flex flex-col gap-3" role="tabpanel">
+        <p class="text-body text-muted">
+          Upload a Foundry VTT actor export (<code class="text-label text-accent">fvtt-Actor-*.json</code>, max 5MB).
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <input #foundryFile type="file" accept=".json,application/json" class="hidden" (change)="onFile($event, 'foundry')" />
+          <button forgeButton variant="primary" type="button" [loading]="busy" (click)="foundryFile.click()">
+            {{ busy ? 'Importing JSON…' : 'Select Foundry JSON' }}
+          </button>
+          @if (busy) {
+            <span class="text-label text-muted">Parsing the dnd5e actor…</span>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  @if (error) {
+    <div class="rounded-lg border border-red/40 bg-red/10 p-3 text-label text-red" role="alert">
+      ⚠️ {{ error }}
+    </div>
+  }
+
+  @if (warnings.length > 0) {
+    <div class="flex flex-col gap-2 rounded-lg border border-gold/30 bg-gold/10 p-3" role="status">
+      <span class="text-label font-bold text-gold">⚠️ Imported, with a few things to check:</span>
+      <ul class="list-inside list-disc space-y-0.5 text-label text-muted">
+        @for (warning of warnings; track $index) {
+          <li>{{ warning }}</li>
+        }
+      </ul>
+      <div class="flex justify-end">
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="warningsAcknowledged.emit()">
+          {{ warningsActionLabel }}
+        </button>
+      </div>
+    </div>
+  }
+</div>

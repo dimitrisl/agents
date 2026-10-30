@@ -47,16 +47,41 @@
           <div class="min-w-0">
             <h4 class="font-display font-semibold text-body text-ink truncate">{{ res.name }}</h4>
             <span class="text-micro text-muted uppercase">Recharge: {{ res.recharge }} rest</span>
+            <span
+              *ngIf="res.auto"
+              class="block text-micro text-muted"
+              [title]="'Max follows your class level' + (res.bonus ? ' · adjusted by ' + res.bonus + ', kept on level up' : '')"
+            >
+              ⚙ From class level<ng-container *ngIf="res.bonus"> · {{ res.max - res.bonus }} {{ res.bonus > 0 ? '+' : '−' }} {{ res.bonus > 0 ? res.bonus : -res.bonus }} {{ res.bonus > 0 ? 'bonus' : 'adj.' }}</ng-container>
+            </span>
           </div>
+          <div class="flex shrink-0 items-center gap-1">
           <button
-            *ngIf="editMode"
+            forgeButton
+            variant="ghost"
+            size="sm"
+            iconOnly
             type="button"
-            class="text-crimson hover:text-crimson/80 text-xs px-1 cursor-pointer"
-            (click)="deleteResource(rIndex, $event)"
-            title="Delete resource"
+            [attr.aria-label]="'Edit ' + res.name"
+            title="Edit pool"
+            (click)="openEditResource(rIndex, $event)"
           >
-            ✕
+            <forge-icon name="pencil" size="sm" />
           </button>
+          <button
+            *ngIf="editMode && !res.auto"
+            forgeButton
+            variant="danger"
+            size="sm"
+            iconOnly
+            type="button"
+            [attr.aria-label]="'Delete ' + res.name"
+            title="Delete resource"
+            (click)="deleteResource(rIndex, $event)"
+          >
+            <forge-icon name="close" size="sm" />
+          </button>
+          </div>
         </div>
 
         <div class="flex items-center justify-between gap-3">
@@ -96,7 +121,7 @@
 
     <ng-template #noResources>
       <div class="p-3 bg-panel rounded-xl text-center text-xs text-muted">
-        No custom class pools tracked yet (e.g. Rage, Ki, Sorcery Points, Bardic Inspiration). Tap "+ Add Pool" above to create one.
+        No class pools yet. Class pools (Rage, Ki, Sorcery Points, Bardic Inspiration…) appear here on their own as your class gains them; tap "+ Add Pool" for anything else (feats, items, homebrew).
       </div>
     </ng-template>
   </section>
@@ -105,38 +130,66 @@
   <forge-modal
     [open]="showAddResourceModal()"
     (closed)="closeAddResourceModal()"
-    title="⚡ Add Class Resource Pool"
-    maxWidth="360px"
+    [title]="editingResource ? '⚡ Edit ' + editingResource.name : '⚡ Add Class Resource Pool'"
+    maxWidth="380px"
   >
     <div class="flex flex-col gap-4 p-2">
-      <div>
-        <label class="block text-micro font-semibold uppercase text-muted mb-1">Resource Name</label>
-        <input
-          forgeInput
-          type="text"
-          class="w-full"
-          [(ngModel)]="newResourceName"
-          placeholder="e.g. Rage, Ki Points, Bardic Inspiration"
-        />
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
+      @if (editingResource?.auto) {
+        <p class="rounded-lg border border-hairline bg-tile px-3 py-2 text-micro text-muted">
+          ⚙ Max and recharge follow your class level ({{ resourceRulesMax }} from the rules). Use the adjustment
+          for items, feats or house rules; it is kept on every level up.
+        </p>
+      } @else {
         <div>
-          <label class="block text-micro font-semibold uppercase text-muted mb-1">Max Charges</label>
+          <label class="block text-micro font-semibold uppercase text-muted mb-1" for="resource-name">Resource Name</label>
           <input
+            id="resource-name"
             forgeInput
-            type="number"
+            type="text"
             class="w-full"
-            min="1"
-            max="100"
-            [(ngModel)]="newResourceMax"
+            [(ngModel)]="newResourceName"
+            placeholder="e.g. Luck Points, Superiority Dice"
           />
         </div>
+      }
+
+      <div class="grid grid-cols-2 gap-3">
+        @if (editingResource?.auto) {
+          <div>
+            <label class="block text-micro font-semibold uppercase text-muted mb-1" for="resource-adjust">Adjustment (+/−)</label>
+            <input
+              id="resource-adjust"
+              forgeInput
+              type="number"
+              class="w-full"
+              [min]="1 - resourceRulesMax"
+              max="100"
+              [(ngModel)]="newResourceBonus"
+            />
+            <p class="mt-1 text-micro text-muted">Max {{ resourceEditedMax }}</p>
+          </div>
+        } @else {
+          <div>
+            <label class="block text-micro font-semibold uppercase text-muted mb-1" for="resource-max">Max Charges</label>
+            <input
+              id="resource-max"
+              forgeInput
+              type="number"
+              class="w-full"
+              min="1"
+              max="100"
+              [(ngModel)]="newResourceMax"
+            />
+          </div>
+        }
         <div>
-          <label class="block text-micro font-semibold uppercase text-muted mb-1">Recharge On</label>
+          <label class="block text-micro font-semibold uppercase text-muted mb-1" for="resource-recharge">Recharge On</label>
           <select
+            id="resource-recharge"
+            forgeSelect
             [(ngModel)]="newResourceRecharge"
-            class="w-full bg-surface border border-hairline rounded-lg px-2 py-2 text-body-sm font-semibold text-ink"
+            [disabled]="!!editingResource?.auto"
+            class="w-full"
           >
             <option value="short">Short Rest</option>
             <option value="long">Long Rest</option>
@@ -144,9 +197,33 @@
         </div>
       </div>
 
+      @if (editingResource) {
+        <div>
+          <label class="block text-micro font-semibold uppercase text-muted mb-1" for="resource-current">Current</label>
+          <input
+            id="resource-current"
+            forgeInput
+            type="number"
+            class="w-full"
+            min="0"
+            [max]="resourceEditedMax"
+            [(ngModel)]="newResourceCurrent"
+          />
+        </div>
+      }
+
       <div class="flex justify-end gap-2 pt-2 border-t border-hairline">
         <button forgeButton variant="ghost" size="sm" type="button" (click)="closeAddResourceModal()">Cancel</button>
-        <button forgeButton variant="primary" size="sm" type="button" (click)="confirmAddResource()" [disabled]="!newResourceName.trim()">Save Pool</button>
+        <button
+          forgeButton
+          variant="primary"
+          size="sm"
+          type="button"
+          (click)="confirmAddResource()"
+          [disabled]="!editingResource?.auto && !newResourceName.trim()"
+        >
+          Save Pool
+        </button>
       </div>
     </div>
   </forge-modal>
@@ -163,7 +240,14 @@
         *ngFor="let level of activeSpellLevels; trackBy: trackByLevel"
         class="rounded-xl bg-tile p-3"
       >
-        <p class="text-micro font-semibold uppercase text-muted">Level {{ level }}</p>
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-micro font-semibold uppercase text-muted">Level {{ level }}</p>
+          <span
+            *ngIf="createdSlotCount(level) > 0"
+            class="text-micro font-semibold text-accent"
+            title="Made with sorcery points — vanishes on a long rest"
+          >+{{ createdSlotCount(level) }} created</span>
+        </div>
 
         <div class="mt-2 flex items-center justify-between gap-2">
           <button
@@ -191,7 +275,7 @@
             size="sm"
             iconOnly
             type="button"
-            [disabled]="getSpellSlotUsed(level) === 0"
+            [disabled]="getSpellSlotUsed(level) <= 0"
             [attr.aria-label]="'Restore a level ' + level + ' spell slot'"
             (click)="restoreSpellSlot.emit(level)"
           >
@@ -213,6 +297,132 @@
           ></div>
         </div>
       </article>
+    </div>
+
+    <!-- FLEXIBLE CASTING (Sorcerer, Font of Magic) -->
+    <div *ngIf="sorceryPool as pool" class="rounded-xl border border-hairline bg-tile p-3 flex flex-col gap-3">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h4 class="font-display font-semibold text-body text-ink">✨ Font of Magic</h4>
+        <span class="text-micro text-muted">
+          Sorcery Points <span class="font-bold text-ink">{{ pool.current }} / {{ pool.max }}</span>
+        </span>
+      </div>
+
+      <div class="flex flex-col gap-1.5" *ngIf="creatableLevels.length > 0">
+        <p class="text-micro font-semibold uppercase text-muted">Create a slot (bonus action)</p>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            *ngFor="let lvl of creatableLevels"
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [disabled]="!canCreate(lvl)"
+            [title]="'Spend ' + slotCost(lvl) + ' sorcery points for a level ' + lvl + ' slot (vanishes on a long rest)'"
+            (click)="flexibleCasting.emit({ direction: 'create', level: lvl })"
+          >
+            Lv {{ lvl }} · {{ slotCost(lvl) }} SP
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <p class="text-micro font-semibold uppercase text-muted">Turn a slot into points</p>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            *ngFor="let lvl of activeSpellLevels"
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [disabled]="!pointsFrom(lvl)"
+            [title]="pointsFrom(lvl) ? 'Expend a level ' + lvl + ' slot for ' + pointsFrom(lvl) + ' sorcery points' : (slotsRemaining(lvl) <= 0 ? 'No level ' + lvl + ' slot left' : 'Sorcery points are full')"
+            (click)="flexibleCasting.emit({ direction: 'points', level: lvl })"
+          >
+            Lv {{ lvl }} → +{{ pointsFrom(lvl) || lvl }} SP
+          </button>
+        </div>
+      </div>
+
+      <!-- METAMAGIC -->
+      <div class="flex flex-col gap-1.5 border-t border-hairline pt-3" *ngIf="metamagicLimit > 0 || knownMetamagicOptions.length > 0">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-micro font-semibold uppercase text-muted">
+            Metamagic · {{ knownMetamagicOptions.length }} / {{ metamagicLimit }} known
+          </p>
+          <button
+            *ngIf="editMode"
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            [attr.aria-expanded]="choosingMetamagic()"
+            (click)="choosingMetamagic.set(!choosingMetamagic())"
+          >
+            {{ choosingMetamagic() ? 'Done' : 'Choose options' }}
+          </button>
+        </div>
+
+        <!-- Picking the known options (edit mode) -->
+        <div *ngIf="editMode && choosingMetamagic()" class="flex flex-wrap gap-1.5">
+          <button
+            *ngFor="let option of metamagicOptionList"
+            forgeButton
+            [variant]="isMetamagicKnown(option) ? 'primary' : 'secondary'"
+            size="sm"
+            type="button"
+            [attr.aria-pressed]="isMetamagicKnown(option)"
+            [disabled]="!isMetamagicKnown(option) && knownMetamagicOptions.length >= metamagicLimit"
+            [title]="option.summary"
+            (click)="toggleMetamagic(option)"
+          >
+            {{ option.name }}
+          </button>
+        </div>
+
+        <ul *ngIf="knownMetamagicOptions.length > 0; else noMetamagic" class="flex flex-col gap-2">
+          <li *ngFor="let option of knownMetamagicOptions" class="flex flex-col gap-1.5">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-body font-semibold text-ink">{{ option.name }}</p>
+                <p class="text-micro text-muted">{{ option.summary }}</p>
+              </div>
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                class="shrink-0"
+                [disabled]="pool.current < metamagicMinCost(option)"
+                [attr.aria-expanded]="option.costBySpellLevel ? twinPicking() === option.id : null"
+                (click)="useMetamagic(option)"
+              >
+                {{ option.costBySpellLevel ? 'Lv SP' : option.cost + ' SP' }}
+              </button>
+            </div>
+            <!-- 2014 Twinned: the cost is the spell's level -->
+            <div *ngIf="twinPicking() === option.id" class="flex flex-wrap items-center gap-1.5 pl-2">
+              <span class="text-micro text-muted">Spell level:</span>
+              <button
+                *ngFor="let lvl of twinLevels"
+                forgeButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                [disabled]="pool.current < twinCost(option, lvl)"
+                (click)="useMetamagic(option, lvl)"
+              >
+                {{ lvl === 0 ? 'Cantrip' : 'Lv ' + lvl }} · {{ twinCost(option, lvl) }}
+              </button>
+            </div>
+          </li>
+        </ul>
+        <ng-template #noMetamagic>
+          <p class="text-micro text-muted">
+            {{ editMode ? 'Tap "Choose options" to pick the Metamagic options this Sorcerer knows.' : 'No Metamagic options on the sheet yet. Turn on Edit to pick them.' }}
+          </p>
+        </ng-template>
+      </div>
     </div>
 
     <ng-template #noSpellSlots>
@@ -295,69 +505,148 @@
         <div class="flex flex-col gap-1.5">
           <div *ngFor="let spell of group.spells; let idx = index" class="rounded-xl overflow-hidden flex items-center bg-panel border border-hairline/60 hover:border-accent/40 transition-colors p-1">
             <div class="flex-1 min-w-0">
-              <forge-list-row [title]="spell" (onClick)="selectedSpell.set(spell)">
+              <forge-list-row [title]="spell" actionLabel="Details" (onClick)="selectedSpell.set(spell)">
                 <ng-container trailing>
                   <forge-badge *ngIf="isPrepared(spell)" tone="accent" size="sm">Prepared</forge-badge>
                 </ng-container>
               </forge-list-row>
             </div>
 
-            <!-- 1-Tap Cast Button (#173) -->
-            <button
-              type="button"
-              (click)="initiateCast(spell, group.level, $event)"
-              class="mr-2 px-3 py-1.5 rounded-lg bg-accent/15 hover:bg-accent/25 active:scale-95 border border-accent/30 text-accent font-bold text-xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
-              title="Cast spell and expend slot"
-            >
-              <span>✨ Cast</span>
-            </button>
+            <!-- Cast: one click spends the lowest open slot and rolls; ▾ picks the slot level (#173) -->
+            <div class="mr-1 flex shrink-0 items-center" role="group" [attr.aria-label]="'Cast ' + spell">
+              <button
+                forgeButton
+                variant="secondary"
+                tone="accent"
+                size="sm"
+                type="button"
+                [attach]="group.level > 0 ? 'start' : undefined"
+                [title]="group.level === 0 ? 'Cast cantrip and roll' : 'Cast with your lowest open slot and roll'"
+                (click)="castNow(spell, group.level, $event)"
+              >
+                ✨ Cast
+                @if (castPreview(spell, lowestOpenSlot(group.level) ?? group.level); as dice) {
+                  <span class="font-normal tabular-nums opacity-80">{{ dice }}</span>
+                }
+              </button>
+              @if (group.level > 0) {
+                <button
+                  forgeButton
+                  variant="secondary"
+                  tone="accent"
+                  size="sm"
+                  attach="end"
+                  type="button"
+                  [attr.aria-label]="'Choose the slot level for ' + spell"
+                  title="Upcast or cast as a ritual"
+                  (click)="openCastOptions(spell, group.level, $event)"
+                >
+                  <forge-icon name="chevron-down" size="sm" />
+                </button>
+              }
+            </div>
 
-            <button *ngIf="editMode" type="button" class="p-2 text-crimson hover:text-crimson/80" (click)="deleteSpell(group.label, idx, $event)" title="Delete spell">✕</button>
+            <button *ngIf="editMode" forgeButton variant="danger" size="sm" iconOnly type="button" class="mr-1" [attr.aria-label]="'Delete ' + spell" title="Delete spell" (click)="deleteSpell(group.label, idx, $event)"><forge-icon name="close" size="sm" /></button>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- UPCAST / CAST LEVEL SELECTOR MODAL (#173) -->
+  <!-- CAST LEVEL PICKER (#173): only opened from the ▾ next to Cast -->
   <forge-modal
     [open]="!!upcastTarget()"
     (closed)="closeUpcast()"
-    [title]="'✨ Cast: ' + (upcastTarget()?.spellName || 'Spell')"
-    maxWidth="380px"
+    [title]="'✨ Cast ' + (upcastTarget()?.spellName || 'spell')"
+    maxWidth="420px"
   >
-    <div class="flex flex-col gap-4 p-2" *ngIf="upcastTarget() as target">
-      <p class="text-xs text-muted">
-        Select which available spell slot level to expend to cast <strong>{{ target.spellName }}</strong> (Base Level {{ target.baseLevel }}):
-      </p>
+    @if (upcastTarget(); as target) {
+      <div class="flex flex-col gap-3">
+        <p class="text-label text-muted">
+          Choose the slot to spend. Higher slots roll more dice. Base level {{ target.baseLevel }}.
+        </p>
 
-      <div class="grid grid-cols-2 gap-2">
-        <button
-          *ngFor="let lvl of getAvailableUpcastLevels(target.baseLevel)"
-          type="button"
-          (click)="confirmUpcast(lvl)"
-          class="p-3 rounded-xl border border-hairline bg-tile hover:bg-tile/80 active:scale-95 transition-all flex flex-col items-center justify-center cursor-pointer"
-        >
-          <span class="font-display font-bold text-sm text-ink">
-            {{ lvl === target.baseLevel ? 'Level ' + lvl : 'Upcast Lv ' + lvl }}
-          </span>
-          <span class="text-[10px] text-accent font-bold mt-0.5">
-            {{ slotsRemaining(lvl) }} slot{{ slotsRemaining(lvl) > 1 ? 's' : '' }} left
-          </span>
-        </button>
-      </div>
+        @if (sorceryPool && knownMetamagicOptions.length > 0) {
+          <div class="flex flex-col gap-1.5 rounded-xl border border-hairline bg-tile p-3">
+            <div class="flex items-baseline justify-between gap-2">
+              <p class="text-micro font-semibold uppercase text-muted">Metamagic</p>
+              <span class="text-micro text-muted">
+                Sorcery Points <span class="font-bold text-ink">{{ sorceryPool.current }}</span>
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              @for (option of knownMetamagicOptions; track option.id) {
+                <button
+                  forgeButton
+                  [variant]="isCastMetamagic(option) ? 'primary' : 'secondary'"
+                  size="sm"
+                  type="button"
+                  [attr.aria-pressed]="isCastMetamagic(option)"
+                  [disabled]="!isCastMetamagic(option) && !canAddCastMetamagic(option, target.baseLevel)"
+                  [title]="option.summary"
+                  (click)="toggleCastMetamagic(option)"
+                >
+                  {{ option.name.replace(' Spell', '') }} · {{ option.costBySpellLevel ? 'Lv' : option.cost }}
+                </button>
+              }
+            </div>
+          </div>
+        }
 
-      <div class="pt-2 border-t border-hairline flex items-center justify-between">
-        <button
-          type="button"
-          (click)="confirmUpcast(target.baseLevel, true)"
-          class="text-xs text-gold hover:underline font-bold py-1 cursor-pointer flex items-center gap-1"
-        >
-          <span>🕯️ Cast as Ritual (No Slot)</span>
-        </button>
-        <button forgeButton variant="ghost" size="sm" type="button" (click)="closeUpcast()">Cancel</button>
+        @if (getAvailableUpcastLevels(target.baseLevel).length === 0) {
+          <p class="rounded-lg border border-hairline bg-tile px-3 py-2 text-label text-muted">
+            No spell slots of level {{ target.baseLevel }} or higher left.
+          </p>
+        }
+
+        <ul class="flex flex-col divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
+          @for (lvl of getAvailableUpcastLevels(target.baseLevel); track lvl) {
+            <li>
+              <button
+                type="button"
+                class="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+                [disabled]="!canPayCastMetamagic(lvl)"
+                (click)="confirmUpcast(lvl)"
+              >
+                <span class="min-w-0 flex-1">
+                  <span class="block font-semibold text-ink">
+                    Level {{ lvl }}
+                    @if (lvl > target.baseLevel) {
+                      <span class="ml-1 text-micro font-semibold uppercase text-accent">Upcast +{{ lvl - target.baseLevel }}</span>
+                    }
+                  </span>
+                  <span class="block text-micro text-muted">
+                    {{ slotsRemaining(lvl) }} of {{ getSpellSlotMax(lvl) }} slot{{ getSpellSlotMax(lvl) > 1 ? 's' : '' }} left
+                    @if (castMetamagicCost(lvl) > 0) {
+                      · <span class="font-semibold text-accent">−{{ castMetamagicCost(lvl) }} SP</span>
+                    }
+                  </span>
+                </span>
+                @if (castPreview(target.spellName, lvl); as dice) {
+                  <span class="rounded-md bg-tile px-2 py-1 text-label font-bold tabular-nums text-ink">{{ dice }}</span>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+
+        <div class="flex items-center justify-between border-t border-hairline pt-3">
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            class="text-gold"
+            title="Rituals take 10 minutes longer and spend no slot (only spells with the ritual tag)"
+            [disabled]="!canPayCastMetamagic(target.baseLevel)"
+            (click)="confirmUpcast(target.baseLevel, true)"
+          >
+            🕯️ Cast as ritual (no slot)
+          </button>
+          <button forgeButton variant="ghost" size="sm" type="button" (click)="closeUpcast()">Cancel</button>
+        </div>
       </div>
-    </div>
+    }
   </forge-modal>
 
   <!-- Spell Detail Modal -->
@@ -370,106 +659,135 @@
 
   <!-- FEATURES SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="features-heading">
-    <div class="flex items-center justify-between gap-3">
-      <button
-        type="button"
-        class="flex items-center gap-2 font-display text-title text-ink cursor-pointer bg-transparent border-none p-0 text-left hover:text-accent transition-colors"
-        (click)="toggleFeaturesSection()"
-      >
-        <span class="text-xs transition-transform duration-200 inline-block" [class.rotate-90]="!featuresSectionCollapsed()">▶</span>
-        <h3 id="features-heading">Class Features &amp; Racial Traits</h3>
-        <span class="text-xs font-mono text-muted">({{ features.length }})</span>
-      </button>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 id="features-heading" class="min-w-0">
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-md text-left font-display text-title text-ink transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          [attr.aria-expanded]="!featuresSectionCollapsed()"
+          aria-controls="features-list"
+          (click)="toggleFeaturesSection()"
+        >
+          <forge-icon
+            name="chevron-down"
+            size="sm"
+            class="text-muted transition-transform duration-150 motion-reduce:transition-none"
+            [class.-rotate-90]="featuresSectionCollapsed()"
+          />
+          Class Features &amp; Racial Traits
+          <forge-badge tone="muted">{{ features.length }}</forge-badge>
+        </button>
+      </h3>
 
       <div class="flex items-center gap-2">
-        <button
-          *ngIf="editMode"
-          forgeButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="addFeature()"
-        >
-          + Add
-        </button>
-        <button
-          *ngIf="features.length > 0 && !featuresSectionCollapsed()"
-          forgeButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          (click)="toggleAllFeatures()"
-        >
-          {{ allFeaturesExpanded ? 'Collapse all' : 'Expand all' }}
-        </button>
+        @if (editMode) {
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="addFeature()">+ Add</button>
+        }
+        @if (features.length > 0 && !featuresSectionCollapsed()) {
+          <button forgeButton variant="ghost" size="sm" type="button" (click)="toggleAllFeatures()">
+            <forge-icon
+              name="chevron-down"
+              size="sm"
+              class="transition-transform duration-150 motion-reduce:transition-none"
+              [class.rotate-180]="allFeaturesExpanded"
+            />
+            {{ allFeaturesExpanded ? 'Collapse all' : 'Expand all' }}
+          </button>
+        }
       </div>
     </div>
 
-    <div *ngIf="!featuresSectionCollapsed()">
-      <div *ngIf="editMode && addingFeature()" class="flex items-center gap-2 mb-3">
-        <input
-          forgeInput
-          type="text"
-          class="flex-1"
-          [(ngModel)]="newFeatureName"
-          placeholder="Enter feature or trait name..."
-          (keyup.enter)="confirmAddFeature()"
-        />
-        <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddFeature()">Add</button>
-        <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddFeature()">Cancel</button>
-      </div>
-
-      <div
-        *ngIf="features.length > 0; else noFeatures"
-        class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
-      >
-        <div *ngFor="let feature of features; let index = index">
-          <div class="flex">
-            <button
-              type="button"
-              class="flex-1 grid min-h-12 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
-              [attr.aria-expanded]="isFeatureExpanded(index)"
-              [attr.aria-controls]="'feature-body-' + index"
-              (click)="toggleFeature(index)"
-            >
-              <span class="min-w-0 font-display text-body text-ink">{{ feature.name }}</span>
-
-              <forge-badge *ngIf="feature.source" tone="muted">{{ feature.source }}</forge-badge>
-
-              <svg
-                class="h-4 w-4 shrink-0 text-muted transition-transform duration-150"
-                [class.rotate-180]="isFeatureExpanded(index)"
-                viewBox="0 0 20 20"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M5 7.5L10 12.5L15 7.5"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-            <button *ngIf="editMode" type="button" class="px-4 text-crimson hover:text-crimson/80" (click)="deleteFeature(index, $event)" title="Delete feature">✕</button>
+    @if (!featuresSectionCollapsed()) {
+      <div id="features-list" class="flex flex-col gap-3">
+        @if (editMode && addingFeature()) {
+          <div class="flex items-center gap-2">
+            <input
+              forgeInput
+              type="text"
+              class="flex-1"
+              [(ngModel)]="newFeatureName"
+              placeholder="Enter feature or trait name..."
+              aria-label="New feature or trait name"
+              (keyup.enter)="confirmAddFeature()"
+            />
+            <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddFeature()">Add</button>
+            <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddFeature()">Cancel</button>
           </div>
+        }
 
-          <p
-            *ngIf="isFeatureExpanded(index)"
-            [id]="'feature-body-' + index"
-            class="bg-tile px-4 py-3 text-body leading-relaxed text-muted"
-          >
-            {{ feature.description }}
-          </p>
-        </div>
+        @if (features.length > 0) {
+          <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
+            @for (feature of features; track $index; let index = $index) {
+              <li class="flex items-start">
+                <button
+                  type="button"
+                  class="group flex min-h-12 min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                  [ngClass]="hasDetails(feature) ? 'hover:bg-tile' : 'cursor-default'"
+                  [attr.aria-expanded]="hasDetails(feature) ? isFeatureExpanded(index) : null"
+                  [attr.aria-controls]="hasDetails(feature) ? 'feature-body-' + index : null"
+                  [disabled]="!hasDetails(feature)"
+                  (click)="toggleFeature(index)"
+                >
+                  <span class="min-w-0 flex-1">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <span
+                        class="font-display text-body font-semibold transition-colors"
+                        [ngClass]="isFeatureExpanded(index) ? 'text-accent' : 'text-ink group-hover:text-accent'"
+                      >
+                        {{ feature.name }}
+                      </span>
+                      @if (feature.source) {
+                        <forge-badge tone="muted">{{ feature.source }}</forge-badge>
+                      }
+                    </span>
+
+                    @if (hasDetails(feature)) {
+                      @if (isFeatureExpanded(index)) {
+                        <span [id]="'feature-body-' + index" class="mt-2 block whitespace-pre-line text-body leading-relaxed text-muted">
+                          {{ feature.description }}
+                        </span>
+                      } @else {
+                        <!-- One-line preview so the list is useful without opening every row -->
+                        <span class="mt-0.5 block truncate text-label text-muted">{{ feature.description }}</span>
+                      }
+                    }
+                  </span>
+
+                  @if (hasDetails(feature)) {
+                    <forge-icon
+                      name="chevron-down"
+                      size="sm"
+                      class="mt-1 text-muted transition-transform duration-150 motion-reduce:transition-none"
+                      [class.rotate-180]="isFeatureExpanded(index)"
+                    />
+                  }
+                </button>
+                @if (editMode) {
+                  <button
+                    forgeButton
+                    variant="danger"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    class="mx-2 mt-2.5"
+                    [attr.aria-label]="'Delete ' + (feature.name || 'feature')"
+                    title="Delete feature"
+                    (click)="deleteFeature(index, $event)"
+                  >
+                    <forge-icon name="close" size="sm" />
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        } @else {
+          <forge-empty-state
+            icon="📜"
+            title="No features or traits yet"
+            description="Class features, feats and racial traits show up here. Use Quick Edit to add your own."
+          ></forge-empty-state>
+        }
       </div>
-
-      <ng-template #noFeatures>
-        <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
-          No features or traits recorded yet.
-        </p>
-      </ng-template>
-    </div>
+    }
   </section>
 </div>

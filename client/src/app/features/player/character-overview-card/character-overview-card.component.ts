@@ -5,6 +5,7 @@ import type { CharacterSchema } from '../../../core/models/character.model';
 import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
 import {
   ForgeBadgeComponent,
+  ForgeIconComponent,
   ForgeCardComponent,
   ForgeInputDirective,
 } from '../../../shared/ui';
@@ -19,6 +20,7 @@ import { AbilityScoreGridComponent } from '../ability-score-grid/ability-score-g
     CommonModule,
     FormsModule,
     ForgeBadgeComponent,
+    ForgeIconComponent,
     ForgeCardComponent,
     ForgeInputDirective,
     HitPointsControlComponent,
@@ -49,6 +51,8 @@ export class CharacterOverviewCardComponent implements OnChanges {
   @Output() applyHeal = new EventEmitter<number>();
   @Output() setTempHp = new EventEmitter<number>();
   @Output() manageConditions = new EventEmitter<void>();
+  @Output() removeCondition = new EventEmitter<string>();
+  @Output() endConcentration = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
 

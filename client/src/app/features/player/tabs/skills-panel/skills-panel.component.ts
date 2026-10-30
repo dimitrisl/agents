@@ -1,7 +1,13 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeBadgeComponent, ForgeButtonDirective, ForgeSectionComponent } from '../../../../shared/ui';
+import {
+  ForgeBadgeComponent,
+  ForgeButtonDirective,
+  ForgeIconComponent,
+  ForgeSectionComponent,
+  ForgeToggleComponent,
+} from '../../../../shared/ui';
 import type { SkillDefinition } from '../../player.component';
 
 @Component({
@@ -12,7 +18,9 @@ import type { SkillDefinition } from '../../player.component';
     FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
+    ForgeIconComponent,
     ForgeSectionComponent,
+    ForgeToggleComponent,
   ],
   templateUrl: './skills-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,11 +48,51 @@ export class SkillsPanelComponent {
 
   readonly skillAttributes = ['STR', 'DEX', 'INT', 'WIS', 'CHA'];
 
+  /** Which groups were open before "Proficient only", restored when it is switched off. */
+  private openGroupsBeforeFilter: { [key: string]: boolean } | null = null;
+
   toggleGroup(attr: string): void {
-    this.openGroups[attr] = !this.openGroups[attr];
+    this.openGroups = { ...this.openGroups, [attr]: !this.openGroups[attr] };
+  }
+
+  get allOpen(): boolean {
+    return this.skillAttributes.every((attr) => this.openGroups[attr]);
+  }
+
+  /** Expands every group, or collapses them all when every one is already open. */
+  toggleAll(): void {
+    const open = !this.allOpen;
+    this.openGroups = Object.fromEntries(this.skillAttributes.map((attr) => [attr, open]));
+  }
+
+  /**
+   * On: open exactly the groups that contain a proficient skill and hide the rest.
+   * Off: put the groups back the way the player had them.
+   */
+  setProficientOnly(on: boolean): void {
+    this.showProficientOnly = on;
+    if (on) {
+      this.openGroupsBeforeFilter = { ...this.openGroups };
+      this.openGroups = Object.fromEntries(
+        this.skillAttributes.map((attr) => [attr, this.proficientCount(attr) > 0])
+      );
+    } else if (this.openGroupsBeforeFilter) {
+      this.openGroups = this.openGroupsBeforeFilter;
+      this.openGroupsBeforeFilter = null;
+    }
   }
 
   getSkillsByAttribute(attr: string): SkillDefinition[] {
     return this.allSkills.filter((skill) => skill.ability === attr);
+  }
+
+  /** Skills shown in a group under the current filter. */
+  visibleSkills(attr: string): SkillDefinition[] {
+    const skills = this.getSkillsByAttribute(attr);
+    return this.showProficientOnly ? skills.filter((skill) => this.isProficient(skill.name)) : skills;
+  }
+
+  proficientCount(attr: string): number {
+    return this.getSkillsByAttribute(attr).filter((skill) => this.isProficient(skill.name)).length;
   }
 }

@@ -60,4 +60,25 @@ describe('FaqComponent', () => {
     component.collapseAll();
     expect(component.openQuestions().size).toBe(0);
   });
+
+  it('counts questions per category for the nav', () => {
+    expect(component.categoryCount('dm')).toBe(7);
+    expect(component.categoryCount('player')).toBe(3);
+  });
+
+  it('one toggle expands everything in view, then collapses it', () => {
+    expect(component.allExpanded()).toBe(false); // only dm-1 starts open
+    component.toggleAll();
+    expect(component.allExpanded()).toBe(true);
+    component.toggleAll();
+    expect(component.openQuestions().size).toBe(0);
+  });
+
+  it('a tag starts a search across every category', () => {
+    component.toggleQuestion('dm-2'); // open an answer that shows its tags
+    fixture.detectChanges();
+    const tag = fixture.nativeElement.querySelector('button[title^="Αναζήτηση για"]') as HTMLButtonElement;
+    tag.click();
+    expect(component.searchQuery()).toBe(tag.textContent!.trim().replace(/^#/, ''));
+  });
 });

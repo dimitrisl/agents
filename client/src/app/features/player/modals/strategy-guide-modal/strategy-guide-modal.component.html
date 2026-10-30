@@ -1,6 +1,6 @@
 <forge-modal [open]="open" (closed)="closed.emit()" title="📖 AI Strategic Playstyle Guide" maxWidth="820px">
   <div *ngIf="!isGenerating && strategyGuideText" class="max-h-[60vh] overflow-y-auto rounded-lg border border-hairline bg-black/20 p-4">
-    <p class="whitespace-pre-wrap text-body-sm leading-relaxed text-ink">{{ strategyGuideText }}</p>
+    <forge-markdown [content]="strategyGuideText" />
   </div>
 
   <div *ngIf="isGenerating" class="flex flex-col items-center justify-center p-8 text-center space-y-4">

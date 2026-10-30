@@ -2,10 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { PlayerComponent } from './player.component';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
+import { RollToastService } from '../../core/services/roll-toast.service';
+import { SpellRulesService } from '../../core/services/spell-rules.service';
+import { analyzeSpell } from '../../core/rules';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { CharacterSchema } from '../../core/models/character.model';
 import { RollRequest } from '../../core/models/campaign.model';
@@ -341,8 +344,7 @@ describe('PlayerComponent — DM roll requests', () => {
       component.openImportModal();
       expect(component.showImportModal()).toBe(true);
 
-      component.dndBeyondUrl = 'https://www.dndbeyond.com/characters/99999999';
-      component.onImportDndBeyond();
+      component.onImportDndBeyond('https://www.dndbeyond.com/characters/99999999');
 
       expect(component.isImporting()).toBe(true);
       const req = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('/characters/import-dndbeyond'));
@@ -444,6 +446,182 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(component.showConcentrationPrompt()).toBe(false);
     });
 
+    it('removes one condition or ends concentration from the chip ✕, leaving the rest', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({
+        ...HERO,
+        conditions: ['Paralyzed', 'Stunned'],
+        concentrating_on: 'Haste',
+      });
+
+      component.removeCondition('Paralyzed');
+      expect(charState.activeCharacter()!.conditions).toEqual(['Stunned']);
+      expect(charState.activeCharacter()!.concentrating_on).toBe('Haste');
+
+      component.endConcentration();
+      expect(charState.activeCharacter()!.concentrating_on).toBe('');
+      expect(charState.activeCharacter()!.conditions).toEqual(['Stunned']);
+    });
+
+    it('casting Fireball at 4th level rolls 9d6 with a "passed the save" button', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({ ...HERO, char_level: 8, spell_save_dc: 15 });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+        of(
+          analyzeSpell({
+            name: 'Fireball',
+            level: 3,
+            duration: 'Instantaneous',
+            description:
+              'Each creature must make a Dexterity saving throw. A target takes 8d6 fire damage on a failed save, or half as much damage on a successful one.',
+            higherLevelSlot: 'the damage increases by 1d6 for each slot level above 3rd.',
+          })
+        )
+      );
+
+      component.onCastSpell({ spellName: 'Fireball', level: 4, isRitual: false });
+
+      const shown = TestBed.inject(RollToastService).activeRoll()!;
+      expect(shown.title).toContain('FIREBALL · LEVEL 4');
+      expect(shown.rolls?.length).toBe(9);
+      expect(shown.damageParts?.[0]).toEqual(
+        expect.objectContaining({ label: 'Fireball · fire', saveHalf: { dc: 'DC 15 DEX' } })
+      );
+    });
+
+    it('a spell attack that rolls a natural 20 crits and doubles its damage dice', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({ ...HERO, char_level: 8, spell_attack_bonus: '+7' });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+        of(
+          analyzeSpell({
+            name: 'Fire Bolt',
+            level: 0,
+            duration: 'Instantaneous',
+            description: 'Make a ranged spell attack against the target. On a hit, the target takes 1d10 fire damage.',
+          })
+        )
+      );
+      const dice = TestBed.inject(DiceService);
+      jest.spyOn(dice, 'rollD20').mockReturnValue({
+        expression: '1d20+7', numDice: 1, sides: 20, modifier: 7, rolls: [20], raw: 20, total: 27, mode: 'normal',
+      } as any);
+
+      component.onCastSpell({ spellName: 'Fire Bolt', level: 0, isRitual: false });
+
+      const shown = TestBed.inject(RollToastService).activeRoll()!;
+      expect(shown.title).toContain('NAT 20');
+      expect(shown.isCritHit).toBe(true);
+      expect(shown.rolls?.length).toBe(4); // 2d10 at level 8, doubled
+    });
+
+    it('a save spell never crits', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({ ...HERO, char_level: 8, spell_save_dc: 15 });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+        of(
+          analyzeSpell({
+            name: 'Shatter',
+            level: 2,
+            duration: 'Instantaneous',
+            description: 'Each creature must make a Constitution saving throw. A creature takes 3d8 thunder damage on a failed save, or half as much damage on a successful one.',
+          })
+        )
+      );
+      component.onCastSpell({ spellName: 'Shatter', level: 2, isRitual: false });
+      const shown = TestBed.inject(RollToastService).activeRoll()!;
+      expect(shown.isCritHit).toBe(false);
+      expect(shown.rolls?.length).toBe(3);
+    });
+
+    it('casting Haste puts it on Status and ends the previous concentration', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({ ...HERO, concentrating_on: 'Bless', conditions: ['Prone'] });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+        of(
+          analyzeSpell({
+            name: 'Haste',
+            level: 3,
+            concentration: 'True',
+            duration: 'Concentration, up to 1 minute',
+            description: 'Choose a willing creature that you can see within range. Until the spell ends, the speed of the target is doubled.',
+          })
+        )
+      );
+
+      component.onCastSpell({ spellName: 'Haste', level: 3, isRitual: false });
+
+      expect(charState.activeCharacter()!.concentrating_on).toBe('Haste');
+      expect(charState.activeCharacter()!.conditions).toEqual(['Prone']);
+      expect(TestBed.inject(RollToastService).activeRoll()?.message).toContain('Bless ended');
+    });
+
+    it('a spell without concentration leaves the current one alone', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({ ...HERO, char_level: 8, concentrating_on: 'Haste' });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+        of(
+          analyzeSpell({
+            name: 'Fireball',
+            level: 3,
+            concentration: 'False',
+            duration: 'Instantaneous',
+            description: 'Each creature must make a Dexterity saving throw. A target takes 8d6 fire damage on a failed save, or half as much damage on a successful one.',
+          })
+        )
+      );
+      component.onCastSpell({ spellName: 'Fireball', level: 3, isRitual: false });
+      expect(charState.activeCharacter()!.concentrating_on).toBe('Haste');
+    });
+
+    it('casting a concentration spell saves slot and concentration together, without the chip flickering', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({
+        ...HERO,
+        char_level: 8,
+        spell_save_dc: 15,
+        concentrating_on: undefined,
+        spell_slots: { level_4: { max: 2, used: 0 } },
+      });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+        of(
+          analyzeSpell({
+            name: 'Wall of Fire',
+            level: 4,
+            concentration: 'True',
+            duration: 'Concentration, up to 1 minute',
+            description:
+              'Each creature within its area must make a Dexterity saving throw. On a failed save, a creature takes 5d8 fire damage, or half as much damage on a successful save.',
+          })
+        )
+      );
+
+      // What the Cast button sends: spend the slot, then cast
+      component.useSpellSlot(4);
+      component.onCastSpell({ spellName: 'Wall of Fire', level: 4, isRitual: false });
+
+      // Nothing is sent straight away: no early save that could answer with the pre-cast sheet
+      http.expectNone((r) => r.method === 'PUT');
+      expect(charState.activeCharacter()!.concentrating_on).toBe('Wall of Fire');
+
+      jest.advanceTimersByTime(1000); // the sheet's save debounce
+      const put = http.expectOne((r) => r.method === 'PUT' && r.url.includes('/characters/'));
+      expect(put.request.body.concentrating_on).toBe('Wall of Fire');
+      expect(put.request.body.spell_slots.level_4.used).toBe(1);
+      put.flush({ ...put.request.body, version: (put.request.body.version ?? 0) + 1 });
+
+      expect(charState.activeCharacter()!.concentrating_on).toBe('Wall of Fire');
+    });
+
+    it('a spell with nothing to roll on casting just reports the cast', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      charState.activeCharacter.set({ ...HERO });
+      jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(of(null));
+
+      component.onCastSpell({ spellName: 'Misty Step', level: 2, isRitual: false });
+      expect(TestBed.inject(RollToastService).activeRoll()?.message).toContain('Misty Step (Level 2)');
+    });
+
     it('updates HP and equipment immutably in a single save on onConsumePotion', () => {
       const charState = TestBed.inject(CharacterStateService);
       const potion = { name: 'Potion of Healing', quantity: 2, equipped: false };
@@ -467,6 +645,13 @@ describe('PlayerComponent — DM roll requests', () => {
       const updated = charState.activeCharacter();
       expect(updated?.hp_current).toBeGreaterThan(10);
       expect(updated?.equipment?.[0]?.quantity).toBe(1);
+
+      // Drinking opens the 3D dice tray like any other roll, with the potion's dice.
+      const shown = TestBed.inject(RollToastService).activeRoll();
+      expect(shown?.sides).toBe(4);
+      expect(shown?.rolls?.length).toBe(2);
+      expect(shown?.modifier).toBe(2);
+      expect(shown?.total).toBe((updated?.hp_current ?? 0) - 10);
     });
 
     it('broadcasts custom roll to campaign whisper endpoint when broadcast is true', () => {
