@@ -214,6 +214,44 @@ class SpellList(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def clean_spell_lists(cls, data: Any) -> Any:
+        if isinstance(data, list):
+            cleaned = {f"level_{i}": [] for i in range(1, 10)}
+            cleaned["cantrips"] = []
+            try:
+                from backend.repositories.rules_repository import RulesRepository
+
+                all_spells = RulesRepository().get_all_spells("2014")
+                spell_lvl_map = {
+                    s["name"].lower(): s.get("level", 1)
+                    for s in all_spells
+                    if isinstance(s, dict) and "name" in s
+                }
+            except Exception:
+                spell_lvl_map = {}
+
+            for item in data:
+                if isinstance(item, dict):
+                    name = (item.get("name") or item.get("spell_name") or "").strip()
+                    lvl = item.get("level")
+                elif item is not None:
+                    name = str(item).strip()
+                    lvl = None
+                else:
+                    continue
+
+                if not name:
+                    continue
+
+                if lvl is None:
+                    lvl = spell_lvl_map.get(name.lower(), 1)
+
+                if lvl == 0 or str(lvl).lower() == "cantrip":
+                    cleaned["cantrips"].append(name)
+                elif isinstance(lvl, int) and 1 <= lvl <= 9:
+                    cleaned[f"level_{lvl}"].append(name)
+                else:
+                    cleaned["level_1"].append(name)
+            return cleaned
         if not isinstance(data, dict):
             return data
         cleaned = {}
@@ -399,9 +437,9 @@ class CharacterSchema(BaseModel):
                 if not subclass:
                     data["subclass"] = " ".join(parts[1:])
 
-        # 2. Spells type correction (e.g. from empty list or null to dict)
+        # 2. Spells type correction (e.g. from null/invalid type to dict)
         spells = data.get("spells")
-        if spells is not None and not isinstance(spells, dict):
+        if spells is not None and not isinstance(spells, (dict, list, SpellList)):
             data["spells"] = {}
 
         return data

@@ -881,6 +881,92 @@ def sync_character_stats(
         normalized_ft.append(entry)
     char_data["features_traits"] = normalized_ft
 
+    # Normalize spells: ensure lists of string spell names across cantrips and leveled slots
+    raw_spells = char_data.get("spells")
+    if hasattr(raw_spells, "model_dump"):
+        raw_spells = raw_spells.model_dump()
+
+    if isinstance(raw_spells, dict):
+        normalized_spells: dict[str, list[str]] = {f"level_{i}": [] for i in range(1, 10)}
+        normalized_spells["cantrips"] = []
+        for lvl_k in ["cantrips"] + [f"level_{i}" for i in range(1, 10)]:
+            val = raw_spells.get(lvl_k) or []
+            if isinstance(val, list):
+                for item in val:
+                    if isinstance(item, dict):
+                        s_name = item.get("name") or item.get("spell_name")
+                        if s_name:
+                            normalized_spells[lvl_k].append(str(s_name).strip())
+                    elif item is not None and str(item).strip():
+                        normalized_spells[lvl_k].append(str(item).strip())
+            elif isinstance(val, (str, dict)):
+                item = val
+                if isinstance(item, dict):
+                    s_name = item.get("name") or item.get("spell_name")
+                    if s_name:
+                        normalized_spells[lvl_k].append(str(s_name).strip())
+                elif str(item).strip():
+                    normalized_spells[lvl_k].append(str(item).strip())
+        for k, val in raw_spells.items():
+            if k not in normalized_spells:
+                if isinstance(val, list):
+                    normalized_spells[k] = [
+                        (
+                            item.get("name") or item.get("spell_name")
+                            if isinstance(item, dict)
+                            else str(item)
+                        ).strip()
+                        for item in val
+                        if item
+                    ]
+        char_data["spells"] = normalized_spells
+    elif isinstance(raw_spells, list):
+        normalized_spells = {f"level_{i}": [] for i in range(1, 10)}
+        normalized_spells["cantrips"] = []
+        try:
+            all_spells_list = repo.get_all_spells(edition)
+            spell_lvl_map = {
+                s["name"].lower(): s.get("level", 1)
+                for s in all_spells_list
+                if isinstance(s, dict) and "name" in s
+            }
+        except Exception:
+            spell_lvl_map = {}
+
+        for item in raw_spells:
+            if isinstance(item, dict):
+                s_name = (item.get("name") or item.get("spell_name") or "").strip()
+                lvl = item.get("level")
+            elif item is not None:
+                s_name = str(item).strip()
+                lvl = None
+            else:
+                continue
+
+            if not s_name:
+                continue
+
+            if lvl is None:
+                lvl = spell_lvl_map.get(s_name.lower(), 1)
+
+            if lvl == 0 or str(lvl).lower() == "cantrip":
+                lvl_key = "cantrips"
+            elif isinstance(lvl, int) and 1 <= lvl <= 9:
+                lvl_key = f"level_{lvl}"
+            else:
+                lvl_key = "level_1"
+
+            normalized_spells[lvl_key].append(s_name)
+
+        char_data["spells"] = normalized_spells
+
+    if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
+        char_data["prepared_spells"] = [
+            (ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)).strip()
+            for ps in char_data["prepared_spells"]
+            if ps
+        ]
+
     is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
     if is_2024:
         # Filter out legacy 2014 background combat/roleplay traits early
@@ -1479,13 +1565,31 @@ def sync_character_stats(
                 spells_dict[lvl_key] = []
 
         # Update prepared_spells as well to remove spells we just deleted
-        valid_spell_names = set(spells_dict.get("cantrips", []))
+        valid_spell_names = set()
+        for s in spells_dict.get("cantrips", []) or []:
+            s_name = (
+                s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
+            ).strip()
+            if s_name:
+                valid_spell_names.add(s_name)
         for i in range(1, max_spell_level + 1):
-            valid_spell_names.update(spells_dict.get(f"level_{i}", []))
+            for s in spells_dict.get(f"level_{i}", []) or []:
+                s_name = (
+                    s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
+                ).strip()
+                if s_name:
+                    valid_spell_names.add(s_name)
 
-        if "prepared_spells" in char_data:
+        if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
             char_data["prepared_spells"] = [
-                ps for ps in char_data["prepared_spells"] if ps in valid_spell_names
+                (
+                    ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)
+                ).strip()
+                for ps in char_data["prepared_spells"]
+                if (
+                    ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)
+                ).strip()
+                in valid_spell_names
             ]
 
     rogue_level = 0
@@ -1647,7 +1751,12 @@ def sync_character_stats(
                             new_lvl_spells.append(spell)
                     spells_dict[lvl] = new_lvl_spells
 
-            spells_dict["cantrips"] = list(dict.fromkeys(cantrips))  # remove duplicates
+            clean_cantrips = [
+                (c.get("name") or c.get("spell_name") if isinstance(c, dict) else str(c)).strip()
+                for c in cantrips
+                if c
+            ]
+            spells_dict["cantrips"] = list(dict.fromkeys(c for c in clean_cantrips if c))
 
         # E. (Removed) Eldritch Knight / Arcane Trickster Cantrip Limit
         # This was flawed as it did not account for racial cantrips (e.g. High Elf) or feats (Magic Initiate)
