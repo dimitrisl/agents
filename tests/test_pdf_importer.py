@@ -111,6 +111,55 @@ def test_parse_character_from_text():
         assert "Goodberry" in parsed["spells"]["level_1"]
 
 
+def test_parse_character_from_text_with_dict_spells():
+    sheet_text = "Name: Edrann, Class: Paladin, Level: 1"
+
+    with patch("backend.services.rules_service.generate_ai_json") as mock_generate_ai_json:
+        mock_generate_ai_json.side_effect = [
+            # Step 1 core identity response
+            {
+                "char_name": "Edrann",
+                "char_class": "Paladin",
+                "char_level": 1,
+                "race": "Human",
+                "background": "Noble",
+                "stats": {
+                    "STR": 16,
+                    "DEX": 10,
+                    "CON": 14,
+                    "INT": 8,
+                    "WIS": 12,
+                    "CHA": 16,
+                },
+            },
+            # Step 2 combat, equipment & spells response with dict-based spells
+            {
+                "hp_max": 12,
+                "armor_class": 16,
+                "speed": 30,
+                "proficiency_bonus": 2,
+                "weapons": [{"name": "Longsword", "attack_bonus": "+5", "damage": "1d8+3"}],
+                "equipment": [{"name": "Chain Mail", "equipped": True}],
+                "spells": {
+                    "cantrips": [{"name": "Sacred Flame", "desc": "Radiant damage"}],
+                    "level_1": [{"name": "Bless", "level": 1}, {"name": "Command"}],
+                },
+                "prepared_spells": ["Bless", "Command"],
+            },
+        ]
+
+        # Execute
+        parsed = parse_character_from_text(sheet_text)
+
+        # Assertions
+        assert parsed is not None
+        assert parsed["char_name"] == "Edrann"
+        assert parsed["char_class"] == "Paladin"
+        assert "Bless" in parsed["spells"]["level_1"]
+        assert "Command" in parsed["spells"]["level_1"]
+        assert "Sacred Flame" in parsed["spells"]["cantrips"]
+
+
 def test_extract_real_pdf_ulad_bohr():
     import os
 

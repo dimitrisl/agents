@@ -346,7 +346,7 @@ Return JSON:
     "flaws": "...",
     "weapons": [{{ "name": "...", "attack_bonus": "...", "damage_dice": "...", "damage_bonus": "..." }}],
     "equipment": [],
-    "spells": {{ "cantrips": [], "level_1": [] }},
+    "spells": {{ "cantrips": ["Spell Name 1"], "level_1": ["Spell Name 2"] }}, // Spells MUST be lists of string spell names (e.g. ["Sacred Flame"]), NOT dictionary objects.
     "features_traits": [{{ "name": "...", "description": "..." }}],
     "languages": [],
     "tool_proficiencies": []

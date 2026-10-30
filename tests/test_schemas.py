@@ -243,3 +243,25 @@ def test_spell_list_sanitization():
     assert char.spells.level_1 == ["Absorb Elements", "Shield"]
     assert char.spells.level_2 == []
     assert char.spells.level_3 == []
+
+
+def test_spell_list_from_list_of_spells():
+    """Verify that SpellList gracefully handles a list of spells (dicts or strings)."""
+    data = {
+        "char_name": "Spellcaster List",
+        "char_class": "Cleric",
+        "race": "Human",
+        "background": "Acolyte",
+        "stats": StatBlock().model_dump(),
+        "spells": [
+            {"name": "Sacred Flame", "level": 0},
+            {"name": "Bless", "level": 1},
+            {"name": "Spiritual Weapon", "level": 2},
+            "Guidance",
+        ],
+    }
+    char = CharacterSchema(**data)
+    assert "Sacred Flame" in char.spells.cantrips
+    assert "Guidance" in char.spells.cantrips
+    assert "Bless" in char.spells.level_1
+    assert "Spiritual Weapon" in char.spells.level_2

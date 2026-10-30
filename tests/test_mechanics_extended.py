@@ -645,3 +645,24 @@ class TestSneakAttackScaling:
         synced5 = sync_character_stats(char5)
         feat5 = next(ft for ft in synced5["features_traits"] if ft["name"] == "Sneak Attack")
         assert "extra 3d6 damage" in feat5["description"]
+
+    def test_sync_character_stats_with_dict_spells(self):
+        """Test that sync_character_stats normalizes dict-based spells and does not crash on unhashable dicts."""
+        char_data = {
+            "char_name": "Edrann",
+            "char_class": "Paladin",
+            "char_level": 1,
+            "stats": {"STR": 16, "DEX": 10, "CON": 14, "INT": 8, "WIS": 12, "CHA": 16},
+            "spells": {
+                "cantrips": [{"name": "Sacred Flame", "description": "Flame descends"}],
+                "level_1": [{"name": "Bless", "level": 1}, {"name": "Cure Wounds"}],
+            },
+            "prepared_spells": [{"name": "Bless"}, "Cure Wounds"],
+        }
+        synced = sync_character_stats(char_data)
+        assert isinstance(synced["spells"], dict)
+        assert "Sacred Flame" in synced["spells"]["cantrips"]
+        assert "Bless" in synced["spells"]["level_1"]
+        assert "Cure Wounds" in synced["spells"]["level_1"]
+        assert "Bless" in synced["prepared_spells"]
+        assert "Cure Wounds" in synced["prepared_spells"]
