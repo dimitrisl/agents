@@ -214,6 +214,20 @@ class TestSavingThrows:
 
 
 class TestWeaponStats:
+    def test_edited_damage_dice_wins_over_stale_damage(self):
+        """Editing base dice on the sheet must not be reverted by the old 'damage' formula."""
+        stats = {"STR": 10, "DEX": 20}  # DEX +5
+        weapon = {
+            "name": "Rudolf's Shortsword",
+            "damage": "1d8 + 7 piercing",
+            "damage_dice": "1d6 piercing",
+            "damage_bonus": "+7",
+            "magic_bonus": 2,
+        }
+        result = calculate_weapon_stats(weapon, stats, 4)
+        assert result["damage_dice"] == "1d6 piercing"
+        assert result["damage"].startswith("1d6")
+
     def test_finesse_weapon_uses_higher_mod(self):
         """Finesse weapons should use the higher of STR or DEX."""
         stats = {"STR": 10, "DEX": 18}  # STR +0, DEX +4
@@ -666,3 +680,67 @@ class TestSneakAttackScaling:
         assert "Cure Wounds" in synced["spells"]["level_1"]
         assert "Bless" in synced["prepared_spells"]
         assert "Cure Wounds" in synced["prepared_spells"]
+
+
+class TestArmorNameMatching:
+    """Sheets name armor freely: "Studded Leather Armor +1 (13 + Dex)" must still count."""
+
+    def test_named_magic_studded_leather_counts_base_and_bonus(self):
+        # Edrann's sheet: DEX 20 (+5), Studded Leather +1, Cloak of Protection -> 12 + 1 + 5 + 1 = 19
+        equipment = [
+            {
+                "name": "Studded Leather Armor +1",
+                "equipped": True,
+                "description": "Stubbed Leather +1 (13 + Dex)",
+            },
+            {"name": "Cloak of protection", "equipped": True},
+            {"name": "Gauntlets of Fumbling (+2 DEX)", "equipped": True},
+        ]
+        total, breakdown = calculate_ac(20, equipment, [], return_breakdown=True)
+        assert total == 19
+        assert breakdown["base"] == 12
+        assert breakdown["armor_type"] == "Light Armor"
+        names = {b["name"]: b["bonus"] for b in breakdown["other_bonuses"]}
+        assert names == {"Magic armor +1": 1, "Cloak of protection": 1}
+
+    def test_parenthesised_numbers_are_notes_not_bonuses(self):
+        equipment = [{"name": "Leather (+2 DEX notes)", "equipped": True}]
+        assert calculate_ac(10, equipment, []) == 11  # Leather Armor 11, no magic
+
+    def test_explicit_ac_bonus_is_not_doubled_by_the_name(self):
+        equipment = [{"name": "Chain Mail +1", "equipped": True, "ac_bonus": 1}]
+        assert calculate_ac(10, equipment, []) == 17  # 16 + 1, not 18
+
+    def test_magic_shield_from_name(self):
+        equipment = [{"name": "Shield +1", "equipped": True}]
+        assert calculate_ac(10, equipment, []) == 13  # 10 + shield 2 + 1
+
+    def test_unequipped_armor_is_ignored(self):
+        equipment = [{"name": "Studded Leather Armor +1", "equipped": False}]
+        assert calculate_ac(20, equipment, []) == 15
+
+
+class TestHomebrewItemAc:
+    """Items outside the catalog only add AC through their own ac_bonus field."""
+
+    def test_homebrew_amulet_adds_its_ac_bonus(self):
+        equipment = [
+            {
+                "name": "Arcane Focus (Amulet-Crystal)",
+                "equipped": True,
+                "attuned": True,
+                "ac_bonus": 2,
+                "description": "+2 AC attunement item",
+            }
+        ]
+        total, breakdown = calculate_ac(14, equipment, [], return_breakdown=True)  # DEX +2
+        assert total == 14  # 10 + 2 DEX + 2 amulet
+        assert breakdown["other_bonuses"] == [{"name": "Arcane Focus (Amulet-Crystal)", "bonus": 2}]
+
+    def test_unequipped_homebrew_item_does_not_count(self):
+        equipment = [{"name": "Arcane Focus (Amulet-Crystal)", "equipped": False, "ac_bonus": 2}]
+        assert calculate_ac(14, equipment, []) == 12
+
+    def test_homebrew_armor_uses_ac_bonus_as_its_base(self):
+        equipment = [{"name": "Dragonhide Coat", "equipped": True, "ac_bonus": 13}]
+        assert calculate_ac(14, equipment, []) == 15  # 13 + DEX 2

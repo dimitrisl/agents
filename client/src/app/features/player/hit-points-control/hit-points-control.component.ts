@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeButtonDirective, ForgeModalComponent } from '../../../shared/ui';
+import { ForgeButtonDirective, ForgeIconComponent, ForgeModalComponent } from '../../../shared/ui';
 
 @Component({
   selector: 'app-hit-points-control',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeIconComponent, ForgeModalComponent],
   templateUrl: './hit-points-control.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

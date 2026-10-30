@@ -11,6 +11,8 @@ import { ForgeButtonDirective } from '../../../shared/ui';
 export class ActionDockComponent {
   @Input() canLevelUp = true;
   @Input() isGeneratingStrategy = false;
+  /** The level-up analysis is an AI call; spins the button until it answers. */
+  @Input() isLevelUpLoading = false;
   @Output() shortRest = new EventEmitter<void>();
   @Output() longRest = new EventEmitter<void>();
   @Output() levelUp = new EventEmitter<void>();

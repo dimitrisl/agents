@@ -1,6 +1,6 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subject, of } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { switchMap, tap, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -11,6 +11,7 @@ import { environment } from '../../../environments/environment';
 import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
+  ForgeIconComponent,
   ForgeCardComponent,
   ForgePageComponent,
   ForgeTab,
@@ -19,6 +20,9 @@ import {
 import { AiFormComponent } from './ai-form/ai-form.component';
 import { ManualFormComponent } from './manual-form/manual-form.component';
 import { HeroPreviewComponent } from './hero-preview/hero-preview.component';
+import { CharacterImportPanelComponent } from '../../shared/components/character-import-panel/character-import-panel.component';
+import { CharacterImportService, ImportedCharacter } from '../../core/services/character-import.service';
+import { RollToastService } from '../../core/services/roll-toast.service';
 import {
   getMaxCastableSpellLevel,
   getSubclassUnlockLevel,
@@ -36,9 +40,11 @@ const PENDING_GEN_STORAGE_KEY = 'phyrexian_forge_pending_generation';
     CommonModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
+    ForgeIconComponent,
     ForgeCardComponent,
     ForgePageComponent,
     ForgeTabsComponent,
+    CharacterImportPanelComponent,
     AiFormComponent,
     ManualFormComponent,
     HeroPreviewComponent,
@@ -48,7 +54,7 @@ const PENDING_GEN_STORAGE_KEY = 'phyrexian_forge_pending_generation';
 export class ForgeComponent implements OnInit, OnDestroy {
   readonly subclassLockHint = 'Subclasses unlock at higher levels depending on class and edition';
   Math = Math;
-  activeTab: 'ai' | 'manual' = 'ai';
+  activeTab: 'ai' | 'manual' | 'import' = 'ai';
   loading = false;
   tempForgedChar: CharacterSchema | null = null;
   generationInterruptedNotice = false;
@@ -97,7 +103,13 @@ export class ForgeComponent implements OnInit, OnDestroy {
   readonly forgeTabs: ForgeTab[] = [
     { id: 'ai', label: '✨ AI Forge' },
     { id: 'manual', label: '🛠️ Manual Build' },
+    { id: 'import', label: '📥 Import' },
   ];
+
+  // Import tab: brings in an existing hero as a NEW vault entry (nothing is overwritten)
+  importBusy = false;
+  importError: string | null = null;
+  importWarnings: string[] = [];
 
   // Options
   alignments = ["Lawful Good", "Neutral Good", "Chaotic Good", "Lawful Neutral", "True Neutral", "Chaotic Neutral", "Lawful Evil", "Neutral Evil", "Chaotic Evil"];
@@ -195,8 +207,53 @@ export class ForgeComponent implements OnInit, OnDestroy {
     public charState: CharacterStateService,
     private dice: DiceService,
     private http: HttpClient,
-    private router: Router
+    private router: Router,
+    private importer: CharacterImportService,
+    private rollToast: RollToastService
   ) {}
+
+  // ---------------------------------------------------------------- import
+
+  onImportPdf(file: File): void {
+    this.runImport(this.importer.importPdf(file));
+  }
+
+  onImportDndBeyond(urlOrId: string): void {
+    this.runImport(this.importer.importDndBeyond(urlOrId));
+  }
+
+  onImportFoundry(file: File): void {
+    this.runImport(this.importer.importFoundry(file));
+  }
+
+  /** Warnings were read: go and see the new hero. */
+  openImportedHero(): void {
+    this.router.navigate(['/player']);
+  }
+
+  private runImport(request: Observable<ImportedCharacter>): void {
+    if (this.importBusy) return;
+    this.importBusy = true;
+    this.importError = null;
+    this.importWarnings = [];
+
+    request.subscribe({
+      next: (hero) => {
+        this.importBusy = false;
+        this.rollToast.showMessage('📥 HERO IMPORTED', `${hero.char_name || 'Your hero'} was added to your vault.`);
+        if (hero.warnings?.length) {
+          // Let the player read what didn't map before leaving the page.
+          this.importWarnings = hero.warnings;
+        } else {
+          this.router.navigate(['/player']);
+        }
+      },
+      error: (err) => {
+        this.importBusy = false;
+        this.importError = err?.error?.detail || 'Could not import this character.';
+      },
+    });
+  }
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent): void {

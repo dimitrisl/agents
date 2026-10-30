@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
-  ForgeCardComponent,
+  ForgeIconComponent,
   ForgeEmptyStateComponent,
   ForgeInputDirective,
   ForgePageComponent,
@@ -30,7 +30,7 @@ export interface FaqItem {
     RouterLink,
     ForgeBadgeComponent,
     ForgeButtonDirective,
-    ForgeCardComponent,
+    ForgeIconComponent,
     ForgeEmptyStateComponent,
     ForgeInputDirective,
     ForgePageComponent,
@@ -42,9 +42,9 @@ export class FaqComponent {
   searchQuery = signal<string>('');
   selectedCategory = signal<string>('dm');
   openQuestions = signal<Set<string>>(
+    // First question of each axis starts open; the rest are one click away.
     new Set([
       'dm-1',
-      'dm-2',
       'player-1',
       'companion-1',
       'forge-1',
@@ -429,6 +429,32 @@ export class FaqComponent {
       );
     });
   });
+
+  /** Questions per axis, for the counts in the category nav. */
+  categoryCount(categoryId: string): number {
+    return this.faqItems.filter((item) => item.category === categoryId).length;
+  }
+
+  readonly activeCategory = computed(
+    () => this.categories.find((cat) => cat.id === this.selectedCategory()) ?? this.categories[0]
+  );
+
+  /** Every question in the current view is open: the toggle offers "collapse". */
+  readonly allExpanded = computed(() => {
+    const items = this.filteredFaqItems();
+    const open = this.openQuestions();
+    return items.length > 0 && items.every((item) => open.has(item.id));
+  });
+
+  toggleAll(): void {
+    if (this.allExpanded()) this.collapseAll();
+    else this.expandAll();
+  }
+
+  /** Category label without its leading emoji, for headings that show the icon separately. */
+  categoryName(label: string): string {
+    return label.replace(/^\S+\s+/, '');
+  }
 
   isQuestionOpen(id: string): boolean {
     return this.openQuestions().has(id);

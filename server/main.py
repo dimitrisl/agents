@@ -27,6 +27,7 @@ from server.routers import (
     homebrew_router,
     rules_router,
     session_router,
+    settings_router,
     websocket_router,
 )
 
@@ -90,6 +91,7 @@ app.include_router(homebrew_router.router, prefix=settings.API_V1_STR)
 app.include_router(dm_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(session_router.router, prefix=settings.API_V1_STR)
+app.include_router(settings_router.router, prefix=settings.API_V1_STR)
 app.include_router(assets_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 

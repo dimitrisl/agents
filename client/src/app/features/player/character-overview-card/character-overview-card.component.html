@@ -3,7 +3,7 @@
     <section class="flex gap-3 pb-3">
       <button
         type="button"
-        class="group relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-accent/70 bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+        class="group relative aspect-3/4 w-37.5 shrink-0 overflow-hidden rounded-xl border border-accent/70 bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
         aria-label="Change character portrait"
         (click)="portrait.emit()"
       >
@@ -11,11 +11,11 @@
           <img [src]="portraitUrl" (error)="imageLoadError = true" alt="Character portrait" class="h-full w-full object-cover" />
         } @else {
           <div class="flex h-full w-full flex-col items-center justify-center bg-accent/10 text-accent transition-colors group-hover:bg-accent/20">
-            <span class="text-2xl font-bold font-display uppercase">{{ (char.char_name || '?').charAt(0) }}</span>
-            <span class="mt-1 text-[10px] text-muted font-sans font-medium">Add Portrait</span>
+            <span class="text-metric font-bold font-display uppercase">{{ (char.char_name || '?').charAt(0) }}</span>
+            <span class="mt-1 text-micro text-muted font-sans font-medium">Add Portrait</span>
           </div>
         }
-        <span class="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-micro font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+        <span class="absolute inset-x-0 bottom-0 bg-deep/80 px-2 py-1 text-center text-micro font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
           Portrait
         </span>
       </button>
@@ -75,27 +75,50 @@
       (setTempHp)="setTempHp.emit($event)"
     ></app-hit-points-control>
 
-    <!-- Conditions & Concentration -->
+    <!-- Conditions & Concentration: every chip is the same height; ✕ removes one without opening the dialog -->
     <section class="py-3" *ngIf="!editMode">
-      <div class="flex flex-wrap gap-2 items-center">
+      <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
           class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
           aria-label="Manage conditions and concentration"
           (click)="manageConditions.emit()"
         >
-          <forge-badge [interactive]="true" tone="muted">
+          <forge-badge [interactive]="true" tone="muted" class="h-7">
             <span aria-hidden="true">⚡</span> Status
           </forge-badge>
         </button>
 
-        <forge-badge *ngIf="char.concentrating_on" tone="gold">
-          <span aria-hidden="true" class="mr-1">🧠</span> {{ char.concentrating_on }}
-        </forge-badge>
+        @if (char.concentrating_on) {
+          <forge-badge tone="gold" class="h-7">
+            <span aria-hidden="true" class="leading-none">🧠</span>
+            {{ char.concentrating_on }}
+            <button
+              type="button"
+              class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-gold transition-colors hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [attr.aria-label]="'End concentration on ' + char.concentrating_on"
+              title="End concentration"
+              (click)="endConcentration.emit()"
+            >
+              <forge-icon name="close" size="xs" />
+            </button>
+          </forge-badge>
+        }
 
-        <forge-badge *ngFor="let cond of char.conditions" tone="danger">
-          {{ cond }}
-        </forge-badge>
+        @for (cond of char.conditions; track cond) {
+          <forge-badge tone="danger" class="h-7">
+            {{ cond }}
+            <button
+              type="button"
+              class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-red transition-colors hover:bg-red/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [attr.aria-label]="'Remove ' + cond"
+              title="Remove condition"
+              (click)="removeCondition.emit(cond)"
+            >
+              <forge-icon name="close" size="xs" />
+            </button>
+          </forge-badge>
+        }
       </div>
     </section>
 
@@ -120,9 +143,14 @@
       (savingThrow)="savingThrow.emit($event)"
     ></app-ability-score-grid>
 
-    <div class="flex items-center justify-between gap-3 pt-3 text-body-sm">
-      <span class="font-semibold uppercase text-muted">🎲 Hit Dice</span>
-      <span class="font-semibold text-ink">{{ availableHitDice }} / {{ char.char_level }} (d{{ classHitDieSize }})</span>
+    <div class="pt-3">
+      <div class="flex items-center justify-between gap-3 rounded-xl bg-tile px-3 py-2.5">
+        <span class="text-micro font-semibold uppercase text-muted">Hit Dice</span>
+        <span class="text-body font-semibold tabular-nums text-ink">
+          {{ availableHitDice }}<span class="text-muted"> / {{ char.char_level }}</span>
+          <span class="ml-1 rounded-md border border-hairline px-1.5 py-0.5 text-micro text-muted">d{{ classHitDieSize }}</span>
+        </span>
+      </div>
     </div>
   </div>
 </forge-card>

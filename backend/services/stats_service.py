@@ -2,6 +2,7 @@ import copy
 import functools
 import logging
 import math
+import re
 from typing import Any, Dict, List, Tuple, Union
 
 from backend.services.dice_service import rebuild_damage_formula
@@ -109,6 +110,35 @@ def calculate_hp(
     return total_hp
 
 
+def _parse_item_name(raw_name: str) -> Tuple[str, int]:
+    """Normalises an equipment name for catalog lookup and reads its magic bonus.
+
+    "Studded Leather Armor +1 (13 + Dex)" -> ("studded leather", 1)
+    "Shield +2" -> ("shield", 2); "Leather Armor" -> ("leather", 0)
+    Notes in parentheses are ignored, so "(+2 DEX)" is never read as a bonus.
+    """
+    name = re.sub(r"\([^)]*\)", " ", (raw_name or "").lower())
+    magic = re.search(r"\+\s*([1-3])\b", name)
+    name = re.sub(r"\+\s*\d+", " ", name)
+    name = re.sub(r"\barmou?r\b", " ", name)
+    return re.sub(r"\s+", " ", name).strip(), int(magic.group(1)) if magic else 0
+
+
+def _find_catalog_item(raw_name: str, all_items: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+    """Exact name first, then the normalised name, so "Studded Leather Armor +1"
+    finds the catalog's "Studded Leather"."""
+    lowered = (raw_name or "").lower()
+    exact = next((i for i in all_items if i.get("name", "").lower() == lowered), None)
+    if exact:
+        return exact
+    normalised, _ = _parse_item_name(raw_name)
+    if not normalised:
+        return None
+    return next(
+        (i for i in all_items if _parse_item_name(i.get("name", ""))[0] == normalised), None
+    )
+
+
 def calculate_ac(
     dex_score: int,
     equipment: List[Dict[str, Any]],
@@ -144,7 +174,7 @@ def calculate_ac(
         if "shield" in item_name:
             has_shield = True
 
-        item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
+        item_data = _find_catalog_item(equip.get("name") or "", all_items)
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
         except (ValueError, TypeError):
@@ -215,7 +245,9 @@ def calculate_ac(
 
         raw_item_name = equip.get("name") or ""
         item_name = raw_item_name.lower()
-        item_data = next((i for i in all_items if i.get("name", "").lower() == item_name), None)
+        item_data = _find_catalog_item(raw_item_name, all_items)
+        # "+1" in the name of armor/shield; an explicit ac_bonus on the item wins.
+        _, name_magic = _parse_item_name(raw_item_name)
 
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
@@ -230,7 +262,9 @@ def calculate_ac(
                 continue
             shield_bonus_applied = True
             shield_name = raw_item_name or "Shield"
-            s_val = val if val != 0 else (item_data.get("ac_bonus", 2) if item_data else 2)
+            s_val = (
+                val if val != 0 else (item_data.get("ac_bonus", 2) if item_data else 2) + name_magic
+            )
             shield_bonus = s_val
             bonus_ac += s_val
             continue
@@ -250,6 +284,9 @@ def calculate_ac(
                 if val != 0 and val < 10:
                     bonus_ac += val
                     other_bonuses.append((f"{raw_item_name} bonus", val))
+                elif val == 0 and name_magic:
+                    bonus_ac += name_magic
+                    other_bonuses.append((f"Magic armor +{name_magic}", name_magic))
             else:
                 item_bonus = val if val != 0 else item_data.get("ac_bonus", 0)
                 if item_bonus != 0:
@@ -723,9 +760,13 @@ def calculate_weapon_stats(
     attack_bonus = mod + prof_val + magic_bonus + archery_bonus + misc_atk
     weapon["attack_bonus"] = f"+{attack_bonus}" if attack_bonus >= 0 else str(attack_bonus)
 
-    damage_raw = weapon.get("damage")
-    if not damage_raw and weapon.get("damage_dice"):
+    # damage_dice is what the sheet edits; "damage" is the derived formula (rebuilt
+    # below) and can be stale, so it only seeds legacy weapons without damage_dice.
+    damage_raw = None
+    if weapon.get("damage_dice"):
         damage_raw = rebuild_damage_formula(weapon.get("damage_dice"), weapon.get("damage_bonus"))
+    if not damage_raw:
+        damage_raw = weapon.get("damage")
     if not damage_raw:
         if "weapon_data" not in locals() or not weapon_data:
             from backend.repositories.rules_repository import RulesRepository
@@ -1760,5 +1801,17 @@ def sync_character_stats(
 
         # E. (Removed) Eldritch Knight / Arcane Trickster Cantrip Limit
         # This was flawed as it did not account for racial cantrips (e.g. High Elf) or feats (Magic Initiate)
+
+    # F. Class resource pools (Sorcery Points, Ki/Focus, Rage, Channel Divinity, ...)
+    # follow class levels and ability scores; hand-made pools are left alone.
+    from backend.services.class_resources_service import sync_class_resources
+
+    current_resources = [
+        r.model_dump() if hasattr(r, "model_dump") else r
+        for r in (char_data.get("class_resources") or [])
+    ]
+    char_data["class_resources"] = sync_class_resources(
+        current_resources, classes, char_data.get("stats") or {}, edition
+    )
 
     return char_data

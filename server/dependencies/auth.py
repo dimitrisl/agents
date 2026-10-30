@@ -10,8 +10,10 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
+from backend.core.config_loader import set_user_ai_settings
 from server.config import settings
 from server.db_async import get_database
+from server.secret_box import decrypt_secret
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -126,7 +128,17 @@ async def get_current_user_from_token(
 
     user.pop("password_hash", None)
     record_user_activity(user.get("id"), user.get("username"))
+    set_user_ai_settings(user_ai_context(user.get("ai_settings")))
     return user
+
+
+def user_ai_context(stored: Optional[dict]) -> Optional[dict]:
+    """User's stored ai_settings with their encrypted API keys decrypted for this request."""
+    if not stored:
+        return None
+    context = {k: v for k, v in stored.items() if not k.endswith("_api_key_enc")}
+    context["api_keys"] = {"anthropic": decrypt_secret(stored.get("anthropic_api_key_enc"))}
+    return context
 
 
 async def get_current_user(

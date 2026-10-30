@@ -4,6 +4,7 @@ import {
   ForgeButtonDirective,
   ForgeInputDirective,
   ForgeSelectDirective,
+  ForgeMarkdownComponent,
 } from '../../../../shared/ui';
 import {
   ENCOUNTER_DIFFICULTIES,
@@ -15,6 +16,7 @@ import {
   selector: 'app-generators-panel',
   standalone: true,
   imports: [
+    ForgeMarkdownComponent,
     FormsModule,
     ForgeButtonDirective,
     ForgeInputDirective,

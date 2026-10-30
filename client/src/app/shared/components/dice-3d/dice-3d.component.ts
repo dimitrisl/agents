@@ -37,7 +37,8 @@ import {
 const STRIDE = 7;
 const STEP = 1 / 60;
 const MAX_STEPS = 300;
-const MAX_DICE = 8;
+/** A crit with riders easily reaches 20+ dice; beyond this the tray is unreadable. */
+const MAX_DICE = 30;
 const PLAYBACK_RATE = 1.25;
 /** Frames spent easing a cocked die onto its face. */
 const SETTLE_FRAMES = 20;
@@ -80,6 +81,11 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
   /** Individual die results, in the order they should be shown. */
   @Input() values: number[] = [];
   @Input() sides = 20;
+  /**
+   * Per-die sizes, parallel to `values`, for mixed throws such as 2d6 + 6d8.
+   * Falls back to `sides` for every die when absent.
+   */
+  @Input() diceSides: number[] | null = null;
   /** Bumped by the caller to replay the same numbers as a fresh throw. */
   @Input() rollKey = 0;
   @Input() accent = '#d9b355';
@@ -141,7 +147,7 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.renderer || !this.started) return;
-    if (changes['values'] || changes['rollKey'] || changes['sides'] || changes['crit']) {
+    if (changes['values'] || changes['rollKey'] || changes['sides'] || changes['diceSides'] || changes['crit']) {
       this.throwDice();
     }
   }
@@ -278,14 +284,25 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.rimLight?.color.set(this.accent);
 
     const values = (this.values?.length ? this.values : [1]).slice(0, MAX_DICE);
-    const kind = kindForSides(this.sides);
+    const sidesOf = (index: number) => this.diceSides?.[index] || this.sides;
     const radius = this.diceRadius(values.length);
-    const shape = buildShape(kind, radius);
-    this.disposables.push(shape.geometry);
 
-    this.throws = this.simulate(values.length, shape, radius);
+    // One geometry per die kind in this throw (a 2d6 + 6d8 crit needs two).
+    const shapesByKind = new Map<string, PreparedShape>();
+    const shapes = values.map((_, index) => {
+      const kind = kindForSides(sidesOf(index));
+      let shape = shapesByKind.get(kind);
+      if (!shape) {
+        shape = buildShape(kind, radius);
+        shapesByKind.set(kind, shape);
+        this.disposables.push(shape.geometry);
+      }
+      return shape;
+    });
+
+    this.throws = this.simulate(shapes, radius);
     this.dice = values.map((value, index) =>
-      this.buildDie(shape, value, this.throws[index].finalQuaternion),
+      this.buildDie(shapes[index], value, sidesOf(index), this.throws[index].finalQuaternion),
     );
     this.dice.forEach((die) => this.scene!.add(die));
 
@@ -308,7 +325,10 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (count <= 1) return 1.45;
     if (count <= 2) return 1.25;
     if (count <= 4) return 1.0;
-    return 0.82;
+    if (count <= 8) return 0.82;
+    if (count <= 14) return 0.66;
+    if (count <= 22) return 0.56;
+    return 0.48;
   }
 
   private prefersReducedMotion(): boolean {
@@ -317,7 +337,8 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   // ---------------------------------------------------------------- physics
 
-  private simulate(count: number, shape: PreparedShape, radius: number): DiceThrow[] {
+  private simulate(shapes: PreparedShape[], radius: number): DiceThrow[] {
+    const count = shapes.length;
     const world = new World({ gravity: new Vec3(0, -40, 0), allowSleep: true });
     world.broadphase = new NaiveBroadphase();
     (world.solver as GSSolver).iterations = 16;
@@ -376,7 +397,10 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     const maxColumns = Math.max(1, Math.floor(spanX / minGap) + 1);
     const maxLanes = Math.max(1, Math.floor(spanZ / minGap) + 1);
     const lanes = Math.min(maxLanes, Math.ceil(count / maxColumns));
-    const columns = Math.ceil(count / lanes);
+    const columns = Math.min(maxColumns, Math.ceil(count / lanes));
+    // A big crit can hold more dice than one layer of the grid; stack the rest
+    // above it so every die still starts inside the tray.
+    const perLayer = lanes * columns;
     const gapX = columns > 1 ? Math.min(radius * 2.4, spanX / (columns - 1)) : 0;
     const gapZ = lanes > 1 ? Math.min(radius * 2.4, spanZ / (lanes - 1)) : 0;
 
@@ -392,7 +416,7 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     for (let i = 0; i < count; i++) {
       const body = new Body({
         mass: 320,
-        shape: shape.physics,
+        shape: shapes[i].physics,
         material: diceMaterial,
         allowSleep: true,
       });
@@ -403,12 +427,14 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
 
       // Start clear of the wall and of each other: any overlap at rest makes the
       // solver fling dice apart and the throw never travels.
-      const lane = (i % lanes) - (lanes - 1) / 2;
-      const column = Math.floor(i / lanes);
+      const layer = Math.floor(i / perLayer);
+      const slot = i % perLayer;
+      const lane = (slot % lanes) - (lanes - 1) / 2;
+      const column = Math.floor(slot / lanes);
 
       body.position.set(
         side * (wallX - radius * 1.1 - column * gapX),
-        radius * 2.3 + this.rand(0, 0.5),
+        radius * 2.3 + layer * radius * 2.4 + this.rand(0, 0.5),
         centerZ + lane * gapZ,
       );
       body.quaternion.setFromEuler(
@@ -476,7 +502,7 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
         body.quaternion.z,
         body.quaternion.w,
       );
-      const flat = flattenRest(shape, resting);
+      const flat = flattenRest(shapes[i], resting);
       this.blendToRest(tracks[i], steps, flat.quaternion, flat.supportHeight);
       return { frames: tracks[i], steps, finalQuaternion: flat.quaternion };
     });
@@ -523,6 +549,7 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
   private buildDie(
     shape: PreparedShape,
     value: number,
+    sides: number,
     finalQuaternion: THREE.Quaternion,
   ): THREE.Group {
     const group = new THREE.Group();
@@ -559,7 +586,7 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     // The label layout is decided after the simulation, so the face that landed
     // face-up is the one carrying the value the game already rolled.
     const upFace = restingFace(shape, finalQuaternion);
-    const labels = this.faceLabels(shape.faces.length, value, upFace);
+    const labels = this.faceLabels(shape.faces.length, sides, value, upFace);
 
     // Every face of these solids is congruent, so one plate geometry serves all.
     const size = Math.min(...shape.faceInradius) * 2 * shape.labelScale;
@@ -612,10 +639,10 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   /** Distinct numbers for every face, with `value` on the face that lands up. */
-  private faceLabels(faceCount: number, value: number, upFace: number): string[] {
+  private faceLabels(faceCount: number, sides: number, value: number, upFace: number): string[] {
     const pool: number[] = [];
 
-    if (this.sides === faceCount) {
+    if (sides === faceCount) {
       for (let n = 1; n <= faceCount; n++) {
         if (n !== value) pool.push(n);
       }
@@ -624,7 +651,7 @@ export class Dice3dComponent implements AfterViewInit, OnChanges, OnDestroy {
       // plausible results so only the landing face has to be exact.
       const used = new Set([value]);
       while (pool.length < faceCount - 1) {
-        const candidate = 1 + Math.floor(Math.random() * this.sides);
+        const candidate = 1 + Math.floor(Math.random() * sides);
         if (used.has(candidate)) continue;
         used.add(candidate);
         pool.push(candidate);

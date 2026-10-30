@@ -33,6 +33,8 @@ export interface DamagePart {
   notation: string;
   /** Set for dice a critical hit must not double, such as Brutal Critical's own dice. */
   noCrit?: boolean;
+  /** The target may save for half against this part (carried through to the result). */
+  saveHalf?: { dc?: string };
 }
 
 export interface DamagePartResult {
@@ -42,6 +44,7 @@ export interface DamagePartResult {
   rolls: number[];
   modifier: number;
   total: number;
+  saveHalf?: { dc?: string };
 }
 
 export interface DamageRoll {
@@ -181,6 +184,7 @@ export class DiceService {
         rolls,
         modifier: parsed.modifier,
         total: raw + parsed.modifier,
+        saveHalf: part.saveHalf,
       });
     }
 
@@ -225,5 +229,12 @@ export class DiceService {
     const dice = part.numDice > 0 ? `${part.numDice}d${part.sides} (${part.rolls.join('+')})` : '';
     const modifier = part.modifier !== 0 ? this.signed(part.modifier) : '';
     return [part.label, dice, modifier].filter(Boolean).join(' ');
+  }
+
+  /** "3d8 (8+5+2)", "1d6 (3) +7": a part without its label, for per-line breakdowns. */
+  describePartDice(part: DamagePartResult): string {
+    const dice = part.numDice > 0 ? `${part.numDice}d${part.sides} (${part.rolls.join('+')})` : '';
+    const modifier = part.modifier !== 0 ? this.signed(part.modifier) : '';
+    return [dice, modifier].filter(Boolean).join(' ');
   }
 }

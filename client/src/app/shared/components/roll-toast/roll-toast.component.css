@@ -299,8 +299,21 @@
 
 .dice-breakdown {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.55rem;
+  justify-content: center;
   min-height: 2.15rem;
+}
+
+.dice-breakdown.dense {
+  gap: 0.35rem;
+}
+
+.dense .roll-chip {
+  font-size: 0.8rem;
+  height: 1.7rem;
+  min-width: 1.7rem;
+  padding: 0 0.45rem;
 }
 
 .roll-chip {

@@ -2,11 +2,11 @@
   <div class="roll-toast-overlay animated-fade" [class.message-only]="roll.message">
     <div
       class="roll-toast-card"
-      [class.nat-20]="roll.isNat20 && diceSettled()"
+      [class.nat-20]="(roll.isNat20 || roll.isCritHit) && diceSettled()"
       [class.nat-1]="roll.isNat1 && diceSettled()"
       [attr.role]="roll.message ? 'status' : null"
     >
-      @if ((roll.isNat20 || roll.isNat1) && diceSettled()) {
+      @if ((roll.isNat20 || roll.isNat1 || roll.isCritHit) && diceSettled()) {
         <div class="critical-aura" aria-hidden="true">
           <span></span>
           <span></span>
@@ -29,7 +29,7 @@
           aria-label="Dismiss roll notification"
           (click)="rollService.dismiss()"
         >
-          &times;
+          <forge-icon name="close" />
         </button>
       </div>
 
@@ -54,9 +54,10 @@
                 <app-dice-3d
                   [values]="roll.rolls || [roll.raw]"
                   [sides]="roll.sides || 20"
+                  [diceSides]="roll.diceSides || null"
                   [rollKey]="rollKey()"
                   [accent]="accent()"
-                  [crit]="roll.isNat20 ? 'success' : roll.isNat1 ? 'fail' : null"
+                  [crit]="roll.isNat20 || roll.isCritHit ? 'success' : roll.isNat1 ? 'fail' : null"
                   (settled)="onDiceSettled()"
                   (unsupported)="onWebglUnsupported()"
                 />
@@ -73,10 +74,15 @@
           }
 
           @if ((roll.rolls?.length || 0) > 1) {
-            <div class="dice-breakdown reveal" [class.revealed]="diceSettled()">
+            <div
+              class="dice-breakdown reveal"
+              [class.revealed]="diceSettled()"
+              [class.dense]="(roll.rolls?.length || 0) > 10"
+            >
               @for (value of roll.rolls; track $index) {
                 <span
                   class="roll-chip"
+                  [title]="roll.diceSides?.[$index] ? 'd' + roll.diceSides![$index] : ''"
                   [class.kept]="value === roll.raw"
                   [class.discarded]="(roll.mode === 'advantage' && value < roll.raw) || (roll.mode === 'disadvantage' && value > roll.raw)"
                 >
@@ -87,15 +93,55 @@
           }
 
           <div class="roll-total-block reveal" [class.revealed]="diceSettled()">
-            <span class="text-label text-muted">{{ roll.expression }}</span>
-            <span class="total-score" [class.gold-glow]="roll.isNat20" [class.red-glow]="roll.isNat1">
-              {{ roll.total }}
+            @if (roll.damageParts?.length) {
+              <!-- One line per part, so a save can halve just the part it applies to -->
+              <ul class="flex w-full flex-col divide-y divide-hairline rounded-lg border border-hairline bg-panel text-left">
+                @for (part of roll.damageParts; track $index) {
+                  <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5">
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-label font-semibold text-ink">{{ part.label }}</span>
+                      <span class="block truncate text-micro text-muted">{{ part.detail }}</span>
+                    </span>
+                    @if (part.saveHalf) {
+                      <button
+                        forgeButton
+                        variant="secondary"
+                        [tone]="rollService.halvedParts().has($index) ? 'success' : undefined"
+                        size="sm"
+                        type="button"
+                        [attr.aria-pressed]="rollService.halvedParts().has($index)"
+                        [title]="'Target passed its ' + (part.saveHalf.dc || 'saving throw') + ': half damage, rounded down'"
+                        (click)="rollService.togglePartHalved($index)"
+                      >
+                        {{ rollService.halvedParts().has($index) ? '✓ Saved · ½' : 'Passed ' + (part.saveHalf.dc || 'save') + ' · ½' }}
+                      </button>
+                    }
+                    <span class="min-w-10 text-right text-body font-bold tabular-nums text-ink">
+                      @if (rollService.halvedParts().has($index)) {
+                        <s class="mr-1 text-label font-normal text-muted">{{ part.total }}</s>
+                      }
+                      {{ rollService.partTotal(part, rollService.halvedParts().has($index)) }}
+                    </span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <span class="text-label text-muted">{{ roll.expression }}</span>
+            }
+            <span class="total-score" [class.gold-glow]="roll.isNat20 || roll.isCritHit" [class.red-glow]="roll.isNat1">
+              {{ rollService.displayTotal() }}
             </span>
           </div>
 
           @if (roll.isNat20 && diceSettled()) {
             <forge-badge tone="gold" size="md" class="critical-badge success">
                 &#11088; CRITICAL SUCCESS!
+            </forge-badge>
+          }
+
+          @if (roll.isCritHit && diceSettled()) {
+            <forge-badge tone="gold" size="md" class="critical-badge success">
+                &#128165; CRITICAL HIT · DICE DOUBLED
             </forge-badge>
           }
 

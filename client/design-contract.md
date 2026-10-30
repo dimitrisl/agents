@@ -93,22 +93,28 @@ Use these. Do not re-implement them with raw Tailwind.
 | Component | Key inputs | Notes |
 |---|---|---|
 | `<forge-shell>` | `hasSidebar`, `mobileTitle` · slots `[brand] [nav] [user]` | app frame; static sidebar at `lg+`, off-canvas drawer below with focus trap |
-| `<forge-page>` | `title`, `subtitle` · slot `[actions]` | page container, `max-w-[1600px]`, `gap-6`. Pass **no** title when the page renders its own header |
+| `<forge-page>` | `title`, `subtitle` · slot `[actions]` | page container, `max-w-400` (1600px), `gap-6`. Pass **no** title when the page renders its own header |
 | `<forge-card>` | `padding: none\|sm\|md\|lg`, `tone: default\|accent`, `hoverable` | `tone="accent"` = crimson-tinted border + soft glow, for the hero/primary card of a page |
 | `<forge-section>` | `title`, `variant`, `density` · slot `[actions]` | titled block, optionally wrapped in a card |
 | `<forge-tabs>` | `tabs`, `activeId`, `instanceId`, **`variant: 'pill' \| 'underline'`** | `underline` is the current design. `pill` is legacy — **migrate pages to `underline`**. Full roving-tabindex keyboard support built in |
 | `<forge-modal>` | — | every dialog goes through this |
+| `ForgeConfirmService` | `ask({ title, message, confirmLabel, tone: 'danger' })` → `Promise<boolean>` | **every confirmation** — never `window.confirm()`. `tone="danger"` gives a red confirm button and puts initial focus on Cancel, so a stray Enter never deletes |
 | `<forge-badge>` | `tone: accent\|muted\|gold\|danger\|success`, `size`, `interactive` | modifiers, editions, statuses |
 | `<forge-toggle>` | `checked`, `checkedChange`, `ariaLabel` | `role="switch"`, knob left = off |
 | `<forge-stat-box>`, `<forge-metric-strip>`, `<forge-metric>` | — | pre-existing stat primitives |
+| `<forge-markdown>` | `content` | **every AI-written text** (rules answers, comparisons, NPCs, guides). Renders markdown with `marked` (GFM tables) through Angular's sanitizer; typography is `.forge-prose` in `styles.css`. Never show model output with `whitespace-pre-wrap` |
+| `<forge-switcher>` | `options: {id,title,subtitle?,imageUrl?,badge?}[]`, `value`, `noun`, `listLabel` · `(valueChange)` | "which one is active" picker in a page header (hero, campaign). Header-height button + styled keyboard listbox (CDK). **Never a native `<select>` overlaid with opacity-0** |
 | `<forge-empty-state>` | `icon`, `title`, `description` | every empty list |
 | `<forge-toolbar>` | `collapseAt` | responsive action row |
-| `[forgeButton]` | `variant: primary\|secondary\|ghost\|danger`, `size: sm\|md\|lg`, `tone="accent"`, `iconOnly`, `fullWidth` | **the only way to style a button** |
-| `[forgeInput]` `[forgeSelect]` `[forgeTextarea]` | — | the only way to style form controls |
+| `[forgeButton]` | `variant: primary\|secondary\|ghost\|danger`, `size: sm\|md\|lg`, `tone: accent\|danger\|success` (secondary only), `iconOnly`, `fullWidth`, **`loading`**, `disabled`, `attach: start\|end` | **the only way to style a button**. `[loading]="busy"` adds a leading spinner, disables the button and sets `aria-busy` — use it on every button that starts a request so it cannot be double-clicked. `attach="start"` + `attach="end"` join two buttons into one split control (Cast ▾) — never with `rounded-*-none` overrides |
+| `<forge-icon>` | `name: 'close'\|'chevron-down'\|'check'\|'plus'\|'minus'\|'sliders'`, `size: xs\|sm\|md\|lg` | stroke SVG in `currentColor`, decorative (`aria-hidden`). **Never use the text glyphs `×` / `✕` / `&times;` for close or delete** — they render a few px wide. Close = `forgeButton variant="ghost" iconOnly size="md"` + `<forge-icon name="close" />`; delete in a dense row = `variant="danger" iconOnly size="sm"` + `size="sm"` icon |
+| `<forge-spinner>` | `size: sm\|md\|lg`, `tone: accent\|current`, `label` | indeterminate progress with `role="status"`; `label` is read by screen readers. Inside a button use `[loading]` instead |
+| `<forge-skeleton>` | `shape: text\|block\|circle`, `lines` | placeholder while content loads. Size `block`/`circle` with host classes (`class="h-32"`). Put `aria-busy="true"` on the region it replaces |
+| `[forgeInput]` `[forgeSelect]` `[forgeTextarea]` | `invalid`, `dense` (input/select) | the only way to style form controls. `dense` = compact control for packed editors. **Never shrink a kit control with `!py-*` / `!px-*`** — use `dense`, or `size="sm"` on buttons |
 
 ### 2.1 Button hierarchy
 
-One `variant="primary"` per screen — the single dominant action. Everything else is `secondary` (neutral) or `ghost` (utility). `variant="secondary" tone="accent"` marks a *distinct but not dominant* action (e.g. Level Up). `danger` is destructive only.
+One `variant="primary"` per screen — the single dominant action. Everything else is `secondary` (neutral) or `ghost` (utility). `variant="secondary" tone="accent"` marks a *distinct but not dominant* action (e.g. Level Up). `tone="danger"` / `tone="success"` on a secondary button are soft red / green tints for a paired opposite action whose color carries meaning next to an icon (e.g. HP Damage / Heal) — they are not the destructive `variant="danger"`. `danger` is destructive only.
 
 Sizes: `md` (≥40px) for header/primary actions, `sm` for dense rows and footers, `iconOnly` only with an `aria-label`.
 
@@ -149,6 +155,7 @@ One `grid min-h-11 ... bg-panel px-4 py-2 hover:bg-tile` row, never several smal
 ## 4. Interaction & accessibility — mandatory
 
 - Real `<button>` / `<a>` elements. No clickable `<div>` without `role`, `tabindex` and Enter/Space handlers.
+- Clickable things show the pointer cursor. Tailwind v4 resets buttons to `cursor: default`; `styles.css` (`@layer base`) restores `pointer` for buttons, `role="button|tab|option|menuitem|switch"`, labels, selects and checkable inputs. Don't add `cursor-pointer` per component — give a custom control the right element or `role` instead.
 - Visible `focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep` on **every** interactive element.
 - `aria-label` on icon-only controls · `aria-expanded` + `aria-controls` on collapsibles · `aria-selected` on tabs · `aria-checked` on switches and segmented options · `role="meter"` with `aria-valuenow/min/max` on progress bars.
 - Meaning is never carried by color alone — pair it with an icon, shape or text.

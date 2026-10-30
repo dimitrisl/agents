@@ -39,6 +39,7 @@ import {
   ForgePageComponent,
   ForgeTab,
   ForgeTabsComponent,
+  ForgeConfirmService,
 } from '../../shared/ui';
 import { CampaignHeaderComponent } from './campaign-header/campaign-header.component';
 import { NotesPanelComponent } from './panels/notes-panel/notes-panel.component';
@@ -254,6 +255,7 @@ export class DmComponent implements OnInit, OnDestroy {
   selectedExistingCharId = '';
 
   constructor(
+    private confirmDialog: ForgeConfirmService,
     private rollToast: RollToastService,
     private dice: DiceService,
     private http: HttpClient,
@@ -1812,9 +1814,15 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 
-  removePartyMember(member: PartyMember) {
+  async removePartyMember(member: PartyMember) {
     if (!this.campaignName || !member.char_id) return;
-    if (!confirm(`Are you sure you want to remove ${member.name} from the campaign?`)) return;
+    const confirmed = await this.confirmDialog.ask({
+      title: `Remove ${member.name}?`,
+      message: `${member.name} will leave the campaign. Their character stays in the player's vault.`,
+      confirmLabel: 'Remove from campaign',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     this.http.delete(campaignUrl(this.campaignName, `party/${member.char_id}`)).subscribe({
       next: () => {
@@ -1828,9 +1836,15 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteCampaign() {
+  async deleteCampaign() {
     if (!this.campaignName) return;
-    if (!confirm(`Are you sure you want to permanently delete the campaign "${this.campaignName}"? This action cannot be undone.`)) return;
+    const confirmed = await this.confirmDialog.ask({
+      title: 'Delete campaign?',
+      message: `"${this.campaignName}" will be permanently deleted. This cannot be undone.`,
+      confirmLabel: 'Delete campaign',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     this.http.delete(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}`).subscribe({
       next: () => {

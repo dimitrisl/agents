@@ -98,6 +98,24 @@
 }
 
 @layer base {
+  /* Tailwind v4 resets buttons to cursor: default (v3 used pointer). Restore the
+     pointer on everything clickable, app-wide, so no component has to opt in. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  label[for],
+  select:not(:disabled),
+  summary,
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="range"]:not(:disabled),
+  input[type="file"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   h1 {
     font-family: var(--font-title);
     font-size: var(--text-display);
@@ -141,6 +159,118 @@
     position: fixed;
     inset: 0;
     background: rgb(0 0 0 / 75%);
+  }
+
+  /* [forgeButton] [loading]: a leading spinner in the button's text color.
+     A pseudo-element because the directive cannot add markup; the button is
+     inline-flex with gap-2, so it sits before the label like an icon. */
+  .forge-btn-loading::before {
+    content: "";
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    animation: forge-spin 0.75s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .forge-btn-loading::before {
+      animation-duration: 2s;
+    }
+  }
+
+  /* <forge-markdown>: typography for AI-written markdown. Tokens only. */
+  .forge-prose {
+    color: var(--text-muted);
+    font-size: var(--text-body);
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+  .forge-prose > :first-child { margin-top: 0; }
+  .forge-prose > :last-child { margin-bottom: 0; }
+  .forge-prose h1,
+  .forge-prose h2,
+  .forge-prose h3,
+  .forge-prose h4 {
+    color: var(--text-primary);
+    font-family: var(--font-title);
+    line-height: 1.3;
+    margin: 1.5em 0 0.5em;
+  }
+  .forge-prose h1 { font-size: var(--text-display); }
+  .forge-prose h2 {
+    font-size: var(--text-title);
+    padding-bottom: 0.35em;
+    border-bottom: 1px solid var(--border-card);
+  }
+  .forge-prose h3,
+  .forge-prose h4 { font-size: var(--text-body); color: var(--theme-accent); }
+  .forge-prose p { margin: 0.75em 0; }
+  .forge-prose strong { color: var(--text-primary); font-weight: 600; }
+  .forge-prose em { color: var(--text-primary); }
+  .forge-prose a { color: var(--theme-accent); text-decoration: underline; text-underline-offset: 2px; }
+  .forge-prose ul,
+  .forge-prose ol { margin: 0.75em 0; padding-left: 1.4em; }
+  .forge-prose ul { list-style: disc; }
+  .forge-prose ol { list-style: decimal; }
+  .forge-prose li { margin: 0.3em 0; padding-left: 0.2em; }
+  .forge-prose li::marker { color: var(--theme-accent); }
+  .forge-prose blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 3px solid var(--theme-accent);
+    background: var(--bg-tile);
+    border-radius: 0 0.5rem 0.5rem 0;
+    color: var(--text-primary);
+  }
+  .forge-prose hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--border-card); }
+  .forge-prose code {
+    padding: 0.1em 0.35em;
+    border-radius: 0.3rem;
+    background: var(--bg-tile);
+    color: var(--text-primary);
+    font-size: 0.9em;
+  }
+  .forge-prose pre {
+    margin: 1em 0;
+    padding: 0.75em 1em;
+    overflow-x: auto;
+    border-radius: 0.6rem;
+    background: var(--bg-tile);
+  }
+  .forge-prose pre code { padding: 0; background: none; }
+  /* Tables scroll inside themselves instead of widening the page on phones. */
+  .forge-prose table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 1em 0;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: var(--text-label);
+  }
+  .forge-prose th,
+  .forge-prose td {
+    padding: 0.55em 0.8em;
+    border: 1px solid var(--border-card);
+    text-align: left;
+    vertical-align: top;
+  }
+  .forge-prose th {
+    background: var(--bg-tile);
+    color: var(--text-primary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .forge-prose tbody tr:nth-child(even) { background: color-mix(in srgb, var(--bg-tile) 50%, transparent); }
+
+  @keyframes forge-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 }
 

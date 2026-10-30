@@ -8,6 +8,18 @@ export interface StatBlock {
   CHA: number;
 }
 
+/** A situational weapon bonus, e.g. "vs Undead" +1d6 radiant, switched on before rolling. */
+export interface WeaponEffect {
+  label: string;
+  /** Extra damage dice such as `1d6`; empty when the effect is a flat bonus or a note. */
+  dice?: string;
+  damage_bonus?: number;
+  attack_bonus?: number;
+  damage_type?: string;
+  /** Non-numeric rider text, e.g. "Instant death on a finishing hit". */
+  note?: string;
+}
+
 export interface Weapon {
   name: string;
   attack_bonus: string;
@@ -24,6 +36,7 @@ export interface Weapon {
   misc_attack_bonus?: number;
   misc_damage_bonus?: number;
   damage_type?: string;
+  conditional_effects?: WeaponEffect[];
 }
 
 export interface CurrencyBlock {
@@ -39,6 +52,10 @@ export interface ClassResource {
   current: number;
   max: number;
   recharge: 'short' | 'long';
+  /** Filled in by the server from the class rules (data/rules/class_resources.json); follows level-ups. */
+  auto?: boolean;
+  /** Extra uses on top of the rules max (item, feat, house rule) — kept across level-ups. */
+  bonus?: number;
 }
 
 export interface EquipmentItem {
@@ -51,6 +68,8 @@ export interface EquipmentItem {
   val1?: number;
   mod2?: string;
   val2?: number;
+  /** Free-text notes from the sheet, e.g. "+1 AC/saves". */
+  description?: string;
 }
 
 export interface FeatureTrait {

@@ -1,32 +1,58 @@
 <div class="flex flex-col gap-6">
-
   <!-- INITIATIVE TRACKER -->
   <div
     *ngIf="encounterState && encounterState.combatants?.length > 0"
     class="rounded-xl border border-hairline bg-black/40 p-4 shadow-sm"
   >
-    <div class="flex items-center justify-between mb-3 border-b border-hairline pb-2">
+    <div
+      class="flex items-center justify-between mb-3 border-b border-hairline pb-2"
+    >
       <h3 class="font-display text-title text-ink uppercase tracking-wider">
-        ⚔️ Initiative Tracker <span class="text-label text-muted ml-2">Round {{ encounterState.round || 1 }}</span>
+        ⚔️ Initiative Tracker
+        <span class="text-label text-muted ml-2"
+          >Round {{ encounterState.round || 1 }}</span
+        >
       </h3>
     </div>
 
     <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
       <div
         *ngFor="let combatant of encounterState.combatants"
-        class="flex-shrink-0 flex flex-col items-center justify-center p-3 rounded-lg border min-w-[110px]"
+        class="shrink-0 flex flex-col items-center justify-center p-3 rounded-lg border min-w-27.5"
         [ngClass]="{
-          'border-accent bg-tile text-accent shadow-card': encounterState.activeCombatantId === combatant.id,
-          'border-hairline bg-black/20 text-muted': encounterState.activeCombatantId !== combatant.id,
-          'opacity-50 grayscale': combatant.hp <= 0
+          'border-accent bg-tile text-accent shadow-card':
+            encounterState.activeCombatantId === combatant.id,
+          'border-hairline bg-black/20 text-muted':
+            encounterState.activeCombatantId !== combatant.id,
+          'opacity-50 grayscale': combatant.hp <= 0,
         }"
       >
-        <div class="text-metric mb-1 font-black font-display">{{ combatant.initiative }}</div>
-        <div class="text-label font-bold text-center truncate w-full px-1" [class.text-ink]="encounterState.activeCombatantId !== combatant.id" [title]="combatant.name">
+        <div class="text-metric mb-1 font-black font-display">
+          {{ combatant.initiative }}
+        </div>
+        <div
+          class="text-label font-bold text-center truncate w-full px-1"
+          [class.text-ink]="encounterState.activeCombatantId !== combatant.id"
+          [title]="combatant.name"
+        >
           {{ combatant.name }}
         </div>
-        <div *ngIf="combatant.is_player" class="text-micro uppercase mt-1 tracking-widest" [class.text-accent]="encounterState.activeCombatantId === combatant.id" [class.text-ink]="encounterState.activeCombatantId !== combatant.id">Hero</div>
-        <div *ngIf="combatant.hp <= 0" class="text-micro text-red font-bold uppercase mt-1 tracking-widest">Down</div>
+        <div
+          *ngIf="combatant.is_player"
+          class="text-micro uppercase mt-1 tracking-widest"
+          [class.text-accent]="
+            encounterState.activeCombatantId === combatant.id
+          "
+          [class.text-ink]="encounterState.activeCombatantId !== combatant.id"
+        >
+          Hero
+        </div>
+        <div
+          *ngIf="combatant.hp <= 0"
+          class="text-micro text-red font-bold uppercase mt-1 tracking-widest"
+        >
+          Down
+        </div>
       </div>
     </div>
   </div>
@@ -50,10 +76,14 @@
       >
         <span class="font-bold">{{ mastery }}</span>
         @if (isTopple(mastery)) {
-          <span class="ml-1 text-xs opacity-90">(DC {{ getToppleDc() }} CON)</span>
+          <span class="ml-1 text-xs opacity-90"
+            >(DC {{ getToppleDc() }} CON)</span
+          >
         }
         @if (getMasteryTrigger(mastery); as trig) {
-          <span class="ml-1 text-[10px] text-accent/80 font-mono">[{{ trig }}]</span>
+          <span class="ml-1 text-[10px] text-accent/80 font-mono"
+            >[{{ trig }}]</span
+          >
         }
       </forge-badge>
     </div>
@@ -62,7 +92,10 @@
   <section class="flex flex-col gap-3" aria-labelledby="combat-weapons-heading">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex min-w-0 items-center gap-3">
-        <h3 id="combat-weapons-heading" class="font-display text-title text-ink">
+        <h3
+          id="combat-weapons-heading"
+          class="font-display text-title text-ink"
+        >
           Equipped Weapons &amp; Attacks
         </h3>
         <forge-badge *ngIf="profile.critThreshold < 20" tone="accent">
@@ -83,7 +116,7 @@
 
     <div
       *ngIf="char.weapons && char.weapons.length > 0; else noWeapons"
-      class="grid gap-3 sm:grid-cols-2"
+      class="grid items-start gap-3 sm:grid-cols-2"
     >
       <article
         *ngFor="let weapon of char.weapons; let index = index"
@@ -92,7 +125,10 @@
         <header class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <span *ngIf="!editMode" class="block truncate font-display text-body font-semibold text-ink">
+              <span
+                *ngIf="!editMode"
+                class="block truncate font-display text-title font-semibold text-ink"
+              >
                 {{ weapon.name }}
               </span>
               <button
@@ -101,11 +137,14 @@
                 size="sm"
                 iconOnly
                 type="button"
-                class="!p-1 text-muted hover:text-gold shrink-0"
+                class="shrink-0"
+                [class.text-accent]="expandedWeaponIndex === index"
                 [attr.aria-label]="'Configure bonuses for ' + weapon.name"
-                title="Configure weapon bonus sources & breakdown"
-                (click)="toggleWeaponEditor(index)">
-                ⚙️
+                [attr.aria-expanded]="expandedWeaponIndex === index"
+                title="Bonus sources & formula"
+                (click)="toggleWeaponEditor(index)"
+              >
+                <forge-icon name="sliders" size="sm" />
               </button>
             </div>
             <input
@@ -122,7 +161,10 @@
               *ngIf="!editMode && weaponProperties(weapon).length > 0"
               class="mt-1.5 flex flex-wrap gap-1"
             >
-              <forge-badge *ngFor="let property of weaponProperties(weapon)" tone="muted">
+              <forge-badge
+                *ngFor="let property of weaponProperties(weapon)"
+                tone="muted"
+              >
                 {{ property }}
               </forge-badge>
             </div>
@@ -138,87 +180,159 @@
             [attr.aria-label]="'Delete ' + weapon.name"
             (click)="deleteWeapon.emit(index)"
           >
-            ✕
+            <forge-icon name="close" size="sm" />
           </button>
         </header>
 
-        <div class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4">
-          <div class="text-center min-w-[100px]">
-            <span class="block text-micro font-semibold uppercase text-muted">To Hit</span>
-            <span *ngIf="!editMode" class="block font-display text-metric font-bold text-accent">
-              {{ displayedAttackBonus(weapon) }}
-            </span>
-            <input
-              *ngIf="editMode"
-              forgeInput
-              type="text"
-              class="mt-1 max-w-20 mx-auto text-center"
-              [(ngModel)]="weapon.attack_bonus"
-              aria-label="Attack bonus"
-              (change)="onManualAttackBonusChange(weapon)"
-            />
+        <div class="grid grid-cols-2 divide-x divide-hairline overflow-hidden rounded-lg bg-tile">
+          <div class="min-w-0 px-3 py-2.5">
+            <span class="block text-micro font-semibold uppercase text-muted">To hit</span>
+            @if (!editMode) {
+              <span class="mt-0.5 block text-metric font-bold leading-tight tabular-nums text-accent">
+                {{ displayedAttackBonus(weapon) }}
+              </span>
+            } @else {
+              <input
+                forgeInput
+                dense
+                type="text"
+                class="mt-1"
+                [(ngModel)]="weapon.attack_bonus"
+                aria-label="Attack bonus"
+                (change)="onManualAttackBonusChange(weapon)"
+              />
+            }
             <button
               type="button"
-              class="mt-1 block max-w-full truncate text-micro font-medium text-muted hover:text-gold text-center cursor-pointer transition-colors"
+              class="mt-1 block max-w-full truncate text-left text-micro text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               [title]="getWeaponBreakdown(weapon).attack.formulaText"
-              (click)="toggleWeaponEditor(index)">
-              ℹ️ {{ getWeaponBreakdown(weapon).attack.formulaText }}
+              (click)="toggleWeaponEditor(index)"
+            >
+              {{ formulaSources(getWeaponBreakdown(weapon).attack.formulaText) }}
             </button>
           </div>
 
-          <div class="min-w-0">
+          <div class="min-w-0 px-3 py-2.5">
             <span class="block text-micro font-semibold uppercase text-muted">Damage</span>
-            <ng-container *ngIf="!editMode">
-              <span class="block truncate text-body font-semibold text-ink">
-                {{ damagePreview(weapon) }}
+            @if (!editMode) {
+              <span class="mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
+                <span class="text-metric font-bold leading-tight tabular-nums text-ink">{{ damagePreview(weapon) }}</span>
+                @if (weaponDamageType(weapon)) {
+                  <span class="text-label text-muted">{{ weaponDamageType(weapon) }}</span>
+                }
               </span>
-              <span *ngIf="weaponDamageType(weapon)" class="block text-micro text-muted">
-                {{ weaponDamageType(weapon) }}
-              </span>
-            </ng-container>
-            <input
-              *ngIf="editMode"
-              forgeInput
-              type="text"
-              class="mt-1 w-full"
-              [(ngModel)]="weapon.damage_dice"
-              aria-label="Damage dice"
-              (change)="onManualDamageDiceChange(weapon)"
-            />
+            } @else {
+              <input
+                forgeInput
+                dense
+                type="text"
+                class="mt-1"
+                [(ngModel)]="weapon.damage_dice"
+                aria-label="Damage dice"
+                (change)="onManualDamageDiceChange(weapon)"
+              />
+            }
             <button
               type="button"
-              class="mt-1 block max-w-full truncate text-micro font-medium text-muted hover:text-gold text-left cursor-pointer transition-colors"
+              class="mt-1 block max-w-full truncate text-left text-micro text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               [title]="getWeaponBreakdown(weapon).damage.formulaText"
-              (click)="toggleWeaponEditor(index)">
-              ℹ️ {{ getWeaponBreakdown(weapon).damage.formulaText }}
+              (click)="toggleWeaponEditor(index)"
+            >
+              {{ formulaSources(getWeaponBreakdown(weapon).damage.formulaText) }}
             </button>
           </div>
         </div>
 
+        <!-- Situational effects: switch on before rolling, e.g. when fighting undead -->
+        @if (weapon.conditional_effects?.length) {
+          <div
+            class="flex flex-wrap gap-1.5"
+            [attr.aria-label]="'Situational effects for ' + weapon.name"
+          >
+            @for (effect of weapon.conditional_effects; track $index) {
+              @if (isEffectRollable(effect)) {
+                <button
+                  type="button"
+                  class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                  [attr.aria-pressed]="isEffectActive(weapon, effect)"
+                  [attr.aria-label]="
+                    (isEffectActive(weapon, effect)
+                      ? 'Turn off '
+                      : 'Turn on ') +
+                    effect.label +
+                    ' for ' +
+                    weapon.name
+                  "
+                  [title]="
+                    effect.note ||
+                    'Switch on when the condition applies; adds to Attack, Damage and Crit'
+                  "
+                  (click)="toggleEffect(weapon, effect)"
+                >
+                  <forge-badge
+                    [interactive]="true"
+                    [tone]="
+                      isEffectActive(weapon, effect) ? 'success' : 'muted'
+                    "
+                  >
+                    {{ effect.label }} {{ effectSummary(effect) }}
+                    @if (isEffectActive(weapon, effect)) {
+                      <span aria-hidden="true">✓</span>
+                    }
+                  </forge-badge>
+                </button>
+              }
+              @if (effect.note) {
+                <forge-badge tone="gold">
+                  <span aria-hidden="true">💀</span> {{ effect.label }}:
+                  {{ effect.note }}
+                </forge-badge>
+              }
+            }
+          </div>
+        }
+
         <!-- ⚙️ Expanded Weapon Breakdown & Configuration Panel -->
-        <div *ngIf="expandedWeaponIndex === index" class="mt-2 flex flex-col gap-3 rounded-lg border border-gold/40 bg-surface/90 p-3 text-sm">
-          <div class="flex items-center justify-between pb-1.5 border-b border-hairline">
-            <span class="font-display text-xs font-bold uppercase text-gold">⚙️ Bonus Sources & Formula Breakdown</span>
+        <div
+          *ngIf="expandedWeaponIndex === index"
+          class="flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-3 text-label"
+        >
+          <div
+            class="flex items-center justify-between border-b border-hairline pb-2"
+          >
+            <span class="text-micro font-semibold uppercase text-muted">Bonus sources &amp; formula</span>
             <button
               forgeButton
               variant="ghost"
               size="sm"
+              iconOnly
               type="button"
-              class="!p-0.5 text-xs text-muted hover:text-ink"
-              (click)="toggleWeaponEditor(index)">
-              ✕ Close
+              [attr.aria-label]="'Close bonus sources for ' + weapon.name"
+              (click)="toggleWeaponEditor(index)"
+            >
+              <forge-icon name="close" size="sm" />
             </button>
           </div>
 
           <!-- Formula Summaries Box -->
-          <div class="flex flex-col gap-1.5 rounded bg-tile/80 p-2.5 text-micro">
+          <div
+            class="flex flex-col gap-1.5 rounded-md bg-panel p-2.5 text-micro"
+          >
             <div class="flex items-start gap-1.5">
-              <span class="font-semibold text-accent shrink-0">🎯 Attack Formula:</span>
-              <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).attack.formulaText }}</span>
+              <span class="font-semibold text-accent shrink-0"
+                >Attack</span
+              >
+              <span class="font-mono text-ink">{{
+                getWeaponBreakdown(weapon).attack.formulaText
+              }}</span>
             </div>
             <div class="flex items-start gap-1.5">
-              <span class="font-semibold text-emerald shrink-0">🩸 Damage Formula:</span>
-              <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).damage.formulaText }}</span>
+              <span class="font-semibold text-emerald shrink-0"
+                >Damage</span
+              >
+              <span class="font-mono text-ink">{{
+                getWeaponBreakdown(weapon).damage.formulaText
+              }}</span>
             </div>
           </div>
 
@@ -226,31 +340,56 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <!-- Stat Selector -->
             <div>
-              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Scaling Ability:</label>
+              <label
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Scaling Ability:</label
+              >
               <select
                 forgeSelect
-                class="w-full text-xs !py-1"
+                dense
+                class="w-full"
                 [ngModel]="weapon.ability_modifier || ''"
-                (ngModelChange)="onWeaponAbilityChange(weapon, $event)">
-                <option value="">Auto (Default: {{ getWeaponBreakdown(weapon).attack.statName }})</option>
-                <option value="STR">Strength (STR: {{ formatMod(char.stats.STR) }})</option>
-                <option value="DEX">Dexterity (DEX: {{ formatMod(char.stats.DEX) }})</option>
-                <option value="CON">Constitution (CON: {{ formatMod(char.stats.CON) }})</option>
-                <option value="INT">Intelligence (INT: {{ formatMod(char.stats.INT) }})</option>
-                <option value="WIS">Wisdom (WIS: {{ formatMod(char.stats.WIS) }})</option>
-                <option value="CHA">Charisma (CHA: {{ formatMod(char.stats.CHA) }})</option>
+                (ngModelChange)="onWeaponAbilityChange(weapon, $event)"
+              >
+                <option value="">
+                  Auto (Default:
+                  {{ getWeaponBreakdown(weapon).attack.statName }})
+                </option>
+                <option value="STR">
+                  Strength (STR: {{ formatMod(char.stats.STR) }})
+                </option>
+                <option value="DEX">
+                  Dexterity (DEX: {{ formatMod(char.stats.DEX) }})
+                </option>
+                <option value="CON">
+                  Constitution (CON: {{ formatMod(char.stats.CON) }})
+                </option>
+                <option value="INT">
+                  Intelligence (INT: {{ formatMod(char.stats.INT) }})
+                </option>
+                <option value="WIS">
+                  Wisdom (WIS: {{ formatMod(char.stats.WIS) }})
+                </option>
+                <option value="CHA">
+                  Charisma (CHA: {{ formatMod(char.stats.CHA) }})
+                </option>
                 <option value="NONE">None (+0)</option>
               </select>
             </div>
 
             <!-- Magic Bonus -->
             <div>
-              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Magic Weapon Bonus:</label>
+              <label
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Magic Weapon Bonus:</label
+              >
               <select
                 forgeSelect
-                class="w-full text-xs !py-1"
+                dense
+                class="w-full"
                 [ngModel]="getWeaponMagicBonus(weapon)"
-                (ngModelChange)="onWeaponMagicChange(weapon, $event)">
+                (ngModelChange)="onWeaponMagicChange(weapon, $event)"
+              >
                 <option [value]="0">+0 (Non-magical)</option>
                 <option [value]="1">+1 Weapon</option>
                 <option [value]="2">+2 Weapon</option>
@@ -269,31 +408,57 @@
                 [checked]="weapon.proficient !== false"
                 (change)="onWeaponProficiencyChange(weapon, $event)"
               />
-              <label for="prof-check-{{ index }}" class="text-xs text-ink cursor-pointer font-medium">
+              <label
+                for="prof-check-{{ index }}"
+                class="text-xs text-ink cursor-pointer font-medium"
+              >
                 Proficient with weapon (+{{ char.proficiency_bonus || 2 }})
               </label>
             </div>
 
             <!-- Fighting Style Detection (Read-only status) -->
             <div class="text-xs text-muted flex items-center pt-2">
-              <span *ngIf="getWeaponBreakdown(weapon).attack.fightingStyleName as style" class="text-emerald font-medium">
-                ✓ {{ style }} Style Applied (+{{ getWeaponBreakdown(weapon).attack.fightingStyleBonus }})
+              <span
+                *ngIf="
+                  getWeaponBreakdown(weapon).attack.fightingStyleName as style
+                "
+                class="text-emerald font-medium"
+              >
+                ✓ {{ style }} Style Applied (+{{
+                  getWeaponBreakdown(weapon).attack.fightingStyleBonus
+                }})
               </span>
-              <span *ngIf="getWeaponBreakdown(weapon).damage.fightingStyleName as style" class="text-emerald font-medium">
-                ✓ {{ style }} Style Applied (+{{ getWeaponBreakdown(weapon).damage.fightingStyleBonus }})
+              <span
+                *ngIf="
+                  getWeaponBreakdown(weapon).damage.fightingStyleName as style
+                "
+                class="text-emerald font-medium"
+              >
+                ✓ {{ style }} Style Applied (+{{
+                  getWeaponBreakdown(weapon).damage.fightingStyleBonus
+                }})
               </span>
-              <span *ngIf="!getWeaponBreakdown(weapon).attack.fightingStyleName && !getWeaponBreakdown(weapon).damage.fightingStyleName">
+              <span
+                *ngIf="
+                  !getWeaponBreakdown(weapon).attack.fightingStyleName &&
+                  !getWeaponBreakdown(weapon).damage.fightingStyleName
+                "
+              >
                 No fighting style bonus applicable
               </span>
             </div>
 
             <!-- Misc Attack Bonus -->
             <div>
-              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Misc Attack Bonus:</label>
+              <label
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Misc Attack Bonus:</label
+              >
               <input
                 forgeInput
+                dense
                 type="number"
-                class="w-full text-xs !py-1"
+                class="w-full"
                 [ngModel]="weapon.misc_attack_bonus || 0"
                 (ngModelChange)="onWeaponMiscAttackChange(weapon, $event)"
                 placeholder="+0"
@@ -302,11 +467,15 @@
 
             <!-- Misc Damage Bonus -->
             <div>
-              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Misc Damage Bonus:</label>
+              <label
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Misc Damage Bonus:</label
+              >
               <input
                 forgeInput
+                dense
                 type="number"
-                class="w-full text-xs !py-1"
+                class="w-full"
                 [ngModel]="weapon.misc_damage_bonus || 0"
                 (ngModelChange)="onWeaponMiscDamageChange(weapon, $event)"
                 placeholder="+0"
@@ -315,24 +484,34 @@
 
             <!-- Damage Dice -->
             <div>
-              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Base Damage Dice:</label>
+              <label
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Base Damage Dice:</label
+              >
               <input
                 forgeInput
+                dense
                 type="text"
-                class="w-full text-xs !py-1"
+                class="w-full"
+                #baseDiceInput
                 [ngModel]="getWeaponBaseDice(weapon)"
                 (ngModelChange)="onWeaponBaseDiceChange(weapon, $event)"
+                (blur)="baseDiceInput.value = getWeaponBaseDice(weapon)"
                 placeholder="e.g. 1d8, 1d6, 2d6"
               />
             </div>
 
             <!-- Damage Type -->
             <div>
-              <label class="block mb-1 text-micro font-semibold uppercase text-muted">Damage Type:</label>
+              <label
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Damage Type:</label
+              >
               <input
                 forgeInput
+                dense
                 type="text"
-                class="w-full text-xs !py-1"
+                class="w-full"
                 [ngModel]="getWeaponBreakdown(weapon).damage.damageType"
                 (ngModelChange)="onWeaponDamageTypeChange(weapon, $event)"
                 placeholder="e.g. piercing, slashing, bludgeoning"
@@ -340,22 +519,139 @@
             </div>
           </div>
 
+          <!-- Situational effects editor -->
+          <div class="flex flex-col gap-2 pt-2 border-t border-hairline">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-micro font-semibold uppercase text-muted"
+                >Situational Effects</span
+              >
+              <button
+                forgeButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                (click)="addEffect(weapon)"
+              >
+                + Add effect
+              </button>
+            </div>
+            <p class="text-micro text-muted">
+              e.g. vs Undead +1d6 radiant, vs Humanoids +2 damage. Use Note for
+              anything that isn't a number.
+            </p>
+
+            @for (
+              effect of weapon.conditional_effects;
+              track $index;
+              let effectIndex = $index
+            ) {
+              <div
+                class="grid grid-cols-2 gap-2 rounded bg-tile/60 p-2 sm:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]"
+              >
+                <input
+                  forgeInput
+                  dense
+                  type="text"
+                  class="col-span-2 sm:col-span-1"
+                  placeholder="Condition, e.g. vs Undead"
+                  aria-label="Condition"
+                  [ngModel]="effect.label"
+                  (ngModelChange)="
+                    onEffectChange(weapon, effect, 'label', $event)
+                  "
+                />
+                <input
+                  forgeInput
+                  dense
+                  type="text"
+                  placeholder="Dice, e.g. 1d6"
+                  aria-label="Extra damage dice"
+                  [ngModel]="effect.dice"
+                  (ngModelChange)="
+                    onEffectChange(weapon, effect, 'dice', $event)
+                  "
+                />
+                <input
+                  forgeInput
+                  dense
+                  type="number"
+                  placeholder="+Dmg"
+                  aria-label="Flat damage bonus"
+                  [ngModel]="effect.damage_bonus || null"
+                  (ngModelChange)="
+                    onEffectChange(weapon, effect, 'damage_bonus', $event)
+                  "
+                />
+                <input
+                  forgeInput
+                  dense
+                  type="number"
+                  placeholder="+Hit"
+                  aria-label="Attack bonus"
+                  [ngModel]="effect.attack_bonus || null"
+                  (ngModelChange)="
+                    onEffectChange(weapon, effect, 'attack_bonus', $event)
+                  "
+                />
+                <button
+                  forgeButton
+                  variant="danger"
+                  size="sm"
+                  iconOnly
+                  type="button"
+                  class="justify-self-end"
+                  [attr.aria-label]="'Remove ' + effect.label"
+                  (click)="removeEffect(weapon, effectIndex)"
+                >
+                  <forge-icon name="close" size="sm" />
+                </button>
+                <input
+                  forgeInput
+                  dense
+                  type="text"
+                  placeholder="Type, e.g. radiant"
+                  aria-label="Extra damage type"
+                  [ngModel]="effect.damage_type"
+                  (ngModelChange)="
+                    onEffectChange(weapon, effect, 'damage_type', $event)
+                  "
+                />
+                <input
+                  forgeInput
+                  dense
+                  type="text"
+                  class="col-span-2 sm:col-span-4"
+                  placeholder="Note, e.g. DC 16 CON half damage"
+                  aria-label="Note"
+                  [ngModel]="effect.note"
+                  (ngModelChange)="
+                    onEffectChange(weapon, effect, 'note', $event)
+                  "
+                />
+              </div>
+            }
+          </div>
+
           <!-- Sync Action Button -->
-          <div class="flex items-center justify-between pt-2 border-t border-hairline">
-            <span class="text-micro text-muted">Sync updates to-hit & damage on your sheet.</span>
+          <div
+            class="flex items-center justify-between pt-2 border-t border-hairline"
+          >
+            <span class="text-micro text-muted"
+              >Sync updates to-hit & damage on your sheet.</span
+            >
             <button
               forgeButton
               variant="primary"
               size="sm"
               type="button"
-              class="!py-1 !px-3 text-xs"
-              (click)="syncWeaponCalculations(weapon)">
+              (click)="syncWeaponCalculations(weapon)"
+            >
               ⚡ Recalculate & Sync to Sheet
             </button>
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <button
             forgeButton
             variant="secondary"
@@ -403,19 +699,31 @@
       aria-labelledby="damage-riders-heading"
     >
       <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h4 id="damage-riders-heading" class="text-micro font-semibold uppercase text-muted">
+        <h4
+          id="damage-riders-heading"
+          class="text-micro font-semibold uppercase text-muted"
+        >
           Damage Riders
         </h4>
-        <span class="text-micro text-muted">Switch on to stack onto Damage and Crit</span>
+        <span class="text-micro text-muted"
+          >Switch on to stack onto Damage and Crit</span
+        >
       </div>
 
       <div class="mt-2 flex flex-col gap-2">
-        <div *ngFor="let rider of riders" class="flex flex-wrap items-center gap-2">
+        <div
+          *ngFor="let rider of riders"
+          class="flex flex-wrap items-center gap-2"
+        >
           <button
             type="button"
             class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
             [attr.aria-pressed]="isRiderActive(rider)"
-            [attr.aria-label]="(isRiderActive(rider) ? 'Remove ' : 'Add ') + rider.name + ' to damage rolls'"
+            [attr.aria-label]="
+              (isRiderActive(rider) ? 'Remove ' : 'Add ') +
+              rider.name +
+              ' to damage rolls'
+            "
             [title]="rider.hint"
             (click)="toggleRider(rider)"
           >
@@ -430,7 +738,10 @@
             </forge-badge>
           </button>
 
-          <div *ngIf="rider.options && rider.options.length > 1" class="flex flex-wrap gap-1">
+          <div
+            *ngIf="rider.options && rider.options.length > 1"
+            class="flex flex-wrap gap-1"
+          >
             <button
               *ngFor="let option of rider.options"
               type="button"
@@ -441,7 +752,9 @@
             >
               <forge-badge
                 [interactive]="true"
-                [tone]="isOptionSelected(rider, option.notation) ? 'accent' : 'muted'"
+                [tone]="
+                  isOptionSelected(rider, option.notation) ? 'accent' : 'muted'
+                "
               >
                 {{ option.label }}
               </forge-badge>
@@ -453,15 +766,23 @@
   </section>
 
   <!-- CURRENCY & COIN WALLET (#174) -->
-  <section class="flex flex-col gap-2" aria-labelledby="combat-currency-heading">
+  <section
+    class="flex flex-col gap-2"
+    aria-labelledby="combat-currency-heading"
+  >
     <div class="flex items-center justify-between">
-      <h3 id="combat-currency-heading" class="font-display text-title text-ink flex items-center gap-2">
+      <h3
+        id="combat-currency-heading"
+        class="font-display text-title text-ink flex items-center gap-2"
+      >
         <span>💰 Currency &amp; Purse</span>
       </h3>
       <span class="text-micro text-muted">Tap coin to add or spend</span>
     </div>
 
-    <div class="grid grid-cols-5 gap-2 bg-tile/70 p-2.5 rounded-xl border border-hairline">
+    <div
+      class="grid grid-cols-5 gap-2 bg-tile/70 p-2.5 rounded-xl border border-hairline"
+    >
       <!-- PP -->
       <button
         type="button"
@@ -469,8 +790,13 @@
         class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
         title="Platinum Pieces"
       >
-        <span class="text-[10px] font-black uppercase text-muted group-hover:text-ink">PP</span>
-        <span class="font-mono font-black text-sm text-ink">{{ currency.pp || 0 }}</span>
+        <span
+          class="text-[10px] font-black uppercase text-muted group-hover:text-ink"
+          >PP</span
+        >
+        <span class="font-mono font-black text-sm text-ink">{{
+          currency.pp || 0
+        }}</span>
       </button>
 
       <!-- GP -->
@@ -481,7 +807,9 @@
         title="Gold Pieces"
       >
         <span class="text-[10px] font-black uppercase text-gold">GP</span>
-        <span class="font-mono font-black text-base text-gold">{{ currency.gp || 0 }}</span>
+        <span class="font-mono font-black text-base text-gold">{{
+          currency.gp || 0
+        }}</span>
       </button>
 
       <!-- EP -->
@@ -491,8 +819,13 @@
         class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
         title="Electrum Pieces"
       >
-        <span class="text-[10px] font-black uppercase text-muted group-hover:text-ink">EP</span>
-        <span class="font-mono font-black text-sm text-ink">{{ currency.ep || 0 }}</span>
+        <span
+          class="text-[10px] font-black uppercase text-muted group-hover:text-ink"
+          >EP</span
+        >
+        <span class="font-mono font-black text-sm text-ink">{{
+          currency.ep || 0
+        }}</span>
       </button>
 
       <!-- SP -->
@@ -502,8 +835,13 @@
         class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
         title="Silver Pieces"
       >
-        <span class="text-[10px] font-black uppercase text-muted group-hover:text-ink">SP</span>
-        <span class="font-mono font-black text-sm text-ink">{{ currency.sp || 0 }}</span>
+        <span
+          class="text-[10px] font-black uppercase text-muted group-hover:text-ink"
+          >SP</span
+        >
+        <span class="font-mono font-black text-sm text-ink">{{
+          currency.sp || 0
+        }}</span>
       </button>
 
       <!-- CP -->
@@ -514,7 +852,9 @@
         title="Copper Pieces"
       >
         <span class="text-[10px] font-black uppercase text-amber-600">CP</span>
-        <span class="font-mono font-black text-sm text-ink">{{ currency.cp || 0 }}</span>
+        <span class="font-mono font-black text-sm text-ink">{{
+          currency.cp || 0
+        }}</span>
       </button>
     </div>
   </section>
@@ -527,9 +867,14 @@
     maxWidth="360px"
   >
     <div class="flex flex-col gap-4 p-2">
-      <div class="flex items-center justify-between px-3 py-2 bg-tile rounded-lg">
+      <div
+        class="flex items-center justify-between px-3 py-2 bg-tile rounded-lg"
+      >
         <span class="text-xs text-muted uppercase">Current Balance</span>
-        <span class="font-mono font-bold text-lg text-ink">{{ currency[selectedCoin] || 0 }} {{ selectedCoin.toUpperCase() }}</span>
+        <span class="font-mono font-bold text-lg text-ink"
+          >{{ currency[selectedCoin] || 0 }}
+          {{ selectedCoin.toUpperCase() }}</span
+        >
       </div>
 
       <!-- Coin Selector Chips -->
@@ -539,16 +884,26 @@
           type="button"
           (click)="selectCoin(c)"
           class="flex-1 py-1 rounded text-xs font-bold uppercase transition-all"
-          [ngClass]="selectedCoin === c ? 'bg-gold text-surface' : 'bg-surface text-muted hover:text-ink border border-hairline'"
+          [ngClass]="
+            selectedCoin === c
+              ? 'bg-gold text-surface'
+              : 'bg-surface text-muted hover:text-ink border border-hairline'
+          "
         >
           {{ c }}
         </button>
       </div>
 
       <!-- Big Number Display -->
-      <div class="flex flex-col items-center justify-center p-3 bg-surface rounded-xl border border-hairline">
-        <span class="text-micro font-semibold uppercase text-muted mb-1">Transaction Amount</span>
-        <span class="text-3xl font-mono font-bold text-accent">{{ coinNumpadValue }} {{ selectedCoin.toUpperCase() }}</span>
+      <div
+        class="flex flex-col items-center justify-center p-3 bg-surface rounded-xl border border-hairline"
+      >
+        <span class="text-micro font-semibold uppercase text-muted mb-1"
+          >Transaction Amount</span
+        >
+        <span class="text-3xl font-mono font-bold text-accent"
+          >{{ coinNumpadValue }} {{ selectedCoin.toUpperCase() }}</span
+        >
       </div>
 
       <!-- Quick Pills -->
@@ -566,7 +921,7 @@
       <!-- Numpad Grid -->
       <div class="grid grid-cols-3 gap-2">
         <button
-          *ngFor="let digit of ['1','2','3','4','5','6','7','8','9']"
+          *ngFor="let digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9']"
           type="button"
           (click)="appendCoinDigit(digit)"
           class="h-11 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-ink"
@@ -616,19 +971,25 @@
     </div>
   </forge-modal>
 
-  <section class="flex flex-col gap-3" aria-labelledby="combat-equipment-heading">
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <h3 id="combat-equipment-heading" class="font-display text-title text-ink">
+  <section
+    class="flex flex-col gap-3"
+    aria-labelledby="combat-equipment-heading"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-3">
+        <h3
+          id="combat-equipment-heading"
+          class="font-display text-title text-ink"
+        >
           Equipment &amp; Gear
         </h3>
         <!-- Attunement Tracker Counter (#174) -->
-        <span
-          class="px-2.5 py-0.5 rounded-full text-xs font-bold border transition-colors"
-          [ngClass]="attunedCount >= 3 ? 'bg-gold/15 border-gold/40 text-gold' : 'bg-surface border-hairline text-muted'"
+        <forge-badge
+          [tone]="attunedCount >= maxActiveAttunements ? 'gold' : 'muted'"
+          title="Attuned items that are also equipped count toward the limit of 3"
         >
-          🔮 Attuned: {{ attunedCount }}/3
-        </span>
+          <span aria-hidden="true">🔮</span> Attuned &amp; equipped {{ attunedCount }}/{{ maxActiveAttunements }}
+        </forge-badge>
       </div>
       <button
         *ngIf="editMode"
@@ -642,109 +1003,227 @@
       </button>
     </div>
 
-    <div
-      *ngIf="char.equipment && char.equipment.length > 0; else noEquipment"
-      class="divide-y divide-hairline overflow-hidden rounded-xl bg-panel"
-    >
+    @if (char.equipment && char.equipment.length > 0) {
+      <!-- Segmented filter (design-contract §3) -->
       <div
-        *ngFor="let item of char.equipment; let index = index"
-        class="flex flex-wrap sm:flex-nowrap min-h-12 items-center justify-between gap-2 px-4 py-2 transition-colors hover:bg-tile"
+        class="grid grid-cols-4 rounded-full border border-hairline bg-panel p-1"
+        role="radiogroup"
+        aria-label="Filter equipment"
       >
-        <div class="flex items-center gap-2 min-w-0 flex-1">
-          <!-- Quantity Stepper -->
-          <div class="flex items-center gap-1 shrink-0 bg-surface px-1.5 py-0.5 rounded-lg border border-hairline">
-            <button
-              type="button"
-              (click)="adjustQuantity(item, -1, $event)"
-              class="text-muted hover:text-ink font-bold px-1 active:scale-95"
-              title="Decrease quantity"
-            >
-              −
-            </button>
-            <span class="font-mono text-xs font-bold text-ink min-w-[16px] text-center">
-              {{ item.quantity ?? 1 }}
-            </span>
-            <button
-              type="button"
-              (click)="adjustQuantity(item, 1, $event)"
-              class="text-muted hover:text-ink font-bold px-1 active:scale-95"
-              title="Increase quantity"
-            >
-              +
-            </button>
-          </div>
-
-          <span *ngIf="!editMode" class="min-w-0 truncate text-body font-medium text-ink">{{ item.name }}</span>
-          <input
-            *ngIf="editMode"
-            forgeInput
-            type="text"
-            class="min-w-0 flex-1"
-            [(ngModel)]="item.name"
-            [attr.aria-label]="'Equipment name'"
-            (change)="save.emit()"
-          />
-
-          <!-- 1-Tap Healing Potion Drink Button (#174) -->
-          <button
-            *ngIf="isHealingPotion(item)"
-            type="button"
-            (click)="drinkPotion(item, $event)"
-            class="ml-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-400 text-xs font-bold transition-all active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer"
-            title="Drink potion to restore HP"
-          >
-            <span>🧪 Drink</span>
-          </button>
-        </div>
-
-        <div class="flex shrink-0 items-center gap-2">
-          <!-- Attunement Toggle Badge (#174) -->
+        @for (filter of equipmentFilters; track filter.id) {
           <button
             type="button"
-            class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            [attr.aria-pressed]="!!item.attuned"
-            [attr.aria-label]="(item.attuned ? 'Unattune ' : 'Attune ') + item.name"
-            (click)="toggleAttuned(item)"
+            role="radio"
+            class="flex min-h-8 items-center justify-center gap-1.5 rounded-full px-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="equipmentFilter === filter.id ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            [attr.aria-checked]="equipmentFilter === filter.id"
+            (click)="equipmentFilter = filter.id"
           >
-            <forge-badge [interactive]="true" [tone]="item.attuned ? 'accent' : 'muted'">
-              🔮 {{ item.attuned ? 'Attuned' : 'Attune' }}
-            </forge-badge>
+            {{ filter.label }}
+            <span class="tabular-nums text-micro text-muted">{{ equipmentCount(filter.id) }}</span>
           </button>
-
-          <!-- Equipped Toggle Badge -->
-          <button
-            type="button"
-            class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-            [attr.aria-pressed]="!!item.equipped"
-            [attr.aria-label]="(item.equipped ? 'Unequip ' : 'Equip ') + item.name"
-            (click)="toggleEquipped.emit(item)"
-          >
-            <forge-badge [interactive]="true" [tone]="item.equipped ? 'success' : 'muted'">
-              {{ item.equipped ? 'Equipped' : 'Inventory' }}
-            </forge-badge>
-          </button>
-
-          <button
-            *ngIf="editMode"
-            forgeButton
-            variant="danger"
-            size="sm"
-            iconOnly
-            type="button"
-            [attr.aria-label]="'Delete ' + item.name"
-            (click)="deleteEquipment.emit(index)"
-          >
-            ✕
-          </button>
-        </div>
+        }
       </div>
-    </div>
 
-    <ng-template #noEquipment>
+      @for (group of equipmentGroups; track group.title) {
+        <div class="flex flex-col gap-1.5">
+          @if (group.title) {
+            <h4 class="px-1 text-micro font-semibold uppercase text-muted">
+              {{ group.title }} <span class="tabular-nums">· {{ group.rows.length }}</span>
+            </h4>
+          }
+
+          <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
+            @for (row of group.rows; track row.index) {
+              <li
+                class="flex flex-wrap gap-x-3 gap-y-2 px-3 py-2.5 transition-colors hover:bg-tile sm:flex-nowrap"
+                [ngClass]="editMode ? 'items-start' : 'items-center'"
+              >
+                <!-- Name + the item's own notes (e.g. "+1 AC/saves") -->
+                <div class="min-w-0 flex-1 basis-full sm:basis-auto">
+                  @if (!editMode) {
+                    <div class="flex min-w-0 items-center gap-2">
+                      <p class="min-w-0 truncate text-body font-medium text-ink" [title]="row.item.name">{{ row.item.name }}</p>
+                      @if (row.item.ac_bonus) {
+                        <forge-badge
+                          [tone]="row.item.equipped ? 'accent' : 'muted'"
+                          class="shrink-0"
+                          [title]="row.item.equipped ? 'Counts toward your Armor Class' : 'Only counts while equipped'"
+                        >
+                          🛡️ {{ row.item.ac_bonus >= 10 ? 'AC ' + row.item.ac_bonus : '+' + row.item.ac_bonus + ' AC' }}
+                        </forge-badge>
+                      }
+                      @if (acHintFromNotes(row.item); as hint) {
+                        <!-- The note says "+2 AC" but the AC calculation can't read notes: one click applies it -->
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="accent"
+                          size="sm"
+                          type="button"
+                          class="shrink-0"
+                          [title]="'Your notes mention +' + hint + ' AC. Apply it to Armor Class (you can change it in Quick Edit).'"
+                          [attr.aria-label]="'Apply +' + hint + ' AC from the notes of ' + row.item.name"
+                          (click)="onItemAcChange(row.item, hint)"
+                        >
+                          🛡️ Use +{{ hint }} AC
+                        </button>
+                      }
+                      <!-- 1-Tap Healing Potion Drink Button (#174), beside the name so the right-hand columns stay aligned -->
+                      @if (isHealingPotion(row.item) && (row.item.quantity ?? 1) > 0) {
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="success"
+                          size="sm"
+                          type="button"
+                          class="shrink-0"
+                          title="Drink potion to restore HP"
+                          [attr.aria-label]="'Drink ' + row.item.name"
+                          (click)="drinkPotion(row.item, $event)"
+                        >
+                          🧪 Drink
+                        </button>
+                      }
+                    </div>
+                    @if (row.item.description) {
+                      <p class="truncate text-label text-muted" [title]="row.item.description">{{ row.item.description }}</p>
+                    }
+                  } @else {
+                    <div class="flex flex-col gap-1.5">
+                      <input
+                        forgeInput
+                        dense
+                        type="text"
+                        placeholder="Item name"
+                        [(ngModel)]="row.item.name"
+                        [attr.aria-label]="'Name of ' + row.item.name"
+                        (change)="save.emit()"
+                      />
+                      <div class="flex items-center gap-2">
+                        <input
+                          forgeInput
+                          dense
+                          type="text"
+                          class="min-w-0 flex-1"
+                          placeholder="Notes, e.g. +1 AC and saving throws"
+                          [(ngModel)]="row.item.description"
+                          [attr.aria-label]="'Notes for ' + row.item.name"
+                          (change)="save.emit()"
+                        />
+                        <!-- What the AC calculation reads for items it doesn't know (homebrew, magic) -->
+                        <label class="flex shrink-0 items-center gap-1.5 text-micro font-semibold uppercase text-muted">
+                          AC
+                          <input
+                            forgeInput
+                            dense
+                            type="number"
+                            class="w-16 text-center"
+                            placeholder="0"
+                            title="AC bonus while equipped (e.g. 2), or the armor's base AC for homebrew armor (e.g. 15)"
+                            [attr.aria-label]="'AC bonus of ' + row.item.name"
+                            [ngModel]="row.item.ac_bonus || null"
+                            (ngModelChange)="onItemAcChange(row.item, $event)"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <div class="ml-auto flex shrink-0 items-center gap-2">
+
+                  <!-- Quantity -->
+                  <div class="flex items-center rounded-lg border border-hairline" role="group" [attr.aria-label]="'Quantity of ' + row.item.name">
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [attr.aria-label]="'Decrease ' + row.item.name"
+                      [disabled]="(row.item.quantity ?? 1) <= 0"
+                      (click)="adjustQuantity(row.item, -1, $event)"
+                    >
+                      <forge-icon name="minus" size="xs" />
+                    </button>
+                    <span class="min-w-6 text-center text-label font-semibold tabular-nums text-ink" aria-live="polite">
+                      {{ row.item.quantity ?? 1 }}
+                    </span>
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [attr.aria-label]="'Increase ' + row.item.name"
+                      (click)="adjustQuantity(row.item, 1, $event)"
+                    >
+                      <forge-icon name="plus" size="xs" />
+                    </button>
+                  </div>
+
+                  <!-- Attunement Toggle (#174): a quiet icon until the item is attuned; fixed slot keeps columns aligned -->
+                  <span class="flex w-24 justify-end">
+                  <button
+                    type="button"
+                    class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    [attr.aria-pressed]="!!row.item.attuned"
+                    [attr.aria-label]="(row.item.attuned ? 'Unattune ' : 'Attune ') + row.item.name"
+                    [title]="row.item.attuned ? 'Attuned — click to end attunement' : 'Attune to this item'"
+                    (click)="toggleAttuned(row.item)"
+                  >
+                    @if (row.item.attuned) {
+                      <forge-badge [interactive]="true" tone="accent">🔮 Attuned</forge-badge>
+                    } @else {
+                      <forge-badge [interactive]="true" tone="muted" class="opacity-60 hover:opacity-100">🔮</forge-badge>
+                    }
+                  </button>
+                  </span>
+
+                  <!-- Equipped Toggle -->
+                  <button
+                    type="button"
+                    class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                    [attr.aria-pressed]="!!row.item.equipped"
+                    [attr.aria-label]="(row.item.equipped ? 'Unequip ' : 'Equip ') + row.item.name"
+                    (click)="onToggleEquipped(row.item)"
+                  >
+                    <forge-badge
+                      [interactive]="true"
+                      class="w-22"
+                      [tone]="row.item.equipped ? 'success' : 'muted'"
+                    >
+                      {{ row.item.equipped ? 'Equipped' : 'Inventory' }}
+                    </forge-badge>
+                  </button>
+
+                  @if (editMode) {
+                    <button
+                      forgeButton
+                      variant="danger"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [attr.aria-label]="'Delete ' + row.item.name"
+                      (click)="deleteEquipment.emit(row.index)"
+                    >
+                      <forge-icon name="close" size="sm" />
+                    </button>
+                  }
+                </div>
+              </li>
+            } @empty {
+              <li class="px-4 py-5 text-center text-label text-muted">Nothing here.</li>
+            }
+          </ul>
+        </div>
+      }
+    } @else {
       <p class="rounded-xl bg-panel px-4 py-6 text-center text-body text-muted">
         No equipment carried yet.
       </p>
-    </ng-template>
+    }
   </section>
 
   <app-combat-dice-panel

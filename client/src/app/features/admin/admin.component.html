@@ -14,170 +14,159 @@
       </p>
     </div>
 
-    <div class="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
-      <div class="inline-flex rounded-xl bg-tile p-1 border border-hairline">
-        <button
-          forgeButton
-          [variant]="currentTab() === 'users' ? 'primary' : 'ghost'"
-          size="sm"
-          type="button"
-          (click)="currentTab.set('users')"
-        >
-          👤 Users ({{ totalUsers() }})
-        </button>
-        <button
-          forgeButton
-          [variant]="currentTab() === 'reports' ? 'primary' : 'ghost'"
-          size="sm"
-          type="button"
-          (click)="currentTab.set('reports')"
-        >
-          🚩 Whisper Reports ({{ reports().length }})
-        </button>
-      </div>
-      <forge-badge tone="success">● Database Online</forge-badge>
-    </div>
+    <forge-badge tone="success" class="self-start lg:self-center">● Database Online</forge-badge>
   </header>
 
-  <!-- USERS TAB -->
-  <div *ngIf="currentTab() === 'users'" class="flex flex-col gap-6">
-    <forge-card padding="none" [hoverable]="false">
-      <div class="flex min-h-0 flex-col">
-        <div
-          class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between"
-        >
+  <forge-card padding="none" [hoverable]="false">
+    <div class="flex min-h-0 flex-col">
+      <div class="border-b border-hairline px-4 pt-3">
+        <forge-tabs
+          class="block min-w-0"
+          instanceId="admin-tabs"
+          variant="underline"
+          [tabs]="adminTabs()"
+          [activeId]="currentTab()"
+          (activeIdChange)="setTab($event)"
+        ></forge-tabs>
+      </div>
+
+      <!-- USERS TAB -->
+      @if (currentTab() === 'users') {
+        <div class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="min-w-0">
             <h2 class="font-display text-title text-ink">Registered Accounts</h2>
-            <p class="mt-1 text-label text-muted">
-              Accounts with access to this forge instance.
-            </p>
+            <p class="mt-1 text-label text-muted">Accounts with access to this forge instance.</p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="flex flex-wrap items-center gap-2">
             <input
               forgeInput
-              type="text"
+              dense
+              type="search"
               placeholder="Search username or email…"
+              aria-label="Search users"
               [ngModel]="searchQuery()"
               (ngModelChange)="onSearchChange($event)"
-              class="w-64"
+              class="w-full sm:w-64"
             />
             <button
               forgeButton
               variant="secondary"
               size="sm"
               type="button"
+              [loading]="isLoadingUsers()"
               (click)="loadUsers()"
               title="Refresh user list and online status"
             >
-              🔄 Refresh
+              Refresh
             </button>
-            <forge-badge tone="muted" class="shrink-0">
-              {{ totalUsers() }} total
-            </forge-badge>
           </div>
         </div>
 
         <div class="flex min-w-0 flex-col gap-4 p-4">
-          @if (isLoadingUsers()) {
-            <div class="py-12 text-center text-muted">
-              ⏳ Loading registered users…
-            </div>
-          } @else if (users().length === 0) {
+          @if (!isLoadingUsers() && users().length === 0) {
             <forge-empty-state
               icon="👤"
               title="No users found"
               description="No accounts match your search criteria."
             ></forge-empty-state>
           } @else {
-            <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
-              <table class="min-w-full border-collapse text-left text-body">
+            <div class="min-w-0 overflow-x-auto rounded-xl border border-hairline">
+              <table class="min-w-full border-collapse text-left text-body" [attr.aria-busy]="isLoadingUsers()">
                 <thead class="bg-tile text-micro uppercase text-muted">
                   <tr>
-                    <th scope="col" class="px-4 py-3 font-semibold">Username</th>
-                    <th scope="col" class="px-4 py-3 font-semibold">Status</th>
-                    <th scope="col" class="px-4 py-3 font-semibold">Email / Name</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">User</th>
                     <th scope="col" class="px-4 py-3 font-semibold">Role</th>
-                    <th scope="col" class="px-4 py-3 font-semibold text-center">Characters</th>
-                    <th scope="col" class="px-4 py-3 font-semibold text-center">DM Campaigns</th>
-                    <th scope="col" class="px-4 py-3 font-semibold text-center">Member In</th>
-                    <th scope="col" class="px-4 py-3 font-semibold text-right">Actions</th>
+                    <th scope="col" class="px-4 py-3 text-center font-semibold">Characters</th>
+                    <th scope="col" class="px-4 py-3 text-center font-semibold">DM Campaigns</th>
+                    <th scope="col" class="px-4 py-3 text-center font-semibold">Member In</th>
+                    <th scope="col" class="px-4 py-3 text-right font-semibold"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-hairline">
-                  <tr
-                    *ngFor="let user of users(); trackBy: trackUser"
-                    class="transition-colors hover:bg-tile"
-                  >
-                    <td class="px-4 py-3">
-                      <div class="flex min-w-0 items-center gap-3">
-                        <span
-                          class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tile text-label font-bold uppercase text-muted"
-                          aria-hidden="true"
-                        >
-                          {{ user.username.charAt(0) }}
-                          <span
-                            class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-panel"
-                            [ngClass]="user.is_online ? 'bg-emerald-400' : 'bg-zinc-500'"
-                          ></span>
-                        </span>
-                        <span class="min-w-0 truncate font-semibold text-ink">
-                          {{ user.username }}
-                        </span>
-                      </div>
-                    </td>
-                    <td class="px-4 py-3">
-                      <forge-badge [tone]="user.is_online ? 'success' : 'muted'">
-                        {{ user.is_online ? '● Online' : '○ Offline' }}
-                      </forge-badge>
-                    </td>
-                    <td class="px-4 py-3 text-muted">
-                      {{ user.email || user.name || '—' }}
-                    </td>
-                    <td class="px-4 py-3">
-                      <forge-badge [tone]="user.is_admin ? 'danger' : 'muted'">
-                        {{ user.is_admin ? '🛡️ Admin' : 'Player' }}
-                      </forge-badge>
-                    </td>
-                    <td class="px-4 py-3 text-center text-ink font-semibold">
-                      {{ user.character_count }}
-                    </td>
-                    <td class="px-4 py-3 text-center text-ink font-semibold">
-                      {{ user.dm_campaign_count }}
-                    </td>
-                    <td class="px-4 py-3 text-center text-ink font-semibold">
-                      {{ user.member_campaign_count }}
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <button
-                        forgeButton
-                        variant="danger"
-                        size="sm"
-                        type="button"
-                        (click)="openDeleteModal(user)"
-                        title="Delete User and Cascade"
-                      >
-                        🗑️ Delete
-                      </button>
-                    </td>
-                  </tr>
+                <tbody class="divide-y divide-hairline bg-panel">
+                  @if (isLoadingUsers()) {
+                    @for (row of skeletonRows; track row) {
+                      <tr>
+                        <td class="px-4 py-3">
+                          <div class="flex items-center gap-3">
+                            <forge-skeleton shape="circle" class="h-9 w-9" />
+                            <forge-skeleton [lines]="2" class="w-40" />
+                          </div>
+                        </td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="h-5 w-16" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="mx-auto h-4 w-6" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="mx-auto h-4 w-6" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="mx-auto h-4 w-6" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="ml-auto h-7 w-16" /></td>
+                      </tr>
+                    }
+                  } @else {
+                    @for (user of users(); track user.id) {
+                      <tr class="transition-colors hover:bg-tile">
+                        <td class="px-4 py-3">
+                          <div class="flex min-w-0 items-center gap-3">
+                            <span
+                              class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-label font-bold uppercase text-muted"
+                              aria-hidden="true"
+                            >
+                              {{ user.username.charAt(0) }}
+                              <span
+                                class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface"
+                                [ngClass]="user.is_online ? 'bg-emerald' : 'bg-muted'"
+                              ></span>
+                            </span>
+                            <span class="min-w-0">
+                              <span class="flex items-center gap-2">
+                                <span class="truncate font-semibold text-ink">{{ user.username }}</span>
+                                @if (user.is_online) {
+                                  <span class="text-micro font-semibold text-emerald">Online</span>
+                                }
+                              </span>
+                              <span class="block truncate text-label text-muted">{{ user.email || user.name || 'No email' }}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <forge-badge [tone]="user.is_admin ? 'gold' : 'muted'">
+                            {{ user.is_admin ? '🛡️ Admin' : 'Player' }}
+                          </forge-badge>
+                        </td>
+                        <td class="px-4 py-3 text-center font-semibold tabular-nums text-ink">{{ user.character_count }}</td>
+                        <td class="px-4 py-3 text-center font-semibold tabular-nums text-ink">{{ user.dm_campaign_count }}</td>
+                        <td class="px-4 py-3 text-center font-semibold tabular-nums text-ink">{{ user.member_campaign_count }}</td>
+                        <td class="px-4 py-3 text-right">
+                          <button
+                            forgeButton
+                            variant="danger"
+                            size="sm"
+                            type="button"
+                            [attr.aria-label]="'Delete ' + user.username"
+                            title="Delete user and everything they own"
+                            (click)="openDeleteModal(user)"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  }
                 </tbody>
               </table>
             </div>
 
             <!-- Pagination Footer -->
-            <div
-              class="flex flex-col gap-3 border-t border-hairline pt-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div class="flex items-center gap-3 text-label text-muted">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-wrap items-center gap-3 text-label text-muted">
                 <span>
-                  Showing <strong class="text-ink">{{ showingRangeStart() }}–{{ showingRangeEnd() }}</strong>
-                  of <strong class="text-ink">{{ totalUsers() }}</strong> users
+                  Showing <strong class="tabular-nums text-ink">{{ showingRangeStart() }}–{{ showingRangeEnd() }}</strong>
+                  of <strong class="tabular-nums text-ink">{{ totalUsers() }}</strong> users
                 </span>
-                <label class="flex items-center gap-1.5">
-                  <span>Per page:</span>
+                <label class="flex items-center gap-2">
+                  <span>Per page</span>
                   <select
-                    class="rounded-lg border border-hairline bg-tile px-2 py-1 text-micro text-ink"
+                    forgeSelect
+                    dense
+                    class="w-20"
                     [ngModel]="pageSize()"
                     (ngModelChange)="onPageSizeChange($event)"
                   >
@@ -199,7 +188,7 @@
                 >
                   ← Previous
                 </button>
-                <span class="px-2 text-label font-semibold text-ink">
+                <span class="px-2 text-label font-semibold tabular-nums text-ink">
                   Page {{ currentPage() }} of {{ totalPages() }}
                 </span>
                 <button
@@ -216,17 +205,11 @@
             </div>
           }
         </div>
-      </div>
-    </forge-card>
-  </div>
+      }
 
-  <!-- WHISPER REPORTS TAB -->
-  <div *ngIf="currentTab() === 'reports'" class="flex flex-col gap-6">
-    <forge-card padding="none" [hoverable]="false">
-      <div class="flex min-h-0 flex-col">
-        <div
-          class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between"
-        >
+      <!-- WHISPER REPORTS TAB -->
+      @if (currentTab() === 'reports') {
+        <div class="flex flex-col gap-3 border-b border-hairline p-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="min-w-0">
             <h2 class="font-display text-title text-ink">Whisper Reports Moderation</h2>
             <p class="mt-1 text-label text-muted">
@@ -234,97 +217,95 @@
             </p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <select
-              class="rounded-xl border border-hairline bg-tile px-3 py-1.5 text-label text-ink"
-              [ngModel]="reportStatusFilter()"
-              (ngModelChange)="onReportFilterChange($event)"
-            >
-              <option value="all">All Reports</option>
-              <option value="open">Open</option>
-              <option value="resolved">Resolved</option>
-              <option value="dismissed">Dismissed</option>
-            </select>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Segmented filter (design-contract §3) -->
+            <div class="grid grid-cols-4 rounded-full border border-hairline bg-panel p-1" role="radiogroup" aria-label="Filter reports by status">
+              @for (filter of reportFilters; track filter.id) {
+                <button
+                  type="button"
+                  role="radio"
+                  class="min-h-8 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [ngClass]="reportStatusFilter() === filter.id ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+                  [attr.aria-checked]="reportStatusFilter() === filter.id"
+                  (click)="onReportFilterChange(filter.id)"
+                >
+                  {{ filter.label }}
+                </button>
+              }
+            </div>
             <button
               forgeButton
               variant="secondary"
               size="sm"
               type="button"
+              [loading]="isLoadingReports()"
               (click)="loadReports()"
             >
-              🔄 Refresh
+              Refresh
             </button>
           </div>
         </div>
 
         <div class="flex min-w-0 flex-col gap-4 p-4">
-          @if (isLoadingReports()) {
-            <div class="py-12 text-center text-muted">
-              ⏳ Loading whisper reports…
-            </div>
-          } @else if (reports().length === 0) {
+          @if (!isLoadingReports() && reports().length === 0) {
             <forge-empty-state
               icon="🕊️"
               title="No reports found"
               description="No whispers have been reported for moderation under this filter."
             ></forge-empty-state>
           } @else {
-            <div class="min-w-0 overflow-x-auto rounded-xl bg-panel">
-              <table class="min-w-full border-collapse text-left text-body">
+            <div class="min-w-0 overflow-x-auto rounded-xl border border-hairline">
+              <table class="min-w-full border-collapse text-left text-body" [attr.aria-busy]="isLoadingReports()">
                 <thead class="bg-tile text-micro uppercase text-muted">
                   <tr>
-                    <th scope="col" class="px-4 py-3 font-semibold">Reported At</th>
+                    <th scope="col" class="px-4 py-3 font-semibold">Reported</th>
                     <th scope="col" class="px-4 py-3 font-semibold">Campaign</th>
-                    <th scope="col" class="px-4 py-3 font-semibold">Reported By</th>
                     <th scope="col" class="px-4 py-3 font-semibold">Reason</th>
                     <th scope="col" class="px-4 py-3 font-semibold">Status</th>
-                    <th scope="col" class="px-4 py-3 font-semibold text-right">Actions</th>
+                    <th scope="col" class="px-4 py-3 text-right font-semibold"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-hairline">
-                  <tr
-                    *ngFor="let rep of reports(); trackBy: trackReport"
-                    class="transition-colors hover:bg-tile"
-                  >
-                    <td class="px-4 py-3 text-micro text-muted whitespace-nowrap">
-                      {{ rep.created_at | date:'medium' }}
-                    </td>
-                    <td class="px-4 py-3 font-semibold text-ink">
-                      {{ rep.campaign_name }}
-                    </td>
-                    <td class="px-4 py-3 text-muted">
-                      {{ rep.reported_by_username || rep.reported_by_user_id }}
-                    </td>
-                    <td class="px-4 py-3 text-ink max-w-xs truncate" [title]="rep.reason">
-                      {{ rep.reason }}
-                    </td>
-                    <td class="px-4 py-3">
-                      <forge-badge
-                        [tone]="rep.status === 'open' ? 'danger' : (rep.status === 'resolved' ? 'success' : 'muted')"
-                      >
-                        {{ rep.status | uppercase }}
-                      </forge-badge>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                      <button
-                        forgeButton
-                        variant="secondary"
-                        size="sm"
-                        type="button"
-                        (click)="inspectReport(rep)"
-                      >
-                        🔍 Inspect Context
-                      </button>
-                    </td>
-                  </tr>
+                <tbody class="divide-y divide-hairline bg-panel">
+                  @if (isLoadingReports()) {
+                    @for (row of skeletonRows; track row) {
+                      <tr>
+                        <td class="px-4 py-3"><forge-skeleton [lines]="2" class="w-32" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="h-4 w-28" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="h-4 w-56" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="h-5 w-16" /></td>
+                        <td class="px-4 py-3"><forge-skeleton shape="block" class="ml-auto h-7 w-20" /></td>
+                      </tr>
+                    }
+                  } @else {
+                    @for (rep of reports(); track rep.report_id) {
+                      <tr class="transition-colors hover:bg-tile">
+                        <td class="px-4 py-3">
+                          <span class="block whitespace-nowrap text-label text-ink">{{ rep.created_at | date: 'medium' }}</span>
+                          <span class="block truncate text-micro text-muted">by {{ rep.reported_by_username || rep.reported_by_user_id }}</span>
+                        </td>
+                        <td class="px-4 py-3 font-semibold text-ink">{{ rep.campaign_name }}</td>
+                        <td class="max-w-xs truncate px-4 py-3 text-ink" [title]="rep.reason">{{ rep.reason }}</td>
+                        <td class="px-4 py-3">
+                          <forge-badge [tone]="rep.status === 'open' ? 'danger' : rep.status === 'resolved' ? 'success' : 'muted'">
+                            {{ rep.status }}
+                          </forge-badge>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                          <button forgeButton variant="secondary" size="sm" type="button" (click)="inspectReport(rep)">
+                            Inspect
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  }
                 </tbody>
               </table>
             </div>
           }
         </div>
-      </div>
-    </forge-card>
-  </div>
+      }
+    </div>
+  </forge-card>
 
   <!-- USER DELETION PREVIEW MODAL -->
   <forge-modal
@@ -335,16 +316,18 @@
   >
     <div class="flex flex-col gap-4">
       @if (!deletionPreview()) {
-        <div class="py-8 text-center text-muted">
-          ⏳ Calculating cascading deletion preview…
+        <div class="flex flex-col items-center gap-3 py-8 text-label text-muted" aria-busy="true">
+          <forge-spinner label="Calculating what would be deleted" />
+          Calculating what would be deleted…
         </div>
       } @else {
         <!-- Blocking Reasons Warning -->
         <div
           *ngIf="!deletionPreview()!.can_delete"
-          class="rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200 flex flex-col gap-2"
+          class="flex flex-col gap-2 rounded-xl border border-red/40 bg-red/10 p-4 text-ink"
+          role="alert"
         >
-          <div class="font-bold flex items-center gap-2 text-red-400">
+          <div class="flex items-center gap-2 font-bold text-red">
             ⚠️ Deletion Blocked
           </div>
           <ul class="list-disc list-inside text-label">
@@ -360,17 +343,24 @@
           This action is immediate and non-reversible.
         </div>
 
-        <div class="rounded-xl bg-tile p-4 border border-hairline flex flex-col gap-2 text-label">
-          <p class="font-bold text-ink">Summary of affected data:</p>
-          <div class="grid grid-cols-2 gap-2 text-micro">
-            <div>Characters deleted: <strong>{{ deletionPreview()!.characters_to_delete }}</strong></div>
-            <div>Portraits removed: <strong>{{ deletionPreview()!.portraits_to_delete }}</strong></div>
-            <div>DM Campaigns deleted: <strong>{{ deletionPreview()!.dm_campaigns_to_delete }}</strong></div>
-            <div>Other player chars detached: <strong>{{ deletionPreview()!.player_characters_to_detach }}</strong></div>
-            <div>Memberships removed: <strong>{{ deletionPreview()!.memberships_to_remove }}</strong></div>
-            <div>Pending roll requests purged: <strong>{{ deletionPreview()!.roll_requests_to_delete }}</strong></div>
-            <div>Whispers archived: <strong>{{ deletionPreview()!.whispers_to_archive }}</strong></div>
-          </div>
+        <div class="overflow-hidden rounded-xl border border-hairline">
+          <p class="bg-tile px-4 py-2 text-micro font-semibold uppercase text-muted">What will be affected</p>
+          <dl class="grid grid-cols-1 divide-y divide-hairline bg-panel text-label sm:grid-cols-2 sm:divide-y-0">
+            @for (row of [
+              ['Characters deleted', deletionPreview()!.characters_to_delete],
+              ['Portraits removed', deletionPreview()!.portraits_to_delete],
+              ['DM campaigns deleted', deletionPreview()!.dm_campaigns_to_delete],
+              ['Other players\' heroes detached', deletionPreview()!.player_characters_to_detach],
+              ['Memberships removed', deletionPreview()!.memberships_to_remove],
+              ['Pending roll requests purged', deletionPreview()!.roll_requests_to_delete],
+              ['Whispers archived', deletionPreview()!.whispers_to_archive]
+            ]; track row[0]) {
+              <div class="flex items-center justify-between gap-3 px-4 py-2 sm:border-b sm:border-hairline">
+                <dt class="text-muted">{{ row[0] }}</dt>
+                <dd class="font-semibold tabular-nums" [ngClass]="row[1] ? 'text-ink' : 'text-muted'">{{ row[1] }}</dd>
+              </div>
+            }
+          </dl>
         </div>
 
         <div *ngIf="deletionPreview()!.can_delete" class="flex flex-col gap-2 pt-2">
@@ -399,10 +389,11 @@
             forgeButton
             variant="danger"
             type="button"
-            [disabled]="!deletionPreview()!.can_delete || confirmUsername().trim() !== selectedUser()?.username || isDeleting()"
+            [disabled]="!deletionPreview()!.can_delete || confirmUsername().trim() !== selectedUser()?.username"
+            [loading]="isDeleting()"
             (click)="confirmDelete()"
           >
-            {{ isDeleting() ? 'Deleting…' : 'Confirm Permanent Deletion' }}
+            {{ isDeleting() ? 'Deleting…' : 'Delete permanently' }}
           </button>
         </div>
       }
@@ -418,8 +409,9 @@
   >
     <div class="flex flex-col gap-4">
       @if (!selectedReport()) {
-        <div class="py-8 text-center text-muted">
-          ⏳ Loading conversation context…
+        <div class="flex flex-col items-center gap-3 py-8 text-label text-muted" aria-busy="true">
+          <forge-spinner label="Loading conversation context" />
+          Loading conversation context…
         </div>
       } @else {
         <div class="rounded-xl bg-tile p-4 border border-hairline flex flex-col gap-2">
@@ -446,7 +438,7 @@
             <div
               *ngFor="let w of selectedReport()!.context_whispers"
               class="p-2.5 rounded-lg border text-label"
-              [ngClass]="w.id === selectedReport()!.whisper_id ? 'bg-red-950/40 border-red-800' : 'bg-tile border-hairline'"
+              [ngClass]="w.id === selectedReport()!.whisper_id ? 'border-red/40 bg-red/10' : 'border-hairline bg-tile'"
             >
               <div class="flex items-center justify-between text-micro text-muted mb-1">
                 <span class="font-bold text-ink">
@@ -455,7 +447,7 @@
                 <span>{{ w.timestamp || (w.created_at | date:'shortTime') }}</span>
               </div>
               <p class="text-ink">{{ w.message }}</p>
-              <span *ngIf="w.id === selectedReport()!.whisper_id" class="text-micro font-bold text-red-400 mt-1 block">
+              <span *ngIf="w.id === selectedReport()!.whisper_id" class="mt-1 block text-micro font-bold text-red">
                 🚩 Flagged Message
               </span>
             </div>
@@ -490,7 +482,7 @@
               forgeButton
               variant="secondary"
               type="button"
-              [disabled]="isUpdatingReport()"
+              [loading]="isUpdatingReport()"
               (click)="updateReportStatus('dismissed')"
             >
               Dismiss Report
@@ -498,9 +490,8 @@
             <button
               forgeButton
               variant="primary"
-              tone="accent"
               type="button"
-              [disabled]="isUpdatingReport()"
+              [loading]="isUpdatingReport()"
               (click)="updateReportStatus('resolved')"
             >
               Resolve Report

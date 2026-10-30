@@ -149,7 +149,7 @@
           <input type="number" [(ngModel)]="newSessionNumber" class="forge-input" min="1">
         </div>
 
-        <div class="flex flex-col gap-1 flex-1 min-w-[200px]">
+        <div class="flex flex-col gap-1 flex-1 min-w-50">
           <label class="text-micro font-bold uppercase text-muted">Audio File (MP3/WAV)</label>
           <input type="file" accept="audio/*" (change)="onFileSelected($event)" class="text-body text-ink" [disabled]="isProcessingSession">
         </div>
@@ -236,7 +236,7 @@
         <ng-container *ngFor="let node of journeyGraph.nodes; let i = index; let last = last">
 
           <!-- Node -->
-          <div class="flex flex-col items-center group relative cursor-help shrink-0 w-[100px]">
+          <div class="flex flex-col items-center group relative cursor-help shrink-0 w-25">
             <!-- Circle -->
             <div class="w-12 h-12 rounded-full bg-accent text-surface flex items-center justify-center font-bold text-lg shadow-sm border-2 border-transparent group-hover:border-ink transition-colors relative z-20">
               {{ node.session_number }}
@@ -252,7 +252,7 @@
           </div>
 
           <!-- Arrow -->
-          <div *ngIf="!last" class="flex-1 min-w-[50px] shrink-0 h-0.5 bg-muted flex items-center relative z-10 mt-6 -mx-4">
+          <div *ngIf="!last" class="flex-1 min-w-12.5 shrink-0 h-0.5 bg-muted flex items-center relative z-10 mt-6 -mx-4">
              <div class="w-2 h-2 rounded-full bg-muted ml-auto mr-0"></div>
           </div>
 

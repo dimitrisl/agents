@@ -20,6 +20,7 @@ import {
   ForgeInputDirective,
   ForgeModalComponent,
   ForgeSelectDirective,
+  ForgeConfirmService,
 } from '../../../shared/ui';
 import { environment } from '../../../../environments/environment';
 
@@ -290,7 +291,7 @@ import { environment } from '../../../../environments/environment';
             </div>
 
             <!-- Scene List -->
-            <div *ngIf="!loadingScenes" class="flex flex-col gap-2 max-h-[280px] overflow-y-auto">
+            <div *ngIf="!loadingScenes" class="flex flex-col gap-2 max-h-70 overflow-y-auto">
               <div
                 *ngFor="let scene of scenes"
                 class="flex flex-col p-3 rounded-lg border border-hairline bg-surface/40 hover:bg-surface/70 transition-colors"
@@ -474,7 +475,7 @@ import { environment } from '../../../../environments/environment';
 
           <!-- Scene History Tab Content -->
           <ng-container *ngIf="sceneModalTab === 'history'">
-            <div class="flex flex-col gap-2 max-h-[350px] overflow-y-auto">
+            <div class="flex flex-col gap-2 max-h-87.5 overflow-y-auto">
               <div *ngIf="loadingHistory" class="flex justify-center py-6">
                 <div class="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
               </div>
@@ -678,6 +679,7 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   wsService = inject(WebSocketService);
   http = inject(HttpClient);
+  private readonly confirmDialog = inject(ForgeConfirmService);
   readonly vttState = this.wsService.vttState;
 
   isMinimized = false;
@@ -1427,15 +1429,21 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       });
   }
 
-  deleteScene(scene: VTTScene): void {
+  async deleteScene(scene: VTTScene): Promise<void> {
     if (!this.campaignName) return;
     if (scene.is_active_scene) {
       this.sceneError = 'Cannot delete active scene. Switch to another scene first.';
       return;
     }
-    if (!window.confirm(`Are you sure you want to delete scene "${scene.name}"?`)) return;
+    const confirmed = await this.confirmDialog.ask({
+      title: 'Delete scene?',
+      message: `"${scene.name}" and its map, tokens and fog will be removed.`,
+      confirmLabel: 'Delete scene',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
-    this.http.delete(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/${scene.scene_id}`)
+    this.http.delete(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/scenes/${scene.scene_id}`)
       .subscribe({
         next: () => {
           this.loadScenes();

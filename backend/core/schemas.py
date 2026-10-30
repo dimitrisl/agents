@@ -23,6 +23,37 @@ class StatBlock(BaseModel):
             raise ValueError("invalid stat.")
 
 
+class WeaponEffect(BaseModel):
+    """A situational bonus on a weapon, e.g. "vs Undead" +1d6 radiant.
+
+    Dice/bonuses are added to rolls only when the player switches the effect on;
+    a note-only effect (e.g. "instant death on a finishing hit") is just shown.
+    """
+
+    label: str
+    dice: str = ""
+    damage_bonus: int = 0
+    attack_bonus: int = 0
+    damage_type: str = ""
+    note: str = ""
+
+    @field_validator("damage_bonus", "attack_bonus", mode="before")
+    @classmethod
+    def parse_signed_int(cls, v):
+        # AI imports and hand edits send "+2", "2 ", "" or null.
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return 0
+        if isinstance(v, str):
+            match = re.search(r"[+-]?\s*\d+", v)
+            return int(match.group(0).replace(" ", "")) if match else 0
+        return v
+
+    @field_validator("dice", "damage_type", "note", mode="before")
+    @classmethod
+    def none_to_empty(cls, v):
+        return "" if v is None else v
+
+
 class Weapon(BaseModel):
     name: str
     attack_bonus: str = "+0"
@@ -39,6 +70,7 @@ class Weapon(BaseModel):
     misc_attack_bonus: Optional[int] = 0
     misc_damage_bonus: Optional[int] = 0
     damage_type: Optional[str] = ""
+    conditional_effects: List[WeaponEffect] = Field(default_factory=list)
 
     @field_validator("properties", "range", mode="before")
     @classmethod
@@ -138,6 +170,10 @@ class ClassResourceSchema(BaseModel):
     current: int = 0
     max: int = 1
     recharge: str = "long"  # "short" or "long"
+    # Filled in from data/rules/class_resources.json on save; hand-made pools are False.
+    auto: bool = False
+    # Extra uses on top of the rules (item, feat, house rule); included in max.
+    bonus: int = 0
 
     @model_validator(mode="before")
     @classmethod

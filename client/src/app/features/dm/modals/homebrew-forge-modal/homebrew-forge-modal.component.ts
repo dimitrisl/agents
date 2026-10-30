@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HomebrewService, HomebrewItem } from '../../../../core/services/homebrew.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
+import { ForgeButtonDirective, ForgeIconComponent } from '../../../../shared/ui';
 
 @Component({
   selector: 'app-homebrew-forge-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeIconComponent],
   templateUrl: './homebrew-forge-modal.component.html',
   styleUrl: './homebrew-forge-modal.component.css'
 })

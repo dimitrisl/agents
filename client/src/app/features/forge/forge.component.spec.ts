@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { Router } from '@angular/router';
 import { ForgeComponent } from './forge.component';
 import { environment } from '../../../environments/environment';
 
@@ -235,5 +236,51 @@ describe('ForgeComponent', () => {
     component.activeTab = 'ai';
     component.retryForging();
     expect(aiSpy).toHaveBeenCalledTimes(1);
+  });
+
+  describe('Import tab', () => {
+    it('offers Import next to AI Forge and Manual Build', () => {
+      expect(component.forgeTabs.map((t) => t.id)).toEqual(['ai', 'manual', 'import']);
+    });
+
+    it('imports a PDF as a new hero and opens the dashboard', () => {
+      const router = TestBed.inject(Router);
+      const navigate = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      component.onImportPdf(new File(['%PDF'], 'sheet.pdf'));
+      expect(component.importBusy).toBe(true);
+
+      httpMock.expectOne((r) => r.url.endsWith('/characters/import-pdf')).flush({ char_id: 'new', char_name: 'Valeros', warnings: [] });
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters')).flush({ characters: [] });
+
+      expect(component.importBusy).toBe(false);
+      expect(navigate).toHaveBeenCalledWith(['/player']);
+    });
+
+    it('stays to show warnings, and opens the hero when they are acknowledged', () => {
+      const router = TestBed.inject(Router);
+      const navigate = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      component.onImportDndBeyond('12345');
+      httpMock
+        .expectOne((r) => r.url.endsWith('/characters/import-dndbeyond'))
+        .flush({ char_id: 'new', char_name: 'Valeros', warnings: ['Homebrew subclass not recognised'] });
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters')).flush({ characters: [] });
+
+      expect(component.importWarnings).toEqual(['Homebrew subclass not recognised']);
+      expect(navigate).not.toHaveBeenCalled();
+
+      component.openImportedHero();
+      expect(navigate).toHaveBeenCalledWith(['/player']);
+    });
+
+    it('shows the API error and stays on the tab', () => {
+      component.onImportFoundry(new File(['{}'], 'actor.json'));
+      httpMock
+        .expectOne((r) => r.url.endsWith('/characters/import-foundry'))
+        .flush({ detail: 'Not a dnd5e actor' }, { status: 400, statusText: 'Bad Request' });
+      expect(component.importBusy).toBe(false);
+      expect(component.importError).toBe('Not a dnd5e actor');
+    });
   });
 });

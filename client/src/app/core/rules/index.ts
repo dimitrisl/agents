@@ -12,3 +12,6 @@ export * from './level-up';
 export * from './rest';
 export * from './skills';
 export * from './spell-slots';
+export * from './spell-casting';
+export * from './flexible-casting';
+export * from './metamagic';

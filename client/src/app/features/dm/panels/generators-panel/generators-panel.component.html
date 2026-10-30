@@ -182,7 +182,7 @@
         @if (npcResult) {
           <div class="min-w-0 rounded-xl bg-tile p-4">
             <p class="text-micro font-semibold uppercase text-muted">Result</p>
-            <p class="mt-1 whitespace-pre-wrap text-body text-ink">{{ npcResult }}</p>
+            <forge-markdown class="mt-2" [content]="npcResult" />
           </div>
         }
       </div>

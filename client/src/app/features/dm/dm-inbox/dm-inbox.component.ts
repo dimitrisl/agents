@@ -14,6 +14,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
+  ForgeIconComponent,
   ForgeSelectDirective,
   ForgeTextareaDirective,
 } from '../../../shared/ui';
@@ -40,6 +41,7 @@ import type { PartyMember } from '../../../core/models/party.model';
     FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
+  ForgeIconComponent,
     ForgeSelectDirective,
     ForgeTextareaDirective,
   ],

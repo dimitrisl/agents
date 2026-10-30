@@ -1,46 +1,55 @@
 <section class="py-3" aria-labelledby="combat-stats-heading">
   <h3 id="combat-stats-heading" class="sr-only">Combat statistics</h3>
-  <div class="grid grid-cols-3 overflow-hidden rounded-xl bg-tile">
+
+  <!-- One tile group (design-contract §3): 3 cells on top, 2 below, split by hairlines -->
+  <div class="grid grid-cols-6 overflow-hidden rounded-xl bg-tile">
     <div
-      class="px-3 py-3 text-center flex flex-col items-center group relative cursor-help"
+      class="col-span-2 flex cursor-help flex-col items-center px-2 py-3 text-center"
       [title]="acBreakdown?.formula_text || ('Armor Class: ' + armorClass)"
     >
-      <div class="flex items-center gap-1">
-        <p class="text-micro font-semibold uppercase text-muted">AC</p>
-        @if (acBreakdown?.formula_text) {
-          <span class="text-[10px] text-muted/70 group-hover:text-accent transition-colors" aria-label="Formula breakdown">ℹ️</span>
+      <p class="text-micro font-semibold uppercase text-muted">Armor Class</p>
+      @if (!editMode) {
+        <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ armorClass }}</p>
+        @if (acBreakdown; as bd) {
+          <p class="mt-1 max-w-full truncate text-micro text-muted">{{ bd.base_source }}</p>
         }
-      </div>
-      <p *ngIf="!editMode" class="mt-1 text-metric font-bold leading-none text-accent">{{ armorClass }}</p>
-      @if (!editMode && acBreakdown; as bd) {
-        <p class="mt-0.5 max-w-[120px] truncate text-[9px] text-muted group-hover:text-ink transition-colors font-mono" [title]="bd.formula_text">
-          {{ bd.base_source }}
-        </p>
+      } @else {
+        <input forgeInput type="number" class="mx-auto mt-1 max-w-16 text-center" [ngModel]="armorClass" (ngModelChange)="armorClassChange.emit($event)" aria-label="Armor Class" />
       }
-      <input *ngIf="editMode" forgeInput type="number" class="mt-1 mx-auto max-w-16 text-center" [ngModel]="armorClass" (ngModelChange)="armorClassChange.emit($event)" aria-label="Armor Class" />
     </div>
-    <div class="border-x border-hairline px-3 py-3 text-center flex flex-col items-center">
-      <p class="text-micro font-semibold uppercase text-muted">Prof. Bonus</p>
-      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ formatSigned(proficiencyBonus) }}</p>
-    </div>
-    <div class="px-3 py-3 text-center flex flex-col items-center">
-      <p class="text-micro font-semibold uppercase text-muted">Speed</p>
-      <p *ngIf="!editMode" class="mt-1 text-metric font-bold leading-none text-accent">{{ speed }} <span class="text-body font-semibold">ft</span></p>
-      <div *ngIf="editMode" class="mt-1 flex items-center justify-center gap-1">
-        <input forgeInput type="number" class="mx-auto max-w-16 text-center" [ngModel]="speed" (ngModelChange)="speedChange.emit($event)" aria-label="Speed" />
-        <span class="text-body font-semibold">ft</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="mt-2 grid grid-cols-1 overflow-hidden rounded-xl bg-tile sm:grid-cols-2">
-    <div class="px-3 py-3 text-center">
+    <div class="col-span-2 flex flex-col items-center border-x border-hairline px-2 py-3 text-center">
+      <p class="text-micro font-semibold uppercase text-muted">Proficiency</p>
+      <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ formatSigned(proficiencyBonus) }}</p>
+    </div>
+
+    <div class="col-span-2 flex flex-col items-center px-2 py-3 text-center">
+      <p class="text-micro font-semibold uppercase text-muted">Speed</p>
+      @if (!editMode) {
+        <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">
+          {{ speed }}<span class="ml-0.5 text-label font-semibold text-muted">ft</span>
+        </p>
+      } @else {
+        <div class="mt-1 flex items-center justify-center gap-1">
+          <input forgeInput type="number" class="mx-auto max-w-16 text-center" [ngModel]="speed" (ngModelChange)="speedChange.emit($event)" aria-label="Speed" />
+          <span class="text-label font-semibold text-muted">ft</span>
+        </div>
+      }
+    </div>
+
+    <div
+      class="flex flex-col items-center border-t border-hairline px-2 py-3 text-center"
+      [ngClass]="initiativeModifier !== undefined ? 'col-span-3' : 'col-span-6'"
+    >
       <p class="text-micro font-semibold uppercase text-muted">Passive Perception</p>
-      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ passivePerception }}</p>
+      <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ passivePerception }}</p>
     </div>
-    <div *ngIf="initiativeModifier !== undefined" class="border-t border-hairline px-3 py-3 text-center sm:border-l sm:border-t-0">
-      <p class="text-micro font-semibold uppercase text-muted">Initiative</p>
-      <p class="mt-1 text-metric font-bold leading-none text-accent">{{ formatSigned(initiativeModifier) }}</p>
-    </div>
+
+    @if (initiativeModifier !== undefined) {
+      <div class="col-span-3 flex flex-col items-center border-l border-t border-hairline px-2 py-3 text-center">
+        <p class="text-micro font-semibold uppercase text-muted">Initiative</p>
+        <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ formatSigned(initiativeModifier) }}</p>
+      </div>
+    }
   </div>
 </section>

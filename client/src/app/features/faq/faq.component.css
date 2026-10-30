@@ -1,24 +1,3 @@
 :host {
   display: block;
 }
-
-.faq-answer-content p {
-  margin-bottom: 0.5rem;
-}
-
-.faq-answer-content p:last-child {
-  margin-bottom: 0;
-}
-
-.faq-answer-content code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 0.85em;
-  color: var(--theme-accent);
-}
-
-.faq-answer-content strong {
-  color: #fff;
-}

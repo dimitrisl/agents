@@ -27,7 +27,7 @@
         </forge-badge>
       </button>
       <forge-badge tone="muted">{{
-        activeTab === "ai" ? "AI Forge" : "Manual Build"
+        activeTab === "ai" ? "AI Forge" : activeTab === "manual" ? "Manual Build" : "Import"
       }}</forge-badge>
     </div>
   </header>
@@ -41,17 +41,26 @@
         </span>
       </div>
       <button
+        forgeButton
+        variant="ghost"
+        size="md"
+        iconOnly
         type="button"
-        class="text-gold hover:text-ink text-sm font-bold px-2 py-1"
+        class="text-gold"
+        aria-label="Dismiss notice"
         (click)="generationInterruptedNotice = false"
       >
-        ✕
+        <forge-icon name="close" />
       </button>
     </div>
   }
 
   @if (!tempForgedChar) {
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <div
+      class="grid grid-cols-1 gap-6"
+      [ngClass]="activeTab === 'import' ? '' : 'xl:grid-cols-[340px_minmax(0,1fr)]'"
+    >
+      @if (activeTab !== 'import') {
       <aside
         class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto"
       >
@@ -117,6 +126,7 @@
           </div>
         </forge-card>
       </aside>
+      }
 
       <section class="min-w-0">
         <forge-card padding="none" [hoverable]="false">
@@ -171,6 +181,25 @@
                 (updateSubclasses)="updateSubclasses()"
                 (generate)="generateAiCharacter()"
               ></app-ai-form>
+            }
+
+            @if (activeTab === "import") {
+              <div
+                class="block min-w-0 p-4"
+                role="tabpanel"
+                [attr.aria-labelledby]="'forge-tabs-tab-' + activeTab"
+              >
+                <app-character-import-panel
+                  [busy]="importBusy"
+                  [error]="importError"
+                  [warnings]="importWarnings"
+                  warningsActionLabel="Open hero"
+                  (pdfSelected)="onImportPdf($event)"
+                  (dndBeyondSubmitted)="onImportDndBeyond($event)"
+                  (foundrySelected)="onImportFoundry($event)"
+                  (warningsAcknowledged)="openImportedHero()"
+                />
+              </div>
             }
 
             @if (activeTab === "manual") {

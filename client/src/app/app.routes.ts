@@ -1,29 +1,56 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './features/auth/login.component';
-import { PlayerComponent } from './features/player/player.component';
-import { ForgeComponent } from './features/forge/forge.component';
-import { DmComponent } from './features/dm/dm.component';
-import { RulesComponent } from './features/rules/rules.component';
-import { SettingsComponent } from './features/settings/settings.component';
-import { AdminComponent } from './features/admin/admin.component';
-import { CampaignPickerComponent } from './features/campaigns/campaign-picker.component';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 
+// Login is the entry page, so it ships in the main bundle. Every other page is
+// lazy: its code downloads on first visit instead of with the app shell.
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
-  { path: 'campaigns', component: CampaignPickerComponent, canActivate: [authGuard] },
-  { path: 'player', component: PlayerComponent, canActivate: [authGuard] },
-  { path: 'forge', component: ForgeComponent, canActivate: [authGuard] },
-  { path: 'dm', component: DmComponent, canActivate: [authGuard] },
-  { path: 'rules', component: RulesComponent, canActivate: [authGuard] },
-  { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
+  {
+    path: 'campaigns',
+    loadComponent: () =>
+      import('./features/campaigns/campaign-picker.component').then((m) => m.CampaignPickerComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'player',
+    loadComponent: () => import('./features/player/player.component').then((m) => m.PlayerComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'forge',
+    loadComponent: () => import('./features/forge/forge.component').then((m) => m.ForgeComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'dm',
+    loadComponent: () => import('./features/dm/dm.component').then((m) => m.DmComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'rules',
+    loadComponent: () => import('./features/rules/rules.component').then((m) => m.RulesComponent),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings',
+    loadComponent: () => import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+    canActivate: [authGuard],
+  },
   {
     path: 'faq',
     loadComponent: () => import('./features/faq/faq.component').then((m) => m.FaqComponent),
     canActivate: [authGuard],
   },
-  { path: 'admin', component: AdminComponent, canActivate: [authGuard, adminGuard] },
+  {
+    path: 'admin',
+    loadComponent: () => import('./features/admin/admin.component').then((m) => m.AdminComponent),
+    canActivate: [authGuard, adminGuard],
+  },
   { path: '', redirectTo: '/campaigns', pathMatch: 'full' },
-  { path: '**', redirectTo: '/login' },
+  {
+    path: '**',
+    loadComponent: () => import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),
+  },
 ];

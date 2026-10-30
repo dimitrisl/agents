@@ -17,6 +17,7 @@ export class AuthFormViewComponent {
   @Input({ required: true }) logoTemplate!: TemplateRef<unknown>;
   @Input() isRegister = false;
   @Input() error = '';
+  @Input() submitting = false;
   @Input() username = '';
   @Input() password = '';
   @Output() usernameChange = new EventEmitter<string>();

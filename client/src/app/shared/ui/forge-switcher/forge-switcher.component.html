@@ -1,0 +1,93 @@
+<button
+  #trigger
+  type="button"
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+  class="group flex h-11 w-full min-w-0 items-center gap-2.5 rounded-lg border border-hairline bg-panel pl-1.5 pr-3 text-left transition-colors hover:border-hairline-hover hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+  [class.border-accent]="open"
+  aria-haspopup="listbox"
+  [attr.aria-expanded]="open"
+  [attr.aria-label]="'Active ' + noun + ': ' + (selected?.title || 'none') + '. Change ' + noun"
+  (click)="toggle()"
+>
+  @if (selected?.imageUrl) {
+    <img [src]="selected!.imageUrl" alt="" class="h-8 w-8 shrink-0 rounded-full border border-gold/40 object-cover" />
+  } @else {
+    <span
+      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-label font-semibold text-muted"
+      aria-hidden="true"
+    >
+      {{ selected ? initialOf(selected) : emptyBadge }}
+    </span>
+  }
+
+  <span class="flex min-w-0 flex-1 items-baseline gap-2">
+    <span class="truncate text-body font-semibold text-ink">{{ selected?.title || emptyTitle }}</span>
+    @if (selected?.subtitle) {
+      <span class="min-w-0 truncate text-label text-muted">{{ selected!.subtitle }}</span>
+    }
+  </span>
+
+  <forge-icon
+    name="chevron-down"
+    size="sm"
+    class="text-muted transition-transform duration-150 group-hover:text-ink motion-reduce:transition-none"
+    [class.rotate-180]="open"
+  />
+</button>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayMinWidth]="panelWidth"
+  (overlayOutsideClick)="close()"
+  (overlayKeydown)="onKeydown($event)"
+  (attach)="onAttached()"
+  (detach)="close()"
+>
+  <div class="w-full overflow-hidden rounded-xl border border-hairline bg-surface p-1 shadow-card">
+    <p class="px-2.5 pb-1 pt-1.5 text-micro font-semibold uppercase text-muted">{{ listLabel }}</p>
+    <ul
+      cdkListbox
+      [cdkListboxValue]="value ? [value] : []"
+      (cdkListboxValueChange)="onPicked($event)"
+      (click)="onSelectionGesture()"
+      (keydown.enter)="onSelectionGesture()"
+      (keydown.space)="onSelectionGesture()"
+      [attr.aria-label]="listLabel"
+      class="flex max-h-80 flex-col gap-0.5 overflow-y-auto focus-visible:outline-none"
+    >
+      @for (option of options; track option.id) {
+        <li
+          [cdkOption]="option.id"
+          [cdkOptionTypeaheadLabel]="option.title"
+          class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2.5 py-1.5 text-ink transition-colors hover:bg-tile aria-selected:bg-accent/10 [&.cdk-option-active]:bg-tile [&.cdk-option-active]:ring-1 [&.cdk-option-active]:ring-inset [&.cdk-option-active]:ring-accent/50"
+        >
+          @if (option.imageUrl) {
+            <img [src]="option.imageUrl" alt="" class="h-8 w-8 shrink-0 rounded-full border border-gold/40 object-cover" />
+          } @else {
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-label font-semibold text-muted"
+              aria-hidden="true"
+            >
+              {{ initialOf(option) }}
+            </span>
+          }
+
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-body font-semibold">{{ option.title }}</span>
+            @if (option.subtitle) {
+              <span class="block truncate text-label text-muted">{{ option.subtitle }}</span>
+            }
+          </span>
+
+          @if (option.id === value) {
+            <forge-icon name="check" size="sm" class="text-accent" />
+          }
+        </li>
+      }
+    </ul>
+  </div>
+</ng-template>

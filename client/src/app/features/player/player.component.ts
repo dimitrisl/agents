@@ -15,10 +15,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EMPTY, Subject, Subscription, catchError, debounceTime, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, finalize, tap } from 'rxjs';
+import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
+import { CharacterImportService, ImportedCharacter } from '../../core/services/character-import.service';
+import { CharacterImportPanelComponent } from '../../shared/components/character-import-panel/character-import-panel.component';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { HomebrewService } from '../../core/services/homebrew.service';
-import { DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
+import { DamagePart, DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
+import { SpellRulesService } from '../../core/services/spell-rules.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { WakeLockService } from '../../core/services/wake-lock.service';
@@ -41,6 +45,7 @@ import {
   availableHitDice,
   availableHitDieOptions,
   conModifier,
+  diceForCast,
   findSkill,
   formatModifier,
   hasSpellSlotLevel,
@@ -50,6 +55,8 @@ import {
   hasExpertiseIn,
   levelUp,
   planShortRest,
+  proficiencyBonus,
+  SpellCastProfile,
   regainSpellSlot,
   resolveLongRest,
   resolveShortRest,
@@ -62,15 +69,27 @@ import {
   spellSlotUsed,
   spendSpellSlot,
   warlockPactDetails,
+  convertPointsToSlot,
+  convertSlotToPoints,
+  SLOT_CREATION_COST,
+  sorceryPointsPool,
+  metamagicCost,
+  metamagicEdition,
+  metamagicOptions,
+  spendMetamagic,
 } from '../../core/rules';
 import {
   ForgeButtonDirective,
+  ForgeIconComponent,
+  ForgeSpinnerComponent,
+  ForgeSkeletonComponent,
   ForgeCardComponent,
   ForgeEmptyStateComponent,
   ForgeModalComponent,
   ForgePageComponent,
   ForgeTab,
   ForgeTextareaDirective,
+  ForgeConfirmService,
 } from '../../shared/ui';
 import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player-dashboard-header.component';
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
@@ -114,9 +133,13 @@ interface RollTarget {
   selector: 'app-player',
   standalone: true,
   imports: [
+    CharacterImportPanelComponent,
     CommonModule,
     FormsModule,
     ForgeButtonDirective,
+  ForgeIconComponent,
+  ForgeSpinnerComponent,
+  ForgeSkeletonComponent,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
     ForgeModalComponent,
@@ -189,14 +212,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showShortRestModal = signal(false);
   showProficientOnly = signal(false);
   showLevelUpModal = signal(false);
+  levelUpLoading = signal(false);
+  retryingVault = false;
   showValidationModal = signal(false);
   showWhisperInbox = signal(false);
   showImportModal = signal(false);
-  importTab = signal<'pdf' | 'dndbeyond' | 'foundry'>('pdf');
   isImporting = signal(false);
   importError = signal<string | null>(null);
   importWarnings = signal<string[]>([]);
-  dndBeyondUrl = '';
   editDraftChar: CharacterSchema | null = null;
   isValidating = false;
   isAutoFixing = false;
@@ -254,14 +277,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private rollPromptQueue: RollRequest[] = [];
   private promptTimer: ReturnType<typeof setInterval> | null = null;
 
-  // The HP steppers fire once per click; only the value the user settles on is
-  // worth a round trip, so writes are collapsed into a single trailing save.
+  // The HP steppers fire once per click and the weapon editor once per keystroke;
+  // only the value the user settles on is worth a round trip, so writes are
+  // collapsed into a single trailing save.
   private readonly hpSave$ = new Subject<{ char: CharacterSchema; version: number }>();
   private localSaveVersion = 0;
+  /**
+   * Last `version` the server returned per character. The API rejects a PUT whose
+   * version is behind the stored one (409), and a response we chose not to apply
+   * (newer local edits) still bumped it — so every save sends the newest we know.
+   */
+  private readonly serverVersions = new Map<string, number>();
 
   constructor(
+    private confirmDialog: ForgeConfirmService,
+    private importer: CharacterImportService,
     public charState: CharacterStateService,
     private dice: DiceService,
+    private spellRules: SpellRulesService,
     private rollToast: RollToastService,
     private http: HttpClient,
     private router: Router,
@@ -273,29 +306,48 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   ) {
     this.hpSave$
       .pipe(
-        debounceTime(700),
-        switchMap(({ char, version }) =>
-          this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id!}`, char)
-            .pipe(
-              tap(updated => {
-                // ONLY apply the backend response if no newer local edits have occurred
-                // during the 700ms debounce + network delay.
-                if (this.localSaveVersion === version) {
-                  this.charState.activeCharacter.set(updated);
-                  // also update the cache silently
-                  const list = this.charState.characters();
-                  const idx = list.findIndex(c => c.char_id === updated.char_id);
-                  if (idx >= 0) {
-                    this.charState.characters.set(list.map((c, i) => i === idx ? updated : c));
-                  }
+        debounceTime(1000),
+        // concatMap, not switchMap: cancelling a request drops its response, not the
+        // server-side write, and the lost version then 409s every later save.
+        concatMap(({ char, version }) =>
+          defer(() =>
+            this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id!}`, {
+              ...char,
+              version: this.knownVersion(char),
+            })
+          ).pipe(
+            tap(updated => {
+              this.rememberVersion(updated);
+              // Only apply the full response if no newer local edits happened meanwhile.
+              if (this.localSaveVersion === version) {
+                this.charState.activeCharacter.set(updated);
+                // also update the cache silently
+                const list = this.charState.characters();
+                const idx = list.findIndex(c => c.char_id === updated.char_id);
+                if (idx >= 0) {
+                  this.charState.characters.set(list.map((c, i) => i === idx ? updated : c));
                 }
-              }),
-              catchError(() => EMPTY)
-            )
+              }
+            }),
+            catchError((err) => {
+              this.reportSaveFailure(char, err);
+              return EMPTY;
+            })
+          )
         ),
         takeUntilDestroyed()
       )
       .subscribe();
+
+    // Casters get the spell list loaded in the background (one request, cached),
+    // so Cast can roll at once and the upcast menu can show each level's dice.
+    effect(() => {
+      const char = this.charState.activeCharacter();
+      const hasSpells = Object.values(char?.spells || {}).some((list) => Array.isArray(list) && list.length > 0);
+      if (char && hasSpells) {
+        this.spellRules.load(char.dnd_edition || this.charState.dndEdition()).subscribe();
+      }
+    });
 
     effect((onCleanup) => {
       const char = this.charState.activeCharacter();
@@ -662,7 +714,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char || !hasSpellSlotLevel(char, lvl)) return;
 
     char.spell_slots = spendSpellSlot(char.spell_slots, lvl);
-    this.saveCurrentChar();
+    // Debounced like the rest of the sheet: a cast also sets concentration right
+    // after, and an immediate save here used to answer with the pre-cast sheet,
+    // briefly wiping the new Status chip until the second save landed.
+    this.queueCharSave();
   }
 
   restoreSpellSlot(lvl: number) {
@@ -672,7 +727,46 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char || !hasSpellSlotLevel(char, lvl)) return;
 
     char.spell_slots = regainSpellSlot(char.spell_slots, lvl);
-    this.saveCurrentChar();
+    this.queueCharSave();
+  }
+
+  /** Sorcerer Flexible Casting: buy a slot with sorcery points, or turn a slot into points. */
+  onFlexibleCasting(event: { direction: 'create' | 'points'; level: number }) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const result =
+      event.direction === 'create' ? convertPointsToSlot(char, event.level) : convertSlotToPoints(char, event.level);
+    if (!result) return;
+
+    const before = sorceryPointsPool(char)?.current ?? 0;
+    char.spell_slots = result.spell_slots;
+    char.class_resources = result.class_resources;
+    this.queueCharSave();
+
+    const points = `${before} ➡️ ${sorceryPointsPool(char)?.current ?? 0}`;
+    this.rollToast.showMessage(
+      '✨ FLEXIBLE CASTING',
+      event.direction === 'create'
+        ? `Spent ${SLOT_CREATION_COST[event.level]} sorcery points for a level ${event.level} slot (${points} SP). It vanishes on a long rest.`
+        : `Expended a level ${event.level} slot for sorcery points (${points} SP).`
+    );
+  }
+
+  onMetamagic(event: { optionId: string; spellLevel: number }) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const option = metamagicOptions(metamagicEdition(char.dnd_edition || this.charState.dndEdition())).find(
+      (o) => o.id === event.optionId
+    );
+    const resources = option && spendMetamagic(char, option, event.spellLevel);
+    if (!option || !resources) return;
+
+    char.class_resources = resources;
+    this.queueCharSave();
+    this.rollToast.showMessage(
+      `✨ ${option.name.toUpperCase()}`,
+      `${option.summary} (−${metamagicCost(option, event.spellLevel)} SP, ${sorceryPointsPool(char)?.current ?? 0} left)`
+    );
   }
 
   isProficient = (skillName: string): boolean => {
@@ -1361,6 +1455,22 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.showConditionsModal.set(false);
   }
 
+  /** Quick ✕ on a condition chip: same save path as the conditions dialog. */
+  removeCondition(condition: string) {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.saveConditions({
+      conditions: (char.conditions || []).filter((c) => c !== condition),
+      concentratingOn: char.concentrating_on || '',
+    });
+  }
+
+  endConcentration() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.saveConditions({ conditions: char.conditions || [], concentratingOn: '' });
+  }
+
   openEditModal() {
     const char = this.charState.activeCharacter();
     if (char) {
@@ -1381,7 +1491,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   openImportModal(): void {
     this.importError.set(null);
     this.importWarnings.set([]);
-    this.dndBeyondUrl = '';
     this.showImportModal.set(true);
   }
 
@@ -1389,104 +1498,38 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.showImportModal.set(false);
   }
 
-  onImportPdf(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
-
-    this.isImporting.set(true);
-    this.importError.set(null);
-    this.importWarnings.set([]);
-
-    this.http.post<any>(`${environment.apiBaseUrl}/characters/import-pdf`, formData)
-      .subscribe({
-        next: (res) => {
-          this.isImporting.set(false);
-          this.charState.loadCharacters().subscribe(() => {
-            this.charState.activeCharacter.set(res);
-          });
-          if (res.warnings && res.warnings.length > 0) {
-            this.importWarnings.set(res.warnings);
-          } else {
-            this.closeImportModal();
-          }
-          this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'}.`);
-          input.value = '';
-        },
-        error: (err) => {
-          this.isImporting.set(false);
-          const detail = err.error?.detail || 'Failed to import character from PDF.';
-          this.importError.set(detail);
-          input.value = '';
-        }
-      });
+  onImportPdf(file: File): void {
+    this.runImport(this.importer.importPdf(file), '');
   }
 
-  onImportDndBeyond(): void {
-    const url = this.dndBeyondUrl.trim();
-    if (!url) return;
-
-    this.isImporting.set(true);
-    this.importError.set(null);
-    this.importWarnings.set([]);
-
-    this.http.post<any>(`${environment.apiBaseUrl}/characters/import-dndbeyond`, { url_or_id: url })
-      .subscribe({
-        next: (res) => {
-          this.isImporting.set(false);
-          this.charState.loadCharacters().subscribe(() => {
-            this.charState.activeCharacter.set(res);
-          });
-          if (res.warnings && res.warnings.length > 0) {
-            this.importWarnings.set(res.warnings);
-          } else {
-            this.closeImportModal();
-          }
-          this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'} from D&D Beyond.`);
-        },
-        error: (err) => {
-          this.isImporting.set(false);
-          const detail = err.error?.detail || 'Failed to import character from D&D Beyond.';
-          this.importError.set(detail);
-        }
-      });
+  onImportDndBeyond(urlOrId: string): void {
+    this.runImport(this.importer.importDndBeyond(urlOrId), 'D&D Beyond');
   }
 
-  onImportFoundry(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
+  onImportFoundry(file: File): void {
+    this.runImport(this.importer.importFoundry(file), 'Foundry VTT');
+  }
 
+  /** Saves the import as a new hero (never over an existing one) and makes it active. */
+  private runImport(request: Observable<ImportedCharacter>, sourceName: string): void {
     this.isImporting.set(true);
     this.importError.set(null);
     this.importWarnings.set([]);
 
-    this.http.post<any>(`${environment.apiBaseUrl}/characters/import-foundry`, formData)
-      .subscribe({
-        next: (res) => {
-          this.isImporting.set(false);
-          this.charState.loadCharacters().subscribe(() => {
-            this.charState.activeCharacter.set(res);
-          });
-          if (res.warnings && res.warnings.length > 0) {
-            this.importWarnings.set(res.warnings);
-          } else {
-            this.closeImportModal();
-          }
-          this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'} from Foundry VTT.`);
-          input.value = '';
-        },
-        error: (err) => {
-          this.isImporting.set(false);
-          const detail = err.error?.detail || 'Failed to import character from Foundry.';
-          this.importError.set(detail);
-          input.value = '';
+    request.pipe(finalize(() => this.isImporting.set(false))).subscribe({
+      next: (res) => {
+        if (res.warnings && res.warnings.length > 0) {
+          this.importWarnings.set(res.warnings);
+        } else {
+          this.closeImportModal();
         }
-      });
+        const from = sourceName ? ` from ${sourceName}` : '';
+        this.rollToast.showMessage('CHARACTER IMPORTED', `Successfully imported ${res.char_name || 'hero'}${from}.`);
+      },
+      error: (err) => {
+        this.importError.set(err?.error?.detail || `Failed to import character${sourceName ? ' from ' + sourceName : ''}.`);
+      },
+    });
   }
 
   reportWhisper(whisper: Whisper): void {
@@ -1517,11 +1560,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
-  onDeleteHero() {
+  async onDeleteHero() {
     const char = this.charState.activeCharacter();
     if (!char || !char.char_id) return;
 
-    if (confirm(`Are you sure you want to permanently delete ${char.char_name}? This action cannot be undone.`)) {
+    const confirmed = await this.confirmDialog.ask({
+      title: `Delete ${char.char_name}?`,
+      message: `${char.char_name} will be permanently deleted from your vault. This cannot be undone.`,
+      confirmLabel: 'Delete hero',
+      tone: 'danger',
+    });
+    if (confirmed) {
       this.charState.deleteCharacter(char.char_id).subscribe({
         next: () => {
           this.rollToast.showMessage('🗑️ HERO DELETED', `${char.char_name} has been permanently deleted.`);
@@ -1546,8 +1595,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
+    copy.version = this.knownVersion(copy);
     this.charState.updateCharacter(copy.char_id!, copy).subscribe({
-      next: () => {
+      next: (updated) => {
+        this.rememberVersion(updated);
         if (showToast) {
           this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${copy.char_name}.`);
         }
@@ -1557,6 +1608,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       error: (err) => {
         if (err?.status === 404) {
           this.createInVault(copy, showToast, '💾 SHEET SAVED');
+        } else if (err?.status === 409) {
+          this.reportSaveFailure(copy, err);
         } else {
           this.rollToast.showMessage(
             '⚠️ SAVE FAILED',
@@ -1565,6 +1618,47 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
       }
     });
+  }
+
+  /**
+   * The weapon editor emits on every keystroke; route those writes through the
+   * debounced save so only the settled value reaches the server.
+   */
+  queueCharSave() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (!this.isInVault(char)) {
+      this.saveCurrentChar();
+      return;
+    }
+    const copy = { ...char };
+    this.charState.activeCharacter.set(copy);
+    this.localSaveVersion++;
+    this.hpSave$.next({ char: copy, version: this.localSaveVersion });
+  }
+
+  private knownVersion(char: CharacterSchema): number {
+    return Math.max(char.version ?? 0, this.serverVersions.get(char.char_id!) ?? 0);
+  }
+
+  private rememberVersion(saved: CharacterSchema) {
+    if (saved?.char_id && typeof saved.version === 'number') {
+      this.serverVersions.set(saved.char_id, Math.max(saved.version, this.serverVersions.get(saved.char_id) ?? 0));
+    }
+  }
+
+  private reportSaveFailure(char: CharacterSchema, err: any) {
+    if (err?.status === 409) {
+      this.rollToast.showMessage(
+        '⚠️ SHEET CHANGED ELSEWHERE',
+        `${char.char_name} was updated somewhere else (e.g. by your DM). Reload to get the latest sheet — your last change was not saved.`
+      );
+    } else {
+      this.rollToast.showMessage(
+        '⚠️ SAVE FAILED',
+        `Could not save ${char.char_name}. Your changes are still on screen — try again.`
+      );
+    }
   }
 
   /** A hero without an id, or the built-in fallback, has no vault record yet. */
@@ -1758,20 +1852,149 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.showConcentrationPrompt.set(false);
   }
 
-  onCastSpell(event: { spellName: string; level: number; isRitual: boolean }) {
+  onCastSpell(event: { spellName: string; level: number; isRitual: boolean; metamagic?: string[] }) {
     const char = this.charState.activeCharacter();
     if (!char) return;
     this.haptics.lightTap();
-    const lvlText = event.level === 0 ? 'Cantrip' : (event.isRitual ? 'Ritual' : `Level ${event.level}`);
-    this.rollToast.showMessage('✨ CAST SPELL', `${char.char_name} cast ${event.spellName} (${lvlText})`);
+    const edition = char.dnd_edition || this.charState.dndEdition();
+    const metamagicUsed = this.payCastMetamagic(char, event.metamagic ?? [], event.level, edition);
+    event = { ...event, metamagic: metamagicUsed };
+    this.spellRules.profile(event.spellName, edition).subscribe((profile) => {
+      const endedConcentration = profile?.concentration ? this.startConcentration(event.spellName) : null;
+      this.showCast(char, event, profile, endedConcentration);
+    });
+  }
+
+  /**
+   * Pays for the Metamagic picked in the cast window, one option at a time, and
+   * returns the names of the ones paid for (the window already stops a cast the
+   * points can't cover). The points are saved with the slot, in the same save.
+   */
+  private payCastMetamagic(char: CharacterSchema, ids: string[], level: number, edition: string): string[] {
+    if (!ids.length) return [];
+    const options = metamagicOptions(metamagicEdition(edition));
+    const used: string[] = [];
+    for (const id of ids) {
+      const option = options.find((o) => o.id === id);
+      const resources = option && spendMetamagic(char, option, level);
+      if (!option || !resources) continue;
+      char.class_resources = resources;
+      used.push(option.name);
+    }
+    if (used.length) this.queueCharSave();
+    return used;
+  }
+
+  /**
+   * A concentration spell goes on the Status chips. Only one at a time (PHB):
+   * returns the spell it replaced, if any, so the cast can say it ended.
+   */
+  private startConcentration(spellName: string): string | null {
+    const char = this.charState.activeCharacter();
+    if (!char) return null;
+    const previous = char.concentrating_on && char.concentrating_on !== spellName ? char.concentrating_on : null;
+    this.saveConditions({ conditions: char.conditions || [], concentratingOn: spellName });
+    return previous;
+  }
+
+  /** Dice the spell rolls at this slot level ("9d6"), for the upcast menu. */
+  readonly spellCastPreview = (spellName: string, slotLevel: number): string | null => {
+    const char = this.charState.activeCharacter();
+    if (!char) return null;
+    const profile = this.spellRules.profileNow(spellName, char.dnd_edition || this.charState.dndEdition());
+    return profile?.rollsOnCast ? diceForCast(profile, slotLevel, char.char_level || 1) : null;
+  };
+
+  /**
+   * Casting rolls what the spell does, in the same dice tray as weapons: damage
+   * or healing at the cast level, the spell attack in the title, and — for
+   * "half on a successful save" spells — the "Passed DC … · ½" button.
+   */
+  private showCast(
+    char: CharacterSchema,
+    event: { spellName: string; level: number; isRitual: boolean; metamagic?: string[] },
+    profile: SpellCastProfile | null,
+    endedConcentration: string | null = null
+  ) {
+    const slotText = event.level === 0 ? 'Cantrip' : event.isRitual ? 'Ritual' : `Level ${event.level}`;
+    const concentrationText = profile?.concentration
+      ? ` 🧠 Concentrating${endedConcentration ? ` — ${endedConcentration} ended` : ''}.`
+      : '';
+    const metamagicText = event.metamagic?.length
+      ? ` 🔮 ${event.metamagic.map((name) => name.replace(' Spell', '')).join(' + ')}`
+      : '';
+    const castLevel = event.level || profile?.baseLevel || 0;
+    const dice = profile?.rollsOnCast ? diceForCast(profile, castLevel, char.char_level || 1) : null;
+
+    if (!profile || !dice) {
+      this.rollToast.showMessage(
+        '✨ CAST SPELL',
+        `${char.char_name} cast ${event.spellName} (${slotText}).${metamagicText}${concentrationText}`
+      );
+      return;
+    }
+
+    const saveDc = char.spell_save_dc;
+    const saveText = profile.save ? `${saveDc ? 'DC ' + saveDc + ' ' : ''}${profile.save.ability}` : '';
+    const saveHalf = profile.save?.halfOnSuccess ? { dc: saveText } : undefined;
+
+    // "8d6 + 2d8" when the upcast dice differ from the base ones: one part each.
+    const parts: DamagePart[] = dice.split(' + ').map((notation, i) => ({
+      label: i === 0 ? `${event.spellName}${profile.damageType ? ' · ' + profile.damageType : ''}` : 'Upcast',
+      notation,
+      saveHalf,
+    }));
+    if (profile.healing && profile.addsAbilityModifier && saveDc) {
+      const abilityMod = saveDc - 8 - proficiencyBonus(char);
+      if (abilityMod) parts.push({ label: 'Spellcasting modifier', notation: this.dice.signed(abilityMod) });
+    }
+    // Spell attacks crit on a natural 20 and double their damage dice (PHB);
+    // save spells and healing never crit, since nothing is rolled to hit.
+    let titleExtra = '';
+    let crit = false;
+    if (profile.spellAttack) {
+      const attackBonus = parseInt((char.spell_attack_bonus || '+0').replace('+', ''), 10) || 0;
+      const attack = this.dice.rollD20(attackBonus, this.rollMode);
+      crit = attack.raw === 20;
+      titleExtra = ` · TO HIT ${attack.total}${crit ? ' (NAT 20!)' : attack.raw === 1 ? ' (NAT 1)' : ''}`;
+    } else if (profile.save && !profile.save.halfOnSuccess) {
+      titleExtra = ` · ${saveText} SAVE`;
+    }
+    const damage = this.dice.rollDamage(parts, { crit });
+
+    const rolled = damage.rolls.reduce((sum, value) => sum + value, 0);
+    this.rollToast.showRoll({
+      title: `${profile.healing ? '💚' : '✨'} ${event.spellName.toUpperCase()} · ${slotText.toUpperCase()}${titleExtra}${
+        metamagicText ? ' ·' + metamagicText.toUpperCase() : ''
+      }${
+        profile.concentration ? ' · 🧠' : ''
+      }`,
+      expression: damage.expression,
+      raw: rolled,
+      rolls: damage.rolls.length ? damage.rolls : [0],
+      sides: damage.parts[0]?.sides || 6,
+      diceSides: damage.parts.flatMap((part) => part.rolls.map(() => part.sides)),
+      modifier: damage.total - rolled,
+      total: damage.total,
+      mode: 'normal',
+      isCritHit: crit,
+      damageParts: damage.parts.map((part) => ({
+        label: part.label,
+        detail: this.dice.describePartDice(part),
+        total: part.total,
+        saveHalf: part.saveHalf,
+      })),
+    });
   }
 
   onConsumePotion(event: { item: EquipmentItem; dice: string; bonus: number; name: string }) {
     const char = this.charState.activeCharacter();
     if (!char) return;
     this.haptics.lightTap();
-    const numDice = parseInt(event.dice.split('d')[0], 10) || 2;
-    const roll = this.dice.roll({ numDice, sides: 4, modifier: event.bonus });
+    const [numText, sidesText] = event.dice.split('d');
+    const numDice = parseInt(numText, 10) || 2;
+    const sides = parseInt(sidesText, 10) || 4;
+    const roll = this.dice.roll({ numDice, sides, modifier: event.bonus });
 
     const currentHp = char.hp_current ?? char.hp_max;
     const newHp = Math.min(char.hp_max, currentHp + roll.total);
@@ -1793,7 +2016,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     };
     this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
-    this.rollToast.showMessage('🧪 DRANK POTION', `Healed for +${roll.total} HP! (${event.name})`);
+    // Same 3D dice tray as every other roll, instead of a text-only toast.
+    this.rollToast.showRoll({
+      title: `🧪 ${event.name.toUpperCase()} · HEALED`,
+      expression: roll.expression,
+      raw: roll.raw,
+      rolls: roll.rolls,
+      sides: roll.sides,
+      modifier: roll.modifier,
+      total: roll.total,
+      mode: 'normal',
+    });
   }
 
   sendQuickWhisper(text: string) {
@@ -2007,20 +2240,37 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       });
   }
 
+  retryLoadVault() {
+    if (this.retryingVault) return;
+    this.retryingVault = true;
+    this.charState
+      .loadCharacters()
+      .pipe(finalize(() => (this.retryingVault = false)))
+      .subscribe({ error: () => {} }); // the interceptor and vaultStatus report it
+  }
+
   onLevelUp() {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || this.levelUpLoading()) return;
     const initialClass =
       char.classes && char.classes.length > 0
         ? char.classes[0].class_name
         : char.char_class || 'Fighter';
     this.levelUpUserChoices = { 'level_up_class': initialClass };
+    this.levelUpLoading.set(true);
     this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
       character: char,
       user_choices: this.levelUpUserChoices,
-    }).subscribe((analysis) => {
-      this.levelUpAnalysis = analysis;
-      this.showLevelUpModal.set(true);
+    }).pipe(finalize(() => this.levelUpLoading.set(false))).subscribe({
+      next: (analysis) => {
+        this.levelUpAnalysis = analysis;
+        this.showLevelUpModal.set(true);
+      },
+      error: (err) => {
+        if (!isReportedGlobally(err)) {
+          this.rollToast.showMessage('✦ LEVEL UP UNAVAILABLE', err?.error?.detail || 'Could not analyse the level up. Try again.');
+        }
+      },
     });
   }
 
@@ -2035,8 +2285,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
         character: char,
         user_choices: this.levelUpUserChoices
-      }).subscribe((analysis) => {
-        this.levelUpAnalysis = analysis;
+      }).subscribe({
+        next: (analysis) => {
+          this.levelUpAnalysis = analysis;
+        },
+        error: (err) => {
+          // Keep the previous class's analysis on screen rather than a half-updated one.
+          this.levelUpUserChoices = { ...choices, level_up_class: oldClass };
+          if (!isReportedGlobally(err)) {
+            this.rollToast.showMessage('✦ LEVEL UP UNAVAILABLE', err?.error?.detail || `Could not analyse a ${newClass} level. Try again.`);
+          }
+        },
       });
     }
   }
