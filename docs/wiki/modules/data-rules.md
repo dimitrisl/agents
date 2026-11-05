@@ -10,6 +10,7 @@ The `data/rules/` directory stores static JSON datasets for the **2014 5th Editi
 | File / Folder | Edition | Description |
 | :--- | :--- | :--- |
 | `classes/` | 2014 & 2024 | Class progression tables, spell slot schedules, hit die, and feature descriptions per level. |
+| `class_resources.json` | 2014 & 2024 | Data-driven class & subclass resource pools (Rage, Ki/Focus Points, Sorcery Points, Bardic Inspiration, Channel Divinity, Lay on Hands, etc.), reset triggers (Short/Long Rest), scaling schedules, and Sorcerer Metamagic options. |
 | `subclasses/` & `subclasses.json` | 2014 & 2024 | Archetype feature lists, domain spells, and proficiencies. |
 | `spells_2014.json` / `spells_2024.json` | 2014 / 2024 | Spell catalog with level, school, casting time, range, components, duration, and descriptions. |
 | `feats_2014.json` / `feats_2024.json` | 2014 / 2024 | Origin and General feat definitions, prerequisite checks, and mechanical stat bonuses. |
