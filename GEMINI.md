@@ -98,6 +98,7 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 - **Independent Verification:** ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification. Double-check the codebase or test suite to confirm statements.
 - **Strict Code Reviews:** When asked to perform a code review on a branch, you MUST review EVERYTHING (Frontend, Backend, CI/CD, Scripts) against `origin/dev`. Read the exact procedure defined in `.claude/skills/code-review/SKILL.md` before starting any review.
 - **Ticket Resolution:** Before implementing any ticket or issue, you MUST follow the strict analysis procedure defined in `.claude/skills/ticket-resolution/SKILL.md`. This ensures architectural impact is fully understood and a plan is approved before execution.
+- **Tabletop & Online QA Playtesting:** Before submitting any ticket for Code Review or merging into `dev`, you MUST verify end-to-end multi-client gameplay integrity across both In-Person Tabletop (Mobile Companion `< 1024px`, Physical Dice) and Online VTT (Desktop `>= 1024px`) modes. Run `poetry run python scripts/qa/simulate_session.py --mode both` and follow `.claude/skills/tabletop-qa/SKILL.md`.
 
 ---
 
