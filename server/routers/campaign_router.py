@@ -118,6 +118,7 @@ class PartyMemberStateResponse(SuccessResponseSchema):
     hp_current: int
     hp_max: int
     conditions: List[str]
+    version: Optional[int] = None
 
 
 class WhisperResponse(SuccessResponseSchema):
@@ -144,11 +145,13 @@ class LootDistributionRequest(BaseModel):
     items: Optional[List[Dict[str, Any]]] = None
     homebrew_item_ids: Optional[List[str]] = None
     split_currency: bool = False
+    item_recipient_id: Optional[str] = None
     reason: Optional[str] = "Loot Reward"
 
 
 class RollRequestResponse(SuccessResponseSchema):
     request: Dict[str, Any]
+    requests: Optional[List[Dict[str, Any]]] = None
 
 
 _SAVE_TYPES = {"save", "saving_throw", "savingthrow"}
@@ -421,6 +424,7 @@ async def update_party_member_state(
 
     # Only the touched fields are written. A blind $set of the whole document
     # would race with the character sheet the player has open.
+    new_version = int(char.get("version", 0) or 0) + 1
     await db["characters"].update_one(
         {"char_id": char_id, "active_campaign": name}, {"$set": updates, "$inc": {"version": 1}}
     )
@@ -431,6 +435,8 @@ async def update_party_member_state(
         "hp_current": updates.get("hp_current", char.get("hp_current") or 0),
         "hp_max": char.get("hp_max") or 0,
         "conditions": updates.get("conditions", char.get("conditions", [])),
+        "version": new_version,
+        "source": "dm",
     }
 
     from server.routers.websocket_router import manager
@@ -644,6 +650,70 @@ async def add_roll_request(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    from server.routers.websocket_router import manager
+
+    is_group_roll = (req_in.char_name or "").strip().upper() in (
+        "ALL",
+        "ALL PARTY",
+        "ALL_PARTY",
+        "*",
+    ) or (req_in.char_filename or "").strip().upper() in ("ALL", "ALL.JSON")
+
+    if is_group_roll:
+        party_files = camp.get("party") or []
+        created_reqs: List[Dict[str, Any]] = []
+        for pf in party_files:
+            char_doc = await _find_campaign_character(db, name, pf, "")
+            target_name = (
+                char_doc.get("char_name")
+                if char_doc
+                else pf.removesuffix(".json").split("_")[0].title()
+            )
+            req_id = str(uuid.uuid4())
+            item_req: Dict[str, Any] = {
+                "id": req_id,
+                "campaign_name": name,
+                "char_filename": pf,
+                "char_name": target_name,
+                "roll_type": req_in.roll_type,
+                "stat": req_in.stat,
+                "reason": req_in.reason,
+                "status": "pending",
+                "result": None,
+                "is_secret": req_in.is_secret,
+                "created_at": now,
+            }
+            if req_in.is_secret:
+                item_req["result"] = _roll_in_secret(char_doc, req_in.roll_type, req_in.stat)
+                item_req["status"] = "resolved"
+                item_req["rolled_by"] = "dm"
+                item_req["resolved_at"] = now
+                await db["campaign_roll_requests"].insert_one(item_req.copy())
+                await manager.broadcast(
+                    name, {"type": "roll_result", "payload": item_req}, dm_only=True
+                )
+            else:
+                await db["campaign_roll_requests"].update_many(
+                    {"campaign_name": name, "char_filename": pf, "status": "pending"},
+                    {"$set": {"status": "cancelled"}},
+                )
+                await db["campaign_roll_requests"].insert_one(item_req.copy())
+                await manager.broadcast(
+                    name, {"type": "roll_request", "payload": item_req}, characters=[target_name]
+                )
+            created_reqs.append(item_req)
+
+        if not created_reqs:
+            raise HTTPException(
+                status_code=400, detail="No active party members found for group roll request."
+            )
+        return {
+            "success": True,
+            "message": f"Roll request sent for {len(created_reqs)} party member(s)",
+            "request": created_reqs[0],
+            "requests": created_reqs,
+        }
+
     req_id = str(uuid.uuid4())
     new_req = {
         "id": req_id,
@@ -658,8 +728,6 @@ async def add_roll_request(
         "is_secret": req_in.is_secret,
         "created_at": now,
     }
-
-    from server.routers.websocket_router import manager
 
     if req_in.is_secret:
         # A secret roll is never asked of the player: it is thrown here, against
@@ -2000,12 +2068,30 @@ async def distribute_loot(
             valid_chars.append(char)
 
     divisor = len(valid_chars) if (payload.split_currency and len(valid_chars) > 1) else 1
-    char_currency: Dict[str, int] = (
-        {coin: amount // divisor for coin, amount in raw_currency.items()}
-        if payload.currency
-        else {}
-    )
-    total_currency_given = sum(char_currency.values())
+    leftover_cp = 0
+    if payload.currency:
+        if divisor > 1:
+            pp_each, pp_rem = divmod(raw_currency["pp"], divisor)
+            gp_total = raw_currency["gp"] + (pp_rem * 10)
+            gp_each, gp_rem = divmod(gp_total, divisor)
+            ep_each, ep_rem = divmod(raw_currency["ep"], divisor)
+            sp_total = raw_currency["sp"] + (gp_rem * 10) + (ep_rem * 5)
+            sp_each, sp_rem = divmod(sp_total, divisor)
+            cp_total = raw_currency["cp"] + (sp_rem * 10)
+            cp_each, leftover_cp = divmod(cp_total, divisor)
+            char_currency: Dict[str, int] = {
+                "pp": pp_each,
+                "gp": gp_each,
+                "ep": ep_each,
+                "sp": sp_each,
+                "cp": cp_each,
+            }
+        else:
+            char_currency = dict(raw_currency)
+    else:
+        char_currency = {}
+
+    total_currency_given = sum(char_currency.values()) + leftover_cp
 
     if total_currency_given == 0 and not awarded_items:
         raise HTTPException(
@@ -2013,14 +2099,28 @@ async def distribute_loot(
             detail="At least one currency amount or item must be provided to distribute loot.",
         )
 
+    # Determine if items are unique/attunement-bound or targeted to a single recipient
+    has_unique_or_attuned_item = any(
+        bool(
+            it.get("requires_attunement")
+            or it.get("attuned")
+            or it.get("unique")
+            or it.get("recipient_id")
+        )
+        for it in awarded_items
+    )
+    target_item_char_id = payload.item_recipient_id or (
+        valid_chars[0]["char_id"] if (has_unique_or_attuned_item and len(valid_chars) > 0) else None
+    )
+
     updated_count = 0
     updated_character_ids: List[str] = []
     updated_character_names: List[str] = []
 
-    for char in valid_chars:
+    for idx, char in enumerate(valid_chars):
         char_id = char["char_id"]
         update_ops: Dict[str, Any] = {}
-        inc_ops: Dict[str, int] = {"version": 1}
+        inc_ops: Dict[str, int] = {}
 
         # Handle currency
         if total_currency_given > 0:
@@ -2030,15 +2130,15 @@ async def distribute_loot(
                     {"$set": {"currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 0}}},
                 )
             for coin, amount in char_currency.items():
-                if amount > 0:
-                    inc_ops[f"currency.{coin}"] = amount
+                bonus_cp = 1 if (coin == "cp" and idx < leftover_cp) else 0
+                if amount + bonus_cp > 0:
+                    inc_ops[f"currency.{coin}"] = amount + bonus_cp
 
-        if inc_ops:
-            update_ops["$inc"] = inc_ops
+        receives_items = target_item_char_id is None or target_item_char_id == char_id
 
         # Compute per-character weapon stats using character's ability scores & proficiency bonus
         char_weapons_to_push: List[Dict[str, Any]] = []
-        if validated_weapons:
+        if receives_items and validated_weapons:
             char_stats = char.get("stats") or {}
             char_prof = char.get("proficiency_bonus") or 2
             for w_base in validated_weapons:
@@ -2047,12 +2147,16 @@ async def distribute_loot(
                 )
                 char_weapons_to_push.append(Weapon.model_validate(w_calc).model_dump())
 
+        char_equip_to_push = validated_equipment if receives_items else []
+        char_feats_to_push = validated_features if receives_items else []
+        char_spells_to_push = validated_spells if receives_items else []
+
         # Ensure arrays are initialized if missing or corrupted
         if char_weapons_to_push and not isinstance(char.get("weapons"), list):
             await db["characters"].update_one({"char_id": char_id}, {"$set": {"weapons": []}})
-        if validated_equipment and not isinstance(char.get("equipment"), list):
+        if char_equip_to_push and not isinstance(char.get("equipment"), list):
             await db["characters"].update_one({"char_id": char_id}, {"$set": {"equipment": []}})
-        if validated_features and not isinstance(char.get("features_traits"), list):
+        if char_feats_to_push and not isinstance(char.get("features_traits"), list):
             await db["characters"].update_one(
                 {"char_id": char_id}, {"$set": {"features_traits": []}}
             )
@@ -2060,15 +2164,15 @@ async def distribute_loot(
         push_ops: Dict[str, Any] = {}
         if char_weapons_to_push:
             push_ops["weapons"] = {"$each": char_weapons_to_push}
-        if validated_equipment:
-            push_ops["equipment"] = {"$each": validated_equipment}
-        if validated_features:
-            push_ops["features_traits"] = {"$each": validated_features}
+        if char_equip_to_push:
+            push_ops["equipment"] = {"$each": char_equip_to_push}
+        if char_feats_to_push:
+            push_ops["features_traits"] = {"$each": char_feats_to_push}
 
         if push_ops:
             update_ops["$push"] = push_ops
 
-        if validated_spells:
+        if char_spells_to_push:
             if not isinstance(char.get("spells"), dict):
                 await db["characters"].update_one({"char_id": char_id}, {"$set": {"spells": {}}})
             if not isinstance(char.get("prepared_spells"), list):
@@ -2077,7 +2181,7 @@ async def distribute_loot(
                 )
             add_to_set_ops: Dict[str, Any] = {}
             prep_names: List[str] = []
-            for spell in validated_spells:
+            for spell in char_spells_to_push:
                 lvl_key = "cantrips" if spell.level == 0 else f"level_{spell.level}"
                 add_to_set_ops.setdefault(f"spells.{lvl_key}", {"$each": []})["$each"].append(
                     spell.name
@@ -2088,7 +2192,9 @@ async def distribute_loot(
             if add_to_set_ops:
                 update_ops["$addToSet"] = add_to_set_ops
 
-        if update_ops:
+        if inc_ops or update_ops:
+            inc_ops["version"] = 1
+            update_ops["$inc"] = inc_ops
             await db["characters"].update_one({"char_id": char_id}, update_ops)
             updated_count += 1
             updated_character_ids.append(char_id)

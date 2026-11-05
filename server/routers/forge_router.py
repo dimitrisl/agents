@@ -299,11 +299,16 @@ async def apply_level_up(
             "char_level"
         ]
 
+    old_con = int((char_doc.get("stats") or {}).get("CON", 10) or 10)
+    char_doc["con_mod_applied"] = (old_con - 10) // 2
+
     def _bump_stat(stat_key: str, amount: int) -> None:
         if stat_key and stat_key in char_doc.get("stats", {}):
-            char_doc["stats"][stat_key] += amount
+            char_doc["stats"][stat_key] = min(20, int(char_doc["stats"][stat_key]) + amount)
             if isinstance(char_doc.get("base_stats"), dict) and stat_key in char_doc["base_stats"]:
-                char_doc["base_stats"][stat_key] += amount
+                char_doc["base_stats"][stat_key] = min(
+                    20, int(char_doc["base_stats"][stat_key]) + amount
+                )
 
     # Append automatic features
     existing_features = {
@@ -457,7 +462,21 @@ async def apply_level_up(
         db, char_doc.get("active_campaign")
     )
 
+    old_resource_state = {
+        str(r.get("name")): (int(r.get("current", 0) or 0), int(r.get("max", 0) or 0))
+        for r in (char_doc.get("class_resources") or [])
+        if isinstance(r, dict) and r.get("name")
+    }
+
     synced_char = sync_character_stats(char_doc, homebrew_content=homebrew_items)
+
+    # Grant newly gained resource capacity delta on level-up even when pool was partially spent
+    for r in synced_char.get("class_resources") or []:
+        if isinstance(r, dict) and r.get("name") in old_resource_state:
+            old_cur, old_max = old_resource_state[str(r.get("name"))]
+            new_max = int(r.get("max", 0) or 0)
+            if 0 < old_cur < old_max and new_max > old_max:
+                r["current"] = min(new_max, old_cur + (new_max - old_max))
 
     # Ensure nested _id is not updated
     if "_id" in synced_char:
@@ -473,6 +492,28 @@ async def apply_level_up(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Conflict: Character was modified concurrently during level up. Please refresh.",
+        )
+
+    active_camp = synced_char.get("active_campaign")
+    if active_camp:
+        from server.routers.websocket_router import manager
+
+        await manager.broadcast(
+            active_camp,
+            {
+                "type": "party_update",
+                "payload": {
+                    "char_id": payload.character_id,
+                    "char_name": synced_char.get("char_name", "Unknown"),
+                    "hp_current": synced_char.get("hp_current") or 0,
+                    "hp_max": synced_char.get("hp_max") or 0,
+                    "ac": synced_char.get("armor_class", 10),
+                    "level": synced_char.get("char_level", 1),
+                    "conditions": synced_char.get("conditions", []),
+                    "version": synced_char["version"],
+                    "source": "player",
+                },
+            },
         )
 
     return CharacterSchema.model_validate(synced_char, strict=False)

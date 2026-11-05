@@ -1,4 +1,4 @@
-import { CharacterSchema } from '../models/character.model';
+import { CharacterSchema, ClassResource } from '../models/character.model';
 import { hitDieSidesFor } from '../data/class-combat.data';
 import { abilityModifierOf } from './ability';
 import { currentHp } from './hit-points';
@@ -255,4 +255,28 @@ export function resolveLongRest(char: CharacterSchema): LongRestOutcome {
     hitDiceRecovered,
     hitDiceUsed: Math.max(0, (char.hit_dice_used || 0) - hitDiceRecovered),
   };
+}
+
+/**
+ * Recharges class resource pools on a Short Rest.
+ * Under 2024 rules, Rage, Second Wind, Channel Divinity, and Wild Shape
+ * regain 1 expended use on a Short Rest (all uses on a Long Rest), whereas
+ * Focus/Ki Points, Action Surge, and 2014 short-rest pools recharge to full.
+ */
+export function rechargeShortRestResources(
+  resources: ClassResource[] | undefined,
+  edition?: string
+): ClassResource[] {
+  if (!resources) return [];
+  const is2024 = String(edition || '').includes('2024');
+  return resources.map((r) => {
+    const nameClean = (r.name || '').trim().toLowerCase();
+    if (is2024 && /^(rage|second wind|channel divinity|wild shape)$/i.test(nameClean)) {
+      return { ...r, current: Math.min(r.max, (r.current ?? 0) + 1) };
+    }
+    if (r.recharge === 'short') {
+      return { ...r, current: r.max };
+    }
+    return { ...r };
+  });
 }

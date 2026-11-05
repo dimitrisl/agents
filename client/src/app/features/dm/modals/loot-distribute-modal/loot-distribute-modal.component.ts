@@ -49,8 +49,13 @@ export class LootDistributeModalComponent {
   selectedHomebrewId = '';
   customItemName = '';
   customItemDesc = '';
+  itemRecipientId = '';
   reason = 'Quest Reward';
   isDistributing = false;
+
+  get selectedPartyMembers(): PartyMember[] {
+    return this.partyMembers.filter((m) => m.char_id && this.selectedCharIds[m.char_id]);
+  }
 
   get availableHomebrewItems(): HomebrewItem[] {
     return this.homebrewItems.filter(
@@ -134,6 +139,10 @@ export class LootDistributeModalComponent {
       payload.homebrew_item_ids = [this.selectedHomebrewId];
     }
 
+    if ((hasCustomItem || hasHomebrew) && this.itemRecipientId) {
+      payload.item_recipient_id = this.itemRecipientId;
+    }
+
     const url = campaignUrl(this.campaignName, 'loot/distribute');
     this.http.post<any>(url, payload).subscribe({
       next: (res) => {
@@ -165,6 +174,7 @@ export class LootDistributeModalComponent {
     this.customItemName = '';
     this.customItemDesc = '';
     this.selectedHomebrewId = '';
+    this.itemRecipientId = '';
     this.cdr.markForCheck();
   }
 }

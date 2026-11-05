@@ -214,6 +214,28 @@ async def update_character(
             detail="Conflict: Character was modified concurrently during processing. Please refresh.",
         )
 
+    active_camp = char_dict.get("active_campaign")
+    if active_camp:
+        from server.routers.websocket_router import manager
+
+        await manager.broadcast(
+            active_camp,
+            {
+                "type": "party_update",
+                "payload": {
+                    "char_id": char_id,
+                    "char_name": char_dict.get("char_name", "Unknown"),
+                    "hp_current": char_dict.get("hp_current") or 0,
+                    "hp_max": char_dict.get("hp_max") or 0,
+                    "ac": char_dict.get("armor_class", 10),
+                    "level": char_dict.get("char_level", 1),
+                    "conditions": char_dict.get("conditions", []),
+                    "version": char_dict["version"],
+                    "source": "player",
+                },
+            },
+        )
+
     return CharacterSchema.model_validate(char_dict, strict=False)
 
 

@@ -417,9 +417,13 @@ class CharacterSchema(BaseModel):
         normalized = {}
         for key, val in v.items():
             if isinstance(val, dict):
-                max_val = int(val.get("max", 0))
+                max_val = int(val.get("max", val.get("total", 0)))
                 used_val = int(val.get("used", 0))
-                normalized[key] = {"max": max_val, "used": used_val}
+                entry: Dict[str, int] = {"max": max_val, "used": used_val}
+                for extra_key in ("level", "pact_max", "pact_used"):
+                    if extra_key in val and val[extra_key] is not None:
+                        entry[extra_key] = int(val[extra_key])
+                normalized[key] = entry
             elif isinstance(val, (int, float)):
                 normalized[key] = {"max": int(val), "used": 0}
             else:

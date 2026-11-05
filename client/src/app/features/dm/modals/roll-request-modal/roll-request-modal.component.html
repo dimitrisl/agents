@@ -14,6 +14,9 @@
         [ngModel]="rollTargetMember"
         (ngModelChange)="rollTargetMemberChange.emit($event)"
       >
+        @if (partyMembers.length > 1) {
+          <option value="ALL">👥 All Party Members ({{ partyMembers.length }})</option>
+        }
         <option *ngFor="let member of partyMembers" [value]="member.name">
           {{ member.name }}
         </option>
@@ -85,8 +88,8 @@
         🔒 Mark as a secret roll
       </label>
       <p class="text-micro text-muted">
-        Flags the request as secret at both ends. The player still rolls it and sees the
-        result — nothing is hidden from them.
+        Rolled silently by the server against the hero's sheet — only the DM sees the request and
+        result.
       </p>
     </div>
 

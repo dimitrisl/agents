@@ -308,13 +308,14 @@ describe('PlayerComponent — DM roll requests', () => {
 
       messages$.next({
         type: 'party_update',
-        payload: { char_id: 'lyra1', hp_current: 19, conditions: ['Blessed'] },
+        payload: { char_id: 'lyra1', hp_current: 19, conditions: ['Blessed'], version: 4 },
       } as WsMessage);
 
       const afterRef = charState.activeCharacter();
       expect(afterRef).not.toBe(beforeRef);
       expect(afterRef?.hp_current).toBe(19);
       expect(afterRef?.conditions).toEqual(['Blessed']);
+      expect(afterRef?.version).toBe(4);
     });
 
     it('restores Warlock Pact Magic slots on a 0-dice short rest without rolling hit dice', () => {

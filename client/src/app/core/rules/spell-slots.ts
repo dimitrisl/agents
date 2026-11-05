@@ -37,7 +37,17 @@ export function spendSpellSlot(slots: SpellSlots | undefined, level: number): Sp
   const slot = next[key];
   if (!slot) return next;
 
-  next[key] = { ...slot, used: Math.min(slot.max, slot.used + 1) };
+  const updatedSlot = { ...slot, used: Math.min(slot.max, slot.used + 1) };
+  if (typeof slot.pact_max === 'number' && slot.pact_max > 0) {
+    updatedSlot.pact_used = Math.min(slot.pact_max, (slot.pact_used ?? 0) + 1);
+  }
+  next[key] = updatedSlot;
+  if (next['pact'] && next['pact'].level === level) {
+    next['pact'] = {
+      ...next['pact'],
+      used: Math.min(next['pact'].max, (next['pact'].used ?? 0) + 1),
+    };
+  }
   return next;
 }
 
@@ -49,7 +59,11 @@ export function regainSpellSlot(slots: SpellSlots | undefined, level: number): S
   if (!slot) return next;
 
   // A negative `used` is a slot made with sorcery points (flexible-casting.ts): restoring stops at 0.
-  next[key] = { ...slot, used: Math.max(Math.min(0, slot.used), slot.used - 1) };
+  const updatedSlot = { ...slot, used: Math.max(Math.min(0, slot.used), slot.used - 1) };
+  if (typeof slot.pact_used === 'number' && slot.pact_used > 0) {
+    updatedSlot.pact_used = Math.max(0, slot.pact_used - 1);
+  }
+  next[key] = updatedSlot;
   return next;
 }
 
@@ -57,7 +71,11 @@ export function regainSpellSlot(slots: SpellSlots | undefined, level: number): S
 export function restoreAllSpellSlots(slots: SpellSlots | undefined): SpellSlots {
   const next: SpellSlots = {};
   for (const [key, slot] of Object.entries(slots ?? {})) {
-    next[key] = { ...slot, used: 0 };
+    const restored = { ...slot, used: 0 };
+    if (typeof slot.pact_used === 'number') {
+      restored.pact_used = 0;
+    }
+    next[key] = restored;
   }
   return next;
 }
@@ -73,7 +91,21 @@ export function restorePactSpellSlots(
   const next: SpellSlots = { ...slots };
   const slot = next[key];
   if (slot) {
-    next[key] = { ...slot, used: Math.max(Math.min(0, slot.used), slot.used - pactCount) };
+    const maxRecoverable =
+      slot.pact_used !== undefined
+        ? slot.pact_used
+        : slot.pact_max !== undefined
+          ? Math.min(Math.max(0, slot.used), slot.pact_max)
+          : pactCount;
+    const restoredSlot = {
+      ...slot,
+      used: Math.max(Math.min(0, slot.used), slot.used - maxRecoverable),
+      pact_used: 0,
+    };
+    next[key] = restoredSlot;
+  }
+  if (next['pact']) {
+    next['pact'] = { ...next['pact'], used: 0 };
   }
   return next;
 }

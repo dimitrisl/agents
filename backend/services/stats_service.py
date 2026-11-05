@@ -147,6 +147,9 @@ def calculate_ac(
     con_score: int = None,
     homebrew_content: List[Dict[str, Any]] = None,
     return_breakdown: bool = False,
+    cha_score: int = None,
+    subclass: str = None,
+    edition: str = None,
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
@@ -189,7 +192,7 @@ def calculate_ac(
 
     has_monk_unarmored = False
     has_barbarian_unarmored = False
-    has_draconic_resilience = False
+    has_draconic_resilience = "draconic" in str(subclass or "").lower()
     has_mage_armor = False
 
     if features:
@@ -204,7 +207,7 @@ def calculate_ac(
                     has_monk_unarmored = True
                 elif "barbarian" in source or "constitution" in desc:
                     has_barbarian_unarmored = True
-            elif "draconic resilience" in f_name:
+            elif "draconic resilience" in f_name or "draconic sorcery" in f_name:
                 has_draconic_resilience = True
             elif "mage armor" in f_name:
                 has_mage_armor = True
@@ -224,9 +227,15 @@ def calculate_ac(
                     f"Unarmored Defense (Barbarian: 10 + CON {get_modifier(con_score):+d})"
                 )
         if has_draconic_resilience:
-            if 13 > base_ac:
-                base_ac = 13
-                base_source = "Draconic Resilience (13)"
+            is_2024_drac = "2024" in str(edition or "")
+            drac_val = (
+                max(13, 10 + get_modifier(cha_score))
+                if (is_2024_drac and cha_score is not None)
+                else 13
+            )
+            if drac_val > base_ac:
+                base_ac = drac_val
+                base_source = f"Draconic Resilience ({drac_val})"
         if has_mage_armor:
             if 13 > base_ac:
                 base_ac = 13
@@ -236,12 +245,17 @@ def calculate_ac(
     shield_name = None
     shield_bonus = 0
     other_bonuses = []
+    attuned_count = 0
 
     for equip in equipment:
         if isinstance(equip, str):
             equip = {"name": equip, "equipped": True}
         if not equip or not equip.get("equipped", False):
             continue
+        if equip.get("attuned", False):
+            attuned_count += 1
+            if attuned_count > 3:
+                continue
 
         raw_item_name = equip.get("name") or ""
         item_name = raw_item_name.lower()
@@ -457,6 +471,30 @@ def calculate_spell_stats(
     }
 
 
+_WARLOCK_PACT_SLOTS: Dict[int, Tuple[int, int]] = {
+    1: (1, 1),
+    2: (2, 1),
+    3: (2, 2),
+    4: (2, 2),
+    5: (2, 3),
+    6: (2, 3),
+    7: (2, 4),
+    8: (2, 4),
+    9: (2, 5),
+    10: (2, 5),
+    11: (3, 5),
+    12: (3, 5),
+    13: (3, 5),
+    14: (3, 5),
+    15: (3, 5),
+    16: (3, 5),
+    17: (4, 5),
+    18: (4, 5),
+    19: (4, 5),
+    20: (4, 5),
+}
+
+
 def calculate_max_spell_slots(
     char_class: str,
     level: int,
@@ -492,28 +530,7 @@ def calculate_max_spell_slots(
         20: [4, 3, 3, 3, 3, 2, 2, 1, 1],
     }
 
-    warlock_slots = {
-        1: (1, 1),
-        2: (2, 1),
-        3: (2, 2),
-        4: (2, 2),
-        5: (2, 3),
-        6: (2, 3),
-        7: (2, 4),
-        8: (2, 4),
-        9: (2, 5),
-        10: (2, 5),
-        11: (3, 5),
-        12: (3, 5),
-        13: (3, 5),
-        14: (3, 5),
-        15: (3, 5),
-        16: (3, 5),
-        17: (4, 5),
-        18: (4, 5),
-        19: (4, 5),
-        20: (4, 5),
-    }
+    warlock_slots = _WARLOCK_PACT_SLOTS
 
     if not classes:
         classes = [
@@ -1102,10 +1119,15 @@ def sync_character_stats(
     equip_dmg_bonus = 0
     equip_save_bonus = 0
     equip_save_bonuses = {}
+    attuned_equip_count = 0
 
     for equip in char_data["equipment"]:
         if not equip.get("equipped", False):
             continue
+        if equip.get("attuned", False):
+            attuned_equip_count += 1
+            if attuned_equip_count > 3:
+                continue
 
         for i in [1, 2]:
             raw_mod = equip.get(f"mod{i}")
@@ -1280,7 +1302,7 @@ def sync_character_stats(
         f_desc = f.get("description", "")
         full_text = f"{f_name} {f_desc}".lower()
 
-        if "dwarven toughness" in full_text:
+        if "dwarven toughness" in full_text or "draconic resilience" in full_text:
             hp_bonus_per_level += 1
             continue
 
@@ -1306,7 +1328,19 @@ def sync_character_stats(
         )
         con_mod_applied = get_modifier(base_con)
 
-    feat_hp_bonus = hp_bonus_per_level * level
+    # Subclass Draconic Sorcery / Draconic Bloodline grants +1 HP per Sorcerer level
+    has_draconic_feat = any(
+        isinstance(f, dict) and "draconic resilience" in f.get("name", "").lower() for f in features
+    )
+    draconic_sorcerer_levels = 0
+    if not has_draconic_feat:
+        for cls in classes:
+            c_name = (cls.get("class_name") or "").lower()
+            c_sub = (cls.get("subclass") or subclass or "").lower()
+            if c_name == "sorcerer" and "draconic" in c_sub:
+                draconic_sorcerer_levels += int(cls.get("level", 1) or 1)
+
+    feat_hp_bonus = hp_bonus_per_level * level + draconic_sorcerer_levels
     prev_feat_hp = char_data.get("feat_hp_bonus", 0)
     prev_equip_hp = char_data.get("equip_hp_bonus", 0)
 
@@ -1346,6 +1380,9 @@ def sync_character_stats(
         con_score=con_score,
         homebrew_content=homebrew_content,
         return_breakdown=True,
+        cha_score=stats.get("CHA", 10),
+        subclass=subclass,
+        edition=edition,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus on initial import/forge
@@ -1572,6 +1609,38 @@ def sync_character_stats(
         elif isinstance(existing, int) and existing <= max_val:
             used_val = existing
         new_spell_slots[slot_lvl] = {"max": max_val, "used": used_val}
+
+    # Track Warlock Pact Magic metadata separately on multiclass casters so Short Rests
+    # only recharge Pact Magic slots and never restore regular Spellcasting slots.
+    warlock_mc_level = sum(
+        int(c.get("level", 0) or 0)
+        for c in classes
+        if (c.get("class_name") or "").lower() == "warlock"
+    )
+    has_other_caster = any(
+        (c.get("class_name") or "").lower() != "warlock"
+        and (c.get("caster_type") or "").lower() in ("full", "half", "third")
+        for c in classes
+    )
+    if warlock_mc_level > 0 and has_other_caster:
+        pact_count, pact_lvl = _WARLOCK_PACT_SLOTS.get(min(20, warlock_mc_level), (1, 1))
+        pact_key = f"level_{pact_lvl}"
+        existing_pact = (char_data.get("spell_slots") or {}).get("pact") or {}
+        pact_used = (
+            min(int(existing_pact.get("used", 0) or 0), pact_count)
+            if isinstance(existing_pact, dict)
+            else 0
+        )
+        new_spell_slots["pact"] = {"max": pact_count, "used": pact_used, "level": pact_lvl}
+        if pact_key in new_spell_slots:
+            new_spell_slots[pact_key]["pact_max"] = pact_count
+            new_spell_slots[pact_key]["pact_used"] = min(
+                int(
+                    (char_data.get("spell_slots") or {}).get(pact_key, {}).get("pact_used", 0) or 0
+                ),
+                pact_count,
+            )
+
     char_data["spell_slots"] = new_spell_slots
 
     # Enforce Spell Level Caps (Stops AI from hallucinating spells higher than allowed)
@@ -1725,7 +1794,12 @@ def sync_character_stats(
             for w in char_data.get("weapons", []):
                 if isinstance(w, dict):
                     w_name = (w.get("name") or "").lower()
-                    props = w.get("properties") or ""
+                    raw_props = w.get("properties") or ""
+                    props = (
+                        ", ".join(str(p) for p in raw_props)
+                        if isinstance(raw_props, list)
+                        else str(raw_props)
+                    )
                     if "mastery" not in props.lower():
                         w_data = get_base_weapon(w_name, all_weapons)
                         if w_data and "mastery" in w_data:

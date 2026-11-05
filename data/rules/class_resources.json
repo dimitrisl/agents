@@ -62,7 +62,11 @@
       { "id": "favored_enemy", "name": "Favored Enemy (free Hunter's Mark)", "aliases": ["favored enemy"], "recharge": "long", "max": { "steps": [[1, 2], [5, 3], [9, 4], [13, 5], [17, 6]] } }
     ],
     "sorcerer": [
+      { "id": "innate_sorcery", "name": "Innate Sorcery", "aliases": ["innate sorcery uses"], "recharge": "long", "max": { "steps": [[1, 2]] } },
       { "id": "sorcery_points", "name": "Sorcery Points", "aliases": ["sorcery point", "font of magic"], "recharge": "long", "max": { "per_level": 1, "from": 2 } }
+    ],
+    "warlock": [
+      { "id": "magical_cunning", "name": "Magical Cunning", "aliases": ["magical cunning uses"], "recharge": "long", "max": { "steps": [[2, 1]] } }
     ],
     "wizard": [
       { "id": "arcane_recovery", "name": "Arcane Recovery", "recharge": "long", "max": { "steps": [[1, 1]] } }
