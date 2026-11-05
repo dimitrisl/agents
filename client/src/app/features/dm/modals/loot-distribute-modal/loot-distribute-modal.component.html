@@ -159,7 +159,7 @@
         @if (selectedPartyMembers.length > 1 && (customItemName.trim() || selectedHomebrewId)) {
           <div class="col-span-2">
             <label class="text-micro text-muted font-medium mb-1 block">Item Recipient:</label>
-            <select [(ngModel)]="itemRecipientId" class="forge-input">
+            <select forgeSelect [(ngModel)]="itemRecipientId">
               <option value="">All Selected Recipients (or First Hero if Unique/Attuned)</option>
               @for (m of selectedPartyMembers; track m.char_id) {
                 <option [value]="m.char_id">Only {{ m.name }}</option>
