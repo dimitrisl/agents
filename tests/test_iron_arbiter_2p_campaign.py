@@ -17,6 +17,7 @@ Covers IA-01 through IA-12:
 
 import copy
 import io
+import os
 
 import mongomock
 from fastapi.testclient import TestClient
@@ -24,7 +25,7 @@ from fastapi.testclient import TestClient
 from backend.services.class_resources_service import _load_rules
 from backend.services.stats_service import sync_character_stats
 from backend.services.validation_service import deterministic_validate_build
-from backend.utils.pdf_exporter import export_character_to_pdf
+from backend.utils.pdf_exporter import PDFMappingProvider, export_character_to_pdf
 from backend.utils.pdf_importer import extract_text_and_fields_from_pdf
 from server.db_async import get_database
 from server.main import app
@@ -409,11 +410,18 @@ def test_iron_arbiter_full_4_session_2_player_campaign_playtest():
         assert any("attunement limit of 3" in issue for issue in val_issues)
 
         # IA-12: PDF Export preserves Sorcery Points and Subclass (Draconic Sorcery)
-        pdf_bytes = export_character_to_pdf(
-            p1_lvl3, "data/pdf_mappings/5E_CharacterSheet_Fillable.pdf"
+        # The fillable template is gitignored (absent in CI), so assert on the mapped field data.
+        field_blob = " ".join(
+            str(v) for v in PDFMappingProvider("standard_5e").get_field_data(p1_lvl3).values()
         )
-        pdf_text = extract_text_and_fields_from_pdf(io.BytesIO(pdf_bytes))
-        assert "Sorcery Points" in pdf_text
-        assert "Draconic Sorcery" in pdf_text
+        assert "Sorcery Points" in field_blob
+        assert "Draconic Sorcery" in field_blob
+
+        template_path = "data/pdf_mappings/5E_CharacterSheet_Fillable.pdf"
+        if os.path.exists(template_path):
+            pdf_bytes = export_character_to_pdf(p1_lvl3, template_path)
+            pdf_text = extract_text_and_fields_from_pdf(io.BytesIO(pdf_bytes))
+            assert "Sorcery Points" in pdf_text
+            assert "Draconic Sorcery" in pdf_text
     finally:
         app.dependency_overrides.clear()
