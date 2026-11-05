@@ -50,6 +50,11 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
   - **Disallowed Signatures:** Strictly rejects disguised executables (ELF, PE/MZ, Mach-O), archives (`7z`, `RAR`, `GZIP`, `XZ`), and scripts (`#!`, `<?php`, `<script`, HTML/XML).
 - **Defensive Streaming & Size Cap (100MB):** Defensively streams uploads in 1MB chunks directly to disk while counting bytes. If the file exceeds `MAX_AUDIO_FILE_SIZE_BYTES` (100MB), the stream aborts with `HTTP 413 Content Too Large` and cleans up temporary files to prevent disk/memory exhaustion.
 
+### 5. Encrypted User API Keys at Rest (`server/secret_box.py`)
+- User-supplied third-party API keys (e.g., personal Anthropic Claude keys stored via `/api/v1/settings`) are never persisted in plaintext in MongoDB.
+- Encrypted and decrypted via `cryptography.fernet.Fernet` using a 32-byte key derived from `SHA-256("user-api-keys:" + settings.SECRET_KEY)`.
+- API responses only return boolean/masked indicators (`has_anthropic_key`), never echoing the raw or encrypted key back to the client.
+
 ---
 
 ## ⏱️ Rate Limiting & DoS / Quota Exhaustion Defenses (`server/rate_limiter.py`)

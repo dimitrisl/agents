@@ -25,6 +25,8 @@ Comprehensive technical and architectural documentation is organized in the cent
   * [Backend Utilities (`backend/utils/`)](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/modules/backend-utils.md)
   * [Static Rules Data (`data/rules/`)](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/modules/data-rules.md)
   * [Maintenance Scripts (`scripts/`)](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/modules/scripts.md)
+  * [Frontend Architecture, DM Workspace & Forge (`client/src/app/`)](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/modules/client-architecture.md)
+  * [Player Companion & Character Sheet (`client/src/app/features/player/`)](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/modules/client-player.md)
   * [Testing Architecture (`tests/`)](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/modules/testing.md)
 
 ---

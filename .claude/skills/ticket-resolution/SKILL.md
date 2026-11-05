@@ -9,14 +9,15 @@ When assigned a ticket or issue (e.g. "αναλαμβάνω το ticket X", "ξ�
 
 ## Step 1 — Context Gathering
 Before touching any files, gather all necessary information:
-1. **Identify the core problem:** What is the current behavior vs the expected behavior?
-2. **Locate affected areas:** Use `grep_search` or view relevant routers, services, and schemas to pinpoint exactly where the logic resides.
-3. **Check dependencies:** Does this affect the frontend? (e.g., changing a response schema will break the Angular client). Does this affect database integrity?
+1. **Consult the LLM Wiki:** Check `docs/wiki/index.md` and read the relevant subsystem or concept page (`docs/wiki/concepts/*`, `docs/wiki/modules/*`) to understand architectural invariants and locate key modules.
+2. **Identify the core problem:** What is the current behavior vs the expected behavior?
+3. **Locate affected areas:** View the relevant routers, services, schemas, and Angular components/services to pinpoint exactly where the logic resides.
+4. **Check dependencies:** Does this affect the frontend or backend contract? (e.g., changing a response schema will break the Angular client). Does this affect database integrity?
 
 ## Step 2 — Capability & Limitation Check
 Before drafting a plan, evaluate your operational constraints:
 - **Sandbox / Environment Restrictions:** Do you lack network access (e.g., `nsjail` blocking `curl`), required credentials, or tool capabilities?
-- **Domain Boundaries:** Does the ticket require modifying frontend code (which is forbidden for the Backend Agent without explicit permission)?
+- **Domain Boundaries:** Does the ticket require modifying frontend or backend code? Ensure changes follow project conventions (Signals, RxJS in Angular 19, Pydantic schemas in FastAPI).
 - **Action:** If you hit any limitation that blocks you from analyzing or executing the task, you MUST immediately pause, clearly explain the limitation to the user, and ask for their assistance (e.g., "Please run this command on your terminal"). DO NOT attempt to bypass restrictions silently.
 
 ## Step 3 — Architecture & Security Analysis
