@@ -6,6 +6,7 @@ import {
   ForgeButtonDirective,
   ForgeModalComponent,
   ForgeInputDirective,
+  ForgeSelectDirective,
 } from '../../../../shared/ui';
 import type { PartyMember } from '../../../../core/models/party.model';
 import type { HomebrewItem } from '../../../../core/services/homebrew.service';
@@ -21,6 +22,7 @@ import { campaignUrl } from '../../../../core/config/api-urls';
     ForgeButtonDirective,
     ForgeModalComponent,
     ForgeInputDirective,
+    ForgeSelectDirective,
   ],
   templateUrl: './loot-distribute-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -74,10 +76,16 @@ export class LootDistributeModalComponent {
         this.selectedCharIds[m.char_id] = checked;
       }
     });
+    if (!checked) {
+      this.itemRecipientId = '';
+    }
   }
 
   toggleRecipient(charId: string): void {
     this.selectedCharIds[charId] = !this.selectedCharIds[charId];
+    if (!this.selectedCharIds[charId] && this.itemRecipientId === charId) {
+      this.itemRecipientId = '';
+    }
   }
 
   getSelectedIds(): string[] {
@@ -139,7 +147,12 @@ export class LootDistributeModalComponent {
       payload.homebrew_item_ids = [this.selectedHomebrewId];
     }
 
-    if ((hasCustomItem || hasHomebrew) && this.itemRecipientId) {
+    if (
+      (hasCustomItem || hasHomebrew) &&
+      characterIds.length > 1 &&
+      this.itemRecipientId &&
+      characterIds.includes(this.itemRecipientId)
+    ) {
       payload.item_recipient_id = this.itemRecipientId;
     }
 
