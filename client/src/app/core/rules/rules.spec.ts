@@ -764,3 +764,47 @@ describe('2024 Weapon Masteries rules', () => {
     expect(calculateToppleDc(4, 3)).toBe(15);
   });
 });
+
+describe('Multiclass Pact Magic & 2024 Short Rest Resource Recovery', () => {
+  const { restorePactSpellSlots, spendSpellSlot } = require('./spell-slots');
+  const { rechargeShortRestResources } = require('./rest');
+
+  it('prevents Short Rest from recharging regular Paladin slots on a Paladin/Warlock multiclass', () => {
+    // Paladin 4 (3 L1 slots) + Warlock 2 (2 L1 Pact slots) = 5 max, 2 pact_max
+    let slots = {
+      level_1: { max: 5, used: 0, pact_max: 2, pact_used: 0 },
+      pact: { max: 2, used: 0, level: 1 },
+    };
+    // Spend 4 slots total (2 Pact + 2 Paladin)
+    slots = spendSpellSlot(slots, 1);
+    slots = spendSpellSlot(slots, 1);
+    slots = spendSpellSlot(slots, 1);
+    slots = spendSpellSlot(slots, 1);
+    expect(slots.level_1.used).toBe(4);
+    expect(slots.level_1.pact_used).toBe(2);
+
+    // First Short Rest recovers the 2 Pact Magic slots (leaving 2 Paladin slots spent)
+    slots = restorePactSpellSlots(slots, 1, 2);
+    expect(slots.level_1.used).toBe(2);
+    expect(slots.level_1.pact_used).toBe(0);
+    expect(slots.pact.used).toBe(0);
+
+    // A second consecutive Short Rest without spending Pact slots recovers 0 Paladin slots!
+    slots = restorePactSpellSlots(slots, 1, 2);
+    expect(slots.level_1.used).toBe(2);
+  });
+
+  it('restores +1 use on 2024 Rage, Second Wind, Channel Divinity & Wild Shape on Short Rest', () => {
+    const pools = [
+      { name: 'Rage', current: 0, max: 3, recharge: 'long' as const },
+      { name: 'Second Wind', current: 0, max: 3, recharge: 'short' as const },
+      { name: 'Channel Divinity', current: 0, max: 2, recharge: 'short' as const },
+      { name: 'Focus Points', current: 1, max: 5, recharge: 'short' as const },
+    ];
+    const after2024 = rechargeShortRestResources(pools, '2024 Revision');
+    expect(after2024.find((p: any) => p.name === 'Rage')?.current).toBe(1);
+    expect(after2024.find((p: any) => p.name === 'Second Wind')?.current).toBe(1);
+    expect(after2024.find((p: any) => p.name === 'Channel Divinity')?.current).toBe(1);
+    expect(after2024.find((p: any) => p.name === 'Focus Points')?.current).toBe(5);
+  });
+});

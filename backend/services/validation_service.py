@@ -126,7 +126,10 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
     items_lookup = {i.get("name", "").lower(): i for i in all_items}
 
     equipment = corrected_char.get("equipment", [])
+    attuned_items_count = 0
     for equip in equipment:
+        if isinstance(equip, dict) and equip.get("attuned", False):
+            attuned_items_count += 1
         if isinstance(equip, dict) and equip.get("equipped", False):
             item_name = equip.get("name", "").lower()
             item_db = items_lookup.get(item_name)
@@ -149,6 +152,11 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
                         issue_msg = f"Character lacks proficiency for {item_name} ({req_prof}). Wearing it imposes disadvantage on STR/DEX checks, saves, and attacks, and prevents spellcasting."
                         logger.warning(issue_msg)
                         issues.append(issue_msg)
+
+    if attuned_items_count > 3:
+        issue_msg = f"Character is attuned to {attuned_items_count} magic items, exceeding the maximum attunement limit of 3."
+        logger.warning(issue_msg)
+        issues.append(issue_msg)
 
     # 3. Weapon Proficiency Validation (Basic)
     # Weapons can be used without proficiency, but it shouldn't have proficiency bonus applied.

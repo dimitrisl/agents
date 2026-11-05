@@ -72,8 +72,10 @@ class PDFMappingProvider:
         # 3. Combat
         combat_map = self.mapping.get("combat", {})
         if "Initiative" in combat_map:
-            dex_mod = calculate_modifier(stats.get("DEX", 10))
-            field_data["Initiative"] = format_mod(dex_mod)
+            init_mod = char_data.get("initiative_modifier")
+            if init_mod is None:
+                init_mod = calculate_modifier(stats.get("DEX", 10))
+            field_data["Initiative"] = format_mod(int(init_mod))
 
         # 4. Skills
         char_skills = char_data.get("skills", {})
@@ -98,8 +100,11 @@ class PDFMappingProvider:
 
         # 5. Saving Throws
         char_saves = char_data.get("saving_throws", [])
+        save_values = char_data.get("saving_throw_values") or {}
         for stat, pdf_key in self.mapping.get("saving_throws", {}).items():
-            if stat in char_saves:
+            if stat in save_values:
+                field_data[pdf_key] = format_mod(int(save_values[stat]))
+            elif stat in char_saves:
                 val = stats.get(stat, 10)
                 mod = calculate_modifier(val) + prof_bonus
                 field_data[pdf_key] = format_mod(mod)
@@ -153,10 +158,38 @@ class PDFMappingProvider:
             feats = char_data.get("features_traits", [])
             ft_strings = []
 
+            subclass_val = char_data.get("subclass")
+            if subclass_val:
+                ft_strings.append(f"SUBCLASS: {subclass_val}")
+
+            resources = char_data.get("class_resources") or []
+            if resources:
+                res_parts = []
+                for r in resources:
+                    if isinstance(r, dict) and r.get("name"):
+                        res_parts.append(
+                            f"{r['name']} ({r.get('current', r.get('max', 0))}/{r.get('max', 0)})"
+                        )
+                if res_parts:
+                    ft_strings.append(f"CLASS RESOURCES: {', '.join(res_parts)}")
+
+            species_traits = char_data.get("species_traits") or []
+            if species_traits:
+                sp_parts = []
+                for st in species_traits:
+                    if isinstance(st, str):
+                        sp_parts.append(st)
+                    elif isinstance(st, dict) and st.get("name"):
+                        sp_parts.append(f"{st['name']}: {st.get('description', '')}")
+                if sp_parts:
+                    ft_strings.append("SPECIES TRAITS: " + " | ".join(sp_parts))
+
             # 2024 Weapon Masteries section
             masteries = char_data.get("weapon_masteries", [])
             if masteries:
                 ft_strings.append(f"WEAPON MASTERIES (2024): {', '.join(masteries)}")
+
+            if ft_strings:
                 ft_strings.append("")
 
             for f in feats:

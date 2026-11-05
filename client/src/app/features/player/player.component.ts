@@ -56,6 +56,7 @@ import {
   levelUp,
   planShortRest,
   proficiencyBonus,
+  rechargeShortRestResources,
   SpellCastProfile,
   regainSpellSlot,
   resolveLongRest,
@@ -512,11 +513,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private applyDmPartyUpdate(payload: any, char: CharacterSchema) {
     if (!payload || payload.char_id !== char.char_id) return;
 
+    if (payload.source === 'player') {
+      if (typeof payload.version === 'number' && payload.version > this.knownVersion(char)) {
+        const synced: CharacterSchema = { ...char, version: payload.version };
+        if (typeof payload.hp_current === 'number') synced.hp_current = payload.hp_current;
+        if (Array.isArray(payload.conditions)) synced.conditions = [...payload.conditions];
+        this.rememberVersion(synced);
+        this.charState.activeCharacter.set(synced);
+        this.charState.upsertCharacter(synced);
+      }
+      return;
+    }
+
     const previousHp = char.hp_current ?? char.hp_max;
     const updated: CharacterSchema = { ...char };
     if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
     if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
+    if (typeof payload.version === 'number') updated.version = payload.version;
+    this.rememberVersion(updated);
     this.charState.activeCharacter.set(updated);
+    this.charState.upsertCharacter(updated);
 
     const hp = updated.hp_current ?? updated.hp_max;
     if (hp !== previousHp) {
@@ -646,11 +662,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     if (char.class_resources) {
-      char.class_resources.forEach((r) => {
-        if (r.recharge === 'short') {
-          r.current = r.max;
-        }
-      });
+      char.class_resources = rechargeShortRestResources(
+        char.class_resources,
+        char.dnd_edition || this.charState.dndEdition()
+      );
     }
 
     this.saveCurrentChar();

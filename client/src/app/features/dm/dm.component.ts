@@ -69,6 +69,11 @@ interface PartyStateChanges {
 
 interface PartyStatePayload extends PartyStateChanges {
   char_id?: string;
+  hp_max?: number;
+  ac?: number;
+  level?: number;
+  version?: number;
+  source?: string;
 }
 
 /**
@@ -1148,30 +1153,29 @@ export class DmComponent implements OnInit, OnDestroy {
 
   sendRollRequest() {
     this.showRollModal = false;
-    // Vault heroes are addressed by their real sheet filename, so the player's
-    // dashboard matches the request to the exact character, not just a name.
-    const target = this.partyMembers.find((m) => m.name === this.rollTargetMember);
-    const charFilename = target?.char_id
-      ? `${this.rollTargetMember.toLowerCase()}_${target.char_id}.json`
-      : `${this.rollTargetMember.toLowerCase()}.json`;
+    const isAllParty = this.rollTargetMember === 'ALL';
+    const target = isAllParty ? null : this.partyMembers.find((m) => m.name === this.rollTargetMember);
+    const charFilename = isAllParty
+      ? 'all.json'
+      : target?.char_id
+        ? `${this.rollTargetMember.toLowerCase()}_${target.char_id}.json`
+        : `${this.rollTargetMember.toLowerCase()}.json`;
+    const targetLabel = isAllParty ? 'all party members' : this.rollTargetMember;
 
     this.http.post(campaignUrl(this.campaignName, 'roll-request'), {
       char_filename: charFilename,
-      char_name: this.rollTargetMember,
+      char_name: isAllParty ? 'ALL' : this.rollTargetMember,
       roll_type: this.rollType,
       stat: this.rollStat,
       reason: this.rollReason,
       is_secret: this.isSecretRoll
     }).subscribe({
       next: () => {
-        // A secret roll is already thrown by the time this returns, and its result
-        // arrives on the socket a moment later — announcing it as "sent" here would
-        // both be wrong and step on that toast.
         if (this.isSecretRoll) return;
-        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${this.rollTargetMember}.`);
+        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${targetLabel}.`);
       },
       error: () =>
-        this.rollToast.showMessage('⚠️ REQUEST NOT SENT', `Could not reach ${this.rollTargetMember}.`)
+        this.rollToast.showMessage('⚠️ REQUEST NOT SENT', `Could not reach ${targetLabel}.`)
     });
   }
 
@@ -1528,10 +1532,23 @@ export class DmComponent implements OnInit, OnDestroy {
     if (!member) return;
 
     const nextHp = typeof payload.hp_current === 'number' ? payload.hp_current : member.hp_current;
+    const nextHpMax = typeof payload.hp_max === 'number' && payload.hp_max > 0 ? payload.hp_max : member.hp_max;
+    const nextAc = typeof payload.ac === 'number' && payload.ac > 0 ? payload.ac : member.ac;
+    const nextLevel = typeof payload.level === 'number' && payload.level > 0 ? payload.level : member.level;
     const nextConditions = Array.isArray(payload.conditions) ? [...payload.conditions] : member.conditions;
     member.hp_current = nextHp;
+    member.hp_max = nextHpMax;
+    member.ac = nextAc;
+    member.level = nextLevel;
     member.conditions = nextConditions;
-    const updated = { ...member, hp_current: nextHp, conditions: nextConditions };
+    const updated = {
+      ...member,
+      hp_current: nextHp,
+      hp_max: nextHpMax,
+      ac: nextAc,
+      level: nextLevel,
+      conditions: nextConditions,
+    };
     this.partyMembers = this.partyMembers.map((m) =>
       m.char_id === payload.char_id ? updated : m
     );
