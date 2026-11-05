@@ -72,13 +72,21 @@ flowchart TD
 
 Whenever conducting a QA playtest, execute the following 4 steps:
 
-### Step 1: Pre-Flight Automated Simulation
-Run the automated multi-client simulation script to verify core WebSocket & state mechanics:
-```bash
-poetry run python scripts/qa/simulate_session.py --mode both
-```
-- If `--mode tabletop`: Simulates 1 DM + 2 Mobile Companion players with physical dice inputs and loot distribution.
-- If `--mode online`: Simulates 1 DM + 2 Desktop players with battlemap tokens, reaction prompts, and roll log broadcasting.
+### Step 1: Pre-Flight Automated Simulations
+Run BOTH the rapid API integration suite and the real Visual Chrome Browser Playtester:
+
+1. **State & Protocol Simulator:**
+   ```bash
+   poetry run python scripts/qa/simulate_session.py --mode both
+   ```
+   - Verifies WebSocket routing, multi-recipient loot splitting, physical dice inputs, and state sync without desync.
+
+2. **Visual Multi-Client Browser Playtester (Playwright & Google Chrome):**
+   ```bash
+   poetry run python scripts/qa/visual_party_playtest.py
+   ```
+   - Concurrently spins up 3 real browser viewports (Desktop DM 1920x1080, Mobile Companion iPhone 390x844, Desktop VTT 1440x900).
+   - Audits DOM rendering, responsive boundaries (<1024px `<app-vtt-grid>` elimination), touch targets, and captures screenshots for visual inspection.
 
 ### Step 2: Boundary & Viewport Verification
 Inspect UI components for responsive layout integrity:
