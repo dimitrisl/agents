@@ -143,6 +143,46 @@ def _find_catalog_item(raw_name: str, all_items: List[Dict[str, Any]]) -> Dict[s
     )
 
 
+def _is_shield_item(raw_name: str, item_data: Optional[Dict[str, Any]] = None) -> bool:
+    """Accurately identifies if an equipment item is an actual shield.
+    Prevents false-positives on wondrous items like 'Brooch of Shielding'.
+    """
+    if item_data:
+        itype = (item_data.get("type") or "").strip().lower()
+        if itype == "shield":
+            return True
+        if itype and itype != "shield":
+            return False
+
+    name = (raw_name or "").strip().lower()
+    if not name:
+        return False
+
+    # Exclude non-shield accessories, rings, wondrous items, spells, and scrolls
+    if any(
+        term in name
+        for term in (
+            "brooch",
+            "amulet",
+            "ring",
+            "scroll",
+            "potion",
+            "cloak",
+            "wand",
+            "staff",
+            "bracers",
+            "robe",
+        )
+    ):
+        return False
+
+    if name in ("shield", "wooden shield", "steel shield", "buckler", "tower shield"):
+        return True
+    if re.match(r"^shield(\s*,\s*|\s+)\+[1-3]$", name):
+        return True
+    return False
+
+
 def calculate_ac(
     dex_score: int,
     equipment: List[Dict[str, Any]],
@@ -154,10 +194,23 @@ def calculate_ac(
     cha_score: int = None,
     subclass: str = None,
     edition: str = None,
-    max_attunement: int = 3,
+    max_attunement: int = None,
+    char_class: str = None,
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
+
+    if max_attunement is None:
+        max_attunement = 3
+        if features:
+            for f in features:
+                fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+                if "magic item master" in fname:
+                    max_attunement = max(max_attunement, 6)
+                elif "magic item savant" in fname:
+                    max_attunement = max(max_attunement, 5)
+                elif "magic item adept" in fname:
+                    max_attunement = max(max_attunement, 4)
 
     _rules_repo = RulesRepository()
     all_items = _merge_homebrew_items(_rules_repo.get_all_items(), homebrew_content)
@@ -178,11 +231,10 @@ def calculate_ac(
         if not equip or not equip.get("equipped", False):
             continue
 
-        item_name = (equip.get("name") or "").lower()
-        if "shield" in item_name:
+        raw_item_name = equip.get("name") or ""
+        item_data = _find_catalog_item(raw_item_name, all_items)
+        if _is_shield_item(raw_item_name, item_data):
             has_shield = True
-
-        item_data = _find_catalog_item(equip.get("name") or "", all_items)
         try:
             val = int(equip.get("ac_bonus", 0) or 0)
         except (ValueError, TypeError):
@@ -195,8 +247,8 @@ def calculate_ac(
             if val >= 10:
                 has_armor = True
 
-    has_monk_unarmored = False
-    has_barbarian_unarmored = False
+    has_monk_unarmored = (char_class or "").strip().lower() == "monk"
+    has_barbarian_unarmored = (char_class or "").strip().lower() == "barbarian"
     has_draconic_resilience = "draconic" in str(subclass or "").lower()
     has_mage_armor = False
 
@@ -273,9 +325,7 @@ def calculate_ac(
         except (ValueError, TypeError):
             val = 0
 
-        is_shield = "shield" in item_name or (
-            item_data and (item_data.get("type") or "").lower() == "shield"
-        )
+        is_shield = _is_shield_item(raw_item_name, item_data)
         if is_shield:
             if shield_bonus_applied:
                 continue
@@ -401,8 +451,9 @@ def calculate_passive_perception(
     skills: List[str],
     expertise: List[str] = None,
     half_prof: bool = False,
+    bonus_modifier: int = 0,
 ) -> int:
-    """Calculates Passive Perception, accounting for proficiency and expertise."""
+    """Calculates Passive Perception, accounting for proficiency, expertise, and flat feat/item bonuses."""
     wis_mod = get_modifier(wis_score)
     bonus = 0
     if "Perception" in (expertise or []):
@@ -411,7 +462,7 @@ def calculate_passive_perception(
         bonus = proficiency_bonus
     elif half_prof:
         bonus = proficiency_bonus // 2
-    return 10 + wis_mod + bonus
+    return 10 + wis_mod + bonus + bonus_modifier
 
 
 def has_jack_of_all_trades(char_data: Dict[str, Any]) -> bool:
@@ -991,12 +1042,39 @@ def sync_character_stats(
             normalized_eq.append(item)
     char_data["equipment"] = normalized_eq
 
-    # D&D Rules Invariant (Issue #210): Default starting armor & shield to equipped for valid AC
+    # D&D Rules Invariant (Issue #210 & DEF-CR-02):
+    # Default starting armor & shield to equipped ONLY when equipment items lack an explicit 'equipped' field
+    # (i.e. fresh starting gear initialization). Never override explicit user choice (equipped: False).
+    # Furthermore, classes with Unarmored Defense (Monk, Barbarian) must never auto-equip armor.
+    has_unassigned_equipment = any(
+        isinstance(item, dict) and "equipped" not in item for item in char_data.get("equipment", [])
+    )
     has_any_equipped = any(
         isinstance(item, dict) and item.get("equipped", False)
         for item in char_data.get("equipment", [])
     )
-    if not has_any_equipped and char_data.get("equipment"):
+
+    char_class_lower = (char_data.get("char_class") or "").lower()
+    classes_list = char_data.get("classes", []) or []
+    all_class_names = {char_class_lower}
+    for c in classes_list:
+        c_name = (c.get("class_name") if isinstance(c, dict) else str(c)).lower()
+        if c_name:
+            all_class_names.add(c_name)
+
+    features_list = char_data.get("features_traits", []) or []
+    has_monk_unarmored = "monk" in all_class_names or any(
+        "unarmored defense" in (f.get("name") if isinstance(f, dict) else str(f)).lower()
+        and ("monk" in str(f).lower() or "wisdom" in str(f).lower())
+        for f in features_list
+    )
+
+    should_auto_equip = (
+        not has_any_equipped
+        and bool(char_data.get("equipment"))
+        and (is_initial_sync or has_unassigned_equipment)
+    )
+    if should_auto_equip:
         armor_profs = get_character_armor_proficiencies(char_data, class_data)
         all_catalog_items = _merge_homebrew_items(repo.get_all_items(), homebrew_content)
 
@@ -1013,7 +1091,7 @@ def sync_character_stats(
             lower_name = item_name.lower()
 
             # Shield detection
-            if "shield" in lower_name or item_type == "shield":
+            if _is_shield_item(item_name, item_data):
                 if (
                     "shields" in armor_profs or "all armor" in armor_profs
                 ) and best_shield_idx is None:
@@ -1054,9 +1132,9 @@ def sync_character_stats(
                     best_armor_ac = base_ac
                     best_armor_idx = idx
 
-        if best_armor_idx is not None:
+        if best_armor_idx is not None and not has_monk_unarmored:
             char_data["equipment"][best_armor_idx]["equipped"] = True
-        if best_shield_idx is not None:
+        if best_shield_idx is not None and not has_monk_unarmored:
             char_data["equipment"][best_shield_idx]["equipped"] = True
 
     normalized_ft = []
@@ -1531,6 +1609,7 @@ def sync_character_stats(
         subclass=subclass,
         edition=edition,
         max_attunement=max_attuned,
+        char_class=char_class,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus on initial import/forge
@@ -1565,12 +1644,22 @@ def sync_character_stats(
     jack = has_jack_of_all_trades(char_data)
     remarkable = has_remarkable_athlete(char_data, edition=edition)
 
+    # Observant feat (+5 bonus to passive Wisdom (Perception)) & item bonuses
+    passive_bonus = 0
+    for f in char_data.get("features_traits", []) or []:
+        fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+        if "observant" in fname:
+            passive_bonus += 5
+            break
+    passive_bonus += int(char_data.get("passive_perception_bonus") or 0)
+
     char_data["passive_perception"] = calculate_passive_perception(
         wis_score,
         prof_bonus,
         char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
         half_prof=jack,
+        bonus_modifier=passive_bonus,
     )
 
     # 2014 RAW: Remarkable Athlete grants +ceil(PB/2) to physical checks.
@@ -1636,12 +1725,30 @@ def sync_character_stats(
         get_modifier(dex_score) + init_bonus + char_data.get("initiative_bonus", 0)
     )
 
+    has_init_adv = False
+    has_ath_adv = False
     if is_2024 and remarkable:
-        char_data["initiative_advantage"] = True
-        char_data["athletics_advantage"] = True
-    else:
-        char_data.setdefault("initiative_advantage", False)
-        char_data.setdefault("athletics_advantage", False)
+        has_init_adv = True
+        has_ath_adv = True
+
+    for f in char_data.get("features_traits", []) or []:
+        fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+        if "feral instinct" in fname:
+            has_init_adv = True
+        if isinstance(f, dict):
+            if f.get("initiative_advantage"):
+                has_init_adv = True
+            if f.get("athletics_advantage"):
+                has_ath_adv = True
+
+    for eq in char_data.get("equipment", []) or []:
+        if isinstance(eq, dict) and eq.get("equipped", False):
+            eq_name = (eq.get("name") or "").lower()
+            if "weapon of warning" in eq_name:
+                has_init_adv = True
+
+    char_data["initiative_advantage"] = has_init_adv
+    char_data["athletics_advantage"] = has_ath_adv
 
     weapons = char_data.get("weapons", [])
     updated_weapons = []

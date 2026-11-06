@@ -283,9 +283,12 @@ async def upload_character_portrait(
                         detail="Uploaded image exceeds maximum limit of 10 MB.",
                     )
                 buffer.write(chunk)
-    except HTTPException:
+    except Exception:
         if os.path.exists(file_path):
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
         raise
 
     portrait_url = f"{settings.API_V1_STR}/portraits/{unique_filename}"

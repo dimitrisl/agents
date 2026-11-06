@@ -403,12 +403,20 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
         parsed = urlparse(image_url)
 
         if parsed.scheme in ("http", "https"):
-            # Prevent SSRF by only allowing external image hosts
-            allowed_hosts = ["image.pollinations.ai", "raw.githubusercontent.com", "imgur.com"]
+            # Prevent SSRF by only allowing external image hosts without following redirects
+            allowed_hosts = [
+                "image.pollinations.ai",
+                "raw.githubusercontent.com",
+                "imgur.com",
+                "i.imgur.com",
+            ]
             if parsed.netloc in allowed_hosts:
-                resp = requests.get(image_url, timeout=10)
-                if resp.status_code == 200:
-                    img_data = io.BytesIO(resp.content)
+                try:
+                    resp = requests.get(image_url, timeout=10, allow_redirects=False)
+                    if resp.status_code == 200:
+                        img_data = io.BytesIO(resp.content)
+                except requests.RequestException as e:
+                    logger.warning(f"Failed to fetch external portrait: {e}")
             else:
                 # Local or self-hosted portrait URL (e.g. http://localhost:8000/api/v1/portraits/{file})
                 filename = os.path.basename(unquote(parsed.path))

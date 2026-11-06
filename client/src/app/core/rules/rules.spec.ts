@@ -18,6 +18,7 @@ import {
   hasInitiativeAdvantage,
   hasAthleticsAdvantage,
   is2024Edition,
+  isIncapacitated,
   hasSpellSlotLevel,
   hitDieSize,
   isProficientIn,
@@ -737,6 +738,29 @@ describe('hit points', () => {
     it('stops at the maximum', () => {
       expect(adjustedHp(hero({ hp_max: 44, hp_current: 40 }), 10)).toBe(44);
       expect(adjustedHp(hero({ hp_max: 44, hp_current: undefined }), 5)).toBe(44);
+    });
+  });
+
+  describe('isIncapacitated', () => {
+    it('returns false for healthy characters even when hp_current is undefined (Issue DEF-CR-01)', () => {
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: undefined }))).toBe(false);
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 44 }))).toBe(false);
+    });
+
+    it('returns true when current HP is 0', () => {
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 0 }))).toBe(true);
+    });
+
+    it('returns true when afflicted by an incapacitating condition', () => {
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 30, conditions: ['Incapacitated'] }))).toBe(true);
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 30, conditions: ['unconscious'] }))).toBe(true);
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 30, conditions: ['Paralyzed'] }))).toBe(true);
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 30, conditions: ['Petrified'] }))).toBe(true);
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 30, conditions: ['Stunned'] }))).toBe(true);
+    });
+
+    it('returns false for non-incapacitating conditions when HP > 0', () => {
+      expect(isIncapacitated(hero({ hp_max: 44, hp_current: 30, conditions: ['Poisoned', 'Charmed', 'Frightened'] }))).toBe(false);
     });
   });
 });

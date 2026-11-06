@@ -819,10 +819,17 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   onDragEnded(event: CdkDragEnd, token: VTTToken): void {
     const position = event.source.getFreeDragPosition();
     const state = this.vttState();
-    // Snap to grid (cell_size)
+    // Snap to grid (cell_size) and clamp to canvas boundaries
     const cellSize = state?.grid?.cell_size || 50;
-    const snappedX = Math.round(position.x / cellSize) * cellSize;
-    const snappedY = Math.round(position.y / cellSize) * cellSize;
+    const gridCols = state?.grid?.width || 30;
+    const gridRows = state?.grid?.height || 20;
+    const maxX = Math.max(0, (gridCols - 1) * cellSize);
+    const maxY = Math.max(0, (gridRows - 1) * cellSize);
+
+    const rawSnappedX = Math.round(position.x / cellSize) * cellSize;
+    const rawSnappedY = Math.round(position.y / cellSize) * cellSize;
+    const snappedX = Math.max(0, Math.min(rawSnappedX, maxX));
+    const snappedY = Math.max(0, Math.min(rawSnappedY, maxY));
 
     // Update local immediately for responsiveness
     event.source.setFreeDragPosition({x: snappedX, y: snappedY});
