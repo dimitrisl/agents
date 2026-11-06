@@ -25,7 +25,6 @@ class UserRegisterSchema(BaseModel):
     password: str
     email: Optional[EmailStr] = None
     name: Optional[str] = None
-    role: Optional[str] = "player"
 
 
 class UserResponseSchema(BaseModel):
@@ -78,7 +77,7 @@ async def register(
         "name": user_in.name or user_in.username,
         "has_completed_tutorial": False,
         "is_admin": False,
-        "role": user_in.role or "player",
+        "role": "player",  # never client-controlled; campaign authority lives in campaign_members
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     try:

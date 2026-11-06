@@ -965,5 +965,45 @@ afterEach(() => {
       expect(req.request.body.manual_roll).toBe(17);
       req.flush({ success: true });
     });
+
+    it('consumes the manual roll so the next request does not reuse it', () => {
+      component.campaignName = 'Neverwinter';
+      component.partyMembers = [hero('Elena', 3)];
+      component.rollTargetMember = 'Elena';
+      component.manualRoll = 17;
+
+      component.sendRollRequest();
+      http.expectOne((r) => r.url.includes('/roll-request')).flush({ success: true });
+      expect(component.manualRoll).toBeNull();
+
+      component.sendRollRequest();
+      const second = http.expectOne((r) => r.url.includes('/roll-request'));
+      expect(second.request.body.manual_roll).toBeUndefined();
+      second.flush({ success: true });
+    });
+
+    it('clears a stale manual roll when the modal is reopened', () => {
+      component.partyMembers = [hero('Elena', 3)];
+      component.manualRoll = 9;
+
+      component.openSingleRollModal(component.partyMembers[0]);
+
+      expect(component.manualRoll).toBeNull();
+      expect(component.showRollModal).toBe(true);
+    });
+
+    it('refuses a manual roll aimed at the whole party and sends nothing', () => {
+      component.campaignName = 'Neverwinter';
+      component.partyMembers = [hero('Elena', 3), hero('Kostas', 3)];
+      component.rollTargetMember = 'ALL';
+      component.manualRoll = 14;
+      component.showRollModal = true;
+
+      component.sendRollRequest();
+
+      http.expectNone((r) => r.url.includes('/roll-request'));
+      expect(component.showRollModal).toBe(true);
+      expect(component.manualRoll).toBe(14);
+    });
   });
 });

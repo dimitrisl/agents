@@ -672,6 +672,11 @@ async def add_roll_request(
     ) or (req_in.char_filename or "").strip().upper() in ("ALL", "ALL.JSON")
 
     if is_group_roll:
+        if req_in.manual_roll is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="A manual roll applies to a single hero and cannot be used for a group roll request.",
+            )
         party_files = camp.get("party") or []
         created_reqs: List[Dict[str, Any]] = []
         for pf in party_files:

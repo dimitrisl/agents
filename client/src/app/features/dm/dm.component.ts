@@ -1166,12 +1166,28 @@ export class DmComponent implements OnInit, OnDestroy {
 
   openSingleRollModal(m: PartyMember) {
     this.rollTargetMember = m.name;
+    // A value typed into a previous, cancelled modal must never leak into this request.
+    this.manualRoll = null;
     this.showRollModal = true;
   }
 
   sendRollRequest(manualVal?: number | null) {
-    this.showRollModal = false;
     const isAllParty = this.rollTargetMember === 'ALL';
+    const pendingManual = manualVal !== undefined ? manualVal : this.manualRoll;
+    const hasManual =
+      pendingManual !== null && pendingManual !== undefined && `${pendingManual}`.trim() !== '';
+
+    // Each player throws their own physical dice, so one number cannot stand in
+    // for the whole party. Refuse loudly instead of silently dropping it.
+    if (isAllParty && hasManual) {
+      this.rollToast.showMessage(
+        '⚠️ MANUAL ROLL NOT SENT',
+        'A physical roll applies to one hero. Pick a single target or clear the manual roll.'
+      );
+      return;
+    }
+
+    this.showRollModal = false;
     const target = isAllParty ? null : this.partyMembers.find((m) => m.name === this.rollTargetMember);
     const charFilename = isAllParty
       ? 'all.json'
@@ -1192,6 +1208,8 @@ export class DmComponent implements OnInit, OnDestroy {
     if (rollToUse !== null && rollToUse !== undefined && `${rollToUse}`.trim() !== '') {
       payload.manual_roll = Number(rollToUse);
     }
+    // Consumed: the next request starts clean.
+    this.manualRoll = null;
 
     this.http.post(campaignUrl(this.campaignName, 'roll-request'), payload).subscribe({
       next: () => {

@@ -265,3 +265,58 @@ class TestNothingReachesThePlayer:
         body = table["client"].get(MESSAGES_URL).json()
 
         assert {r["id"] for r in body["roll_requests"]} == {"open", "hidden"}
+
+
+class TestManualPhysicalRoll:
+    """The DM types in the number a player threw on a physical die (DEF-05).
+
+    Exercised end to end against the endpoint: the schema accepting the field is
+    not the same thing as the roll being recorded.
+    """
+
+    def test_a_manual_roll_is_recorded_against_the_hero_s_modifier(self, table):
+        body = _ask(is_secret=False, manual_roll=17)
+
+        response = table["client"].post(ROLL_URL, json=body)
+
+        assert response.status_code == 200
+        request = response.json()["request"]
+        assert request["status"] == "resolved"
+        assert request["result"]["raw"] == 17
+        # WIS 16 is +3
+        assert request["result"]["total"] == 20
+
+    def test_a_manual_roll_is_sent_to_the_hero_not_prompted(self, table):
+        table["client"].post(ROLL_URL, json=_ask(is_secret=False, manual_roll=12))
+
+        sent = table["broadcasts"][0]
+        assert sent["message"]["type"] == "roll_result"
+        assert sent["characters"] == ["Lyra Meadowlark"]
+
+    @pytest.mark.parametrize("bad", [0, 21, -3])
+    def test_a_roll_outside_the_die_is_refused(self, table, bad):
+        response = table["client"].post(ROLL_URL, json=_ask(is_secret=False, manual_roll=bad))
+
+        assert response.status_code == 422
+
+    def test_a_manual_roll_cannot_stand_in_for_the_whole_party(self, table):
+        """Each player throws their own dice; one number must not be silently dropped."""
+        body = _ask(
+            is_secret=False,
+            char_name="ALL",
+            char_filename="all.json",
+            manual_roll=15,
+        )
+
+        response = table["client"].post(ROLL_URL, json=body)
+
+        assert response.status_code == 422
+        assert table["broadcasts"] == []
+
+    def test_a_group_roll_without_a_manual_roll_still_works(self, table):
+        table["state"]["campaign"]["party"] = ["lyra_hero1.json"]
+        body = _ask(is_secret=False, char_name="ALL", char_filename="all.json")
+
+        response = table["client"].post(ROLL_URL, json=body)
+
+        assert response.status_code == 200
