@@ -181,6 +181,7 @@ export class DmComponent implements OnInit, OnDestroy {
   rollStat = 'DEX';
   rollReason = 'Dragon Breath Fire Save';
   isSecretRoll = false;
+  manualRoll: number | null = null;
 
   onRollTypeChange(newType: string) {
     this.rollType = newType;
@@ -387,6 +388,18 @@ export class DmComponent implements OnInit, OnDestroy {
         if (!result) return;
 
         this.upsertRollRequest(payload, true);
+
+        if (payload.roll_type === 'initiative' || payload.stat?.toLowerCase() === 'initiative') {
+          const match = this.combatants.find(
+            (c) => c.name.toLowerCase() === (payload.char_name || '').toLowerCase()
+          );
+          if (match) {
+            match.initiative = result.total;
+            this.combatants = this.sortCombatants(this.combatants);
+            this.persistEncounter();
+          }
+        }
+
         // The mode belongs in the headline: a 24 rolled with advantage and a 24
         // rolled straight are different facts at the table.
         const mode = result.mode && result.mode !== 'normal' ? ` (${result.mode})` : '';
@@ -1052,13 +1065,18 @@ export class DmComponent implements OnInit, OnDestroy {
     );
   }
 
-  /** Pushes the member's hit points onto its initiative row. */
+  /** Pushes the member's hit points and conditions onto its initiative row. */
   private projectMemberOntoCombatants(member: PartyMember) {
     const linked = new Set(this.combatantsFor(member).map((c) => c.id));
     if (linked.size === 0) return;
 
+    const conditions: CombatantCondition[] = (member.conditions || []).map((name) => ({
+      name,
+      expiresAtRound: null
+    }));
+
     this.combatants = this.combatants.map((c) =>
-      linked.has(c.id) ? { ...c, hp: member.hp_current, max_hp: member.hp_max } : c
+      linked.has(c.id) ? { ...c, hp: member.hp_current, max_hp: member.hp_max, conditions } : c
     );
     this.persistEncounter();
   }
@@ -1151,7 +1169,7 @@ export class DmComponent implements OnInit, OnDestroy {
     this.showRollModal = true;
   }
 
-  sendRollRequest() {
+  sendRollRequest(manualVal?: number | null) {
     this.showRollModal = false;
     const isAllParty = this.rollTargetMember === 'ALL';
     const target = isAllParty ? null : this.partyMembers.find((m) => m.name === this.rollTargetMember);
@@ -1162,14 +1180,20 @@ export class DmComponent implements OnInit, OnDestroy {
         : `${this.rollTargetMember.toLowerCase()}.json`;
     const targetLabel = isAllParty ? 'all party members' : this.rollTargetMember;
 
-    this.http.post(campaignUrl(this.campaignName, 'roll-request'), {
+    const rollToUse = manualVal !== undefined ? manualVal : this.manualRoll;
+    const payload: any = {
       char_filename: charFilename,
       char_name: isAllParty ? 'ALL' : this.rollTargetMember,
       roll_type: this.rollType,
       stat: this.rollStat,
       reason: this.rollReason,
       is_secret: this.isSecretRoll
-    }).subscribe({
+    };
+    if (rollToUse !== null && rollToUse !== undefined && `${rollToUse}`.trim() !== '') {
+      payload.manual_roll = Number(rollToUse);
+    }
+
+    this.http.post(campaignUrl(this.campaignName, 'roll-request'), payload).subscribe({
       next: () => {
         if (this.isSecretRoll) return;
         this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${targetLabel}.`);
@@ -1277,6 +1301,20 @@ export class DmComponent implements OnInit, OnDestroy {
     this.combatants = this.sortCombatants(rolled);
     this.persistEncounter();
     this.rollToast.showMessage('🎲 INITIATIVE ROLLED', 'Rolled initiative for all active combatants!');
+  }
+
+  rollMonstersInitiative() {
+    const rolled = this.combatants.map((c) => {
+      if (c.is_player) {
+        return c;
+      }
+      const dexMod = Math.floor(((c.dex ?? 10) - 10) / 2);
+      return { ...c, initiative: this.dice.rollD20(dexMod).total };
+    });
+
+    this.combatants = this.sortCombatants(rolled);
+    this.persistEncounter();
+    this.rollToast.showMessage('🎲 MONSTERS INITIATIVE ROLLED', 'Rolled initiative strictly for non-player combatants!');
   }
 
   /** Highest initiative first; DEX score breaks ties in descending order. Returns a new array — OnPush children need one. */

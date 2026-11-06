@@ -39,6 +39,7 @@ export class RollRequestModalComponent {
   @Input() rollStat = 'DEX';
   @Input() rollReason = '';
   @Input() isSecretRoll = false;
+  @Input() manualRoll: number | null = null;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() closed = new EventEmitter<void>();
@@ -47,5 +48,6 @@ export class RollRequestModalComponent {
   @Output() rollStatChange = new EventEmitter<string>();
   @Output() rollReasonChange = new EventEmitter<string>();
   @Output() isSecretRollChange = new EventEmitter<boolean>();
+  @Output() manualRollChange = new EventEmitter<number | null>();
   @Output() requestRoll = new EventEmitter<void>();
 }

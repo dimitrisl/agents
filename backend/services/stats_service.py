@@ -6,6 +6,10 @@ import re
 from typing import Any, Dict, List, Tuple, Union
 
 from backend.services.dice_service import rebuild_damage_formula
+from backend.services.validation_service import (
+    get_character_armor_proficiencies,
+    get_max_attunement_slots,
+)
 
 logger = logging.getLogger("DnDAssistant.StatsService")
 
@@ -150,6 +154,7 @@ def calculate_ac(
     cha_score: int = None,
     subclass: str = None,
     edition: str = None,
+    max_attunement: int = 3,
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
@@ -254,7 +259,7 @@ def calculate_ac(
             continue
         if equip.get("attuned", False):
             attuned_count += 1
-            if attuned_count > 3:
+            if attuned_count > max_attunement:
                 continue
 
         raw_item_name = equip.get("name") or ""
@@ -395,6 +400,7 @@ def calculate_passive_perception(
     proficiency_bonus: int,
     skills: List[str],
     expertise: List[str] = None,
+    half_prof: bool = False,
 ) -> int:
     """Calculates Passive Perception, accounting for proficiency and expertise."""
     wis_mod = get_modifier(wis_score)
@@ -403,7 +409,63 @@ def calculate_passive_perception(
         bonus = proficiency_bonus * 2
     elif "Perception" in skills:
         bonus = proficiency_bonus
+    elif half_prof:
+        bonus = proficiency_bonus // 2
     return 10 + wis_mod + bonus
+
+
+def has_jack_of_all_trades(char_data: Dict[str, Any]) -> bool:
+    """Checks if character has Bard Jack of All Trades (Level 2+ Bard or explicit feature)."""
+    if not char_data or not isinstance(char_data, dict):
+        return False
+    for f in char_data.get("features_traits", []) or []:
+        fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+        if "jack of all trades" in fname:
+            return True
+    for c in char_data.get("classes", []) or []:
+        c_dict = c if isinstance(c, dict) else (c.model_dump() if hasattr(c, "model_dump") else {})
+        if (c_dict.get("class_name") or "").lower() == "bard":
+            try:
+                if int(c_dict.get("level", 0) or 0) >= 2:
+                    return True
+            except (ValueError, TypeError):
+                pass
+    if (char_data.get("char_class") or "").lower() == "bard":
+        try:
+            if int(char_data.get("char_level", 1) or 1) >= 2:
+                return True
+        except (ValueError, TypeError):
+            pass
+    return False
+
+
+def has_remarkable_athlete(char_data: Dict[str, Any]) -> bool:
+    """Checks if character has Champion Remarkable Athlete (Level 7+ Champion Fighter or explicit feature)."""
+    if not char_data or not isinstance(char_data, dict):
+        return False
+    for f in char_data.get("features_traits", []) or []:
+        fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+        if "remarkable athlete" in fname:
+            return True
+    for c in char_data.get("classes", []) or []:
+        c_dict = c if isinstance(c, dict) else (c.model_dump() if hasattr(c, "model_dump") else {})
+        if (c_dict.get("class_name") or "").lower() == "fighter" and "champion" in (
+            c_dict.get("subclass") or ""
+        ).lower():
+            try:
+                if int(c_dict.get("level", 0) or 0) >= 7:
+                    return True
+            except (ValueError, TypeError):
+                pass
+    if (char_data.get("char_class") or "").lower() == "fighter" and "champion" in (
+        char_data.get("subclass") or ""
+    ).lower():
+        try:
+            if int(char_data.get("char_level", 1) or 1) >= 7:
+                return True
+        except (ValueError, TypeError):
+            pass
+    return False
 
 
 def calculate_skills(
@@ -411,21 +473,27 @@ def calculate_skills(
     proficiency_bonus: int,
     proficiencies: List[str],
     expertise: List[str] = None,
+    half_prof_all: bool = False,
+    half_prof_phys: bool = False,
 ) -> Dict[str, int]:
     """Calculates all skill modifiers based on ability scores and proficiencies."""
     from backend.core.constants import SKILLS_BY_ABILITY
 
     skills = {}
     expertise_list = expertise or []
+    half_prof = proficiency_bonus // 2
 
     for ability, skill_list in SKILLS_BY_ABILITY.items():
         mod = get_modifier(stats.get(ability, 10))
         for skill in skill_list:
-            bonus = mod
             if skill in expertise_list:
-                bonus += proficiency_bonus * 2
+                bonus = mod + proficiency_bonus * 2
             elif skill in proficiencies:
-                bonus += proficiency_bonus
+                bonus = mod + proficiency_bonus
+            elif half_prof_all or (half_prof_phys and ability in ("STR", "DEX", "CON")):
+                bonus = mod + half_prof
+            else:
+                bonus = mod
             skills[skill] = bonus
     return skills
 
@@ -901,6 +969,7 @@ def sync_character_stats(
 
     prof_bonus = calculate_proficiency_bonus(level, class_data)
     char_data["proficiency_bonus"] = prof_bonus
+    max_attuned = get_max_attunement_slots(char_data)
 
     normalized_eq = []
     for item in char_data.get("equipment", []):
@@ -911,6 +980,74 @@ def sync_character_stats(
         elif isinstance(item, dict):
             normalized_eq.append(item)
     char_data["equipment"] = normalized_eq
+
+    # D&D Rules Invariant (Issue #210): Default starting armor & shield to equipped for valid AC
+    has_any_equipped = any(
+        isinstance(item, dict) and item.get("equipped", False)
+        for item in char_data.get("equipment", [])
+    )
+    if not has_any_equipped and char_data.get("equipment"):
+        armor_profs = get_character_armor_proficiencies(char_data, class_data)
+        all_catalog_items = _merge_homebrew_items(repo.get_all_items(), homebrew_content)
+
+        best_armor_idx = None
+        best_armor_ac = -1
+        best_shield_idx = None
+
+        for idx, equip in enumerate(char_data["equipment"]):
+            if not isinstance(equip, dict):
+                continue
+            item_name = (equip.get("name") or "").strip()
+            item_data = _find_catalog_item(item_name, all_catalog_items)
+            item_type = (item_data.get("type") if item_data else "").lower()
+            lower_name = item_name.lower()
+
+            # Shield detection
+            if "shield" in lower_name or item_type == "shield":
+                if (
+                    "shields" in armor_profs or "all armor" in armor_profs
+                ) and best_shield_idx is None:
+                    best_shield_idx = idx
+                continue
+
+            # Armor detection
+            req_prof = None
+            if "light armor" in item_type or "light" in item_type:
+                req_prof = "light armor"
+            elif "medium armor" in item_type or "medium" in item_type:
+                req_prof = "medium armor"
+            elif "heavy armor" in item_type or "heavy" in item_type:
+                req_prof = "heavy armor"
+            elif item_data and "ac_base" in item_data:
+                req_prof = item_type if "armor" in item_type else None
+            else:
+                if any(k in lower_name for k in ("plate", "chain mail", "splint", "ring mail")):
+                    req_prof = "heavy armor"
+                elif any(
+                    k in lower_name
+                    for k in ("scale", "breastplate", "chain shirt", "hide", "half plate")
+                ):
+                    req_prof = "medium armor"
+                elif any(k in lower_name for k in ("leather", "padded")):
+                    req_prof = "light armor"
+
+            if req_prof and (req_prof in armor_profs or "all armor" in armor_profs):
+                base_ac = item_data.get("ac_base", 10) if item_data else 10
+                if base_ac == 10:
+                    try:
+                        val = int(equip.get("ac_bonus", 0) or 0)
+                        if val >= 10:
+                            base_ac = val
+                    except (ValueError, TypeError):
+                        pass
+                if base_ac > best_armor_ac:
+                    best_armor_ac = base_ac
+                    best_armor_idx = idx
+
+        if best_armor_idx is not None:
+            char_data["equipment"][best_armor_idx]["equipped"] = True
+        if best_shield_idx is not None:
+            char_data["equipment"][best_shield_idx]["equipped"] = True
 
     normalized_ft = []
     for ft in char_data.get("features_traits", []):
@@ -1126,7 +1263,7 @@ def sync_character_stats(
             continue
         if equip.get("attuned", False):
             attuned_equip_count += 1
-            if attuned_equip_count > 3:
+            if attuned_equip_count > max_attuned:
                 continue
 
         for i in [1, 2]:
@@ -1383,6 +1520,7 @@ def sync_character_stats(
         cha_score=stats.get("CHA", 10),
         subclass=subclass,
         edition=edition,
+        max_attunement=max_attuned,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus on initial import/forge
@@ -1414,11 +1552,15 @@ def sync_character_stats(
 
     char_data["skill_proficiencies"] = list(dict.fromkeys(skill_profs))
 
+    jack = has_jack_of_all_trades(char_data)
+    remarkable = has_remarkable_athlete(char_data)
+
     char_data["passive_perception"] = calculate_passive_perception(
         wis_score,
         prof_bonus,
         char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
+        half_prof=jack,
     )
 
     char_data["skills"] = calculate_skills(
@@ -1426,6 +1568,8 @@ def sync_character_stats(
         prof_bonus,
         char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
+        half_prof_all=jack,
+        half_prof_phys=remarkable,
     )
 
     char_data["saving_throw_values"] = calculate_saving_throws(
@@ -1440,6 +1584,7 @@ def sync_character_stats(
                 )
 
     init_bonus = 0
+    has_init_prof = bool(char_data.get("initiative_proficiency", False))
     for f in features:
         if not isinstance(f, dict):
             continue
@@ -1458,6 +1603,15 @@ def sync_character_stats(
             init_bonus += feat_data.get("initiative_bonus", 0)
             if feat_data.get("initiative_proficiency", False):
                 init_bonus += prof_bonus
+                has_init_prof = True
+        if f.get("initiative_proficiency", False) and not (
+            feat_data and feat_data.get("initiative_proficiency", False)
+        ):
+            init_bonus += prof_bonus
+            has_init_prof = True
+
+    if not has_init_prof and (jack or remarkable):
+        init_bonus += prof_bonus // 2
 
     char_data["initiative_modifier"] = (
         get_modifier(dex_score) + init_bonus + char_data.get("initiative_bonus", 0)

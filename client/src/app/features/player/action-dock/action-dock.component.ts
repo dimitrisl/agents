@@ -20,4 +20,8 @@ export class ActionDockComponent {
   @Output() strategy = new EventEmitter<void>();
   @Output() exportPdf = new EventEmitter<void>();
   @Output() importCharacter = new EventEmitter<void>();
+  @Output() dodge = new EventEmitter<void>();
+  @Output() dash = new EventEmitter<void>();
+  @Output() disengage = new EventEmitter<void>();
+  @Output() help = new EventEmitter<void>();
 }

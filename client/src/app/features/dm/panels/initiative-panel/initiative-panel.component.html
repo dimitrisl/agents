@@ -15,6 +15,9 @@
         <button forgeButton variant="secondary" size="sm" type="button" (click)="rollAll.emit()">
           🎲 Roll All
         </button>
+        <button forgeButton variant="secondary" size="sm" type="button" (click)="rollMonstersOnly.emit()">
+          🎲 Roll Monsters Only
+        </button>
       </div>
     </div>
 
@@ -148,6 +151,7 @@
               <th scope="col" class="px-3 py-2 font-semibold">Turn</th>
               <th scope="col" class="px-3 py-2 font-semibold">Combatant</th>
               <th scope="col" class="px-3 py-2 font-semibold">Initiative</th>
+              <th scope="col" class="px-3 py-2 font-semibold">AC</th>
               <th scope="col" class="px-3 py-2 font-semibold">HP</th>
               <th scope="col" class="px-3 py-2 font-semibold">Actions &amp; Info</th>
             </tr>
@@ -212,7 +216,30 @@
                     </div>
                   }
                 </td>
-                <td class="px-3 py-2 align-top text-ink">{{ combatant.initiative }}</td>
+                <td class="px-3 py-2 align-top">
+                  <input
+                    #initInput
+                    forgeInput
+                    type="number"
+                    class="max-w-16 text-center"
+                    [attr.aria-label]="combatant.name + ' initiative'"
+                    [value]="combatant.initiative"
+                    (change)="onInitInput(combatant, initInput)"
+                    (keydown.enter)="onInitInput(combatant, initInput); initInput.blur()"
+                  />
+                </td>
+                <td class="px-3 py-2 align-top">
+                  <input
+                    #acInput
+                    forgeInput
+                    type="number"
+                    class="max-w-16 text-center"
+                    [attr.aria-label]="combatant.name + ' armor class'"
+                    [value]="combatant.ac"
+                    (change)="onAcInput(combatant, acInput)"
+                    (keydown.enter)="onAcInput(combatant, acInput); acInput.blur()"
+                  />
+                </td>
                 <td class="px-3 py-2 align-top">
                   <div class="flex items-center gap-2">
                     <input
@@ -327,7 +354,7 @@
 
               @if (isConditionsOpen(combatant)) {
                 <tr [id]="'combatant-conditions-' + combatant.id" class="bg-tile">
-                  <td colspan="5" class="px-3 py-3">
+                  <td colspan="6" class="px-3 py-3">
                     <div class="flex flex-col gap-3">
                       <div class="flex flex-wrap items-end gap-3">
                         <div class="min-w-0">

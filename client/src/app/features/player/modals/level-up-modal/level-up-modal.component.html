@@ -1,8 +1,8 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'⚡ Level Up: ' + levelUpClass + ' Level ' + targetClassLevel + ' (Total Lvl ' + nextLevel + ')'" maxWidth="820px">
-  <p class="mb-4 text-body-sm text-muted">Your character has reached a new level! Review the changes below.</p>
+  <p class="mb-4 text-body text-muted">Your character has reached a new level! Review the changes below.</p>
 
   <div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-hairline bg-tile p-4">
-    <span class="text-body-sm font-semibold uppercase text-muted">Class to Level Up:</span>
+    <span class="text-label font-semibold uppercase text-muted">Class to Level Up:</span>
     <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-50">
       <optgroup label="Current Classes">
         <option *ngFor="let cls of characterClasses" [value]="cls.class_name">{{ cls.class_name }} (Current: {{ cls.level }})</option>
@@ -56,13 +56,13 @@
     <!-- Loading State -->
     <div *ngIf="showRecommendations && isLoadingRecommendations" class="mt-4 flex flex-col items-center justify-center rounded-lg border border-hairline bg-tile/50 p-6 text-center">
       <div class="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent"></div>
-      <p class="text-body-sm font-semibold text-ink">Analyzing character synergies and tactical options...</p>
+      <p class="text-body font-semibold text-ink">Analyzing character synergies and tactical options...</p>
       <p class="text-micro text-muted">Consulting ruleset and progression for {{ levelUpClass }}.</p>
     </div>
 
     <!-- Error State -->
     <div *ngIf="showRecommendations && !isLoadingRecommendations && recommendationsError" class="mt-4 rounded border border-rose-500/30 bg-rose-500/10 p-3 text-center">
-      <p class="text-body-sm text-rose-300">{{ recommendationsError }}</p>
+      <p class="text-body text-rose-300">{{ recommendationsError }}</p>
       <button forgeButton variant="secondary" size="sm" type="button" class="mt-2" (click)="fetchRecommendations()">
         🔄 Retry
       </button>
@@ -160,7 +160,7 @@
 
   <div *ngIf="levelUpAnalysis" class="flex flex-col gap-4">
     <div class="flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-4">
-      <span class="text-body-sm font-semibold uppercase text-muted">❤️ Hit Points Increase:</span>
+      <span class="text-label font-semibold uppercase text-muted">❤️ Hit Points Increase:</span>
       <div class="flex flex-wrap items-center gap-3">
         <button
           forgeButton
@@ -182,11 +182,11 @@
           [class.ring-emerald]="userChoices['hp_method'] === 'roll'"
           [disabled]="userChoices['hp_method'] === 'roll'"
           (click)="rollHp()">
-          <span *ngIf="userChoices['hp_method'] !== 'roll'">🎲 Roll 1{{ character?.hit_dice?.match('d[0-9]+')?.[0] || 'd8' }} + {{ character?.stats?.CON ? (character!.stats!.CON / 2 - 5 | number:'1.0-0') : 0 }}</span>
+          <span *ngIf="userChoices['hp_method'] !== 'roll'">🎲 Roll 1d{{ levelUpHitDie }} {{ conModifier >= 0 ? '+' : '' }}{{ conModifier }}</span>
           <span *ngIf="userChoices['hp_method'] === 'roll'">🎲 Rolled: +{{ userChoices['custom_hp_increase'] }}</span>
         </button>
       </div>
-      <p class="text-body-sm text-muted">
+      <p class="text-body text-muted">
         New Total Max HP: <strong class="text-emerald">{{ levelUpAnalysis.new_total_hp - levelUpAnalysis.hp_increase + ((userChoices['custom_hp_increase'] !== undefined ? userChoices['custom_hp_increase'] * 1 : null) || levelUpAnalysis.hp_increase) }}</strong>
       </p>
     </div>
@@ -209,7 +209,7 @@
         <!-- ASI Stat Pickers -->
         <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+2 to one Stat' || (choice.type === 'feat' && userChoices[choice.type + '_' + i] && userChoices[choice.type + '_' + i] !== '+2 to one Stat' && userChoices[choice.type + '_' + i] !== '+1 to two Stats')">
           <div class="mt-1 flex items-center gap-2 rounded bg-surface p-2">
-            <span class="text-body-sm font-semibold text-muted">
+            <span class="text-label font-semibold text-muted">
               {{ userChoices[choice.type + '_' + i] === '+2 to one Stat' ? 'Select Stat for +2:' : 'Select +1 Stat (if Half-Feat):' }}
             </span>
             <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
@@ -227,7 +227,7 @@
         <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+1 to two Stats'">
           <div class="mt-1 flex flex-col gap-2 rounded bg-surface p-2">
             <div class="flex items-center gap-2">
-              <span class="text-body-sm font-semibold text-muted">Select 1st Stat (+1):</span>
+              <span class="text-label font-semibold text-muted">Select 1st Stat (+1):</span>
               <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
                 <option [value]="undefined" disabled selected>-- Select 1st Stat --</option>
                 <option value="STR">Strength (STR)</option>
@@ -239,7 +239,7 @@
               </select>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-body-sm font-semibold text-muted">Select 2nd Stat (+1):</span>
+              <span class="text-label font-semibold text-muted">Select 2nd Stat (+1):</span>
               <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat2_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat2_' + i, $event)">
                 <option [value]="undefined" disabled selected>-- Select 2nd Stat --</option>
                 <option value="STR">Strength (STR)</option>
@@ -258,7 +258,7 @@
     <div *ngIf="levelUpAnalysis.automatic_changes?.length">
       <h3 class="mb-2 font-display text-body font-bold text-ink">✨ New Class Features</h3>
       <ul class="max-h-52 list-disc space-y-2 overflow-y-auto pl-5">
-        <li *ngFor="let feature of levelUpAnalysis.automatic_changes" class="text-body-sm text-muted">
+        <li *ngFor="let feature of levelUpAnalysis.automatic_changes" class="text-body text-muted">
           <strong class="text-ink">{{ feature.name }}</strong>
           <span class="block">{{ feature.description }}</span>
         </li>

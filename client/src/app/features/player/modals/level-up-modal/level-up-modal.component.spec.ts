@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { LevelUpModalComponent } from './level-up-modal.component';
 import { CharacterSchema, LevelUpRecommendationsResponse } from '../../../../core/models/character.model';
+import { DiceService } from '../../../../core/services/dice.service';
 import { environment } from '../../../../../environments/environment';
 
 describe('LevelUpModalComponent', () => {
@@ -121,5 +122,45 @@ describe('LevelUpModalComponent', () => {
     req.flush({ character_name: 'Thorin', target_class: 'Barbarian', target_level: 1, builds: [] });
 
     expect(component.userChoices['level_up_class']).toBe('Barbarian');
+  });
+
+  it('derives hit die from target leveling class rather than character primary class', () => {
+    // Primary class is Wizard (d6), but user selects Barbarian (d12)
+    component.character = {
+      ...mockCharacter,
+      char_class: 'Wizard',
+      hit_dice: '4d6',
+      classes: [{ class_name: 'Wizard', level: 4 }],
+    } as any;
+    component.userChoices = { level_up_class: 'Barbarian' };
+
+    expect(component.levelUpHitDie).toBe(12);
+  });
+
+  it('rolls HP using target class hit die and CON modifier with min 1', () => {
+    const diceService = TestBed.inject(DiceService);
+    const rollSpy = jest.spyOn(diceService, 'roll').mockReturnValue({
+      total: 8,
+      rolls: [5],
+      breakdown: '1d12 + 3 = 8',
+    } as any);
+
+    component.character = {
+      ...mockCharacter,
+      char_class: 'Wizard',
+      hit_dice: '4d6',
+      stats: { CON: 16 }, // +3 modifier
+    } as any;
+    component.userChoices = { level_up_class: 'Barbarian' };
+
+    component.rollHp();
+
+    expect(rollSpy).toHaveBeenCalledWith({
+      numDice: 1,
+      sides: 12,
+      modifier: 3,
+    });
+    expect(component.userChoices['hp_method']).toBe('roll');
+    expect(component.userChoices['custom_hp_increase']).toBe('8');
   });
 });

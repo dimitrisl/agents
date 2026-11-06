@@ -13,6 +13,8 @@ import {
   currentHp,
   findSkill,
   formatModifier,
+  hasJackOfAllTrades,
+  hasRemarkableAthlete,
   hasSpellSlotLevel,
   hitDieSize,
   isProficientIn,
@@ -230,6 +232,57 @@ describe('skill rules', () => {
 
       expect(skillModifier(statless, skill('Perception', 'WIS'))).toBe(0);
       expect(skillModifier(null, skill('Perception', 'WIS'))).toBe(0);
+    });
+
+    it('applies Bard Jack of All Trades half-proficiency to untrained skills', () => {
+      // Bard level 2, PB +2, half-prof = 1
+      // WIS 16 (+3), untrained Insight -> 3 + 1 = 4
+      const bard = hero({
+        char_class: 'Bard',
+        char_level: 2,
+        proficiency_bonus: 2,
+        skill_proficiencies: [],
+      });
+      expect(hasJackOfAllTrades(bard)).toBe(true);
+      expect(skillModifier(bard, skill('Insight', 'WIS'))).toBe(4);
+      // STR 10 (+0), untrained Athletics -> 0 + 1 = 1
+      expect(skillModifier(bard, skill('Athletics', 'STR'))).toBe(1);
+    });
+
+    it('applies Champion Remarkable Athlete half-proficiency only to physical skills', () => {
+      // Champion level 7, PB +3, half-prof = 1
+      const champion = hero({
+        char_class: 'Fighter',
+        subclass: 'Champion',
+        char_level: 7,
+        proficiency_bonus: 3,
+        skill_proficiencies: [],
+      });
+      expect(hasRemarkableAthlete(champion)).toBe(true);
+      // STR 10 (+0) Athletics -> 0 + 1 = 1
+      expect(skillModifier(champion, skill('Athletics', 'STR'))).toBe(1);
+      // DEX 18 (+4) Stealth -> 4 + 1 = 5
+      expect(skillModifier(champion, skill('Stealth', 'DEX'))).toBe(5);
+      // WIS 16 (+3) Insight -> does not apply to WIS, remains 3
+      expect(skillModifier(champion, skill('Insight', 'WIS'))).toBe(3);
+    });
+
+    it('does not stack Jack of All Trades and Remarkable Athlete on the same check', () => {
+      // Multiclass Bard 2 / Champion 7, PB +4, half-prof = 2
+      const multiclass = hero({
+        char_class: 'Bard',
+        char_level: 9,
+        classes: [
+          { class_name: 'Bard', level: 2 },
+          { class_name: 'Fighter', level: 7, subclass: 'Champion' },
+        ],
+        proficiency_bonus: 4,
+        skill_proficiencies: [],
+      });
+      expect(hasJackOfAllTrades(multiclass)).toBe(true);
+      expect(hasRemarkableAthlete(multiclass)).toBe(true);
+      // STR 10 (+0) Athletics: bonus is +2 (not +4)
+      expect(skillModifier(multiclass, skill('Athletics', 'STR'))).toBe(2);
     });
   });
 

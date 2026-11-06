@@ -27,7 +27,7 @@
         <input *ngIf="editMode" forgeInput type="text" class="w-full" [(ngModel)]="char.char_name" aria-label="Character name" />
         <forge-badge tone="accent" size="sm">{{ edition }}</forge-badge>
 
-        <div *ngIf="!editMode" class="mt-2 space-y-1 text-body-sm text-muted">
+        <div *ngIf="!editMode" class="mt-2 space-y-1 text-body text-muted">
           <p>{{ char.race }} <span *ngIf="char.subclass">({{ char.subclass }})</span></p>
           <p>{{ char.char_class }} • Level {{ char.char_level }}</p>
           <p>{{ char.background }}</p>

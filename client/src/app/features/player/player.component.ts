@@ -93,6 +93,7 @@ import {
   ForgeConfirmService,
 } from '../../shared/ui';
 import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player-dashboard-header.component';
+import { HeroSwitcherComponent } from './hero-switcher/hero-switcher.component';
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
 import { CharacterTabsComponent } from './character-tabs/character-tabs.component';
 import { RollModeSelectorComponent } from './roll-mode-selector/roll-mode-selector.component';
@@ -147,6 +148,7 @@ interface RollTarget {
     ForgePageComponent,
     ForgeTextareaDirective,
     PlayerDashboardHeaderComponent,
+    HeroSwitcherComponent,
     CharacterOverviewCardComponent,
     CharacterTabsComponent,
     RollModeSelectorComponent,
@@ -200,6 +202,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return this.isMobileViewport();
   });
   mobileActiveTab = signal<'hero' | 'combat' | 'skills' | 'spells' | 'table'>('hero');
+  showMobileHeaderActions = signal(false);
   showQuickDiceDrawer = signal(false);
   showConcentrationPrompt = signal(false);
   concentrationDc = signal(10);
@@ -229,6 +232,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   levelUpUserChoices: Record<string, any> = {};
   shortRestDiceToSpend = 1;
   shortRestDieSize = 8;
+  shortRestManualHp: number | null = null;
+  promptManualRoll: number | null = null;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
   encounterState: any = null;
@@ -366,10 +371,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.whisperReply = '';
         this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
+        this.encounterState = null;
         this.clearRollPrompts();
         this.rebuildInboxFeed();
       }
       onCleanup(() => { this.wsService.disconnect(); });
+    });
+  }
+
+  loadActiveEncounter(campaignName: string): void {
+    if (!campaignName) {
+      this.encounterState = null;
+      return;
+    }
+    this.http.get<any>(campaignUrl(campaignName, 'encounter')).subscribe({
+      next: (enc) => {
+        this.encounterState = enc;
+      },
+      error: () => {
+        // Safe fallback if encounter endpoint errors or no active encounter
+      }
     });
   }
 
@@ -382,6 +403,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (char && char.active_campaign) {
         this.wsService.connect(char.active_campaign, { character: char.char_name });
         this.loadCampaignMessageHistory(char.active_campaign, char.char_name, true);
+        this.loadActiveEncounter(char.active_campaign);
       }
     }
   };
@@ -415,6 +437,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         const isCatchUp = this.campaignInitialLoad.has(cacheKey);
         this.campaignInitialLoad.add(cacheKey);
         this.loadCampaignMessageHistory(campaignName, char.char_name, isCatchUp);
+        this.loadActiveEncounter(campaignName);
       }
     });
 
@@ -530,16 +553,36 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
     if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
     if (typeof payload.version === 'number') updated.version = payload.version;
-    this.rememberVersion(updated);
-    this.charState.activeCharacter.set(updated);
-    this.charState.upsertCharacter(updated);
+
+    // When healed from 0 HP, automatically reset death saves to 0
+    if (previousHp === 0 && (updated.hp_current ?? 0) > 0) {
+      updated.death_saves = { successes: 0, failures: 0 };
+    }
 
     const hp = updated.hp_current ?? updated.hp_max;
     if (hp !== previousHp) {
       const delta = hp - previousHp;
       const verb = delta < 0 ? `took ${Math.abs(delta)} damage` : `healed ${delta}`;
       this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${updated.hp_max}.`);
+
+      if (delta < 0) {
+        if (hp === 0) {
+          // Reaching 0 HP drops concentration automatically
+          updated.concentrating_on = undefined;
+          this.showConcentrationPrompt.set(false);
+          this.rollToast.showMessage('💥 CONCENTRATION BROKEN', 'You dropped to 0 HP and lost concentration.');
+        } else if (updated.concentrating_on) {
+          const damage = Math.abs(delta);
+          const dc = Math.max(10, Math.floor(damage / 2));
+          this.concentrationDc.set(dc);
+          this.showConcentrationPrompt.set(true);
+        }
+      }
     }
+
+    this.rememberVersion(updated);
+    this.charState.activeCharacter.set(updated);
+    this.charState.upsertCharacter(updated);
   }
 
   /** A chat thread is only useful if it lands on the newest message. */
@@ -634,6 +677,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   openShortRestModal() {
     this.shortRestDiceToSpend = this.getAvailableHitDice() > 0 ? 1 : 0;
     this.shortRestDieSize = this.getClassHitDieSize();
+    this.shortRestManualHp = null;
     this.showShortRestModal.set(true);
   }
 
@@ -645,10 +689,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!plan) return;
 
     const { diceSpent, dieSize, conBonus } = plan;
-    const roll = diceSpent > 0
-      ? this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus })
-      : null;
-    const rest = resolveShortRest(char, plan, roll ? roll.total : 0);
+    let healedAmount = 0;
+    let roll: any = null;
+    if (this.shortRestManualHp !== null && this.shortRestManualHp !== undefined && `${this.shortRestManualHp}`.trim() !== '') {
+      healedAmount = Math.max(0, Number(this.shortRestManualHp));
+    } else {
+      roll = diceSpent > 0
+        ? this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus })
+        : null;
+      healedAmount = roll ? roll.total : 0;
+    }
+    const rest = resolveShortRest(char, plan, healedAmount);
 
     char.hp_current = rest.hpAfter;
     char.hit_dice_used = rest.hitDiceUsed;
@@ -927,11 +978,46 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
+    if (normalizedType === 'initiative' || stat.toLowerCase() === 'initiative') {
+      return {
+        title: '⚔️ INITIATIVE ROLL',
+        label: 'initiative roll',
+        modifier: char.initiative_modifier ?? abilityModifierOf(char, 'DEX'),
+      };
+    }
+
     return {
       title: `🎲 ${stat} CHECK`,
       label: `${stat} check`,
       modifier: abilityModifierOf(char, stat),
     };
+  }
+
+  rollInitiative() {
+    const char = this.charState.activeCharacter();
+    if (!char || !char.stats) return;
+    const mod = char.initiative_modifier ?? abilityModifierOf(char, 'DEX');
+    const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod);
+    if (char.active_campaign) {
+      this.wsService.sendMessage({
+        type: 'roll_result',
+        payload: {
+          char_name: char.char_name,
+          roll_type: 'initiative',
+          stat: 'DEX',
+          result: {
+            total: roll.total,
+            expression: roll.expression,
+            raw: roll.raw,
+            rolls: roll.rolls,
+            modifier: roll.modifier,
+            mode: roll.mode,
+            situational_bonus: 0
+          }
+        }
+      });
+    }
+    return roll;
   }
 
   private executeRollRequest(
@@ -1033,7 +1119,33 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const request = this.activeRollPrompt;
     if (!request) return;
 
-    this.rollForRequest(request, this.promptRollMode, this.promptSituationalBonus);
+    if (this.promptManualRoll !== null && this.promptManualRoll !== undefined && `${this.promptManualRoll}`.trim() !== '') {
+      const raw = Math.max(1, Math.min(20, Number(this.promptManualRoll)));
+      const target = this.resolveRollTarget(request.roll_type, request.stat);
+      const modifier = (target ? target.modifier : 0) + this.promptSituationalBonus;
+      const total = raw + modifier;
+      const roll: DiceRoll = {
+        total,
+        expression: `1d20 (${raw}) ${modifier >= 0 ? '+' + modifier : modifier}`,
+        raw,
+        rolls: [raw],
+        sides: 20,
+        numDice: 1,
+        modifier,
+        mode: this.promptRollMode,
+        isNat20: raw === 20,
+        isNat1: raw === 1,
+      };
+      if (request.id) {
+        this.resolvedRollRequestIds.add(request.id);
+      }
+      this.markRollRequestResolved(request, roll, this.promptSituationalBonus);
+      this.submitRollRequestResult(request, roll, this.promptSituationalBonus);
+      this.rollToast.showMessage('🎲 PHYSICAL ROLL RECORDED', `Entered ${raw} for ${target ? target.label : request.stat} (Total: ${total}).`);
+    } else {
+      this.rollForRequest(request, this.promptRollMode, this.promptSituationalBonus);
+    }
+    this.promptManualRoll = null;
     this.finishRollPrompt();
   }
 
@@ -1063,6 +1175,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // nothing about this one.
     this.promptRollMode = 'normal';
     this.promptSituationalBonus = 0;
+    this.promptManualRoll = null;
     this.promptSecondsRemaining = ROLL_PROMPT_TIMEOUT_SECONDS;
     this.startPromptCountdown();
   }
@@ -1486,6 +1599,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.saveConditions({ conditions: char.conditions || [], concentratingOn: '' });
   }
 
+  onCombatAction(action: 'Dodge' | 'Dash' | 'Disengage' | 'Help') {
+    const char = this.charState.activeCharacter();
+    if (char && (char.hp_current === 0 || char.hp_current === undefined)) {
+      this.rollToast.showMessage('⚠️ INCAPACITATED', `You cannot take the ${action} action while incapacitated.`);
+      return;
+    }
+    const descriptions: Record<string, string> = {
+      Dodge: 'Until the start of your next turn, attacks against you have disadvantage if you can see the attacker, and you make DEX saves with advantage.',
+      Dash: 'You gain extra movement equal to your speed for the current turn.',
+      Disengage: 'Your movement does not provoke opportunity attacks for the rest of the turn.',
+      Help: 'You feint, distract the target, or help an ally, giving them advantage on their next ability check or attack roll.'
+    };
+    this.rollToast.showMessage(`⚔️ ACTION: ${action.toUpperCase()}`, descriptions[action] || `Took the ${action} action.`);
+  }
+
   openEditModal() {
     const char = this.charState.activeCharacter();
     if (char) {
@@ -1865,6 +1993,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
     this.showConcentrationPrompt.set(false);
+  }
+
+  keepConcentration() {
+    this.showConcentrationPrompt.set(false);
+    this.rollToast.showMessage('🧠 CONCENTRATION MAINTAINED', 'Concentration retained successfully.');
   }
 
   onCastSpell(event: { spellName: string; level: number; isRitual: boolean; metamagic?: string[] }) {

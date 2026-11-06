@@ -138,11 +138,11 @@
             👤
           </div>
           <div class="min-w-0">
-            <p class="truncate text-body-sm font-semibold text-ink">
+            <p class="truncate text-body font-semibold text-ink">
               {{ user.name || user.username }}
             </p>
             <p class="text-micro text-muted">
-              {{ isAdmin() ? "Dungeon Master" : "Player" }}
+              {{ userRoleLabel }}
             </p>
           </div>
         </div>

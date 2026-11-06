@@ -44,8 +44,48 @@ export function hasExpertiseIn(
   return char?.skill_expertise?.includes(skillName) || false;
 }
 
+export function hasJackOfAllTrades(char: CharacterSchema | null | undefined): boolean {
+  if (!char) return false;
+  if (char.features_traits?.some((f) => (f.name || '').toLowerCase().includes('jack of all trades'))) {
+    return true;
+  }
+  if (char.classes?.some((c) => (c.class_name || '').toLowerCase() === 'bard' && (c.level || 0) >= 2)) {
+    return true;
+  }
+  if ((char.char_class || '').toLowerCase() === 'bard' && (char.char_level || 1) >= 2) {
+    return true;
+  }
+  return false;
+}
+
+export function hasRemarkableAthlete(char: CharacterSchema | null | undefined): boolean {
+  if (!char) return false;
+  if (char.features_traits?.some((f) => (f.name || '').toLowerCase().includes('remarkable athlete'))) {
+    return true;
+  }
+  if (
+    char.classes?.some(
+      (c) =>
+        (c.class_name || '').toLowerCase() === 'fighter' &&
+        (c.subclass || '').toLowerCase() === 'champion' &&
+        (c.level || 0) >= 7
+    )
+  ) {
+    return true;
+  }
+  if (
+    (char.char_class || '').toLowerCase() === 'fighter' &&
+    (char.subclass || '').toLowerCase() === 'champion' &&
+    (char.char_level || 1) >= 7
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
- * Ability modifier, plus the proficiency bonus (or double for expertise) when the hero is trained in it.
+ * Ability modifier, plus the proficiency bonus (or double for expertise) when the hero is trained in it,
+ * or half proficiency bonus for Jack of All Trades (all skills) or Remarkable Athlete (physical skills).
  *
  * A sheet with no stat block scores 0 flat: the old code bailed before it ever
  * read the proficiency list, and adding a lone `+3` beside a blank ability would
@@ -64,6 +104,16 @@ export function skillModifier(
     bonus = profBonus * 2;
   } else if (isProficientIn(char, skill.name)) {
     bonus = profBonus;
+  } else {
+    const halfProf = Math.floor(profBonus / 2);
+    if (hasJackOfAllTrades(char)) {
+      bonus = halfProf;
+    } else if (
+      hasRemarkableAthlete(char) &&
+      (skill.ability === 'STR' || skill.ability === 'DEX' || skill.ability === 'CON')
+    ) {
+      bonus = halfProf;
+    }
   }
 
   return abilityModifier(abilityScore(char, skill.ability)) + bonus;
