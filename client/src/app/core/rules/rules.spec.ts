@@ -250,7 +250,7 @@ describe('skill rules', () => {
     });
 
     it('applies Champion Remarkable Athlete half-proficiency only to physical skills', () => {
-      // Champion level 7, PB +3, half-prof = 1
+      // Champion level 7, PB +3, half-prof (rounded up per 5e RAW) = 2
       const champion = hero({
         char_class: 'Fighter',
         subclass: 'Champion',
@@ -259,10 +259,10 @@ describe('skill rules', () => {
         skill_proficiencies: [],
       });
       expect(hasRemarkableAthlete(champion)).toBe(true);
-      // STR 10 (+0) Athletics -> 0 + 1 = 1
-      expect(skillModifier(champion, skill('Athletics', 'STR'))).toBe(1);
-      // DEX 18 (+4) Stealth -> 4 + 1 = 5
-      expect(skillModifier(champion, skill('Stealth', 'DEX'))).toBe(5);
+      // STR 10 (+0) Athletics -> 0 + 2 = 2
+      expect(skillModifier(champion, skill('Athletics', 'STR'))).toBe(2);
+      // DEX 18 (+4) Stealth -> 4 + 2 = 6
+      expect(skillModifier(champion, skill('Stealth', 'DEX'))).toBe(6);
       // WIS 16 (+3) Insight -> does not apply to WIS, remains 3
       expect(skillModifier(champion, skill('Insight', 'WIS'))).toBe(3);
     });

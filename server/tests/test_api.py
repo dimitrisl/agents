@@ -39,6 +39,7 @@ def test_auth_registration_and_login(mocker):
     assert reg_response.status_code == 201
     user_data = reg_response.json()
     assert user_data["username"] == "test_adventurer"
+    assert user_data.get("role") == "player"
     assert "id" in user_data
 
     # Test Demo Login
@@ -49,6 +50,7 @@ def test_auth_registration_and_login(mocker):
     )
     assert demo_response.status_code == 200
     assert "access_token" in demo_response.json()
+    assert demo_response.json()["user"]["role"] == "dm"
 
 
 def test_character_routes(mocker):

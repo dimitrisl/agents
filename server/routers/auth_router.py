@@ -25,6 +25,7 @@ class UserRegisterSchema(BaseModel):
     password: str
     email: Optional[EmailStr] = None
     name: Optional[str] = None
+    role: Optional[str] = "player"
 
 
 class UserResponseSchema(BaseModel):
@@ -34,6 +35,7 @@ class UserResponseSchema(BaseModel):
     name: Optional[str] = None
     has_completed_tutorial: bool = False
     is_admin: bool = False
+    role: Optional[str] = "player"
 
 
 class TokenResponseSchema(BaseModel):
@@ -76,6 +78,7 @@ async def register(
         "name": user_in.name or user_in.username,
         "has_completed_tutorial": False,
         "is_admin": False,
+        "role": user_in.role or "player",
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     try:
@@ -132,6 +135,7 @@ async def login(
         name=user.get("name") or user["username"],
         has_completed_tutorial=user.get("has_completed_tutorial", True),
         is_admin=bool(user.get("is_admin", False)),
+        role=user.get("role", "player"),
     )
     return TokenResponseSchema(access_token=access_token, token_type="bearer", user=user_res)
 
@@ -181,6 +185,7 @@ async def demo_login(
                     "email": f"{username}@phyrexian.forge",
                     "has_completed_tutorial": True,
                     "is_admin": False,
+                    "role": "dm" if dt == "mitsos" else "player",
                     "password_hash": "demo",
                     "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 }
@@ -196,6 +201,9 @@ async def demo_login(
         name=name,
         has_completed_tutorial=True,
         is_admin=bool(existing.get("is_admin", False)) if existing else False,
+        role=existing.get("role", "dm" if dt == "mitsos" else "player")
+        if existing
+        else ("dm" if dt == "mitsos" else "player"),
     )
     return TokenResponseSchema(access_token=access_token, token_type="bearer", user=user_res)
 
@@ -209,6 +217,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         name=current_user.get("name"),
         has_completed_tutorial=current_user.get("has_completed_tutorial", False),
         is_admin=bool(current_user.get("is_admin", False)),
+        role=current_user.get("role", "player"),
     )
 
 
@@ -230,4 +239,5 @@ async def update_tutorial(
         name=current_user.get("name"),
         has_completed_tutorial=current_user["has_completed_tutorial"],
         is_admin=bool(current_user.get("is_admin", False)),
+        role=current_user.get("role", "player"),
     )

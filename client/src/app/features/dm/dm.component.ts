@@ -1460,6 +1460,16 @@ export class DmComponent implements OnInit, OnDestroy {
     this.clearDeathSavesIfStanding(combatant.id, clamped);
   }
 
+  onInitiativeChange(event: { combatant: InitiativeCombatant; initiative: number }) {
+    this.updateCombatant(event.combatant.id, (c) => ({ ...c, initiative: event.initiative }));
+    this.combatants = this.sortCombatants(this.combatants);
+    this.persistEncounter();
+  }
+
+  onAcChange(event: { combatant: InitiativeCombatant; ac: number }) {
+    this.updateCombatant(event.combatant.id, (c) => ({ ...c, ac: event.ac }));
+  }
+
   private clearDeathSavesIfStanding(combatantId: string, hp: number) {
     if (hp <= 0) return;
     // Back on their feet: the tally that was counting them out is void.

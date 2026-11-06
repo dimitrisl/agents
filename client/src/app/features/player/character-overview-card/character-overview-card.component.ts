@@ -55,6 +55,7 @@ export class CharacterOverviewCardComponent implements OnChanges {
   @Output() endConcentration = new EventEmitter<void>();
   @Output() abilityCheck = new EventEmitter<string>();
   @Output() savingThrow = new EventEmitter<string>();
+  @Output() rollInitiative = new EventEmitter<void>();
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['portraitUrl']) {
