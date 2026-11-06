@@ -3,7 +3,7 @@ import functools
 import logging
 import math
 import re
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.services.dice_service import rebuild_damage_formula
 from backend.services.validation_service import (
@@ -439,21 +439,28 @@ def has_jack_of_all_trades(char_data: Dict[str, Any]) -> bool:
     return False
 
 
-def has_remarkable_athlete(char_data: Dict[str, Any]) -> bool:
-    """Checks if character has Champion Remarkable Athlete (Level 7+ Champion Fighter or explicit feature)."""
+def has_remarkable_athlete(char_data: Dict[str, Any], edition: Optional[str] = None) -> bool:
+    """Checks if character has Champion Remarkable Athlete.
+
+    - 2014 Edition: Level 7+ Champion Fighter.
+    - 2024 Revision: Level 3+ Champion Fighter.
+    Also accepts explicit feature trait name containing 'remarkable athlete'.
+    """
     if not char_data or not isinstance(char_data, dict):
         return False
     for f in char_data.get("features_traits", []) or []:
         fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
         if "remarkable athlete" in fname:
             return True
+    is_2024 = "2024" in str(edition or char_data.get("dnd_edition", ""))
+    min_level = 3 if is_2024 else 7
     for c in char_data.get("classes", []) or []:
         c_dict = c if isinstance(c, dict) else (c.model_dump() if hasattr(c, "model_dump") else {})
         if (c_dict.get("class_name") or "").lower() == "fighter" and "champion" in (
             c_dict.get("subclass") or ""
         ).lower():
             try:
-                if int(c_dict.get("level", 0) or 0) >= 7:
+                if int(c_dict.get("level", 0) or 0) >= min_level:
                     return True
             except (ValueError, TypeError):
                 pass
@@ -461,7 +468,7 @@ def has_remarkable_athlete(char_data: Dict[str, Any]) -> bool:
         char_data.get("subclass") or ""
     ).lower():
         try:
-            if int(char_data.get("char_level", 1) or 1) >= 7:
+            if int(char_data.get("char_level", 1) or 1) >= min_level:
                 return True
         except (ValueError, TypeError):
             pass
@@ -1556,7 +1563,7 @@ def sync_character_stats(
     char_data["skill_proficiencies"] = list(dict.fromkeys(skill_profs))
 
     jack = has_jack_of_all_trades(char_data)
-    remarkable = has_remarkable_athlete(char_data)
+    remarkable = has_remarkable_athlete(char_data, edition=edition)
 
     char_data["passive_perception"] = calculate_passive_perception(
         wis_score,
@@ -1566,13 +1573,15 @@ def sync_character_stats(
         half_prof=jack,
     )
 
+    # 2014 RAW: Remarkable Athlete grants +ceil(PB/2) to physical checks.
+    # 2024 RAW: Remarkable Athlete grants Advantage on Athletics checks (no flat numerical bonus).
     char_data["skills"] = calculate_skills(
         stats,
         prof_bonus,
         char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
         half_prof_all=jack,
-        half_prof_phys=remarkable,
+        half_prof_phys=(remarkable and not is_2024),
     )
 
     char_data["saving_throw_values"] = calculate_saving_throws(
@@ -1614,14 +1623,25 @@ def sync_character_stats(
             has_init_prof = True
 
     if not has_init_prof:
-        if remarkable:
-            init_bonus += math.ceil(prof_bonus / 2)
-        elif jack:
-            init_bonus += prof_bonus // 2
+        if not is_2024:
+            if remarkable:
+                init_bonus += math.ceil(prof_bonus / 2)
+            elif jack:
+                init_bonus += prof_bonus // 2
+        # In 2024 Revision:
+        # - Remarkable Athlete grants Advantage on Initiative rolls (no flat bonus).
+        # - Jack of All Trades applies only to skill checks, not Initiative.
 
     char_data["initiative_modifier"] = (
         get_modifier(dex_score) + init_bonus + char_data.get("initiative_bonus", 0)
     )
+
+    if is_2024 and remarkable:
+        char_data["initiative_advantage"] = True
+        char_data["athletics_advantage"] = True
+    else:
+        char_data.setdefault("initiative_advantage", False)
+        char_data.setdefault("athletics_advantage", False)
 
     weapons = char_data.get("weapons", [])
     updated_weapons = []

@@ -376,9 +376,23 @@ class TestF9HalfProficiency:
         assert skills["Athletics"] == 6
 
     def test_f9_bard_initiative_modifier_includes_half_prof(self):
-        """Level 2 Bard includes half proficiency in initiative modifier."""
+        """2014 Level 2 Bard includes half proficiency in initiative modifier."""
         char = {
             "char_name": "Jack the Bard",
+            "char_class": "Bard",
+            "char_level": 2,
+            "classes": [{"class_name": "Bard", "level": 2}],
+            "stats": {"STR": 10, "DEX": 14, "CON": 12, "INT": 12, "WIS": 10, "CHA": 16},
+            "dnd_edition": "2014",
+        }
+        synced = sync_character_stats(char)
+        # DEX 14 (+2), PB 2, half PB = 1 -> initiative = +3
+        assert synced.get("initiative_modifier") == 3
+
+    def test_f9_bard_2024_initiative_modifier_excludes_half_prof(self):
+        """2024 Level 2 Bard excludes half proficiency from initiative modifier (skills only)."""
+        char = {
+            "char_name": "Jack the 2024 Bard",
             "char_class": "Bard",
             "char_level": 2,
             "classes": [{"class_name": "Bard", "level": 2}],
@@ -386,8 +400,8 @@ class TestF9HalfProficiency:
             "dnd_edition": "2024 Revision",
         }
         synced = sync_character_stats(char)
-        # DEX 14 (+2), PB 2, half PB = 1 -> initiative = +3
-        assert synced.get("initiative_modifier") == 3
+        # DEX 14 (+2), 2024 Jack applies only to skill checks -> initiative remains +2
+        assert synced.get("initiative_modifier") == 2
 
     def test_f9_champion_initiative_modifier_includes_half_prof(self):
         """Level 7 Champion Fighter includes half proficiency in initiative modifier."""

@@ -106,7 +106,7 @@ class TestTier3CrossFeatureCombinations:
             "char_level": 2,
             "classes": [{"class_name": "Bard", "level": 2}],
             "stats": {"STR": 10, "DEX": 14, "CON": 12, "INT": 10, "WIS": 10, "CHA": 16},
-            "dnd_edition": "2024 Revision",
+            "dnd_edition": "2014 Edition",
         }
         synced = sync_character_stats(char)
         # DEX +2 + 1 half prof = +3

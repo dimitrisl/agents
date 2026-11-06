@@ -538,6 +538,18 @@ KNOWN_SUBCLASS_FEATURES = {
     ("Wizard", "Evocation", 14): "Overchannel",
 }
 
+KNOWN_SUBCLASS_FEATURES_2024 = {
+    (
+        "Fighter",
+        "Champion",
+        3,
+    ): "Improved Critical (19-20) & Remarkable Athlete (Advantage on Initiative & Athletics)",
+    ("Fighter", "Champion", 7): "Additional Fighting Style",
+    ("Fighter", "Champion", 10): "Heroic Warrior (Heroic Inspiration on turn start)",
+    ("Fighter", "Champion", 15): "Superior Critical (18-20)",
+    ("Fighter", "Champion", 18): "Survivor & Death Save Advantage",
+}
+
 SUBCLASS_FEATURES_DETAILS = {
     ("Ranger", "Horizon Walker", 3): {
         "name": "Detect Portal & Planar Warrior (Horizon Walker)",
@@ -593,6 +605,29 @@ SUBCLASS_FEATURES_DETAILS = {
     },
 }
 
+SUBCLASS_FEATURES_DETAILS_2024 = {
+    ("Fighter", "Champion", 3): {
+        "name": "Improved Critical & Remarkable Athlete (Champion)",
+        "description": "Critical hit on a roll of 19 or 20. In addition, thanks to athletic prowess, you have Advantage on Initiative rolls and Strength (Athletics) checks; running jump distance increases by STR modifier in feet.",
+    },
+    ("Fighter", "Champion", 7): {
+        "name": "Additional Fighting Style (Champion)",
+        "description": "Choose a second option from the Fighting Style class feature.",
+    },
+    ("Fighter", "Champion", 10): {
+        "name": "Heroic Warrior (Champion)",
+        "description": "Whenever you start your turn in combat with 0 Temporary Hit Points, you can give yourself Heroic Inspiration.",
+    },
+    ("Fighter", "Champion", 15): {
+        "name": "Superior Critical (Champion)",
+        "description": "Your weapon attacks score a critical hit on a roll of 18-20.",
+    },
+    ("Fighter", "Champion", 18): {
+        "name": "Survivor (Champion)",
+        "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left, and have Advantage on Death Saving Throws.",
+    },
+}
+
 
 def _generate_dynamic_future_milestones(
     target_class: str,
@@ -606,6 +641,7 @@ def _generate_dynamic_future_milestones(
     from backend.services.stats_service import calculate_max_spell_slots
 
     repo = _get_rules_repo()
+    is_2024 = "2024" in str(edition)
     known_set = {k.strip().lower() for k in (known_spells or [])}
     cls_lower = (target_class or "Fighter").lower()
 
@@ -668,7 +704,8 @@ def _generate_dynamic_future_milestones(
         if lvl in subclass_milestones:
             known_match = None
             if subclass:
-                for (c, sc, feat_lvl), desc in KNOWN_SUBCLASS_FEATURES.items():
+                features_map = KNOWN_SUBCLASS_FEATURES_2024 if is_2024 else KNOWN_SUBCLASS_FEATURES
+                for (c, sc, feat_lvl), desc in features_map.items():
                     if (
                         c.lower() == target_class.lower()
                         and sc.lower() in subclass.lower()
@@ -676,6 +713,15 @@ def _generate_dynamic_future_milestones(
                     ):
                         known_match = desc
                         break
+                if not known_match and is_2024:
+                    for (c, sc, feat_lvl), desc in KNOWN_SUBCLASS_FEATURES.items():
+                        if (
+                            c.lower() == target_class.lower()
+                            and sc.lower() in subclass.lower()
+                            and feat_lvl == lvl
+                        ):
+                            known_match = desc
+                            break
             if known_match:
                 details.append(known_match)
             else:
@@ -1312,6 +1358,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         raise ValueError("Character cannot exceed level 20.")
 
     edition = char_data.get("dnd_edition", "2014 Edition")
+    is_2024 = "2024" in str(edition)
 
     # Override char_class to target_class for the rest of this function
     char_class = target_class
@@ -1368,7 +1415,10 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 ]
             ):
                 sub_detail = None
-                for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
+                details_map = (
+                    SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
+                )
+                for (c, sc, lvl), detail in details_map.items():
                     if (
                         c.lower() == char_class.lower()
                         and sc.lower() in subclass_to_use.lower()
@@ -1376,6 +1426,15 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     ):
                         sub_detail = detail
                         break
+                if not sub_detail and is_2024:
+                    for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
+                        if (
+                            c.lower() == char_class.lower()
+                            and sc.lower() in subclass_to_use.lower()
+                            and lvl == target_level
+                        ):
+                            sub_detail = detail
+                            break
                 if sub_detail:
                     resolved_features.append(sub_detail)
                 else:

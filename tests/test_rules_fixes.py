@@ -148,6 +148,22 @@ class TestJackOfAllTradesAndRemarkableAthlete:
         assert not has_remarkable_athlete(fighter_lvl6)
         assert has_remarkable_athlete(fighter_lvl7)
 
+        # 2024 Revision unlocks Remarkable Athlete at Level 3
+        fighter_2024_lvl2 = {
+            "char_class": "Fighter",
+            "subclass": "Champion",
+            "char_level": 2,
+            "dnd_edition": "2024 Revision",
+        }
+        fighter_2024_lvl3 = {
+            "char_class": "Fighter",
+            "subclass": "Champion",
+            "char_level": 3,
+            "dnd_edition": "2024 Revision",
+        }
+        assert not has_remarkable_athlete(fighter_2024_lvl2, edition="2024 Revision")
+        assert has_remarkable_athlete(fighter_2024_lvl3, edition="2024 Revision")
+
     def test_bard_jack_of_all_trades_skills_and_initiative(self):
         # Level 2 Bard: PB +2 -> half-prof = 1
         bard = {
@@ -234,6 +250,53 @@ class TestJackOfAllTradesAndRemarkableAthlete:
         synced = sync_character_stats(bard)
         # DEX (+2) + full PB (+2) = 4 (does NOT also add half-prof)
         assert synced["initiative_modifier"] == 4
+
+    def test_champion_remarkable_athlete_2024_advantage_and_no_flat_bonus(self):
+        """Under 2024 RAW, Remarkable Athlete unlocks at Level 3 and grants Advantage, NOT flat half-prof."""
+        champ_2024 = {
+            "char_name": "Valerius 2024",
+            "char_class": "Fighter",
+            "subclass": "Champion",
+            "char_level": 3,
+            "dnd_edition": "2024 Revision",
+            "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 8},
+            "skill_proficiencies": [],
+            "features_traits": [],
+        }
+        synced = sync_character_stats(champ_2024)
+
+        # Level 3 Fighter PB is 2
+        assert synced["proficiency_bonus"] == 2
+        # In 2024, Remarkable Athlete grants Advantage, NOT flat numerical half-proficiency
+        # Untrained Athletics (STR +3): 3 + 0 = 3 (NOT 3 + 1)
+        assert synced["skills"]["Athletics"] == 3
+        # Untrained Acrobatics (DEX +2): 2 + 0 = 2 (NOT 2 + 1)
+        assert synced["skills"]["Acrobatics"] == 2
+        # Initiative: DEX (+2), no flat half-prof bonus -> exactly 2
+        assert synced["initiative_modifier"] == 2
+        # Advantage flags
+        assert synced["initiative_advantage"] is True
+        assert synced["athletics_advantage"] is True
+
+    def test_bard_jack_of_all_trades_2024_no_initiative_bonus(self):
+        """Under 2024 RAW, Jack of All Trades applies only to skill checks, NOT Initiative."""
+        bard_2024 = {
+            "char_name": "Orpheus 2024",
+            "char_class": "Bard",
+            "char_level": 2,
+            "dnd_edition": "2024 Revision",
+            "stats": {"STR": 10, "DEX": 14, "CON": 12, "INT": 12, "WIS": 10, "CHA": 16},
+            "skill_proficiencies": ["Performance"],
+            "features_traits": [],
+        }
+        synced = sync_character_stats(bard_2024)
+
+        # Performance (trained, CHA +3): 3 + 2 = 5
+        assert synced["skills"]["Performance"] == 5
+        # Athletics (untrained skill, STR +0): 0 + 1 (half-prof applies to skills) = 1
+        assert synced["skills"]["Athletics"] == 1
+        # Initiative: DEX (+2), Jack of All Trades does NOT apply to Initiative in 2024 -> exactly 2
+        assert synced["initiative_modifier"] == 2
 
 
 class TestStartingEquipmentAutoEquipInvariant:

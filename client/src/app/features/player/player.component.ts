@@ -53,6 +53,8 @@ import {
   hitDieSize,
   isProficientIn,
   hasExpertiseIn,
+  hasInitiativeAdvantage,
+  hasAthleticsAdvantage,
   levelUp,
   planShortRest,
   proficiencyBonus,
@@ -929,7 +931,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   rollSkillCheck(skill: SkillDefinition) {
-    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill));
+    const char = this.charState.activeCharacter();
+    const autoAdv = skill.name.toLowerCase() === 'athletics' && hasAthleticsAdvantage(char);
+    const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
+    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill), mode);
   }
 
   rollAbilityCheck(stat: string) {
@@ -997,7 +1002,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
     const mod = char.initiative_modifier ?? abilityModifierOf(char, 'DEX');
-    const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod);
+    const autoAdv = hasInitiativeAdvantage(char);
+    const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
+    const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod, mode);
     if (char.active_campaign) {
       this.wsService.sendMessage({
         type: 'roll_result',
@@ -1029,7 +1036,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const target = this.resolveRollTarget(rollType, stat);
     if (!target) return undefined;
 
-    return this.showD20Roll(target.title, target.modifier + situationalBonus, mode);
+    const char = this.charState.activeCharacter();
+    let effectiveMode = mode;
+    if (mode === 'normal') {
+      const isInit = rollType.toLowerCase() === 'initiative' || stat.toLowerCase() === 'initiative';
+      const isAthletics =
+        (rollType.toLowerCase().includes('skill')) && stat.toLowerCase() === 'athletics';
+      if (isInit && hasInitiativeAdvantage(char)) {
+        effectiveMode = 'advantage';
+      } else if (isAthletics && hasAthleticsAdvantage(char)) {
+        effectiveMode = 'advantage';
+      }
+    }
+
+    return this.showD20Roll(target.title, target.modifier + situationalBonus, effectiveMode);
   }
 
   private rollForRequest(

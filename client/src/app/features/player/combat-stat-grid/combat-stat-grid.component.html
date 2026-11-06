@@ -56,7 +56,12 @@
         title="Roll Initiative"
       >
         <p class="text-micro font-semibold uppercase text-muted">Initiative 🎲</p>
-        <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ formatSigned(initiativeModifier) }}</p>
+        <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">
+          {{ formatSigned(initiativeModifier) }}
+          @if (initiativeAdvantage) {
+            <span class="ml-1 text-xs px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold uppercase" title="Advantage on Initiative rolls">ADV</span>
+          }
+        </p>
       </div>
     }
   </div>

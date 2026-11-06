@@ -15,6 +15,9 @@ import {
   formatModifier,
   hasJackOfAllTrades,
   hasRemarkableAthlete,
+  hasInitiativeAdvantage,
+  hasAthleticsAdvantage,
+  is2024Edition,
   hasSpellSlotLevel,
   hitDieSize,
   isProficientIn,
@@ -283,6 +286,28 @@ describe('skill rules', () => {
       expect(hasRemarkableAthlete(multiclass)).toBe(true);
       // STR 10 (+0) Athletics: bonus is +2 (not +4)
       expect(skillModifier(multiclass, skill('Athletics', 'STR'))).toBe(2);
+    });
+
+    it('under 2024 RAW, Champion Remarkable Athlete unlocks at Level 3 and does not grant flat half-proficiency', () => {
+      // 2024 Champion level 3, PB +2
+      const champion2024 = hero({
+        char_class: 'Fighter',
+        subclass: 'Champion',
+        char_level: 3,
+        dnd_edition: '2024 Revision',
+        proficiency_bonus: 2,
+        skill_proficiencies: [],
+      });
+      expect(is2024Edition(champion2024)).toBe(true);
+      expect(hasRemarkableAthlete(champion2024)).toBe(true);
+      expect(hasInitiativeAdvantage(champion2024)).toBe(true);
+      expect(hasAthleticsAdvantage(champion2024)).toBe(true);
+
+      // In 2024, Remarkable Athlete grants Advantage, NOT flat numerical half-proficiency
+      // STR 10 (+0) Athletics -> 0 + 0 = 0 (NOT +1)
+      expect(skillModifier(champion2024, skill('Athletics', 'STR'))).toBe(0);
+      // DEX 18 (+4) Stealth -> 4 + 0 = 4 (NOT +1)
+      expect(skillModifier(champion2024, skill('Stealth', 'DEX'))).toBe(4);
     });
   });
 
