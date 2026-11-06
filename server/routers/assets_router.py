@@ -55,9 +55,12 @@ async def upload_asset(
                         detail="Uploaded image exceeds the 10 MB limit.",
                     )
                 buffer.write(chunk)
-    except HTTPException:
+    except Exception:
         if os.path.exists(file_path):
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
         raise
 
     asset_doc = {

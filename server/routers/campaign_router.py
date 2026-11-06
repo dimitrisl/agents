@@ -29,7 +29,12 @@ from backend.core.schemas import (
 from backend.services.dice_service import roll_dice
 from backend.services.encounter_service import calculate_danger_indicator
 from backend.services.session_service import SessionService
-from backend.services.stats_service import calculate_skills, get_modifier
+from backend.services.stats_service import (
+    calculate_skills,
+    get_modifier,
+    has_jack_of_all_trades,
+    has_remarkable_athlete,
+)
 from backend.services.vtt_service import VTTService
 from server.config import settings
 from server.db_async import get_database
@@ -192,25 +197,51 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
     stats = char.get("stats") or {}
     prof_bonus = char.get("proficiency_bonus") or 2
     normalized = re.sub(r"[\s-]+", "_", (roll_type or "").lower())
+    stat_clean = (stat or "").strip()
+    stat_upper = stat_clean.upper()
 
     if normalized in _SAVE_TYPES:
-        proficient = stat in (char.get("saving_throws") or [])
-        return get_modifier(stats.get(stat, 10)) + (prof_bonus if proficient else 0)
+        saving_throws = [s.upper() for s in (char.get("saving_throws") or [])]
+        proficient = stat_upper in saving_throws
+        stat_val = stats.get(stat_upper)
+        if stat_val is None:
+            stat_val = next((v for k, v in stats.items() if k.upper() == stat_upper), 10)
+        return get_modifier(stat_val) + (prof_bonus if proficient else 0)
 
     if normalized in _SKILL_TYPES:
+        char_skills = char.get("skills") or {}
+        for sk_name, sk_val in char_skills.items():
+            if sk_name.lower() == stat_clean.lower():
+                return int(sk_val)
+
+        edition = char.get("ruleset_version") or char.get("dnd_edition")
+        is_2024 = "2024" in str(edition or "")
+        jack = has_jack_of_all_trades(char)
+        remarkable = has_remarkable_athlete(char, edition=edition)
+
         skills = calculate_skills(
             stats,
             prof_bonus,
             char.get("skill_proficiencies") or [],
             char.get("skill_expertise") or [],
+            half_prof_all=jack,
+            half_prof_phys=(remarkable and not is_2024),
         )
-        if stat in skills:
-            return skills[stat]
+        for sk_name, sk_val in skills.items():
+            if sk_name.lower() == stat_clean.lower():
+                return int(sk_val)
 
-    if normalized == "initiative" or (stat or "").strip().lower() == "initiative":
+    if normalized == "initiative" or stat_clean.lower() == "initiative":
         if "initiative_modifier" in char and char["initiative_modifier"] is not None:
             return int(char["initiative_modifier"])
         return get_modifier(stats.get("DEX", 10))
+
+    if stat_upper in stats:
+        return get_modifier(stats[stat_upper])
+
+    for k, v in stats.items():
+        if k.upper() == stat_upper:
+            return get_modifier(v)
 
     return get_modifier(stats.get(stat, 10))
 
@@ -979,20 +1010,7 @@ async def get_campaign_messages(
     if not camp:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    cursor_w = (
-        db["campaign_whispers"]
-        .find({"campaign_name": name, "archived_at": None})
-        .sort("timestamp", -1)
-        .limit(100)
-    )
-    all_whispers = []
-    async for w in cursor_w:
-        w.pop("_id", None)
-        all_whispers.append(w)
-
-    all_whispers.reverse()
-
-    whispers = all_whispers
+    whisper_filter: Dict[str, Any] = {"campaign_name": name, "archived_at": None}
 
     if member.get("role") == "player":
         char_name = None
@@ -1001,20 +1019,28 @@ async def get_campaign_messages(
             if char_doc:
                 char_name = char_doc.get("char_name")
 
-        filtered_whispers = []
-        for w in whispers:
-            if w.get("recipient") == "All":
-                filtered_whispers.append(w)
-            elif w.get("sender_user_id") or w.get("recipient_user_id"):
-                if (
-                    w.get("sender_user_id") == current_user["id"]
-                    or w.get("recipient_user_id") == current_user["id"]
-                ):
-                    filtered_whispers.append(w)
-            else:
-                if w.get("sender") == char_name or w.get("recipient") == char_name:
-                    filtered_whispers.append(w)
-        whispers = filtered_whispers
+        player_conditions: List[Dict[str, Any]] = [
+            {"recipient": "All"},
+            {"sender_user_id": current_user["id"]},
+            {"recipient_user_id": current_user["id"]},
+        ]
+        if char_name:
+            player_conditions.extend(
+                [
+                    {"sender": char_name},
+                    {"recipient": char_name},
+                ]
+            )
+        whisper_filter["$or"] = player_conditions
+
+    cursor_w = db["campaign_whispers"].find(whisper_filter).sort("timestamp", -1).limit(100)
+    all_whispers = []
+    async for w in cursor_w:
+        w.pop("_id", None)
+        all_whispers.append(w)
+
+    all_whispers.reverse()
+    whispers = all_whispers
 
     # Compute sender_deleted and recipient_deleted flags
     uids = set()

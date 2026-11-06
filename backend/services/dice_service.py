@@ -62,6 +62,8 @@ def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False)
     else:
         first_num_dice = int(dice_matches[0].group(2)) if dice_matches[0].group(2) else 1
         sides = int(dice_matches[0].group(3))
+        if first_num_dice > 100 or sides > 1000 or sides < 1:
+            raise ValueError("Dice expression exceeds safe limits (max 100 dice, 1-1000 sides).")
         total_dice_count = 0
 
         if advantage and disadvantage:
@@ -86,6 +88,10 @@ def roll_dice(die_str: str, advantage: bool = False, disadvantage: bool = False)
                 sign = -1 if m.group(1) == "-" else 1
                 n = int(m.group(2)) if m.group(2) else 1
                 s = int(m.group(3))
+                if n > 100 or s > 1000 or s < 1 or total_dice_count + n > 200:
+                    raise ValueError(
+                        "Dice expression exceeds safe limits (max 100 dice per term, 200 total, 1-1000 sides)."
+                    )
                 total_dice_count += n
                 for _ in range(n):
                     r = random.randint(1, s)

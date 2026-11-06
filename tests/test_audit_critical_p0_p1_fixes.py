@@ -478,3 +478,329 @@ def test_bard_magical_secrets_bypasses_class_filter():
     )
     # Must NOT include non-Bard spells (like Mage Armor or Shield)
     assert "Mage Armor" not in spell_choice["options"]
+
+
+# --- 13. [DEF-CR-02 & Audit] Rules Engine & Brooch of Shielding Fixes ---
+def test_brooch_of_shielding_not_shield_and_monk_unarmored_preserved():
+    """Brooch of Shielding must NOT grant +2 AC as a shield and must NOT disable Monk Unarmored Defense."""
+    from backend.services.stats_service import calculate_ac, sync_character_stats
+
+    # Monk Level 1: DEX 16 (+3), WIS 16 (+3) -> Unarmored Defense AC = 10 + 3 + 3 = 16
+    monk = {
+        "char_name": "Zen Monk",
+        "char_class": "Monk",
+        "char_level": 1,
+        "stats": {"STR": 10, "DEX": 16, "CON": 12, "INT": 10, "WIS": 16, "CHA": 10},
+        "equipment": [
+            {"name": "Brooch of Shielding", "equipped": True},
+        ],
+        "features_traits": [{"name": "Unarmored Defense", "source": "Monk"}],
+    }
+    synced = sync_character_stats(monk)
+    # AC should remain 16 (10 + DEX + WIS). Brooch of Shielding must NOT add +2 or disable Unarmored Defense.
+    assert synced["armor_class"] == 16
+    assert synced["ac_breakdown"]["total"] == 16
+    assert "Unarmored Defense" in synced["ac_breakdown"]["base_source"]
+    assert synced["ac_breakdown"]["shield_bonus"] == 0
+
+    # Also test directly in calculate_ac
+    ac, breakdown = calculate_ac(
+        dex_score=16,
+        equipment=[{"name": "Brooch of Shielding", "equipped": True}],
+        features=[{"name": "Unarmored Defense", "source": "Monk"}],
+        wis_score=16,
+        return_breakdown=True,
+    )
+    assert ac == 16
+    assert breakdown["shield_bonus"] == 0
+
+
+def test_auto_equip_respects_monk_and_barbarian_unarmored():
+    """Monks and Barbarians with unassigned starting gear must NOT have armor auto-equipped."""
+    from backend.services.stats_service import sync_character_stats
+
+    monk = {
+        "char_name": "Monk Hero",
+        "char_class": "Monk",
+        "char_level": 1,
+        "stats": {"STR": 10, "DEX": 16, "CON": 12, "INT": 10, "WIS": 16, "CHA": 10},
+        "equipment": [
+            {"name": "Leather Armor"},  # Unassigned equipped key
+        ],
+    }
+    synced = sync_character_stats(monk)
+    # Armor must NOT be auto-equipped
+    assert synced["equipment"][0].get("equipped", False) is False
+    assert synced["armor_class"] == 16  # 10 + DEX 3 + WIS 3
+
+
+def test_auto_equip_respects_explicit_unequipped_state():
+    """When a hero explicitly unequips all items, sync must NOT forcibly re-equip them."""
+    from backend.services.stats_service import sync_character_stats
+
+    fighter = {
+        "char_name": "Fighter Resting",
+        "char_class": "Fighter",
+        "char_level": 1,
+        "base_stats": {"STR": 16, "DEX": 10, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+        "stats": {"STR": 16, "DEX": 10, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+        "equipment": [
+            {"name": "Chain Mail", "equipped": False},
+            {"name": "Shield", "equipped": False},
+        ],
+    }
+    synced = sync_character_stats(fighter)
+    assert synced["equipment"][0].get("equipped") is False
+    assert synced["equipment"][1].get("equipped") is False
+    assert synced["armor_class"] == 10
+
+
+def test_observant_feat_passive_perception_bonus():
+    """Observant feat must add +5 to passive perception."""
+    from backend.services.stats_service import sync_character_stats
+
+    # Level 1 Cleric: WIS 16 (+3), Prof +2, Trained in Perception -> Base passive = 10 + 3 + 2 = 15
+    cleric_no_feat = {
+        "char_name": "Cleric",
+        "char_class": "Cleric",
+        "char_level": 1,
+        "stats": {"STR": 10, "DEX": 10, "CON": 12, "INT": 10, "WIS": 16, "CHA": 10},
+        "skill_proficiencies": ["Perception"],
+        "features_traits": [],
+    }
+    synced1 = sync_character_stats(cleric_no_feat)
+    assert synced1["passive_perception"] == 15
+
+    # With Observant feat -> 15 + 5 = 20
+    cleric_observant = {
+        "char_name": "Cleric Observant",
+        "char_class": "Cleric",
+        "char_level": 1,
+        "stats": {"STR": 10, "DEX": 10, "CON": 12, "INT": 10, "WIS": 16, "CHA": 10},
+        "skill_proficiencies": ["Perception"],
+        "features_traits": [{"name": "Observant"}],
+    }
+    synced2 = sync_character_stats(cleric_observant)
+    assert synced2["passive_perception"] == 20
+
+
+def test_initiative_advantage_resets_cleanly_on_subclass_change():
+    """Respecing out of Champion must reset initiative_advantage to False without leaking."""
+    from backend.services.stats_service import sync_character_stats
+
+    # 2024 Champion Fighter level 3 has Remarkable Athlete (initiative advantage = True)
+    champion = {
+        "char_name": "Champion",
+        "char_class": "Fighter",
+        "char_level": 3,
+        "subclass": "Champion",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+        "features_traits": [{"name": "Remarkable Athlete"}],
+    }
+    synced1 = sync_character_stats(champion)
+    assert synced1["initiative_advantage"] is True
+    assert synced1["athletics_advantage"] is True
+
+    # Now change subclass to Battle Master and remove Remarkable Athlete
+    battlemaster = {
+        "char_name": "Champion",
+        "char_class": "Fighter",
+        "char_level": 3,
+        "subclass": "Battle Master",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+        "features_traits": [{"name": "Combat Superiority"}],
+        "initiative_advantage": True,  # Pre-existing from old sheet
+        "athletics_advantage": True,
+    }
+    synced2 = sync_character_stats(battlemaster)
+    assert synced2["initiative_advantage"] is False
+    assert synced2["athletics_advantage"] is False
+
+
+def test_sheet_modifier_secret_roll_case_insensitivity_and_half_prof():
+    """_sheet_modifier handles case insensitivity and includes Jack of All Trades for secret rolls."""
+    from server.routers.campaign_router import _sheet_modifier
+
+    bard = {
+        "char_name": "Lute Bard",
+        "char_class": "Bard",
+        "char_level": 3,
+        "proficiency_bonus": 2,
+        "stats": {"STR": 10, "DEX": 14, "CON": 12, "INT": 10, "WIS": 10, "CHA": 16},
+        "saving_throws": ["DEX", "CHA"],
+        "skill_proficiencies": ["Persuasion"],
+        "features_traits": [{"name": "Jack of All Trades"}],
+    }
+    # Saving throw with lowercase "dex": DEX mod (+2) + PB (2) = +4
+    assert _sheet_modifier(bard, "saving_throw", "dex") == 4
+    assert _sheet_modifier(bard, "save", "DEX") == 4
+
+    # Untrained skill with lowercase "stealth": DEX mod (+2) + half-prof (+1) = +3 (NOT +0!)
+    assert _sheet_modifier(bard, "skill_check", "stealth") == 3
+    assert _sheet_modifier(bard, "skill", "Stealth") == 3
+
+
+# --- 14. [Batch 2 Security & Stability] ---
+def test_pdf_export_ssrf_disallows_redirects(monkeypatch):
+    """PDF exporter portrait fetch must disable HTTP redirects to block SSRF bypasses."""
+    import inspect
+
+    from backend.utils.pdf_exporter import create_image_overlay
+
+    src = inspect.getsource(create_image_overlay)
+    assert "allow_redirects=False" in src, (
+        "requests.get must explicitly disallow redirects to prevent SSRF"
+    )
+
+
+def test_unbounded_dice_dos_cap():
+    """Dice engine must reject expressions exceeding safe bounds to prevent event loop exhaustion."""
+    from backend.services.dice_service import roll_dice
+
+    with pytest.raises(ValueError, match="Dice expression exceeds safe limits"):
+        roll_dice("5000000d6")
+
+    with pytest.raises(ValueError, match="Dice expression exceeds safe limits"):
+        roll_dice("101d20")
+
+    # Safe compound rolls work fine
+    safe_res = roll_dice("2d6 + 1d4 + 3")
+    assert safe_res["total"] >= 6
+
+
+def test_legacy_sha256_upgrades_on_login():
+    """When a user with legacy sha256 password logs in, their hash must be upgraded to pbkdf2."""
+    from server.db_async import get_database
+    from server.dependencies.auth import legacy_sha256_hash, pwd_context
+
+    raw_pw = "secretPass123!"
+    legacy_hash = legacy_sha256_hash(raw_pw)
+
+    user_doc = {
+        "_id": "user_legacy_1",
+        "id": "user_legacy_1",
+        "username": "olduser",
+        "password_hash": legacy_hash,
+        "name": "Old User",
+        "email": "old@example.com",
+        "is_admin": False,
+    }
+
+    mock_db = MagicMock()
+    mock_db["users"].find_one = AsyncMock(return_value=user_doc)
+    mock_db["users"].update_one = AsyncMock()
+
+    app.dependency_overrides[get_database] = lambda: mock_db
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/auth/login",
+            data={"username": "olduser", "password": raw_pw},
+        )
+        assert resp.status_code == 200
+
+        # Verify update_one was called to upgrade the hash
+        mock_db["users"].update_one.assert_called_once()
+        call_args = mock_db["users"].update_one.call_args
+        filter_arg, update_arg = call_args[0]
+        assert filter_arg == {"_id": "user_legacy_1"}
+        new_hash = update_arg["$set"]["password_hash"]
+        assert new_hash != legacy_hash
+        assert pwd_context.verify(raw_pw, new_hash)
+    finally:
+        app.dependency_overrides.pop(get_database, None)
+
+
+def test_admin_user_search_regex_escaped():
+    """Admin user search must escape regex characters to prevent ReDoS / regex injection."""
+    from server.db_async import get_database
+    from server.dependencies.auth import require_admin
+
+    mock_db = MagicMock()
+    collections = {}
+    mock_db.__getitem__.side_effect = lambda k: collections.setdefault(k, MagicMock())
+
+    mock_cursor = MagicMock()
+    mock_cursor.sort.return_value = mock_cursor
+    mock_cursor.skip.return_value = mock_cursor
+    mock_cursor.limit.return_value = mock_cursor
+
+    async def empty_cursor(*args, **kwargs):
+        if False:
+            yield
+
+    mock_cursor.__aiter__ = empty_cursor
+    mock_db["users"].find.return_value = mock_cursor
+    mock_db["users"].count_documents = AsyncMock(return_value=0)
+
+    admin_user = {"id": "admin_1", "username": "superadmin", "is_admin": True}
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[require_admin] = lambda: admin_user
+
+    try:
+        client = TestClient(app)
+        client.get("/api/v1/admin/users?search=test.*+regex[a-z]")
+        mock_db["users"].find.assert_called_once()
+        query = mock_db["users"].find.call_args[0][0]
+        # Query must use escaped regex (URL query '+' decodes to space)
+        assert query["$or"][0]["username"]["$regex"] == r"test\.\*\ regex\[a\-z\]"
+    finally:
+        app.dependency_overrides.pop(get_database, None)
+        app.dependency_overrides.pop(require_admin, None)
+
+
+def test_whisper_query_filters_at_mongodb_level():
+    """Campaign messages endpoint must filter player whispers inside MongoDB query, preventing pagination starvation."""
+    from server.db_async import get_database
+    from server.dependencies.auth import get_current_user
+
+    mock_db = MagicMock()
+    collections = {}
+    mock_db.__getitem__.side_effect = lambda k: collections.setdefault(k, MagicMock())
+
+    mock_cursor = MagicMock()
+    mock_cursor.sort.return_value = mock_cursor
+    mock_cursor.limit.return_value = mock_cursor
+
+    async def empty_cursor(*args, **kwargs):
+        if False:
+            yield
+
+    mock_cursor.__aiter__ = empty_cursor
+    mock_db["campaigns"].find_one = AsyncMock(return_value={"campaign_name": "DragonHeist"})
+    mock_db["characters"].find_one = AsyncMock(
+        return_value={"char_id": "c1", "char_name": "Thorne"}
+    )
+    mock_db["campaign_whispers"].find.return_value = mock_cursor
+    mock_db["campaign_roll_requests"].find.return_value = mock_cursor
+
+    player_user = {"id": "player_123", "username": "player1", "is_admin": False}
+    member_doc = {
+        "campaign_name": "DragonHeist",
+        "user_id": "player_123",
+        "username": "player1",
+        "role": "player",
+        "character_id": "c1",
+    }
+    mock_db["campaign_members"].find_one = AsyncMock(return_value=member_doc)
+
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: player_user
+
+    try:
+        client = TestClient(app)
+        client.get("/api/v1/campaigns/DragonHeist/messages")
+        mock_db["campaign_whispers"].find.assert_called_once()
+        query = mock_db["campaign_whispers"].find.call_args[0][0]
+        # Query must contain MongoDB $or condition to prevent post-pagination starvation
+        assert "$or" in query
+        assert {"recipient": "All"} in query["$or"]
+        assert {"sender_user_id": "player_123"} in query["$or"]
+        assert {"recipient_user_id": "player_123"} in query["$or"]
+        assert {"sender": "Thorne"} in query["$or"]
+        assert {"recipient": "Thorne"} in query["$or"]
+    finally:
+        app.dependency_overrides.pop(get_database, None)
+        app.dependency_overrides.pop(get_current_user, None)

@@ -37,6 +37,8 @@
         size="sm"
         type="button"
         (click)="showMobileHeaderActions.set(!showMobileHeaderActions())"
+        [attr.aria-expanded]="showMobileHeaderActions()"
+        aria-controls="mobile-hero-actions-drawer"
         aria-label="Toggle Hero Actions"
         class="shrink-0"
       >
@@ -59,7 +61,7 @@
 
     <!-- Collapsible Actions Drawer -->
     @if (showMobileHeaderActions()) {
-      <div class="grid grid-cols-2 gap-2 p-2.5 bg-panel rounded-xl border border-hairline mt-1 shadow-lg">
+      <div id="mobile-hero-actions-drawer" class="grid grid-cols-2 gap-2 p-2.5 bg-panel rounded-xl border border-hairline mt-1 shadow-lg">
         <button
           forgeButton
           variant="primary"

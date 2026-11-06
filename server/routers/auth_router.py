@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -13,9 +14,12 @@ from server.dependencies.auth import (
     create_access_token,
     get_current_user,
     get_password_hash,
+    legacy_sha256_hash,
     verify_password,
 )
 from server.rate_limiter import get_auth_key, limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -124,6 +128,13 @@ async def login(
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+    else:
+        # Transparently upgrade legacy SHA-256 hashes to secure pbkdf2
+        if user.get("password_hash") == legacy_sha256_hash(form_data.password):
+            new_hash = get_password_hash(form_data.password)
+            user_filter = {"_id": user["_id"]} if "_id" in user else {"username": user["username"]}
+            await db["users"].update_one(user_filter, {"$set": {"password_hash": new_hash}})
+            logger.info(f"Upgraded legacy SHA-256 hash to pbkdf2 for user {user.get('username')}")
 
     user_id = user.get("id") or f"local_user_{user['username']}"
     access_token = create_access_token(data={"sub": user_id, "username": user["username"]})

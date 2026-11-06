@@ -726,5 +726,43 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(sentWsMessage.payload.roll_type).toBe('initiative');
       expect(sentWsMessage.payload.result.total).toBe(roll!.total);
     });
+
+    it('allows combat action for healthy hero even if hp_current is undefined (DEF-CR-01)', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      const toastService = TestBed.inject(RollToastService);
+      charState.activeCharacter.set({
+        ...HERO,
+        hp_max: 30,
+        hp_current: undefined,
+        conditions: [],
+      });
+
+      component.onCombatAction('Dodge');
+      expect(toastService.activeRoll()?.title).toBe('⚔️ ACTION: DODGE');
+    });
+
+    it('blocks combat action when hero is incapacitated or at 0 HP', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      const toastService = TestBed.inject(RollToastService);
+      charState.activeCharacter.set({
+        ...HERO,
+        hp_max: 30,
+        hp_current: 0,
+        conditions: [],
+      });
+
+      component.onCombatAction('Dash');
+      expect(toastService.activeRoll()?.title).toBe('⚠️ INCAPACITATED');
+
+      charState.activeCharacter.set({
+        ...HERO,
+        hp_max: 30,
+        hp_current: 25,
+        conditions: ['Unconscious'],
+      });
+
+      component.onCombatAction('Disengage');
+      expect(toastService.activeRoll()?.title).toBe('⚠️ INCAPACITATED');
+    });
   });
 });

@@ -1,5 +1,7 @@
+import asyncio
 import datetime
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -43,7 +45,7 @@ async def list_admin_users(
 ):
     query: Dict[str, Any] = {}
     if search and search.strip():
-        term = search.strip()
+        term = re.escape(search.strip())
         query["$or"] = [
             {"username": {"$regex": term, "$options": "i"}},
             {"email": {"$regex": term, "$options": "i"}},
@@ -64,30 +66,35 @@ async def list_admin_users(
             users_raw.extend(items)
 
     ws_online_uids = manager.get_online_user_ids()
-    for u in users_raw:
+
+    async def _fetch_user_stats(u: dict) -> AdminUserSchema:
         uid = u.get("id") or f"local_user_{u.get('username')}"
         uname = u.get("username", "Unknown")
         is_online = (uid in ws_online_uids) or is_user_recently_active(uid, uname)
-        char_count = await _maybe_await(db["characters"].count_documents({"owner_id": uid}))
-        dm_camps = await _find_dm_campaigns_for_user(db, uid)
-        dm_camp_count = len(dm_camps)
-        member_camp_count = await _maybe_await(
-            db["campaign_members"].count_documents({"user_id": uid})
+
+        char_count_future = _maybe_await(db["characters"].count_documents({"owner_id": uid}))
+        dm_camps_future = _find_dm_campaigns_for_user(db, uid)
+        member_camp_future = _maybe_await(db["campaign_members"].count_documents({"user_id": uid}))
+
+        char_count, dm_camps, member_camp_count = await asyncio.gather(
+            char_count_future, dm_camps_future, member_camp_future
         )
-        users_list.append(
-            AdminUserSchema(
-                id=uid,
-                username=uname,
-                email=u.get("email"),
-                name=u.get("name"),
-                created_at=u.get("created_at"),
-                is_admin=bool(u.get("is_admin", False)),
-                is_online=is_online,
-                character_count=char_count,
-                dm_campaign_count=dm_camp_count,
-                member_campaign_count=member_camp_count,
-            )
+        return AdminUserSchema(
+            id=uid,
+            username=uname,
+            email=u.get("email"),
+            name=u.get("name"),
+            created_at=u.get("created_at"),
+            is_admin=bool(u.get("is_admin", False)),
+            is_online=is_online,
+            character_count=char_count,
+            dm_campaign_count=len(dm_camps),
+            member_campaign_count=member_camp_count,
         )
+
+    users_list = (
+        await asyncio.gather(*[_fetch_user_stats(u) for u in users_raw]) if users_raw else []
+    )
 
     return AdminUserListResponse(users=users_list, total=total)
 

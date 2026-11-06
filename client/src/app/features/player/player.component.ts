@@ -55,6 +55,7 @@ import {
   hasExpertiseIn,
   hasInitiativeAdvantage,
   hasAthleticsAdvantage,
+  isIncapacitated,
   levelUp,
   planShortRest,
   proficiencyBonus,
@@ -1621,7 +1622,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   onCombatAction(action: 'Dodge' | 'Dash' | 'Disengage' | 'Help') {
     const char = this.charState.activeCharacter();
-    if (char && (char.hp_current === 0 || char.hp_current === undefined)) {
+    if (char && isIncapacitated(char)) {
       this.rollToast.showMessage('⚠️ INCAPACITATED', `You cannot take the ${action} action while incapacitated.`);
       return;
     }
@@ -1644,10 +1645,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   saveEditModal() {
     if (this.editDraftChar) {
-      this.charState.activeCharacter.set(JSON.parse(JSON.stringify(this.editDraftChar)));
+      const backupChar = this.charState.activeCharacter();
+      const backupCopy = backupChar ? JSON.parse(JSON.stringify(backupChar)) : null;
+      const draftCopy = JSON.parse(JSON.stringify(this.editDraftChar));
+
+      this.charState.activeCharacter.set(draftCopy);
       this.showEditModal.set(false);
-      this.saveCurrentChar(true);
       this.editDraftChar = null;
+
+      this.saveCurrentChar(true, (_err) => {
+        if (backupCopy) {
+          this.charState.activeCharacter.set(backupCopy);
+        }
+        this.editDraftChar = draftCopy;
+        this.showEditModal.set(true);
+      });
     }
   }
 
@@ -1746,7 +1758,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
-  saveCurrentChar(showToast = false) {
+  saveCurrentChar(showToast = false, onError?: (err: any) => void) {
     const char = this.charState.activeCharacter();
     if (!char) return;
 
@@ -1773,11 +1785,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.createInVault(copy, showToast, '💾 SHEET SAVED');
         } else if (err?.status === 409) {
           this.reportSaveFailure(copy, err);
+          if (onError) onError(err);
         } else {
           this.rollToast.showMessage(
             '⚠️ SAVE FAILED',
             `Could not save ${copy.char_name}. Your changes are still on screen — try again.`
           );
+          if (onError) onError(err);
         }
       }
     });
