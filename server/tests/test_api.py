@@ -42,6 +42,16 @@ def test_auth_registration_and_login(mocker):
     assert user_data.get("role") == "player"
     assert "id" in user_data
 
+    # A client can never choose its own role at registration.
+    sneaky = client.post(
+        "/api/v1/auth/register",
+        json={"username": "sneaky_dm", "password": "securepassword123", "role": "dm"},
+    )
+    assert sneaky.status_code == 201
+    assert sneaky.json()["role"] == "player"
+    inserted = mock_users_col.insert_one.call_args_list[-1].args[0]
+    assert inserted["role"] == "player"
+
     # Test Demo Login
     mocker.patch("server.config.settings.DEBUG_MODE", True)
     demo_response = client.post(
