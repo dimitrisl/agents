@@ -906,4 +906,64 @@ afterEach(() => {
       expect(component.homebrewItems[0].name).toBe('Vorpal Sword');
     });
   });
+
+  describe('Initiative Panel Controls & Physical Rolls', () => {
+    it('rolls initiative strictly for non-player combatants and re-sorts descending', () => {
+      component.combatants = [
+        combatant('p1', 18, { is_player: true, dex: 14 }),
+        combatant('m1', 5, { is_player: false, dex: 10 }),
+        combatant('m2', 8, { is_player: false, dex: 12 }),
+      ];
+
+      component.rollMonstersInitiative();
+
+      expect(component.combatants.find((c) => c.id === 'p1')?.initiative).toBe(18);
+      // Both monsters should have been re-rolled
+      const m1 = component.combatants.find((c) => c.id === 'm1')!;
+      const m2 = component.combatants.find((c) => c.id === 'm2')!;
+      expect(m1.initiative).toBeGreaterThan(0);
+      expect(m2.initiative).toBeGreaterThan(0);
+      // Ensure sorted descending
+      expect(component.combatants[0].initiative).toBeGreaterThanOrEqual(component.combatants[1].initiative);
+      expect(component.combatants[1].initiative).toBeGreaterThanOrEqual(component.combatants[2].initiative);
+    });
+
+    it('updates initiative and re-sorts upon onInitiativeChange', () => {
+      component.combatants = [
+        combatant('c1', 10),
+        combatant('c2', 20),
+      ];
+
+      component.onInitiativeChange({ combatant: component.combatants[0], initiative: 25 });
+
+      expect(component.combatants[0].id).toBe('c1');
+      expect(component.combatants[0].initiative).toBe(25);
+      expect(component.combatants[1].id).toBe('c2');
+      expect(component.combatants[1].initiative).toBe(20);
+    });
+
+    it('updates AC upon onAcChange', () => {
+      const c = combatant('c1', 10, { ac: 12 });
+      component.combatants = [c];
+
+      component.onAcChange({ combatant: c, ac: 18 });
+
+      expect(component.combatants[0].ac).toBe(18);
+    });
+
+    it('sends manual_roll in payload when manual roll is provided', () => {
+      component.campaignName = 'Neverwinter';
+      component.partyMembers = [hero('Elena', 3)];
+      component.rollTargetMember = 'Elena';
+      component.rollType = 'saving_throw';
+      component.rollStat = 'DEX';
+      component.manualRoll = 17;
+
+      component.sendRollRequest();
+
+      const req = http.expectOne((r) => r.url.includes('/campaigns/Neverwinter/roll-request'));
+      expect(req.request.body.manual_roll).toBe(17);
+      req.flush({ success: true });
+    });
+  });
 });

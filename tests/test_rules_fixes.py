@@ -174,7 +174,7 @@ class TestJackOfAllTradesAndRemarkableAthlete:
         assert synced["passive_perception"] == 11
 
     def test_champion_remarkable_athlete_skills_and_initiative(self):
-        # Level 7 Champion Fighter: PB +3 -> half-prof = 1
+        # Level 7 Champion Fighter: PB +3 -> half-prof (rounded up per 5e RAW) = 2
         champ = {
             "char_name": "Gladiator",
             "char_class": "Fighter",
@@ -188,16 +188,16 @@ class TestJackOfAllTradesAndRemarkableAthlete:
 
         # Athletics (trained, STR +4): 4 + 3 (PB) = 7
         assert synced["skills"]["Athletics"] == 7
-        # Acrobatics (untrained, DEX +2, physical): 2 + 1 = 3
-        assert synced["skills"]["Acrobatics"] == 3
-        # Stealth (untrained, DEX +2, physical): 2 + 1 = 3
-        assert synced["skills"]["Stealth"] == 3
+        # Acrobatics (untrained, DEX +2, physical): 2 + 2 = 4
+        assert synced["skills"]["Acrobatics"] == 4
+        # Stealth (untrained, DEX +2, physical): 2 + 2 = 4
+        assert synced["skills"]["Stealth"] == 4
         # Arcana (untrained, INT +0, mental): 0 (Remarkable Athlete only affects STR/DEX/CON)
         assert synced["skills"]["Arcana"] == 0
         # Insight (untrained, WIS +1, mental): 1
         assert synced["skills"]["Insight"] == 1
-        # Initiative (DEX check): DEX (+2) + half-prof (1) = 3
-        assert synced["initiative_modifier"] == 3
+        # Initiative (DEX check): DEX (+2) + half-prof (2) = 4
+        assert synced["initiative_modifier"] == 4
 
     def test_jack_and_remarkable_non_stacking(self):
         # Multiclass Bard 2 / Champion 7 (PB +4 -> half-prof = 2)

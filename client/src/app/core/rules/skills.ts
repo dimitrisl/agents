@@ -105,14 +105,13 @@ export function skillModifier(
   } else if (isProficientIn(char, skill.name)) {
     bonus = profBonus;
   } else {
-    const halfProf = Math.floor(profBonus / 2);
-    if (hasJackOfAllTrades(char)) {
-      bonus = halfProf;
-    } else if (
-      hasRemarkableAthlete(char) &&
-      (skill.ability === 'STR' || skill.ability === 'DEX' || skill.ability === 'CON')
-    ) {
-      bonus = halfProf;
+    const halfProfDown = Math.floor(profBonus / 2);
+    const halfProfUp = Math.ceil(profBonus / 2);
+    const isPhysical = skill.ability === 'STR' || skill.ability === 'DEX' || skill.ability === 'CON';
+    if (hasRemarkableAthlete(char) && isPhysical) {
+      bonus = halfProfUp;
+    } else if (hasJackOfAllTrades(char)) {
+      bonus = halfProfDown;
     }
   }
 

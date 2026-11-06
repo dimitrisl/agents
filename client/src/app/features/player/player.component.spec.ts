@@ -69,6 +69,7 @@ describe('PlayerComponent — DM roll requests', () => {
       opened$,
       connect: () => undefined,
       disconnect: () => undefined,
+      sendMessage: () => undefined,
     };
 
     TestBed.configureTestingModule({
@@ -709,6 +710,21 @@ describe('PlayerComponent — DM roll requests', () => {
 
       component.whisperReply = 'Secret message';
       expect(component.whisperReply).toBe('Secret message');
+    });
+
+    it('rolls initiative and broadcasts result via WebSocket', () => {
+      let sentWsMessage: any = null;
+      jest.spyOn((component as any).wsService, 'sendMessage').mockImplementation((msg: any) => {
+        sentWsMessage = msg;
+      });
+
+      const roll = component.rollInitiative();
+      expect(roll).toBeDefined();
+      expect(roll?.modifier).toBe(4); // DEX 18 (+4)
+      expect(sentWsMessage).not.toBeNull();
+      expect(sentWsMessage.type).toBe('roll_result');
+      expect(sentWsMessage.payload.roll_type).toBe('initiative');
+      expect(sentWsMessage.payload.result.total).toBe(roll!.total);
     });
   });
 });

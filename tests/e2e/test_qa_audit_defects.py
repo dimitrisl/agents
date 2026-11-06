@@ -368,8 +368,8 @@ class TestF9HalfProficiency:
             expertise=[],
             half_prof_phys=True,
         )
-        # Acrobatics (DEX +2) non-proficient physical -> 2 + 1 = 3
-        assert skills["Acrobatics"] == 3
+        # Acrobatics (DEX +2) non-proficient physical -> 2 + ceil(3/2) = 4 (per 5e RAW)
+        assert skills["Acrobatics"] == 4
         # History (INT +0) non-proficient mental -> 0 + 0 = 0 (NOT increased)
         assert skills["History"] == 0
         # Athletics (STR +3) proficient -> 3 + 3 = 6
@@ -401,8 +401,8 @@ class TestF9HalfProficiency:
             "dnd_edition": "2014",
         }
         synced = sync_character_stats(char)
-        # DEX 12 (+1), PB 3, half PB = 1 -> initiative = +2
-        assert synced.get("initiative_modifier") == 2
+        # DEX 12 (+1), PB 3, Remarkable Athlete rounds up = ceil(3/2) = 2 -> initiative = +3
+        assert synced.get("initiative_modifier") == 3
 
     def test_f9_half_prof_no_stacking_between_bard_and_champion(self):
         """Multiclass Bard 2 / Champion 7 does NOT stack half proficiency twice."""

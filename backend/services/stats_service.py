@@ -481,7 +481,8 @@ def calculate_skills(
 
     skills = {}
     expertise_list = expertise or []
-    half_prof = proficiency_bonus // 2
+    half_prof_down = proficiency_bonus // 2
+    half_prof_up = math.ceil(proficiency_bonus / 2)
 
     for ability, skill_list in SKILLS_BY_ABILITY.items():
         mod = get_modifier(stats.get(ability, 10))
@@ -490,8 +491,10 @@ def calculate_skills(
                 bonus = mod + proficiency_bonus * 2
             elif skill in proficiencies:
                 bonus = mod + proficiency_bonus
-            elif half_prof_all or (half_prof_phys and ability in ("STR", "DEX", "CON")):
-                bonus = mod + half_prof
+            elif half_prof_phys and ability in ("STR", "DEX", "CON"):
+                bonus = mod + half_prof_up
+            elif half_prof_all:
+                bonus = mod + half_prof_down
             else:
                 bonus = mod
             skills[skill] = bonus
@@ -1610,8 +1613,11 @@ def sync_character_stats(
             init_bonus += prof_bonus
             has_init_prof = True
 
-    if not has_init_prof and (jack or remarkable):
-        init_bonus += prof_bonus // 2
+    if not has_init_prof:
+        if remarkable:
+            init_bonus += math.ceil(prof_bonus / 2)
+        elif jack:
+            init_bonus += prof_bonus // 2
 
     char_data["initiative_modifier"] = (
         get_modifier(dex_score) + init_bonus + char_data.get("initiative_bonus", 0)

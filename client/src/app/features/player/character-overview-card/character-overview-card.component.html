@@ -132,6 +132,7 @@
       (speedChange)="char.speed = $event"
       [passivePerception]="passivePerception"
       [initiativeModifier]="char.initiative_modifier"
+      (rollInitiative)="rollInitiative.emit()"
     ></app-combat-stat-grid>
 
     <app-ability-score-grid

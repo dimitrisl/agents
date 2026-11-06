@@ -205,6 +205,9 @@
             [(newCombatantAc)]="newCombatantAc"
             (importParty)="importPartyToInitiative()"
             (rollAll)="rollAllInitiative()"
+            (rollMonstersOnly)="rollMonstersInitiative()"
+            (initiativeChange)="onInitiativeChange($event)"
+            (acChange)="onAcChange($event)"
             (advanceTurn)="nextTurn()"
             (rewindTurn)="previousTurn()"
             (endCombat)="endCombat()"
@@ -305,6 +308,7 @@
     [(rollStat)]="rollStat"
     [(rollReason)]="rollReason"
     [(isSecretRoll)]="isSecretRoll"
+    [(manualRoll)]="manualRoll"
     (requestRoll)="sendRollRequest()"
   ></app-roll-request-modal>
 

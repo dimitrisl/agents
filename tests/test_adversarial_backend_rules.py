@@ -257,11 +257,10 @@ class TestAdversarialHalfProficiencyNonStacking:
 
         # Initiative calculation:
         # DEX 14 modifier = +2
-        # Half proficiency = 3 // 2 = 1
-        # Correct non-stacking = 2 + 1 = 3
-        # If Jack and Remarkable erroneously stacked: 2 + 1 + 1 = 4
-        assert synced["initiative_modifier"] == 3, (
-            f"Initiative modifier must be +3 (non-stacked), got {synced['initiative_modifier']}"
+        # Remarkable Athlete (round up per 5e RAW) = ceil(3 / 2) = 2
+        # Correct non-stacking = 2 + 2 = 4 (takes higher rounded-up bonus, does not stack 2 + 1)
+        assert synced["initiative_modifier"] == 4, (
+            f"Initiative modifier must be +4 (non-stacked), got {synced['initiative_modifier']}"
         )
 
     def test_half_proficiency_multiclass_bard2_champion7_level9(self):
@@ -304,13 +303,13 @@ class TestAdversarialHalfProficiencyNonStacking:
             half_prof_phys=True,
         )
 
-        # Athletics (STR 10 -> mod 0): 0 + (3//2) = 1, NOT 0 + 1 + 1 = 2
-        assert skills["Athletics"] == 1
-        # Acrobatics (DEX 14 -> mod 2): 2 + 1 = 3, NOT 2 + 1 + 1 = 4
-        assert skills["Acrobatics"] == 3
-        # Stealth (DEX 14 -> mod 2): 2 + 1 = 3, NOT 4
-        assert skills["Stealth"] == 3
-        # Arcana (INT 10 -> mod 0, mental skill): 0 + 1 = 1
+        # Athletics (STR 10 -> mod 0): 0 + ceil(3/2) = 2 (Remarkable Athlete rounds up, does NOT stack with Jack)
+        assert skills["Athletics"] == 2
+        # Acrobatics (DEX 14 -> mod 2): 2 + ceil(3/2) = 4, NOT 2 + 2 + 1 = 5
+        assert skills["Acrobatics"] == 4
+        # Stealth (DEX 14 -> mod 2): 2 + 2 = 4, NOT 5
+        assert skills["Stealth"] == 4
+        # Arcana (INT 10 -> mod 0, mental skill): 0 + floor(3/2) = 1 (Jack rounds down)
         assert skills["Arcana"] == 1
 
     def test_initiative_proficiency_overrides_half_proficiency_2024(self):
