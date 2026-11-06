@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
 import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
+import { hasInitiativeAdvantage } from '../../../core/rules';
 import {
   ForgeBadgeComponent,
   ForgeIconComponent,
@@ -41,6 +42,10 @@ export class CharacterOverviewCardComponent implements OnChanges {
   @Input() getModifierString!: (val: number) => string;
 
   imageLoadError = false;
+
+  get initiativeAdvantage(): boolean {
+    return hasInitiativeAdvantage(this.char);
+  }
 
   @Output() portrait = new EventEmitter<void>();
   @Output() hpChange = new EventEmitter<number>();

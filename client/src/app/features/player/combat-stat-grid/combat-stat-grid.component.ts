@@ -19,6 +19,7 @@ export class CombatStatGridComponent {
   @Input() speed = 0;
   @Input() passivePerception = 10;
   @Input() initiativeModifier?: number;
+  @Input() initiativeAdvantage = false;
 
   @Output() armorClassChange = new EventEmitter<number>();
   @Output() speedChange = new EventEmitter<number>();

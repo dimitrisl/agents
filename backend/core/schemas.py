@@ -374,6 +374,8 @@ class CharacterSchema(BaseModel):
     passive_perception: int = 10
     saving_throw_values: Dict[str, int] = Field(default_factory=dict)
     initiative_modifier: int = 0
+    initiative_advantage: bool = False
+    athletics_advantage: bool = False
     advancements: List[Advancement] = Field(default_factory=list)
     personality_traits: Optional[str] = ""
     ideals: Optional[str] = ""

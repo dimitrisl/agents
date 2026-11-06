@@ -161,6 +161,8 @@ export interface CharacterSchema {
   passive_perception?: number;
   saving_throw_values?: Record<string, number>;
   initiative_modifier?: number;
+  initiative_advantage?: boolean;
+  athletics_advantage?: boolean;
   advancements?: Advancement[];
   personality_traits?: string;
   ideals?: string;

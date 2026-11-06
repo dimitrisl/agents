@@ -58,17 +58,22 @@ export function hasJackOfAllTrades(char: CharacterSchema | null | undefined): bo
   return false;
 }
 
+export function is2024Edition(char: CharacterSchema | null | undefined): boolean {
+  return String(char?.dnd_edition || '').includes('2024');
+}
+
 export function hasRemarkableAthlete(char: CharacterSchema | null | undefined): boolean {
   if (!char) return false;
   if (char.features_traits?.some((f) => (f.name || '').toLowerCase().includes('remarkable athlete'))) {
     return true;
   }
+  const minLevel = is2024Edition(char) ? 3 : 7;
   if (
     char.classes?.some(
       (c) =>
         (c.class_name || '').toLowerCase() === 'fighter' &&
         (c.subclass || '').toLowerCase() === 'champion' &&
-        (c.level || 0) >= 7
+        (c.level || 0) >= minLevel
     )
   ) {
     return true;
@@ -76,10 +81,24 @@ export function hasRemarkableAthlete(char: CharacterSchema | null | undefined): 
   if (
     (char.char_class || '').toLowerCase() === 'fighter' &&
     (char.subclass || '').toLowerCase() === 'champion' &&
-    (char.char_level || 1) >= 7
+    (char.char_level || 1) >= minLevel
   ) {
     return true;
   }
+  return false;
+}
+
+export function hasInitiativeAdvantage(char: CharacterSchema | null | undefined): boolean {
+  if (!char) return false;
+  if (char.initiative_advantage) return true;
+  if (is2024Edition(char) && hasRemarkableAthlete(char)) return true;
+  return false;
+}
+
+export function hasAthleticsAdvantage(char: CharacterSchema | null | undefined): boolean {
+  if (!char) return false;
+  if (char.athletics_advantage) return true;
+  if (is2024Edition(char) && hasRemarkableAthlete(char)) return true;
   return false;
 }
 
@@ -108,7 +127,9 @@ export function skillModifier(
     const halfProfDown = Math.floor(profBonus / 2);
     const halfProfUp = Math.ceil(profBonus / 2);
     const isPhysical = skill.ability === 'STR' || skill.ability === 'DEX' || skill.ability === 'CON';
-    if (hasRemarkableAthlete(char) && isPhysical) {
+    // 2014 RAW: Remarkable Athlete adds +ceil(PB/2) to physical checks.
+    // 2024 RAW: Remarkable Athlete gives Advantage on Athletics (no flat numerical bonus).
+    if (!is2024Edition(char) && hasRemarkableAthlete(char) && isPhysical) {
       bonus = halfProfUp;
     } else if (hasJackOfAllTrades(char)) {
       bonus = halfProfDown;
