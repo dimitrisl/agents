@@ -5,6 +5,7 @@ export interface User {
   name?: string;
   has_completed_tutorial: boolean;
   is_admin?: boolean;
+  role?: string;
 }
 
 export interface AuthResponse {

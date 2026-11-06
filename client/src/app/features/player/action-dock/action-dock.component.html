@@ -55,6 +55,56 @@
       class="min-w-0 border-t border-hairline pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 lg:pl-8"
     >
       <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">
+        Actions
+      </h3>
+      <div class="flex flex-wrap gap-2">
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="dodge.emit()"
+          title="Dodge: Until the start of your next turn, attacks against you have disadvantage if you can see the attacker, and you make DEX saves with advantage."
+        >
+          🛡️ Dodge
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="dash.emit()"
+          title="Dash: Gain extra movement equal to your speed for the current turn."
+        >
+          🏃 Dash
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="disengage.emit()"
+          title="Disengage: Your movement doesn't provoke opportunity attacks for the rest of the turn."
+        >
+          💨 Disengage
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          (click)="help.emit()"
+          title="Help: Give an ally advantage on their next ability check or attack roll against a target within 5 feet."
+        >
+          🤝 Help
+        </button>
+      </div>
+    </section>
+
+    <section
+      class="min-w-0 border-t border-hairline pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 lg:pl-8"
+    >
+      <h3 class="mb-2 font-sans text-micro font-semibold uppercase text-muted">
         Tools & Utilities
       </h3>
       <div class="flex flex-wrap gap-2">

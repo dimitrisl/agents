@@ -46,8 +46,16 @@
     </div>
 
     @if (initiativeModifier !== undefined) {
-      <div class="col-span-3 flex flex-col items-center border-l border-t border-hairline px-2 py-3 text-center">
-        <p class="text-micro font-semibold uppercase text-muted">Initiative</p>
+      <div
+        class="col-span-3 flex cursor-pointer flex-col items-center border-l border-t border-hairline px-2 py-3 text-center transition-colors hover:bg-surface-hover"
+        (click)="rollInitiative.emit()"
+        role="button"
+        tabindex="0"
+        (keydown.enter)="rollInitiative.emit()"
+        (keydown.space)="$event.preventDefault(); rollInitiative.emit()"
+        title="Roll Initiative"
+      >
+        <p class="text-micro font-semibold uppercase text-muted">Initiative 🎲</p>
         <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ formatSigned(initiativeModifier) }}</p>
       </div>
     }

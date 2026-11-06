@@ -209,6 +209,7 @@ describe('PlayerComponent — DM roll requests', () => {
       http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
 
       opened$.next('Curse of Strahd');
+      http.expectOne((r) => r.url.includes('/encounter')).flush({ is_active: false });
       http.expectOne((r) => r.url.includes('/messages')).flush({
         campaign_name: 'Curse of Strahd',
         whispers: [],
@@ -228,6 +229,7 @@ describe('PlayerComponent — DM roll requests', () => {
       http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
 
       opened$.next('Curse of Strahd');
+      http.expectOne((r) => r.url.includes('/encounter')).flush({ is_active: false });
       http.expectOne((r) => r.url.includes('/messages')).flush({
         campaign_name: 'Curse of Strahd',
         whispers: [],
@@ -686,6 +688,27 @@ describe('PlayerComponent — DM roll requests', () => {
           timestamp: '12:00',
         },
       });
+    });
+
+    it('collapses hero management header in companion mode and toggles mobile actions drawer (#209)', () => {
+      component.companionModeOverride.set(true);
+      expect(component.isCompanionMode()).toBe(true);
+      expect(component.showMobileHeaderActions()).toBe(false);
+
+      component.showMobileHeaderActions.set(true);
+      expect(component.showMobileHeaderActions()).toBe(true);
+
+      component.showMobileHeaderActions.set(false);
+      expect(component.showMobileHeaderActions()).toBe(false);
+    });
+
+    it('switches to table tab in companion mode and manages whisper reply state (#211)', () => {
+      component.companionModeOverride.set(true);
+      component.selectMobileTab('table');
+      expect(component.mobileActiveTab()).toBe('table');
+
+      component.whisperReply = 'Secret message';
+      expect(component.whisperReply).toBe('Secret message');
     });
   });
 });

@@ -28,6 +28,11 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
             if c_prog and c_prog not in class_datas:
                 class_datas.append(c_prog)
 
+    if not class_datas and char_data.get("char_class"):
+        c_prog = repo.get_class_progression(char_data["char_class"], edition)
+        if c_prog and c_prog not in class_datas:
+            class_datas.append(c_prog)
+
     # 1. Base & Multiclass Proficiencies
     for cd in class_datas:
         if cd and "starting_proficiencies" in cd:
@@ -60,6 +65,55 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
         proficiencies.update(["light armor", "medium armor", "heavy armor", "shields"])
 
     return proficiencies
+
+
+def get_max_attunement_slots(char_data: Dict[str, Any]) -> int:
+    """Determines maximum attunement slots for a character according to 5e rules.
+    Base limit is 3. Artificers expand this via Magic Item Adept/Savant/Master:
+      - Level 10+: 4 slots
+      - Level 14+: 5 slots
+      - Level 18+: 6 slots
+    """
+    if not char_data or not isinstance(char_data, dict):
+        return 3
+
+    artificer_level = 0
+    classes = char_data.get("classes", []) or []
+    for cls in classes:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        if (c_dict.get("class_name") or "").lower() == "artificer":
+            try:
+                lvl = int(c_dict.get("level", 0) or 0)
+                artificer_level = max(artificer_level, lvl)
+            except (ValueError, TypeError):
+                pass
+
+    if artificer_level == 0 and (char_data.get("char_class") or "").lower() == "artificer":
+        try:
+            artificer_level = int(char_data.get("char_level", 1) or 1)
+        except (ValueError, TypeError):
+            artificer_level = 1
+
+    for f in char_data.get("features_traits", []) or []:
+        fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+        if "magic item master" in fname:
+            artificer_level = max(artificer_level, 18)
+        elif "magic item savant" in fname:
+            artificer_level = max(artificer_level, 14)
+        elif "magic item adept" in fname:
+            artificer_level = max(artificer_level, 10)
+
+    if artificer_level >= 18:
+        return 6
+    if artificer_level >= 14:
+        return 5
+    if artificer_level >= 10:
+        return 4
+    return 3
 
 
 def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, Any], list[str]]:
@@ -153,8 +207,9 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
                         logger.warning(issue_msg)
                         issues.append(issue_msg)
 
-    if attuned_items_count > 3:
-        issue_msg = f"Character is attuned to {attuned_items_count} magic items, exceeding the maximum attunement limit of 3."
+    max_attuned = get_max_attunement_slots(corrected_char)
+    if attuned_items_count > max_attuned:
+        issue_msg = f"Character is attuned to {attuned_items_count} magic items, exceeding the maximum attunement limit of {max_attuned}."
         logger.warning(issue_msg)
         issues.append(issue_msg)
 

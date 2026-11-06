@@ -47,6 +47,9 @@ export class InitiativePanelComponent {
   @Output() newCombatantAcChange = new EventEmitter<number>();
   @Output() importParty = new EventEmitter<void>();
   @Output() rollAll = new EventEmitter<void>();
+  @Output() rollMonstersOnly = new EventEmitter<void>();
+  @Output() initiativeChange = new EventEmitter<{ combatant: InitiativeCombatant; initiative: number }>();
+  @Output() acChange = new EventEmitter<{ combatant: InitiativeCombatant; ac: number }>();
   @Output() advanceTurn = new EventEmitter<void>();
   @Output() rewindTurn = new EventEmitter<void>();
   @Output() endCombat = new EventEmitter<void>();
@@ -170,6 +173,28 @@ export class InitiativePanelComponent {
 
     input.value = `${hp}`;
     this.hpChange.emit({ combatant, hp });
+  }
+
+  onInitInput(combatant: InitiativeCombatant, input: HTMLInputElement): void {
+    const raw = (input.value || '').trim();
+    const val = parseInt(raw, 10);
+    if (!isNaN(val)) {
+      combatant.initiative = val;
+      this.initiativeChange.emit({ combatant, initiative: val });
+    } else {
+      input.value = `${combatant.initiative}`;
+    }
+  }
+
+  onAcInput(combatant: InitiativeCombatant, input: HTMLInputElement): void {
+    const raw = (input.value || '').trim();
+    const val = parseInt(raw, 10);
+    if (!isNaN(val)) {
+      combatant.ac = val;
+      this.acChange.emit({ combatant, ac: val });
+    } else {
+      input.value = `${combatant.ac}`;
+    }
   }
 
   /** Players only, and only once they are down — monsters simply die. */

@@ -22,6 +22,7 @@ export class CombatStatGridComponent {
 
   @Output() armorClassChange = new EventEmitter<number>();
   @Output() speedChange = new EventEmitter<number>();
+  @Output() rollInitiative = new EventEmitter<void>();
 
   formatSigned(value: number): string {
     return value >= 0 ? `+${value}` : `${value}`;

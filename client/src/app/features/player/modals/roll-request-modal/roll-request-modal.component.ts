@@ -40,10 +40,12 @@ export class RollRequestModalComponent implements OnChanges {
   @Input() secondsRemaining = 0;
   /** How many more requests are waiting behind this one. */
   @Input() queuedCount = 0;
+  @Input() manualRoll: number | null = null;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() rollModeChange = new EventEmitter<RollMode>();
   @Output() situationalBonusChange = new EventEmitter<number>();
+  @Output() manualRollChange = new EventEmitter<number | null>();
   @Output() confirm = new EventEmitter<void>();
   @Output() dismiss = new EventEmitter<void>();
 

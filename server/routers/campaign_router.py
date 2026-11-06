@@ -78,9 +78,10 @@ class RollRequestSchema(BaseModel):
     char_filename: str
     char_name: str
     roll_type: str
-    stat: str
+    stat: str = ""
     reason: Optional[str] = ""
     is_secret: bool = False
+    manual_roll: Optional[int] = None
 
 
 class WhisperRequest(BaseModel):
@@ -205,6 +206,11 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
         )
         if stat in skills:
             return skills[stat]
+
+    if normalized == "initiative" or (stat or "").strip().lower() == "initiative":
+        if "initiative_modifier" in char and char["initiative_modifier"] is not None:
+            return int(char["initiative_modifier"])
+        return get_modifier(stats.get("DEX", 10))
 
     return get_modifier(stats.get(stat, 10))
 
@@ -405,7 +411,11 @@ async def update_party_member_state(
     if payload.hp_current is not None:
         hp_max = char.get("hp_max") or 0
         # A hero cannot be dropped below dead or healed past their own maximum.
-        updates["hp_current"] = max(0, min(hp_max, payload.hp_current))
+        old_hp = char.get("hp_current", 0) or 0
+        new_hp = max(0, min(hp_max, payload.hp_current))
+        updates["hp_current"] = new_hp
+        if old_hp == 0 and new_hp > 0:
+            updates["death_saves"] = {"successes": 0, "failures": 0}
 
     if payload.conditions is not None:
         # Deduplicated, order preserved: the tracker sends what is on screen and
@@ -438,6 +448,8 @@ async def update_party_member_state(
         "version": new_version,
         "source": "dm",
     }
+    if "death_saves" in updates:
+        state["death_saves"] = updates["death_saves"]
 
     from server.routers.websocket_router import manager
 
@@ -728,6 +740,41 @@ async def add_roll_request(
         "is_secret": req_in.is_secret,
         "created_at": now,
     }
+
+    if req_in.manual_roll is not None:
+        if req_in.manual_roll < 1 or req_in.manual_roll > 20:
+            raise HTTPException(status_code=422, detail="Manual roll must be between 1 and 20")
+        char = await _find_campaign_character(db, name, req_in.char_filename, req_in.char_name)
+        modifier = _sheet_modifier(char, req_in.roll_type, req_in.stat) if char else 0
+        raw = req_in.manual_roll
+        total = raw + modifier
+        new_req["result"] = {
+            "total": total,
+            "expression": f"1d20 ({raw}) {modifier:+d}",
+            "raw": raw,
+            "rolls": [raw],
+            "modifier": modifier,
+            "mode": "normal",
+            "situational_bonus": 0,
+        }
+        new_req["status"] = "resolved"
+        new_req["rolled_by"] = "dm"
+        new_req["resolved_at"] = now
+
+        db_req = new_req.copy()
+        await db["campaign_roll_requests"].insert_one(db_req)
+        await manager.broadcast(
+            name,
+            {"type": "roll_result", "payload": new_req},
+            dm_only=req_in.is_secret,
+            characters=None if req_in.is_secret else [req_in.char_name],
+        )
+
+        return {
+            "success": True,
+            "message": f"Manual roll recorded for {req_in.char_name}",
+            "request": new_req,
+        }
 
     if req_in.is_secret:
         # A secret roll is never asked of the player: it is thrown here, against

@@ -11,6 +11,7 @@ import {
 } from '../../../../core/models/character.model';
 import { DiceService } from '../../../../core/services/dice.service';
 import { abilityModifier } from '../../../../core/rules';
+import { hitDieSidesFor } from '../../../../core/data/class-combat.data';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
@@ -92,6 +93,14 @@ export class LevelUpModalComponent {
     return cls ? cls.level + 1 : 1;
   }
 
+  get levelUpHitDie(): number {
+    return hitDieSidesFor(this.levelUpClass);
+  }
+
+  get conModifier(): number {
+    return abilityModifier(this.character?.stats?.CON || 10);
+  }
+
   get planningClassLevel(): number {
     return this.planningLevel ?? this.targetClassLevel;
   }
@@ -167,13 +176,10 @@ export class LevelUpModalComponent {
 
   rollHp() {
     if (this.userChoices['hp_method'] === 'roll') return; // locked after first roll
-    if (!this.character || !this.character.hit_dice) return;
+    if (!this.character) return;
 
-    // Extract die size (e.g. '5d8' -> 8)
-    const match = this.character.hit_dice.match(/d(\d+)/);
-    if (!match) return;
-    const dieSize = parseInt(match[1], 10);
-    const conBonus = abilityModifier(this.character.stats?.CON || 10);
+    const dieSize = this.levelUpHitDie;
+    const conBonus = this.conModifier;
 
     const roll = this.dice.roll({ numDice: 1, sides: dieSize, modifier: conBonus });
     // D&D HP gain minimum is 1

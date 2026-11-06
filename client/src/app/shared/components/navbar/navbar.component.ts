@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { CharacterStateService } from '../../../core/services/character-state.service';
 import { ForgeButtonDirective, ForgeToggleComponent } from '../../ui';
@@ -17,7 +17,8 @@ export class NavbarComponent {
 
   constructor(
     public authService: AuthService,
-    public charState: CharacterStateService
+    public charState: CharacterStateService,
+    private router: Router
   ) {}
 
   is2024() {
@@ -30,5 +31,12 @@ export class NavbarComponent {
 
   isAdmin(): boolean {
     return !!this.authService.currentUser()?.is_admin;
+  }
+
+  get userRoleLabel(): string {
+    const user = this.authService.currentUser();
+    if (user?.is_admin) return 'Administrator';
+    if (user?.role === 'dm' || this.router.url.startsWith('/dm')) return 'Dungeon Master';
+    return 'Player';
   }
 }

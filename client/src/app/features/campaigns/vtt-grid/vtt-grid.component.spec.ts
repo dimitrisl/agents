@@ -277,4 +277,61 @@ describe('VttGridComponent', () => {
     component.onFogMouseMove(new MouseEvent('mousemove', { clientX: 75, clientY: 25 }));
     expect(renderSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('handles pointerdown, pointermove, and pointerup events with pointer capture', () => {
+    const mockCanvas = document.createElement('canvas');
+    component.fogCanvasRef = { nativeElement: mockCanvas };
+    const mockRect = { left: 0, top: 0, width: 500, height: 500 } as DOMRect;
+    jest.spyOn(mockCanvas, 'getBoundingClientRect').mockReturnValue(mockRect);
+
+    const setPointerCaptureSpy = jest.fn();
+    const releasePointerCaptureSpy = jest.fn();
+    (mockCanvas as any).setPointerCapture = setPointerCaptureSpy;
+    (mockCanvas as any).releasePointerCapture = releasePointerCaptureSpy;
+
+    wsService.vttState.set({
+      is_active: true,
+      grid: { width: 10, height: 10, cell_size: 50 },
+      tokens: [],
+      fog: { enabled: true, revealed: [] },
+    });
+
+    component.fogBrushMode = 'reveal';
+
+    const pointerDownEvent = {
+      pointerId: 42,
+      clientX: 25,
+      clientY: 25,
+      target: mockCanvas,
+      preventDefault: jest.fn(),
+    } as unknown as PointerEvent;
+
+    component.onFogPointerDown(pointerDownEvent);
+    expect(pointerDownEvent.preventDefault).toHaveBeenCalled();
+    expect(setPointerCaptureSpy).toHaveBeenCalledWith(42);
+    expect((component as any).isPaintingFog).toBe(true);
+
+    const renderSpy = jest.spyOn(component, 'renderFogCanvas');
+
+    const pointerMoveEvent = {
+      pointerId: 42,
+      clientX: 75,
+      clientY: 25,
+      target: mockCanvas,
+    } as unknown as PointerEvent;
+
+    component.onFogPointerMove(pointerMoveEvent);
+    expect(renderSpy).toHaveBeenCalled();
+
+    const pointerUpEvent = {
+      pointerId: 42,
+      clientX: 75,
+      clientY: 25,
+      target: mockCanvas,
+    } as unknown as PointerEvent;
+
+    component.onFogPointerUp(pointerUpEvent);
+    expect(releasePointerCaptureSpy).toHaveBeenCalledWith(42);
+    expect((component as any).isPaintingFog).toBe(false);
+  });
 });

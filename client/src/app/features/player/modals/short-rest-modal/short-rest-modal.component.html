@@ -1,5 +1,5 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" title="⛺ Short Rest & Hit Dice Healing">
-  <p class="mb-4 text-body-sm text-muted">Spend Hit Dice during a 1-hour rest to recover lost Hit Points.</p>
+  <p class="mb-4 text-body text-muted">Spend Hit Dice during a 1-hour rest to recover lost Hit Points.</p>
 
   <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
     <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">🎲 Hit Die Size</span><strong>d{{ selectedDieSize || classHitDieSize }}</strong></div>
@@ -27,7 +27,22 @@
     <input forgeInput id="short-rest-dice" type="number" [(ngModel)]="shortRestDiceToSpend" (ngModelChange)="shortRestDiceToSpendChange.emit($event)" [min]="hasPactSlots ? 0 : 1" [max]="selectedClassMaxDice" />
   </div>
 
-  <div *ngIf="availableHitDice === 0" class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body-sm text-red">
+  <div *ngIf="availableHitDice > 0" class="mt-4">
+    <label for="short-rest-manual-hp" class="mb-1 block text-label font-semibold text-muted">
+      Manual Physical HP Rolled (optional):
+    </label>
+    <input
+      forgeInput
+      id="short-rest-manual-hp"
+      type="number"
+      min="0"
+      [ngModel]="manualHp"
+      (ngModelChange)="manualHpChange.emit($event)"
+      placeholder="e.g. 14 (leave empty for digital roll)"
+    />
+  </div>
+
+  <div *ngIf="availableHitDice === 0" class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body text-red">
     ⚠️ You have no available Hit Dice remaining! Take a Long Rest to recover Hit Dice.
   </div>
 

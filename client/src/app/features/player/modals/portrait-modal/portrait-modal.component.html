@@ -26,7 +26,7 @@
 
   <!-- TAB 1: IMAGE URL -->
   <div *ngIf="activeTab === 'url'" class="space-y-4">
-    <p class="text-body-sm text-muted">
+    <p class="text-body text-muted">
       Paste a direct link to any image online (Imgur, Discord, Pinterest, Web link, etc.).
     </p>
 
@@ -93,7 +93,7 @@
 
   <!-- TAB 2: UPLOAD IMAGE -->
   <div *ngIf="activeTab === 'upload'" class="space-y-4">
-    <p class="text-body-sm text-muted">
+    <p class="text-body text-muted">
       Upload an image file directly from your computer or phone (PNG, JPG, WEBP, GIF up to 10MB).
     </p>
 
@@ -113,7 +113,7 @@
         (change)="onFileSelected($event)"
       />
       <div class="mb-2 text-3xl">📁</div>
-      <p class="text-body-sm font-semibold text-ink">
+      <p class="text-body font-semibold text-ink">
         {{ selectedFile ? selectedFile.name : 'Click to choose image or drag & drop here' }}
       </p>
       <p class="text-micro text-muted mt-0.5">
@@ -167,7 +167,7 @@
 
   <!-- TAB 3: AI GENERATOR -->
   <div *ngIf="activeTab === 'ai'" class="space-y-4">
-    <p class="text-body-sm text-muted">Generate a custom portrait using Pollinations.ai!</p>
+    <p class="text-body text-muted">Generate a custom portrait using Pollinations.ai!</p>
     <div>
       <label for="portrait-prompt" class="mb-1 block text-micro font-semibold uppercase tracking-wider text-muted">
         Visual Description Prompt (Optional):

@@ -33,10 +33,12 @@ export class ShortRestModalComponent {
   @Input() shortRestDiceToSpend = 1;
   @Input() hitDieOptions: HitDieOption[] = [];
   @Input() selectedDieSize = 8;
+  @Input() manualHp: number | null = null;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() shortRestDiceToSpendChange = new EventEmitter<number>();
   @Output() selectedDieSizeChange = new EventEmitter<number>();
+  @Output() manualHpChange = new EventEmitter<number | null>();
   @Output() executeShortRest = new EventEmitter<void>();
 
   get selectedClassMaxDice(): number {

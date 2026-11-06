@@ -164,10 +164,11 @@ import { environment } from '../../../../environments/environment';
           [height]="getCanvasHeight()"
           [style.width.px]="getCanvasWidth()"
           [style.height.px]="getCanvasHeight()"
-          (mousedown)="onFogMouseDown($event)"
-          (mousemove)="onFogMouseMove($event)"
-          (mouseup)="onFogMouseUp()"
-          (mouseleave)="onFogMouseUp()"
+          (pointerdown)="onFogPointerDown($event)"
+          (pointermove)="onFogPointerMove($event)"
+          (pointerup)="onFogPointerUp($event)"
+          (pointercancel)="onFogPointerUp($event)"
+          (pointerleave)="onFogPointerUp($event)"
         ></canvas>
 
         <!-- Tokens -->
@@ -257,7 +258,7 @@ import { environment } from '../../../../environments/environment';
         maxWidth="680px">
         <div class="flex flex-col gap-4 p-2">
           <!-- Error banner -->
-          <div *ngIf="sceneError" class="rounded-lg border border-red-500/40 bg-red-950/20 p-3 text-body-sm text-red-300">
+          <div *ngIf="sceneError" class="rounded-lg border border-red-500/40 bg-red-950/20 p-3 text-body text-red-300">
             ⚠️ {{ sceneError }}
           </div>
 
@@ -361,7 +362,7 @@ import { environment } from '../../../../environments/environment';
                       forgeInput
                       type="text"
                       [(ngModel)]="scene.name"
-                      class="w-full text-body-sm"
+                      class="w-full text-body"
                     />
                   </div>
                   <div>
@@ -371,7 +372,7 @@ import { environment } from '../../../../environments/environment';
                       rows="3"
                       [(ngModel)]="scene.dm_notes"
                       placeholder="DM notes, secrets, monster tactics, traps..."
-                      class="w-full text-body-sm font-sans"
+                      class="w-full text-body font-sans"
                     ></textarea>
                   </div>
                   <div class="flex justify-end gap-2 mt-1">
@@ -400,7 +401,7 @@ import { environment } from '../../../../environments/environment';
 
             <!-- Create New Scene Form -->
             <div class="border-t border-hairline pt-3 mt-1 flex flex-col gap-3">
-              <h4 class="font-semibold text-body-sm text-ink">Create New Scene</h4>
+              <h4 class="font-semibold text-title text-ink">Create New Scene</h4>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-label text-muted font-semibold mb-1">Scene Name</label>
@@ -484,7 +485,7 @@ import { environment } from '../../../../environments/environment';
               </div>
               <div
                 *ngFor="let h of sceneHistory"
-                class="flex items-center justify-between p-2.5 rounded-lg border border-hairline bg-surface/30 text-body-sm"
+                class="flex items-center justify-between p-2.5 rounded-lg border border-hairline bg-surface/30 text-body"
               >
                 <div class="flex flex-col gap-0.5">
                   <span class="font-semibold text-ink">🎬 {{ h.scene_name }}</span>
@@ -560,6 +561,7 @@ import { environment } from '../../../../environments/environment';
       pointer-events: auto;
       cursor: crosshair;
       z-index: 25;
+      touch-action: none;
     }
     .vtt-token {
       position: absolute;
@@ -1091,12 +1093,17 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     }
   }
 
-  onFogMouseDown(event: MouseEvent): void {
+  onFogPointerDown(event: PointerEvent | MouseEvent): void {
     if (this.role !== 'dm' || !this.fogBrushMode) return;
     event.preventDefault();
+    if ('pointerId' in event && (event.target as HTMLElement)?.setPointerCapture) {
+      try {
+        (event.target as HTMLElement).setPointerCapture(event.pointerId);
+      } catch (_) {}
+    }
     this.isPaintingFog = true;
 
-    // Cache canvas.getBoundingClientRect() on mousedown to avoid layout thrashing during mousemove
+    // Cache canvas.getBoundingClientRect() on pointerdown to avoid layout thrashing during pointermove
     const canvas = this.fogCanvasRef?.nativeElement;
     if (canvas) {
       this.cachedCanvasRect = canvas.getBoundingClientRect();
@@ -1118,7 +1125,7 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     }
   }
 
-  onFogMouseMove(event: MouseEvent): void {
+  onFogPointerMove(event: PointerEvent | MouseEvent): void {
     if (!this.isPaintingFog || !this.fogBrushMode) return;
     if (this.fogBrushMode === 'rect_reveal' || this.fogBrushMode === 'rect_hide') {
       const cell = this.getCellCoordsAtMouse(event);
@@ -1135,6 +1142,23 @@ export class VttGridComponent implements OnInit, AfterViewInit {
         this.renderFogCanvas();
       }
     }
+  }
+
+  onFogPointerUp(event?: PointerEvent | MouseEvent): void {
+    if (event && 'pointerId' in event && (event.target as HTMLElement)?.releasePointerCapture) {
+      try {
+        (event.target as HTMLElement).releasePointerCapture(event.pointerId);
+      } catch (_) {}
+    }
+    this.onFogMouseUp();
+  }
+
+  onFogMouseDown(event: MouseEvent): void {
+    this.onFogPointerDown(event);
+  }
+
+  onFogMouseMove(event: MouseEvent): void {
+    this.onFogPointerMove(event);
   }
 
   onFogMouseUp(): void {
