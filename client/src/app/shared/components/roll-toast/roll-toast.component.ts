@@ -64,6 +64,12 @@ export class RollToastComponent {
     this.onDiceSettled();
   }
 
+  onBackdropClick(event: MouseEvent, roll: any): void {
+    if (event.target === event.currentTarget && !roll?.message) {
+      this.rollService.dismiss();
+    }
+  }
+
   displayTitle(title: string): string {
     return title.replace(/^[\u{1F3B2}]\s*/u, '');
   }
