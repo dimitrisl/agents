@@ -13,9 +13,17 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
 ## 🏛️ Calculation Authority: `stats_service.py`
 [`backend/services/stats_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/stats_service.py) is the sole authority for all derived character statistics:
 
-1. **Armor Class (AC) Breakdown:**
+1. **Armor Class (AC) Breakdown & Equipment Invariants:**
    - Computes base AC from equipped armor (Light: Base + Full DEX; Medium: Base + min(DEX, 2); Heavy: Base, no DEX).
-   - Enforces the shield limit: maximum of **one shield** bonus (+2 AC) applies even if multiple shields are present in equipment.
+   - **Shield Detection & Classification Invariant (`_is_shield_item`):**
+     - Recognizes shields by checking catalog item type `shield` or canonical shield names (`"shield"`, `"wooden shield"`, `"steel shield"`, `"buckler"`, `"tower shield"`, or `r"^shield(\s*,\s*|\s+)\+[1-3]$"`).
+     - Explicitly excludes wondrous accessories, rings, amulets, and cloaks (e.g. *Brooch of Shielding*) to prevent granting an illegitimate +2 shield bonus or disabling Monk/Barbarian Unarmored Defense.
+     - Enforces the shield limit: maximum of **one shield** bonus (+2 AC) applies even if multiple shields are present in equipment.
+   - **Starting Equipment Auto-Equip Invariant (`DEF-CR-02`):**
+     - Starting equipment auto-equip executes **only** when `(is_initial_sync or has_unassigned_equipment)` (e.g., initial character creation where `base_stats` is unset or equipment has no `equipped` key).
+     - **Player Intent Preservation:** When an existing character explicitly unequips an item (`equipped: False`), future saves, rests, or syncs **never** re-equip it automatically.
+     - **Unarmored Defense Protection:** Monks (`char_class == "monk"`) are strictly excluded from armor and shield auto-equip to preserve their Unarmored Defense.
+   - **Attunement Slots Fallback:** Defaults dynamically to 3 attunement slots, scaling to 4, 5, or 6 if Artificer subclass/class features (*Magic Item Adept*, *Magic Item Savant*, *Magic Item Master*) are present.
    - Enforces Defense Fighting Style requirement: requires wearing armor (does not apply unarmored).
    - Returns both the total AC integer and an `ACBreakdown` object detailing exact mathematical components for player popovers.
 
@@ -46,9 +54,26 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
    - Skills support three distinct states: **Normal** (no bonus), **Proficient** (`+PB`), and **Expertise** (`+2 * PB`).
    - Toggling state recalculates the total skill check modifier dynamically: `AbilityMod + (PB * Multiplier)`.
    - Passive perception, passive insight, and passive investigation update automatically based on active proficiency/expertise:
-     - Passive Perception: `10 + WIS mod + (PB if proficient, 2*PB if expertise)`.
+     - Passive Perception: `10 + WIS mod + (PB if proficient, 2*PB if expertise, or half_prof if Jack of All Trades) + bonus_modifier`.
+     - Automatically integrates flat feat bonuses (e.g. **+5** from the *Observant* feat) and custom `passive_perception_bonus`.
      - Passive Insight: `10 + WIS mod + (PB if proficient, 2*PB if expertise)`.
      - Passive Investigation: `10 + INT mod + (PB if proficient, 2*PB if expertise)`.
+
+8. **2014 vs. 2024 Edition Split (Jack of All Trades & Remarkable Athlete):**
+   - **Jack of All Trades (Bard Level 2):**
+     - Both 2014 & 2024 RAW: Applies $\lfloor PB / 2 \rfloor$ to all ability checks lacking proficiency.
+   - **Remarkable Athlete (Champion Fighter Level 7):**
+     - **2014 RAW:** Applies $\lceil PB / 2 \rceil$ (half PB rounded up) to physical ability checks (Strength, Dexterity, Constitution) lacking proficiency. This applies to physical skill checks (Athletics, Acrobatics, Sleight of Hand, Stealth) and to Initiative (`DEX mod + ceil(PB / 2)`).
+     - **2024 RAW:** Grants **Advantage** on Initiative checks and Athletics checks, with no numeric modifier bonus.
+
+9. **Dynamic Advantage State Hygiene:**
+   - Evaluates boolean advantage flags (`initiative_advantage`, `athletics_advantage`) dynamically on each sync cycle from subclass features (e.g. 2024 Remarkable Athlete, Barbarian *Feral Instinct*) and equipped magic items (e.g. *Weapon of Warning*).
+   - Replaces sticky `setdefault(..., False)` logic to guarantee that changing subclasses or unequipping items cleanly clears active advantage flags.
+
+10. **Combat Action Incapacitation Guard (`DEF-CR-01`):**
+    - Checked via [`isIncapacitated(char)`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/core/rules/hit-points.ts#L22-L35).
+    - Pristine characters (`hp_current: undefined / None`) resolve effective HP via `currentHp(char)` to `char.hp_max > 0` and are **not** incapacitated.
+    - Characters are blocked from combat actions (Dodge, Dash, Disengage, Help) **only** when `currentHp(char) <= 0` or when affected by active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).
 
 ---
 
