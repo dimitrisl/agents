@@ -1,5 +1,9 @@
 @if (rollService.activeRoll(); as roll) {
-  <div class="roll-toast-overlay animated-fade" [class.message-only]="roll.message">
+  <div
+    class="roll-toast-overlay animated-fade"
+    [class.message-only]="roll.message"
+    (click)="onBackdropClick($event, roll)"
+  >
     <div
       class="roll-toast-card"
       [class.nat-20]="(roll.isNat20 || roll.isCritHit) && diceSettled()"

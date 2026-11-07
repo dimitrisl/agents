@@ -23,6 +23,11 @@
   /* Matches the card's own `100vw - 2rem` ceiling, so the narrowest phone still
      has room for it instead of pushing the page sideways. */
   padding: 1rem;
+  pointer-events: none;
+}
+
+.roll-toast-overlay.message-only .roll-toast-card {
+  pointer-events: auto;
 }
 
 @media (min-width: 640px) {
