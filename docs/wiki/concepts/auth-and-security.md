@@ -7,9 +7,10 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 
 ## 🔑 Authentication Architecture
 
-1. **Password Hashing:**
+1. **Password Hashing & Transparent Migration:**
    - Handled via `passlib.context.CryptContext` using `pbkdf2_sha256`.
    - Backward-compatible verification supports legacy SHA-256 hashes (`legacy_sha256_hash`).
+   - **Transparent Hash Upgrade:** When a user with a legacy SHA-256 hash successfully logs in (`/api/v1/auth/login`), the server automatically upgrades their password hash to PBKDF2 (`hash_password(form_data.password)`) and persists it in MongoDB, seamlessly eliminating legacy hashes over time without requiring password resets.
 
 2. **JWT Access Tokens:**
    - Signed using `HS256` with `settings.SECRET_KEY` (minimum 32-byte key required by RFC 7518).
@@ -54,6 +55,29 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 - User-supplied third-party API keys (e.g., personal Anthropic Claude keys stored via `/api/v1/settings`) are never persisted in plaintext in MongoDB.
 - Encrypted and decrypted via `cryptography.fernet.Fernet` using a 32-byte key derived from `SHA-256("user-api-keys:" + settings.SECRET_KEY)`.
 - API responses only return boolean/masked indicators (`has_anthropic_key`), never echoing the raw or encrypted key back to the client.
+
+### 6. SSRF Protection in PDF Export (`backend/utils/pdf_exporter.py`)
+- When fetching external character portraits for PDF sheet export, `requests.get` strictly enforces `allow_redirects=False` and a 5-second timeout.
+- This prevents Server-Side Request Forgery (SSRF) via open redirectors attempting to pivot to internal link-local or cloud metadata endpoints (`169.254.169.254`).
+
+### 7. Dice Expression Computational DoS Guard (`backend/services/dice_service.py`)
+- Protects the asynchronous event loop against CPU exhaustion from unbounded dice roll expressions (e.g. `100000d100000`):
+  - Limits dice count per term: `dice <= 100`.
+  - Limits total dice rolled across multi-die expressions: `total_dice <= 200`.
+  - Limits dice sides: `sides <= 1000`.
+  - Immediately raises `ValueError` before computing or generating random numbers if any limit is exceeded.
+
+### 8. Search Query Sanitization & ReDoS Prevention (`server/routers/admin_router.py`)
+- User search queries in admin endpoints are sanitized using `re.escape(search.strip())` before constructing regex patterns for MongoDB queries (`{"$regex": re.escape(search.strip()), "$options": "i"}`).
+- Protects against Regular Expression Denial of Service (ReDoS) and malformed regex injections.
+
+### 9. Aborted Upload File System Cleanup (`server/routers/character_router.py`, `server/routers/assets_router.py`)
+- File uploads for character portraits and campaign battle map assets wrap file stream writes in `try/except Exception` blocks.
+- If the upload stream is truncated, the client disconnects, or subsequent database operations fail, any partially written file on disk is immediately unlinked (`os.remove`), preventing disk exhaustion from abandoned artifacts.
+
+### 10. Whisper Privacy & MongoDB Query-Level Isolation (`server/routers/campaign_router.py`)
+- Retrieval of campaign messages and whispers via `/campaigns/{name}/messages` enforces privacy checks directly inside the MongoDB query filter (`$or: [{"whisper_to": None}, {"whisper_to": current_username}, {"sender": current_username}]`).
+- Pushing whisper authorization down to the database query prevents confidential whispers from leaking over the wire and eliminates post-query pagination starvation where players could receive empty message batches.
 
 ---
 

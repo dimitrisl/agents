@@ -49,7 +49,7 @@ Pure, deterministic TypeScript functions tested in isolation that mirror `backen
   - [`paste-go-modal`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/dm/modals/paste-go-modal): AI extraction of raw pasted text into structured `CampaignEntitySchema` records.
   - [`loot-distribute-modal`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/dm/modals/loot-distribute-modal): Assigns items/currency directly to party member sheets.
 - **Virtual Tabletop (`features/campaigns/vtt-grid/`):**
-  - Multi-scene battlemap canvas, grid calibration, drag-and-drop token movement, hidden DM tokens, and interactive Fog of War polygon/cell reveal synced over WebSockets.
+  - Multi-scene battlemap canvas, grid calibration, drag-and-drop token movement with canvas boundary clamping (`[0, (cols - 1) * cellSize]`), hidden DM tokens, and interactive Fog of War polygon/cell reveal synced over WebSockets.
 
 ---
 

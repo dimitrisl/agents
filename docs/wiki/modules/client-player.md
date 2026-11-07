@@ -42,6 +42,9 @@ The Player Companion module provides the responsive, real-time character sheet i
 
 ### 3. Combat Engine & Weapon Breakdown
 - **Component:** [`client/src/app/features/player/combat/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/combat/)
+- **Incapacitation Guard (`DEF-CR-01`):**
+  - Combat actions (Dodge, Dash, Disengage, Help) evaluate eligibility via [`isIncapacitated(char)`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/core/rules/hit-points.ts#L22-L35).
+  - Pristine characters (`hp_current: undefined / None`) resolve to `hp_max > 0` and are not locked out of action buttons. Action execution is blocked only when `currentHp(char) <= 0` or under active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).
 - **Weapon Damage Breakdown:**
   - Displays complete mathematical decomposition of attack and damage rolls:
     $$\text{Attack Bonus} = \text{Proficiency Bonus} + \text{Ability Mod} + \text{Magic Bonus} + \text{Fighting Style}$$
@@ -56,10 +59,12 @@ The Player Companion module provides the responsive, real-time character sheet i
 - **Proficiency Multipliers:**
   - Players can toggle between Normal ($\times 0$), Proficient ($\times 1$), and Expertise ($\times 2$) directly on their sheet.
 - **Dynamic Passive Scores:**
-  - Automatically recalculates Passive Perception ($10 + \text{WIS mod} + \text{Skill Bonus}$), Passive Insight, and Passive Investigation.
+  - Automatically recalculates Passive Perception ($10 + \text{WIS mod} + \text{Skill Bonus} + \text{Feat/Item Bonuses}$), Passive Insight, and Passive Investigation. Incorporates +5 flat bonus from the *Observant* feat.
 
 ---
 
 ## 📐 Invariants
 1. **Unidirectional Reactive State:** All character state modifications dispatch through `CharacterStateService.upsertCharacter()`, preserving optimism and triggering instantaneous Angular Signal broadcasts.
 2. **Deterministic Mechanics:** UI calculations for modifiers, proficiency bonuses, and DCs mirror the backend `stats_service.py` formulas precisely.
+3. **Optimistic Modal Snapshot Rollback (`saveEditModal`):** Submitting character edits preserves a snapshot of the prior `activeCharacter`. If the backend persistence fails (e.g. `HTTP 409 Conflict` or network loss), state rolls back to the snapshot, the draft is re-bound, and the modal reopens, preventing data loss.
+4. **Accessible Disclosure Controls:** Header drawer triggers and action buttons enforce ARIA disclosure semantics (`aria-expanded`, `aria-controls="mobile-hero-actions-drawer"`).
