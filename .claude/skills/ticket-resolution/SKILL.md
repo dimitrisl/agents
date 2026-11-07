@@ -41,4 +41,11 @@ Once the user approves the plan:
 1. Create a `task.md` artifact to track your progress as a checklist.
 2. Implement the changes strictly following the approved plan.
 3. If you discover a major blocker during execution, STOP, update the plan, and ask for review again.
-4. Verify your changes and update the `walkthrough.md` artifact to summarize the completed work.
+4. Verify your changes across test suites (`pytest tests/`, `npm test`, `simulate_session.py --mode both`, and pre-commit hooks).
+
+## Step 6 — Documentation & LLM Wiki Synchronization (`doc-sync`)
+After all tests pass and before concluding, requesting review, or opening a PR:
+1. You MUST activate the [`doc-sync`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/.claude/skills/doc-sync/SKILL.md) procedure.
+2. Audit whether the changes affect the LLM Wiki ([`docs/wiki/index.md`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/index.md)), architectural invariants, D&D rules, API contracts, or schemas.
+3. Update the relevant documentation pages (or provide an explicit justification in `walkthrough.md` if no documentation updates were required).
+4. Update the `walkthrough.md` artifact summarizing both the code implementation and the documentation audit outcomes.
