@@ -17,6 +17,7 @@ The `data/rules/` directory stores static JSON datasets for the **2014 5th Editi
 | `backgrounds_2014.json` / `backgrounds_2024.json` | 2014 / 2024 | Backgrounds with starting proficiencies, equipment, and 2024 Origin Feats. |
 | `races_2014.json` / `races_2024.json` | 2014 / 2024 | Species traits, speed, darkvision, and ancestral mechanics. |
 | `weapons.json` & `weapon_masteries_2024.json` | Both / 2024 | Weapon properties, damage dice, and 2024 mastery triggers (Topple, Nick, Vex, Slow, Sap, Push, Graze, Cleave). |
+| `monsters_2014.json` / `monsters_2024.json` | 2014 / 2024 | Official SRD monster statblocks (`srd_2014:<slug>`, `srd_2024:<slug>`) with ability scores, AC, HP, CR, traits, and structured attack/damage actions. |
 | `items.json`, `skills.json`, `languages.json` | Both | Standard items, skills with associated ability scores, and languages. |
 
 ---

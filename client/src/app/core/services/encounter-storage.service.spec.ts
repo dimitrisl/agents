@@ -160,4 +160,70 @@ describe('EncounterStorageService', () => {
     expect(service.load('')).toBeNull();
     expect(localStorage.length).toBe(0);
   });
+
+  it('round-trips structured monster data: stats, traits, actions, cr, size, xp', () => {
+    const fullCombatant: InitiativeCombatant = {
+      ...combatant(),
+      id: 'goblin_1',
+      name: 'Goblin',
+      cr: '1/4',
+      size: 'Small',
+      xp: 50,
+      stats: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+      traits: [{ name: 'Nimble Escape', description: 'Can Disengage as bonus action' }],
+      actions: [
+        {
+          name: 'Scimitar',
+          attack_bonus: 4,
+          damage_dice: '1d6+2',
+          damage_type: 'slashing',
+          description: 'Melee weapon attack',
+        },
+        {
+          name: 'Unarmed',
+          attack_bonus: 0,
+          damage_dice: '1',
+          damage_type: 'bludgeoning',
+        },
+      ],
+    };
+
+    const encounter: EncounterState = {
+      round: 2,
+      activeCombatantId: 'goblin_1',
+      combatants: [fullCombatant],
+    };
+
+    service.save(CAMPAIGN, encounter);
+    const loaded = service.load(CAMPAIGN);
+
+    expect(loaded).toEqual(encounter);
+    expect(loaded?.combatants[0].actions?.[1].attack_bonus).toBe(0);
+  });
+
+  it('discards encounter if monster stats are corrupt/non-numeric', () => {
+    const corruptCombatant = {
+      ...combatant(),
+      stats: { str: 'invalid', dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+    };
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ v: 1, state: { ...state(), combatants: [corruptCombatant] } })
+    );
+
+    expect(service.load(CAMPAIGN)).toBeNull();
+  });
+
+  it('discards encounter if monster actions contain an entry without a name', () => {
+    const corruptCombatant = {
+      ...combatant(),
+      actions: [{ description: 'Missing name action' }],
+    };
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ v: 1, state: { ...state(), combatants: [corruptCombatant] } })
+    );
+
+    expect(service.load(CAMPAIGN)).toBeNull();
+  });
 });

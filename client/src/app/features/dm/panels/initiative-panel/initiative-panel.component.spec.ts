@@ -1,9 +1,30 @@
 import { InitiativePanelComponent } from './initiative-panel.component';
 import { InitiativeCombatant } from '../../../../core/models/initiative.model';
+import { BestiaryMonster } from '../../../../core/models/bestiary.model';
 
 describe('InitiativePanelComponent', () => {
   let component: InitiativePanelComponent;
   let mockCombatant: InitiativeCombatant;
+
+  const mockMonster: BestiaryMonster = {
+    id: 'srd_goblin_2014',
+    name: 'Goblin',
+    edition: '2014',
+    origin: 'official',
+    is_public: true,
+    size: 'Small',
+    type: 'humanoid',
+    alignment: 'neutral evil',
+    cr: '1/4',
+    cr_numeric: 0.25,
+    ac: 15,
+    hp: 7,
+    max_hp: 7,
+    speed: '30 ft.',
+    stats: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+    traits: [],
+    actions: [],
+  };
 
   beforeEach(() => {
     component = new InitiativePanelComponent();
@@ -85,6 +106,48 @@ describe('InitiativePanelComponent', () => {
 
       expect(input.value).toBe('20');
       expect(emitted?.hp).toBe(20);
+    });
+  });
+
+  describe('Quick-Add Monster search and filtering', () => {
+    it('initializes with Official and Mine ON and Community OFF', () => {
+      expect(component.includeOfficial).toBe(true);
+      expect(component.includeMine).toBe(true);
+      expect(component.includeCommunity).toBe(false);
+      expect(component.isDropdownOpen).toBe(false);
+    });
+
+    it('toggles source chips properly', () => {
+      component.toggleSource('official');
+      expect(component.includeOfficial).toBe(false);
+
+      component.toggleSource('mine');
+      expect(component.includeMine).toBe(false);
+
+      component.toggleSource('community');
+      expect(component.includeCommunity).toBe(true);
+    });
+
+    it('emits addMonster on selectMonster and closes dropdown', () => {
+      let emittedMonster: BestiaryMonster | undefined;
+      component.addMonster.subscribe((m) => (emittedMonster = m));
+
+      component.isDropdownOpen = true;
+      component.quickAddQuery = 'Goblin';
+      component.quickAddResults = [mockMonster];
+
+      component.selectMonster(mockMonster);
+
+      expect(emittedMonster).toEqual(mockMonster);
+      expect(component.isDropdownOpen).toBe(false);
+      expect(component.quickAddQuery).toBe('');
+      expect(component.quickAddResults).toEqual([]);
+    });
+
+    it('closes dropdown on onEscape', () => {
+      component.isDropdownOpen = true;
+      component.onEscape();
+      expect(component.isDropdownOpen).toBe(false);
     });
   });
 });

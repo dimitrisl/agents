@@ -31,15 +31,131 @@
 
     <!-- Monster View -->
     <ng-template #monsterView>
-      <p class="text-body text-muted">
-        AC: <span class="font-bold text-ink">{{ selectedStatblockCombatant.ac }}</span> |
-        HP: <span class="font-bold text-ink">{{ selectedStatblockCombatant.max_hp }}</span> |
-        DEX: <span class="font-bold text-ink">{{ selectedStatblockCombatant.dex }}</span>
-      </p>
-
-      <div class="rounded-lg border border-hairline bg-panel p-4 text-body text-ink whitespace-pre-wrap">
-        {{ selectedStatblockCombatant.statblock || 'Standard D&D 5e monster statblock.' }}
+      <div class="flex flex-wrap items-center gap-3 text-body text-muted pb-2 border-b border-hairline">
+        @if (selectedStatblockCombatant.size || selectedStatblockCombatant.cr !== undefined) {
+          <span class="font-semibold text-ink">
+            {{ selectedStatblockCombatant.size || 'Medium' }}
+            @if (selectedStatblockCombatant.cr !== undefined && selectedStatblockCombatant.cr !== '') {
+              · CR {{ selectedStatblockCombatant.cr }}
+            }
+          </span>
+          <span class="text-hairline">|</span>
+        }
+        <span>AC: <strong class="text-ink">{{ selectedStatblockCombatant.ac }}</strong></span>
+        <span class="text-hairline">|</span>
+        <span>HP: <strong class="text-ink">{{ selectedStatblockCombatant.max_hp }}</strong></span>
+        <span class="text-hairline">|</span>
+        <span>DEX: <strong class="text-ink">{{ selectedStatblockCombatant.dex }}</strong></span>
       </div>
+
+      <!-- Structured Ability Scores Strip -->
+      @if (selectedStatblockCombatant.stats) {
+        <div class="grid grid-cols-6 gap-2 rounded-lg border border-hairline bg-panel p-3 text-center">
+          <div class="flex flex-col">
+            <span class="text-micro font-bold text-muted uppercase">STR</span>
+            <span class="text-label font-bold text-ink">{{ selectedStatblockCombatant.stats.str }}</span>
+            <span class="text-micro text-accent font-semibold">{{ abilityMod(selectedStatblockCombatant.stats.str) }}</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-micro font-bold text-muted uppercase">DEX</span>
+            <span class="text-label font-bold text-ink">{{ selectedStatblockCombatant.stats.dex }}</span>
+            <span class="text-micro text-accent font-semibold">{{ abilityMod(selectedStatblockCombatant.stats.dex) }}</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-micro font-bold text-muted uppercase">CON</span>
+            <span class="text-label font-bold text-ink">{{ selectedStatblockCombatant.stats.con }}</span>
+            <span class="text-micro text-accent font-semibold">{{ abilityMod(selectedStatblockCombatant.stats.con) }}</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-micro font-bold text-muted uppercase">INT</span>
+            <span class="text-label font-bold text-ink">{{ selectedStatblockCombatant.stats.int }}</span>
+            <span class="text-micro text-accent font-semibold">{{ abilityMod(selectedStatblockCombatant.stats.int) }}</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-micro font-bold text-muted uppercase">WIS</span>
+            <span class="text-label font-bold text-ink">{{ selectedStatblockCombatant.stats.wis }}</span>
+            <span class="text-micro text-accent font-semibold">{{ abilityMod(selectedStatblockCombatant.stats.wis) }}</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-micro font-bold text-muted uppercase">CHA</span>
+            <span class="text-label font-bold text-ink">{{ selectedStatblockCombatant.stats.cha }}</span>
+            <span class="text-micro text-accent font-semibold">{{ abilityMod(selectedStatblockCombatant.stats.cha) }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Structured Traits Section -->
+      @if (selectedStatblockCombatant.traits && selectedStatblockCombatant.traits.length > 0) {
+        <div class="space-y-2">
+          <h4 class="text-label font-bold uppercase tracking-wider text-accent border-b border-hairline pb-1">
+            Traits
+          </h4>
+          <div class="space-y-2">
+            @for (trait of selectedStatblockCombatant.traits; track trait.name) {
+              <div class="rounded-lg bg-surface/40 p-2.5 border border-hairline text-body">
+                <strong class="font-bold text-ink">{{ trait.name }}.</strong>
+                <span class="text-ink/90 ml-1">{{ trait.description || trait.desc }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Structured Actions Section with 1-Click Attack & Damage Rolls -->
+      @if (selectedStatblockCombatant.actions && selectedStatblockCombatant.actions.length > 0) {
+        <div class="space-y-3">
+          <h4 class="text-label font-bold uppercase tracking-wider text-accent border-b border-hairline pb-1">
+            Actions
+          </h4>
+          <div class="space-y-3">
+            @for (action of selectedStatblockCombatant.actions; track action.name) {
+              <div class="rounded-lg bg-surface/40 p-3 border border-hairline flex flex-col gap-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="font-bold text-ink text-body flex items-center gap-1.5">
+                    <span>⚔️</span> {{ action.name }}
+                  </span>
+                  <div class="flex items-center gap-2">
+                    @if (getActionAttackBonus(action) !== null) {
+                      <button
+                        forgeButton
+                        type="button"
+                        variant="secondary"
+                        tone="accent"
+                        size="sm"
+                        (click)="rollAttack(action)"
+                      >
+                        🎲 {{ formatBonus(getActionAttackBonus(action)!) }} to Hit
+                      </button>
+                    }
+                    @if (getActionDamageDice(action); as dmgDice) {
+                      <button
+                        forgeButton
+                        type="button"
+                        variant="secondary"
+                        tone="danger"
+                        size="sm"
+                        (click)="rollDamage(action)"
+                      >
+                        💥 {{ dmgDice }} Damage
+                      </button>
+                    }
+                  </div>
+                </div>
+                @if (action.description || action.desc) {
+                  <p class="text-body text-ink/90 text-sm leading-relaxed whitespace-pre-wrap">
+                    {{ action.description || action.desc }}
+                  </p>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <!-- Fallback: Unstructured Legacy Text Statblock -->
+        <div class="rounded-lg border border-hairline bg-panel p-4 text-body text-ink whitespace-pre-wrap">
+          {{ selectedStatblockCombatant.statblock || 'Standard D&D 5e monster statblock.' }}
+        </div>
+      }
     </ng-template>
 
     <div class="flex justify-end gap-2 mt-2">

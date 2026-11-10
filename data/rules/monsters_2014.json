@@ -1,0 +1,4821 @@
+[
+  {
+    "id": "srd_commoner_2014",
+    "name": "Commoner",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any alignment",
+    "cr": "0",
+    "cr_numeric": 0.0,
+    "ac": 10,
+    "hp": 4,
+    "max_hp": 4,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 10,
+      "dex": 10,
+      "con": 10,
+      "int": 10,
+      "wis": 10,
+      "cha": 10
+    },
+    "senses": "passive Perception 10",
+    "languages": "any one language (usually Common)",
+    "description": "Commoners include peasants, serfs, servants, pilgrims, merchants, and artisans.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Club",
+        "attack_bonus": 2,
+        "damage_dice": "1d4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_cat_2014",
+    "name": "Cat",
+    "size": "Tiny",
+    "type": "beast",
+    "alignment": "unaligned",
+    "cr": "0",
+    "cr_numeric": 0.0,
+    "ac": 12,
+    "hp": 2,
+    "max_hp": 2,
+    "speed": "40 ft., climb 30 ft.",
+    "stats": {
+      "str": 3,
+      "dex": 15,
+      "con": 10,
+      "int": 3,
+      "wis": 12,
+      "cha": 7
+    },
+    "senses": "passive Perception 13",
+    "languages": "",
+    "description": "A domestic feline known for agility, keen senses, and independent demeanor.",
+    "traits": [
+      {
+        "name": "Keen Smell",
+        "description": "The cat has advantage on Wisdom (Perception) checks that rely on smell."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Claws",
+        "attack_bonus": 0,
+        "damage_dice": "1",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +0 to hit, reach 5 ft., one target. Hit: 1 slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_giant_fire_beetle_2014",
+    "name": "Giant Fire Beetle",
+    "size": "Small",
+    "type": "beast",
+    "alignment": "unaligned",
+    "cr": "0",
+    "cr_numeric": 0.0,
+    "ac": 13,
+    "hp": 4,
+    "max_hp": 4,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 8,
+      "dex": 10,
+      "con": 12,
+      "int": 1,
+      "wis": 7,
+      "cha": 3
+    },
+    "senses": "blindsight 30 ft., passive Perception 8",
+    "languages": "",
+    "description": "A luminous beetle whose glowing glands produce light long after death.",
+    "traits": [
+      {
+        "name": "Illumination",
+        "description": "The beetle sheds bright light in a 10-foot radius and dim light for an additional 10 feet."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 1,
+        "damage_dice": "1d6-1",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +1 to hit, reach 5 ft., one target. Hit: 2 (1d6 - 1) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_bandit_2014",
+    "name": "Bandit",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any non-lawful alignment",
+    "cr": "1/8",
+    "cr_numeric": 0.125,
+    "ac": 12,
+    "hp": 11,
+    "max_hp": 11,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 11,
+      "dex": 12,
+      "con": 12,
+      "int": 10,
+      "wis": 10,
+      "cha": 10
+    },
+    "senses": "passive Perception 10",
+    "languages": "any one language (usually Common)",
+    "description": "Bandits rove in bands, plundering highways, caravans, and rural settlements.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Scimitar",
+        "attack_bonus": 3,
+        "damage_dice": "1d6+1",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage."
+      },
+      {
+        "name": "Light Crossbow",
+        "attack_bonus": 3,
+        "damage_dice": "1d8+1",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +3 to hit, range 80/320 ft., one target. Hit: 5 (1d8 + 1) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_cultist_2014",
+    "name": "Cultist",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any non-good alignment",
+    "cr": "1/8",
+    "cr_numeric": 0.125,
+    "ac": 12,
+    "hp": 9,
+    "max_hp": 9,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 11,
+      "dex": 12,
+      "con": 10,
+      "int": 10,
+      "wis": 11,
+      "cha": 10
+    },
+    "senses": "passive Perception 10",
+    "languages": "any one language (usually Common)",
+    "description": "Zealots who swear devotion to malevolent entities, forbidden deities, or demon lords.",
+    "traits": [
+      {
+        "name": "Dark Devotion",
+        "description": "The cultist has advantage on saving throws against being charmed or frightened."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Scimitar",
+        "attack_bonus": 3,
+        "damage_dice": "1d6+1",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_kobold_2014",
+    "name": "Kobold",
+    "size": "Small",
+    "type": "humanoid",
+    "alignment": "lawful evil",
+    "cr": "1/8",
+    "cr_numeric": 0.125,
+    "ac": 12,
+    "hp": 5,
+    "max_hp": 5,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 7,
+      "dex": 15,
+      "con": 9,
+      "int": 8,
+      "wis": 7,
+      "cha": 8
+    },
+    "senses": "darkvision 60 ft., passive Perception 8",
+    "languages": "Common, Draconic",
+    "description": "Craven reptilian humanoids that worship evil dragons and set deadly traps in subterranean warrens.",
+    "traits": [
+      {
+        "name": "Sunlight Sensitivity",
+        "description": "While in sunlight, disadvantage on attack rolls and Perception checks relying on sight."
+      },
+      {
+        "name": "Pack Tactics",
+        "description": "Advantage on attack rolls against a creature if at least one ally is within 5 ft. and not incapacitated."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Dagger",
+        "attack_bonus": 4,
+        "damage_dice": "1d4+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+      },
+      {
+        "name": "Sling",
+        "attack_bonus": 4,
+        "damage_dice": "1d4+2",
+        "damage_type": "bludgeoning",
+        "description": "Ranged Weapon Attack: +4 to hit, range 30/120 ft., one target. Hit: 4 (1d4 + 2) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_guard_2014",
+    "name": "Guard",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any alignment",
+    "cr": "1/8",
+    "cr_numeric": 0.125,
+    "ac": 16,
+    "hp": 11,
+    "max_hp": 11,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 13,
+      "dex": 12,
+      "con": 12,
+      "int": 10,
+      "wis": 11,
+      "cha": 10
+    },
+    "senses": "passive Perception 12",
+    "languages": "any one language (usually Common)",
+    "description": "Guards include city watchmen, outpost sentinels, gatekeepers, and noble bodyguards.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Spear",
+        "attack_bonus": 3,
+        "damage_dice": "1d6+1",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +3 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d6 + 1) piercing damage, or 5 (1d8 + 1) two-handed."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_goblin_2014",
+    "name": "Goblin",
+    "size": "Small",
+    "type": "humanoid",
+    "alignment": "neutral evil",
+    "cr": "1/4",
+    "cr_numeric": 0.25,
+    "ac": 15,
+    "hp": 7,
+    "max_hp": 7,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 8,
+      "dex": 14,
+      "con": 10,
+      "int": 10,
+      "wis": 8,
+      "cha": 8
+    },
+    "senses": "darkvision 60 ft., passive Perception 9",
+    "languages": "Common, Goblin",
+    "description": "Goblins are small, black-hearted humanoids that gather in tribal bands and dwell in dreary caves.",
+    "traits": [
+      {
+        "name": "Nimble Escape",
+        "description": "The goblin can take the Disengage or Hide action as a bonus action on each of its turns."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Scimitar",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage."
+      },
+      {
+        "name": "Shortbow",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_skeleton_2014",
+    "name": "Skeleton",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "lawful evil",
+    "cr": "1/4",
+    "cr_numeric": 0.25,
+    "ac": 13,
+    "hp": 13,
+    "max_hp": 13,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 10,
+      "dex": 14,
+      "con": 15,
+      "int": 6,
+      "wis": 8,
+      "cha": 5
+    },
+    "senses": "darkvision 60 ft., passive Perception 9",
+    "languages": "understands languages it knew in life but cannot speak",
+    "description": "Animated bones imbued with necromantic energy executing simple commands of their masters.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Shortsword",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      },
+      {
+        "name": "Shortbow",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_zombie_2014",
+    "name": "Zombie",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "neutral evil",
+    "cr": "1/4",
+    "cr_numeric": 0.25,
+    "ac": 8,
+    "hp": 22,
+    "max_hp": 22,
+    "speed": "20 ft.",
+    "stats": {
+      "str": 13,
+      "dex": 6,
+      "con": 16,
+      "int": 3,
+      "wis": 6,
+      "cha": 5
+    },
+    "senses": "darkvision 60 ft., passive Perception 8",
+    "languages": "understands languages it knew in life but cannot speak",
+    "description": "Mindless corpses animated by dark magic that shamble forward to crush the living.",
+    "traits": [
+      {
+        "name": "Undead Fortitude",
+        "description": "If damage reduces zombie to 0 HP, CON save (DC 5 + damage taken) unless radiant or critical. On success, drops to 1 HP instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Slam",
+        "attack_bonus": 3,
+        "damage_dice": "1d6+1",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_wolf_2014",
+    "name": "Wolf",
+    "size": "Medium",
+    "type": "beast",
+    "alignment": "unaligned",
+    "cr": "1/4",
+    "cr_numeric": 0.25,
+    "ac": 13,
+    "hp": 11,
+    "max_hp": 11,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 12,
+      "dex": 15,
+      "con": 12,
+      "int": 3,
+      "wis": 12,
+      "cha": 6
+    },
+    "senses": "passive Perception 13",
+    "languages": "",
+    "description": "Stealthy pack predators that coordinate attacks to knock quarry to the ground.",
+    "traits": [
+      {
+        "name": "Keen Hearing and Smell",
+        "description": "Advantage on Wisdom (Perception) checks relying on hearing or smell."
+      },
+      {
+        "name": "Pack Tactics",
+        "description": "Advantage on attack rolls against a creature if at least one ally is within 5 ft. and not incapacitated."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 4,
+        "damage_dice": "2d4+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. DC 11 STR save or knocked prone."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_orc_2014",
+    "name": "Orc",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "chaotic evil",
+    "cr": "1/2",
+    "cr_numeric": 0.5,
+    "ac": 13,
+    "hp": 15,
+    "max_hp": 15,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 16,
+      "dex": 12,
+      "con": 16,
+      "int": 7,
+      "wis": 11,
+      "cha": 10
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "Common, Orc",
+    "description": "Fierce warriors with prominent tusks and muscular physiques dedicated to Gruumsh.",
+    "traits": [
+      {
+        "name": "Aggressive",
+        "description": "As a bonus action, the orc can move up to its speed toward a hostile creature that it can see."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Greataxe",
+        "attack_bonus": 5,
+        "damage_dice": "1d12+3",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 9 (1d12 + 3) slashing damage."
+      },
+      {
+        "name": "Javelin",
+        "attack_bonus": 5,
+        "damage_dice": "1d6+3",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_hobgoblin_2014",
+    "name": "Hobgoblin",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "lawful evil",
+    "cr": "1/2",
+    "cr_numeric": 0.5,
+    "ac": 18,
+    "hp": 11,
+    "max_hp": 11,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 13,
+      "dex": 12,
+      "con": 12,
+      "int": 10,
+      "wis": 10,
+      "cha": 9
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "Common, Goblin",
+    "description": "Strictly disciplined martial soldiers belonging to organized goblinoid armies.",
+    "traits": [
+      {
+        "name": "Martial Advantage",
+        "description": "Once per turn, deal extra 7 (2d6) damage to a target hit if an ally is within 5 ft. and not incapacitated."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Longsword",
+        "attack_bonus": 3,
+        "damage_dice": "1d8+1",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 5 (1d8 + 1) slashing damage, or 6 (1d10 + 1) two-handed."
+      },
+      {
+        "name": "Longbow",
+        "attack_bonus": 3,
+        "damage_dice": "1d8+1",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +3 to hit, range 150/600 ft., one target. Hit: 5 (1d8 + 1) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_gnoll_2014",
+    "name": "Gnoll",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "chaotic evil",
+    "cr": "1/2",
+    "cr_numeric": 0.5,
+    "ac": 15,
+    "hp": 22,
+    "max_hp": 22,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 14,
+      "dex": 12,
+      "con": 11,
+      "int": 6,
+      "wis": 10,
+      "cha": 7
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "Gnoll",
+    "description": "Hyena-like nomads driven by Yeenoghu's insatiable hunger for carnage.",
+    "traits": [
+      {
+        "name": "Rampage",
+        "description": "When gnoll reduces a creature to 0 HP with melee attack, bonus action to move half speed and bite."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 4,
+        "damage_dice": "1d4+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+      },
+      {
+        "name": "Spear",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_shadow_2014",
+    "name": "Shadow",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "chaotic evil",
+    "cr": "1/2",
+    "cr_numeric": 0.5,
+    "ac": 12,
+    "hp": 16,
+    "max_hp": 16,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 6,
+      "dex": 14,
+      "con": 13,
+      "int": 6,
+      "wis": 10,
+      "cha": 8
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "",
+    "description": "Incorporeal shadow-dwellers that silently drain the vitality and strength of the living.",
+    "traits": [
+      {
+        "name": "Amorphous",
+        "description": "The shadow can move through a space as narrow as 1 inch wide without squeezing."
+      },
+      {
+        "name": "Shadow Stealth",
+        "description": "While in dim light or darkness, the shadow can take the Hide action as a bonus action."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Strength Drain",
+        "attack_bonus": 4,
+        "damage_dice": "2d6+2",
+        "damage_type": "necrotic",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 9 (2d6 + 2) necrotic damage, and target's Strength is reduced by 1d4."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_bugbear_2014",
+    "name": "Bugbear",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "chaotic evil",
+    "cr": "1",
+    "cr_numeric": 1.0,
+    "ac": 16,
+    "hp": 27,
+    "max_hp": 27,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 15,
+      "dex": 14,
+      "con": 13,
+      "int": 8,
+      "wis": 11,
+      "cha": 9
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "Common, Goblin",
+    "description": "Massive, hairy ambush predators of the goblinoid hierarchy.",
+    "traits": [
+      {
+        "name": "Brute",
+        "description": "A melee weapon deals one extra die of its damage when the bugbear hits with it."
+      },
+      {
+        "name": "Surprise Attack",
+        "description": "If the bugbear surprises a creature during the first round of combat, target takes extra 7 (2d6) damage."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Morningstar",
+        "attack_bonus": 4,
+        "damage_dice": "2d8+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 11 (2d8 + 2) piercing damage."
+      },
+      {
+        "name": "Javelin",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ghoul_2014",
+    "name": "Ghoul",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "chaotic evil",
+    "cr": "1",
+    "cr_numeric": 1.0,
+    "ac": 12,
+    "hp": 22,
+    "max_hp": 22,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 13,
+      "dex": 15,
+      "con": 10,
+      "int": 7,
+      "wis": 10,
+      "cha": 6
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "Common",
+    "description": "Foul scavengers that haunt graveyards and paralyze their victims with razor claws.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 2,
+        "damage_dice": "2d6+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +2 to hit, reach 5 ft., one creature. Hit: 9 (2d6 + 2) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 4,
+        "damage_dice": "2d4+2",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) slashing damage. DC 10 CON save or paralyzed 1 minute."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_specter_2014",
+    "name": "Specter",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "chaotic evil",
+    "cr": "1",
+    "cr_numeric": 1.0,
+    "ac": 12,
+    "hp": 22,
+    "max_hp": 22,
+    "speed": "0 ft., fly 50 ft. (hover)",
+    "stats": {
+      "str": 1,
+      "dex": 14,
+      "con": 11,
+      "int": 10,
+      "wis": 10,
+      "cha": 11
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "understands languages it knew in life but cannot speak",
+    "description": "A hate-fueled wraith of a mortal prevented from passing into the afterlife.",
+    "traits": [
+      {
+        "name": "Incorporeal Movement",
+        "description": "Move through creatures/objects as difficult terrain. Takes 5 (1d10) force damage if ending turn inside."
+      },
+      {
+        "name": "Sunlight Sensitivity",
+        "description": "Disadvantage on attack rolls and Perception checks relying on sight in sunlight."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Life Drain",
+        "attack_bonus": 4,
+        "damage_dice": "3d6",
+        "damage_type": "necrotic",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 10 (3d6) necrotic damage. DC 10 CON save or max HP reduced."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_brown_bear_2014",
+    "name": "Brown Bear",
+    "size": "Large",
+    "type": "beast",
+    "alignment": "unaligned",
+    "cr": "1",
+    "cr_numeric": 1.0,
+    "ac": 11,
+    "hp": 34,
+    "max_hp": 34,
+    "speed": "40 ft., climb 30 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 10,
+      "con": 16,
+      "int": 2,
+      "wis": 13,
+      "cha": 7
+    },
+    "senses": "passive Perception 13",
+    "languages": "",
+    "description": "A formidable apex predator that vigorously defends its territory with bite and claws.",
+    "traits": [
+      {
+        "name": "Keen Smell",
+        "description": "Advantage on Wisdom (Perception) checks that rely on smell."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The bear makes two attacks: one with its bite and one with its claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 5,
+        "damage_dice": "1d8+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 5,
+        "damage_dice": "2d6+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ogre_2014",
+    "name": "Ogre",
+    "size": "Large",
+    "type": "giant",
+    "alignment": "chaotic evil",
+    "cr": "2",
+    "cr_numeric": 2.0,
+    "ac": 11,
+    "hp": 59,
+    "max_hp": 59,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 8,
+      "con": 16,
+      "int": 5,
+      "wis": 7,
+      "cha": 7
+    },
+    "senses": "darkvision 60 ft., passive Perception 8",
+    "languages": "Common, Giant",
+    "description": "Lumbering brutes of monstrous strength and minimal intellect.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Greatclub",
+        "attack_bonus": 6,
+        "damage_dice": "2d8+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage."
+      },
+      {
+        "name": "Javelin",
+        "attack_bonus": 6,
+        "damage_dice": "2d6+4",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 11 (2d6 + 4) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ghast_2014",
+    "name": "Ghast",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "chaotic evil",
+    "cr": "2",
+    "cr_numeric": 2.0,
+    "ac": 13,
+    "hp": 36,
+    "max_hp": 36,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 16,
+      "dex": 17,
+      "con": 10,
+      "int": 11,
+      "wis": 10,
+      "cha": 8
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "Common",
+    "description": "More cunning and ferocious than ordinary ghouls, ghasts exude an unbearable stench.",
+    "traits": [
+      {
+        "name": "Stench",
+        "description": "Any creature within 5 ft. must make DC 10 CON save or be poisoned until next turn."
+      },
+      {
+        "name": "Turn Defiance",
+        "description": "Advantage on saving throws against effects that turn undead for ghast and nearby ghouls."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 3,
+        "damage_dice": "2d8+3",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 12 (2d8 + 3) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 5,
+        "damage_dice": "2d6+3",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage. DC 10 CON save or paralyzed 1 minute."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_gelatinous_cube_2014",
+    "name": "Gelatinous Cube",
+    "size": "Large",
+    "type": "ooze",
+    "alignment": "unaligned",
+    "cr": "2",
+    "cr_numeric": 2.0,
+    "ac": 6,
+    "hp": 84,
+    "max_hp": 84,
+    "speed": "15 ft.",
+    "stats": {
+      "str": 14,
+      "dex": 3,
+      "con": 20,
+      "int": 1,
+      "wis": 6,
+      "cha": 1
+    },
+    "senses": "blindsight 60 ft. (blind beyond), passive Perception 8",
+    "languages": "",
+    "description": "A transparent cube of acidic slime that scours dungeon corridors of all organic matter.",
+    "traits": [
+      {
+        "name": "Transparent",
+        "description": "Takes a DC 15 Perception check to spot a motionless cube."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Pseudopod",
+        "attack_bonus": 4,
+        "damage_dice": "3d6",
+        "damage_type": "acid",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 10 (3d6) acid damage."
+      },
+      {
+        "name": "Engulf",
+        "attack_bonus": null,
+        "damage_dice": "3d6",
+        "damage_type": "acid",
+        "description": "Enters creature's space. DC 12 DEX save or takes 10 (3d6) acid damage and is engulfed."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_bandit_captain_2014",
+    "name": "Bandit Captain",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any non-lawful alignment",
+    "cr": "2",
+    "cr_numeric": 2.0,
+    "ac": 15,
+    "hp": 65,
+    "max_hp": 65,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 15,
+      "dex": 16,
+      "con": 14,
+      "int": 14,
+      "wis": 11,
+      "cha": 14
+    },
+    "senses": "passive Perception 10",
+    "languages": "any two languages",
+    "description": "Cunning brigand leader capable of rapid dual-weapon strikes.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The captain makes three melee attacks: two with scimitar and one with dagger."
+      },
+      {
+        "name": "Scimitar",
+        "attack_bonus": 5,
+        "damage_dice": "1d6+3",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage."
+      },
+      {
+        "name": "Dagger",
+        "attack_bonus": 5,
+        "damage_dice": "1d4+3",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 5 (1d4 + 3) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_berserker_2014",
+    "name": "Berserker",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any chaotic alignment",
+    "cr": "2",
+    "cr_numeric": 2.0,
+    "ac": 13,
+    "hp": 67,
+    "max_hp": 67,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 16,
+      "dex": 12,
+      "con": 17,
+      "int": 9,
+      "wis": 11,
+      "cha": 9
+    },
+    "senses": "passive Perception 10",
+    "languages": "any one language",
+    "description": "Fierce combatant who enters a reckless battle frenzy.",
+    "traits": [
+      {
+        "name": "Reckless",
+        "description": "Gain advantage on melee attacks; attacks against berserker have advantage until next turn."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Greataxe",
+        "attack_bonus": 5,
+        "damage_dice": "1d12+3",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 9 (1d12 + 3) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_owlbear_2014",
+    "name": "Owlbear",
+    "size": "Large",
+    "type": "monstrosity",
+    "alignment": "unaligned",
+    "cr": "3",
+    "cr_numeric": 3.0,
+    "ac": 13,
+    "hp": 59,
+    "max_hp": 59,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 20,
+      "dex": 12,
+      "con": 17,
+      "int": 3,
+      "wis": 12,
+      "cha": 7
+    },
+    "senses": "darkvision 60 ft., passive Perception 13",
+    "languages": "",
+    "description": "A terrifying predator with the beak of an owl and the massive muscular frame of a bear.",
+    "traits": [
+      {
+        "name": "Keen Sight and Smell",
+        "description": "Advantage on Wisdom (Perception) checks that rely on sight or smell."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The owlbear makes two attacks: one with beak and one with claws."
+      },
+      {
+        "name": "Beak",
+        "attack_bonus": 7,
+        "damage_dice": "1d10+5",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 10 (1d10 + 5) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 7,
+        "damage_dice": "2d8+5",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_wight_2014",
+    "name": "Wight",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "neutral evil",
+    "cr": "3",
+    "cr_numeric": 3.0,
+    "ac": 14,
+    "hp": 45,
+    "max_hp": 45,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 15,
+      "dex": 14,
+      "con": 16,
+      "int": 10,
+      "wis": 13,
+      "cha": 15
+    },
+    "senses": "darkvision 60 ft., passive Perception 13",
+    "languages": "languages it knew in life",
+    "description": "Undead warrior consumed by malice and an insatiable desire to drain life.",
+    "traits": [
+      {
+        "name": "Sunlight Sensitivity",
+        "description": "Disadvantage on attack rolls and Perception checks relying on sight in sunlight."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The wight makes two longsword attacks. It can use its Life Drain in place of one longsword attack."
+      },
+      {
+        "name": "Life Drain",
+        "attack_bonus": 4,
+        "damage_dice": "1d6+2",
+        "damage_type": "necrotic",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 5 (1d6 + 2) necrotic damage. DC 13 CON save or max HP reduced."
+      },
+      {
+        "name": "Longsword",
+        "attack_bonus": 4,
+        "damage_dice": "1d8+2",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) slashing damage, or 7 (1d10 + 2) two-handed."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_knight_2014",
+    "name": "Knight",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any alignment",
+    "cr": "3",
+    "cr_numeric": 3.0,
+    "ac": 18,
+    "hp": 52,
+    "max_hp": 52,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 16,
+      "dex": 11,
+      "con": 14,
+      "int": 11,
+      "wis": 11,
+      "cha": 15
+    },
+    "senses": "passive Perception 10",
+    "languages": "any one language",
+    "description": "Armored martial combatant sworn to a code of chivalry or lordly allegiance.",
+    "traits": [
+      {
+        "name": "Brave",
+        "description": "Advantage on saving throws against being frightened."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The knight makes two melee attacks."
+      },
+      {
+        "name": "Greatsword",
+        "attack_bonus": 5,
+        "damage_dice": "2d6+3",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage."
+      },
+      {
+        "name": "Heavy Crossbow",
+        "attack_bonus": 2,
+        "damage_dice": "1d10",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +2 to hit, range 100/400 ft., one target. Hit: 5 (1d10) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_mummy_2014",
+    "name": "Mummy",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "lawful evil",
+    "cr": "3",
+    "cr_numeric": 3.0,
+    "ac": 11,
+    "hp": 58,
+    "max_hp": 58,
+    "speed": "20 ft.",
+    "stats": {
+      "str": 16,
+      "dex": 8,
+      "con": 15,
+      "int": 6,
+      "wis": 10,
+      "cha": 12
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "languages it knew in life",
+    "description": "Preserved corpses imbued with necromantic curses to guard tombs for eternity.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The mummy uses Dreadful Glare and makes one attack with rotting fist."
+      },
+      {
+        "name": "Rotting Fist",
+        "attack_bonus": 5,
+        "damage_dice": "2d6+3",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) bludgeoning plus 10 (3d6) necrotic. DC 12 CON save or mummy rot."
+      },
+      {
+        "name": "Dreadful Glare",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Target within 60 ft. must succeed on DC 11 WIS save or become frightened until next turn."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_manticore_2014",
+    "name": "Manticore",
+    "size": "Large",
+    "type": "monstrosity",
+    "alignment": "lawful evil",
+    "cr": "3",
+    "cr_numeric": 3.0,
+    "ac": 14,
+    "hp": 68,
+    "max_hp": 68,
+    "speed": "30 ft., fly 50 ft.",
+    "stats": {
+      "str": 17,
+      "dex": 16,
+      "con": 17,
+      "int": 7,
+      "wis": 12,
+      "cha": 8
+    },
+    "senses": "darkvision 60 ft., passive Perception 11",
+    "languages": "Common",
+    "description": "A monstrous hybrid with a lion's body, bat wings, a human-like visage, and a lethal spiky tail.",
+    "traits": [
+      {
+        "name": "Tail Spike Regrowth",
+        "description": "Has 24 tail spikes that regrow on long rest."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one bite and two claws, or three tail spikes."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 5,
+        "damage_dice": "1d8+3",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 5,
+        "damage_dice": "1d6+3",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage."
+      },
+      {
+        "name": "Tail Spike",
+        "attack_bonus": 5,
+        "damage_dice": "1d8+3",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +5 to hit, range 100/200 ft., one target. Hit: 7 (1d8 + 3) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_chuul_2014",
+    "name": "Chuul",
+    "size": "Large",
+    "type": "aberration",
+    "alignment": "chaotic evil",
+    "cr": "4",
+    "cr_numeric": 4.0,
+    "ac": 16,
+    "hp": 93,
+    "max_hp": 93,
+    "speed": "30 ft., swim 30 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 10,
+      "con": 16,
+      "int": 5,
+      "wis": 11,
+      "cha": 5
+    },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "understands Deep Speech but cannot speak",
+    "description": "Crustacean aberrations created by aboleths to serve as relentless aquatic sentinels.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      },
+      {
+        "name": "Sense Magic",
+        "description": "Senses magic within 120 ft. at will."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes two pincer attacks. If grappling, can use tentacles once."
+      },
+      {
+        "name": "Pincer",
+        "attack_bonus": 6,
+        "damage_dice": "2d6+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage and target is grappled."
+      },
+      {
+        "name": "Tentacles",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": "poison",
+        "description": "One grappled creature must succeed on DC 13 CON save or be poisoned and paralyzed 1 minute."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ettin_2014",
+    "name": "Ettin",
+    "size": "Large",
+    "type": "giant",
+    "alignment": "chaotic evil",
+    "cr": "4",
+    "cr_numeric": 4.0,
+    "ac": 12,
+    "hp": 85,
+    "max_hp": 85,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 21,
+      "dex": 8,
+      "con": 17,
+      "int": 6,
+      "wis": 10,
+      "cha": 8
+    },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "Giant, Orc",
+    "description": "A hulking two-headed giant whose heads squabble incessantly.",
+    "traits": [
+      {
+        "name": "Two Heads",
+        "description": "Advantage on Perception checks and saving throws against being blinded, charmed, deafened, frightened, stunned, or unconscious."
+      },
+      {
+        "name": "Wakeful",
+        "description": "When one head sleeps, the other head is awake."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes two attacks: one with battleaxe and one with morningstar."
+      },
+      {
+        "name": "Battleaxe",
+        "attack_bonus": 7,
+        "damage_dice": "2d8+5",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) slashing damage."
+      },
+      {
+        "name": "Morningstar",
+        "attack_bonus": 7,
+        "damage_dice": "2d8+5",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ghost_2014",
+    "name": "Ghost",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "any alignment",
+    "cr": "4",
+    "cr_numeric": 4.0,
+    "ac": 11,
+    "hp": 45,
+    "max_hp": 45,
+    "speed": "0 ft., fly 40 ft. (hover)",
+    "stats": {
+      "str": 7,
+      "dex": 13,
+      "con": 10,
+      "int": 10,
+      "wis": 12,
+      "cha": 17
+    },
+    "senses": "darkvision 60 ft., passive Perception 11",
+    "languages": "any languages it knew in life",
+    "description": "Restless soul of a deceased mortal bound to haunt the realm of the living.",
+    "traits": [
+      {
+        "name": "Incorporeal Movement",
+        "description": "Move through creatures/objects as difficult terrain. Takes 5 (1d10) force damage if ending turn inside object."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Withering Touch",
+        "attack_bonus": 5,
+        "damage_dice": "4d6+3",
+        "damage_type": "necrotic",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 17 (4d6 + 3) necrotic damage."
+      },
+      {
+        "name": "Horrifying Visage",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Non-undead within 60 ft. must succeed on DC 13 WIS save or be frightened for 1 minute and age 1d4 x 10 years."
+      },
+      {
+        "name": "Possession",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "One humanoid within 5 ft. must make DC 13 Charisma save or be possessed."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_red_dragon_wyrmling_2014",
+    "name": "Red Dragon Wyrmling",
+    "size": "Medium",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "4",
+    "cr_numeric": 4.0,
+    "ac": 17,
+    "hp": 75,
+    "max_hp": 75,
+    "speed": "30 ft., climb 30 ft., fly 60 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 10,
+      "con": 17,
+      "int": 12,
+      "wis": 11,
+      "cha": 15
+    },
+    "senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+    "languages": "Draconic",
+    "description": "A ferocious young dragon already displaying covetous greed and explosive temper.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 6,
+        "damage_dice": "1d10+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 9 (1d10 + 4) piercing plus 3 (1d6) fire."
+      },
+      {
+        "name": "Fire Breath",
+        "attack_bonus": null,
+        "damage_dice": "7d6",
+        "damage_type": "fire",
+        "description": "Exhales fire in 15-foot cone. DC 13 DEX save, taking 24 (7d6) fire damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_troll_2014",
+    "name": "Troll",
+    "size": "Large",
+    "type": "giant",
+    "alignment": "chaotic evil",
+    "cr": "5",
+    "cr_numeric": 5.0,
+    "ac": 15,
+    "hp": 84,
+    "max_hp": 84,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 13,
+      "con": 20,
+      "int": 7,
+      "wis": 9,
+      "cha": 7
+    },
+    "senses": "darkvision 60 ft., passive Perception 12",
+    "languages": "Giant",
+    "description": "Fearsome carnivore famed for its supernatural regenerative vitality, vulnerable only to acid and flame.",
+    "traits": [
+      {
+        "name": "Keen Smell",
+        "description": "Advantage on Wisdom (Perception) checks relying on smell."
+      },
+      {
+        "name": "Regeneration",
+        "description": "Regains 10 HP at start of turn unless taking acid or fire damage."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one with bite and two with claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 7,
+        "damage_dice": "1d6+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_gladiator_2014",
+    "name": "Gladiator",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any alignment",
+    "cr": "5",
+    "cr_numeric": 5.0,
+    "ac": 16,
+    "hp": 112,
+    "max_hp": 112,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 15,
+      "con": 16,
+      "int": 10,
+      "wis": 12,
+      "cha": 15
+    },
+    "senses": "passive Perception 11",
+    "languages": "any one language",
+    "description": "Seasoned arena warrior trained to fight for spectacle and survival.",
+    "traits": [
+      {
+        "name": "Brave",
+        "description": "Advantage on saving throws against being frightened."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three melee attacks or two ranged attacks."
+      },
+      {
+        "name": "Spear",
+        "attack_bonus": 7,
+        "damage_dice": "1d6+4",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +7 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 7 (1d6 + 4) piercing damage."
+      },
+      {
+        "name": "Shield Bash",
+        "attack_bonus": 7,
+        "damage_dice": "1d4+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one creature. Hit: 9 (2d4 + 4) bludgeoning damage and DC 15 STR save or knocked prone."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_wraith_2014",
+    "name": "Wraith",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "neutral evil",
+    "cr": "5",
+    "cr_numeric": 5.0,
+    "ac": 13,
+    "hp": 67,
+    "max_hp": 67,
+    "speed": "0 ft., fly 60 ft. (hover)",
+    "stats": {
+      "str": 6,
+      "dex": 16,
+      "con": 16,
+      "int": 12,
+      "wis": 14,
+      "cha": 15
+    },
+    "senses": "darkvision 60 ft., passive Perception 12",
+    "languages": "languages it knew in life",
+    "description": "Malicious spirit of spite and malice that hates all living things.",
+    "traits": [
+      {
+        "name": "Incorporeal Movement",
+        "description": "Move through creatures/objects as difficult terrain. Takes 5 (1d10) force damage if ending turn inside."
+      },
+      {
+        "name": "Sunlight Sensitivity",
+        "description": "Disadvantage on attack rolls and Perception checks relying on sight in sunlight."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Life Drain",
+        "attack_bonus": 6,
+        "damage_dice": "4d8+3",
+        "damage_type": "necrotic",
+        "description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one creature. Hit: 21 (4d8 + 3) necrotic damage. DC 14 CON save or max HP reduced."
+      },
+      {
+        "name": "Create Specter",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Targets a humanoid corpse dead <= 1 min. Spirit rises as specter under wraith control."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_hill_giant_2014",
+    "name": "Hill Giant",
+    "size": "Huge",
+    "type": "giant",
+    "alignment": "chaotic evil",
+    "cr": "5",
+    "cr_numeric": 5.0,
+    "ac": 13,
+    "hp": 105,
+    "max_hp": 105,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 21,
+      "dex": 8,
+      "con": 19,
+      "int": 5,
+      "wis": 9,
+      "cha": 6
+    },
+    "senses": "passive Perception 12",
+    "languages": "Giant",
+    "description": "Gluttonous brutes at the bottom of the giant ordning wielding crude tree trunks.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The giant makes two greatclub attacks."
+      },
+      {
+        "name": "Greatclub",
+        "attack_bonus": 8,
+        "damage_dice": "3d8+5",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +8 to hit, reach 10 ft., one target. Hit: 18 (3d8 + 5) bludgeoning damage."
+      },
+      {
+        "name": "Rock",
+        "attack_bonus": 8,
+        "damage_dice": "3d10+5",
+        "damage_type": "bludgeoning",
+        "description": "Ranged Weapon Attack: +8 to hit, range 60/240 ft., one target. Hit: 21 (3d10 + 5) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_flesh_golem_2014",
+    "name": "Flesh Golem",
+    "size": "Medium",
+    "type": "construct",
+    "alignment": "neutral",
+    "cr": "5",
+    "cr_numeric": 5.0,
+    "ac": 9,
+    "hp": 93,
+    "max_hp": 93,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 9,
+      "con": 18,
+      "int": 6,
+      "wis": 10,
+      "cha": 5
+    },
+    "senses": "darkvision 60 ft., passive Perception 10",
+    "languages": "understands languages of creator",
+    "description": "A macabre automaton sewn together from stolen humanoid corpses and animated through lightning.",
+    "traits": [
+      {
+        "name": "Immutable Form",
+        "description": "The golem is immune to any spell or effect that would alter its form."
+      },
+      {
+        "name": "Lightning Absorption",
+        "description": "Takes no lightning damage and instead regains HP equal to damage dealt."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The golem makes two slam attacks."
+      },
+      {
+        "name": "Slam",
+        "attack_bonus": 7,
+        "damage_dice": "2d8+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_mage_2014",
+    "name": "Mage",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any alignment",
+    "cr": "6",
+    "cr_numeric": 6.0,
+    "ac": 12,
+    "hp": 40,
+    "max_hp": 40,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 9,
+      "dex": 14,
+      "con": 11,
+      "int": 17,
+      "wis": 12,
+      "cha": 11
+    },
+    "senses": "passive Perception 11",
+    "languages": "any four languages",
+    "description": "Accomplished spellcaster who has spent years in rigorous arcane study.",
+    "traits": [
+      {
+        "name": "Spellcasting",
+        "description": "9th-level spellcaster (DC 14, +6 to hit). Spells: Fireball, Cone of Cold, Fly, Misty Step, Shield, Counterspell."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Dagger",
+        "attack_bonus": 5,
+        "damage_dice": "1d4+2",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_medusa_2014",
+    "name": "Medusa",
+    "size": "Medium",
+    "type": "monstrosity",
+    "alignment": "lawful evil",
+    "cr": "6",
+    "cr_numeric": 6.0,
+    "ac": 15,
+    "hp": 127,
+    "max_hp": 127,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 10,
+      "dex": 15,
+      "con": 16,
+      "int": 12,
+      "wis": 13,
+      "cha": 15
+    },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "Common",
+    "description": "Serpentine monstrosity whose gaze turns living creatures to stone.",
+    "traits": [
+      {
+        "name": "Petrifying Gaze",
+        "description": "Creature starting turn within 30 ft. must make DC 14 CON save. Fail by 5 or more petrifies instantly."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: three with snake hair, or two with shortsword and one snake hair, or two with longbow."
+      },
+      {
+        "name": "Snake Hair",
+        "attack_bonus": 5,
+        "damage_dice": "1d4+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 4 (1d4 + 2) piercing damage plus 14 (4d6) poison damage."
+      },
+      {
+        "name": "Shortsword",
+        "attack_bonus": 5,
+        "damage_dice": "1d6+2",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      },
+      {
+        "name": "Longbow",
+        "attack_bonus": 5,
+        "damage_dice": "1d8+2",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +5 to hit, range 150/600 ft., one target. Hit: 6 (1d8 + 2) piercing damage plus 7 (2d6) poison damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_wyvern_2014",
+    "name": "Wyvern",
+    "size": "Large",
+    "type": "dragon",
+    "alignment": "unaligned",
+    "cr": "6",
+    "cr_numeric": 6.0,
+    "ac": 13,
+    "hp": 110,
+    "max_hp": 110,
+    "speed": "20 ft., fly 80 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 10,
+      "con": 16,
+      "int": 5,
+      "wis": 12,
+      "cha": 6
+    },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "",
+    "description": "Distant relative of true dragons, possessing a venomous tail stinger.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes two attacks: one with bite and one with stinger. While flying, can use claws in place of one."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one creature. Hit: 11 (2d6 + 4) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 7,
+        "damage_dice": "2d8+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) slashing damage."
+      },
+      {
+        "name": "Stinger",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one creature. Hit: 11 (2d6 + 4) piercing damage plus DC 15 CON save or 24 (7d6) poison damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_young_white_dragon_2014",
+    "name": "Young White Dragon",
+    "size": "Large",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "6",
+    "cr_numeric": 6.0,
+    "ac": 17,
+    "hp": 133,
+    "max_hp": 133,
+    "speed": "40 ft., burrow 20 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 10,
+      "con": 18,
+      "int": 6,
+      "wis": 11,
+      "cha": 12
+    },
+    "senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 16",
+    "languages": "Common, Draconic",
+    "description": "The smallest and most feral of chromatic dragons, adapted to glacial tundras.",
+    "traits": [
+      {
+        "name": "Ice Walk",
+        "description": "Move across icy surfaces without ability check; ice/snow costs no extra movement."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one with bite and two with claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 7,
+        "damage_dice": "2d10+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one target. Hit: 15 (2d10 + 4) piercing plus 4 (1d8) cold."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+      },
+      {
+        "name": "Cold Breath",
+        "attack_bonus": null,
+        "damage_dice": "10d8",
+        "damage_type": "cold",
+        "description": "Exhales icy blast in 30-ft. cone. DC 15 CON save, taking 45 (10d8) cold damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_stone_giant_2014",
+    "name": "Stone Giant",
+    "size": "Huge",
+    "type": "giant",
+    "alignment": "neutral",
+    "cr": "7",
+    "cr_numeric": 7.0,
+    "ac": 17,
+    "hp": 126,
+    "max_hp": 126,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 23,
+      "dex": 15,
+      "con": 20,
+      "int": 10,
+      "wis": 12,
+      "cha": 9
+    },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "Giant",
+    "description": "Reclusive subterranean artisans who view the surface world as a fleeting dream.",
+    "traits": [
+      {
+        "name": "Stone Camouflage",
+        "description": "Advantage on Stealth checks made to hide in rocky terrain."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The giant makes two greatclub attacks."
+      },
+      {
+        "name": "Greatclub",
+        "attack_bonus": 9,
+        "damage_dice": "3d8+6",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +9 to hit, reach 15 ft., one target. Hit: 19 (3d8 + 6) bludgeoning damage."
+      },
+      {
+        "name": "Rock",
+        "attack_bonus": 9,
+        "damage_dice": "4d10+6",
+        "damage_type": "bludgeoning",
+        "description": "Ranged Weapon Attack: +9 to hit, range 60/240 ft., one target. Hit: 28 (4d10 + 6) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_young_black_dragon_2014",
+    "name": "Young Black Dragon",
+    "size": "Large",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "7",
+    "cr_numeric": 7.0,
+    "ac": 18,
+    "hp": 127,
+    "max_hp": 127,
+    "speed": "40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 14,
+      "con": 17,
+      "int": 12,
+      "wis": 11,
+      "cha": 15
+    },
+    "senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 16",
+    "languages": "Common, Draconic",
+    "description": "Cruel and sadistic swamp dragon with terrifying acidic breath.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "The dragon can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one with bite and two with claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 7,
+        "damage_dice": "2d10+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one target. Hit: 15 (2d10 + 4) piercing plus 4 (1d8) acid."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+      },
+      {
+        "name": "Acid Breath",
+        "attack_bonus": null,
+        "damage_dice": "11d8",
+        "damage_type": "acid",
+        "description": "Exhales acid in 30-ft. line (5 ft. wide). DC 14 DEX save, taking 49 (11d8) acid damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_oni_2014",
+    "name": "Oni",
+    "size": "Large",
+    "type": "giant",
+    "alignment": "lawful evil",
+    "cr": "7",
+    "cr_numeric": 7.0,
+    "ac": 16,
+    "hp": 110,
+    "max_hp": 110,
+    "speed": "30 ft., fly 30 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 11,
+      "con": 16,
+      "int": 14,
+      "wis": 12,
+      "cha": 15
+    },
+    "senses": "darkvision 60 ft., passive Perception 14",
+    "languages": "Common, Giant",
+    "description": "Malevolent ogre-mage with shapeshifting abilities and arcane tricks.",
+    "traits": [
+      {
+        "name": "Regeneration",
+        "description": "Regains 10 HP at start of turn if it has at least 1 HP."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The oni makes two attacks, either with claws or glaive."
+      },
+      {
+        "name": "Claw",
+        "attack_bonus": 7,
+        "damage_dice": "1d8+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) slashing damage."
+      },
+      {
+        "name": "Glaive",
+        "attack_bonus": 7,
+        "damage_dice": "2d10+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one target. Hit: 15 (2d10 + 4) slashing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_shield_guardian_2014",
+    "name": "Shield Guardian",
+    "size": "Large",
+    "type": "construct",
+    "alignment": "unaligned",
+    "cr": "7",
+    "cr_numeric": 7.0,
+    "ac": 17,
+    "hp": 142,
+    "max_hp": 142,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 8,
+      "con": 18,
+      "int": 7,
+      "wis": 10,
+      "cha": 3
+    },
+    "senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 10",
+    "languages": "understands commands from its master",
+    "description": "Magically bound bodyguard constructed of wood, bronze, and stone.",
+    "traits": [
+      {
+        "name": "Bound",
+        "description": "Magically bound to an amulet; amulet wearer can call guardian across plane."
+      },
+      {
+        "name": "Shield",
+        "description": "Grants +2 bonus to AC to amulet wearer within 5 ft."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The guardian makes two fist attacks."
+      },
+      {
+        "name": "Fist",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_young_green_dragon_2014",
+    "name": "Young Green Dragon",
+    "size": "Large",
+    "type": "dragon",
+    "alignment": "lawful evil",
+    "cr": "8",
+    "cr_numeric": 8.0,
+    "ac": 18,
+    "hp": 136,
+    "max_hp": 136,
+    "speed": "40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 19,
+      "dex": 12,
+      "con": 17,
+      "int": 16,
+      "wis": 13,
+      "cha": 15
+    },
+    "senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 17",
+    "languages": "Common, Draconic",
+    "description": "A cunning manipulator that revels in deceit and treacherous bargains.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "The dragon can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one with bite and two with claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 7,
+        "damage_dice": "2d10+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one target. Hit: 15 (2d10 + 4) piercing plus 7 (2d6) poison."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 7,
+        "damage_dice": "2d6+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+      },
+      {
+        "name": "Poison Breath",
+        "attack_bonus": null,
+        "damage_dice": "12d6",
+        "damage_type": "poison",
+        "description": "Exhales poisonous gas in 30-ft. cone. DC 14 CON save, taking 42 (12d6) poison damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_frost_giant_2014",
+    "name": "Frost Giant",
+    "size": "Huge",
+    "type": "giant",
+    "alignment": "neutral evil",
+    "cr": "8",
+    "cr_numeric": 8.0,
+    "ac": 15,
+    "hp": 138,
+    "max_hp": 138,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 23,
+      "dex": 9,
+      "con": 21,
+      "int": 9,
+      "wis": 10,
+      "cha": 12
+    },
+    "senses": "passive Perception 13",
+    "languages": "Giant",
+    "description": "Savage raiders from glacial peaks who respect only martial strength.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The giant makes two greataxe attacks."
+      },
+      {
+        "name": "Greataxe",
+        "attack_bonus": 9,
+        "damage_dice": "3d12+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 25 (3d12 + 6) slashing damage."
+      },
+      {
+        "name": "Rock",
+        "attack_bonus": 9,
+        "damage_dice": "4d10+6",
+        "damage_type": "bludgeoning",
+        "description": "Ranged Weapon Attack: +9 to hit, range 60/240 ft., one target. Hit: 28 (4d10 + 6) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_hydra_2014",
+    "name": "Hydra",
+    "size": "Huge",
+    "type": "monstrosity",
+    "alignment": "unaligned",
+    "cr": "8",
+    "cr_numeric": 8.0,
+    "ac": 15,
+    "hp": 172,
+    "max_hp": 172,
+    "speed": "30 ft., swim 30 ft.",
+    "stats": {
+      "str": 20,
+      "dex": 12,
+      "con": 20,
+      "int": 2,
+      "wis": 10,
+      "cha": 7
+    },
+    "senses": "darkvision 60 ft., passive Perception 16",
+    "languages": "",
+    "description": "Multicephalic serpentine terror that sprouts two heads whenever one is severed.",
+    "traits": [
+      {
+        "name": "Multiple Heads",
+        "description": "Five heads; advantage on saving throws against blinded, charmed, deafened, frightened, stunned, unconscious."
+      },
+      {
+        "name": "Reactive Heads",
+        "description": "For each head beyond one, gets an extra reaction for opportunity attacks."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The hydra makes as many bite attacks as it has heads."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 8,
+        "damage_dice": "1d10+5",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +8 to hit, reach 10 ft., one target. Hit: 10 (1d10 + 5) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_young_blue_dragon_2014",
+    "name": "Young Blue Dragon",
+    "size": "Large",
+    "type": "dragon",
+    "alignment": "lawful evil",
+    "cr": "9",
+    "cr_numeric": 9.0,
+    "ac": 19,
+    "hp": 152,
+    "max_hp": 152,
+    "speed": "40 ft., burrow 20 ft., fly 80 ft.",
+    "stats": {
+      "str": 21,
+      "dex": 10,
+      "con": 19,
+      "int": 14,
+      "wis": 13,
+      "cha": 17
+    },
+    "senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 19",
+    "languages": "Common, Draconic",
+    "description": "Vain and territorial desert dragon armed with crackling lightning breath.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one with bite and two with claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 9,
+        "damage_dice": "2d10+5",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 16 (2d10 + 5) piercing plus 5 (1d10) lightning."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 9,
+        "damage_dice": "2d6+5",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 12 (2d6 + 5) slashing damage."
+      },
+      {
+        "name": "Lightning Breath",
+        "attack_bonus": null,
+        "damage_dice": "10d10",
+        "damage_type": "lightning",
+        "description": "Exhales lightning in 60-ft. line (5 ft. wide). DC 16 DEX save, taking 55 (10d10) lightning on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_fire_giant_2014",
+    "name": "Fire Giant",
+    "size": "Huge",
+    "type": "giant",
+    "alignment": "lawful evil",
+    "cr": "9",
+    "cr_numeric": 9.0,
+    "ac": 18,
+    "hp": 162,
+    "max_hp": 162,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 25,
+      "dex": 9,
+      "con": 23,
+      "int": 10,
+      "wis": 14,
+      "cha": 13
+    },
+    "senses": "passive Perception 16",
+    "languages": "Giant",
+    "description": "Master metalsmiths and militaristic conquerors dwelling within volcanic fortresses.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The giant makes two greatsword attacks."
+      },
+      {
+        "name": "Greatsword",
+        "attack_bonus": 11,
+        "damage_dice": "6d6+7",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 28 (6d6 + 7) slashing damage."
+      },
+      {
+        "name": "Rock",
+        "attack_bonus": 11,
+        "damage_dice": "4d10+7",
+        "damage_type": "bludgeoning",
+        "description": "Ranged Weapon Attack: +11 to hit, range 60/240 ft., one target. Hit: 29 (4d10 + 7) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_clay_golem_2014",
+    "name": "Clay Golem",
+    "size": "Large",
+    "type": "construct",
+    "alignment": "unaligned",
+    "cr": "9",
+    "cr_numeric": 9.0,
+    "ac": 14,
+    "hp": 133,
+    "max_hp": 133,
+    "speed": "20 ft.",
+    "stats": {
+      "str": 20,
+      "dex": 9,
+      "con": 18,
+      "int": 3,
+      "wis": 8,
+      "cha": 1
+    },
+    "senses": "darkvision 60 ft., passive Perception 9",
+    "languages": "understands languages of its creator",
+    "description": "Heavily built automaton sculptured from clay and blessed with priestly wards.",
+    "traits": [
+      {
+        "name": "Acid Absorption",
+        "description": "Regains HP equal to acid damage dealt instead of taking damage."
+      },
+      {
+        "name": "Immutable Form",
+        "description": "Immune to any spell or effect that alters its form."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The golem makes two slam attacks."
+      },
+      {
+        "name": "Slam",
+        "attack_bonus": 8,
+        "damage_dice": "2d10+5",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 16 (2d10 + 5) bludgeoning damage. DC 15 CON save or max HP reduced."
+      },
+      {
+        "name": "Haste",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Gains +2 AC, advantage on DEX saves, and bonus action slam attack until end of next turn."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_young_red_dragon_2014",
+    "name": "Young Red Dragon",
+    "size": "Large",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "10",
+    "cr_numeric": 10.0,
+    "ac": 18,
+    "hp": 178,
+    "max_hp": 178,
+    "speed": "40 ft., climb 40 ft., fly 80 ft.",
+    "stats": {
+      "str": 23,
+      "dex": 10,
+      "con": 21,
+      "int": 14,
+      "wis": 11,
+      "cha": 19
+    },
+    "senses": "blindsight 30 ft., darkvision 120 ft., passive Perception 18",
+    "languages": "Common, Draconic",
+    "description": "Arrogant and tyrannical apex predator fueled by an insatiable lust for gold and dominion.",
+    "traits": [],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one with bite and two with claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 10,
+        "damage_dice": "2d10+6",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing plus 3 (1d6) fire."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 10,
+        "damage_dice": "2d6+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+      },
+      {
+        "name": "Fire Breath",
+        "attack_bonus": null,
+        "damage_dice": "16d6",
+        "damage_type": "fire",
+        "description": "Exhales fire in 30-ft. cone. DC 17 DEX save, taking 56 (16d6) fire damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_stone_golem_2014",
+    "name": "Stone Golem",
+    "size": "Large",
+    "type": "construct",
+    "alignment": "unaligned",
+    "cr": "10",
+    "cr_numeric": 10.0,
+    "ac": 17,
+    "hp": 178,
+    "max_hp": 178,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 22,
+      "dex": 9,
+      "con": 20,
+      "int": 3,
+      "wis": 11,
+      "cha": 1
+    },
+    "senses": "darkvision 120 ft., passive Perception 10",
+    "languages": "understands languages of creator",
+    "description": "Massive guardian chiseled from solid stone and endowed with sluggish temporal magic.",
+    "traits": [
+      {
+        "name": "Immutable Form",
+        "description": "Immune to any spell or effect that alters its form."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The golem makes two slam attacks."
+      },
+      {
+        "name": "Slam",
+        "attack_bonus": 10,
+        "damage_dice": "3d8+6",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 19 (3d8 + 6) bludgeoning damage."
+      },
+      {
+        "name": "Slow",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Targets up to humanoid creatures within 10 ft. DC 17 WIS save or speed halved and limited actions."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_aboleth_2014",
+    "name": "Aboleth",
+    "size": "Large",
+    "type": "aberration",
+    "alignment": "lawful evil",
+    "cr": "10",
+    "cr_numeric": 10.0,
+    "ac": 17,
+    "hp": 135,
+    "max_hp": 135,
+    "speed": "10 ft., swim 40 ft.",
+    "stats": {
+      "str": 21,
+      "dex": 9,
+      "con": 15,
+      "int": 18,
+      "wis": 15,
+      "cha": 18
+    },
+    "senses": "darkvision 120 ft., passive Perception 20",
+    "languages": "Deep Speech, telepathy 120 ft.",
+    "description": "Primeval telepathic horror predating the gods, dwelling in the dark depths of the Underdark.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      },
+      {
+        "name": "Mucous Cloud",
+        "description": "Creature within 5 ft. underwater makes DC 14 CON save or can only breathe water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The aboleth makes three tentacle attacks."
+      },
+      {
+        "name": "Tentacle",
+        "attack_bonus": 9,
+        "damage_dice": "2d6+5",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 12 (2d6 + 5) bludgeoning. DC 14 CON save or diseased."
+      },
+      {
+        "name": "Tail",
+        "attack_bonus": 9,
+        "damage_dice": "3d6+5",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 15 (3d6 + 5) bludgeoning damage."
+      },
+      {
+        "name": "Enslave",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Targets creature within 30 ft. DC 14 WIS save or magically charmed by aboleth."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_djinni_2014",
+    "name": "Djinni",
+    "size": "Large",
+    "type": "elemental",
+    "alignment": "chaotic good",
+    "cr": "11",
+    "cr_numeric": 11.0,
+    "ac": 17,
+    "hp": 161,
+    "max_hp": 161,
+    "speed": "30 ft., fly 90 ft.",
+    "stats": {
+      "str": 21,
+      "dex": 15,
+      "con": 22,
+      "int": 15,
+      "wis": 16,
+      "cha": 20
+    },
+    "senses": "darkvision 120 ft., passive Perception 17",
+    "languages": "Auran",
+    "description": "Proud noble genies from the Elemental Plane of Air, cloaked in cloud and storm.",
+    "traits": [
+      {
+        "name": "Elemental Demise",
+        "description": "If the djinni dies, its body disintegrates into a warm breeze, leaving equipment behind."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The djinni makes three scimitar attacks."
+      },
+      {
+        "name": "Scimitar",
+        "attack_bonus": 9,
+        "damage_dice": "2d6+5",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 12 (2d6 + 5) slashing damage plus 3 (1d6) lightning or thunder."
+      },
+      {
+        "name": "Create Whirlwind",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "A 5-ft. radius, 30-ft. tall cylinder of swirling air forms within 120 ft."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_efreeti_2014",
+    "name": "Efreeti",
+    "size": "Large",
+    "type": "elemental",
+    "alignment": "lawful evil",
+    "cr": "11",
+    "cr_numeric": 11.0,
+    "ac": 17,
+    "hp": 200,
+    "max_hp": 200,
+    "speed": "40 ft., fly 60 ft.",
+    "stats": {
+      "str": 22,
+      "dex": 12,
+      "con": 24,
+      "int": 16,
+      "wis": 15,
+      "cha": 16
+    },
+    "senses": "darkvision 120 ft., passive Perception 12",
+    "languages": "Ignan",
+    "description": "Tyrannical genies forged from basalt, iron, and living flame in the City of Brass.",
+    "traits": [
+      {
+        "name": "Elemental Demise",
+        "description": "On death, body disintegrates into flash of fire and smoke."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The efreeti makes two scimitar attacks or uses Hurl Flame twice."
+      },
+      {
+        "name": "Scimitar",
+        "attack_bonus": 10,
+        "damage_dice": "2d6+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing plus 7 (2d6) fire."
+      },
+      {
+        "name": "Hurl Flame",
+        "attack_bonus": 7,
+        "damage_dice": "5d6",
+        "damage_type": "fire",
+        "description": "Ranged Spell Attack: +7 to hit, range 120 ft., one target. Hit: 17 (5d6) fire damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_remorhaz_2014",
+    "name": "Remorhaz",
+    "size": "Huge",
+    "type": "monstrosity",
+    "alignment": "unaligned",
+    "cr": "11",
+    "cr_numeric": 11.0,
+    "ac": 17,
+    "hp": 195,
+    "max_hp": 195,
+    "speed": "30 ft., burrow 20 ft.",
+    "stats": {
+      "str": 24,
+      "dex": 13,
+      "con": 21,
+      "int": 4,
+      "wis": 10,
+      "cha": 5
+    },
+    "senses": "darkvision 60 ft., tremorsense 60 ft., passive Perception 10",
+    "languages": "",
+    "description": "Chitinous arctic behemoth whose fiery internal furnace melts through solid ice.",
+    "traits": [
+      {
+        "name": "Heated Body",
+        "description": "Creature touching or hitting remorhaz with melee attack within 5 ft. takes 10 (3d6) fire damage."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Bite",
+        "attack_bonus": 11,
+        "damage_dice": "4d10+7",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 29 (4d10 + 7) piercing plus 10 (3d6) fire damage. Large or smaller target is swallowed."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_archmage_2014",
+    "name": "Archmage",
+    "size": "Medium",
+    "type": "humanoid",
+    "alignment": "any alignment",
+    "cr": "12",
+    "cr_numeric": 12.0,
+    "ac": 12,
+    "hp": 99,
+    "max_hp": 99,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 10,
+      "dex": 14,
+      "con": 12,
+      "int": 20,
+      "wis": 15,
+      "cha": 16
+    },
+    "senses": "passive Perception 12",
+    "languages": "any six languages",
+    "description": "Legendary master of the arcane weave commanding spells of catastrophic power.",
+    "traits": [
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      },
+      {
+        "name": "Spellcasting",
+        "description": "18th-level spellcaster (DC 17, +9 to hit). Spells: Time Stop, Lightning Bolt, Cone of Cold, Globe of Invulnerability."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Dagger",
+        "attack_bonus": 6,
+        "damage_dice": "1d4+2",
+        "damage_type": "piercing",
+        "description": "Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_erinyes_2014",
+    "name": "Erinyes",
+    "size": "Medium",
+    "type": "fiend",
+    "alignment": "lawful evil",
+    "cr": "12",
+    "cr_numeric": 12.0,
+    "ac": 18,
+    "hp": 153,
+    "max_hp": 153,
+    "speed": "30 ft., fly 60 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 16,
+      "con": 18,
+      "int": 14,
+      "wis": 14,
+      "cha": 18
+    },
+    "senses": "truesight 120 ft., passive Perception 12",
+    "languages": "Infernal, telepathy 120 ft.",
+    "description": "Winged executioners of the Nine Hells who track oathbreakers with lethal precision.",
+    "traits": [
+      {
+        "name": "Hellish Weapons",
+        "description": "Weapon attacks deal extra 13 (3d8) poison damage on hit."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The erinyes makes three attacks."
+      },
+      {
+        "name": "Longsword",
+        "attack_bonus": 8,
+        "damage_dice": "1d8+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) slashing plus 13 (3d8) poison."
+      },
+      {
+        "name": "Longbow",
+        "attack_bonus": 7,
+        "damage_dice": "1d8+3",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +7 to hit, range 150/600 ft., one target. Hit: 7 (1d8 + 3) piercing plus 13 (3d8) poison. DC 14 CON save or poisoned."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_adult_white_dragon_2014",
+    "name": "Adult White Dragon",
+    "size": "Huge",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "13",
+    "cr_numeric": 13.0,
+    "ac": 20,
+    "hp": 200,
+    "max_hp": 200,
+    "speed": "40 ft., burrow 30 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 22,
+      "dex": 10,
+      "con": 22,
+      "int": 8,
+      "wis": 12,
+      "cha": 12
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 21",
+    "languages": "Common, Draconic",
+    "description": "A ruthless glacial stalker ruling over frozen peaks with savage fury.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If the dragon fails a saving throw, it can choose to succeed instead."
+      },
+      {
+        "name": "Ice Walk",
+        "description": "Move across icy surfaces without penalty."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 11,
+        "damage_dice": "2d10+6",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing plus 4 (1d8) cold."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 11,
+        "damage_dice": "2d6+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+      },
+      {
+        "name": "Cold Breath",
+        "attack_bonus": null,
+        "damage_dice": "12d8",
+        "damage_type": "cold",
+        "description": "Exhales icy blast in 60-ft. cone. DC 19 CON save, taking 54 (12d8) cold damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_storm_giant_2014",
+    "name": "Storm Giant",
+    "size": "Huge",
+    "type": "giant",
+    "alignment": "chaotic good",
+    "cr": "13",
+    "cr_numeric": 13.0,
+    "ac": 16,
+    "hp": 230,
+    "max_hp": 230,
+    "speed": "50 ft., swim 50 ft.",
+    "stats": {
+      "str": 29,
+      "dex": 14,
+      "con": 20,
+      "int": 16,
+      "wis": 18,
+      "cha": 18
+    },
+    "senses": "passive Perception 19",
+    "languages": "Common, Giant",
+    "description": "Sovereign seer-kings at the zenith of giant hierarchy, masters of thunder and tempest.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "The giant can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The giant makes two greatsword attacks."
+      },
+      {
+        "name": "Greatsword",
+        "attack_bonus": 14,
+        "damage_dice": "6d6+9",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 30 (6d6 + 9) slashing damage."
+      },
+      {
+        "name": "Rock",
+        "attack_bonus": 14,
+        "damage_dice": "4d12+9",
+        "damage_type": "bludgeoning",
+        "description": "Ranged Weapon Attack: +14 to hit, range 60/240 ft., one target. Hit: 35 (4d12 + 9) bludgeoning damage."
+      },
+      {
+        "name": "Lightning Strike",
+        "attack_bonus": null,
+        "damage_dice": "12d8",
+        "damage_type": "lightning",
+        "description": "Hurls magical lightning bolt up to 500 ft. DC 17 DEX save or 54 (12d8) lightning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_vampire_2014",
+    "name": "Vampire",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "lawful evil",
+    "cr": "13",
+    "cr_numeric": 13.0,
+    "ac": 16,
+    "hp": 144,
+    "max_hp": 144,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 18,
+      "con": 18,
+      "int": 17,
+      "wis": 15,
+      "cha": 18
+    },
+    "senses": "darkvision 120 ft., passive Perception 17",
+    "languages": "languages it knew in life",
+    "description": "Aristocratic undead predator drinking blood to fuel immortality and charm victims.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Regeneration",
+        "description": "Regains 20 HP at start of turn if has >= 1 HP and not in sunlight/running water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes two attacks, only one can be bite."
+      },
+      {
+        "name": "Unarmed Strike",
+        "attack_bonus": 9,
+        "damage_dice": "1d8+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one creature. Hit: 8 (1d8 + 4) bludgeoning or grapple (escape DC 18)."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 9,
+        "damage_dice": "1d6+4",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 5 ft., grappled/incapacitated target. Hit: 7 (1d6 + 4) piercing plus 10 (3d6) necrotic."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_iron_golem_2014",
+    "name": "Iron Golem",
+    "size": "Large",
+    "type": "construct",
+    "alignment": "unaligned",
+    "cr": "13",
+    "cr_numeric": 13.0,
+    "ac": 20,
+    "hp": 210,
+    "max_hp": 210,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 24,
+      "dex": 9,
+      "con": 20,
+      "int": 3,
+      "wis": 11,
+      "cha": 1
+    },
+    "senses": "darkvision 120 ft., passive Perception 10",
+    "languages": "understands languages of creator",
+    "description": "An imposing juggernaut forged of solid iron, animated with ancient elemental spirit.",
+    "traits": [
+      {
+        "name": "Fire Absorption",
+        "description": "Regains HP equal to fire damage dealt instead of taking damage."
+      },
+      {
+        "name": "Immutable Form",
+        "description": "Immune to any spell or effect that alters its form."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The golem makes two melee attacks."
+      },
+      {
+        "name": "Slam",
+        "attack_bonus": 13,
+        "damage_dice": "3d10+7",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +13 to hit, reach 5 ft., one target. Hit: 23 (3d10 + 7) bludgeoning damage."
+      },
+      {
+        "name": "Sword",
+        "attack_bonus": 13,
+        "damage_dice": "3d10+7",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +13 to hit, reach 10 ft., one target. Hit: 23 (3d10 + 7) slashing damage."
+      },
+      {
+        "name": "Poison Breath",
+        "attack_bonus": null,
+        "damage_dice": "10d8",
+        "damage_type": "poison",
+        "description": "Exhales poisonous gas in 15-ft. cone. DC 19 CON save or 45 (10d8) poison damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_adult_black_dragon_2014",
+    "name": "Adult Black Dragon",
+    "size": "Huge",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "14",
+    "cr_numeric": 14.0,
+    "ac": 19,
+    "hp": 195,
+    "max_hp": 195,
+    "speed": "40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 23,
+      "dex": 14,
+      "con": 21,
+      "int": 14,
+      "wis": 13,
+      "cha": 17
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 21",
+    "languages": "Common, Draconic",
+    "description": "Tormentor of dismal swamps, adorned with horned crests and corroding breath.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 11,
+        "damage_dice": "2d10+6",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing plus 4 (1d8) acid."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 11,
+        "damage_dice": "2d6+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+      },
+      {
+        "name": "Acid Breath",
+        "attack_bonus": null,
+        "damage_dice": "12d8",
+        "damage_type": "acid",
+        "description": "Exhales acid in 60-ft. line (5 ft. wide). DC 18 DEX save, taking 54 (12d8) acid on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ice_devil_2014",
+    "name": "Ice Devil",
+    "size": "Large",
+    "type": "fiend",
+    "alignment": "lawful evil",
+    "cr": "14",
+    "cr_numeric": 14.0,
+    "ac": 18,
+    "hp": 180,
+    "max_hp": 180,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 21,
+      "dex": 14,
+      "con": 18,
+      "int": 18,
+      "wis": 15,
+      "cha": 18
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 12",
+    "languages": "Infernal, telepathy 120 ft.",
+    "description": "Insectoid commanders hailing from the frozen layers of Cania and Stygia.",
+    "traits": [
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The devil makes three attacks: one bite, one claw, and one tail."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 10,
+        "damage_dice": "2d6+5",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 12 (2d6 + 5) piercing plus 10 (3d6) cold."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 10,
+        "damage_dice": "2d10+5",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 16 (2d10 + 5) slashing plus 10 (3d6) cold."
+      },
+      {
+        "name": "Tail",
+        "attack_bonus": 10,
+        "damage_dice": "3d6+5",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 15 (3d6 + 5) bludgeoning plus 10 (3d6) cold."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_adult_green_dragon_2014",
+    "name": "Adult Green Dragon",
+    "size": "Huge",
+    "type": "dragon",
+    "alignment": "lawful evil",
+    "cr": "15",
+    "cr_numeric": 15.0,
+    "ac": 19,
+    "hp": 207,
+    "max_hp": 207,
+    "speed": "40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 23,
+      "dex": 12,
+      "con": 21,
+      "int": 18,
+      "wis": 15,
+      "cha": 17
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 22",
+    "languages": "Common, Draconic",
+    "description": "Ancient master of deception that rules forested kingdoms through fear and deceit.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 11,
+        "damage_dice": "2d10+6",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing plus 7 (2d6) poison."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 11,
+        "damage_dice": "2d6+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +11 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+      },
+      {
+        "name": "Poison Breath",
+        "attack_bonus": null,
+        "damage_dice": "16d6",
+        "damage_type": "poison",
+        "description": "Exhales poisonous gas in 60-ft. cone. DC 18 CON save, taking 56 (16d6) poison on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_mummy_lord_2014",
+    "name": "Mummy Lord",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "lawful evil",
+    "cr": "15",
+    "cr_numeric": 15.0,
+    "ac": 17,
+    "hp": 97,
+    "max_hp": 97,
+    "speed": "20 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 10,
+      "con": 17,
+      "int": 12,
+      "wis": 18,
+      "cha": 16
+    },
+    "senses": "darkvision 60 ft., passive Perception 19",
+    "languages": "languages it knew in life",
+    "description": "Sovereign undead priest endowed with terrifying divine spellcasting and dread curses.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Dreadful Glare and makes one attack with rotting fist."
+      },
+      {
+        "name": "Rotting Fist",
+        "attack_bonus": 9,
+        "damage_dice": "3d6+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 14 (3d6 + 4) bludgeoning plus 21 (6d6) necrotic. DC 16 CON save or mummy rot."
+      },
+      {
+        "name": "Dreadful Glare",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Target within 60 ft. must succeed on DC 16 WIS save or become paralyzed with fear."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_purple_worm_2014",
+    "name": "Purple Worm",
+    "size": "Gargantuan",
+    "type": "monstrosity",
+    "alignment": "unaligned",
+    "cr": "15",
+    "cr_numeric": 15.0,
+    "ac": 18,
+    "hp": 247,
+    "max_hp": 247,
+    "speed": "50 ft., burrow 30 ft.",
+    "stats": {
+      "str": 28,
+      "dex": 7,
+      "con": 22,
+      "int": 1,
+      "wis": 8,
+      "cha": 4
+    },
+    "senses": "blindsight 30 ft., tremorsense 60 ft., passive Perception 9",
+    "languages": "",
+    "description": "Colossal burrowing monstrosity that tunnels through solid stone, swallowing adventurers whole.",
+    "traits": [
+      {
+        "name": "Tunneler",
+        "description": "Burrows through solid rock at half speed and leaves 10-ft.-diameter tunnel."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes two attacks: one with bite and one with stinger."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 9,
+        "damage_dice": "3d8+9",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 22 (3d8 + 9) piercing. Large or smaller target swallowed."
+      },
+      {
+        "name": "Tail Stinger",
+        "attack_bonus": 9,
+        "damage_dice": "3d6+9",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one creature. Hit: 19 (3d6 + 9) piercing plus DC 19 CON save or 42 (12d6) poison."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_adult_blue_dragon_2014",
+    "name": "Adult Blue Dragon",
+    "size": "Huge",
+    "type": "dragon",
+    "alignment": "lawful evil",
+    "cr": "16",
+    "cr_numeric": 16.0,
+    "ac": 19,
+    "hp": 225,
+    "max_hp": 225,
+    "speed": "40 ft., burrow 30 ft., fly 80 ft.",
+    "stats": {
+      "str": 25,
+      "dex": 10,
+      "con": 23,
+      "int": 16,
+      "wis": 15,
+      "cha": 19
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 22",
+    "languages": "Common, Draconic",
+    "description": "Monarch of arid badlands that blasts invaders with catastrophic arcs of lightning.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 12,
+        "damage_dice": "2d10+7",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +12 to hit, reach 10 ft., one target. Hit: 18 (2d10 + 7) piercing plus 5 (1d10) lightning."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 12,
+        "damage_dice": "2d6+7",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +12 to hit, reach 5 ft., one target. Hit: 14 (2d6 + 7) slashing damage."
+      },
+      {
+        "name": "Lightning Breath",
+        "attack_bonus": null,
+        "damage_dice": "12d10",
+        "damage_type": "lightning",
+        "description": "Exhales lightning in 80-ft. line (5 ft. wide). DC 19 DEX save, taking 66 (12d10) lightning on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_marilith_2014",
+    "name": "Marilith",
+    "size": "Large",
+    "type": "fiend",
+    "alignment": "chaotic evil",
+    "cr": "16",
+    "cr_numeric": 16.0,
+    "ac": 18,
+    "hp": 189,
+    "max_hp": 189,
+    "speed": "40 ft.",
+    "stats": {
+      "str": 18,
+      "dex": 20,
+      "con": 20,
+      "int": 18,
+      "wis": 16,
+      "cha": 20
+    },
+    "senses": "truesight 120 ft., passive Perception 18",
+    "languages": "Abyssal, telepathy 120 ft.",
+    "description": "Six-armed serpent-bodied demon generals capable of parrying and executing seven deadly strikes per round.",
+    "traits": [
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      },
+      {
+        "name": "Reactive",
+        "description": "The marilith can take one reaction on every turn in combat."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes seven attacks: six with longswords and one with tail."
+      },
+      {
+        "name": "Longsword",
+        "attack_bonus": 9,
+        "damage_dice": "2d8+4",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) slashing damage."
+      },
+      {
+        "name": "Tail",
+        "attack_bonus": 9,
+        "damage_dice": "2d10+4",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +9 to hit, reach 10 ft., one creature. Hit: 15 (2d10 + 4) bludgeoning and target is grappled."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_planetar_2014",
+    "name": "Planetar",
+    "size": "Large",
+    "type": "celestial",
+    "alignment": "lawful good",
+    "cr": "16",
+    "cr_numeric": 16.0,
+    "ac": 19,
+    "hp": 200,
+    "max_hp": 200,
+    "speed": "40 ft., fly 120 ft.",
+    "stats": {
+      "str": 24,
+      "dex": 20,
+      "con": 24,
+      "int": 19,
+      "wis": 22,
+      "cha": 25
+    },
+    "senses": "truesight 120 ft., passive Perception 21",
+    "languages": "all, telepathy 120 ft.",
+    "description": "Glorious muscular angel acting as the martial right hand of benevolent deities.",
+    "traits": [
+      {
+        "name": "Angelic Weapons",
+        "description": "Weapon attacks deal extra 22 (5d8) radiant damage on hit."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The planetar makes two greatsword attacks."
+      },
+      {
+        "name": "Greatsword",
+        "attack_bonus": 12,
+        "damage_dice": "4d6+7",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +12 to hit, reach 5 ft., one target. Hit: 21 (4d6 + 7) slashing plus 22 (5d8) radiant."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_adult_red_dragon_2014",
+    "name": "Adult Red Dragon",
+    "size": "Huge",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "17",
+    "cr_numeric": 17.0,
+    "ac": 19,
+    "hp": 256,
+    "max_hp": 256,
+    "speed": "40 ft., climb 40 ft., fly 80 ft.",
+    "stats": {
+      "str": 27,
+      "dex": 10,
+      "con": 25,
+      "int": 16,
+      "wis": 13,
+      "cha": 21
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 23",
+    "languages": "Common, Draconic",
+    "description": "Sovereign tyrant of mountain peaks, possessing unmatched pride and incinerating breath.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 14,
+        "damage_dice": "2d10+8",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 19 (2d10 + 8) piercing plus 7 (2d6) fire."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 14,
+        "damage_dice": "2d6+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 5 ft., one target. Hit: 15 (2d6 + 8) slashing damage."
+      },
+      {
+        "name": "Fire Breath",
+        "attack_bonus": null,
+        "damage_dice": "18d6",
+        "damage_type": "fire",
+        "description": "Exhales fire in 60-ft. cone. DC 21 DEX save, taking 63 (18d6) fire on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_androsphinx_2014",
+    "name": "Androsphinx",
+    "size": "Large",
+    "type": "monstrosity",
+    "alignment": "lawful neutral",
+    "cr": "17",
+    "cr_numeric": 17.0,
+    "ac": 17,
+    "hp": 199,
+    "max_hp": 199,
+    "speed": "40 ft., fly 60 ft.",
+    "stats": {
+      "str": 22,
+      "dex": 10,
+      "con": 20,
+      "int": 16,
+      "wis": 18,
+      "cha": 23
+    },
+    "senses": "truesight 120 ft., passive Perception 24",
+    "languages": "Common, Sphinx",
+    "description": "Noble male sphinx tasked by divinities to test seekers of forgotten knowledge.",
+    "traits": [
+      {
+        "name": "Inscrutable",
+        "description": "Immune to any effect that senses emotions or reads thoughts."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The sphinx makes two claw attacks."
+      },
+      {
+        "name": "Claw",
+        "attack_bonus": 12,
+        "damage_dice": "2d10+6",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +12 to hit, reach 5 ft., one target. Hit: 17 (2d10 + 6) slashing damage."
+      },
+      {
+        "name": "Roar (3/Day)",
+        "attack_bonus": null,
+        "damage_dice": "8d10",
+        "damage_type": "thunder",
+        "description": "Emits magical roar affecting creatures within 500 ft. Can frighten, deafen, or deal 44 (8d10) thunder damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_dragon_turtle_2014",
+    "name": "Dragon Turtle",
+    "size": "Gargantuan",
+    "type": "dragon",
+    "alignment": "neutral",
+    "cr": "17",
+    "cr_numeric": 17.0,
+    "ac": 20,
+    "hp": 341,
+    "max_hp": 341,
+    "speed": "20 ft., swim 40 ft.",
+    "stats": {
+      "str": 25,
+      "dex": 10,
+      "con": 20,
+      "int": 10,
+      "wis": 12,
+      "cha": 12
+    },
+    "senses": "darkvision 120 ft., passive Perception 11",
+    "languages": "Aquan, Draconic",
+    "description": "Colossal armored titan of the deep oceans demanding tolls from passing ships.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 13,
+        "damage_dice": "3d12+7",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +13 to hit, reach 15 ft., one target. Hit: 26 (3d12 + 7) piercing damage."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 13,
+        "damage_dice": "2d8+7",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +13 to hit, reach 10 ft., one target. Hit: 16 (2d8 + 7) slashing damage."
+      },
+      {
+        "name": "Steam Breath",
+        "attack_bonus": null,
+        "damage_dice": "15d6",
+        "damage_type": "fire",
+        "description": "Exhales scalding steam in 60-ft. cone. DC 18 CON save, taking 52 (15d6) fire damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_demilich_2014",
+    "name": "Demilich",
+    "size": "Tiny",
+    "type": "undead",
+    "alignment": "neutral evil",
+    "cr": "18",
+    "cr_numeric": 18.0,
+    "ac": 20,
+    "hp": 80,
+    "max_hp": 80,
+    "speed": "0 ft., fly 30 ft. (hover)",
+    "stats": {
+      "str": 1,
+      "dex": 20,
+      "con": 10,
+      "int": 20,
+      "wis": 17,
+      "cha": 20
+    },
+    "senses": "truesight 120 ft., passive Perception 13",
+    "languages": "",
+    "description": "The jeweled skull of a lich whose physical form has crumbled away, retaining dreadful necromantic potency.",
+    "traits": [
+      {
+        "name": "Avoidance",
+        "description": "Takes no damage on successful save against half-damage effect, half on failure."
+      },
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Life Drain",
+        "attack_bonus": null,
+        "damage_dice": "6d6",
+        "damage_type": "necrotic",
+        "description": "Targets up to three creatures within 10 ft. DC 19 CON save or take 21 (6d6) necrotic damage."
+      },
+      {
+        "name": "Howl (Recharge 5-6)",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Bloodcurdling howl within 30 ft. DC 15 CON save or drop to 0 hit points."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_balor_2014",
+    "name": "Balor",
+    "size": "Huge",
+    "type": "fiend",
+    "alignment": "chaotic evil",
+    "cr": "19",
+    "cr_numeric": 19.0,
+    "ac": 19,
+    "hp": 262,
+    "max_hp": 262,
+    "speed": "40 ft., fly 80 ft.",
+    "stats": {
+      "str": 26,
+      "dex": 15,
+      "con": 22,
+      "int": 20,
+      "wis": 16,
+      "cha": 22
+    },
+    "senses": "truesight 120 ft., passive Perception 13",
+    "languages": "Abyssal, telepathy 120 ft.",
+    "description": "Towering demon warlord of the Abyss wielding a fiery whip and lightning blade.",
+    "traits": [
+      {
+        "name": "Death Throes",
+        "description": "Explodes on death within 30 ft. DC 20 DEX save or takes 70 (20d6) fire damage."
+      },
+      {
+        "name": "Fire Aura",
+        "description": "Creatures within 5 ft. take 10 (3d6) fire damage at start of balor's turn."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The balor makes two attacks: one with longsword and one with whip."
+      },
+      {
+        "name": "Longsword",
+        "attack_bonus": 14,
+        "damage_dice": "3d8+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 21 (3d8 + 8) slashing plus 13 (3d8) lightning."
+      },
+      {
+        "name": "Whip",
+        "attack_bonus": 14,
+        "damage_dice": "2d6+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 30 ft., one target. Hit: 15 (2d6 + 8) slashing plus 10 (3d6) fire and pulled up to 25 ft."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ancient_white_dragon_2014",
+    "name": "Ancient White Dragon",
+    "size": "Gargantuan",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "20",
+    "cr_numeric": 20.0,
+    "ac": 20,
+    "hp": 333,
+    "max_hp": 333,
+    "speed": "40 ft., burrow 40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 26,
+      "dex": 10,
+      "con": 26,
+      "int": 10,
+      "wis": 13,
+      "cha": 14
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 23",
+    "languages": "Common, Draconic",
+    "description": "Primeval hunter of arctic wastelands whose breath freezes entire battalions into glacial tombs.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Ice Walk",
+        "description": "Move across icy surfaces without penalty."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 14,
+        "damage_dice": "2d10+8",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 15 ft., one target. Hit: 19 (2d10 + 8) piercing plus 9 (2d8) cold."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 14,
+        "damage_dice": "2d6+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 15 (2d6 + 8) slashing damage."
+      },
+      {
+        "name": "Cold Breath",
+        "attack_bonus": null,
+        "damage_dice": "16d8",
+        "damage_type": "cold",
+        "description": "Exhales icy blast in 90-ft. cone. DC 22 CON save, taking 72 (16d8) cold damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_pit_fiend_2014",
+    "name": "Pit Fiend",
+    "size": "Large",
+    "type": "fiend",
+    "alignment": "lawful evil",
+    "cr": "20",
+    "cr_numeric": 20.0,
+    "ac": 19,
+    "hp": 300,
+    "max_hp": 300,
+    "speed": "30 ft., fly 60 ft.",
+    "stats": {
+      "str": 26,
+      "dex": 14,
+      "con": 24,
+      "int": 22,
+      "wis": 18,
+      "cha": 24
+    },
+    "senses": "truesight 120 ft., passive Perception 14",
+    "languages": "Infernal, telepathy 120 ft.",
+    "description": "Lordly general of infernal legions ruling with iron discipline and terror.",
+    "traits": [
+      {
+        "name": "Fear Aura",
+        "description": "Creature starting turn within 20 ft. makes DC 21 WIS save or frightened until next turn."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes four attacks: bite, claw, mace, and tail."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 14,
+        "damage_dice": "4d6+8",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 5 ft., one target. Hit: 22 (4d6 + 8) piercing plus DC 21 CON save or poisoned."
+      },
+      {
+        "name": "Claw",
+        "attack_bonus": 14,
+        "damage_dice": "2d8+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 17 (2d8 + 8) slashing damage."
+      },
+      {
+        "name": "Mace",
+        "attack_bonus": 14,
+        "damage_dice": "2d6+8",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 15 (2d6 + 8) bludgeoning plus 21 (6d6) fire."
+      },
+      {
+        "name": "Tail",
+        "attack_bonus": 14,
+        "damage_dice": "3d10+8",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 24 (3d10 + 8) bludgeoning damage."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ancient_black_dragon_2014",
+    "name": "Ancient Black Dragon",
+    "size": "Gargantuan",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "21",
+    "cr_numeric": 21.0,
+    "ac": 22,
+    "hp": 367,
+    "max_hp": 367,
+    "speed": "40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 27,
+      "dex": 14,
+      "con": 25,
+      "int": 16,
+      "wis": 15,
+      "cha": 19
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 26",
+    "languages": "Common, Draconic",
+    "description": "Sovereign wyrm of rot and ruin, reigning over vast primordial marshes.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 15,
+        "damage_dice": "2d10+8",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +15 to hit, reach 15 ft., one target. Hit: 19 (2d10 + 8) piercing plus 9 (2d8) acid."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 15,
+        "damage_dice": "2d6+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +15 to hit, reach 10 ft., one target. Hit: 15 (2d6 + 8) slashing damage."
+      },
+      {
+        "name": "Acid Breath",
+        "attack_bonus": null,
+        "damage_dice": "15d8",
+        "damage_type": "acid",
+        "description": "Exhales acid in 90-ft. line (10 ft. wide). DC 22 DEX save, taking 67 (15d8) acid on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_lich_2014",
+    "name": "Lich",
+    "size": "Medium",
+    "type": "undead",
+    "alignment": "any evil alignment",
+    "cr": "21",
+    "cr_numeric": 21.0,
+    "ac": 17,
+    "hp": 135,
+    "max_hp": 135,
+    "speed": "30 ft.",
+    "stats": {
+      "str": 11,
+      "dex": 16,
+      "con": 16,
+      "int": 20,
+      "wis": 14,
+      "cha": 16
+    },
+    "senses": "truesight 120 ft., passive Perception 19",
+    "languages": "Common plus up to five other languages",
+    "description": "Supreme master of necromancy who cheated mortality by encasing their soul within a phylactery.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Rejuvenation",
+        "description": "Gains new body in 1d10 days if phylactery remains intact."
+      },
+      {
+        "name": "Spellcasting",
+        "description": "18th-level spellcaster (DC 20, +12 to hit). Spells: Power Word Kill, Finger of Death, Disintegrate, Globe of Invulnerability."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Paralyzing Touch",
+        "attack_bonus": 12,
+        "damage_dice": "3d6",
+        "damage_type": "cold",
+        "description": "Melee Spell Attack: +12 to hit, reach 5 ft., one creature. Hit: 10 (3d6) cold damage. DC 18 CON save or paralyzed 1 minute."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_solar_2014",
+    "name": "Solar",
+    "size": "Large",
+    "type": "celestial",
+    "alignment": "lawful good",
+    "cr": "21",
+    "cr_numeric": 21.0,
+    "ac": 21,
+    "hp": 243,
+    "max_hp": 243,
+    "speed": "50 ft., fly 150 ft.",
+    "stats": {
+      "str": 26,
+      "dex": 22,
+      "con": 26,
+      "int": 25,
+      "wis": 25,
+      "cha": 30
+    },
+    "senses": "truesight 120 ft., passive Perception 24",
+    "languages": "all, telepathy 120 ft.",
+    "description": "The most exalted of angels, an awe-inspiring harbinger of divine judgment.",
+    "traits": [
+      {
+        "name": "Angelic Weapons",
+        "description": "Weapon attacks deal extra 27 (6d8) radiant damage on hit."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "The solar makes two greatsword attacks."
+      },
+      {
+        "name": "Greatsword",
+        "attack_bonus": 15,
+        "damage_dice": "4d6+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +15 to hit, reach 5 ft., one target. Hit: 22 (4d6 + 8) slashing plus 27 (6d8) radiant."
+      },
+      {
+        "name": "Slaying Longbow",
+        "attack_bonus": 13,
+        "damage_dice": "2d8+6",
+        "damage_type": "piercing",
+        "description": "Ranged Weapon Attack: +13 to hit, range 150/600 ft., one target. Hit: 15 (2d8 + 6) piercing plus 27 (6d8) radiant. Target with <= 100 HP DC 15 CON save or dies."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ancient_green_dragon_2014",
+    "name": "Ancient Green Dragon",
+    "size": "Gargantuan",
+    "type": "dragon",
+    "alignment": "lawful evil",
+    "cr": "22",
+    "cr_numeric": 22.0,
+    "ac": 21,
+    "hp": 385,
+    "max_hp": 385,
+    "speed": "40 ft., fly 80 ft., swim 40 ft.",
+    "stats": {
+      "str": 27,
+      "dex": 12,
+      "con": 25,
+      "int": 20,
+      "wis": 17,
+      "cha": 19
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 27",
+    "languages": "Common, Draconic",
+    "description": "Ancient wyrm of scheming intellect, lording over primeval forests and corrupting mortal monarchs.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Amphibious",
+        "description": "Can breathe air and water."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 15,
+        "damage_dice": "2d10+8",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +15 to hit, reach 15 ft., one target. Hit: 19 (2d10 + 8) piercing plus 10 (3d6) poison."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 15,
+        "damage_dice": "2d6+8",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +15 to hit, reach 10 ft., one target. Hit: 15 (2d6 + 8) slashing damage."
+      },
+      {
+        "name": "Poison Breath",
+        "attack_bonus": null,
+        "damage_dice": "22d6",
+        "damage_type": "poison",
+        "description": "Exhales poisonous gas in 90-ft. cone. DC 22 CON save, taking 77 (22d6) poison on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ancient_blue_dragon_2014",
+    "name": "Ancient Blue Dragon",
+    "size": "Gargantuan",
+    "type": "dragon",
+    "alignment": "lawful evil",
+    "cr": "23",
+    "cr_numeric": 23.0,
+    "ac": 22,
+    "hp": 481,
+    "max_hp": 481,
+    "speed": "40 ft., burrow 40 ft., fly 80 ft.",
+    "stats": {
+      "str": 29,
+      "dex": 10,
+      "con": 27,
+      "int": 18,
+      "wis": 17,
+      "cha": 21
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 27",
+    "languages": "Common, Draconic",
+    "description": "Sovereign of endless dunes whose thunderous lightning breath rends stone and steel.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 16,
+        "damage_dice": "2d10+9",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +16 to hit, reach 15 ft., one target. Hit: 20 (2d10 + 9) piercing plus 11 (2d10) lightning."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 16,
+        "damage_dice": "2d6+9",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +16 to hit, reach 10 ft., one target. Hit: 16 (2d6 + 9) slashing damage."
+      },
+      {
+        "name": "Lightning Breath",
+        "attack_bonus": null,
+        "damage_dice": "16d10",
+        "damage_type": "lightning",
+        "description": "Exhales lightning in 120-ft. line (10 ft. wide). DC 23 DEX save, taking 88 (16d10) lightning on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_empyrean_2014",
+    "name": "Empyrean",
+    "size": "Huge",
+    "type": "celestial",
+    "alignment": "chaotic good",
+    "cr": "23",
+    "cr_numeric": 23.0,
+    "ac": 19,
+    "hp": 313,
+    "max_hp": 313,
+    "speed": "50 ft., fly 50 ft., swim 50 ft.",
+    "stats": {
+      "str": 30,
+      "dex": 21,
+      "con": 30,
+      "int": 21,
+      "wis": 22,
+      "cha": 27
+    },
+    "senses": "truesight 120 ft., passive Perception 24",
+    "languages": "all",
+    "description": "Immortal scions of the gods whose majestic form manifests cosmic wonders and terrifying wrath.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "Advantage on saving throws against spells and other magical effects."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Maul",
+        "attack_bonus": 17,
+        "damage_dice": "6d6+10",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +17 to hit, reach 10 ft., one target. Hit: 31 (6d6 + 10) bludgeoning. DC 15 CON save or stunned until end of next turn."
+      },
+      {
+        "name": "Bolt",
+        "attack_bonus": 15,
+        "damage_dice": "7d6",
+        "damage_type": "radiant",
+        "description": "Ranged Spell Attack: +15 to hit, range 600 ft., one target. Hit: 24 (7d6) damage of choice (acid, cold, fire, force, lightning, radiant, thunder)."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_kraken_2014",
+    "name": "Kraken",
+    "size": "Gargantuan",
+    "type": "monstrosity",
+    "alignment": "chaotic evil",
+    "cr": "23",
+    "cr_numeric": 23.0,
+    "ac": 18,
+    "hp": 472,
+    "max_hp": 472,
+    "speed": "20 ft., swim 60 ft.",
+    "stats": {
+      "str": 30,
+      "dex": 11,
+      "con": 25,
+      "int": 22,
+      "wis": 18,
+      "cha": 20
+    },
+    "senses": "truesight 120 ft., passive Perception 20",
+    "languages": "understands Abyssal, Celestial, Infernal, Primordial but cannot speak; telepathy 120 ft.",
+    "description": "Colossal mythic terror of the oceanic abyss capable of dragging islands and vessels into the deep.",
+    "traits": [
+      {
+        "name": "Amphibious",
+        "description": "The kraken can breathe air and water."
+      },
+      {
+        "name": "Freedom of Movement",
+        "description": "Ignores difficult terrain; magical effects cannot reduce speed or restrain it."
+      },
+      {
+        "name": "Siege Monster",
+        "description": "Deals double damage to objects and structures."
+      },
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Makes three tentacle attacks, each can be replaced with Fling."
+      },
+      {
+        "name": "Tentacle",
+        "attack_bonus": 17,
+        "damage_dice": "3d6+10",
+        "damage_type": "bludgeoning",
+        "description": "Melee Weapon Attack: +17 to hit, reach 30 ft., one target. Hit: 20 (3d6 + 10) bludgeoning and target is grappled."
+      },
+      {
+        "name": "Fling",
+        "attack_bonus": null,
+        "damage_dice": "6d6",
+        "damage_type": "bludgeoning",
+        "description": "One Large or smaller grappled creature thrown up to 60 ft. and knocked prone, taking 21 (6d6) bludgeoning damage."
+      },
+      {
+        "name": "Lightning Storm",
+        "attack_bonus": null,
+        "damage_dice": "12d8",
+        "damage_type": "lightning",
+        "description": "Creates three lightning bolts within 120 ft. DC 23 DEX save, taking 54 (12d8) lightning damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  },
+  {
+    "id": "srd_ancient_red_dragon_2014",
+    "name": "Ancient Red Dragon",
+    "size": "Gargantuan",
+    "type": "dragon",
+    "alignment": "chaotic evil",
+    "cr": "24",
+    "cr_numeric": 24.0,
+    "ac": 22,
+    "hp": 546,
+    "max_hp": 546,
+    "speed": "40 ft., climb 40 ft., fly 80 ft.",
+    "stats": {
+      "str": 30,
+      "dex": 10,
+      "con": 29,
+      "int": 18,
+      "wis": 15,
+      "cha": 23
+    },
+    "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 26",
+    "languages": "Common, Draconic",
+    "description": "The undisputed apex dread wyrm of the Prime Material Plane, laying waste to whole civilizations with apocalyptic fire.",
+    "traits": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If failing saving throw, can choose to succeed instead."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "attack_bonus": null,
+        "damage_dice": null,
+        "damage_type": null,
+        "description": "Uses Frightful Presence. Makes three attacks: one bite and two claws."
+      },
+      {
+        "name": "Bite",
+        "attack_bonus": 17,
+        "damage_dice": "2d10+10",
+        "damage_type": "piercing",
+        "description": "Melee Weapon Attack: +17 to hit, reach 15 ft., one target. Hit: 21 (2d10 + 10) piercing plus 14 (4d6) fire."
+      },
+      {
+        "name": "Claws",
+        "attack_bonus": 17,
+        "damage_dice": "2d6+10",
+        "damage_type": "slashing",
+        "description": "Melee Weapon Attack: +17 to hit, reach 10 ft., one target. Hit: 17 (2d6 + 10) slashing damage."
+      },
+      {
+        "name": "Fire Breath",
+        "attack_bonus": null,
+        "damage_dice": "26d6",
+        "damage_type": "fire",
+        "description": "Exhales fire in 90-ft. cone. DC 24 DEX save, taking 91 (26d6) fire damage on failure, or half on success."
+      }
+    ],
+    "origin": "official",
+    "is_public": true,
+    "edition": "2014"
+  }
+]

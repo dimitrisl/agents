@@ -59,7 +59,10 @@
               </div>
             }
             <div class="min-w-0 flex-1">
-              <h3 class="font-display text-title text-ink flex items-center gap-1.5 truncate">
+              <h3
+                class="font-display text-title text-ink flex items-center gap-1.5 truncate"
+                [title]="member.name + (member.owner_username ? ' (' + member.owner_username + ')' : '')"
+              >
                 <span class="text-xs" [attr.aria-label]="member.isOnline ? 'Online' : 'Offline'">{{ member.isOnline ? '🟢' : '⚪' }}</span>
                 <span class="font-bold truncate">{{ member.name }}</span>
                 <span *ngIf="member.owner_username" class="text-muted text-xs font-normal truncate">({{ member.owner_username }})</span>

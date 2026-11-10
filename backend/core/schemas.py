@@ -1,7 +1,8 @@
 import re
 import uuid
+from builtins import int as BuiltinInt
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
@@ -973,3 +974,231 @@ class ClassScalingResponse(BaseModel):
 class CombatProfileRequest(BaseModel):
     classes: List[ClassEntry]
     edition: str = "2014 Edition"
+
+
+# ============================================================================
+# Bestiary & Custom Monster Schemas (Milestone 2)
+# ============================================================================
+
+
+def _parse_cr_numeric(cr_val: Any) -> float:
+    """Parses challenge rating strings (e.g. '1/4', '2', 0.5) to numeric float."""
+    if cr_val is None:
+        return 0.0
+    if isinstance(cr_val, (int, float)):
+        return float(cr_val)
+    cr_str = str(cr_val).strip()
+    if "/" in cr_str:
+        parts = cr_str.split("/", 1)
+        try:
+            return float(parts[0]) / float(parts[1])
+        except (ValueError, ZeroDivisionError):
+            return 0.0
+    try:
+        return float(cr_str)
+    except ValueError:
+        return 0.0
+
+
+class MonsterStats(BaseModel):
+    """6 core ability scores for monsters, bounded between 1 and 30."""
+
+    str: BuiltinInt = Field(default=10, ge=1, le=30)
+    dex: BuiltinInt = Field(default=10, ge=1, le=30)
+    con: BuiltinInt = Field(default=10, ge=1, le=30)
+    int: BuiltinInt = Field(default=10, ge=1, le=30)
+    wis: BuiltinInt = Field(default=10, ge=1, le=30)
+    cha: BuiltinInt = Field(default=10, ge=1, le=30)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_case(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {str(k).lower(): v for k, v in data.items()}
+        return data
+
+
+class MonsterTrait(BaseModel):
+    """Special trait or passive feature of a monster."""
+
+    name: str
+    description: str = ""
+
+
+class MonsterAction(BaseModel):
+    """Structured attack or active action of a monster."""
+
+    name: str
+    attack_bonus: Optional[int] = None
+    damage_dice: Optional[str] = None
+    damage_type: Optional[str] = None
+    description: str = ""
+
+
+class Monster(BaseModel):
+    """Complete unified Bestiary monster model supporting SRD, Custom, and Community."""
+
+    id: str
+    name: str
+    edition: str = "2014"
+    origin: Literal["official", "custom", "community"] = "custom"
+    is_public: bool = False
+    creator_dm_id: Optional[str] = None
+    based_on: Optional[str] = None
+    size: str = "Medium"
+    type: str = "humanoid"
+    alignment: str = "unaligned"
+    cr: str = "1"
+    cr_numeric: float = 1.0
+    ac: int = Field(default=10, ge=0)
+    hp: int = Field(default=10, ge=1, le=2000)
+    max_hp: int = Field(default=10, ge=1, le=2000)
+    speed: str = "30 ft."
+    stats: MonsterStats = Field(default_factory=MonsterStats)
+    senses: Optional[str] = ""
+    languages: Optional[str] = ""
+    description: Optional[str] = ""
+    traits: List[MonsterTrait] = Field(default_factory=list)
+    actions: List[MonsterAction] = Field(default_factory=list)
+    bonus_actions: Optional[List[MonsterAction]] = Field(default_factory=list)
+    reactions: Optional[List[MonsterAction]] = Field(default_factory=list)
+    legendary_actions: Optional[List[MonsterAction]] = Field(default_factory=list)
+    condition_immunities: Optional[List[str]] = Field(default_factory=list)
+    damage_immunities: Optional[List[str]] = Field(default_factory=list)
+    damage_resistances: Optional[List[str]] = Field(default_factory=list)
+    created_at: Optional[Union[datetime, str]] = None
+    updated_at: Optional[Union[datetime, str]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_empty(cls, v: str) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("Monster name cannot be empty or whitespace-only.")
+        return v.strip()
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_defaults_and_cr(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "cr_numeric" not in data or data["cr_numeric"] is None:
+                if "cr" in data:
+                    data["cr_numeric"] = _parse_cr_numeric(data["cr"])
+            if ("max_hp" not in data or data["max_hp"] is None) and "hp" in data:
+                data["max_hp"] = data["hp"]
+        return data
+
+
+class BestiaryCreateRequest(BaseModel):
+    """Request model for creating or cloning a custom monster."""
+
+    name: str
+    edition: str = "2014"
+    size: str = "Medium"
+    type: str = "humanoid"
+    alignment: str = "unaligned"
+    cr: str = "1"
+    cr_numeric: Optional[float] = None
+    ac: int = Field(default=10, ge=0)
+    hp: int = Field(default=10, ge=1, le=2000)
+    max_hp: Optional[int] = Field(default=None, ge=1, le=2000)
+    speed: str = "30 ft."
+    stats: MonsterStats = Field(default_factory=MonsterStats)
+    senses: Optional[str] = ""
+    languages: Optional[str] = ""
+    description: Optional[str] = ""
+    traits: List[MonsterTrait] = Field(default_factory=list)
+    actions: List[MonsterAction] = Field(default_factory=list)
+    bonus_actions: Optional[List[MonsterAction]] = Field(default_factory=list)
+    reactions: Optional[List[MonsterAction]] = Field(default_factory=list)
+    legendary_actions: Optional[List[MonsterAction]] = Field(default_factory=list)
+    condition_immunities: Optional[List[str]] = Field(default_factory=list)
+    damage_immunities: Optional[List[str]] = Field(default_factory=list)
+    damage_resistances: Optional[List[str]] = Field(default_factory=list)
+    is_public: bool = False
+    based_on: Optional[str] = None
+    origin: Optional[str] = None
+    creator_dm_id: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_empty(cls, v: str) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("Monster name cannot be empty or whitespace-only.")
+        return v.strip()
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_defaults_and_cr(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "cr_numeric" not in data or data["cr_numeric"] is None:
+                if "cr" in data:
+                    data["cr_numeric"] = _parse_cr_numeric(data["cr"])
+            if ("max_hp" not in data or data["max_hp"] is None) and "hp" in data:
+                data["max_hp"] = data["hp"]
+        return data
+
+
+class BestiaryUpdateRequest(BaseModel):
+    """Request model for updating an existing custom monster (partial updates supported)."""
+
+    name: Optional[str] = None
+    edition: Optional[str] = None
+    size: Optional[str] = None
+    type: Optional[str] = None
+    alignment: Optional[str] = None
+    cr: Optional[str] = None
+    cr_numeric: Optional[float] = None
+    ac: Optional[int] = Field(default=None, ge=0)
+    hp: Optional[int] = Field(default=None, ge=1, le=2000)
+    max_hp: Optional[int] = Field(default=None, ge=1, le=2000)
+    speed: Optional[str] = None
+    stats: Optional[MonsterStats] = None
+    senses: Optional[str] = None
+    languages: Optional[str] = None
+    description: Optional[str] = None
+    traits: Optional[List[MonsterTrait]] = None
+    actions: Optional[List[MonsterAction]] = None
+    bonus_actions: Optional[List[MonsterAction]] = None
+    reactions: Optional[List[MonsterAction]] = None
+    legendary_actions: Optional[List[MonsterAction]] = None
+    condition_immunities: Optional[List[str]] = None
+    damage_immunities: Optional[List[str]] = None
+    damage_resistances: Optional[List[str]] = None
+    is_public: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            if not isinstance(v, str) or not v.strip():
+                raise ValueError("Monster name cannot be empty or whitespace-only.")
+            return v.strip()
+        return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def calc_cr(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "cr" in data and ("cr_numeric" not in data or data["cr_numeric"] is None):
+                data["cr_numeric"] = _parse_cr_numeric(data["cr"])
+        return data
+
+
+class BestiaryVisibilityRequest(BaseModel):
+    """Request model for toggling custom monster public visibility."""
+
+    is_public: bool
+
+
+class BestiaryVisibilityResponse(BaseModel):
+    """Response model for visibility toggle."""
+
+    success: bool
+    is_public: bool
+
+
+class BestiaryDeleteResponse(BaseModel):
+    """Response model for monster deletion."""
+
+    success: bool
+    message: str

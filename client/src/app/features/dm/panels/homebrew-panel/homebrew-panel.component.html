@@ -1,40 +1,382 @@
-<div class="p-4 space-y-4">
-  <div class="flex justify-between items-center">
-    <h2 class="text-xl font-bold text-ink">Campaign Homebrew</h2>
-    <div class="flex gap-2">
-      <button class="bg-surface text-ink px-3 py-1 rounded border border-hairline hover:bg-tile" (click)="homebrewService.exportHomebrewPdf(campaignName!)">Export PDF</button>
-      <button class="bg-surface text-ink px-3 py-1 rounded border border-hairline hover:bg-tile" (click)="homebrewService.exportHomebrew(campaignName!).subscribe()">Export JSON</button>
-      <button class="bg-accent text-white px-3 py-1 rounded hover:bg-accent/90" (click)="showForgeModal = true">+ Create Homebrew</button>
+<div class="space-y-4 p-4">
+  <!-- View Switcher Toolbar -->
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-hairline/70 pb-3">
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="rounded-lg px-3 py-1.5 text-label font-semibold transition-colors"
+        [ngClass]="activeView === 'bestiary'
+          ? 'bg-accent/15 text-accent border border-accent/30'
+          : 'bg-tile text-muted hover:text-ink border border-hairline'"
+        (click)="activeView = 'bestiary'"
+      >
+        🐉 Unified Bestiary
+      </button>
+      <button
+        type="button"
+        class="rounded-lg px-3 py-1.5 text-label font-semibold transition-colors"
+        [ngClass]="activeView === 'campaign'
+          ? 'bg-accent/15 text-accent border border-accent/30'
+          : 'bg-tile text-muted hover:text-ink border border-hairline'"
+        (click)="activeView = 'campaign'"
+      >
+        📦 Campaign Equipment &amp; Spells
+      </button>
     </div>
-  </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    <div *ngFor="let item of items$ | async" class="border border-hairline rounded p-3 bg-surface shadow-sm relative">
-      <div class="absolute top-2 right-2">
-        <button class="text-crimson hover:text-crimson/80" (click)="deleteItem(item._id!)">Delete</button>
-      </div>
-      <div class="text-xs font-semibold text-accent uppercase tracking-wider mb-1">{{ item.homebrew_type }}</div>
-      <h3 class="font-bold text-lg text-ink">{{ item.name }}</h3>
-      <div *ngIf="item.homebrew_type === 'monster'" class="text-xs text-muted font-medium mt-1">
-        <span>CR {{ item['cr'] || '1' }}</span> • <span>AC {{ item['ac'] || 10 }}</span> • <span>HP {{ item['hp'] || 10 }}</span>
-        <div *ngIf="item['type']" class="text-micro text-muted uppercase mt-0.5">{{ item['size'] || 'Medium' }} {{ item['type'] }}</div>
-      </div>
-      <p class="text-sm text-muted mt-2 line-clamp-3">{{ item['description'] || 'No description provided.' }}</p>
-      <div *ngIf="item.homebrew_type === 'monster'" class="mt-3 pt-2 border-t border-hairline flex justify-end">
+    @if (activeView === 'campaign') {
+      <div class="flex items-center gap-2">
         <button
-          class="bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30 text-xs px-2.5 py-1 rounded font-semibold flex items-center gap-1 transition-colors"
-          (click)="addMonsterToTracker.emit(item)"
-          type="button"
+          forgeButton
+          variant="secondary"
+          size="sm"
+          (click)="homebrewService.exportHomebrewPdf(campaignName!)"
         >
-          ⚔️ Add to Initiative
+          Export PDF
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          (click)="homebrewService.exportHomebrew(campaignName!).subscribe()"
+        >
+          Export JSON
+        </button>
+        <button
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          (click)="showForgeModal = true"
+        >
+          + Create Homebrew
         </button>
       </div>
-    </div>
-
-    <div *ngIf="(items$ | async)?.length === 0" class="col-span-full py-8 text-center text-muted italic border border-dashed border-hairline rounded">
-      No homebrew content in this campaign yet.
-    </div>
+    }
   </div>
+
+  <!-- VIEW 1: UNIFIED BESTIARY BROWSER -->
+  @if (activeView === 'bestiary') {
+    <section class="flex flex-col gap-4" aria-labelledby="bestiary-browser-heading">
+      <div class="flex flex-col gap-3 rounded-xl bg-panel p-4 border border-hairline">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="bestiary-browser-heading" class="font-display text-title text-ink font-bold">
+            Unified Bestiary
+          </h2>
+
+          <!-- Source Filter Chips -->
+          <div class="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Monster source filters">
+            <button
+              type="button"
+              [attr.aria-pressed]="includeOfficial"
+              class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="includeOfficial
+                ? 'border border-accent/40 bg-accent/15 text-accent font-medium'
+                : 'border border-hairline bg-tile text-muted hover:text-ink'"
+              (click)="toggleSource('official')"
+            >
+              <span>{{ includeOfficial ? '✓' : '' }}</span>
+              <span>🏛️ Official</span>
+            </button>
+
+            <button
+              type="button"
+              [attr.aria-pressed]="includeMine"
+              class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="includeMine
+                ? 'border border-accent/40 bg-accent/15 text-accent font-medium'
+                : 'border border-hairline bg-tile text-muted hover:text-ink'"
+              (click)="toggleSource('mine')"
+            >
+              <span>{{ includeMine ? '✓' : '' }}</span>
+              <span>🔒 Mine</span>
+            </button>
+
+            <button
+              type="button"
+              [attr.aria-pressed]="includeCommunity"
+              class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="includeCommunity
+                ? 'border border-accent/40 bg-accent/15 text-accent font-medium'
+                : 'border border-hairline bg-tile text-muted hover:text-ink'"
+              (click)="toggleSource('community')"
+            >
+              <span>{{ includeCommunity ? '✓' : '' }}</span>
+              <span>🌐 3rd-Party</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Controls Row -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label for="bestiary-search" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              Search
+            </label>
+            <input
+              forgeInput
+              id="bestiary-search"
+              type="text"
+              placeholder="Search by name, type, action..."
+              [(ngModel)]="searchQuery"
+              (input)="onFilterChange()"
+            />
+          </div>
+
+          <div>
+            <label for="bestiary-edition" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              Edition
+            </label>
+            <select
+              forgeSelect
+              id="bestiary-edition"
+              [(ngModel)]="editionFilter"
+              (change)="onFilterChange()"
+            >
+              <option value="all">All Editions</option>
+              <option value="2014">2014 Edition</option>
+              <option value="2024">2024 Edition</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="bestiary-cr" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              CR / Challenge Rating
+            </label>
+            <select
+              forgeSelect
+              id="bestiary-cr"
+              [(ngModel)]="crFilter"
+              (change)="onFilterChange()"
+            >
+              @for (crVal of monsterCrs; track crVal) {
+                <option [value]="crVal">{{ crVal === 'all' ? 'All CRs' : 'CR ' + crVal }}</option>
+              }
+            </select>
+          </div>
+
+          <div>
+            <label for="bestiary-type" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              Monster Type
+            </label>
+            <select
+              forgeSelect
+              id="bestiary-type"
+              [(ngModel)]="typeFilter"
+              (change)="onFilterChange()"
+            >
+              @for (mType of monsterTypes; track mType) {
+                <option [value]="mType">{{ mType === 'all' ? 'All Types' : (mType | titlecase) }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      @if (isLoading()) {
+        <div class="flex justify-center py-12">
+          <forge-spinner size="lg" tone="accent" label="Loading bestiary monsters..."></forge-spinner>
+        </div>
+      } @else if (monsters().length > 0) {
+        <!-- Monster Cards Grid -->
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          @for (monster of monsters(); track monster.id) {
+            <article class="flex flex-col justify-between rounded-xl bg-panel border border-hairline p-4 transition-colors hover:bg-tile/50">
+              <div>
+                <!-- Header: Badges & Ownership Controls -->
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <forge-badge [tone]="monster.edition === '2024' ? 'accent' : 'muted'" size="sm">
+                      {{ monster.edition }}
+                    </forge-badge>
+                    <forge-badge
+                      [tone]="monster.origin === 'official' ? 'accent' : (monster.origin === 'custom' ? 'muted' : 'gold')"
+                      size="sm"
+                    >
+                      {{ monster.origin === 'official' ? '🏛️ Official' : (monster.origin === 'custom' ? '🔒 Mine' : '🌐 3rd-Party') }}
+                    </forge-badge>
+
+                    @if (isOwner(monster)) {
+                      <button
+                        type="button"
+                        class="text-micro font-semibold rounded px-1.5 py-0.5 border"
+                        [ngClass]="monster.is_public
+                          ? 'border-accent/40 bg-accent/15 text-accent'
+                          : 'border-hairline bg-tile text-muted'"
+                        (click)="toggleVisibility(monster)"
+                        title="Toggle visibility"
+                      >
+                        {{ monster.is_public ? '🌐 Public' : '🔒 Private' }}
+                      </button>
+                    }
+                  </div>
+
+                  @if (isOwner(monster)) {
+                    <button
+                      forgeButton
+                      variant="danger"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      aria-label="Delete monster"
+                      (click)="deleteMonster(monster)"
+                    >
+                      <forge-icon name="close" size="sm"></forge-icon>
+                    </button>
+                  }
+                </div>
+
+                <!-- Monster Title -->
+                <h3 class="font-display text-title text-ink font-bold truncate" [title]="monster.name">
+                  {{ monster.name }}
+                </h3>
+                <p class="text-micro text-muted uppercase tracking-wider mb-3">
+                  {{ monster.size }} {{ monster.type }} · {{ monster.alignment }}
+                  @if (monster.based_on) {
+                    <span class="italic text-muted/80 block mt-0.5">Cloned from: {{ monster.based_on }}</span>
+                  }
+                </p>
+
+                <!-- Core Metrics Strip -->
+                <div class="grid grid-cols-4 gap-2 rounded-lg bg-tile p-2.5 text-center text-label mb-3">
+                  <div>
+                    <div class="text-micro text-muted uppercase font-semibold">CR</div>
+                    <div class="font-bold text-accent">{{ monster.cr }}</div>
+                  </div>
+                  <div>
+                    <div class="text-micro text-muted uppercase font-semibold">AC</div>
+                    <div class="font-bold text-ink">{{ monster.ac }}</div>
+                  </div>
+                  <div>
+                    <div class="text-micro text-muted uppercase font-semibold">HP</div>
+                    <div class="font-bold text-accent">{{ monster.hp }}</div>
+                  </div>
+                  <div>
+                    <div class="text-micro text-muted uppercase font-semibold">Speed</div>
+                    <div class="font-semibold text-ink truncate" [title]="monster.speed">{{ monster.speed }}</div>
+                  </div>
+                </div>
+
+                <!-- Ability Scores Summary -->
+                @if (monster.stats) {
+                  <div class="text-micro text-muted bg-surface/60 rounded px-2.5 py-1.5 mb-3 flex justify-between">
+                    <span>STR {{ monster.stats.str }} ({{ abilityMod(monster.stats.str) }})</span>
+                    <span>DEX {{ monster.stats.dex }} ({{ abilityMod(monster.stats.dex) }})</span>
+                    <span>CON {{ monster.stats.con }} ({{ abilityMod(monster.stats.con) }})</span>
+                    <span>INT {{ monster.stats.int }} ({{ abilityMod(monster.stats.int) }})</span>
+                    <span>WIS {{ monster.stats.wis }} ({{ abilityMod(monster.stats.wis) }})</span>
+                    <span>CHA {{ monster.stats.cha }} ({{ abilityMod(monster.stats.cha) }})</span>
+                  </div>
+                }
+
+                <!-- Structured Actions Preview -->
+                @if (monster.actions && monster.actions.length > 0) {
+                  <div class="text-micro text-muted space-y-1 mb-3">
+                    <span class="font-semibold uppercase text-ink block">Actions:</span>
+                    @for (action of monster.actions.slice(0, 2); track action.name) {
+                      <div class="truncate text-ink/90">
+                        ⚔️ <strong class="text-ink">{{ action.name }}</strong>
+                        @if (action.attack_bonus !== undefined && action.attack_bonus !== null) {
+                          <span class="text-accent font-semibold ml-1">
+                            ({{ action.attack_bonus >= 0 ? '+' + action.attack_bonus : action.attack_bonus }} to hit)
+                          </span>
+                        }
+                        @if (action.damage_dice) {
+                          <span class="text-muted ml-1">[{{ action.damage_dice }} {{ action.damage_type }}]</span>
+                        }
+                      </div>
+                    }
+                    @if (monster.actions.length > 2) {
+                      <div class="italic text-muted">+ {{ monster.actions.length - 2 }} more actions</div>
+                    }
+                  </div>
+                }
+              </div>
+
+              <!-- Footer Actions -->
+              <div class="flex items-center justify-between gap-2 border-t border-hairline/60 pt-3 mt-2">
+                <button
+                  forgeButton
+                  variant="secondary"
+                  tone="accent"
+                  size="sm"
+                  type="button"
+                  (click)="addToInitiative.emit(monster)"
+                >
+                  ⚔️ Add to Initiative
+                </button>
+
+                <div class="flex items-center gap-1.5">
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    (click)="cloneMonster(monster)"
+                  >
+                    📋 Clone
+                  </button>
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    (click)="viewStatblock.emit(monster)"
+                  >
+                    📜 Statblock
+                  </button>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <forge-empty-state
+          icon="🐉"
+          title="No monsters match your filters"
+          description="Try broadening your search query or enabling 3rd-Party monsters."
+        ></forge-empty-state>
+      }
+    </section>
+  }
+
+  <!-- VIEW 2: CAMPAIGN HOMEBREW (Equipment & Spells) -->
+  @if (activeView === 'campaign') {
+    <section aria-labelledby="campaign-homebrew-heading">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (item of items$ | async; track item._id || item.name) {
+          <div class="border border-hairline rounded-xl p-3 bg-surface shadow-sm relative">
+            <div class="absolute top-2 right-2">
+              <button class="text-crimson hover:text-crimson/80 text-label font-semibold" (click)="deleteItem(item._id!)">Delete</button>
+            </div>
+            <div class="text-xs font-semibold text-accent uppercase tracking-wider mb-1">{{ item.homebrew_type }}</div>
+            <h3 class="font-bold text-lg text-ink">{{ item.name }}</h3>
+            <div *ngIf="item.homebrew_type === 'monster'" class="text-xs text-muted font-medium mt-1">
+              <span>CR {{ item['cr'] || '1' }}</span> • <span>AC {{ item['ac'] || 10 }}</span> • <span>HP {{ item['hp'] || 10 }}</span>
+              <div *ngIf="item['type']" class="text-micro text-muted uppercase mt-0.5">{{ item['size'] || 'Medium' }} {{ item['type'] }}</div>
+            </div>
+            <p class="text-sm text-muted mt-2 line-clamp-3">{{ item['description'] || 'No description provided.' }}</p>
+            <div *ngIf="item.homebrew_type === 'monster'" class="mt-3 pt-2 border-t border-hairline flex justify-end">
+              <button
+                class="bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30 text-xs px-2.5 py-1 rounded font-semibold flex items-center gap-1 transition-colors"
+                (click)="addMonsterToTracker.emit(item)"
+                type="button"
+              >
+                ⚔️ Add to Initiative
+              </button>
+            </div>
+          </div>
+        }
+
+        @if ((items$ | async)?.length === 0) {
+          <div class="col-span-full py-8 text-center text-muted italic border border-dashed border-hairline rounded-xl">
+            No homebrew content in this campaign yet.
+          </div>
+        }
+      </div>
+    </section>
+  }
 
   <app-homebrew-forge-modal
     *ngIf="showForgeModal"

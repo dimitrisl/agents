@@ -187,5 +187,79 @@
         }
       </div>
     </section>
+
+    <!-- Riddle, Puzzle & Trap Generator -->
+    <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-riddle-heading">
+      <header class="flex items-center gap-3 bg-tile px-4 py-3">
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+          aria-hidden="true"
+        >
+          🧩
+        </span>
+        <h3 id="dm-riddle-heading" class="min-w-0 font-display text-title text-ink">
+          Riddle, Puzzle &amp; Trap Generator
+        </h3>
+      </header>
+
+      <div class="flex flex-col gap-4 p-4">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div class="min-w-0">
+            <label for="riddle-theme" class="mb-2 block text-label font-semibold text-muted">
+              Theme / Location / Trap Concept
+            </label>
+            <input
+              forgeInput
+              id="riddle-theme"
+              type="text"
+              placeholder="e.g. Sphinx Crypt, Sunken Clockwork Foundry, Poison Needle Vault"
+              [ngModel]="riddleTheme"
+              (ngModelChange)="riddleThemeChange.emit($event)"
+            />
+          </div>
+
+          <button
+            forgeButton
+            variant="secondary"
+            tone="accent"
+            type="button"
+            class="w-full md:w-auto"
+            [disabled]="!riddleTheme || isGeneratingRiddle"
+            (click)="generateRiddle.emit()"
+          >
+            {{ isGeneratingRiddle ? '⏳ Forging...' : 'Generate Riddle / Trap' }}
+          </button>
+        </div>
+
+        @if (riddleResult) {
+          <div class="flex min-w-0 flex-col gap-3 rounded-xl bg-tile p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-micro font-semibold uppercase text-muted">Generated Riddle &amp; Trap</p>
+              <div class="flex items-center gap-2">
+                <button
+                  forgeButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  (click)="copyRiddle.emit()"
+                >
+                  📋 Copy
+                </button>
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  (click)="pinRiddleToNotes.emit()"
+                >
+                  📌 Pin to Notes
+                </button>
+              </div>
+            </div>
+            <forge-markdown class="mt-2" [content]="riddleResult" />
+          </div>
+        }
+      </div>
+    </section>
   </div>
 </div>

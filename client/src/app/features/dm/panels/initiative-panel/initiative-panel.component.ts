@@ -1,17 +1,30 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Input,
+  OnDestroy,
+  Output,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeEmptyStateComponent,
   ForgeInputDirective,
   ForgeModalComponent,
+  ForgeSpinnerComponent,
 } from '../../../../shared/ui';
 import type {
   CombatantCondition,
   InitiativeCombatant,
 } from '../../../../core/models/initiative.model';
+import type { BestiaryMonster } from '../../../../core/models/bestiary.model';
 
 /** The three dots the tracker draws for each half of a death-save tally. */
 const DEATH_SAVE_SLOTS = [1, 2, 3];
@@ -27,11 +40,12 @@ const DEATH_SAVE_SLOTS = [1, 2, 3];
     ForgeEmptyStateComponent,
     ForgeInputDirective,
     ForgeModalComponent,
+    ForgeSpinnerComponent,
   ],
   templateUrl: './initiative-panel.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class InitiativePanelComponent {
+export class InitiativePanelComponent implements OnDestroy {
   @Input() combatants: InitiativeCombatant[] = [];
   @Input() activeCombatantId: string | null = null;
   @Input() round = 0;
@@ -40,6 +54,18 @@ export class InitiativePanelComponent {
   @Input() newCombatantInit = 10;
   @Input() newCombatantHp = 20;
   @Input() newCombatantAc = 12;
+
+  // Quick-Add Inputs & Outputs
+  @Input() quickAddResults: BestiaryMonster[] = [];
+  @Input() isSearching = false;
+
+  @Output() searchBestiary = new EventEmitter<{
+    query: string;
+    includeOfficial: boolean;
+    includeMine: boolean;
+    includeCommunity: boolean;
+  }>();
+  @Output() addMonster = new EventEmitter<BestiaryMonster>();
 
   @Output() newCombatantNameChange = new EventEmitter<string>();
   @Output() newCombatantInitChange = new EventEmitter<number>();
@@ -74,12 +100,92 @@ export class InitiativePanelComponent {
 
   readonly deathSaveSlots = DEATH_SAVE_SLOTS;
 
+  // Quick-Add Local State & Source Filters (Official & Mine default ON, 3rd-Party defaults OFF)
+  quickAddQuery = '';
+  includeOfficial = true;
+  includeMine = true;
+  includeCommunity = false;
+  isDropdownOpen = false;
+
+  private searchSubject = new Subject<string>();
+  private searchSub?: Subscription;
+
   /** Local to the panel: a destructive action asks before it fires. */
   showEndCombatConfirm = false;
 
   /** Which combatant has its condition palette open, and the duration to apply. */
   private openConditionsFor: string | null = null;
   private conditionRounds: Record<string, number> = {};
+
+  constructor(private elementRef?: ElementRef) {
+    this.searchSub = this.searchSubject
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe((query) => {
+        this.emitSearch(query);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.elementRef?.nativeElement && !this.elementRef.nativeElement.contains(event.target)) {
+      this.closeDropdown();
+    }
+  }
+
+  @HostListener('keydown.escape')
+  onEscape(): void {
+    this.closeDropdown();
+  }
+
+  onSearchInput(value: string): void {
+    this.quickAddQuery = value;
+    this.isDropdownOpen = true;
+    this.searchSubject.next(value);
+  }
+
+  toggleSource(source: 'official' | 'mine' | 'community'): void {
+    if (source === 'official') {
+      this.includeOfficial = !this.includeOfficial;
+    } else if (source === 'mine') {
+      this.includeMine = !this.includeMine;
+    } else if (source === 'community') {
+      this.includeCommunity = !this.includeCommunity;
+    }
+    this.emitSearch(this.quickAddQuery);
+  }
+
+  private emitSearch(query: string): void {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      this.quickAddResults = [];
+      return;
+    }
+    this.searchBestiary.emit({
+      query: trimmed,
+      includeOfficial: this.includeOfficial,
+      includeMine: this.includeMine,
+      includeCommunity: this.includeCommunity,
+    });
+  }
+
+  closeDropdown(): void {
+    this.isDropdownOpen = false;
+  }
+
+  /**
+   * Selects a monster from quick-add results and emits it to container.
+   * Container populates monster.hp, monster.ac, dex, actions, and count/suffix autoNumber.
+   */
+  selectMonster(monster: BestiaryMonster): void {
+    this.addMonster.emit(monster);
+    this.closeDropdown();
+    this.quickAddQuery = '';
+    this.quickAddResults = [];
+  }
 
   getConditionRounds(combatant: InitiativeCombatant): number {
     return this.conditionRounds[combatant.id] ?? 1;
@@ -109,10 +215,6 @@ export class InitiativePanelComponent {
     return condition.name;
   }
 
-  /**
-   * A lapsed condition is filtered out of the view, not deleted, so stepping
-   * the round back with Previous Turn brings it honestly back.
-   */
   activeConditions(combatant: InitiativeCombatant): CombatantCondition[] {
     return combatant.conditions.filter(
       (condition) => condition.expiresAtRound === null || condition.expiresAtRound > this.round
@@ -123,7 +225,6 @@ export class InitiativePanelComponent {
     return this.activeConditions(combatant).some((active) => active.name === condition);
   }
 
-  /** Rounds left, counted from the round the condition is anchored to expire on. */
   conditionRemaining(condition: CombatantCondition): number | null {
     if (condition.expiresAtRound === null) return null;
     return Math.max(0, condition.expiresAtRound - Math.max(1, this.round));
@@ -150,12 +251,6 @@ export class InitiativePanelComponent {
     this.openConditionsFor = this.isConditionsOpen(combatant) ? null : combatant.id;
   }
 
-  /**
-   * Committed on blur rather than on every keystroke: clearing the field to
-   * type a new total would otherwise read as 0 for a moment and flash the death
-   * saves open. The clamped figure is written straight back to the element, so
-   * the DM never reads a number the tracker did not accept.
-   */
   onHpInput(combatant: InitiativeCombatant, input: HTMLInputElement): void {
     const raw = (input.value || '').trim();
     let hp = combatant.hp;
@@ -197,7 +292,6 @@ export class InitiativePanelComponent {
     }
   }
 
-  /** Players only, and only once they are down — monsters simply die. */
   showsDeathSaves(combatant: InitiativeCombatant): boolean {
     return combatant.is_player && combatant.hp <= 0;
   }
