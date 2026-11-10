@@ -114,6 +114,27 @@ INDEX_DEFINITIONS = [
         [("campaign_name", pymongo.ASCENDING)],
         {"name": "idx_campaign_assets_campaign_name"},
     ),
+    # Bestiary: custom monsters collection (#Milestone 2)
+    (
+        "custom_monsters",
+        [("id", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_custom_monsters_id"},
+    ),
+    (
+        "custom_monsters",
+        [("creator_dm_id", pymongo.ASCENDING)],
+        {"name": "idx_custom_monsters_creator_dm_id"},
+    ),
+    (
+        "custom_monsters",
+        [("is_public", pymongo.ASCENDING)],
+        {"name": "idx_custom_monsters_is_public"},
+    ),
+    (
+        "custom_monsters",
+        [("creator_dm_id", pymongo.ASCENDING), ("is_public", pymongo.ASCENDING)],
+        {"name": "idx_custom_monsters_creator_public"},
+    ),
 ]
 
 

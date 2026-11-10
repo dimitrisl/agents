@@ -75,9 +75,137 @@
     </section>
 
     <section class="overflow-hidden rounded-xl bg-panel" aria-labelledby="dm-add-combatant-heading">
-      <header class="bg-tile px-4 py-3">
+      <header class="bg-tile px-4 py-3 flex items-center justify-between">
         <h3 id="dm-add-combatant-heading" class="font-display text-title text-ink">Add Combatant</h3>
       </header>
+
+      <!-- Quick-Add Monster Search Bar -->
+      <div class="border-b border-hairline/70 p-4">
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-label font-semibold text-muted">Quick-Add from Bestiary</span>
+
+            <!-- Source Filter Chips -->
+            <div class="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Monster source filters">
+              <button
+                type="button"
+                [attr.aria-pressed]="includeOfficial"
+                class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [ngClass]="includeOfficial
+                  ? 'border border-accent/40 bg-accent/15 text-accent font-medium'
+                  : 'border border-hairline bg-tile text-muted hover:text-ink'"
+                (click)="toggleSource('official')"
+              >
+                <span>{{ includeOfficial ? '✓' : '' }}</span>
+                <span>🏛️ Official</span>
+              </button>
+
+              <button
+                type="button"
+                [attr.aria-pressed]="includeMine"
+                class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [ngClass]="includeMine
+                  ? 'border border-accent/40 bg-accent/15 text-accent font-medium'
+                  : 'border border-hairline bg-tile text-muted hover:text-ink'"
+                (click)="toggleSource('mine')"
+              >
+                <span>{{ includeMine ? '✓' : '' }}</span>
+                <span>🔒 Mine</span>
+              </button>
+
+              <button
+                type="button"
+                [attr.aria-pressed]="includeCommunity"
+                class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [ngClass]="includeCommunity
+                  ? 'border border-accent/40 bg-accent/15 text-accent font-medium'
+                  : 'border border-hairline bg-tile text-muted hover:text-ink'"
+                (click)="toggleSource('community')"
+              >
+                <span>{{ includeCommunity ? '✓' : '' }}</span>
+                <span>🌐 3rd-Party</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Input with Dropdown -->
+          <div class="relative w-full">
+            <div class="relative">
+              <input
+                forgeInput
+                id="quick-add-search-input"
+                type="text"
+                class="w-full pr-10"
+                placeholder="🔍 Search monsters (e.g. Goblin, Dragon, Zombie)..."
+                [value]="quickAddQuery"
+                (input)="onSearchInput($any($event.target).value)"
+                (focus)="isDropdownOpen = true"
+                aria-label="Quick-add monster search"
+                aria-autocomplete="list"
+                [attr.aria-expanded]="isDropdownOpen && quickAddQuery.trim().length > 0"
+              />
+              @if (isSearching) {
+                <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                  <forge-spinner size="sm" tone="accent" label="Searching..."></forge-spinner>
+                </div>
+              }
+            </div>
+
+            <!-- Dropdown Results -->
+            @if (isDropdownOpen && quickAddQuery.trim()) {
+              <div
+                class="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-hairline bg-surface/98 shadow-xl backdrop-blur-md divide-y divide-hairline"
+                role="listbox"
+                aria-label="Search results"
+              >
+                @if (quickAddResults.length > 0) {
+                  @for (monster of quickAddResults; track monster.id) {
+                    <button
+                      type="button"
+                      role="option"
+                      class="flex w-full items-center justify-between gap-3 p-3 text-left transition-colors hover:bg-tile focus-visible:bg-tile focus-visible:outline-none"
+                      (click)="selectMonster(monster)"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                          <span class="truncate font-semibold text-ink">{{ monster.name }}</span>
+                          <forge-badge
+                            [tone]="monster.origin === 'official' ? 'accent' : 'muted'"
+                            size="sm"
+                          >
+                            {{ monster.origin === 'official' ? '🏛️ Official' : '🔒 Mine' }}
+                          </forge-badge>
+                        </div>
+                        <div class="text-label text-muted">
+                          {{ monster.size }} {{ monster.type }} · CR {{ monster.cr }}
+                        </div>
+                      </div>
+                      <div class="flex shrink-0 items-center gap-3 text-label">
+                        <span class="text-muted">AC <span class="font-semibold text-ink">{{ monster.ac }}</span></span>
+                        <span class="text-muted">HP <span class="font-semibold text-accent">{{ monster.hp }}</span></span>
+                      </div>
+                    </button>
+                  }
+                } @else if (!isSearching) {
+                  <div class="p-4 text-center text-label text-muted">
+                    No matching monsters found
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="relative px-4 py-2">
+        <div class="absolute inset-0 flex items-center px-4">
+          <div class="w-full border-t border-hairline"></div>
+        </div>
+        <div class="relative flex justify-center text-micro uppercase">
+          <span class="bg-panel px-2 text-muted">or add manually</span>
+        </div>
+      </div>
 
       <div class="grid grid-cols-1 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_8rem_7rem_auto] md:items-end">
         <div class="min-w-0">

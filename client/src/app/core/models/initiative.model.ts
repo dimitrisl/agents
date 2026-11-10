@@ -1,3 +1,5 @@
+import type { MonsterAction, MonsterStats, MonsterTrait } from './bestiary.model';
+
 /**
  * A condition riding on a combatant for a number of rounds.
  *
@@ -43,6 +45,9 @@ export interface InitiativeCombatant {
   conditions: CombatantCondition[];
   /** Only ever set for a player at 0 HP; cleared the moment they are healed. */
   deathSaves?: DeathSaves;
+  stats?: MonsterStats;
+  traits?: MonsterTrait[];
+  actions?: MonsterAction[];
 }
 
 /**

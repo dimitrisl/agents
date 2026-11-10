@@ -5,6 +5,11 @@ import {
   EncounterState,
   InitiativeCombatant,
 } from '../models/initiative.model';
+import type {
+  MonsterAction,
+  MonsterStats,
+  MonsterTrait,
+} from '../models/bestiary.model';
 
 /**
  * Bumped whenever the stored shape changes. An entry written by an older
@@ -132,6 +137,15 @@ export class EncounterStorageService {
     const deathSaves = this.parseDeathSaves(input['deathSaves']);
     if (deathSaves === false) return null;
 
+    const stats = this.parseStats(input['stats']);
+    if (stats === false) return null;
+
+    const traits = this.parseTraits(input['traits']);
+    if (traits === false) return null;
+
+    const actions = this.parseActions(input['actions']);
+    if (actions === false) return null;
+
     const combatant: InitiativeCombatant = {
       id,
       name,
@@ -147,6 +161,20 @@ export class EncounterStorageService {
     if (typeof input['portrait'] === 'string') combatant.portrait = input['portrait'];
     if (typeof input['statblock'] === 'string') combatant.statblock = input['statblock'];
     if (deathSaves) combatant.deathSaves = deathSaves;
+
+    if (typeof input['cr'] === 'string' || typeof input['cr'] === 'number') {
+      combatant.cr = input['cr'];
+    }
+    if (typeof input['size'] === 'string' || typeof input['size'] === 'number') {
+      combatant.size = input['size'];
+    }
+    if (this.isFiniteNumber(input['xp'])) {
+      combatant.xp = input['xp'] as number;
+    }
+
+    if (stats) combatant.stats = stats;
+    if (traits) combatant.traits = traits;
+    if (actions) combatant.actions = actions;
 
     return combatant;
   }
@@ -179,6 +207,54 @@ export class EncounterStorageService {
     if (!this.isCount(successes) || !this.isCount(failures)) return false;
 
     return { successes, failures };
+  }
+
+  private parseStats(input: unknown): MonsterStats | null | false {
+    if (input === undefined || input === null) return null;
+    if (!this.isRecord(input)) return false;
+    const keys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+    const parsed: Partial<MonsterStats> = {};
+    for (const k of keys) {
+      const val = input[k];
+      if (!this.isFiniteNumber(val)) return false;
+      parsed[k] = val;
+    }
+    return parsed as MonsterStats;
+  }
+
+  private parseTraits(input: unknown): MonsterTrait[] | null | false {
+    if (input === undefined || input === null) return null;
+    if (!Array.isArray(input)) return false;
+    const traits: MonsterTrait[] = [];
+    for (const entry of input) {
+      if (!this.isRecord(entry)) return false;
+      const name = entry['name'];
+      if (typeof name !== 'string' || !name) return false;
+      const trait: MonsterTrait = { name };
+      if (typeof entry['description'] === 'string') trait.description = entry['description'];
+      if (typeof entry['desc'] === 'string') trait.desc = entry['desc'];
+      traits.push(trait);
+    }
+    return traits;
+  }
+
+  private parseActions(input: unknown): MonsterAction[] | null | false {
+    if (input === undefined || input === null) return null;
+    if (!Array.isArray(input)) return false;
+    const actions: MonsterAction[] = [];
+    for (const entry of input) {
+      if (!this.isRecord(entry)) return false;
+      const name = entry['name'];
+      if (typeof name !== 'string' || !name) return false;
+      const action: MonsterAction = { name };
+      if (this.isFiniteNumber(entry['attack_bonus'])) action.attack_bonus = entry['attack_bonus'];
+      if (typeof entry['damage_dice'] === 'string') action.damage_dice = entry['damage_dice'];
+      if (typeof entry['damage_type'] === 'string') action.damage_type = entry['damage_type'];
+      if (typeof entry['description'] === 'string') action.description = entry['description'];
+      if (typeof entry['desc'] === 'string') action.desc = entry['desc'];
+      actions.push(action);
+    }
+    return actions;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

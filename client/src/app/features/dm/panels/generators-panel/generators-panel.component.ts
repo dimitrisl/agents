@@ -37,6 +37,11 @@ export class GeneratorsPanelComponent {
   @Input() npcResult = '';
   @Input() isGeneratingNpc = false;
 
+  // Riddle, Puzzle & Trap Generator bindings
+  @Input() riddleTheme = '';
+  @Input() riddleResult = '';
+  @Input() isGeneratingRiddle = false;
+
   @Output() avgLevelChange = new EventEmitter<number>();
   @Output() difficultyChange = new EventEmitter<EncounterDifficulty>();
   @Output() locationChange = new EventEmitter<string>();
@@ -44,6 +49,11 @@ export class GeneratorsPanelComponent {
   @Output() generateEncounter = new EventEmitter<void>();
   @Output() addEncounterMonsters = new EventEmitter<void>();
   @Output() generateNpc = new EventEmitter<void>();
+
+  @Output() riddleThemeChange = new EventEmitter<string>();
+  @Output() generateRiddle = new EventEmitter<void>();
+  @Output() copyRiddle = new EventEmitter<void>();
+  @Output() pinRiddleToNotes = new EventEmitter<void>();
 
   readonly difficulties = ENCOUNTER_DIFFICULTIES;
 }

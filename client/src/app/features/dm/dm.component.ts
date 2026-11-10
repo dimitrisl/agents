@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, HostListener, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, HostListener, signal, ViewChild, Signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -12,6 +12,8 @@ import { Subject, EMPTY } from 'rxjs';
 import { debounceTime, catchError, switchMap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { HomebrewService, HomebrewItem } from '../../core/services/homebrew.service';
+import { BestiaryService } from '../../core/services/bestiary.service';
+import type { BestiaryMonster } from '../../core/models/bestiary.model';
 import {
   Campaign,
   CampaignMessages,
@@ -33,6 +35,7 @@ import { PartyMember } from '../../core/models/party.model';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeCardComponent,
   ForgeEmptyStateComponent,
@@ -41,6 +44,7 @@ import {
   ForgeTabsComponent,
   ForgeConfirmService,
 } from '../../shared/ui';
+import { VTTState } from '../../core/models/vtt.model';
 import { CampaignHeaderComponent } from './campaign-header/campaign-header.component';
 import { NotesPanelComponent } from './panels/notes-panel/notes-panel.component';
 import { PartyPanelComponent } from './panels/party-panel/party-panel.component';
@@ -82,12 +86,18 @@ interface PartyStatePayload extends PartyStateChanges {
  */
 const PARTY_STATE_DEBOUNCE_MS = 400;
 
+export type DmMasterMode = 'live' | 'prep';
+export type DmLiveTab = 'initiative' | 'vtt' | 'party' | 'notes';
+export type DmPrepTab = 'homebrew' | 'generators' | 'prep' | 'entities';
+export type DmTab = DmLiveTab | DmPrepTab;
+
 @Component({
   selector: 'app-dm',
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
@@ -114,16 +124,39 @@ const PARTY_STATE_DEBOUNCE_MS = 400;
   styleUrl: './dm.component.css',
 })
 export class DmComponent implements OnInit, OnDestroy {
-  activeTab: 'notes' | 'party' | 'initiative' | 'entities' | 'generators' | 'prep' | 'homebrew' = 'party';
-  readonly dmTabs: ForgeTab[] = [
-    { id: 'notes', label: '📝 Campaign Notes' },
-    { id: 'party', label: '👥 Live Party Tracker' },
-    { id: 'initiative', label: '⚔️ Initiative Tracker' },
-    { id: 'entities', label: '📚 World Lore' },
-    { id: 'generators', label: '🎲 AI Generators' },
-    { id: 'prep', label: '📜 Session Prep' },
-    { id: 'homebrew', label: '🔥 Homebrew Forge' },
+  dmMode: DmMasterMode = 'live';
+  activeTab: DmTab = 'initiative';
+  lastLiveTab: DmLiveTab = 'initiative';
+  lastPrepTab: DmPrepTab = 'homebrew';
+
+  readonly liveTabs: ForgeTab[] = [
+    { id: 'initiative', label: '⚔️ Combat & Initiative' },
+    { id: 'vtt', label: '🗺️ Tactical VTT Map' },
+    { id: 'party', label: '🛡️ Party Status' },
+    { id: 'notes', label: '📓 Live Notes' },
   ];
+
+  readonly prepTabs: ForgeTab[] = [
+    { id: 'homebrew', label: '🐉 Bestiary & Homebrew' },
+    { id: 'generators', label: '🎲 AI Generators' },
+    { id: 'prep', label: '📅 Plot Architect & Session Logs' },
+    { id: 'entities', label: '🏰 World Entities Vault' },
+  ];
+
+  get activeTabs(): ForgeTab[] {
+    return this.dmMode === 'live' ? this.liveTabs : this.prepTabs;
+  }
+
+  /** Backward-compatibility alias for dmTabs */
+  get dmTabs(): ForgeTab[] {
+    return this.activeTabs;
+  }
+
+  @ViewChild(VttGridComponent) vttGrid?: VttGridComponent;
+
+  get vttState(): Signal<VTTState | null> {
+    return this.wsService.vttState;
+  }
 
   userCampaigns: Campaign[] = [];
   campaignName = '';
@@ -257,6 +290,10 @@ export class DmComponent implements OnInit, OnDestroy {
   newCombatantHp = 20;
   newCombatantAc = 12;
 
+  // Quick-Add Monster Search state
+  quickAddResults: BestiaryMonster[] = [];
+  isSearchingBestiary = false;
+
   addMemberTab: 'existing' | 'custom' | 'invite' = 'existing';
   selectedExistingCharId = '';
 
@@ -269,10 +306,39 @@ export class DmComponent implements OnInit, OnDestroy {
     private wsService: WebSocketService,
     private auth: AuthService, private router: Router,
     private encounterStorage: EncounterStorageService,
-    private homebrewService: HomebrewService
+    private homebrewService: HomebrewService,
+    private bestiaryService: BestiaryService
   ) {}
 
-  openVTT() {
+  setDmMode(mode: DmMasterMode): void {
+    if (this.dmMode === mode) return;
+
+    if (this.dmMode === 'live') {
+      this.lastLiveTab = this.activeTab as DmLiveTab;
+    } else {
+      this.lastPrepTab = this.activeTab as DmPrepTab;
+    }
+
+    this.dmMode = mode;
+    this.activeTab = mode === 'live' ? this.lastLiveTab : this.lastPrepTab;
+  }
+
+  onTabChange(tabId: string): void {
+    this.activeTab = tabId as DmTab;
+    if (this.dmMode === 'live') {
+      this.lastLiveTab = tabId as DmLiveTab;
+    } else {
+      this.lastPrepTab = tabId as DmPrepTab;
+    }
+  }
+
+  openVTT(): void {
+    this.dmMode = 'live';
+    this.activeTab = 'vtt';
+    this.lastLiveTab = 'vtt';
+    if (this.vttGrid) {
+      this.vttGrid.isMinimized = false;
+    }
     this.wsService.sendVttToggle(true);
   }
 
@@ -1693,6 +1759,30 @@ export class DmComponent implements OnInit, OnDestroy {
     this.selectedStatblockCombatant = c;
   }
 
+  openBestiaryStatblock(monster: BestiaryMonster): void {
+    const dex = Number(monster.stats?.dex ?? 10);
+    const validDex = Number.isFinite(dex) ? dex : 10;
+    const hp = Number(monster.hp) || 10;
+    const ac = Number(monster.ac) || 10;
+    const statblock = this.formatMonsterStatblock(monster, ac, hp, validDex);
+    const syntheticCombatant = this.buildCombatant({
+      name: monster.name,
+      initiative: 10 + Math.floor((validDex - 10) / 2),
+      hp,
+      max_hp: hp,
+      ac,
+      dex: validDex,
+      is_player: false,
+      cr: monster.cr,
+      size: monster.size || 'Medium',
+      stats: monster.stats ? { ...monster.stats } : undefined,
+      traits: monster.traits ? [...monster.traits] : [],
+      actions: monster.actions ? [...monster.actions] : [],
+      statblock,
+    });
+    this.selectedStatblockCombatant = syntheticCombatant;
+  }
+
   openBeyondUrl(name: string) {
     const slug = name.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/ /g, '-');
     window.open(`https://www.dndbeyond.com/monsters/${slug}`, '_blank');
@@ -1822,12 +1912,135 @@ export class DmComponent implements OnInit, OnDestroy {
       is_player: false,
       statblock,
       size: monster['size'] || 'Medium',
-      cr: monster['cr'] ?? '1'
+      cr: monster['cr'] ?? '1',
+      stats: monster['stats'] ? { ...monster['stats'] } : undefined,
+      traits: Array.isArray(monster['traits']) ? [...monster['traits']] : [],
+      actions: Array.isArray(monster['actions']) ? [...monster['actions']] : [],
     });
 
     this.combatants = this.sortCombatants([...this.combatants, added]);
     this.persistEncounter();
     this.rollToast.showMessage('⚔️ MONSTER ADDED', `Added ${monsterName} to Initiative Tracker!`);
+  }
+
+  onQuickAddSearch(event: {
+    query: string;
+    includeOfficial: boolean;
+    includeMine: boolean;
+    includeCommunity: boolean;
+  }): void {
+    if (!event.query?.trim()) {
+      this.quickAddResults = [];
+      return;
+    }
+    this.isSearchingBestiary = true;
+    this.bestiaryService
+      .getMonsters({
+        search: event.query.trim(),
+        edition: this.editionShort,
+        include_official: event.includeOfficial,
+        include_mine: event.includeMine,
+        include_community: event.includeCommunity,
+      })
+      .subscribe({
+        next: (monsters) => {
+          this.quickAddResults = monsters;
+          this.isSearchingBestiary = false;
+        },
+        error: () => {
+          this.quickAddResults = [];
+          this.isSearchingBestiary = false;
+        },
+      });
+  }
+
+  addMonsterToInitiative(monster: BestiaryMonster): void {
+    if (!monster) return;
+
+    // Deduplication: Auto-numbering count/suffix (e.g. Goblin -> Goblin 2 -> Goblin 3, Skeleton 1 -> Skeleton 2)
+    const baseName = (monster.name || 'Unknown Monster').trim();
+    const numberedMatch = baseName.match(/^(.*?)\s+(\d+)$/);
+    const rootName = numberedMatch ? numberedMatch[1] : baseName;
+
+    const regex = new RegExp(`^${rootName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+(\\d+))?$`, 'i');
+    const existingMatches = this.combatants
+      .map((c) => c.name.trim().match(regex))
+      .filter((m): m is RegExpMatchArray => m !== null);
+
+    let finalName = baseName;
+    if (existingMatches.length > 0) {
+      let maxNumber = 1;
+      for (const m of existingMatches) {
+        const numStr = m[1];
+        if (numStr) {
+          const num = parseInt(numStr, 10);
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      }
+      const nextNumber = maxNumber + 1;
+      finalName = `${rootName} ${nextNumber}`;
+    }
+
+    const dex = Number(monster.stats?.dex ?? 10);
+    const validDex = Number.isFinite(dex) ? dex : 10;
+    const dexMod = Math.floor((validDex - 10) / 2);
+    const hp = Number(monster.hp) || 10;
+    const maxHp = Number(monster.max_hp ?? monster.hp) || hp;
+    const ac = Number(monster.ac) || 10;
+
+    const statblock = this.formatMonsterStatblock(monster, ac, hp, validDex);
+
+    const added = this.buildCombatant({
+      name: finalName,
+      initiative: 10 + dexMod,
+      hp,
+      max_hp: maxHp,
+      ac,
+      dex: validDex,
+      is_player: false,
+      cr: monster.cr,
+      size: monster.size || 'Medium',
+      xp: monster.xp,
+      stats: monster.stats ? { ...monster.stats } : undefined,
+      traits: monster.traits ? [...monster.traits] : [],
+      actions: monster.actions ? [...monster.actions] : [],
+      statblock,
+    });
+
+    this.combatants = this.sortCombatants([...this.combatants, added]);
+    this.persistEncounter();
+    this.rollToast.showMessage('⚔️ MONSTER ADDED', `Added ${finalName} to Initiative Tracker.`);
+  }
+
+  private formatMonsterStatblock(monster: BestiaryMonster, ac: number, hp: number, dex: number): string {
+    if (monster.description && !monster.actions?.length && !monster.traits?.length) {
+      return monster.description;
+    }
+    const parts: string[] = [];
+    parts.push(`${monster.size || 'Medium'} ${monster.type || 'monster'}, ${monster.alignment || 'unaligned'}`);
+    parts.push(`Armor Class: ${ac}`);
+    parts.push(`Hit Points: ${hp}`);
+    parts.push(`Speed: ${typeof monster.speed === 'string' ? monster.speed : '30 ft.'}`);
+    if (monster.cr !== undefined && monster.cr !== null && monster.cr !== '') {
+      parts.push(`CR: ${monster.cr}`);
+    }
+    if (monster.stats) {
+      parts.push(`STR: ${monster.stats.str ?? 10} | DEX: ${dex} | CON: ${monster.stats.con ?? 10} | INT: ${monster.stats.int ?? 10} | WIS: ${monster.stats.wis ?? 10} | CHA: ${monster.stats.cha ?? 10}`);
+    }
+    if (monster.traits && monster.traits.length > 0) {
+      parts.push('\nTraits:');
+      monster.traits.forEach(t => parts.push(`• ${t.name}: ${t.description ?? t.desc ?? ''}`));
+    }
+    if (monster.actions && monster.actions.length > 0) {
+      parts.push('\nActions:');
+      monster.actions.forEach(a => parts.push(`• ${a.name}: ${a.description ?? a.desc ?? ''}`));
+    }
+    if (monster.description) {
+      parts.push(`\n${monster.description}`);
+    }
+    return parts.join('\n');
   }
 
   generateNpc() {
@@ -1870,6 +2083,21 @@ export class DmComponent implements OnInit, OnDestroy {
       },
       error: () => this.isGeneratingRiddle = false
     });
+  }
+
+  copyRiddleToClipboard(): void {
+    if (!this.riddleResult) return;
+    navigator.clipboard?.writeText(this.riddleResult);
+    this.rollToast.showMessage('📋 COPIED', 'Riddle markdown copied to clipboard.');
+  }
+
+  pinRiddleToNotes(): void {
+    if (!this.riddleResult) return;
+    const title = this.riddleTheme.trim() ? `Riddle / Trap: ${this.riddleTheme.trim()}` : 'Generated Riddle / Trap';
+    const entry = `\n\n### 🧩 ${title}\n\n${this.riddleResult}`;
+    this.campaignNotes = (this.campaignNotes || '') + entry;
+    this.saveCampaignNotes();
+    this.rollToast.showMessage('📌 PINNED TO NOTES', 'Riddle appended to Live Notes.');
   }
 
   sendWhisper() {

@@ -48,7 +48,7 @@
     (deleteCampaign)="deleteCampaign()"
   ></app-campaign-header>
 
-  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+  <div class="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
     <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
       <forge-card padding="none" [hoverable]="false">
         <div class="flex flex-col">
@@ -76,7 +76,7 @@
               </div>
               <div class="border-l border-t border-hairline px-3 py-3 text-center">
                 <p class="text-micro font-semibold uppercase text-muted">Current Turn</p>
-                <p class="mt-1 truncate text-body font-semibold leading-tight text-ink">{{ currentTurnName }}</p>
+                <p class="mt-1 truncate text-body font-semibold leading-tight text-ink" [title]="currentTurnName">{{ currentTurnName }}</p>
                 <p class="mt-1 truncate text-micro uppercase text-muted">{{ roundLabel }}</p>
               </div>
             </div>
@@ -125,7 +125,15 @@
                   </div>
                 }
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-body font-semibold text-ink">{{ member.name }}</p>
+                  <p
+                    class="text-body font-semibold text-ink leading-snug line-clamp-2 break-words"
+                    [title]="member.name + (member.owner_username ? ' (' + member.owner_username + ')' : '')"
+                  >
+                    {{ member.name }}
+                    @if (member.owner_username) {
+                      <span class="text-xs font-normal text-muted whitespace-nowrap">({{ member.owner_username }})</span>
+                    }
+                  </p>
                   <div
                     class="mt-1 h-1 overflow-hidden rounded-full bg-tile"
                     role="meter"
@@ -153,56 +161,125 @@
     <section class="min-w-0">
       <forge-card padding="none" [hoverable]="false">
         <div class="flex min-h-0 flex-col">
-          <div class="border-b border-hairline p-4">
+          <!-- Master Mode Switcher Bar -->
+          <div class="border-b border-hairline p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="inline-flex rounded-full border border-hairline bg-panel p-1" role="tablist" aria-label="DM Master Mode">
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-selected]="dmMode === 'live'"
+                class="flex min-h-9 items-center justify-center gap-2 rounded-full px-4 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                [ngClass]="dmMode === 'live'
+                  ? 'bg-tile text-ink font-semibold ring-1 ring-inset ring-hairline-hover'
+                  : 'text-muted hover:text-ink'"
+                (click)="setDmMode('live')"
+              >
+                <span>⚔️</span> Live DM
+              </button>
+              <button
+                type="button"
+                role="tab"
+                [attr.aria-selected]="dmMode === 'prep'"
+                class="flex min-h-9 items-center justify-center gap-2 rounded-full px-4 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                [ngClass]="dmMode === 'prep'
+                  ? 'bg-tile text-ink font-semibold ring-1 ring-inset ring-hairline-hover'
+                  : 'text-muted hover:text-ink'"
+                (click)="setDmMode('prep')"
+              >
+                <span>🛠️</span> DM Preparation
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-micro font-semibold uppercase text-muted">
+                {{ dmMode === 'live' ? 'In-Session Cockpit' : 'Workshop & Studio' }}
+              </span>
+              @if (dmMode === 'live' && combatants.length > 0) {
+                <forge-badge tone="accent" size="sm">⚔️ Encounter Active</forge-badge>
+              }
+            </div>
+          </div>
+
+          <!-- Mode Tabs Strip -->
+          <div class="border-b border-hairline px-4 pt-2">
             <forge-tabs
               class="block min-w-0"
-              instanceId="dm-tabs"
+              [instanceId]="'dm-tabs-' + dmMode"
               variant="underline"
-              [tabs]="dmTabs"
+              [tabs]="activeTabs"
               [(activeId)]="activeTab"
+              (activeIdChange)="onTabChange($event)"
             ></forge-tabs>
           </div>
 
-          <app-notes-panel
-            *ngIf="activeTab === 'notes'"
-            class="block min-w-0"
-            role="tabpanel"
-            aria-labelledby="dm-tabs-tab-notes"
-            [(campaignNotes)]="campaignNotes"
-            (saveNotes)="saveCampaignNotes()"
-          ></app-notes-panel>
+          <!-- Pinned Active Combat Bar (Only on non-initiative Live DM tabs when encounter is active) -->
+          @if (dmMode === 'live' && activeTab !== 'initiative' && combatants.length > 0) {
+            <div class="border-b border-hairline bg-panel p-3 pinned-combat-bar" data-testid="pinned-combat-bar">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3 min-w-0">
+                  <forge-badge [tone]="round > 0 ? 'accent' : 'muted'" size="sm">{{ roundLabel }}</forge-badge>
+                  <span class="text-label text-muted truncate">
+                    Active: <span class="font-semibold text-ink">{{ currentTurnName }}</span>
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button forgeButton variant="secondary" size="sm" [disabled]="round <= 0" (click)="previousTurn()">
+                    ⬅️ Prev
+                  </button>
+                  <button forgeButton variant="secondary" tone="accent" size="sm" (click)="nextTurn()">
+                    Next Turn ➡️
+                  </button>
+                  <button forgeButton variant="ghost" size="sm" (click)="onTabChange('initiative')">
+                    ⚔️ Full Tracker
+                  </button>
+                </div>
+              </div>
 
-          <app-party-panel
-            *ngIf="activeTab === 'party'"
-            class="block min-w-0"
-            role="tabpanel"
-            aria-labelledby="dm-tabs-tab-party"
-            [campaignName]="campaignName"
-            [partyMembers]="partyMembers"
-            [availableConditions]="availableConditions"
-            (addMember)="openAddMemberModal()"
-            (adjustHp)="adjustHp($event.member, $event.delta)"
-            (setHp)="setPartyHp($event.member, $event.hp)"
-            (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
-            (toggleCondition)="toggleCondition($event.member, $event.condition)"
-            (privateRollRequest)="openSingleRollModal($event)"
-            (distributeLoot)="openLootModal()"
-            (removeMember)="removePartyMember($event)"
-          ></app-party-panel>
+              <!-- Combatant quick-row -->
+              <div class="mt-2 flex items-center gap-2 overflow-x-auto pb-1" role="region" aria-label="Active combatants quick view">
+                @for (c of combatants; track c.id) {
+                  <div
+                    class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-label shrink-0 transition-colors"
+                    [ngClass]="c.id === activeCombatantId ? 'bg-tile border-accent/40 ring-1 ring-accent' : 'bg-tile/40 border-hairline'"
+                  >
+                    <span class="font-semibold text-ink truncate max-w-28">{{ c.name }}</span>
+                    <span class="text-micro px-1 py-0.5 rounded bg-surface border border-hairline text-muted">AC {{ c.ac }}</span>
+                    <span class="text-micro font-bold" [ngClass]="c.hp <= 0 ? 'text-red' : 'text-accent'">
+                      {{ c.hp }}/{{ c.max_hp }}
+                    </span>
+                    <button
+                      type="button"
+                      class="text-micro text-muted hover:text-ink px-1 rounded hover:bg-surface"
+                      (click)="openStatblock(c)"
+                      [attr.aria-label]="'View statblock for ' + c.name"
+                      title="View Statblock"
+                    >
+                      📜
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          }
 
+          <!-- Live DM Tab Panels -->
           <app-initiative-panel
-            *ngIf="activeTab === 'initiative'"
+            *ngIf="dmMode === 'live' && activeTab === 'initiative'"
             class="block min-w-0"
             role="tabpanel"
-            aria-labelledby="dm-tabs-tab-initiative"
+            aria-labelledby="dm-tabs-live-tab-initiative"
             [combatants]="combatants"
             [activeCombatantId]="activeCombatantId"
             [round]="round"
             [availableConditions]="availableConditions"
+            [quickAddResults]="quickAddResults"
+            [isSearching]="isSearchingBestiary"
             [(newCombatantName)]="newCombatantName"
             [(newCombatantInit)]="newCombatantInit"
             [(newCombatantHp)]="newCombatantHp"
             [(newCombatantAc)]="newCombatantAc"
+            (searchBestiary)="onQuickAddSearch($event)"
+            (addMonster)="addMonsterToInitiative($event)"
             (importParty)="importPartyToInitiative()"
             (rollAll)="rollAllInitiative()"
             (rollMonstersOnly)="rollMonstersInitiative()"
@@ -222,19 +299,79 @@
             (setDeathSave)="setDeathSave($event.combatant, $event.kind, $event.value)"
           ></app-initiative-panel>
 
-          <app-entities-panel
-            *ngIf="activeTab === 'entities'"
+          <div
+            *ngIf="dmMode === 'live' && activeTab === 'vtt'"
+            class="block min-w-0 p-4"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-live-tab-vtt"
+          >
+            @if (!vttState()?.is_active) {
+              <forge-empty-state
+                icon="🗺️"
+                title="Tactical VTT Offline"
+                description="The tactical grid is currently closed for players. Open it to reveal battlemaps, calibrate tokens, and manage fog of war."
+              >
+                <button forgeButton variant="primary" type="button" (click)="openVTT()">
+                  🗺️ Open VTT Grid
+                </button>
+              </forge-empty-state>
+            }
+            <app-vtt-grid #vttGrid role="dm" [combatants]="combatants" [campaignName]="campaignName"></app-vtt-grid>
+          </div>
+
+          <app-party-panel
+            *ngIf="dmMode === 'live' && activeTab === 'party'"
             class="block min-w-0"
             role="tabpanel"
-            aria-labelledby="dm-tabs-tab-entities"
+            aria-labelledby="dm-tabs-live-tab-party"
+            [campaignName]="campaignName"
+            [partyMembers]="partyMembers"
+            [availableConditions]="availableConditions"
+            (addMember)="openAddMemberModal()"
+            (adjustHp)="adjustHp($event.member, $event.delta)"
+            (setHp)="setPartyHp($event.member, $event.hp)"
+            (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
+            (toggleCondition)="toggleCondition($event.member, $event.condition)"
+            (privateRollRequest)="openSingleRollModal($event)"
+            (distributeLoot)="openLootModal()"
+            (removeMember)="removePartyMember($event)"
+          ></app-party-panel>
+
+          <app-notes-panel
+            *ngIf="dmMode === 'live' && activeTab === 'notes'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-live-tab-notes"
+            [(campaignNotes)]="campaignNotes"
+            (saveNotes)="saveCampaignNotes()"
+          ></app-notes-panel>
+
+          <!-- DM Preparation Tab Panels -->
+          <app-homebrew-panel
+            *ngIf="dmMode === 'prep' && activeTab === 'homebrew'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-prep-tab-homebrew"
+            [campaignName]="campaignName"
+            [edition]="editionShort"
+            (addMonsterToTracker)="addHomebrewMonsterToInitiative($event)"
+            (addToInitiative)="addMonsterToInitiative($event)"
+            (viewStatblock)="openBestiaryStatblock($event)"
+          ></app-homebrew-panel>
+
+          <app-entities-panel
+            *ngIf="dmMode === 'prep' && activeTab === 'entities'"
+            class="block min-w-0"
+            role="tabpanel"
+            aria-labelledby="dm-tabs-prep-tab-entities"
             [campaignName]="campaignName"
           ></app-entities-panel>
 
           <app-generators-panel
-            *ngIf="activeTab === 'generators'"
+            *ngIf="dmMode === 'prep' && activeTab === 'generators'"
             class="block min-w-0"
             role="tabpanel"
-            aria-labelledby="dm-tabs-tab-generators"
+            aria-labelledby="dm-tabs-prep-tab-generators"
             [partySize]="partyMembers.length"
             [(avgLevel)]="avgLevel"
             [(difficulty)]="encounterDifficulty"
@@ -244,34 +381,28 @@
             [(npcConcept)]="npcConcept"
             [npcResult]="npcResult"
             [isGeneratingNpc]="isGeneratingNpc"
+            [(riddleTheme)]="riddleTheme"
+            [riddleResult]="riddleResult"
+            [isGeneratingRiddle]="isGeneratingRiddle"
             (generateEncounter)="generateEncounter()"
             (addEncounterMonsters)="addEncounterMonstersToInitiative()"
             (generateNpc)="generateNpc()"
+            (generateRiddle)="generateRiddle()"
+            (copyRiddle)="copyRiddleToClipboard()"
+            (pinRiddleToNotes)="pinRiddleToNotes()"
           ></app-generators-panel>
 
           <app-prep-panel
-            *ngIf="activeTab === 'prep'"
+            *ngIf="dmMode === 'prep' && activeTab === 'prep'"
             class="block min-w-0"
             role="tabpanel"
-            aria-labelledby="dm-tabs-tab-prep"
+            aria-labelledby="dm-tabs-prep-tab-prep"
             [campaignName]="campaignName"
           ></app-prep-panel>
-
-          <app-homebrew-panel
-            *ngIf="activeTab === 'homebrew'"
-            class="block min-w-0"
-            role="tabpanel"
-            aria-labelledby="dm-tabs-tab-homebrew"
-            [campaignName]="campaignName"
-            (addMonsterToTracker)="addHomebrewMonsterToInitiative($event)"
-          ></app-homebrew-panel>
         </div>
       </forge-card>
     </section>
   </div>
-
-  <!-- VTT Grid inline below the main grid -->
-  <app-vtt-grid role="dm" [combatants]="combatants" [campaignName]="campaignName"></app-vtt-grid>
 
   <app-dm-inbox
     [open]="showDmInbox"

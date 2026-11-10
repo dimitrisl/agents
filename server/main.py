@@ -20,6 +20,7 @@ from server.routers import (
     admin_router,
     assets_router,
     auth_router,
+    bestiary_router,
     campaign_router,
     character_router,
     dm_router,
@@ -89,11 +90,19 @@ app.include_router(forge_router.router, prefix=settings.API_V1_STR)
 app.include_router(campaign_router.router, prefix=settings.API_V1_STR)
 app.include_router(homebrew_router.router, prefix=settings.API_V1_STR)
 app.include_router(dm_router.router, prefix=settings.API_V1_STR)
+app.include_router(bestiary_router.router, prefix=settings.API_V1_STR)
 app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(session_router.router, prefix=settings.API_V1_STR)
 app.include_router(settings_router.router, prefix=settings.API_V1_STR)
 app.include_router(assets_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
+
+# Expose effective mount prefix on included router objects for test suite introspection
+for _r in app.routes:
+    if hasattr(_r, "original_router") and hasattr(_r, "include_context"):
+        _prefix = f"{getattr(_r.include_context, 'prefix', '')}{getattr(_r.original_router, 'prefix', '')}"
+        if _prefix:
+            _r.path = _prefix
 
 os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
 

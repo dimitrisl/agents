@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -10,6 +11,8 @@ import { InitiativeCombatant } from '../../core/models/initiative.model';
 import { PartyMember } from '../../core/models/party.model';
 import { EncounterMonster } from '../../core/models/dm-tools.model';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { VTTState } from '../../core/models/vtt.model';
+import { BestiaryMonster } from '../../core/models/bestiary.model';
 
 /**
  * The turn engine is exercised on the component instance directly — the fixture
@@ -59,8 +62,10 @@ describe('DmComponent — initiative rounds', () => {
     const wsStub: Partial<WebSocketService> = {
       messages$: new Subject<WsMessage>(),
       opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
       connect: () => undefined,
       disconnect: () => undefined,
+      sendVttToggle: jest.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -525,8 +530,10 @@ describe('DmComponent — encounter generator', () => {
     const wsStub: Partial<WebSocketService> = {
       messages$: new Subject<WsMessage>(),
       opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
       connect: () => undefined,
       disconnect: () => undefined,
+      sendVttToggle: jest.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -705,8 +712,10 @@ describe('DmComponent — workspace teardown and whispers', () => {
     ws = {
       messages$: new Subject<WsMessage>(),
       opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
       connect: jest.fn(),
       disconnect: jest.fn(),
+      sendVttToggle: jest.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -1005,5 +1014,568 @@ afterEach(() => {
       expect(component.showRollModal).toBe(true);
       expect(component.manualRoll).toBe(14);
     });
+  });
+});
+
+describe('DmComponent — Master Modes & Tab Navigation', () => {
+  let component: DmComponent;
+
+  beforeEach(() => {
+    const wsStub: Partial<WebSocketService> = {
+      messages$: new Subject<WsMessage>(),
+      opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
+      connect: () => undefined,
+      disconnect: () => undefined,
+      sendVttToggle: jest.fn(),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: wsStub },
+      ],
+    });
+
+    component = makeComponent();
+  });
+
+  describe('Initial State', () => {
+    it('initializes in Live DM mode with Combat & Initiative tab active', () => {
+      expect(component.dmMode).toBe('live');
+      expect(component.activeTab).toBe('initiative');
+      expect(component.lastLiveTab).toBe('initiative');
+      expect(component.lastPrepTab).toBe('homebrew');
+    });
+
+    it('returns live tabs by default via activeTabs getter', () => {
+      expect(component.activeTabs).toBe(component.liveTabs);
+      expect(component.activeTabs.map((t) => t.id)).toEqual(['initiative', 'vtt', 'party', 'notes']);
+      expect(component.activeTabs[0].label).toContain('Combat & Initiative');
+      expect(component.activeTabs[1].label).toContain('Tactical VTT Map');
+      expect(component.activeTabs[2].label).toContain('Party Status');
+      expect(component.activeTabs[3].label).toContain('Live Notes');
+    });
+
+    it('exposes dmTabs as an alias to activeTabs for backward compatibility', () => {
+      expect(component.dmTabs).toBe(component.activeTabs);
+    });
+  });
+
+  describe('Mode Switching and Tab Memory', () => {
+    it('switches to prep mode and activates the default prep tab (homebrew)', () => {
+      component.setDmMode('prep');
+
+      expect(component.dmMode).toBe('prep');
+      expect(component.activeTab).toBe('homebrew');
+      expect(component.activeTabs).toBe(component.prepTabs);
+      expect(component.activeTabs.map((t) => t.id)).toEqual(['homebrew', 'generators', 'prep', 'entities']);
+    });
+
+    it('does not re-trigger or change tabs when setDmMode is called with the current mode', () => {
+      component.setDmMode('live');
+
+      expect(component.dmMode).toBe('live');
+      expect(component.activeTab).toBe('initiative');
+    });
+
+    it('remembers and restores the last active tab across mode transitions', () => {
+      // 1. Initial live mode state: activeTab is 'initiative'
+      expect(component.dmMode).toBe('live');
+      expect(component.activeTab).toBe('initiative');
+
+      // 2. Switch to prep mode: restores default prep tab 'homebrew'
+      component.setDmMode('prep');
+      expect(component.dmMode).toBe('prep');
+      expect(component.activeTab).toBe('homebrew');
+
+      // 3. User selects 'generators' tab in prep mode
+      component.onTabChange('generators');
+      expect(component.activeTab).toBe('generators');
+      expect(component.lastPrepTab).toBe('generators');
+
+      // 4. Switch back to live mode: restores lastLiveTab ('initiative')
+      component.setDmMode('live');
+      expect(component.dmMode).toBe('live');
+      expect(component.activeTab).toBe('initiative');
+
+      // 5. User selects 'notes' tab in live mode
+      component.onTabChange('notes');
+      expect(component.activeTab).toBe('notes');
+      expect(component.lastLiveTab).toBe('notes');
+
+      // 6. Switch back to prep mode: restores lastPrepTab ('generators')
+      component.setDmMode('prep');
+      expect(component.dmMode).toBe('prep');
+      expect(component.activeTab).toBe('generators');
+
+      // 7. Switch back to live mode: restores lastLiveTab ('notes')
+      component.setDmMode('live');
+      expect(component.dmMode).toBe('live');
+      expect(component.activeTab).toBe('notes');
+    });
+
+    it('exposes correct prep tab labels in activeTabs when in prep mode', () => {
+      component.setDmMode('prep');
+
+      expect(component.activeTabs[0].label).toContain('Bestiary & Homebrew');
+      expect(component.activeTabs[1].label).toContain('AI Generators');
+      expect(component.activeTabs[2].label).toContain('Plot Architect & Session Logs');
+      expect(component.activeTabs[3].label).toContain('World Entities Vault');
+    });
+  });
+});
+
+describe('DmComponent — Tactical VTT Relocation & openVTT()', () => {
+  let component: DmComponent;
+  let wsStub: {
+    messages$: Subject<WsMessage>;
+    opened$: Subject<string>;
+    vttState: ReturnType<typeof signal<VTTState | null>>;
+    connect: jest.Mock;
+    disconnect: jest.Mock;
+    sendVttToggle: jest.Mock;
+  };
+
+  beforeEach(() => {
+    wsStub = {
+      messages$: new Subject<WsMessage>(),
+      opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      sendVttToggle: jest.fn(),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: wsStub },
+      ],
+    });
+
+    component = makeComponent();
+  });
+
+  it('switches dmMode to live, sets activeTab and lastLiveTab to vtt, and calls sendVttToggle(true)', () => {
+    // Put DM in prep mode on generators tab first
+    component.setDmMode('prep');
+    component.onTabChange('generators');
+    expect(component.dmMode).toBe('prep');
+    expect(component.activeTab).toBe('generators');
+
+    component.openVTT();
+
+    expect(component.dmMode).toBe('live');
+    expect(component.activeTab).toBe('vtt');
+    expect(component.lastLiveTab).toBe('vtt');
+    expect(wsStub.sendVttToggle).toHaveBeenCalledWith(true);
+  });
+
+  it('expands vttGrid when it is present and minimized', () => {
+    const vttGridMock = { isMinimized: true } as any;
+    component.vttGrid = vttGridMock;
+
+    component.openVTT();
+
+    expect(vttGridMock.isMinimized).toBe(false);
+    expect(wsStub.sendVttToggle).toHaveBeenCalledWith(true);
+  });
+
+  it('executes safely when vttGrid is not mounted (undefined)', () => {
+    component.vttGrid = undefined;
+
+    expect(() => component.openVTT()).not.toThrow();
+    expect(component.dmMode).toBe('live');
+    expect(component.activeTab).toBe('vtt');
+    expect(wsStub.sendVttToggle).toHaveBeenCalledWith(true);
+  });
+
+  it('preserves isMinimized = false if vttGrid is already expanded', () => {
+    const vttGridMock = { isMinimized: false } as any;
+    component.vttGrid = vttGridMock;
+
+    component.openVTT();
+
+    expect(vttGridMock.isMinimized).toBe(false);
+    expect(wsStub.sendVttToggle).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('DmComponent — Pinned Active Combat Bar', () => {
+  let component: DmComponent;
+
+  beforeEach(() => {
+    const wsStub: Partial<WebSocketService> = {
+      messages$: new Subject<WsMessage>(),
+      opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
+      connect: () => undefined,
+      disconnect: () => undefined,
+      sendVttToggle: jest.fn(),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: wsStub },
+      ],
+    });
+
+    component = makeComponent();
+    component.campaignName = 'Curse of Strahd';
+  });
+
+  describe('Visibility Conditions', () => {
+    it('is visible when dmMode is live, activeTab is not initiative, and combatants exist', () => {
+      component.dmMode = 'live';
+      component.activeTab = 'vtt';
+      component.combatants = [combatant('ghoul_1', 12)];
+
+      const isVisible = component.dmMode === 'live' && component.activeTab !== 'initiative' && component.combatants.length > 0;
+      expect(isVisible).toBe(true);
+    });
+
+    it('is hidden when dmMode is prep even if combatants exist and activeTab is not initiative', () => {
+      component.dmMode = 'prep';
+      component.activeTab = 'homebrew';
+      component.combatants = [combatant('ghoul_1', 12)];
+
+      const isVisible = component.dmMode === 'live' && component.activeTab !== 'initiative' && component.combatants.length > 0;
+      expect(isVisible).toBe(false);
+    });
+
+    it('is hidden when activeTab is initiative even if dmMode is live and combatants exist', () => {
+      component.dmMode = 'live';
+      component.activeTab = 'initiative';
+      component.combatants = [combatant('ghoul_1', 12)];
+
+      const isVisible = component.dmMode === 'live' && component.activeTab !== 'initiative' && component.combatants.length > 0;
+      expect(isVisible).toBe(false);
+    });
+
+    it('is hidden when combatants list is empty even if dmMode is live and on non-initiative tab', () => {
+      component.dmMode = 'live';
+      component.activeTab = 'party';
+      component.combatants = [];
+
+      const isVisible = component.dmMode === 'live' && component.activeTab !== 'initiative' && component.combatants.length > 0;
+      expect(isVisible).toBe(false);
+    });
+  });
+
+  describe('Action Controls', () => {
+    beforeEach(() => {
+      component.dmMode = 'live';
+      component.activeTab = 'party';
+      component.combatants = [
+        combatant('first', 20),
+        combatant('second', 15),
+      ];
+    });
+
+    it('advances turn when nextTurn is triggered', () => {
+      const nextSpy = jest.spyOn(component, 'nextTurn');
+
+      component.nextTurn();
+
+      expect(nextSpy).toHaveBeenCalled();
+      expect(component.round).toBe(1);
+      expect(component.activeCombatantId).toBe('first');
+
+      component.nextTurn();
+      expect(component.activeCombatantId).toBe('second');
+    });
+
+    it('rewinds turn when previousTurn is triggered', () => {
+      component.nextTurn();
+      component.nextTurn();
+      expect(component.activeCombatantId).toBe('second');
+
+      const prevSpy = jest.spyOn(component, 'previousTurn');
+      component.previousTurn();
+
+      expect(prevSpy).toHaveBeenCalled();
+      expect(component.activeCombatantId).toBe('first');
+    });
+
+    it('switches to initiative tab when Full Tracker action is triggered', () => {
+      component.activeTab = 'party';
+      component.lastLiveTab = 'party';
+
+      component.onTabChange('initiative');
+
+      expect(component.activeTab).toBe('initiative');
+      expect(component.lastLiveTab).toBe('initiative');
+    });
+  });
+});
+
+describe('DmComponent — Pinned Active Combat Bar DOM Rendering', () => {
+  let fixture: ComponentFixture<DmComponent>;
+  let component: DmComponent;
+  let wsStub: any;
+
+  beforeEach(() => {
+    wsStub = {
+      messages$: new Subject<WsMessage>(),
+      opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      sendVttToggle: jest.fn(),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: wsStub },
+      ],
+    });
+
+    fixture = TestBed.createComponent(DmComponent);
+    component = fixture.componentInstance;
+    jest.spyOn(component, 'loadCampaigns').mockImplementation(() => {});
+    component.campaignsStatus = 'ready';
+    component.userCampaigns = [{ campaign_name: 'Curse of Strahd', role: 'dm' } as any];
+    component.campaignName = 'Curse of Strahd';
+    component.isMobileViewport.set(false);
+  });
+
+  it('renders the pinned combat bar when in live mode, on non-initiative tab, with active combatants', () => {
+    component.dmMode = 'live';
+    component.activeTab = 'vtt';
+    component.combatants = [combatant('zombie_1', 10, { hp: 22, max_hp: 22, ac: 8 })];
+    fixture.detectChanges();
+
+    const pinnedBar = fixture.nativeElement.querySelector('[data-testid="pinned-combat-bar"]') ||
+                      fixture.nativeElement.querySelector('.pinned-combat-bar');
+    expect(pinnedBar).toBeTruthy();
+  });
+
+  it('does not render the pinned combat bar in prep mode', () => {
+    component.dmMode = 'prep';
+    component.activeTab = 'homebrew';
+    component.combatants = [combatant('zombie_1', 10)];
+    fixture.detectChanges();
+
+    const pinnedBar = fixture.nativeElement.querySelector('[data-testid="pinned-combat-bar"]') ||
+                      fixture.nativeElement.querySelector('.pinned-combat-bar');
+    expect(pinnedBar).toBeNull();
+  });
+
+  it('does not render the pinned combat bar on the initiative tab', () => {
+    component.dmMode = 'live';
+    component.activeTab = 'initiative';
+    component.combatants = [combatant('zombie_1', 10)];
+    fixture.detectChanges();
+
+    const pinnedBar = fixture.nativeElement.querySelector('[data-testid="pinned-combat-bar"]') ||
+                      fixture.nativeElement.querySelector('.pinned-combat-bar');
+    expect(pinnedBar).toBeNull();
+  });
+
+  it('does not render the pinned combat bar when combatants list is empty', () => {
+    component.dmMode = 'live';
+    component.activeTab = 'vtt';
+    component.combatants = [];
+    fixture.detectChanges();
+
+    const pinnedBar = fixture.nativeElement.querySelector('[data-testid="pinned-combat-bar"]') ||
+                      fixture.nativeElement.querySelector('.pinned-combat-bar');
+    expect(pinnedBar).toBeNull();
+  });
+});
+
+describe('DmComponent — Quick-Add & Bestiary Integration', () => {
+  let component: DmComponent;
+
+  const mockMonster: BestiaryMonster = {
+    id: 'srd_goblin_2014',
+    name: 'Goblin',
+    edition: '2014',
+    origin: 'official',
+    is_public: true,
+    size: 'Small',
+    type: 'humanoid',
+    alignment: 'neutral evil',
+    cr: '1/4',
+    cr_numeric: 0.25,
+    ac: 15,
+    hp: 7,
+    max_hp: 7,
+    speed: '30 ft.',
+    stats: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+    traits: [{ name: 'Nimble Escape', description: 'Can Disengage as bonus action' }],
+    actions: [{ name: 'Scimitar', attack_bonus: 4, damage_dice: '1d6+2', damage_type: 'slashing' }],
+  };
+
+  const zombieMonster: BestiaryMonster = {
+    id: 'srd_zombie_2014',
+    name: 'Zombie',
+    edition: '2014',
+    origin: 'official',
+    is_public: true,
+    size: 'Medium',
+    type: 'undead',
+    alignment: 'neutral evil',
+    cr: '1/4',
+    cr_numeric: 0.25,
+    ac: 8,
+    hp: 22,
+    max_hp: 22,
+    speed: '20 ft.',
+    stats: { str: 13, dex: 6, con: 16, int: 3, wis: 6, cha: 5 },
+    traits: [{ name: 'Undead Fortitude', description: 'Con save to stay at 1 hp' }],
+    actions: [{ name: 'Slam', attack_bonus: 3, damage_dice: '1d6+1', damage_type: 'bludgeoning' }],
+  };
+
+  beforeEach(() => {
+    const wsStub = {
+      messages$: new Subject<WsMessage>(),
+      connectionState$: new Subject<string>(),
+      opened$: new Subject<string>(),
+      vttState: signal<VTTState | null>(null),
+      connect: () => undefined,
+      disconnect: () => undefined,
+      sendVttToggle: jest.fn(),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: WebSocketService, useValue: wsStub },
+      ],
+    });
+
+    component = makeComponent();
+  });
+
+  it('adds monster to initiative with stats, traits, actions, and dex-modified initiative', () => {
+    component.addMonsterToInitiative(mockMonster);
+
+    expect(component.combatants.length).toBe(1);
+    const added = component.combatants[0];
+    expect(added.name).toBe('Goblin');
+    expect(added.hp).toBe(7);
+    expect(added.max_hp).toBe(7);
+    expect(added.ac).toBe(15);
+    expect(added.dex).toBe(14);
+    // DEX 14 has mod +2, initiative is 10 + 2 = 12
+    expect(added.initiative).toBe(12);
+    expect(added.traits?.length).toBe(1);
+    expect(added.actions?.length).toBe(1);
+  });
+
+  it('correctly calculates initiative with negative DEX modifier (Zombie DEX 6 -> init 8)', () => {
+    component.addMonsterToInitiative(zombieMonster);
+
+    const added = component.combatants[0];
+    expect(added.name).toBe('Zombie');
+    expect(added.dex).toBe(6);
+    // DEX 6 has mod -2, initiative is 10 + (-2) = 8
+    expect(added.initiative).toBe(8);
+  });
+
+  it('auto-numbers duplicate monster names cleanly: Goblin, Goblin 2, Goblin 3', () => {
+    component.addMonsterToInitiative(mockMonster);
+    component.addMonsterToInitiative(mockMonster);
+    component.addMonsterToInitiative(mockMonster);
+
+    const names = component.combatants.map((c) => c.name);
+    expect(names).toContain('Goblin');
+    expect(names).toContain('Goblin 2');
+    expect(names).toContain('Goblin 3');
+  });
+
+  it('auto-numbers monster with existing numbered suffix (Skeleton 1 -> Skeleton 2)', () => {
+    const skeleton1: BestiaryMonster = {
+      ...mockMonster,
+      name: 'Skeleton 1',
+    };
+    component.addMonsterToInitiative(skeleton1);
+    component.addMonsterToInitiative(skeleton1);
+
+    const names = component.combatants.map((c) => c.name);
+    expect(names).toContain('Skeleton 1');
+    expect(names).toContain('Skeleton 2');
+  });
+
+  it('preserves the active round counter when adding monster mid-round', () => {
+    component.round = 3;
+    component.addMonsterToInitiative(mockMonster);
+
+    expect(component.round).toBe(3);
+  });
+
+  it('opens statblock modal for a bestiary monster via openBestiaryStatblock', () => {
+    component.openBestiaryStatblock(mockMonster);
+
+    expect(component.selectedStatblockCombatant).not.toBeNull();
+    expect(component.selectedStatblockCombatant?.name).toBe('Goblin');
+    expect(component.selectedStatblockCombatant?.actions?.length).toBe(1);
+  });
+
+  it('pins generated riddle to live campaign notes', () => {
+    component.riddleTheme = 'Clockwork Crypt';
+    component.riddleResult = '## The Gear Puzzle\nTurn cog A before cog B.';
+    component.campaignNotes = 'Session notes start.';
+
+    component.pinRiddleToNotes();
+
+    expect(component.campaignNotes).toContain('### 🧩 Riddle / Trap: Clockwork Crypt');
+    expect(component.campaignNotes).toContain('The Gear Puzzle');
+  });
+
+  it('renders owner_username next to character name in Party Health overview', () => {
+    const fixture = TestBed.createComponent(DmComponent);
+    const comp = fixture.componentInstance;
+    jest.spyOn(comp, 'loadCampaigns').mockImplementation(() => {});
+    comp.campaignsStatus = 'ready';
+    comp.userCampaigns = [{ campaign_name: 'Curse of Strahd', role: 'dm' } as any];
+    comp.campaignName = 'Curse of Strahd';
+    comp.partyStatus = 'ready';
+    comp.partyMembers = [
+      {
+        char_id: 'c1',
+        name: 'Elendor',
+        char_class: 'Wizard',
+        level: 3,
+        hp_current: 18,
+        hp_max: 18,
+        ac: 12,
+        passive_perception: 13,
+        conditions: [],
+        owner_username: 'PlayerOne',
+      },
+      {
+        char_id: 'c2',
+        name: 'Grom',
+        char_class: 'Barbarian',
+        level: 3,
+        hp_current: 35,
+        hp_max: 35,
+        ac: 15,
+        passive_perception: 11,
+        conditions: [],
+      },
+    ];
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const partyHealthText = compiled.textContent || '';
+    expect(partyHealthText).toContain('Elendor');
+    expect(partyHealthText).toContain('(PlayerOne)');
+    expect(partyHealthText).toContain('Grom');
   });
 });
