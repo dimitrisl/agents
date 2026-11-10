@@ -68,7 +68,7 @@
           @for (camp of campaigns(); track camp.campaign_name) {
             <forge-list-row
               [title]="camp.campaign_name"
-              [description]="(camp.party.length || 0) + ' members'"
+              [description]="getCampaignDescription(camp)"
               (onClick)="onCampaignClick(camp)"
             >
               <ng-container trailing>

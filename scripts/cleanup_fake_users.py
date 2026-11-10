@@ -2,6 +2,7 @@
 """Cleanup Fake QA & Visual Playtest Users, Campaigns, and Characters from MongoDB."""
 
 import asyncio
+import re
 
 from server.db_async import get_database
 
@@ -127,6 +128,23 @@ async def run_cleanup(dry_run: bool = True):
     if fake_chars:
         char_ids = [c.get("char_id") for c in fake_chars if c.get("char_id")]
         obj_ids = [c["_id"] for c in fake_chars]
+        pull_targets = set()
+        for c in fake_chars:
+            cid = c.get("char_id")
+            if cid:
+                pull_targets.add(cid)
+                pull_targets.add(f"{cid}.json")
+                cname_raw = (c.get("char_name") or "").strip().lower()
+                if cname_raw:
+                    slug = re.sub(r"\s+", "_", cname_raw)
+                    pull_targets.add(f"{slug}_{cid}.json")
+                    pull_targets.add(f"{cname_raw}_{cid}.json")
+        if pull_targets:
+            await db.campaigns.update_many({}, {"$pull": {"party": {"$in": list(pull_targets)}}})
+        if char_ids:
+            await db.campaign_members.delete_many(
+                {"role": {"$ne": "dm"}, "character_id": {"$in": char_ids}}
+            )
         res = await db.characters.delete_many(
             {"$or": [{"_id": {"$in": obj_ids}}, {"char_id": {"$in": char_ids}}]}
         )
