@@ -237,4 +237,14 @@ describe('ManualFormComponent', () => {
     expect(component.manualFeats).toEqual(['Alert', 'Tough']);
     expect(component.featLimitWarning).toContain('Feat capacity reached');
   });
+
+  it('should identify species skills and background origin feats', () => {
+    component.is2024 = true;
+    component.manualRace = 'Elf';
+    component.manualBackground = 'Criminal';
+    expect(component.racialSkills).toEqual(['Perception']);
+    expect(component.isRacialSkill('Perception')).toBe(true);
+    expect(component.backgroundOriginFeat).toBe('Alert');
+    expect(component.isBackgroundOriginFeat('Alert')).toBe(true);
+  });
 });

@@ -201,3 +201,137 @@ def test_forge_character_weapon_properties_as_list(mock_ai_json):
     assert len(char["weapons"]) == 1
     assert char["weapons"][0]["properties"] == "versatile (1d10)"
     assert char["weapons"][0]["range"] == "5 ft"
+
+
+@patch("backend.services.forge_service.generate_ai_json", return_value=None)
+def test_forge_character_manual_deterministic_mandatory_grants_elf_rogue_criminal(mock_ai_json):
+    """Even when AI returns None and user omits background skills/feats/gear, all mandatory Class, Species, and Background grants must be injected."""
+    char = forge_character_manual(
+        target_level=1,
+        race="Elf",
+        char_class="Rogue",
+        background="Criminal",
+        subclass="None",
+        alignment="Chaotic Neutral",
+        gender="Female",
+        name="Lyra Nightwhisper",
+        base_stats={"STR": 8, "DEX": 17, "CON": 14, "INT": 14, "WIS": 12, "CHA": 10},
+        skill_proficiencies=["Acrobatics", "Investigation"],
+        saving_throws=[],
+        spell_ability=None,
+        concept="Shadow operative.",
+        edition="2024 Revision (5.5e)",
+        chosen_feats=None,
+        chosen_spells=None,
+        chosen_equipment=None,
+    )
+
+    # 1. Class + Background + Species Skill Proficiencies
+    skills = set(char["skill_proficiencies"])
+    assert {"Acrobatics", "Investigation"}.issubset(skills)  # User chosen class skills
+    assert {"Sleight of Hand", "Stealth"}.issubset(skills)  # Criminal background mandatory skills
+    assert "Perception" in skills  # Elf Keen Senses mandatory racial skill
+
+    # 2. Species Traits (Elf 2024) + Class Features (Rogue Lvl 1) + Background Origin Feat (Criminal -> Alert) + Tools
+    trait_names = {f["name"].lower() for f in char["features_traits"]}
+    assert "darkvision" in trait_names
+    assert "fey ancestry" in trait_names
+    assert "keen senses" in trait_names
+    assert "trance" in trait_names
+    assert "sneak attack" in trait_names
+    assert "expertise" in trait_names
+    assert "thieves' cant" in trait_names
+    assert "weapon mastery" in trait_names
+    assert any("alert" in n for n in trait_names)
+    assert any("tool proficiency" in n for n in trait_names)
+
+    # 3. Saving Throws, Starting Gear, Weapons & 2024 Masteries
+    assert set(char["saving_throws"]) == {"DEX", "INT"}
+    assert len(char["weapons"]) >= 2
+    assert len(char["equipment"]) >= 2
+    assert len(char["weapon_masteries"]) == 2
+
+
+@patch("backend.services.forge_service.generate_ai_json", return_value=None)
+def test_forge_character_manual_deterministic_mandatory_grants_dwarf_cleric_acolyte(mock_ai_json):
+    """Dwarf Cleric (Acolyte, 2024) must automatically receive Acolyte skills, Dwarven Toughness (+1 HP/lvl), Magic Initiate (Cleric), and starting Cleric spells/gear."""
+    char = forge_character_manual(
+        target_level=1,
+        race="Dwarf",
+        char_class="Cleric",
+        background="Acolyte",
+        subclass="None",
+        alignment="Lawful Good",
+        gender="Male",
+        name="Bram Ironprayer",
+        base_stats={"STR": 14, "DEX": 10, "CON": 16, "INT": 8, "WIS": 17, "CHA": 12},
+        skill_proficiencies=["History", "Medicine"],
+        saving_throws=[],
+        spell_ability=None,
+        concept="Temple guardian.",
+        edition="2024 Revision (5.5e)",
+        chosen_feats=None,
+        chosen_spells=None,
+        chosen_equipment=None,
+    )
+
+    # 1. Skills: Class (History, Medicine) + Acolyte Background (Insight, Religion)
+    skills = set(char["skill_proficiencies"])
+    assert {"History", "Medicine", "Insight", "Religion"}.issubset(skills)
+
+    # 2. Dwarf Traits + Dwarven Toughness (+1 HP/lvl -> 8 base + 3 CON + 1 Dwarf = 12 HP)
+    trait_names = {f["name"].lower() for f in char["features_traits"]}
+    assert "dwarven resilience" in trait_names
+    assert "dwarven toughness" in trait_names
+    assert "stonecunning" in trait_names
+    assert char["hp_max"] == 12
+
+    # 3. Acolyte Origin Feat (Magic Initiate (Cleric)) & Cleric Features
+    assert any("magic initiate" in n for n in trait_names)
+    assert "spellcasting" in trait_names
+    assert "divine order" in trait_names
+
+    # 4. Auto-populated Starting Spells & Gear
+    assert len(char["spells"].get("cantrips", [])) >= 2
+    assert len(char["spells"].get("level_1", [])) >= 2
+    assert len(char["prepared_spells"]) >= 4
+    assert set(char["saving_throws"]) == {"WIS", "CHA"}
+    assert char["armor_class"] >= 15  # Chain Shirt (13) + Shield (+2) = 15
+
+
+@patch("backend.services.forge_service.generate_ai_json", return_value=None)
+def test_forge_character_manual_deterministic_mandatory_grants_2014_edition(mock_ai_json):
+    """In 2014 Edition, Half-Orc Barbarian (Outlander) receives 2014 racial traits/skill (Menacing -> Intimidation), Outlander skills (Athletics, Survival), and 2014 Background Feature (Wanderer) instead of a 2024 Origin Feat."""
+    char = forge_character_manual(
+        target_level=1,
+        race="Half-Orc",
+        char_class="Barbarian",
+        background="Outlander",
+        subclass="None",
+        alignment="Chaotic Good",
+        gender="Female",
+        name="Grommash",
+        base_stats={"STR": 16, "DEX": 14, "CON": 16, "INT": 8, "WIS": 12, "CHA": 10},
+        skill_proficiencies=["Perception"],
+        saving_throws=[],
+        spell_ability=None,
+        concept="Tribal exile.",
+        edition="5e (2014)",
+        chosen_feats=None,
+        chosen_spells=None,
+        chosen_equipment=None,
+    )
+
+    skills = set(char["skill_proficiencies"])
+    assert "Perception" in skills  # User chosen class skill
+    assert {"Athletics", "Survival"}.issubset(skills)  # Outlander background skills
+    assert "Intimidation" in skills  # 2014 Half-Orc Menacing racial skill
+
+    trait_names = {f["name"].lower() for f in char["features_traits"]}
+    assert "relentless endurance" in trait_names
+    assert "savage attacks" in trait_names
+    assert "menacing" in trait_names
+    assert "rage" in trait_names
+    assert "unarmored defense" in trait_names
+    assert "wanderer" in trait_names  # 2014 Outlander narrative background feature
+    assert not any("origin feat" in n for n in trait_names)  # No 2024 Origin Feat in 2014 edition

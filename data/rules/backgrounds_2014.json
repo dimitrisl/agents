@@ -1,99 +1,513 @@
 [
     {
-        "name": "Acolyte"
+        "name": "Acolyte",
+        "description": "You have spent your life in the service of a temple to a specific god or pantheon of gods.",
+        "skills": [
+            "Insight",
+            "Religion"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Shelter of the Faithful",
+            "description": "As an acolyte, you command the respect of those who share your faith, and you can perform the religious ceremonies of your deity. You and your adventuring companions can expect to receive free healing and care at a temple, shrine, or other established presence of your faith."
+        },
+        "equipment": "Holy Symbol, Prayer Book, 5 Sticks of Incense, Vestments, Common Clothes, Pouch, 15 GP"
     },
     {
-        "name": "Charlatan"
+        "name": "Charlatan",
+        "description": "You have always had a way with people. You know what makes them tick and can tease out their hearts' desires.",
+        "skills": [
+            "Deception",
+            "Sleight of Hand"
+        ],
+        "tools": [
+            "Disguise Kit",
+            "Forgery Kit"
+        ],
+        "feature": {
+            "name": "False Identity",
+            "description": "You have created a second identity that includes documentation, established acquaintances, and disguises that allow you to assume that persona."
+        },
+        "equipment": "Fine Clothes, Disguise Kit, Con Tools, Pouch, 15 GP"
     },
     {
-        "name": "Criminal"
+        "name": "Criminal",
+        "description": "You are an experienced criminal with a history of breaking the law and a working knowledge of the criminal underworld.",
+        "skills": [
+            "Deception",
+            "Stealth"
+        ],
+        "tools": [
+            "Gaming Set",
+            "Thieves' Tools"
+        ],
+        "feature": {
+            "name": "Criminal Contact",
+            "description": "You have a reliable and trustworthy contact who acts as your liaison to a network of other criminals."
+        },
+        "equipment": "Crowbar, Dark Common Clothes with Hood, Pouch, 15 GP"
     },
     {
-        "name": "Entertainer"
+        "name": "Entertainer",
+        "description": "You thrive in front of an audience. You know how to entrance them, entertain them, and even inspire them.",
+        "skills": [
+            "Acrobatics",
+            "Performance"
+        ],
+        "tools": [
+            "Disguise Kit",
+            "One Musical Instrument"
+        ],
+        "feature": {
+            "name": "By Popular Demand",
+            "description": "You can always find a place to perform, usually in an inn or tavern, where you receive free lodging and food of a modest or comfortable standard."
+        },
+        "equipment": "Musical Instrument, Favor of an Admirer, Costume, Pouch, 15 GP"
     },
     {
-        "name": "Folk Hero"
+        "name": "Folk Hero",
+        "description": "You come from a humble social rank, but you are destined for so much more. Already the people of your home village regard you as their champion.",
+        "skills": [
+            "Animal Handling",
+            "Survival"
+        ],
+        "tools": [
+            "One type of Artisan's Tools",
+            "Vehicles (Land)"
+        ],
+        "feature": {
+            "name": "Rustic Hospitality",
+            "description": "Since you come from the ranks of the common folk, you fit in among them with ease. You can find a place to hide, rest, or recuperate among other commoners."
+        },
+        "equipment": "Artisan's Tools, Shovel, Iron Pot, Common Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Guild Artisan"
+        "name": "Guild Artisan",
+        "description": "You are a member of an artisan's guild, skilled in a particular field and closely associated with other artisans.",
+        "skills": [
+            "Insight",
+            "Persuasion"
+        ],
+        "tools": [
+            "One type of Artisan's Tools"
+        ],
+        "feature": {
+            "name": "Guild Membership",
+            "description": "As an established and respected member of a guild, you can rely on certain benefits that membership provides, including lodging and political support."
+        },
+        "equipment": "Artisan's Tools, Letter of Introduction from Guild, Traveler's Clothes, Pouch, 15 GP"
     },
     {
-        "name": "Hermit"
+        "name": "Hermit",
+        "description": "You lived in seclusion—either in a sheltered community such as a monastery, or entirely alone—for a formative part of your life.",
+        "skills": [
+            "Medicine",
+            "Religion"
+        ],
+        "tools": [
+            "Herbalism Kit"
+        ],
+        "feature": {
+            "name": "Discovery",
+            "description": "The quiet seclusion of your extended hermitage gave you access to a unique and powerful discovery."
+        },
+        "equipment": "Scroll Case with Notes, Winter Blanket, Common Clothes, Herbalism Kit, 5 GP"
     },
     {
-        "name": "Noble"
+        "name": "Noble",
+        "description": "You understand wealth, power, and privilege. You carry a noble title, and your family owns land, collects taxes, and wields significant political influence.",
+        "skills": [
+            "History",
+            "Persuasion"
+        ],
+        "tools": [
+            "Gaming Set"
+        ],
+        "feature": {
+            "name": "Position of Privilege",
+            "description": "Thanks to your noble birth, people are inclined to think the best of you. You are welcome in high society, and common folk make every effort to accommodate you."
+        },
+        "equipment": "Fine Clothes, Signet Ring, Scroll of Pedigree, Purse, 25 GP"
     },
     {
-        "name": "Outlander"
+        "name": "Outlander",
+        "description": "You grew up in the wilds, far from civilization and the comforts of town and technology.",
+        "skills": [
+            "Athletics",
+            "Survival"
+        ],
+        "tools": [
+            "One Musical Instrument"
+        ],
+        "feature": {
+            "name": "Wanderer",
+            "description": "You have an excellent memory for maps and geography, and you can always recall the general layout of terrain, settlements, and other features around you. In addition, you can find food and fresh water for yourself and up to five other people each day."
+        },
+        "equipment": "Staff, Hunting Trap, Trophy from Animal, Traveler's Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Sage"
+        "name": "Sage",
+        "description": "You spent years learning the lore of the multiverse. You scoured manuscripts, studied scrolls, and listened to the greatest experts on the subjects that interest you.",
+        "skills": [
+            "Arcana",
+            "History"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Researcher",
+            "description": "When you attempt to learn or recall a piece of lore, if you do not know that information, you often know where and from whom you can obtain it."
+        },
+        "equipment": "Bottle of Black Ink, Quill, Small Knife, Letter from Dead Colleague, Common Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Sailor"
+        "name": "Sailor",
+        "description": "You sailed on a seagoing vessel for years. In that time, you faced down mighty storms, monsters of the deep, and those who wanted to sink your craft to the bottomless depths.",
+        "skills": [
+            "Athletics",
+            "Perception"
+        ],
+        "tools": [
+            "Navigator's Tools",
+            "Vehicles (Water)"
+        ],
+        "feature": {
+            "name": "Ship's Passage",
+            "description": "When you need to, you can secure free passage on a sailing ship for yourself and your adventuring companions."
+        },
+        "equipment": "Belaying Pin (Club), 50 ft Silk Rope, Lucky Charm, Common Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Soldier"
+        "name": "Soldier",
+        "description": "War has been your life for as long as you care to remember. You trained as a youth, studied the use of weapons and armor, and learned basic survival techniques.",
+        "skills": [
+            "Athletics",
+            "Intimidation"
+        ],
+        "tools": [
+            "Gaming Set",
+            "Vehicles (Land)"
+        ],
+        "feature": {
+            "name": "Military Rank",
+            "description": "You have a military rank from your career as a soldier. Soldiers loyal to your former military organization still recognize your authority and influence."
+        },
+        "equipment": "Insignia of Rank, Trophy from Fallen Enemy, Gaming Set, Common Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Urchin"
+        "name": "Urchin",
+        "description": "You grew up on the streets alone, orphaned, and poor. You had no one to watch over you or to provide for you, so you learned to provide for yourself.",
+        "skills": [
+            "Sleight of Hand",
+            "Stealth"
+        ],
+        "tools": [
+            "Disguise Kit",
+            "Thieves' Tools"
+        ],
+        "feature": {
+            "name": "City Secrets",
+            "description": "You know the secret patterns and flow to cities and can find passages through the urban sprawl that others would miss."
+        },
+        "equipment": "Small Knife, Map of Home City, Pet Mouse, Token of Parents, Common Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Anthropologist"
+        "name": "Anthropologist",
+        "description": "You have always been fascinated by other cultures, from the most ancient and primeval lost lands to the most modern civilizations.",
+        "skills": [
+            "Insight",
+            "Religion"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Adept Linguist",
+            "description": "You can communicate with humanoids who don't speak any language you know by observing them for 1 day."
+        },
+        "equipment": "Leather-bound Diary, Bottle of Ink, Ink Pen, Traveler's Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Archaeologist"
+        "name": "Archaeologist",
+        "description": "An archaeologist learns about the long-lost and fallen cultures of the past by studying their remains—their bones, their ruins, their surviving masterworks, and their tombs.",
+        "skills": [
+            "History",
+            "Survival"
+        ],
+        "tools": [
+            "Cartographer's Tools",
+            "Navigator's Tools"
+        ],
+        "feature": {
+            "name": "Historical Knowledge",
+            "description": "When you enter a ruin or dungeon, you can correctly ascertain its original purpose and determine its builders."
+        },
+        "equipment": "Wooden Case with Map, Bullseye Lantern, Miner's Pick, Traveler's Clothes, Shovel, Two-Person Tent, Pouch, 25 GP"
     },
     {
-        "name": "Athlete"
+        "name": "Athlete",
+        "description": "You strive to perfect yourself physically and in execution of everything you do.",
+        "skills": [
+            "Acrobatics",
+            "Athletics"
+        ],
+        "tools": [
+            "Vehicles (Land)"
+        ],
+        "feature": {
+            "name": "Echoes of Victory",
+            "description": "You have attracted admiration among spectators, fellow athletes, and trainers in any region within 100 miles of where you grew up."
+        },
+        "equipment": "Bronze Discus or Leather Ball, Lucky Charm, Traveler's Clothes, Pouch, 10 GP"
     },
     {
-        "name": "City Watch"
+        "name": "City Watch",
+        "description": "You have served the community where you grew up, standing as its first line of defense against crime.",
+        "skills": [
+            "Athletics",
+            "Insight"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Watcher's Eye",
+            "description": "Your experience in enforcing the law, and dealing with lawbreakers, gives you a feel for local laws and criminals."
+        },
+        "equipment": "Uniform, Horn, Manacles, Pouch, 10 GP"
     },
     {
-        "name": "Clan Crafter"
+        "name": "Clan Crafter",
+        "description": "The Stout Folk are well known for their artisanship and the mastery of their handiworks.",
+        "skills": [
+            "History",
+            "Insight"
+        ],
+        "tools": [
+            "One type of Artisan's Tools"
+        ],
+        "feature": {
+            "name": "Respect of the Stout Folk",
+            "description": "No one esteems clan crafters quite so highly as dwarves do. You always have free room and board in any place where Shield Dwarves or Gold Dwarves dwell."
+        },
+        "equipment": "Artisan's Tools, Maker's Mark Chisel, Traveler's Clothes, Pouch, 15 GP"
     },
     {
-        "name": "Cloistered Scholar"
+        "name": "Cloistered Scholar",
+        "description": "As a child, you were inquisitive when your playmates were possessive or crude. In the formative years of your life, you found your way to one of the great libraries of the Realms.",
+        "skills": [
+            "History",
+            "Arcana"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Library Access",
+            "description": "Though others must weathered extensive interviews and significant fees to gain access to even the most common archives in your library, you have free and easy access to the majority of the library."
+        },
+        "equipment": "Scholar's Robes, Writing Kit, Borrowed Book, Pouch, 10 GP"
     },
     {
-        "name": "Courtier"
+        "name": "Courtier",
+        "description": "In your earlier days, you were a personage of some significance in a noble court or a bureaucratic organization.",
+        "skills": [
+            "Insight",
+            "Persuasion"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Court Functionary",
+            "description": "Your knowledge of how bureaucracies function lets you gain access to the records and inner workings of any noble court or government you encounter."
+        },
+        "equipment": "Fine Clothes, Pouch, 5 GP"
     },
     {
-        "name": "Faction Agent"
+        "name": "Faction Agent",
+        "description": "Many organizations active in the North and across the face of Faerun aren't bound by strict geographical constraints. You have served as an agent of a particular faction.",
+        "skills": [
+            "Insight",
+            "Persuasion"
+        ],
+        "tools": [],
+        "feature": {
+            "name": "Safe Haven",
+            "description": "As a faction agent, you have access to a secret network of supporters and operatives who can provide assistance on your adventures."
+        },
+        "equipment": "Badge or Emblem of Faction, Copy of Seminal Faction Text, Common Clothes, Pouch, 15 GP"
     },
     {
-        "name": "Far Traveler"
+        "name": "Far Traveler",
+        "description": "Almost all of the common people and other folk that one might encounter along the Sword Coast or in the North have one thing in common: they live out their lives without ever traveling more than a few miles from where they were born. You aren't one of them.",
+        "skills": [
+            "Insight",
+            "Perception"
+        ],
+        "tools": [
+            "One Musical Instrument or Gaming Set"
+        ],
+        "feature": {
+            "name": "All Eyes on You",
+            "description": "Your accent, mannerisms, figures of speech, and perhaps even your appearance all mark you as foreign. Curious glances are directed your way wherever you go."
+        },
+        "equipment": "Traveler's Clothes, Musical Instrument or Gaming Set, Poorly Wrought Maps, Small Piece of Jewelry, Pouch, 5 GP"
     },
     {
-        "name": "Fisher"
+        "name": "Fisher",
+        "description": "You have spent your life aboard fishing vessels or combing the shallows for the bounty of the ocean.",
+        "skills": [
+            "History",
+            "Survival"
+        ],
+        "tools": [
+            "Vehicles (Water)"
+        ],
+        "feature": {
+            "name": "Harvest the Water",
+            "description": "You gain advantage on ability checks made using fishing tackle. If you have access to a body of water that sustains marine life, you can maintain a moderate lifestyle while working as a fisher, and you can catch enough food to feed yourself and up to ten other people each day."
+        },
+        "equipment": "Fishing Tackle, Net, Traveler's Clothes, Oiled Leather Boots, Pouch, 10 GP"
     },
     {
-        "name": "Gladiator"
+        "name": "Gladiator",
+        "description": "A gladiator is as much an entertainer as any minstrel or circus performer, trained to make the arts of combat into a spectacle the crowd can enjoy.",
+        "skills": [
+            "Acrobatics",
+            "Performance"
+        ],
+        "tools": [
+            "Disguise Kit",
+            "One Unusual Weapon"
+        ],
+        "feature": {
+            "name": "By Popular Demand",
+            "description": "You can always find a place to perform, usually in an arena or pit fight venue, where you receive free lodging and food."
+        },
+        "equipment": "Inexpensive Unusual Weapon, Favor of an Admirer, Costume, Pouch, 15 GP"
     },
     {
-        "name": "Inheritor"
+        "name": "Inheritor",
+        "description": "You are the heir to something of great value—not mere coin or wealth, but an object that has been entrusted to you and you alone.",
+        "skills": [
+            "Survival",
+            "History"
+        ],
+        "tools": [
+            "Gaming Set or Musical Instrument"
+        ],
+        "feature": {
+            "name": "Inheritance",
+            "description": "Choose or randomly determine your inheritance from among the possibilities in the table in the Sword Coast Adventurer's Guide."
+        },
+        "equipment": "Your Inheritance, Traveler's Clothes, Gaming Set or Musical Instrument, Pouch, 15 GP"
     },
     {
-        "name": "Knight"
+        "name": "Knight",
+        "description": "A knighthood is among the lowest noble titles in most societies, but it can be a path to higher status.",
+        "skills": [
+            "History",
+            "Persuasion"
+        ],
+        "tools": [
+            "Gaming Set"
+        ],
+        "feature": {
+            "name": "Retainers",
+            "description": "You have the service of three retainers loyal to your family who can perform mundane tasks for you."
+        },
+        "equipment": "Fine Clothes, Signet Ring, Scroll of Pedigree, Banner, Purse, 25 GP"
     },
     {
-        "name": "Knight of the Order"
+        "name": "Knight of the Order",
+        "description": "You belong to an order of knights who have sworn oaths to achieve a certain goal.",
+        "skills": [
+            "Persuasion",
+            "Religion"
+        ],
+        "tools": [
+            "Gaming Set or Musical Instrument"
+        ],
+        "feature": {
+            "name": "Knightly Regard",
+            "description": "You receive shelter and succor from members of your knightly order and those who are sympathetic to its aims."
+        },
+        "equipment": "Traveler's Clothes, Signet, Banner or Seal, Pouch, 10 GP"
     },
     {
-        "name": "Marine"
+        "name": "Marine",
+        "description": "You were trained for battle on sandy beaches and rocky shores. You have launched midnight raids from swift ships whose names are spoken in fear by your enemies.",
+        "skills": [
+            "Athletics",
+            "Survival"
+        ],
+        "tools": [
+            "Vehicles (Land)",
+            "Vehicles (Water)"
+        ],
+        "feature": {
+            "name": "Steady",
+            "description": "You can move twice the normal amount of time (up to 16 hours) each day before being subject to the effect of a forced march."
+        },
+        "equipment": "Dagger, Folded Flag of Ship, Traveler's Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Mercenary Veteran"
+        "name": "Mercenary Veteran",
+        "description": "As a sell-sword who fought battles for coin, you're well acquainted with risking life and limb for a share of the treasure.",
+        "skills": [
+            "Athletics",
+            "Persuasion"
+        ],
+        "tools": [
+            "Gaming Set",
+            "Vehicles (Land)"
+        ],
+        "feature": {
+            "name": "Mercenary Life",
+            "description": "You know the mercenary life as only someone who has experienced it can. You are able to identify mercenary companies by their emblems, and you know a little about any such company."
+        },
+        "equipment": "Uniform of Company, Insignia of Rank, Gaming Set, Pouch, 10 GP"
     },
     {
-        "name": "Urban Bounty Hunter"
+        "name": "Urban Bounty Hunter",
+        "description": "Before you staked your livelihood on the planar trails or dungeon delves of an adventurer, you made money tracking down people in cities for pay.",
+        "skills": [
+            "Deception",
+            "Stealth"
+        ],
+        "tools": [
+            "Gaming Set",
+            "Thieves' Tools"
+        ],
+        "feature": {
+            "name": "Ear to the Ground",
+            "description": "You are in frequent contact with people in the segment of society that your chosen quarries move through."
+        },
+        "equipment": "Appropriate Clothes, Pouch, 20 GP"
     },
     {
-        "name": "Uthgardt Tribe Member"
+        "name": "Uthgardt Tribe Member",
+        "description": "You grew up among one of the nomadic Uthgardt barbarian tribes of the North.",
+        "skills": [
+            "Athletics",
+            "Survival"
+        ],
+        "tools": [
+            "One Musical Instrument or Artisan's Tools"
+        ],
+        "feature": {
+            "name": "Uthgardt Heritage",
+            "description": "You have an excellent knowledge of not only your tribe's territory, but also the terrain and natural resources of the rest of the North. You can find twice as much food and water as you normally would when you forage there."
+        },
+        "equipment": "Hunting Trap, Totemic Token or Tattoos, Traveler's Clothes, Pouch, 10 GP"
     },
     {
-        "name": "Waterdhavian Noble"
+        "name": "Waterdhavian Noble",
+        "description": "You are a scion of one of the great noble families of Waterdeep. Human families who jealously guard their privilege and place in the City of Splendors.",
+        "skills": [
+            "History",
+            "Persuasion"
+        ],
+        "tools": [
+            "Gaming Set or Musical Instrument"
+        ],
+        "feature": {
+            "name": "Kept in Style",
+            "description": "While you are in Waterdeep or elsewhere in the North, your house sees to your everyday needs. Your name and signet are sufficient to cover most of your expenses."
+        },
+        "equipment": "Fine Clothes, Signet Ring, Scroll of Pedigree, Skin of Fine Zzar or Wine, Purse, 20 GP"
     },
     {
         "name": "Custom Background",

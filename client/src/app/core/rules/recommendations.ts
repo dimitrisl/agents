@@ -348,16 +348,32 @@ export function getMaxPreparedSpells(
 
 export const BACKGROUND_SKILLS_MAP: Record<string, string[]> = {
   Acolyte: ['Insight', 'Religion'],
+  Anthropologist: ['Insight', 'Religion'],
+  Archaeologist: ['History', 'Survival'],
   Artisan: ['Investigation', 'Persuasion'],
-  'Guild Artisan': ['Insight', 'Persuasion'],
+  Athlete: ['Acrobatics', 'Athletics'],
   Charlatan: ['Deception', 'Sleight of Hand'],
+  'City Watch': ['Athletics', 'Insight'],
+  'Clan Crafter': ['History', 'Insight'],
+  'Cloistered Scholar': ['History', 'Arcana'],
+  Courtier: ['Insight', 'Persuasion'],
   Criminal: ['Deception', 'Stealth'],
   Entertainer: ['Acrobatics', 'Performance'],
+  'Faction Agent': ['Insight', 'Persuasion'],
+  'Far Traveler': ['Insight', 'Perception'],
   Farmer: ['Animal Handling', 'Nature'],
+  Fisher: ['History', 'Survival'],
   'Folk Hero': ['Animal Handling', 'Survival'],
+  Gladiator: ['Acrobatics', 'Performance'],
   Guard: ['Athletics', 'Perception'],
   Guide: ['Stealth', 'Survival'],
+  'Guild Artisan': ['Insight', 'Persuasion'],
   Hermit: ['Medicine', 'Religion'],
+  Inheritor: ['Survival', 'History'],
+  Knight: ['History', 'Persuasion'],
+  'Knight of the Order': ['Persuasion', 'Religion'],
+  Marine: ['Athletics', 'Survival'],
+  'Mercenary Veteran': ['Athletics', 'Persuasion'],
   Merchant: ['Animal Handling', 'Persuasion'],
   Noble: ['History', 'Persuasion'],
   Outlander: ['Athletics', 'Survival'],
@@ -365,15 +381,62 @@ export const BACKGROUND_SKILLS_MAP: Record<string, string[]> = {
   Sailor: ['Athletics', 'Perception'],
   Scribe: ['Investigation', 'Perception'],
   Soldier: ['Athletics', 'Intimidation'],
+  'Urban Bounty Hunter': ['Deception', 'Stealth'],
   Urchin: ['Sleight of Hand', 'Stealth'],
+  'Uthgardt Tribe Member': ['Athletics', 'Survival'],
+  'Waterdhavian Noble': ['History', 'Persuasion'],
   Wayfarer: ['Insight', 'Stealth'],
 };
 
-export function getBackgroundSkills(background: string): string[] {
+export function getBackgroundSkills(background: string, is2024: boolean = false): string[] {
   const norm = Object.keys(BACKGROUND_SKILLS_MAP).find(
     (b) => b.toLowerCase() === (background || '').toLowerCase()
   );
-  return norm ? BACKGROUND_SKILLS_MAP[norm] : [];
+  if (!norm) return [];
+  if (is2024 && norm === 'Criminal') {
+    return ['Sleight of Hand', 'Stealth'];
+  }
+  return BACKGROUND_SKILLS_MAP[norm];
+}
+
+export const BACKGROUND_ORIGIN_FEAT_MAP: Record<string, string> = {
+  Acolyte: 'Magic Initiate',
+  Artisan: 'Crafter',
+  Charlatan: 'Skilled',
+  Criminal: 'Alert',
+  Entertainer: 'Musician',
+  Farmer: 'Tough',
+  Guard: 'Alert',
+  Guide: 'Magic Initiate',
+  Hermit: 'Healer',
+  Noble: 'Skilled',
+  Sage: 'Magic Initiate',
+  Sailor: 'Tavern Brawler',
+  Scribe: 'Skilled',
+  Soldier: 'Savage Attacker',
+  Wayfarer: 'Lucky',
+};
+
+export function getBackgroundOriginFeat(background: string, is2024: boolean = true): string | null {
+  if (!is2024) return null;
+  const norm = Object.keys(BACKGROUND_ORIGIN_FEAT_MAP).find(
+    (b) => b.toLowerCase() === (background || '').toLowerCase()
+  );
+  return norm ? BACKGROUND_ORIGIN_FEAT_MAP[norm] : null;
+}
+
+export function getRacialSkills(race: string, is2024: boolean = true): string[] {
+  const r = (race || '').trim().toLowerCase();
+  if (r.includes('elf') && !r.includes('half')) {
+    return ['Perception'];
+  }
+  if (is2024 && r.includes('halfling')) {
+    return ['Stealth'];
+  }
+  if (!is2024 && r.includes('half-orc')) {
+    return ['Intimidation'];
+  }
+  return [];
 }
 
 export function getMaxCastableSpellLevel(
