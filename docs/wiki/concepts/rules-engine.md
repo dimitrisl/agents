@@ -75,6 +75,12 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
     - Pristine characters (`hp_current: undefined / None`) resolve effective HP via `currentHp(char)` to `char.hp_max > 0` and are **not** incapacitated.
     - Characters are blocked from combat actions (Dodge, Dash, Disengage, Help) **only** when `currentHp(char) <= 0` or when affected by active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).
 
+11. **Deterministic Mandatory Build Grants (`inject_mandatory_character_grants`):**
+    - Executed in [`backend/services/rules_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/rules_service.py) across `forge_character`, `forge_character_manual`, and `autofix_character_build`:
+    - **Species / Racial Grants:** Automatically injects all static species traits from `races_{edition}.json` (`source: "Race"`), racial skill proficiencies (*Keen Senses* $\rightarrow$ `Perception`, 2024 *Naturally Stealthy* $\rightarrow$ `Stealth`, 2014 *Menacing* $\rightarrow$ `Intimidation`), and racial base speeds (`35 ft` for Goliath, `25 ft` for 2014 Dwarf/Halfling/Gnome).
+    - **Background Grants:** Automatically merges mandatory background skill proficiencies (`backgrounds_{edition}.json`) into `skill_proficiencies`, injects background tool proficiencies and 2014 background features (`source: "Background"`), and injects the 2024 Background Origin Feat (plus the 2nd Origin Feat for 2024 Humans via *Versatile*) into `features_traits` and `advancements`.
+    - **Class & Starting Loadout Fallback:** Deterministically injects all class and active subclass features up to `char_level` and populates canonical starting weapons, armor/equipment, languages, and spellcaster cantrips/prepared spells whenever omitted during character forging.
+
 ---
 
 ## 🛡️ Deterministic Validation: `validation_service.py`

@@ -732,13 +732,13 @@
     },
     {
         "name": "Tough",
-        "description": "Your hit point maximum increases by an amount equal to twice your level when you gain this feat. Whenever you gain a level thereafter, your hit point maximum increases by an additional 2 hit points.",
+        "description": "Your hit point maximum increases by an amount equal to twice your character level when you gain this feat. Whenever you gain a character level thereafter, your hit point maximum increases by an additional 2 hit points.",
         "prerequisites": {
-            "min_level": 4,
+            "min_level": 0,
             "stat_requirements": {},
             "other": []
         },
-        "category": "General Feats",
+        "category": "Origin Feats",
         "is_official": true,
         "stat_bonus": {
             "STR": 0,
@@ -749,15 +749,70 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 2,
-        "has_stat_choice": true,
-        "stat_choice_options": [
-            "STR",
-            "DEX",
-            "CON",
-            "INT",
-            "WIS",
-            "CHA"
-        ]
+        "has_stat_choice": false
+    },
+    {
+        "name": "Crafter",
+        "description": "You are adept at crafting nonmagical objects and gain the following benefits:\n- **Tool Proficiency.** You gain proficiency with three different Artisan's Tools of your choice.\n- **Discount.** Whenever you buy a nonmagical item, you receive a 20 percent discount on it.\n- **Faster Crafting.** When you finish a Long Rest, you can craft one piece of gear from the Fast Crafting table, provided you have the Artisan's Tools associated with that item.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Healer",
+        "description": "You have the training and intuition to administer first aid and other care effectively:\n- **Battle Medic.** If you have a Healer's Kit, you can expend one use of it and tend to a creature within 5 feet as a Utilize action. That creature can expend one of its Hit Point Dice, and you roll that die. The creature regains a number of Hit Points equal to the roll plus your Proficiency Bonus.\n- **Healing Rerolls.** Whenever you roll a die to determine the number of Hit Points you restore with a spell or with this feat's Battle Medic benefit, you can reroll the die if it rolls a 1, and you must use the new roll.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
+    },
+    {
+        "name": "Lucky",
+        "description": "You have inexplicable luck that can kick in at just the right moment:\n- **Luck Points.** You have a number of Luck Points equal to your Proficiency Bonus and can spend the points on the benefits below. You regain your expended Luck Points when you finish a Long Rest.\n- **Advantage.** Immediately after you roll a d20 for a d20 Test, you can spend 1 Luck Point to give yourself Advantage on the roll.\n- **Disadvantage.** When a creature rolls a d20 for an attack roll against you, you can spend 1 Luck Point to impose Disadvantage on that roll.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "category": "Origin Feats",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false
     },
     {
         "name": "War Caster",

@@ -22,6 +22,8 @@ import {
   isSpellcasterClass,
   ORIGIN_SUGGESTED_FEATS,
   getBackgroundSkills,
+  getBackgroundOriginFeat,
+  getRacialSkills,
 } from '../../../core/rules/recommendations';
 
 @Component({
@@ -132,22 +134,34 @@ export class ManualFormComponent {
   }
 
   get backgroundSkills(): string[] {
-    return getBackgroundSkills(this.manualBackground);
+    return getBackgroundSkills(this.manualBackground, this.is2024);
   }
 
   isBackgroundSkill(name: string): boolean {
     return this.backgroundSkills.some((s) => s.toLowerCase() === (name || '').toLowerCase());
   }
 
+  get racialSkills(): string[] {
+    return getRacialSkills(this.manualRace, this.is2024);
+  }
+
+  isRacialSkill(name: string): boolean {
+    return this.racialSkills.some((s) => s.toLowerCase() === (name || '').toLowerCase());
+  }
+
   loadSkillSuggestions(): void {
-    const bgSkills = this.backgroundSkills.map((s) => s.toLowerCase());
-    // Filter out skills already granted by background so choices aren't duplicated
-    const nonBgRecs = this.skillRules.recommended.filter((s) => !bgSkills.includes(s.toLowerCase()));
+    const grantedSkills = [...this.backgroundSkills, ...this.racialSkills].map((s) =>
+      s.toLowerCase()
+    );
+    // Filter out skills already granted by background or species so choices aren't duplicated
+    const nonBgRecs = this.skillRules.recommended.filter(
+      (s) => !grantedSkills.includes(s.toLowerCase())
+    );
     const needed = this.skillRules.count;
     const finalSkills = [...nonBgRecs];
     if (finalSkills.length < needed) {
       const remainingAllowed = this.skillRules.allowed.filter(
-        (s) => !bgSkills.includes(s.toLowerCase()) && !finalSkills.includes(s)
+        (s) => !grantedSkills.includes(s.toLowerCase()) && !finalSkills.includes(s)
       );
       finalSkills.push(...remainingAllowed.slice(0, needed - finalSkills.length));
     }
@@ -215,6 +229,15 @@ export class ManualFormComponent {
       if (search && !name.includes(search) && !desc.includes(search)) return false;
       return true;
     });
+  }
+
+  get backgroundOriginFeat(): string | null {
+    return getBackgroundOriginFeat(this.manualBackground, this.is2024);
+  }
+
+  isBackgroundOriginFeat(name: string): boolean {
+    const bgFeat = this.backgroundOriginFeat;
+    return !!bgFeat && (name || '').toLowerCase().includes(bgFeat.toLowerCase());
   }
 
   isFeatSelected(name: string): boolean {

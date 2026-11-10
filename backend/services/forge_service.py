@@ -20,6 +20,7 @@ from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
 from backend.services.rules_service import (
     autofix_character_build,
+    inject_mandatory_character_grants,
 )
 from backend.services.validation_service import deterministic_validate_build
 
@@ -177,6 +178,15 @@ def forge_character(
                 for f in result["features_traits"]
                 if not (isinstance(f, dict) and f.get("name", "").lower().startswith("feat:"))
             ]
+
+    # Deterministically inject mandatory Class, Subclass, Species/Race, and Background grants
+    result = inject_mandatory_character_grants(
+        result,
+        edition=edition,
+        is_forge=True,
+        auto_feats=auto_feats,
+        auto_spells=auto_spells,
+    )
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
@@ -395,6 +405,18 @@ def forge_character_manual(
 
     if chosen_equipment is not None:
         result["equipment"] = [{"name": it, "equipped": True} for it in chosen_equipment]
+
+    # Deterministically inject mandatory Class, Subclass, Species/Race, and Background grants
+    result = inject_mandatory_character_grants(
+        result,
+        edition=edition,
+        is_forge=True,
+        auto_feats=auto_feats,
+        auto_spells=auto_spells,
+        chosen_feats=chosen_feats,
+        chosen_spells=chosen_spells,
+        chosen_equipment=chosen_equipment,
+    )
 
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)

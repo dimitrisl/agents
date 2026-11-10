@@ -1274,7 +1274,7 @@ def sync_character_stats(
             ]
 
         # Inject 2024 Background Origin Feat early so Tough (+2 HP/lvl) and Alert (+PB Init) apply during HP/Init calculation
-        bg = (char_data.get("background") or "").lower()
+        bg = (char_data.get("background") or "").strip().lower()
         origin_feat_map = {
             "guard": {
                 "name": "Origin Feat: Alert",
@@ -1292,13 +1292,29 @@ def sync_character_stats(
                 "name": "Origin Feat: Magic Initiate (Cleric)",
                 "description": "2024 Origin Feat: Learn 2 Cleric cantrips and one 1st-level Cleric spell.",
             },
+            "artisan": {
+                "name": "Origin Feat: Crafter",
+                "description": "2024 Origin Feat: Gain proficiency with 3 Artisan's Tools, 20% nonmagical item discount, and Fast Crafting.",
+            },
+            "charlatan": {
+                "name": "Origin Feat: Skilled",
+                "description": "2024 Origin Feat: Gain proficiency in 3 skills or tools of your choice.",
+            },
             "criminal": {
                 "name": "Origin Feat: Alert",
                 "description": "2024 Origin Feat: Add Proficiency Bonus to Initiative rolls.",
             },
+            "entertainer": {
+                "name": "Origin Feat: Musician",
+                "description": "2024 Origin Feat: Gain proficiency with 3 Musical Instruments and grant Heroic Inspiration after a rest.",
+            },
             "guide": {
                 "name": "Origin Feat: Magic Initiate (Druid)",
                 "description": "2024 Origin Feat: Learn 2 Druid cantrips and one 1st-level Druid spell.",
+            },
+            "hermit": {
+                "name": "Origin Feat: Healer",
+                "description": "2024 Origin Feat: Use a Healer's Kit as a Utilize action to expend a Hit Die + PB and reroll 1s on healing dice.",
             },
             "sage": {
                 "name": "Origin Feat: Magic Initiate (Wizard)",
@@ -1312,26 +1328,50 @@ def sync_character_stats(
                 "name": "Origin Feat: Tavern Brawler",
                 "description": "2024 Origin Feat: Re-roll 1s on unarmed strikes and shove as bonus action.",
             },
+            "scribe": {
+                "name": "Origin Feat: Skilled",
+                "description": "2024 Origin Feat: Gain proficiency in 3 skills or tools of your choice.",
+            },
+            "wayfarer": {
+                "name": "Origin Feat: Lucky",
+                "description": "2024 Origin Feat: Gain Luck Points equal to Proficiency Bonus to grant Advantage on d20 Tests or impose Disadvantage on enemy attacks.",
+            },
             "custom": {
                 "name": "Origin Feat: Skilled",
                 "description": "2024 Origin Feat: Gain proficiency in 3 skills of your choice.",
             },
         }
 
+        origin_feat_keywords = (
+            "origin feat",
+            "alert",
+            "savage attacker",
+            "skilled",
+            "tough",
+            "magic initiate",
+            "tavern brawler",
+            "musician",
+            "crafter",
+            "healer",
+            "lucky",
+        )
         has_origin_feat = any(
-            "origin feat" in f.get("name", "").lower()
-            or "alert" in f.get("name", "").lower()
-            or "savage attacker" in f.get("name", "").lower()
-            or "skilled" in f.get("name", "").lower()
-            or "tough" in f.get("name", "").lower()
-            or "magic initiate" in f.get("name", "").lower()
-            or "tavern brawler" in f.get("name", "").lower()
-            or "musician" in f.get("name", "").lower()
+            any(kw in (f.get("name") or "").lower() for kw in origin_feat_keywords)
             for f in char_data.get("features_traits", [])
             if isinstance(f, dict)
         )
         if not has_origin_feat:
-            origin_info = origin_feat_map.get(bg, origin_feat_map["custom"])
+            bg_data = repo.get_background_data(bg, "2024") if bg else None
+            origin_info = origin_feat_map.get(bg)
+            if not origin_info and bg_data and bg_data.get("feat"):
+                feat_lbl = str(bg_data["feat"]).strip()
+                if "any origin feat" not in feat_lbl.lower():
+                    origin_info = {
+                        "name": f"Origin Feat: {feat_lbl}",
+                        "description": f"2024 Origin Feat granted by {bg_data.get('name', bg)} background.",
+                    }
+            if not origin_info:
+                origin_info = origin_feat_map["custom"]
             char_data.setdefault("features_traits", []).append(origin_info)
 
     # Pre-compute merged items list ONCE (not per equipment item)
@@ -1401,7 +1441,12 @@ def sync_character_stats(
 
     base_speed = char_data.get("base_speed")
     if base_speed is None:
-        base_speed = char_data.get("speed", 30)
+        raw_speed = char_data.get("speed")
+        if raw_speed in (None, 30) and char_data.get("race"):
+            race_info = repo.get_race_data(str(char_data.get("race")), edition)
+            if isinstance(race_info, dict) and isinstance(race_info.get("speed"), int):
+                raw_speed = race_info["speed"]
+        base_speed = raw_speed if isinstance(raw_speed, int) else 30
         char_data["base_speed"] = base_speed
     char_data["speed"] = base_speed + equip_speed_bonus
     char_data["global_attack_bonus"] = equip_atk_bonus

@@ -219,6 +219,32 @@ class RulesRepository:
         _races_cache[edition_val] = races
         return races
 
+    def get_race_data(self, race_name: str, edition: str = EDITION_2014) -> Optional[dict]:
+        """
+        Looks up canonical species/race data (traits, speed, size, mechanical_effects)
+        for a given race name and edition, with subrace and cross-edition fallback.
+        """
+        if not race_name:
+            return None
+        clean = str(race_name).strip().lower()
+        if clean == "variant human":
+            clean = "human"
+
+        primary_ed = _norm_edition(edition)
+        fallback_ed = "2014" if primary_ed == "2024" else "2024"
+
+        for ed in (primary_ed, fallback_ed):
+            races = self.get_available_races(ed)
+            for r in races:
+                if r.get("name", "").strip().lower() == clean:
+                    return r
+            # Subrace fallback (check longer names like Half-Elf / Half-Orc before Elf / Orc)
+            for r in sorted(races, key=lambda x: len(x.get("name", "")), reverse=True):
+                r_name = r.get("name", "").strip().lower()
+                if r_name and r_name in clean:
+                    return r
+        return None
+
     def get_subclasses(self, class_name: str, edition: str = EDITION_2014) -> list:
         filepath = os.path.join(DATA_DIR, "rules", "subclasses.json")
         if not os.path.exists(filepath):
@@ -266,6 +292,26 @@ class RulesRepository:
         backgrounds = [b for b in data if "name" in b]
         _backgrounds_cache[edition_val] = backgrounds
         return backgrounds
+
+    def get_background_data(
+        self, background_name: str, edition: str = EDITION_2014
+    ) -> Optional[dict]:
+        """
+        Looks up canonical background data (skills, tools, feat, feature, equipment)
+        for a given background name and edition, with cross-edition fallback.
+        """
+        if not background_name:
+            return None
+        clean = str(background_name).strip().lower()
+        primary_ed = _norm_edition(edition)
+        fallback_ed = "2014" if primary_ed == "2024" else "2024"
+
+        for ed in (primary_ed, fallback_ed):
+            bgs = self.get_available_backgrounds(ed)
+            for b in bgs:
+                if b.get("name", "").strip().lower() == clean:
+                    return b
+        return None
 
     def get_all_weapons(self) -> list:
         """

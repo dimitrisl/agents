@@ -656,6 +656,11 @@
                   · Background grants: {{ backgroundSkills.join(', ') }}
                 </span>
               }
+              @if (racialSkills.length > 0) {
+                <span class="text-micro text-accent font-mono ml-1">
+                  · Species grants: {{ racialSkills.join(', ') }}
+                </span>
+              }
             </p>
           </div>
         </div>
@@ -682,17 +687,22 @@
               [ngClass]="
                 isSkillSelected(skill.name)
                   ? 'border-accent bg-accent/15 text-accent shadow-sm'
-                  : 'border-hairline bg-tile/70 text-muted hover:border-accent/40 hover:text-ink'
+                  : isBackgroundSkill(skill.name) || isRacialSkill(skill.name)
+                    ? 'border-accent/50 bg-accent/10 text-ink'
+                    : 'border-hairline bg-tile/70 text-muted hover:border-accent/40 hover:text-ink'
               "
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="font-semibold text-body text-ink">
-                  {{ isSkillSelected(skill.name) ? '✓ ' : '' }}{{ skill.name }}
+                  {{ isSkillSelected(skill.name) || isBackgroundSkill(skill.name) || isRacialSkill(skill.name) ? '✓ ' : '' }}{{ skill.name }}
                   <span class="text-micro font-bold uppercase text-muted">({{ skill.ability }})</span>
                 </span>
                 <div class="flex flex-wrap items-center gap-1.5">
                   @if (isBackgroundSkill(skill.name)) {
-                    <forge-badge tone="accent" size="sm" title="Granted by your Background">From Background</forge-badge>
+                    <forge-badge tone="accent" size="sm" title="Automatically granted by your Background">From Background</forge-badge>
+                  }
+                  @if (isRacialSkill(skill.name)) {
+                    <forge-badge tone="accent" size="sm" title="Automatically granted by your Species">From Species</forge-badge>
                   }
                   @if (isSkillRecommended(skill.name)) {
                     <forge-badge tone="gold" size="sm">★ Suggested</forge-badge>
@@ -739,6 +749,11 @@
                 <span>General:</span>
                 <strong [class.text-accent]="generalFeatsCount >= maxGeneralFeats">{{ generalFeatsCount }}/{{ maxGeneralFeats }}</strong>
               </span>
+              @if (backgroundOriginFeat) {
+                <span class="text-micro text-accent font-mono">
+                  · Background grants: {{ backgroundOriginFeat }}
+                </span>
+              }
             </div>
           </div>
         </div>
@@ -831,6 +846,9 @@
                     {{ feat.name }}
                   </h3>
                   <div class="flex flex-wrap items-center gap-1">
+                    @if (isBackgroundOriginFeat(feat.name)) {
+                      <forge-badge tone="accent" size="sm" title="Automatically granted by your Background">From Background</forge-badge>
+                    }
                     @if (isFeatRecommended(feat.name)) {
                       <forge-badge tone="gold" size="sm">★ Suggested</forge-badge>
                     }

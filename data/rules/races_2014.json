@@ -14,6 +14,10 @@
             {
                 "name": "Ability Score Increase",
                 "description": "Your ability scores each increase by 1."
+            },
+            {
+                "name": "Extra Language",
+                "description": "You can speak, read, and write Common and one extra language of your choice."
             }
         ],
         "size": "Medium",
@@ -31,8 +35,20 @@
                 "description": "Your Dexterity score increases by 2."
             },
             {
+                "name": "Darkvision",
+                "description": "Accustomed to twilit forests and the night sky, you have superior vision in dark and dim conditions (60 feet)."
+            },
+            {
                 "name": "Keen Senses",
                 "description": "You have proficiency in the Perception skill."
+            },
+            {
+                "name": "Fey Ancestry",
+                "description": "You have advantage on saving throws against being charmed, and magic can't put you to sleep."
+            },
+            {
+                "name": "Trance",
+                "description": "Elves don't need to sleep. Instead, they meditate deeply, remaining semiconscious, for 4 hours a day."
             }
         ],
         "size": "Medium",
@@ -50,8 +66,16 @@
                 "description": "Your Constitution score increases by 2."
             },
             {
+                "name": "Darkvision",
+                "description": "Accustomed to life underground, you have superior vision in dark and dim conditions (60 feet)."
+            },
+            {
                 "name": "Dwarven Resilience",
-                "description": "You have resistance against poison damage."
+                "description": "You have advantage on saving throws against poison, and you have resistance against poison damage."
+            },
+            {
+                "name": "Stonecunning",
+                "description": "Whenever you make an Intelligence (History) check related to the origin of stonework, you are considered proficient in the History skill and add double your proficiency bonus to the check."
             }
         ],
         "size": "Medium",
@@ -67,6 +91,18 @@
             {
                 "name": "Ability Score Increase",
                 "description": "Your Dexterity score increases by 2."
+            },
+            {
+                "name": "Lucky",
+                "description": "When you roll a 1 on the d20 for an attack roll, ability check, or saving throw, you can reroll the die and must use the new roll."
+            },
+            {
+                "name": "Brave",
+                "description": "You have advantage on saving throws against being frightened."
+            },
+            {
+                "name": "Halfling Nimbleness",
+                "description": "You can move through the space of any creature that is of a size larger than yours."
             }
         ],
         "size": "Small",
@@ -87,6 +123,10 @@
             {
                 "name": "Breath Weapon",
                 "description": "You can use your action to exhale destructive energy."
+            },
+            {
+                "name": "Damage Resistance",
+                "description": "You have resistance to the damage type associated with your draconic ancestry."
             }
         ],
         "size": "Medium",
@@ -97,8 +137,12 @@
         "stat_bonuses": {
             "INT": 2
         },
-        "description": "A gnome\u2019s energy and enthusiasm for living shines through every inch of his or her tiny body.",
+        "description": "A gnome’s energy and enthusiasm for living shines through every inch of his or her tiny body.",
         "traits": [
+            {
+                "name": "Darkvision",
+                "description": "Accustomed to life underground, you have superior vision in dark and dim conditions (60 feet)."
+            },
             {
                 "name": "Gnome Cunning",
                 "description": "You have advantage on all Intelligence, Wisdom, and Charisma saving throws against magic."
@@ -115,8 +159,12 @@
         "description": "Half-elves combine what some say are the best qualities of their elf and human parents.",
         "traits": [
             {
+                "name": "Darkvision",
+                "description": "Thanks to your elf blood, you have superior vision in dark and dim conditions (60 feet)."
+            },
+            {
                 "name": "Fey Ancestry",
-                "description": "You have advantage on saving throws against being charmed, and magic can\u2019t put you to sleep."
+                "description": "You have advantage on saving throws against being charmed, and magic can’t put you to sleep."
             },
             {
                 "name": "Skill Versatility",
@@ -132,15 +180,23 @@
             "STR": 2,
             "CON": 1
         },
-        "description": "Half-orcs\u2019 grayish pigmentation, sloping foreheads, jutting jaws, prominent teeth, and towering builds make their orcish heritage plain for all to see.",
+        "description": "Half-orcs’ grayish pigmentation, sloping foreheads, jutting jaws, prominent teeth, and towering builds make their orcish heritage plain for all to see.",
         "traits": [
+            {
+                "name": "Darkvision",
+                "description": "Thanks to your orc blood, you have superior vision in dark and dim conditions (60 feet)."
+            },
+            {
+                "name": "Menacing",
+                "description": "You gain proficiency in the Intimidation skill."
+            },
             {
                 "name": "Relentless Endurance",
                 "description": "When you are reduced to 0 hit points but not killed outright, you can drop to 1 hit point instead."
             },
             {
                 "name": "Savage Attacks",
-                "description": "When you score a critical hit with a melee weapon attack, you can roll one of the weapon\u2019s damage dice one additional time and add it to the extra damage of the critical hit."
+                "description": "When you score a critical hit with a melee weapon attack, you can roll one of the weapon’s damage dice one additional time and add it to the extra damage of the critical hit."
             }
         ],
         "size": "Medium",
@@ -156,11 +212,15 @@
         "traits": [
             {
                 "name": "Darkvision",
-                "description": "Thanks to your infernal heritage, you have superior vision in dark and dim conditions."
+                "description": "Thanks to your infernal heritage, you have superior vision in dark and dim conditions (60 feet)."
             },
             {
                 "name": "Hellish Resistance",
                 "description": "You have resistance to fire damage."
+            },
+            {
+                "name": "Infernal Legacy",
+                "description": "You know the Thaumaturgy cantrip. At 3rd level, you can cast Hellish Rebuke once per long rest. At 5th level, you can cast Darkness once per long rest."
             }
         ],
         "size": "Medium",
