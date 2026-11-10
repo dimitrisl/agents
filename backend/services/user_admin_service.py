@@ -123,20 +123,35 @@ async def build_deletion_preview(
 
     # 1. Characters owned by user
     char_ids = set()
+    char_filenames = set()
     char_count = 0
     char_cursor = db["characters"].find({"owner_id": actual_user_id})
     if hasattr(char_cursor, "__aiter__"):
         async for c in char_cursor:
             char_count += 1
-            if c.get("char_id"):
-                char_ids.add(c["char_id"])
+            cid = c.get("char_id")
+            if cid:
+                char_ids.add(cid)
+                char_filenames.add(cid)
+                char_filenames.add(f"{cid}.json")
+                cname_raw = (c.get("char_name") or "").strip().lower()
+                if cname_raw:
+                    slug = re.sub(r"\s+", "_", cname_raw)
+                    char_filenames.add(f"{slug}_{cid}.json")
     else:
         chars = await _maybe_await(char_cursor)
         if isinstance(chars, list):
             char_count = len(chars)
             for c in chars:
-                if c.get("char_id"):
-                    char_ids.add(c["char_id"])
+                cid = c.get("char_id")
+                if cid:
+                    char_ids.add(cid)
+                    char_filenames.add(cid)
+                    char_filenames.add(f"{cid}.json")
+                    cname_raw = (c.get("char_name") or "").strip().lower()
+                    if cname_raw:
+                        slug = re.sub(r"\s+", "_", cname_raw)
+                        char_filenames.add(f"{slug}_{cid}.json")
         else:
             char_count = await _maybe_await(
                 db["characters"].count_documents({"owner_id": actual_user_id})
@@ -174,15 +189,11 @@ async def build_deletion_preview(
     # 6. Pending roll requests for user's characters in other campaigns
     roll_requests_to_delete = 0
     if char_ids:
+        or_clauses: List[dict] = [{"char_filename": {"$in": list(char_filenames)}}]
+        for cid in char_ids:
+            or_clauses.append({"char_filename": {"$regex": rf"(^|[_]){re.escape(cid)}(\.json)?$"}})
         roll_requests_to_delete = await _maybe_await(
-            db["campaign_roll_requests"].count_documents(
-                {
-                    "$or": [
-                        {"char_filename": {"$in": list(char_ids)}},
-                        {"char_filename": {"$in": [f"{cid}.json" for cid in char_ids]}},
-                    ]
-                }
-            )
+            db["campaign_roll_requests"].count_documents({"$or": or_clauses})
         )
 
     # 7. Whispers that will be archived in the DM campaigns
@@ -251,25 +262,71 @@ async def delete_user_cascade(db: Any, user_id: str, admin_user: dict) -> UserDe
 
     # 2. For user's characters: remove from other campaigns' party arrays, encounters & roll requests
     char_ids = set()
+    char_docs = []
     char_cursor = db["characters"].find({"owner_id": actual_user_id})
     if hasattr(char_cursor, "__aiter__"):
         async for c in char_cursor:
             if c.get("char_id"):
                 char_ids.add(c["char_id"])
+                char_docs.append(c)
     else:
         chars = await _maybe_await(char_cursor)
         if isinstance(chars, list):
             for c in chars:
                 if c.get("char_id"):
                     char_ids.add(c["char_id"])
+                    char_docs.append(c)
+
+    char_names_by_id = {c["char_id"]: (c.get("char_name") or "") for c in char_docs}
 
     for cid in char_ids:
         try:
+            pattern = rf"(^|[_]){re.escape(cid)}(\.json)?$"
+            pull_targets = [cid, f"{cid}.json"]
+            cname_raw = char_names_by_id.get(cid, "").strip().lower()
+            if cname_raw:
+                slug = re.sub(r"\s+", "_", cname_raw)
+                canonical_fn = f"{slug}_{cid}.json"
+                if canonical_fn not in pull_targets:
+                    pull_targets.append(canonical_fn)
+
+            # Find any campaign referencing this character by regex or filename and pull matching party items
+            camp_cursor = db["campaigns"].find(
+                {
+                    "$or": [
+                        {"party": {"$regex": pattern}},
+                        {"party": {"$in": pull_targets}},
+                    ]
+                }
+            )
+            matched_camps = []
+            if hasattr(camp_cursor, "__aiter__"):
+                async for camp_doc in camp_cursor:
+                    matched_camps.append(camp_doc)
+            elif hasattr(camp_cursor, "to_list"):
+                res_list = await _maybe_await(camp_cursor.to_list(length=500))
+                if isinstance(res_list, list):
+                    matched_camps.extend(res_list)
+
+            for camp_doc in matched_camps:
+                party_list = camp_doc.get("party") or []
+                to_remove = [
+                    item
+                    for item in party_list
+                    if item in pull_targets
+                    or item.endswith(f"_{cid}.json")
+                    or bool(re.search(pattern, item))
+                ]
+                if to_remove:
+                    for item in to_remove:
+                        if item not in pull_targets:
+                            pull_targets.append(item)
+
             # Pull from party arrays in remaining campaigns
             await _maybe_await(
                 db["campaigns"].update_many(
                     {},
-                    {"$pull": {"party": {"$in": [cid, f"{cid}.json"]}}},
+                    {"$pull": {"party": {"$in": pull_targets}}},
                 )
             )
             # Pull from combatants in encounters
@@ -284,8 +341,8 @@ async def delete_user_cascade(db: Any, user_id: str, admin_user: dict) -> UserDe
                 db["campaign_roll_requests"].delete_many(
                     {
                         "$or": [
-                            {"char_filename": cid},
-                            {"char_filename": f"{cid}.json"},
+                            {"char_filename": {"$in": pull_targets}},
+                            {"char_filename": {"$regex": pattern}},
                         ]
                     }
                 )

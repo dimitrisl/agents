@@ -77,6 +77,17 @@ export class CampaignPickerComponent implements OnInit, OnDestroy {
     }
   }
 
+  getCampaignDescription(camp: Campaign): string {
+    const members = camp.member_count ?? camp.party?.length ?? 1;
+    const memberLabel = members === 1 ? '1 member' : `${members} members`;
+    const partySize = camp.party?.length ?? 0;
+    if (partySize > 0) {
+      const heroLabel = partySize === 1 ? '1 hero' : `${partySize} heroes`;
+      return `${memberLabel} • ${heroLabel}`;
+    }
+    return memberLabel;
+  }
+
   inviteCode = signal('');
 
   onJoinCampaign() {

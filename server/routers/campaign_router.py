@@ -56,6 +56,7 @@ class CampaignSchema(BaseModel):
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
     vtt_state: Optional[VTTStateSchema] = None
+    member_count: int = 1
 
 
 class PlayerCampaignSchema(BaseModel):
@@ -66,6 +67,7 @@ class PlayerCampaignSchema(BaseModel):
     dnd_edition: Optional[str] = None
     invite_code: Optional[str] = None
     vtt_state: Optional[VTTStateSchema] = None
+    member_count: int = 1
 
 
 class JoinCampaignRequest(BaseModel):
@@ -297,12 +299,21 @@ async def list_campaigns(
     if not user_roles:
         return []
 
-    cursor = db["campaigns"].find({"campaign_name": {"$in": list(user_roles.keys())}})
+    campaign_names = list(user_roles.keys())
+    member_counts: Dict[str, int] = {}
+    all_members_cursor = db["campaign_members"].find({"campaign_id": {"$in": campaign_names}})
+    async for m in all_members_cursor:
+        cid = m.get("campaign_id")
+        if cid:
+            member_counts[cid] = member_counts.get(cid, 0) + 1
+
+    cursor = db["campaigns"].find({"campaign_name": {"$in": campaign_names}})
     campaigns = []
     async for doc in cursor:
         doc.pop("_id", None)
         role = user_roles.get(doc["campaign_name"], "player")
         doc["role"] = role
+        doc["member_count"] = member_counts.get(doc["campaign_name"], 1)
         if role == "dm":
             campaigns.append(CampaignSchema(**doc).model_dump())
         else:

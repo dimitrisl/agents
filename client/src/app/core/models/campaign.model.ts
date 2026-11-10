@@ -88,4 +88,5 @@ export interface Campaign {
   invite_code?: string;
   roll_requests?: RollRequest[];
   whispers?: Whisper[];
+  member_count?: number;
 }
