@@ -18,6 +18,8 @@ Phyrexian Forge uses **MongoDB Atlas** accessed asynchronously via **Motor** (`A
 | `campaign_whispers` | `campaign_name`, `sender`, `recipient`, `message`, `timestamp` | In-game text messages and whispers. |
 | `campaign_roll_requests` | `campaign_name`, `char_filename`, `roll_type`, `stat`, `status`, `result` | Dice roll requests issued by DM. |
 | `homebrew_content` | `campaign_name`, `creator_dm_id`, `type`, `item_data` | Custom weapons, spells, and items scoped to a campaign. |
+| `custom_monsters` | `id`, `name`, `creator_dm_id`, `is_public`, `cr_numeric`, `edition` | Custom DM and community homebrew monsters. |
+| `official_monsters` | `id`, `name`, `edition`, `cr_numeric`, `type`, `stats`, `actions` | Scaled database vault of official 2014 & 2024 monsters. |
 
 ---
 
@@ -50,6 +52,17 @@ INDEX_DEFINITIONS = [
     # Entities and logs
     ("campaign_entities", [("campaign_name", 1)], {"name": "idx_campaign_entities_campaign_name"}),
     ("session_logs", [("campaign_name", 1), ("session_number", -1)], {"name": "idx_session_logs_campaign_session"}),
+
+    # Bestiary: custom monsters collection
+    ("custom_monsters", [("id", 1)], {"unique": True, "name": "uniq_custom_monsters_id"}),
+    ("custom_monsters", [("creator_dm_id", 1)], {"name": "idx_custom_monsters_creator_dm_id"}),
+    ("custom_monsters", [("is_public", 1)], {"name": "idx_custom_monsters_is_public"}),
+    ("custom_monsters", [("creator_dm_id", 1), ("is_public", 1)], {"name": "idx_custom_monsters_creator_public"}),
+
+    # Bestiary: official monsters collection (seeded from 2014 & 2024 Monster Manuals)
+    ("official_monsters", [("id", 1)], {"unique": True, "name": "uniq_official_monsters_id"}),
+    ("official_monsters", [("edition", 1), ("cr_numeric", 1), ("name", 1)], {"name": "idx_official_monsters_edition_cr_name"}),
+    ("official_monsters", [("edition", 1), ("type", 1)], {"name": "idx_official_monsters_edition_type"}),
 ]
 ```
 

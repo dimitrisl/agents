@@ -179,6 +179,37 @@ class TestGetBestiaryList:
         assert len(data) > 0
         assert all("dragon" in m.get("name", "").lower() for m in data)
 
+    def test_get_bestiary_from_official_monsters_collection(
+        self, client: TestClient, mock_db: _AsyncDatabase
+    ):
+        mock_db["official_monsters"]._coll.insert_one(
+            {
+                "id": "srd_sol_draconis_2024",
+                "name": "Sol Draconis",
+                "edition": "2024",
+                "origin": "official",
+                "is_public": True,
+                "size": "Gargantuan",
+                "type": "Dragon",
+                "cr": "25",
+                "cr_numeric": 25.0,
+                "ac": 22,
+                "hp": 600,
+                "max_hp": 600,
+                "speed": "40 ft., fly 80 ft.",
+                "stats": {"str": 30, "dex": 14, "con": 29, "int": 18, "wis": 17, "cha": 28},
+            }
+        )
+        res = client.get("/api/v1/bestiary?edition=2024&search=Sol Draconis")
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data) == 1
+        assert data[0]["id"] == "srd_sol_draconis_2024"
+
+        res_by_id = client.get("/api/v1/bestiary/srd_sol_draconis_2024")
+        assert res_by_id.status_code == 200
+        assert res_by_id.json()["name"] == "Sol Draconis"
+
     def test_get_bestiary_filter_search_empty_match(self, client: TestClient):
         res = client.get("/api/v1/bestiary?search=nonexistent_monster_xyz_999999")
         assert res.status_code == 200

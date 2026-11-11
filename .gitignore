@@ -31,3 +31,11 @@ GEMINI.md
 lala.py
 config.json
 github_token.txt
+
+# Raw Bestiary imports & dumps (non-SRD copyrighted content)
+*bestiary-*.json
+*.5etools.json
+data/vault/
+data/rules/*5etools*
+data/rules/*xmm*
+data/rules/*mm*raw*

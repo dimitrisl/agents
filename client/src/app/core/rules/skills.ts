@@ -59,7 +59,10 @@ export function hasJackOfAllTrades(char: CharacterSchema | null | undefined): bo
 }
 
 export function is2024Edition(char: CharacterSchema | null | undefined): boolean {
-  return String(char?.dnd_edition || '').includes('2024');
+  return (
+    String(char?.dnd_edition || '').includes('2024') ||
+    String(char?.ruleset_version || '').includes('2024')
+  );
 }
 
 export function hasRemarkableAthlete(char: CharacterSchema | null | undefined): boolean {

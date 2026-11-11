@@ -34,7 +34,15 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
    - Multiclass caster levels follow the official multiclassing table (Full Casters 1:1, Half Casters 1:2, Third Casters 1:3).
    - Warlock **Pact Magic** slots are tracked separately from standard spellcasting slots; Short Rest restores only Pact Magic slots, while regular slots require a Long Rest.
 
-4. **2024 Weapon Masteries:**
+4. **Rest Recovery Invariants (`client/src/app/core/rules/rest.ts`):**
+   - **Long Rest Hit Dice Recovery:**
+     - **2024 Revision (PHB 2024, p. 370):** A character regains all lost HP and **all spent Hit Point Dice** (`hitDiceRecovered = totalHitDice`, `hitDiceUsed = 0`).
+     - **2014 Edition (PHB 2014, p. 186):** A character regains up to half of their total Hit Dice floored (`Math.floor(totalHitDice / 2) || 1`).
+     - **Edition Detection:** Evaluated via `is2024Edition(char)`, inspecting both `char.dnd_edition` and `char.ruleset_version`.
+   - **Short Rest Resource Resets:**
+     - 2024 rules recover +1 expended use on Short Rest for *Rage*, *Second Wind*, *Channel Divinity*, and *Wild Shape*.
+
+5. **2024 Weapon Masteries:**
    - Limits weapon masteries known based on 2024 class tables (Paladin/Ranger/Rogue: 2; Barbarian: 2–4; Fighter: 3–6).
    - Calculates dynamic Topple Save DC: `8 + Proficiency Bonus + STR modifier`.
 

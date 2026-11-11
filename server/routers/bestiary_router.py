@@ -82,20 +82,38 @@ async def list_monsters(
     combined_results: List[dict] = []
     repo = get_rules_repo()
 
-    # 2. Official SRD Monsters
+    # 2. Official Monsters (MongoDB `official_monsters` or fallback to RulesRepository)
     if include_official:
-        official_monsters = repo.search_monsters(
-            query=search or "",
-            edition=edition,
-            cr=cr,
-            monster_type=monster_type,
-        )
-        if search:
-            clean_search = search.strip().lower()
-            official_monsters = [
-                m for m in official_monsters if clean_search in str(m.get("name", "")).lower()
-            ]
-        combined_results.extend(official_monsters)
+        mongo_official_count = await db["official_monsters"].count_documents({})
+        if mongo_official_count > 0:
+            query_off: Dict[str, Any] = {}
+            if edition:
+                query_off["edition"] = edition
+            if monster_type:
+                query_off["type"] = {"$regex": re.escape(monster_type), "$options": "i"}
+            if cr:
+                query_off["cr"] = str(cr).strip()
+            if search and search.strip():
+                query_off["name"] = {"$regex": re.escape(search.strip()), "$options": "i"}
+
+            cursor_off = db["official_monsters"].find(query_off)
+            docs_off = await cursor_off.to_list(5000)
+            for doc in docs_off:
+                doc.pop("_id", None)
+            combined_results.extend(docs_off)
+        else:
+            official_monsters = repo.search_monsters(
+                query=search or "",
+                edition=edition,
+                cr=cr,
+                monster_type=monster_type,
+            )
+            if search:
+                clean_search = search.strip().lower()
+                official_monsters = [
+                    m for m in official_monsters if clean_search in str(m.get("name", "")).lower()
+                ]
+            combined_results.extend(official_monsters)
 
     # 3. Custom Monsters from MongoDB
     if include_mine or include_community:
@@ -193,8 +211,13 @@ async def get_monster(
             detail=f"Invalid monster ID format: '{id}'",
         )
 
-    # 1. Official SRD monster lookup
+    # 1. Official monster lookup (check MongoDB first, then RulesRepository fallback)
     if id.startswith("srd_"):
+        doc_off = await db["official_monsters"].find_one({"id": id})
+        if doc_off:
+            doc_off.pop("_id", None)
+            return Monster.model_validate(doc_off)
+
         repo = get_rules_repo()
         monster = repo.get_monster_by_id(id)
         if monster is None:
