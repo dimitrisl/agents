@@ -173,6 +173,7 @@ export interface CharacterSchema {
   char_portrait?: string;
   playstyle_guide?: string;
   dnd_edition?: string;
+  ruleset_version?: string;
   active_campaign?: string;
   currency?: CurrencyBlock;
   class_resources?: ClassResource[];

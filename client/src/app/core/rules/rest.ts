@@ -2,6 +2,7 @@ import { CharacterSchema, ClassResource } from '../models/character.model';
 import { hitDieSidesFor } from '../data/class-combat.data';
 import { abilityModifierOf } from './ability';
 import { currentHp } from './hit-points';
+import { is2024Edition } from './skills';
 
 /**
  * Short and long rests: what a hero gets back, and what it costs them.
@@ -235,25 +236,34 @@ export function resolveShortRest(
 
 export interface LongRestOutcome {
   hpCurrent: number;
-  /** Half the hero's total hit dice, and never fewer than one. */
+  /**
+   * Hit dice recovered: all hit dice under 2024 Revision,
+   * or half the hero's total hit dice (never fewer than one) under 2014 rules.
+   */
   hitDiceRecovered: number;
   hitDiceUsed: number;
 }
 
 /**
- * A long rest is unconditional: full HP, every spell slot back, half the hit dice.
+ * A long rest is unconditional: full HP, every spell slot back,
+ * and Hit Point Dice recovery (all hit dice in 2024 Revision, half in 2014 rules).
  *
- * The `|| 1` on the recovery count is what stops a level 1 hero — `floor(1 / 2)`
- * is 0 — from getting nothing at all.
+ * In 2024 Revision (PHB 2024, p. 370 "Long Rest"), the character recovers
+ * all spent Hit Point Dice (`hitDiceRecovered = totalHitDice`, `hitDiceUsed = 0`).
+ *
+ * In 2014 edition, the character recovers up to half their total hit dice
+ * (minimum of 1 die).
  */
 export function resolveLongRest(char: CharacterSchema): LongRestOutcome {
+  const is2024 = is2024Edition(char);
   const totalHitDice = char.char_level || 1;
-  const hitDiceRecovered = Math.floor(totalHitDice / 2) || 1;
+  const hitDiceRecovered = is2024 ? totalHitDice : (Math.floor(totalHitDice / 2) || 1);
+  const hitDiceUsed = is2024 ? 0 : Math.max(0, (char.hit_dice_used || 0) - hitDiceRecovered);
 
   return {
     hpCurrent: char.hp_max,
     hitDiceRecovered,
-    hitDiceUsed: Math.max(0, (char.hit_dice_used || 0) - hitDiceRecovered),
+    hitDiceUsed,
   };
 }
 

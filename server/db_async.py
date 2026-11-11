@@ -135,6 +135,26 @@ INDEX_DEFINITIONS = [
         [("creator_dm_id", pymongo.ASCENDING), ("is_public", pymongo.ASCENDING)],
         {"name": "idx_custom_monsters_creator_public"},
     ),
+    # Bestiary: official monsters collection (seeded from 2014 & 2024 Monster Manuals)
+    (
+        "official_monsters",
+        [("id", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_official_monsters_id"},
+    ),
+    (
+        "official_monsters",
+        [
+            ("edition", pymongo.ASCENDING),
+            ("cr_numeric", pymongo.ASCENDING),
+            ("name", pymongo.ASCENDING),
+        ],
+        {"name": "idx_official_monsters_edition_cr_name"},
+    ),
+    (
+        "official_monsters",
+        [("edition", pymongo.ASCENDING), ("type", pymongo.ASCENDING)],
+        {"name": "idx_official_monsters_edition_type"},
+    ),
 ]
 
 
