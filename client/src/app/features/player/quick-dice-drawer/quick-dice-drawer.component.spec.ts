@@ -73,4 +73,29 @@ describe('QuickDiceDrawerComponent', () => {
     component.close();
     expect(emitSpy).toHaveBeenCalledWith(false);
   });
+
+  it('triggers 3D dice via showRoll with per-die diceSides for multi-die pools (#197)', () => {
+    const toast = TestBed.inject(RollToastService);
+    const showRollSpy = jest.spyOn(toast, 'showRoll');
+    const showMessageSpy = jest.spyOn(toast, 'showMessage');
+
+    component.addDie(6);
+    component.addDie(6);
+    component.addDie(8);
+    component.adjustModifier(2);
+    component.executeRoll();
+
+    expect(showMessageSpy).not.toHaveBeenCalled();
+    expect(showRollSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expression: '2d6+1d8+2',
+        rolls: expect.any(Array),
+        diceSides: [6, 6, 8],
+        modifier: 2,
+        rollType: 'custom',
+        skipBroadcast: true,
+      })
+    );
+    expect(showRollSpy.mock.calls[0][0].rolls?.length).toBe(3);
+  });
 });

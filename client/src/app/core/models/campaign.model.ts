@@ -70,12 +70,35 @@ export interface Whisper {
   has_open_report?: boolean;
 }
 
+export type SheetRollVisibility = 'public' | 'dm';
+
+export interface CampaignRollLog {
+  id: string;
+  campaign_name: string;
+  sender_user_id: string;
+  char_name: string;
+  roll_label: string;
+  roll_type: string;
+  formula: string;
+  natural_roll?: number | null;
+  rolls: number[];
+  modifier: number;
+  total: number;
+  mode: RollMode | string;
+  is_crit: boolean;
+  is_fumble: boolean;
+  visibility: SheetRollVisibility;
+  dnd_edition?: string | null;
+  created_at: string;
+}
+
 /** Replayed history for one campaign channel — `GET /campaigns/{name}/messages`. */
 export interface CampaignMessages {
   campaign_name: string;
   role?: string;
   whispers: Whisper[];
   roll_requests: RollRequest[];
+  roll_logs?: CampaignRollLog[];
 }
 
 export interface Campaign {

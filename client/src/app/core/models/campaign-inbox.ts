@@ -1,12 +1,13 @@
-import { RollRequest, Whisper } from './campaign.model';
+import { CampaignRollLog, RollRequest, Whisper } from './campaign.model';
 
 /**
- * One entry in the campaign thread. Whispers and roll requests share a single
- * chronological feed — the timestamp is what tells them apart, not a section.
+ * One entry in the campaign thread. Whispers, roll requests, and sheet roll logs
+ * share a single chronological feed — the timestamp is what tells them apart.
  */
 export type InboxEntry =
   | { kind: 'whisper'; key: string; at: number; whisper: Whisper }
-  | { kind: 'roll'; key: string; at: number; request: RollRequest };
+  | { kind: 'roll'; key: string; at: number; request: RollRequest }
+  | { kind: 'campaign_roll'; key: string; at: number; roll: CampaignRollLog };
 
 /**
  * Mongo stores a naive UTC string ("2026-08-02 19:04:11"); the trailing Z is
@@ -33,8 +34,12 @@ export function formatInboxTime(timestamp?: string): string {
   }).format(new Date(value));
 }
 
-/** Interleaves both message kinds into one thread, oldest first. */
-export function buildInboxFeed(whispers: Whisper[], rollRequests: RollRequest[]): InboxEntry[] {
+/** Interleaves whispers, roll requests, and player sheet rolls into one thread, oldest first. */
+export function buildInboxFeed(
+  whispers: Whisper[],
+  rollRequests: RollRequest[],
+  rollLogs: CampaignRollLog[] = []
+): InboxEntry[] {
   const entries: InboxEntry[] = [
     ...whispers.map((whisper, index) => ({
       kind: 'whisper' as const,
@@ -47,6 +52,12 @@ export function buildInboxFeed(whispers: Whisper[], rollRequests: RollRequest[])
       key: request.id || `r-${request.created_at || 'no-time'}-${index}`,
       at: inboxTime(request.created_at),
       request,
+    })),
+    ...rollLogs.map((roll, index) => ({
+      kind: 'campaign_roll' as const,
+      key: roll.id || `rl-${roll.created_at || 'no-time'}-${index}`,
+      at: inboxTime(roll.created_at),
+      roll,
     })),
   ];
 

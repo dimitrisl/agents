@@ -17,6 +17,7 @@ import type { BestiaryMonster } from '../../core/models/bestiary.model';
 import {
   Campaign,
   CampaignMessages,
+  CampaignRollLog,
   RollRequest,
   Whisper,
   campaignUrl,
@@ -204,6 +205,7 @@ export class DmComponent implements OnInit, OnDestroy {
   showDmInbox = false;
   inboxWhispers: Whisper[] = [];
   inboxRollRequests: RollRequest[] = [];
+  inboxRollLogs: CampaignRollLog[] = [];
   unreadInboxMessages = 0;
   inboxReplyRecipient = 'All';
   inboxReplyMessage = '';
@@ -483,6 +485,15 @@ export class DmComponent implements OnInit, OnDestroy {
         if (!isOwnWhisper) {
           this.rollToast.showMessage(`💬 ${payload.sender} REPLIED`, payload.message);
         }
+      } else if (msg.type === 'campaign_roll') {
+        const rollLog = payload as CampaignRollLog | undefined;
+        if (!rollLog) return;
+        this.addInboxRollLog(rollLog, true);
+        const prefix = rollLog.visibility === 'dm' ? '🔒 WHISPER ROLL' : '🎲 SHEET ROLL';
+        this.rollToast.showMessage(
+          `${prefix}: ${rollLog.char_name}`,
+          `${rollLog.roll_label} = ${rollLog.total} (${rollLog.formula})`
+        );
       }
     });
   }
@@ -597,6 +608,9 @@ export class DmComponent implements OnInit, OnDestroy {
             this.inboxRollRequests = [...(messages.roll_requests || [])].sort(
               (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
             );
+            this.inboxRollLogs = [...(messages.roll_logs || [])].sort(
+              (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+            );
             this.unreadInboxMessages = 0;
             return;
           }
@@ -607,11 +621,15 @@ export class DmComponent implements OnInit, OnDestroy {
           for (const request of messages.roll_requests || []) {
             this.mergeRollRequestFromHistory(request);
           }
+          for (const rollLog of messages.roll_logs || []) {
+            this.addInboxRollLog(rollLog, true);
+          }
         },
         error: () => {
           if (isCatchUp || campaignName !== this.campaignName) return;
           this.inboxWhispers = [];
           this.inboxRollRequests = [];
+          this.inboxRollLogs = [];
           this.unreadInboxMessages = 0;
         },
       });
@@ -632,6 +650,18 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.inboxWhispers = [...this.inboxWhispers, whisper].sort(
       (a, b) => this.timestampSortValue(a.timestamp) - this.timestampSortValue(b.timestamp)
+    );
+
+    if (markUnread && !this.showDmInbox) {
+      this.unreadInboxMessages += 1;
+    }
+  }
+
+  private addInboxRollLog(rollLog: CampaignRollLog, markUnread: boolean) {
+    if (rollLog.id && this.inboxRollLogs.some((item) => item.id === rollLog.id)) return;
+
+    this.inboxRollLogs = [...this.inboxRollLogs, rollLog].sort(
+      (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
     );
 
     if (markUnread && !this.showDmInbox) {
@@ -1226,7 +1256,8 @@ export class DmComponent implements OnInit, OnDestroy {
       sides: roll.sides,
       modifier: roll.modifier,
       total: roll.total,
-      mode: roll.mode
+      mode: roll.mode,
+      skipBroadcast: true,
     });
   }
 

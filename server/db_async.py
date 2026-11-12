@@ -22,6 +22,11 @@ INDEX_DEFINITIONS = [
         [("campaign_name", pymongo.ASCENDING)],
         {"name": "idx_campaign_roll_requests_campaign_name"},
     ),
+    (
+        "campaign_roll_logs",
+        [("campaign_name", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)],
+        {"name": "idx_campaign_roll_logs_campaign_created"},
+    ),
     # Characters: unique char_id plus query performance indexes
     ("characters", [("char_id", pymongo.ASCENDING)], {"unique": True, "name": "uniq_char_id"}),
     ("characters", [("owner_id", pymongo.ASCENDING)], {"name": "idx_characters_owner_id"}),

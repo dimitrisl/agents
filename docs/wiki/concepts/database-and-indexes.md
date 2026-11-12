@@ -17,6 +17,7 @@ Phyrexian Forge uses **MongoDB Atlas** accessed asynchronously via **Motor** (`A
 | `session_logs` | `campaign_name`, `session_number`, `title`, `summary`, `real_world_date` | Chronological session recaps and journal. |
 | `campaign_whispers` | `campaign_name`, `sender`, `recipient`, `message`, `timestamp` | In-game text messages and whispers. |
 | `campaign_roll_requests` | `campaign_name`, `char_filename`, `roll_type`, `stat`, `status`, `result` | Dice roll requests issued by DM. |
+| `campaign_roll_logs` | `id`, `campaign_name`, `sender_user_id`, `char_name`, `roll_label`, `roll_type`, `formula`, `total`, `visibility`, `created_at` | Persistent log of player sheet rolls (`public` or `dm`-whispered). |
 | `homebrew_content` | `campaign_name`, `creator_dm_id`, `type`, `item_data` | Custom weapons, spells, and items scoped to a campaign. |
 | `custom_monsters` | `id`, `name`, `creator_dm_id`, `is_public`, `cr_numeric`, `edition` | Custom DM and community homebrew monsters. |
 | `official_monsters` | `id`, `name`, `edition`, `cr_numeric`, `type`, `stats`, `actions` | Scaled database vault of official 2014 & 2024 monsters. |
@@ -32,6 +33,7 @@ INDEX_DEFINITIONS = [
     # Live messaging & rolls
     ("campaign_whispers", [("campaign_name", 1)], {"name": "idx_campaign_whispers_campaign_name"}),
     ("campaign_roll_requests", [("campaign_name", 1)], {"name": "idx_campaign_roll_requests_campaign_name"}),
+    ("campaign_roll_logs", [("campaign_name", 1), ("created_at", -1)], {"name": "idx_campaign_roll_logs_campaign_created"}),
 
     # Characters: unique char_id plus query performance
     ("characters", [("char_id", 1)], {"unique": True, "name": "uniq_char_id"}),

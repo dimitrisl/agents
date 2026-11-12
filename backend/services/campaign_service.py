@@ -50,6 +50,7 @@ async def delete_campaign_cascade(
     # 3. Delete related campaign documents
     await _maybe_await(db["campaign_members"].delete_many({"campaign_id": campaign_name}))
     await _maybe_await(db["campaign_roll_requests"].delete_many({"campaign_name": campaign_name}))
+    await _maybe_await(db["campaign_roll_logs"].delete_many({"campaign_name": campaign_name}))
     await _maybe_await(db["campaign_encounters"].delete_many({"campaign_name": campaign_name}))
     await _maybe_await(db["campaign_entities"].delete_many({"campaign_name": campaign_name}))
     await _maybe_await(db["session_logs"].delete_many({"campaign_name": campaign_name}))

@@ -770,6 +770,65 @@ afterEach(() => {
     req.flush({ whisper: { sender: 'DM', recipient: 'All', message: 'The door is a mimic.' } });
   });
 
+  it('collects incoming campaign_roll WebSocket events and initial messages.roll_logs into inboxRollLogs (#197)', () => {
+    const historyRoll = {
+      id: 'roll-hist-1',
+      campaign_name: 'Curse of Strahd',
+      sender_user_id: 'u1',
+      char_name: 'Borin',
+      roll_label: '⚔️ BATTLEAXE ATTACK',
+      roll_type: 'attack',
+      formula: '1d20+5',
+      natural_roll: 12,
+      rolls: [12],
+      modifier: 5,
+      total: 17,
+      mode: 'normal',
+      is_crit: false,
+      is_fumble: false,
+      visibility: 'public',
+      created_at: '2026-11-12T10:00:00Z',
+    };
+    const incomingRoll = {
+      id: 'roll-ws-1',
+      campaign_name: 'Curse of Strahd',
+      sender_user_id: 'u1',
+      char_name: 'Kael',
+      roll_label: '🎲 PERCEPTION CHECK',
+      roll_type: 'skill',
+      formula: '1d20+4',
+      natural_roll: 15,
+      rolls: [15],
+      modifier: 4,
+      total: 19,
+      mode: 'normal',
+      is_crit: false,
+      is_fumble: false,
+      visibility: 'dm',
+      created_at: '2026-11-12T10:15:00Z',
+    };
+
+    component.ngOnInit();
+    (ws.opened$ as Subject<string>).next('Curse of Strahd');
+    const msgReq = http.expectOne((r) => r.url.endsWith('/campaigns/Curse%20of%20Strahd/messages'));
+    msgReq.flush({
+      campaign_name: 'Curse of Strahd',
+      whispers: [],
+      roll_requests: [],
+      roll_logs: [historyRoll],
+    });
+    expect(component.inboxRollLogs.length).toBe(1);
+    expect(component.unreadInboxMessages).toBe(0);
+
+    component.showDmInbox = false;
+    (ws.messages$ as Subject<WsMessage>).next({ type: 'campaign_roll', payload: incomingRoll } as WsMessage);
+    (ws.messages$ as Subject<WsMessage>).next({ type: 'campaign_roll', payload: incomingRoll } as WsMessage);
+
+    expect(component.inboxRollLogs.length).toBe(2);
+    expect(component.inboxRollLogs[1].char_name).toBe('Kael');
+    expect(component.unreadInboxMessages).toBe(1);
+  });
+
   it('reads passive perception off the hero rather than a fixed 11', () => {
     component.loadParty();
 

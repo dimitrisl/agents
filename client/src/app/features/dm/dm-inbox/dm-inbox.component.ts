@@ -18,7 +18,7 @@ import {
   ForgeSelectDirective,
   ForgeTextareaDirective,
 } from '../../../shared/ui';
-import type { RollRequest, Whisper } from '../../../core/models/campaign.model';
+import type { CampaignRollLog, RollRequest, Whisper } from '../../../core/models/campaign.model';
 import {
   buildInboxFeed,
   formatInboxTime,
@@ -55,6 +55,7 @@ export class DmInboxComponent implements OnChanges, AfterViewChecked {
   @Input() partyMembers: PartyMember[] = [];
   @Input() whispers: Whisper[] = [];
   @Input() rollRequests: RollRequest[] = [];
+  @Input() rollLogs: CampaignRollLog[] = [];
   @Input() unreadCount = 0;
   @Input() replyRecipient = 'All';
   @Input() replyMessage = '';
@@ -73,7 +74,7 @@ export class DmInboxComponent implements OnChanges, AfterViewChecked {
   private pendingScroll = false;
 
   ngOnChanges(): void {
-    this.feed = buildInboxFeed(this.whispers, this.rollRequests);
+    this.feed = buildInboxFeed(this.whispers, this.rollRequests, this.rollLogs);
     this.pendingScroll = true;
   }
 

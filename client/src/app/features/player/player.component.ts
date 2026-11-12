@@ -23,12 +23,19 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { HomebrewService } from '../../core/services/homebrew.service';
 import { DamagePart, DiceRoll, DiceService, RollMode } from '../../core/services/dice.service';
 import { SpellRulesService } from '../../core/services/spell-rules.service';
-import { RollToastService } from '../../core/services/roll-toast.service';
+import { ActiveRollEvent, RollToastService, SheetRollCategory } from '../../core/services/roll-toast.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { WakeLockService } from '../../core/services/wake-lock.service';
 import { HapticsService } from '../../core/services/haptics.service';
 import { CharacterSchema, EquipmentItem } from '../../core/models/character.model';
-import { CampaignMessages, RollRequest, Whisper, campaignUrl } from '../../core/models/campaign.model';
+import {
+  CampaignMessages,
+  CampaignRollLog,
+  RollRequest,
+  SheetRollVisibility,
+  Whisper,
+  campaignUrl,
+} from '../../core/models/campaign.model';
 import { buildInboxFeed, type InboxEntry } from '../../core/models/campaign-inbox';
 import {
   ROLL_PROMPT_TIMEOUT_SECONDS,
@@ -239,6 +246,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   promptManualRoll: number | null = null;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
+  rollVisibility = signal<SheetRollVisibility>('public');
+  rollSyncWarning = signal<string | null>(null);
   encounterState: any = null;
 
   portraitPrompt = '';
@@ -266,7 +275,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   pdfPreviewBlobUrl: string | null = null;
   whisperHistory: Whisper[] = [];
   rollRequestHistory: RollRequest[] = [];
-  /** Both kinds in one chronological thread — the timestamps tell them apart. */
+  rollLogHistory: CampaignRollLog[] = [];
+  /** Whispers, roll requests, and party sheet rolls in one chronological thread. */
   inboxFeed: InboxEntry[] = [];
   unreadMessages = 0;
   whisperReply = '';
@@ -348,6 +358,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       )
       .subscribe();
 
+    // Forward player character-sheet rolls to the active online campaign roll log (#197).
+    this.rollToast.rollEvents$
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => this.broadcastRollEvent(event));
+
     // Casters get the spell list loaded in the background (one request, cached),
     // so Cast can roll at once and the upcast menu can show each level's dice.
     effect(() => {
@@ -370,6 +385,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.wsService.disconnect();
         this.whisperHistory = [];
         this.rollRequestHistory = [];
+        this.rollLogHistory = [];
         this.unreadMessages = 0;
         this.whisperReply = '';
         this.showWhisperInbox.set(false);
@@ -514,6 +530,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         if (!isOwnReply) {
           this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
         }
+      } else if (msg.type === 'campaign_roll') {
+        const rollLog = msg['payload'] as CampaignRollLog | undefined;
+        if (!rollLog) return;
+        this.addRollLog(rollLog);
       }
     });
   }
@@ -597,8 +617,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private rebuildInboxFeed() {
-    this.inboxFeed = buildInboxFeed(this.whisperHistory, this.rollRequestHistory);
+    this.inboxFeed = buildInboxFeed(
+      this.whisperHistory,
+      this.rollRequestHistory,
+      this.rollLogHistory
+    );
     this.pendingFeedScroll = true;
+  }
+
+  setRollVisibility(visibility: SheetRollVisibility): void {
+    this.rollVisibility.set(visibility);
+  }
+
+  toggleRollVisibility(): void {
+    this.rollVisibility.update((current) => (current === 'public' ? 'dm' : 'public'));
+  }
+
+  dismissRollSyncWarning(): void {
+    this.rollSyncWarning.set(null);
   }
 
   toggleGroup(attr: string) {
@@ -738,6 +774,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // The roll display shows what the dice came to; the message shows what the
         // hero actually got, which is less whenever the rest hits `hp_max`.
         total: rest.rolled,
+        rollType: 'healing',
         message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
       });
     } else if (rest.restoresPactSlots) {
@@ -914,7 +951,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
    * own selector, which is what every button on the sheet wants; a DM roll request
    * passes the mode the player picked in the prompt instead.
    */
-  private showD20Roll(title: string, modifier: number, mode: RollMode = this.rollMode) {
+  private showD20Roll(
+    title: string,
+    modifier: number,
+    mode: RollMode = this.rollMode,
+    options?: { rollType?: SheetRollCategory; skipBroadcast?: boolean }
+  ) {
     const roll = this.dice.rollD20(modifier, mode);
 
     this.rollToast.showRoll({
@@ -925,7 +967,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       sides: roll.sides,
       modifier: roll.modifier,
       total: roll.total,
-      mode: roll.mode
+      mode: roll.mode,
+      rollType: options?.rollType,
+      skipBroadcast: options?.skipBroadcast,
     });
 
     return roll;
@@ -935,21 +979,27 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     const autoAdv = skill.name.toLowerCase() === 'athletics' && hasAthleticsAdvantage(char);
     const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
-    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill), mode);
+    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill), mode, {
+      rollType: 'skill',
+    });
   }
 
   rollAbilityCheck(stat: string) {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat));
+    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat), this.rollMode, {
+      rollType: 'ability',
+    });
   }
 
   rollSavingThrow(stat: string) {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, savingThrowModifier(char, stat));
+    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, savingThrowModifier(char, stat), this.rollMode, {
+      rollType: 'save',
+    });
   }
 
   /**
@@ -1005,7 +1055,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const mod = char.initiative_modifier ?? abilityModifierOf(char, 'DEX');
     const autoAdv = hasInitiativeAdvantage(char);
     const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
-    const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod, mode);
+    const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod, mode, { skipBroadcast: true });
     if (char.active_campaign) {
       this.wsService.sendMessage({
         type: 'roll_result',
@@ -1050,7 +1100,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
-    return this.showD20Roll(target.title, target.modifier + situationalBonus, effectiveMode);
+    return this.showD20Roll(target.title, target.modifier + situationalBonus, effectiveMode, {
+      skipBroadcast: true,
+    });
   }
 
   private rollForRequest(
@@ -1279,6 +1331,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return this.formatWhisperTime(timestamp);
   }
 
+  formatRollLogTime(timestamp?: string): string {
+    return this.formatWhisperTime(timestamp);
+  }
+
   /**
    * `isCatchUp` is the reconnect case: the thread is merged rather than replaced,
    * so whatever the DM sent while the socket was down still lands as unread
@@ -1308,12 +1364,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           const requests = (messages.roll_requests || []).filter((request) =>
             this.isRollRequestForCharacterName(request, characterName)
           );
+          const rollLogs = messages.roll_logs || [];
 
           if (!isCatchUp) {
             this.whisperHistory = whispers.sort(
               (a, b) => this.whisperSortValue(a) - this.whisperSortValue(b)
             );
             this.rollRequestHistory = requests.sort(
+              (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+            );
+            this.rollLogHistory = [...rollLogs].sort(
               (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
             );
             this.unreadMessages = 0;
@@ -1333,11 +1393,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           for (const request of requests) {
             this.mergeRollRequestFromHistory(request);
           }
+          if (rollLogs.length > 0) {
+            const seenIds = new Set(
+              this.rollLogHistory.map((item) => item.id).filter(Boolean)
+            );
+            const incoming = rollLogs.filter((item) => !item.id || !seenIds.has(item.id));
+            if (incoming.length > 0) {
+              this.rollLogHistory = [...this.rollLogHistory, ...incoming].sort(
+                (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+              );
+              this.rebuildInboxFeed();
+            }
+          }
         },
         error: () => {
           if (isCatchUp) return;
           this.whisperHistory = [];
           this.rollRequestHistory = [];
+          this.rollLogHistory = [];
           this.rebuildInboxFeed();
         },
       });
@@ -1417,6 +1490,94 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (markUnread && !this.showWhisperInbox()) {
       this.unreadMessages += 1;
     }
+  }
+
+  private addRollLog(rollLog: CampaignRollLog): void {
+    if (rollLog.id && this.rollLogHistory.some((item) => item.id === rollLog.id)) return;
+
+    this.rollLogHistory = [...this.rollLogHistory, rollLog].sort(
+      (a, b) => this.timestampSortValue(a.created_at) - this.timestampSortValue(b.created_at)
+    );
+    this.rebuildInboxFeed();
+  }
+
+  private broadcastRollEvent(event: ActiveRollEvent): void {
+    const char = this.charState.activeCharacter();
+    if (!char?.active_campaign || event.skipBroadcast) return;
+
+    const isD20Roll =
+      !event.damageParts?.length &&
+      (event.sides === 20 ||
+        (event.diceSides?.length === 1 && event.diceSides[0] === 20) ||
+        (!event.sides && event.expression.toLowerCase().includes('d20')));
+    const rolls = event.rolls && event.rolls.length ? event.rolls : [event.raw];
+    const isCrit = Boolean(
+      event.isNat20 ||
+        event.isCritHit ||
+        (isD20Roll && (event.raw === 20 || event.title.includes('CRITICAL')))
+    );
+    const isFumble = Boolean(event.isNat1 || (isD20Roll && event.raw === 1));
+
+    this.publishSheetRoll({
+      charName: char.char_name,
+      rollLabel: event.title,
+      rollType: event.rollType ?? 'custom',
+      formula: event.expression,
+      naturalRoll: isD20Roll ? event.raw : null,
+      rolls,
+      modifier: event.modifier,
+      total: event.total,
+      mode: event.mode ?? 'normal',
+      isCrit,
+      isFumble,
+    });
+  }
+
+  private publishSheetRoll(params: {
+    charName: string;
+    rollLabel: string;
+    rollType: SheetRollCategory;
+    formula: string;
+    naturalRoll: number | null;
+    rolls: number[];
+    modifier: number;
+    total: number;
+    mode: RollMode;
+    isCrit: boolean;
+    isFumble: boolean;
+  }): void {
+    const char = this.charState.activeCharacter();
+    if (!char?.active_campaign) return;
+
+    this.http
+      .post<{ roll: CampaignRollLog }>(campaignUrl(char.active_campaign, 'rolls'), {
+        char_name: params.charName,
+        roll_label: params.rollLabel,
+        roll_type: params.rollType,
+        formula: params.formula,
+        natural_roll: params.naturalRoll,
+        rolls: params.rolls,
+        modifier: params.modifier,
+        total: params.total,
+        mode: params.mode,
+        is_crit: params.isCrit,
+        is_fumble: params.isFumble,
+        visibility: this.rollVisibility(),
+        dnd_edition: char.dnd_edition || this.charState.dndEdition(),
+      })
+      .subscribe({
+        next: (res) => {
+          this.rollSyncWarning.set(null);
+          if (res?.roll) {
+            this.addRollLog(res.roll);
+          }
+        },
+        error: () => {
+          this.rollSyncWarning.set(
+            'Roll completed locally, but failed to sync to the campaign roll log.'
+          );
+        },
+      });
   }
 
   private addRollRequest(request: RollRequest, markUnread: boolean): void {
@@ -2000,6 +2161,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     };
     this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
+    this.publishSheetRoll({
+      charName: char.char_name,
+      rollLabel: '💀 Death Saving Throw',
+      rollType: 'death_save',
+      formula: roll.expression,
+      naturalRoll: roll.raw,
+      rolls: roll.rolls,
+      modifier: roll.modifier,
+      total: roll.total,
+      mode: roll.mode,
+      isCrit: roll.raw === 20,
+      isFumble: roll.raw === 1,
+    });
   }
 
   rollConcentrationSave() {
@@ -2018,6 +2192,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.rollToast.showMessage('💥 CONCENTRATION BROKEN', `Rolled ${roll.total} vs DC ${dc} — concentration dropped.`);
       this.dropConcentration();
     }
+
+    this.publishSheetRoll({
+      charName: char.char_name,
+      rollLabel: `🧠 Concentration Check (DC ${dc})`,
+      rollType: 'concentration',
+      formula: roll.expression,
+      naturalRoll: roll.raw,
+      rolls: roll.rolls,
+      modifier: roll.modifier,
+      total: roll.total,
+      mode: roll.mode,
+      isCrit: roll.raw === 20,
+      isFumble: roll.raw === 1,
+    });
   }
 
   dropConcentration() {
@@ -2159,6 +2347,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       modifier: damage.total - rolled,
       total: damage.total,
       mode: 'normal',
+      rollType: 'spell',
       isCritHit: crit,
       damageParts: damage.parts.map((part) => ({
         label: part.label,
@@ -2208,6 +2397,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       modifier: roll.modifier,
       total: roll.total,
       mode: 'normal',
+      rollType: 'healing',
     });
   }
 
@@ -2223,24 +2413,37 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     rolls: number[];
     modifier: number;
     broadcast: boolean;
+    mode?: RollMode;
+    naturalRoll?: number | null;
+    isCrit?: boolean;
+    isFumble?: boolean;
   }) {
     const char = this.charState.activeCharacter();
     if (!event.broadcast || !char?.active_campaign) return;
 
-    this.http
-      .post<{ whisper: Whisper }>(campaignUrl(char.active_campaign, 'whisper'), {
-        sender: char.char_name,
-        recipient: 'DM',
-        message: `${event.title}: ${event.expression} = ${event.total} [${event.rolls.join(', ')}]`,
-      })
-      .subscribe({
-        next: (res) => {
-          if (res?.whisper) {
-            this.addWhisper(res.whisper, false);
-          }
-        },
-        error: () => undefined,
-      });
+    const inferredSingleD20 = event.rolls.length === 1 && event.expression.toLowerCase().includes('d20');
+    const naturalRoll =
+      event.naturalRoll !== undefined
+        ? event.naturalRoll
+        : inferredSingleD20
+          ? event.rolls[0]
+          : null;
+    const isCrit = event.isCrit ?? (naturalRoll === 20);
+    const isFumble = event.isFumble ?? (naturalRoll === 1);
+
+    this.publishSheetRoll({
+      charName: char.char_name,
+      rollLabel: event.title,
+      rollType: 'custom',
+      formula: event.expression,
+      naturalRoll,
+      rolls: event.rolls,
+      modifier: event.modifier,
+      total: event.total,
+      mode: event.mode ?? 'normal',
+      isCrit,
+      isFumble,
+    });
   }
 
   adjustHp(delta: number) {

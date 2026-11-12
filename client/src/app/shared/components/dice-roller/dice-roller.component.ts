@@ -52,6 +52,7 @@ export class DiceRollerComponent {
       modifier: roll.modifier,
       total: roll.total,
       mode: roll.mode,
+      rollType: 'custom',
     });
   }
 
