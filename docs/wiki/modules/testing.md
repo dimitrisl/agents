@@ -14,6 +14,7 @@ tests/
 ├── test_integration.py               # Full-flow integration, character takeover protection, party isolation
 ├── test_vtt_security.py              # Token security, atomic updates, and hidden token redaction
 ├── test_websocket_channel.py         # Real-time WebSocket connection manager and channel isolation
+├── test_campaign_roll_log.py         # Campaign sheet roll persistence, 2014/2024 parity, anti-spoof & DM redaction (#197)
 ├── test_mechanics*.py                # AC math, spell slots, saving throws, and conditions
 ├── test_dnd_rules_audit_fixes*.py    # 2014 vs. 2024 rule audit verifications
 ├── test_audit_critical_p0_p1_fixes.py # Regression suite for 17 code review & security audit fixes

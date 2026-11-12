@@ -211,6 +211,24 @@
       </div>
     </div>
 
+    @if (rollSyncWarning(); as syncWarn) {
+      <div
+        class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-body text-gold"
+        role="status"
+        data-testid="roll-sync-warning"
+      >
+        <span>⚠️ {{ syncWarn }}</span>
+        <button
+          type="button"
+          (click)="dismissRollSyncWarning()"
+          class="min-h-8 px-2 text-xs font-semibold text-gold hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+          aria-label="Dismiss roll sync warning"
+        >
+          Dismiss
+        </button>
+      </div>
+    }
+
     <!-- STICKY MOBILE COMPANION VITALS BAR (#170) -->
     <div
       *ngIf="isCompanionMode()"
@@ -257,6 +275,21 @@
           [title]="wakeLock.isEnabled() ? 'Screen Wake Lock active (Screen will stay on)' : 'Keep Screen Awake'"
         >
           🔆
+        </button>
+
+        <!-- Roll Visibility Toggle (#197) -->
+        <button
+          *ngIf="char.active_campaign"
+          type="button"
+          (click)="toggleRollVisibility()"
+          class="min-h-8 min-w-8 p-1.5 rounded-lg border text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+          [ngClass]="rollVisibility() === 'dm' ? 'bg-gold/20 border-gold/50 text-gold' : 'bg-surface border-hairline text-muted hover:text-ink'"
+          [attr.aria-pressed]="rollVisibility() === 'dm'"
+          [attr.aria-label]="rollVisibility() === 'dm' ? 'Roll visibility: Whisper DM only' : 'Roll visibility: Public to table'"
+          [title]="rollVisibility() === 'dm' ? 'Rolls whispered to DM only (click for Public)' : 'Rolls broadcast to party & DM (click for DM Whisper)'"
+          data-testid="mobile-roll-visibility-toggle"
+        >
+          {{ rollVisibility() === 'dm' ? '🔒' : '📢' }}
         </button>
 
         <!-- Dice Button (#172) -->
@@ -408,16 +441,25 @@
       <div *ngIf="mobileActiveTab() === 'table'" class="flex flex-col gap-4 pb-52">
         <!-- Direct In-Page DM Inbox Feed for mobile table -->
         <section *ngIf="char.active_campaign" class="p-4 bg-panel rounded-2xl border border-hairline flex flex-col gap-3">
-          <header class="flex items-center justify-between pb-2 border-b border-hairline">
+          <header class="flex items-center justify-between gap-2 pb-2 border-b border-hairline">
             <div>
               <p class="text-micro font-semibold uppercase text-accent">Table Messages</p>
               <h2 class="font-display text-title text-ink">{{ char.active_campaign }}</h2>
             </div>
+            <button
+              type="button"
+              (click)="toggleRollVisibility()"
+              class="min-h-9 px-3 rounded-full border text-label font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+              [ngClass]="rollVisibility() === 'dm' ? 'bg-gold/14 border-gold/40 text-gold' : 'bg-panel border-hairline text-ink hover:border-hairline-hover'"
+              [attr.aria-pressed]="rollVisibility() === 'dm'"
+            >
+              {{ rollVisibility() === 'dm' ? '🔒 Whisper DM' : '📢 Public Rolls' }}
+            </button>
           </header>
 
           <div class="whisper-list max-h-75 overflow-y-auto" role="log">
             <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
-              Nothing yet. Whispers and roll requests from the DM appear here as they happen.
+              Nothing yet. Whispers, party rolls, and DM roll requests appear here as they happen.
             </div>
 
             @for (entry of inboxFeed; track entry.key) {
@@ -428,6 +470,27 @@
                     <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(entry.whisper.timestamp) }}</time>
                   </div>
                   <p class="whisper-text">{{ entry.whisper.message }}</p>
+                </article>
+              } @else if (entry.kind === 'campaign_roll') {
+                <article class="whisper-message" [class.broadcast]="entry.roll.visibility === 'public'" [class.own]="entry.roll.char_name === char.char_name">
+                  <div class="whisper-meta">
+                    <span class="message-kind">
+                      🎲 {{ entry.roll.char_name === char.char_name ? 'You' : entry.roll.char_name }}
+                      @if (entry.roll.visibility === 'dm') {
+                        <span class="ml-1 text-micro text-gold">🔒 DM</span>
+                      }
+                    </span>
+                    <time class="shrink-0 text-micro text-muted">{{ formatRollLogTime(entry.roll.created_at) }}</time>
+                  </div>
+                  <p class="whisper-text">
+                    {{ entry.roll.roll_label }}: <strong>{{ entry.roll.total }}</strong>
+                    <span class="text-micro text-muted">({{ entry.roll.formula }})</span>
+                    @if (entry.roll.is_crit) {
+                      <span class="ml-1 text-micro font-bold text-gold">CRIT</span>
+                    } @else if (entry.roll.is_fumble) {
+                      <span class="ml-1 text-micro font-bold text-crimson">NAT 1</span>
+                    }
+                  </p>
                 </article>
               } @else {
                 <article class="roll-request-message" [class.pending]="entry.request.status === 'pending'">
@@ -559,10 +622,41 @@
                 (activeIdChange)="selectSheetSubTab($event)"
               ></app-character-tabs>
 
-              <app-roll-mode-selector
-                class="min-w-0 shrink-0"
-                [(rollMode)]="rollMode"
-              ></app-roll-mode-selector>
+              <div class="flex flex-wrap items-center gap-3 shrink-0">
+                <div
+                  *ngIf="char.active_campaign"
+                  class="inline-flex items-center rounded-full border border-hairline bg-panel p-1"
+                  role="group"
+                  aria-label="Campaign roll visibility"
+                  data-testid="desktop-roll-visibility-toggle"
+                >
+                  <button
+                    type="button"
+                    (click)="setRollVisibility('public')"
+                    class="flex min-h-9 items-center gap-1.5 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                    [ngClass]="rollVisibility() === 'public' ? 'bg-tile text-ink font-semibold ring-1 ring-inset ring-hairline-hover' : 'text-muted hover:text-ink'"
+                    [attr.aria-pressed]="rollVisibility() === 'public'"
+                    title="Broadcast sheet rolls to the DM and party"
+                  >
+                    📢 Public
+                  </button>
+                  <button
+                    type="button"
+                    (click)="setRollVisibility('dm')"
+                    class="flex min-h-9 items-center gap-1.5 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                    [ngClass]="rollVisibility() === 'dm' ? 'bg-gold/14 text-gold font-semibold ring-1 ring-inset ring-gold/40' : 'text-muted hover:text-ink'"
+                    [attr.aria-pressed]="rollVisibility() === 'dm'"
+                    title="Send sheet rolls privately to the DM only"
+                  >
+                    🔒 Whisper DM
+                  </button>
+                </div>
+
+                <app-roll-mode-selector
+                  class="min-w-0 shrink-0"
+                  [(rollMode)]="rollMode"
+                ></app-roll-mode-selector>
+              </div>
             </div>
 
             <div class="min-w-0 p-4">
@@ -913,7 +1007,7 @@
 
         <div #whisperFeed class="whisper-list" role="log" aria-live="polite">
           <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
-            Nothing yet. Whispers and roll requests from the DM appear here as they happen.
+            Nothing yet. Whispers, party rolls, and DM roll requests appear here as they happen.
           </div>
 
           @for (entry of inboxFeed; track entry.key) {
@@ -954,6 +1048,44 @@
                     🚩 Reported
                   </span>
                 </div>
+              </article>
+            } @else if (entry.kind === 'campaign_roll') {
+              <article
+                class="whisper-message"
+                [class.broadcast]="entry.roll.visibility === 'public'"
+                [class.own]="entry.roll.char_name === char.char_name"
+              >
+                <div class="whisper-meta">
+                  <span class="message-kind">
+                    🎲 {{ entry.roll.char_name === char.char_name ? 'You' : entry.roll.char_name }}
+                    @if (entry.roll.visibility === 'dm') {
+                      <span class="ml-1 text-micro text-gold">🔒 Whisper DM</span>
+                    }
+                  </span>
+                  <time class="shrink-0 text-micro text-muted">
+                    {{ formatRollLogTime(entry.roll.created_at) }}
+                  </time>
+                </div>
+                <p class="whisper-text">
+                  {{ entry.roll.roll_label }}: <strong>{{ entry.roll.total }}</strong>
+                  <span class="text-micro text-muted">({{ entry.roll.formula }})</span>
+                  @if (entry.roll.mode && entry.roll.mode !== 'normal') {
+                    <span class="ml-1 text-micro text-accent">
+                      {{ entry.roll.mode === 'advantage' ? '▲ Adv' : '▼ Dis' }}
+                    </span>
+                  }
+                  @if (entry.roll.is_crit) {
+                    <span class="ml-1 text-micro font-bold text-gold">CRIT</span>
+                  } @else if (entry.roll.is_fumble) {
+                    <span class="ml-1 text-micro font-bold text-crimson">NAT 1</span>
+                  }
+                </p>
+                <p class="message-status text-micro text-muted">
+                  {{ entry.roll.visibility === 'dm' ? '🔒 Sent privately to DM' : '📢 Broadcast to party & DM' }}
+                  @if (entry.roll.rolls.length > 0) {
+                    · [{{ entry.roll.rolls.join(', ') }}]
+                  }
+                </p>
               </article>
             } @else {
               <article

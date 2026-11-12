@@ -146,6 +146,7 @@ export class StatblockModalComponent {
       modifier: roll.modifier,
       total: roll.total,
       mode: roll.mode,
+      skipBroadcast: true,
     });
   }
 
@@ -175,6 +176,7 @@ export class StatblockModalComponent {
       modifier: damage.total - rawSum,
       total: damage.total,
       mode: 'normal',
+      skipBroadcast: true,
       diceSides: damage.parts.flatMap((p) => p.rolls.map(() => p.sides)),
       isCritHit: damage.crit,
       damageParts: damage.parts.map((p) => ({

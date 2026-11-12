@@ -52,3 +52,6 @@ Polling HTTP endpoints for live campaign state is strictly prohibited. All live 
 
 5. **Secret Rolls:**
    - When the DM requests a secret roll (e.g. Stealth or Insight), the prompt is sent to the player, but the numerical result and dice breakdown are broadcast solely to the DM connection (`dm_only=True`).
+
+6. **Campaign Roll Logs (`campaign_roll`):**
+   - Player character-sheet rolls submitted via [`POST /api/v1/campaigns/{name}/rolls`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/campaign_router.py) persist to `campaign_roll_logs` first and broadcast live as `type: "campaign_roll"` frames (`dm_only=False` for `public`, `dm_only=True` for `dm` whisper mode). Historical `GET /messages` replays redact `visibility == "dm"` entries for non-DM party members unless `sender_user_id == current_user_id`.

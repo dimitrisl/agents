@@ -448,6 +448,13 @@ describe('PlayerComponent — DM roll requests', () => {
 
       expect(rollSpy).toHaveBeenCalledWith(5, 'advantage');
       expect(component.showConcentrationPrompt()).toBe(false);
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(rollReq.request.body.roll_type).toBe('concentration');
+      expect(rollReq.request.body.visibility).toBe('public');
+      rollReq.flush({ roll: { id: 'r-conc', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:00:00Z' } });
     });
 
     it('removes one condition or ends concentration from the chip ✕, leaving the rest', () => {
@@ -491,6 +498,12 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(shown.damageParts?.[0]).toEqual(
         expect.objectContaining({ label: 'Fireball · fire', saveHalf: { dc: 'DC 15 DEX' } })
       );
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(rollReq.request.body.roll_type).toBe('spell');
+      rollReq.flush({ roll: { id: 'r-fb', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:01:00Z' } });
     });
 
     it('a spell attack that rolls a natural 20 crits and doubles its damage dice', () => {
@@ -517,6 +530,12 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(shown.title).toContain('NAT 20');
       expect(shown.isCritHit).toBe(true);
       expect(shown.rolls?.length).toBe(4); // 2d10 at level 8, doubled
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(rollReq.request.body.is_crit).toBe(true);
+      rollReq.flush({ roll: { id: 'r-bolt', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:02:00Z' } });
     });
 
     it('a save spell never crits', () => {
@@ -536,6 +555,12 @@ describe('PlayerComponent — DM roll requests', () => {
       const shown = TestBed.inject(RollToastService).activeRoll()!;
       expect(shown.isCritHit).toBe(false);
       expect(shown.rolls?.length).toBe(3);
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(rollReq.request.body.is_crit).toBe(false);
+      rollReq.flush({ roll: { id: 'r-shatter', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:03:00Z' } });
     });
 
     it('casting Haste puts it on Status and ends the previous concentration', () => {
@@ -576,6 +601,11 @@ describe('PlayerComponent — DM roll requests', () => {
       );
       component.onCastSpell({ spellName: 'Fireball', level: 3, isRitual: false });
       expect(charState.activeCharacter()!.concentrating_on).toBe('Haste');
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      rollReq.flush({ roll: { id: 'r-fb2', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:04:00Z' } });
     });
 
     it('casting a concentration spell saves slot and concentration together, without the chip flickering', () => {
@@ -603,6 +633,11 @@ describe('PlayerComponent — DM roll requests', () => {
       // What the Cast button sends: spend the slot, then cast
       component.useSpellSlot(4);
       component.onCastSpell({ spellName: 'Wall of Fire', level: 4, isRitual: false });
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      rollReq.flush({ roll: { id: 'r-wof', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:05:00Z' } });
 
       // Nothing is sent straight away: no early save that could answer with the pre-cast sheet
       http.expectNone((r) => r.method === 'PUT');
@@ -646,6 +681,12 @@ describe('PlayerComponent — DM roll requests', () => {
       const putReq = http.expectOne((r) => r.method === 'PUT' && r.url.includes('/characters/'));
       putReq.flush(putReq.request.body);
 
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(rollReq.request.body.roll_type).toBe('healing');
+      rollReq.flush({ roll: { id: 'r-pot', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-12T10:06:00Z' } });
+
       const updated = charState.activeCharacter();
       expect(updated?.hp_current).toBeGreaterThan(10);
       expect(updated?.equipment?.[0]?.quantity).toBe(1);
@@ -658,7 +699,7 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(shown?.total).toBe((updated?.hp_current ?? 0) - 10);
     });
 
-    it('broadcasts custom roll to campaign whisper endpoint when broadcast is true', () => {
+    it('broadcasts custom roll to campaign roll log endpoint when broadcast is true (#197)', () => {
       const charState = TestBed.inject(CharacterStateService);
       charState.activeCharacter.set({
         ...HERO,
@@ -675,20 +716,166 @@ describe('PlayerComponent — DM roll requests', () => {
       });
 
       const req = http.expectOne(
-        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/DragonHeist/whisper')
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/DragonHeist/rolls')
       );
-      expect(req.request.body.sender).toBe(HERO.char_name);
-      expect(req.request.body.recipient).toBe('DM');
-      expect(req.request.body.message).toContain('1d20+3 = 17');
+      expect(req.request.body.char_name).toBe(HERO.char_name);
+      expect(req.request.body.roll_type).toBe('custom');
+      expect(req.request.body.formula).toBe('1d20+3');
+      expect(req.request.body.total).toBe(17);
+      expect(req.request.body.visibility).toBe('public');
       req.flush({
-        whisper: {
-          id: 'w-99',
-          sender: HERO.char_name,
-          recipient: 'DM',
-          message: req.request.body.message,
-          timestamp: '12:00',
+        roll: {
+          id: 'roll-99',
+          campaign_name: 'DragonHeist',
+          sender_user_id: 'user-1',
+          char_name: HERO.char_name,
+          roll_label: '🎲 1d20',
+          roll_type: 'custom',
+          formula: '1d20+3',
+          natural_roll: 14,
+          rolls: [14],
+          modifier: 3,
+          total: 17,
+          mode: 'normal',
+          is_crit: false,
+          is_fumble: false,
+          visibility: 'public',
+          created_at: '2026-11-12T12:00:00Z',
         },
       });
+      expect(component.inboxFeed.some((e) => e.kind === 'campaign_roll' && e.roll.id === 'roll-99')).toBe(true);
+    });
+
+    it('respects Whisper DM visibility toggle and sends sheet rolls privately to DM (#197)', () => {
+      component.setRollVisibility('dm');
+      component.rollAbilityCheck('DEX');
+
+      const req = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(req.request.body.roll_type).toBe('ability');
+      expect(req.request.body.visibility).toBe('dm');
+      req.flush({
+        roll: {
+          id: 'roll-dm-1',
+          campaign_name: 'Curse of Strahd',
+          sender_user_id: 'user-1',
+          char_name: HERO.char_name,
+          roll_label: req.request.body.roll_label,
+          roll_type: 'ability',
+          formula: req.request.body.formula,
+          rolls: req.request.body.rolls,
+          modifier: req.request.body.modifier,
+          total: req.request.body.total,
+          mode: 'normal',
+          is_crit: false,
+          is_fumble: false,
+          visibility: 'dm',
+          created_at: '2026-11-12T12:05:00Z',
+        },
+      });
+      expect(
+        component.inboxFeed.some(
+          (entry) => entry.kind === 'campaign_roll' && entry.roll.id === 'roll-dm-1' && entry.roll.visibility === 'dm'
+        )
+      ).toBe(true);
+    });
+
+    it('appends and deduplicates incoming campaign_roll WebSocket events (#197)', () => {
+      component.ngOnInit();
+      http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
+
+      const wsRoll = {
+        id: 'ws-roll-1',
+        campaign_name: 'Curse of Strahd',
+        sender_user_id: 'user-2',
+        char_name: 'Borin',
+        roll_label: '🎲 STEALTH CHECK',
+        roll_type: 'skill',
+        formula: '1d20+5',
+        natural_roll: 16,
+        rolls: [16],
+        modifier: 5,
+        total: 21,
+        mode: 'normal',
+        is_crit: false,
+        is_fumble: false,
+        visibility: 'public',
+        created_at: '2026-11-12T12:10:00Z',
+      };
+
+      messages$.next({ type: 'campaign_roll', payload: wsRoll } as WsMessage);
+      messages$.next({ type: 'campaign_roll', payload: wsRoll } as WsMessage);
+
+      const matches = component.inboxFeed.filter(
+        (entry) => entry.kind === 'campaign_roll' && entry.roll.id === 'ws-roll-1'
+      );
+      expect(matches.length).toBe(1);
+    });
+
+    it('loads campaign roll_logs alongside whispers and roll_requests on reconnect (#197)', () => {
+      component.ngOnInit();
+      http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO], unreadable: [] });
+
+      opened$.next('Curse of Strahd');
+      http.expectOne((r) => r.url.includes('/encounter')).flush(null);
+      const msgReq = http.expectOne((r) => r.url.endsWith('/campaigns/Curse%20of%20Strahd/messages'));
+      msgReq.flush({
+        campaign_name: 'Curse of Strahd',
+        whispers: [],
+        roll_requests: [],
+        roll_logs: [
+          {
+            id: 'hist-roll-1',
+            campaign_name: 'Curse of Strahd',
+            sender_user_id: 'user-1',
+            char_name: HERO.char_name,
+            roll_label: '⚔️ LONGSWORD ATTACK',
+            roll_type: 'attack',
+            formula: '1d20+6',
+            natural_roll: 18,
+            rolls: [18],
+            modifier: 6,
+            total: 24,
+            mode: 'normal',
+            is_crit: false,
+            is_fumble: false,
+            visibility: 'public',
+            created_at: '2026-11-12T09:00:00Z',
+          },
+        ],
+      });
+
+      expect(
+        component.inboxFeed.some((e) => e.kind === 'campaign_roll' && e.roll.id === 'hist-roll-1')
+      ).toBe(true);
+    });
+
+    it('forwards Quick Dice advantage metadata and surfaces non-blocking warning on HTTP sync failure (#197)', () => {
+      component.onCustomRoll({
+        title: '🎲 Quick d20 (ADVANTAGE)',
+        expression: '1d20+4 (ADVANTAGE)',
+        total: 24,
+        rolls: [7, 20],
+        modifier: 4,
+        broadcast: true,
+        mode: 'advantage',
+        naturalRoll: 20,
+        isCrit: true,
+        isFumble: false,
+      });
+
+      const advReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(advReq.request.body.mode).toBe('advantage');
+      expect(advReq.request.body.natural_roll).toBe(20);
+      expect(advReq.request.body.is_crit).toBe(true);
+      advReq.flush('error', { status: 429, statusText: 'Too Many Requests' });
+
+      expect(component.rollSyncWarning()).toContain('failed to sync');
+      component.dismissRollSyncWarning();
+      expect(component.rollSyncWarning()).toBeNull();
     });
 
     it('collapses hero management header in companion mode and toggles mobile actions drawer (#209)', () => {

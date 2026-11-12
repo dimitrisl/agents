@@ -1202,3 +1202,69 @@ class BestiaryDeleteResponse(BaseModel):
 
     success: bool
     message: str
+
+
+class SheetRollCreateRequest(BaseModel):
+    """Payload submitted when a player rolls dice from their character sheet (#197)."""
+
+    char_name: str = Field(..., min_length=1, max_length=120)
+    roll_label: str = Field(..., min_length=1, max_length=200)
+    roll_type: Literal[
+        "attack",
+        "damage",
+        "skill",
+        "save",
+        "ability",
+        "death_save",
+        "concentration",
+        "spell",
+        "custom",
+        "healing",
+        "class_action",
+    ] = "custom"
+    formula: str = Field(..., min_length=1, max_length=120)
+    natural_roll: Optional[int] = None
+    rolls: List[int] = Field(default_factory=list, max_length=100)
+    modifier: int = 0
+    total: int
+    mode: Literal["normal", "advantage", "disadvantage"] = "normal"
+    is_crit: bool = False
+    is_fumble: bool = False
+    visibility: Literal["public", "dm"] = "public"
+    dnd_edition: Optional[str] = Field(None, max_length=64)
+
+    @field_validator("char_name", "roll_label", "formula")
+    @classmethod
+    def strip_required_text(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Field cannot be blank.")
+        return cleaned
+
+
+class CampaignRollLogSchema(BaseModel):
+    """Persisted campaign roll log entry broadcast to DM or party (#197)."""
+
+    id: str
+    campaign_name: str
+    sender_user_id: str
+    char_name: str
+    roll_label: str
+    roll_type: str
+    formula: str
+    natural_roll: Optional[int] = None
+    rolls: List[int] = Field(default_factory=list)
+    modifier: int = 0
+    total: int
+    mode: str = "normal"
+    is_crit: bool = False
+    is_fumble: bool = False
+    visibility: Literal["public", "dm"] = "public"
+    dnd_edition: Optional[str] = None
+    created_at: str
+
+
+class CampaignRollResponse(SuccessResponseSchema):
+    """API response returned after recording a sheet roll."""
+
+    roll: CampaignRollLogSchema

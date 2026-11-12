@@ -1,4 +1,18 @@
 import { Injectable, computed, signal } from '@angular/core';
+import { Subject } from 'rxjs';
+
+export type SheetRollCategory =
+  | 'attack'
+  | 'damage'
+  | 'skill'
+  | 'save'
+  | 'ability'
+  | 'death_save'
+  | 'concentration'
+  | 'spell'
+  | 'custom'
+  | 'healing'
+  | 'class_action';
 
 export interface ActiveRollEvent {
   title: string;
@@ -15,6 +29,10 @@ export interface ActiveRollEvent {
   diceSides?: number[];
   /** A critical-hit damage roll: dice already doubled; shown with the critical effects. */
   isCritHit?: boolean;
+  /** Semantic category for campaign roll log broadcasting. */
+  rollType?: SheetRollCategory;
+  /** Suppresses automatic campaign roll-log broadcast (e.g. DM roll prompts or local-only rolls). */
+  skipBroadcast?: boolean;
   /**
    * One line per part of a damage roll (weapon, each rider). When present the
    * card lists them, and parts with `saveHalf` get a "passed the save → ½" button.
@@ -67,6 +85,7 @@ export class RollToastService {
   }
 
   private dismissTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly rollEvents$ = new Subject<ActiveRollEvent>();
 
   showRoll(event: ActiveRollEvent) {
     const sides = event.sides ?? 20;
@@ -76,6 +95,9 @@ export class RollToastService {
     this.halvedParts.set(new Set());
     this.activeRoll.set(event);
     this.armDismiss(event, MAX_ROLL_LIFETIME);
+    if (!event.skipBroadcast) {
+      this.rollEvents$.next(event);
+    }
   }
 
   showMessage(title: string, message: string) {

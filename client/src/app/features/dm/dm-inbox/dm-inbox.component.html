@@ -23,7 +23,7 @@
 
     <div #feedList class="inbox-list" role="log" aria-live="polite">
       <div *ngIf="feed.length === 0" class="inbox-empty">
-        Nothing yet. Whispers and roll requests appear here as they happen.
+        Nothing yet. Whispers, player sheet rolls, and roll requests appear here as they happen.
       </div>
 
       @for (entry of feed; track entry.key) {
@@ -59,6 +59,46 @@
               <span *ngIf="entry.whisper.has_open_report" class="text-micro text-gold">
                 🚩 Reported
               </span>
+            </div>
+          </article>
+        } @else if (entry.kind === 'campaign_roll') {
+          <article
+            class="inbox-message inbox-roll resolved"
+            [class.secret]="entry.roll.visibility === 'dm'"
+          >
+            <div class="inbox-meta">
+              <span class="message-kind">
+                {{ entry.roll.visibility === 'dm' ? '🔒' : '🎲' }} {{ entry.roll.char_name }}
+              </span>
+              <time class="shrink-0 text-micro text-muted">
+                {{ formatTime(entry.roll.created_at) }}
+              </time>
+            </div>
+
+            <p class="roll-ask">{{ entry.roll.roll_label }}</p>
+
+            <p class="inbox-result">
+              <span class="roll-total">{{ entry.roll.total }}</span>
+              <span class="roll-expression">{{ entry.roll.formula }}</span>
+              @if (entry.roll.rolls.length > 0) {
+                <span class="text-micro text-muted">[{{ entry.roll.rolls.join(', ') }}]</span>
+              }
+            </p>
+
+            <div class="inbox-badges">
+              <forge-badge [tone]="entry.roll.visibility === 'dm' ? 'gold' : 'accent'">
+                {{ entry.roll.visibility === 'dm' ? '🔒 Whisper DM' : '📢 Public' }}
+              </forge-badge>
+              @if (entry.roll.mode && entry.roll.mode !== 'normal') {
+                <forge-badge tone="gold">
+                  {{ entry.roll.mode === 'advantage' ? '▲ Advantage' : '▼ Disadvantage' }}
+                </forge-badge>
+              }
+              @if (entry.roll.is_crit) {
+                <forge-badge tone="gold">CRIT</forge-badge>
+              } @else if (entry.roll.is_fumble) {
+                <forge-badge tone="muted">NAT 1</forge-badge>
+              }
             </div>
           </article>
         } @else {

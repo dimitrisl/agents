@@ -26,6 +26,10 @@ export class QuickDiceDrawerComponent {
     modifier: number;
     title: string;
     broadcast: boolean;
+    mode?: RollMode;
+    naturalRoll?: number | null;
+    isCrit?: boolean;
+    isFumble?: boolean;
   }>();
 
   private dice = inject(DiceService);
@@ -148,6 +152,8 @@ export class QuickDiceDrawerComponent {
         modifier: roll.modifier,
         total: roll.total,
         mode: roll.mode,
+        rollType: 'custom',
+        skipBroadcast: true,
       });
 
       this.customRoll.emit({
@@ -157,6 +163,10 @@ export class QuickDiceDrawerComponent {
         rolls: roll.rolls,
         modifier: roll.modifier,
         broadcast: this.broadcastToTable(),
+        mode: roll.mode,
+        naturalRoll: roll.raw,
+        isCrit: isCrit,
+        isFumble: isFail,
       });
 
       if (this.autoResetRollMode() && this.rollMode !== 'normal') {
@@ -168,9 +178,15 @@ export class QuickDiceDrawerComponent {
     // Multi-dice or other dice pool roll
     let total = 0;
     const allRolls: number[] = [];
+    const diceSides: number[] = [];
     const formulaParts: string[] = [];
     let isCritSuccess = false;
     let isCritFail = false;
+    let d20Natural: number | null = null;
+    const isPureSingleD20WithOthers = pool[20] === 1;
+    const hasOnlyD20 =
+      isPureSingleD20WithOthers &&
+      this.availableDice.every((die) => die === 20 || (pool[die] || 0) === 0);
 
     for (const d of this.availableDice) {
       const c = pool[d] || 0;
@@ -179,13 +195,16 @@ export class QuickDiceDrawerComponent {
           const d20Roll = this.dice.rollD20(0, this.rollMode);
           total += d20Roll.total;
           allRolls.push(...d20Roll.rolls);
+          diceSides.push(...d20Roll.rolls.map(() => 20));
           formulaParts.push(`1d20${this.dice.modeLabel(d20Roll.mode)}`);
+          d20Natural = d20Roll.raw;
           isCritSuccess = d20Roll.raw === 20;
           isCritFail = d20Roll.raw === 1;
         } else {
           const subRoll = this.dice.roll({ numDice: c, sides: d, modifier: 0 });
           total += subRoll.total;
           allRolls.push(...subRoll.rolls);
+          diceSides.push(...subRoll.rolls.map(() => d));
           formulaParts.push(`${c}d${d}`);
         }
       }
@@ -197,6 +216,9 @@ export class QuickDiceDrawerComponent {
     else this.haptics.lightTap();
 
     const expr = `${formulaParts.join('+')}${this.modifier() !== 0 ? (this.modifier() > 0 ? '+' + this.modifier() : this.modifier()) : ''}`;
+    const rawSum = allRolls.reduce((sum, val) => sum + val, 0);
+    const primarySides = diceSides[0] ?? 20;
+    const effectiveMode: RollMode = hasOnlyD20 ? this.rollMode : 'normal';
 
     this.lastRoll.set({
       expression: expr,
@@ -207,7 +229,19 @@ export class QuickDiceDrawerComponent {
       isCritFail,
     });
 
-    this.toast.showMessage('🎲 CUSTOM ROLL', `${expr} ➡️ **${total}** (${allRolls.join(', ')})`);
+    this.toast.showRoll({
+      title: `🎲 CUSTOM ROLL`,
+      expression: expr,
+      raw: d20Natural ?? rawSum,
+      rolls: allRolls,
+      sides: primarySides,
+      diceSides,
+      modifier: this.modifier(),
+      total,
+      mode: effectiveMode,
+      rollType: 'custom',
+      skipBroadcast: true,
+    });
 
     this.customRoll.emit({
       title: `🎲 ${expr}`,
@@ -216,6 +250,10 @@ export class QuickDiceDrawerComponent {
       rolls: allRolls,
       modifier: this.modifier(),
       broadcast: this.broadcastToTable(),
+      mode: pool[20] === 1 ? this.rollMode : 'normal',
+      naturalRoll: d20Natural,
+      isCrit: isCritSuccess,
+      isFumble: isCritFail,
     });
 
     if (pool[20] === 1 && this.autoResetRollMode() && this.rollMode !== 'normal') {

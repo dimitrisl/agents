@@ -13,11 +13,13 @@ from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import (
     CampaignEntitySchema,
+    CampaignRollResponse,
     CampaignSkeletonSchema,
     EncounterStateSchema,
     InviteCodeResponse,
     PasteExtractionRequest,
     SessionOutlineSchema,
+    SheetRollCreateRequest,
     SuccessResponseSchema,
     VTTGridSchema,
     VTTSceneHistorySchema,
@@ -137,6 +139,7 @@ class CampaignMessagesResponse(BaseModel):
     campaign_name: str
     whispers: List[Dict[str, Any]] = []
     roll_requests: List[Dict[str, Any]] = []
+    roll_logs: List[Dict[str, Any]] = []
 
 
 class CurrencyDistributionSchema(BaseModel):
@@ -1010,6 +1013,90 @@ async def miss_roll_request(
     return {"success": True, "message": "Roll request marked as missed"}
 
 
+@router.post("/{name}/rolls", response_model=CampaignRollResponse)
+@limiter.limit("60/minute")
+async def publish_sheet_roll(
+    request: Request,
+    name: str,
+    payload: SheetRollCreateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_member()),
+):
+    """Persist and broadcast a player character-sheet roll to the campaign roll log (#197)."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    char_doc = None
+    if member.get("role") != "dm":
+        char_doc = await db["characters"].find_one(
+            {
+                "char_name": {"$regex": f"^{re.escape(payload.char_name)}$", "$options": "i"},
+                "owner_id": current_user["id"],
+                "active_campaign": name,
+            }
+        )
+        if not char_doc and member.get("character_id"):
+            member_char = await db["characters"].find_one({"char_id": member["character_id"]})
+            if (
+                member_char
+                and member_char.get("owner_id") in (None, current_user["id"])
+                and (member_char.get("char_name") or "").strip().lower()
+                == payload.char_name.lower()
+            ):
+                char_doc = member_char
+
+        if not char_doc:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only broadcast rolls for your own character in this campaign.",
+            )
+
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    canonical_char_name = (char_doc.get("char_name") if char_doc else None) or payload.char_name
+    edition = (
+        payload.dnd_edition
+        or (char_doc.get("dnd_edition") if char_doc else None)
+        or camp.get("dnd_edition")
+    )
+    roll_doc: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "campaign_name": name,
+        "sender_user_id": current_user["id"],
+        "char_name": canonical_char_name,
+        "roll_label": payload.roll_label,
+        "roll_type": payload.roll_type,
+        "formula": payload.formula,
+        "natural_roll": payload.natural_roll,
+        "rolls": list(payload.rolls),
+        "modifier": payload.modifier,
+        "total": payload.total,
+        "mode": payload.mode,
+        "is_crit": payload.is_crit,
+        "is_fumble": payload.is_fumble,
+        "visibility": payload.visibility,
+        "dnd_edition": edition,
+        "created_at": now_iso,
+    }
+
+    await db["campaign_roll_logs"].insert_one(roll_doc.copy())
+
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(
+        name,
+        {"type": "campaign_roll", "payload": roll_doc},
+        dm_only=(payload.visibility == "dm"),
+    )
+
+    return {
+        "success": True,
+        "message": f"Roll recorded for {canonical_char_name}",
+        "roll": roll_doc,
+    }
+
+
 @router.get("/{name}/messages", response_model=CampaignMessagesResponse)
 async def get_campaign_messages(
     name: str,
@@ -1090,10 +1177,34 @@ async def get_campaign_messages(
 
     roll_requests.reverse()
 
+    is_dm = member.get("role") == "dm"
+    roll_logs: List[Dict[str, Any]] = []
+    if not isinstance(db, dict) or "campaign_roll_logs" in db:
+        roll_log_filter: Dict[str, Any] = {"campaign_name": name}
+        if not is_dm:
+            roll_log_filter["$or"] = [
+                {"visibility": "public"},
+                {"sender_user_id": current_user["id"]},
+            ]
+        cursor_logs = (
+            db["campaign_roll_logs"].find(roll_log_filter).sort("created_at", -1).limit(100)
+        )
+        if hasattr(cursor_logs, "__aiter__"):
+            try:
+                async for rl in cursor_logs:
+                    rl.pop("_id", None)
+                    if isinstance(rl.get("created_at"), datetime.datetime):
+                        rl["created_at"] = rl["created_at"].isoformat()
+                    roll_logs.append(rl)
+                roll_logs.reverse()
+            except TypeError:
+                roll_logs = []
+
     return {
         "campaign_name": camp["campaign_name"],
         "whispers": whispers,
-        "roll_requests": _visible_roll_requests(roll_requests, member.get("role") == "dm"),
+        "roll_requests": _visible_roll_requests(roll_requests, is_dm),
+        "roll_logs": roll_logs,
     }
 
 

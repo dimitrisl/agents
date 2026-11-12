@@ -102,6 +102,7 @@ export class SpellDetailModalComponent implements OnInit {
 
     this.toast.showRoll({
       title: `${this.spellName} Attack`,
+      rollType: 'spell',
       ...result
     });
   }
@@ -114,6 +115,7 @@ export class SpellDetailModalComponent implements OnInit {
 
     this.toast.showRoll({
       title: `${this.spellName} (${notation})`,
+      rollType: 'spell',
       ...result
     });
   }

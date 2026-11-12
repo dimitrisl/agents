@@ -473,6 +473,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       modifier: roll.modifier,
       total: roll.total,
       mode: roll.mode,
+      rollType: 'attack',
     });
   }
 
@@ -480,7 +481,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     const damage = this.dice.rollDamage(this.damageParts(weapon, crit), { crit });
     const title = crit ? `💥 ${weapon.name.toUpperCase()} CRIT` : `🩸 ${weapon.name.toUpperCase()} DAMAGE`;
 
-    this.showDamage(title, damage);
+    this.showDamage(title, damage, 'damage');
   }
 
   // ------------------------------------------------------------ class actions //
@@ -489,7 +490,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     const notation = this.chosenOption[action.id] ?? action.notation;
     const damage = this.dice.rollDamage([{ label: action.name, notation }]);
 
-    this.showDamage(`${action.icon} ${action.name.toUpperCase()}`, damage);
+    this.showDamage(`${action.icon} ${action.name.toUpperCase()}`, damage, 'class_action');
   }
 
   // ------------------------------------------------------------------ helpers //
@@ -525,7 +526,11 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     return parts;
   }
 
-  private showDamage(title: string, damage: ReturnType<DiceService['rollDamage']>): void {
+  private showDamage(
+    title: string,
+    damage: ReturnType<DiceService['rollDamage']>,
+    rollType: 'damage' | 'class_action' = 'damage'
+  ): void {
     // Most dice decide the fallback shape; diceSides gives each die its own
     // (a 2d6 + 6d8 crit shows d6s and d8s), in the same order as damage.rolls.
     const dominant = damage.parts.reduce(
@@ -550,6 +555,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       modifier: damage.total - damage.rolls.reduce((sum, value) => sum + value, 0),
       total: damage.total,
       mode: 'normal',
+      rollType,
     });
   }
 

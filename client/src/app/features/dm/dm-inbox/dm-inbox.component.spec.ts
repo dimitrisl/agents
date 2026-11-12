@@ -1,6 +1,6 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { DmInboxComponent } from './dm-inbox.component';
-import { Whisper } from '../../../core/models/campaign.model';
+import { CampaignRollLog, Whisper } from '../../../core/models/campaign.model';
 
 describe('DmInboxComponent', () => {
   let component: DmInboxComponent;
@@ -82,5 +82,60 @@ describe('DmInboxComponent', () => {
     const reportedBadge: HTMLElement | null = fixture.nativeElement.querySelector('.text-gold');
     expect(reportedBadge).toBeTruthy();
     expect(reportedBadge?.textContent).toContain('Reported');
+  });
+
+  it('renders campaign rollLogs chronologically with Public and Whisper DM badges (#197)', () => {
+    const rolls: CampaignRollLog[] = [
+      {
+        id: 'r1',
+        campaign_name: 'Curse of Strahd',
+        sender_user_id: 'u1',
+        char_name: 'Arannis',
+        roll_label: '⚔️ LONGSWORD ATTACK',
+        roll_type: 'attack',
+        formula: '1d20+6',
+        natural_roll: 20,
+        rolls: [20],
+        modifier: 6,
+        total: 26,
+        mode: 'normal',
+        is_crit: true,
+        is_fumble: false,
+        visibility: 'public',
+        created_at: '2026-10-24 10:00:00',
+      },
+      {
+        id: 'r2',
+        campaign_name: 'Curse of Strahd',
+        sender_user_id: 'u2',
+        char_name: 'Lyra',
+        roll_label: '🎲 STEALTH CHECK',
+        roll_type: 'skill',
+        formula: '1d20+5',
+        natural_roll: 14,
+        rolls: [14],
+        modifier: 5,
+        total: 19,
+        mode: 'normal',
+        is_crit: false,
+        is_fumble: false,
+        visibility: 'dm',
+        created_at: '2026-10-24 10:02:00',
+      },
+    ];
+
+    component.open = true;
+    component.rollLogs = rolls;
+    component.ngOnChanges();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Arannis');
+    expect(text).toContain('LONGSWORD ATTACK');
+    expect(text).toContain('26');
+    expect(text).toContain('CRIT');
+    expect(text).toContain('📢 Public');
+    expect(text).toContain('Lyra');
+    expect(text).toContain('🔒 Whisper DM');
   });
 });
