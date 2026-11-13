@@ -42,6 +42,8 @@ export interface RollRequest {
   id?: string;
   char_filename: string;
   char_name: string;
+  target_char_id?: string | null;
+  target_owner_id?: string | null;
   roll_type: string;
   stat: string;
   reason?: string;
@@ -64,7 +66,13 @@ export interface Whisper {
   message: string;
   timestamp?: string;
   sender_user_id?: string;
+  sender_username?: string;
+  sender_character_id?: string | null;
+  sender_character_name?: string | null;
   recipient_user_id?: string;
+  recipient_username?: string;
+  recipient_character_id?: string | null;
+  recipient_character_name?: string | null;
   sender_deleted?: boolean;
   recipient_deleted?: boolean;
   has_open_report?: boolean;
@@ -76,6 +84,8 @@ export interface CampaignRollLog {
   id: string;
   campaign_name: string;
   sender_user_id: string;
+  sender_username?: string | null;
+  char_id?: string | null;
   char_name: string;
   roll_label: string;
   roll_type: string;

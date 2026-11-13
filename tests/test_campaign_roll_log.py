@@ -60,6 +60,12 @@ class _AsyncCollection:
     async def delete_many(self, *args, **kwargs):
         return self._coll.delete_many(*args, **kwargs)
 
+    async def delete_one(self, *args, **kwargs):
+        return self._coll.delete_one(*args, **kwargs)
+
+    async def count_documents(self, *args, **kwargs):
+        return self._coll.count_documents(*args, **kwargs)
+
     def find(self, *args, **kwargs):
         return _AsyncCursor(self._coll.find(*args, **kwargs))
 
@@ -367,5 +373,315 @@ def test_websocket_dm_only_roll_isolation_for_live_sockets(
             assert dm_msg["payload"]["total"] == 25
 
             # Confirm P2 socket did NOT receive the dm-only frame (heartbeat still works cleanly)
+            p2_ws.send_json({"type": "ping"})
+            assert p2_ws.receive_json() == {"type": "pong"}
+
+
+@pytest.mark.parametrize("edition", ["2014 Edition", "2024 Revision (5.5e)"])
+def test_player_with_two_characters_rolls_and_whispers_disambiguated(
+    client: TestClient, mock_db: _AsyncDatabase, auth_state: dict, edition: str
+):
+    """A single user controlling two characters in the same campaign (even with matching names)
+    routes rolls and whispers by char_id while keeping sender_username & char_name intact."""
+    mock_db["campaigns"]._coll.insert_one(
+        {
+            "campaign_name": CAMPAIGN,
+            "owner_id": "user_dm",
+            "invite_code": "DUAL99",
+            "dnd_edition": edition,
+            "party": ["lyra_c_main.json"],
+        }
+    )
+    mock_db["campaign_members"]._coll.insert_many(
+        [
+            {"campaign_id": CAMPAIGN, "user_id": "user_dm", "role": "dm", "character_id": None},
+            {
+                "campaign_id": CAMPAIGN,
+                "user_id": "user_player_1",
+                "role": "player",
+                "character_id": "c_main",
+                "character_ids": ["c_main"],
+            },
+        ]
+    )
+    mock_db["characters"]._coll.insert_many(
+        [
+            {
+                "char_id": "c_main",
+                "char_name": "Lyra",
+                "owner_id": "user_player_1",
+                "active_campaign": CAMPAIGN,
+                "dnd_edition": edition,
+            },
+            {
+                "char_id": "c_alt",
+                "char_name": "Lyra",
+                "owner_id": "user_player_1",
+                "dnd_edition": edition,
+            },
+        ]
+    )
+
+    auth_state["user"] = {"id": "user_player_1", "username": "player1"}
+    join_res = client.post(
+        "/api/v1/campaigns/join",
+        json={"invite_code": "DUAL99", "character_id": "c_alt"},
+    )
+    assert join_res.status_code == 200
+
+    # Joining again with the already-enrolled character must return 409
+    dup_res = client.post(
+        "/api/v1/campaigns/join",
+        json={"invite_code": "DUAL99", "character_id": "c_alt"},
+    )
+    assert dup_res.status_code == 409
+
+    # Roll from second character explicitly via char_id
+    roll_res = client.post(
+        f"/api/v1/campaigns/{CAMPAIGN}/rolls",
+        json={
+            "char_id": "c_alt",
+            "char_name": "Lyra",
+            "roll_label": "Stealth Check",
+            "roll_type": "skill",
+            "formula": "1d20+6",
+            "total": 19,
+            "visibility": "public",
+        },
+    )
+    assert roll_res.status_code == 200
+    roll = roll_res.json()["roll"]
+    assert roll["char_id"] == "c_alt"
+    assert roll["char_name"] == "Lyra"
+    assert roll["sender_username"] == "player1"
+    assert roll["dnd_edition"] == edition
+
+    # Whisper as second character explicitly via sender_character_id
+    whisper_res = client.post(
+        f"/api/v1/campaigns/{CAMPAIGN}/whisper",
+        json={"recipient": "DM", "message": "Scouting ahead.", "sender_character_id": "c_alt"},
+    )
+    assert whisper_res.status_code == 200
+    whisper = whisper_res.json()["whisper"]
+    assert whisper["sender"] == "Lyra"
+    assert whisper["sender_username"] == "player1"
+    assert whisper["sender_character_id"] == "c_alt"
+
+
+def test_same_character_name_two_players_isolation_and_username_labels(
+    client: TestClient, mock_db: _AsyncDatabase, auth_state: dict
+):
+    """Two different players with identically named characters ('Thorin') must never
+    cross-read private whispers, and roll logs preserve char_id + sender_username."""
+    mock_db["campaigns"]._coll.insert_one(
+        {
+            "campaign_name": CAMPAIGN,
+            "owner_id": "user_dm",
+            "dnd_edition": "2024 Revision (5.5e)",
+            "party": ["thorin_t1.json", "thorin_t2.json"],
+        }
+    )
+    mock_db["campaign_members"]._coll.insert_many(
+        [
+            {"campaign_id": CAMPAIGN, "user_id": "user_dm", "role": "dm", "character_id": None},
+            {
+                "campaign_id": CAMPAIGN,
+                "user_id": "user_p1",
+                "role": "player",
+                "character_id": "t1",
+                "character_ids": ["t1"],
+            },
+            {
+                "campaign_id": CAMPAIGN,
+                "user_id": "user_p2",
+                "role": "player",
+                "character_id": "t2",
+                "character_ids": ["t2"],
+            },
+        ]
+    )
+    mock_db["users"]._coll.insert_many(
+        [
+            {"id": "user_dm", "username": "dm"},
+            {"id": "user_p1", "username": "alice"},
+            {"id": "user_p2", "username": "bob"},
+        ]
+    )
+    mock_db["characters"]._coll.insert_many(
+        [
+            {
+                "char_id": "t1",
+                "char_name": "Thorin",
+                "owner_id": "user_p1",
+                "active_campaign": CAMPAIGN,
+            },
+            {
+                "char_id": "t2",
+                "char_name": "Thorin",
+                "owner_id": "user_p2",
+                "active_campaign": CAMPAIGN,
+            },
+        ]
+    )
+
+    # Alice throws with t1
+    auth_state["user"] = {"id": "user_p1", "username": "alice"}
+    r1 = client.post(
+        f"/api/v1/campaigns/{CAMPAIGN}/rolls",
+        json={
+            "char_id": "t1",
+            "char_name": "Thorin",
+            "roll_label": "Athletics",
+            "roll_type": "skill",
+            "formula": "1d20+5",
+            "total": 21,
+            "visibility": "public",
+        },
+    )
+    assert r1.status_code == 200
+    assert r1.json()["roll"]["char_id"] == "t1"
+    assert r1.json()["roll"]["sender_username"] == "alice"
+
+    # Alice CANNOT spoof Bob's char_id t2
+    spoof = client.post(
+        f"/api/v1/campaigns/{CAMPAIGN}/rolls",
+        json={
+            "char_id": "t2",
+            "char_name": "Thorin",
+            "roll_label": "Deception",
+            "roll_type": "skill",
+            "formula": "1d20",
+            "total": 10,
+            "visibility": "public",
+        },
+    )
+    assert spoof.status_code == 403
+
+    # DM sends a private whisper specifically to Bob's Thorin (t2)
+    auth_state["user"] = {"id": "user_dm", "username": "dm"}
+    w_res = client.post(
+        f"/api/v1/campaigns/{CAMPAIGN}/whisper",
+        json={
+            "recipient": "Thorin",
+            "recipient_character_id": "t2",
+            "message": "Bob-only secret clue",
+        },
+    )
+    assert w_res.status_code == 200
+    assert w_res.json()["whisper"]["recipient_user_id"] == "user_p2"
+    assert w_res.json()["whisper"]["recipient_character_id"] == "t2"
+
+    # Alice's /messages must NOT leak Bob's private whisper even though both are named 'Thorin'
+    auth_state["user"] = {"id": "user_p1", "username": "alice"}
+    alice_msgs = client.get(f"/api/v1/campaigns/{CAMPAIGN}/messages").json()
+    assert [w["message"] for w in alice_msgs["whispers"]] == []
+
+    # Bob's /messages DOES see it
+    auth_state["user"] = {"id": "user_p2", "username": "bob"}
+    bob_msgs = client.get(f"/api/v1/campaigns/{CAMPAIGN}/messages").json()
+    assert [w["message"] for w in bob_msgs["whispers"]] == ["Bob-only secret clue"]
+
+
+def test_websocket_roll_request_reaches_owner_on_alt_char_and_never_homonym_peer(
+    client: TestClient, mock_db: _AsyncDatabase, auth_state: dict, monkeypatch: pytest.MonkeyPatch
+):
+    """Targeted roll_request delivered via user_ids wakes the player even while viewing their
+    other hero, and never leaks to a different player sharing the target hero's char_name."""
+
+    async def fake_token(token: str):
+        return {"id": token}
+
+    async def fake_ws_db():
+        return mock_db
+
+    monkeypatch.setattr(websocket_router, "get_current_user_from_token", fake_token)
+    monkeypatch.setattr(websocket_router, "get_database", fake_ws_db)
+    websocket_router.manager.active_connections.clear()
+
+    mock_db["campaigns"]._coll.insert_one(
+        {
+            "campaign_name": CAMPAIGN,
+            "owner_id": "user_dm",
+            "party": ["thorin_t1.json", "aria_t_alt.json", "thorin_t2.json"],
+        }
+    )
+    mock_db["campaign_members"]._coll.insert_many(
+        [
+            {"campaign_id": CAMPAIGN, "user_id": "user_dm", "role": "dm", "character_id": None},
+            {
+                "campaign_id": CAMPAIGN,
+                "user_id": "user_p1",
+                "role": "player",
+                "character_id": "t1",
+                "character_ids": ["t1", "t_alt"],
+            },
+            {
+                "campaign_id": CAMPAIGN,
+                "user_id": "user_p2",
+                "role": "player",
+                "character_id": "t2",
+                "character_ids": ["t2"],
+            },
+        ]
+    )
+    mock_db["characters"]._coll.insert_many(
+        [
+            {
+                "char_id": "t1",
+                "char_name": "Thorin",
+                "owner_id": "user_p1",
+                "active_campaign": CAMPAIGN,
+            },
+            {
+                "char_id": "t_alt",
+                "char_name": "Aria",
+                "owner_id": "user_p1",
+                "active_campaign": CAMPAIGN,
+            },
+            {
+                "char_id": "t2",
+                "char_name": "Thorin",
+                "owner_id": "user_p2",
+                "active_campaign": CAMPAIGN,
+            },
+        ]
+    )
+
+    with client.websocket_connect(f"/ws/campaigns/{CAMPAIGN}") as p1_ws:
+        # Player 1 is currently active on their 2nd character 'Aria'
+        p1_ws.send_json({"type": "auth", "token": "user_p1", "character": "Aria"})
+        p1_ws.receive_json()  # presence_sync
+        p1_ws.receive_json()  # presence_update Aria online
+
+        with client.websocket_connect(f"/ws/campaigns/{CAMPAIGN}") as p2_ws:
+            # Player 2 has homonym 'Thorin'
+            p2_ws.send_json({"type": "auth", "token": "user_p2", "character": "Thorin"})
+            p2_ws.receive_json()  # presence_sync
+            p2_ws.receive_json()  # presence_update Thorin online
+            p1_ws.receive_json()  # presence_update Thorin online
+
+            # DM requests a roll specifically for Player 1's Thorin (t1)
+            auth_state["user"] = {"id": "user_dm", "username": "dm"}
+            req_res = client.post(
+                f"/api/v1/campaigns/{CAMPAIGN}/roll-request",
+                json={
+                    "char_filename": "thorin_t1.json",
+                    "char_name": "Thorin",
+                    "target_char_id": "t1",
+                    "roll_type": "saving_throw",
+                    "stat": "DEX",
+                    "reason": "Pit Trap",
+                },
+            )
+            assert req_res.status_code == 200
+            assert req_res.json()["request"]["target_char_id"] == "t1"
+
+            # Player 1 receives the roll_request even while on Aria's sheet
+            p1_msg = p1_ws.receive_json()
+            assert p1_msg["type"] == "roll_request"
+            assert p1_msg["payload"]["target_char_id"] == "t1"
+            assert p1_msg["payload"]["char_name"] == "Thorin"
+
+            # Player 2 (homonym 'Thorin') does NOT receive it
             p2_ws.send_json({"type": "ping"})
             assert p2_ws.receive_json() == {"type": "pong"}

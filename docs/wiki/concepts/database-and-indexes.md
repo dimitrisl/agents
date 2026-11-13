@@ -12,12 +12,12 @@ Phyrexian Forge uses **MongoDB Atlas** accessed asynchronously via **Motor** (`A
 | `users` | `id`, `username`, `password_hash`, `email`, `created_at` | User accounts and authentication credentials. |
 | `characters` | `char_id`, `owner_id`, `char_name`, `char_class`, `char_level`, `stats`, `version`, `active_campaign` | Full character sheet documents. |
 | `campaigns` | `campaign_name`, `owner_id`, `edition`, `invite_code`, `party`, `vtt_state` | Campaign metadata, party roster, and VTT grid state. |
-| `campaign_members` | `campaign_id`, `user_id`, `role` (`dm`\|`player`), `character_id`, `joined_at` | Campaign membership and permissions table. |
+| `campaign_members` | `campaign_id`, `user_id`, `role` (`dm`\|`player`), `character_id`, `character_ids`, `joined_at` | Campaign membership, permissions, and multi-character enrollment per user. |
 | `campaign_entities` | `campaign_name`, `name`, `type`, `content`, `tags`, `created_at` | NPCs, locations, factions, and lore cards. |
 | `session_logs` | `campaign_name`, `session_number`, `title`, `summary`, `real_world_date` | Chronological session recaps and journal. |
-| `campaign_whispers` | `campaign_name`, `sender`, `recipient`, `message`, `timestamp` | In-game text messages and whispers. |
-| `campaign_roll_requests` | `campaign_name`, `char_filename`, `roll_type`, `stat`, `status`, `result` | Dice roll requests issued by DM. |
-| `campaign_roll_logs` | `id`, `campaign_name`, `sender_user_id`, `char_name`, `roll_label`, `roll_type`, `formula`, `total`, `visibility`, `created_at` | Persistent log of player sheet rolls (`public` or `dm`-whispered). |
+| `campaign_whispers` | `campaign_name`, `sender`, `sender_user_id`, `sender_character_id`, `recipient`, `recipient_user_id`, `recipient_character_id`, `message`, `timestamp` | In-game text messages and ID-disambiguated whispers. |
+| `campaign_roll_requests` | `campaign_name`, `char_filename`, `target_char_id`, `target_owner_id`, `roll_type`, `stat`, `status`, `result` | Dice roll requests issued by DM. |
+| `campaign_roll_logs` | `id`, `campaign_name`, `sender_user_id`, `sender_username`, `char_id`, `char_name`, `roll_label`, `roll_type`, `formula`, `total`, `visibility`, `created_at` | Persistent log of player sheet rolls (`public` or `dm`-whispered). |
 | `homebrew_content` | `campaign_name`, `creator_dm_id`, `type`, `item_data` | Custom weapons, spells, and items scoped to a campaign. |
 | `custom_monsters` | `id`, `name`, `creator_dm_id`, `is_public`, `cr_numeric`, `edition` | Custom DM and community homebrew monsters. |
 | `official_monsters` | `id`, `name`, `edition`, `cr_numeric`, `type`, `stats`, `actions` | Scaled database vault of official 2014 & 2024 monsters. |
@@ -78,7 +78,7 @@ INDEX_DEFINITIONS = [
 2. **DuplicateKeyError Handling:**
    - `auth_router.register`: Catches `DuplicateKeyError` and returns `HTTP 400 Bad Request`.
    - `campaign_router.save_campaign`: Uses `insert_one` for new campaigns and catches `DuplicateKeyError` to return `HTTP 409 Conflict`.
-   - `campaign_router.join_campaign_by_code`: Executes `insert_one` on `campaign_members` **before** updating `campaigns.party` or `characters.active_campaign`. If the user has already joined, it catches `DuplicateKeyError` and returns `HTTP 409 Conflict` without mutating other documents.
+   - `campaign_router.join_campaign_by_code`: Checks existing membership in `campaign_members`. If the user has not joined yet, it executes `insert_one` with `character_id` and `character_ids` **before** updating `campaigns.party` or `characters.active_campaign` (catching `DuplicateKeyError` on races -> `HTTP 409 Conflict`). If the user is already a member and supplies a different owned character, it atomically enrolls the additional `char_id` via `$addToSet` on `character_ids` (rejecting duplicate enrollment of the *same* character with `HTTP 409 Conflict`).
 
 3. **Optimistic Locking on Character Edits:**
    - Characters include an integer `version` field.

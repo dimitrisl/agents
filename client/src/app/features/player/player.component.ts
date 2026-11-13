@@ -421,7 +421,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       const char = this.charState.activeCharacter();
       if (char && char.active_campaign) {
         this.wsService.connect(char.active_campaign, { character: char.char_name });
-        this.loadCampaignMessageHistory(char.active_campaign, char.char_name, true);
+        this.loadCampaignMessageHistory(char.active_campaign, char, true);
         this.loadActiveEncounter(char.active_campaign);
       }
     }
@@ -452,10 +452,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.openedSub = this.wsService.opened$.subscribe((campaignName) => {
       const char = this.charState.activeCharacter();
       if (char?.active_campaign === campaignName) {
-        const cacheKey = `${campaignName}::${char.char_name}`;
+        const cacheKey = `${campaignName}::${char.char_id || char.char_name}`;
         const isCatchUp = this.campaignInitialLoad.has(cacheKey);
         this.campaignInitialLoad.add(cacheKey);
-        this.loadCampaignMessageHistory(campaignName, char.char_name, isCatchUp);
+        this.loadCampaignMessageHistory(campaignName, char, isCatchUp);
         this.loadActiveEncounter(campaignName);
       }
     });
@@ -465,7 +465,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (!char) return;
 
       if (msg.type === 'roll_request') {
-        const req = msg['payload'];
+        const req = msg['payload'] as RollRequest | undefined;
+        if (!req) return;
         // Check if this request is for the active character
         if (this.isRollRequestForCharacter(req, char)) {
           this.addRollRequest(req, true);
@@ -473,6 +474,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           // says the same thing is just noise. Queued requests do get one, because
           // those are the ones the player cannot see yet.
           this.enqueueRollPrompt(req);
+        } else if (char.active_campaign) {
+          const sibling = this.findOtherOwnedCampaignCharacter(
+            char.active_campaign,
+            char,
+            req.target_char_id
+          );
+          if (sibling) {
+            this.rollToast.showMessage(
+              `🎲 ROLL REQUEST → ${sibling.char_name}`,
+              `Switch sheet to ${sibling.char_name} for ${req.stat || req.roll_type}${req.reason ? ' · ' + req.reason : ''}.`
+            );
+          }
         }
       } else if (msg.type === 'encounter_update') {
         const wasMyTurn = this.isMyTurn;
@@ -520,12 +533,28 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.rollToast.showMessage('💰 LOOT RECEIVED', `The DM awarded loot${summary}!`);
         }
       } else if (msg.type === 'whisper') {
-        const whisper = msg['payload'];
-        if (!this.isWhisperForCharacter(whisper, char.char_name)) return;
+        const whisper = msg['payload'] as Whisper | undefined;
+        if (!whisper) return;
+        if (!this.isWhisperForCharacter(whisper, char)) {
+          if (char.active_campaign) {
+            const sibling = this.findOtherOwnedCampaignCharacter(
+              char.active_campaign,
+              char,
+              whisper.recipient_character_id
+            );
+            if (sibling) {
+              this.rollToast.showMessage(
+                `💬 WHISPER → ${sibling.char_name}`,
+                `From ${whisper.sender}: ${whisper.message}`
+              );
+            }
+          }
+          return;
+        }
 
         // The hero's own reply comes back down the socket too; it belongs in the
         // thread, but it is not news worth a toast or an unread badge.
-        const isOwnReply = whisper.sender === char.char_name;
+        const isOwnReply = this.isOwnWhisper(whisper);
         this.addWhisper(whisper, !isOwnReply);
         if (!isOwnReply) {
           this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
@@ -1342,10 +1371,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
    */
   private loadCampaignMessageHistory(
     campaignName: string,
-    characterName: string,
+    charSnapshot: CharacterSchema,
     isCatchUp = false
   ): void {
-    const key = `${campaignName}::${characterName}`;
+    const charKey = charSnapshot.char_id || charSnapshot.char_name;
+    const key = `${campaignName}::${charKey}`;
     if (!isCatchUp) {
       if (this.loadedCampaignMessageKey === key) return;
       this.loadedCampaignMessageKey = key;
@@ -1356,13 +1386,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       .subscribe({
         next: (messages) => {
           const char = this.charState.activeCharacter();
-          if (char?.active_campaign !== campaignName || char?.char_name !== characterName) return;
+          const currentCharKey = char?.char_id || char?.char_name;
+          if (char?.active_campaign !== campaignName || currentCharKey !== charKey) return;
 
           const whispers = (messages.whispers || []).filter((whisper) =>
-            this.isWhisperForCharacter(whisper, characterName)
+            this.isWhisperForCharacter(whisper, char)
           );
           const requests = (messages.roll_requests || []).filter((request) =>
-            this.isRollRequestForCharacterName(request, characterName)
+            this.isRollRequestForCharacter(request, char)
           );
           const rollLogs = messages.roll_logs || [];
 
@@ -1388,7 +1419,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           }
 
           for (const whisper of whispers) {
-            this.addWhisper(whisper, whisper.sender !== characterName);
+            this.addWhisper(whisper, !this.isOwnWhisper(whisper));
           }
           for (const request of requests) {
             this.mergeRollRequestFromHistory(request);
@@ -1456,6 +1487,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.http
       .post<{ whisper: Whisper }>(campaignUrl(char.active_campaign, 'whisper'), {
         sender: char.char_name,
+        sender_character_id: char.char_id,
         recipient: 'DM',
         message,
       })
@@ -1551,6 +1583,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.http
       .post<{ roll: CampaignRollLog }>(campaignUrl(char.active_campaign, 'rolls'), {
+        char_id: char.char_id,
         char_name: params.charName,
         roll_label: params.rollLabel,
         roll_type: params.rollType,
@@ -1675,17 +1708,49 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   /** Both sides of this hero's thread with the DM, plus table-wide announcements. */
-  private isWhisperForCharacter(whisper: Whisper | undefined, characterName: string): boolean {
-    return (
-      !!whisper &&
-      (whisper.recipient === characterName ||
-        whisper.recipient === 'All' ||
-        whisper.sender === characterName)
-    );
+  private isWhisperForCharacter(whisper: Whisper | undefined, char: CharacterSchema): boolean {
+    if (!whisper) return false;
+    if (whisper.recipient === 'All') return true;
+    if (whisper.sender_character_id || whisper.recipient_character_id) {
+      return (
+        !!char.char_id &&
+        (whisper.recipient_character_id === char.char_id ||
+          whisper.sender_character_id === char.char_id)
+      );
+    }
+    return whisper.recipient === char.char_name || whisper.sender === char.char_name;
   }
 
   isOwnWhisper(whisper: Whisper): boolean {
-    return whisper.sender === this.charState.activeCharacter()?.char_name;
+    const active = this.charState.activeCharacter();
+    if (!active) return false;
+    if (whisper.sender_character_id && active.char_id) {
+      return whisper.sender_character_id === active.char_id;
+    }
+    return whisper.sender === active.char_name;
+  }
+
+  isOwnRollLog(roll: CampaignRollLog): boolean {
+    const active = this.charState.activeCharacter();
+    if (!active) return false;
+    if (roll.char_id && active.char_id) {
+      return roll.char_id === active.char_id;
+    }
+    return roll.char_name === active.char_name;
+  }
+
+  private findOtherOwnedCampaignCharacter(
+    campaignName: string,
+    activeChar: CharacterSchema,
+    targetCharId?: string | null
+  ): CharacterSchema | undefined {
+    if (!targetCharId) return undefined;
+    return this.charState.characters().find(
+      (candidate) =>
+        candidate.active_campaign === campaignName &&
+        candidate.char_id === targetCharId &&
+        candidate.char_id !== activeChar.char_id
+    );
   }
 
   private whisperSortValue(whisper: Whisper): number {
@@ -1703,6 +1768,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private isRollRequestForCharacter(request: RollRequest | undefined, char: CharacterSchema): boolean {
     if (!request) return false;
+    if (request.target_char_id) {
+      return !!char.char_id && request.target_char_id === char.char_id;
+    }
     const raw = (request.char_filename || '').replace(/\.json$/i, '');
     const charId = char.char_id || '';
     const matchesFilename =
@@ -1710,10 +1778,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       !!raw &&
       (raw === charId || raw.endsWith(`_${charId}`) || raw.split('_').pop() === charId);
     return matchesFilename || request.char_name === char.char_name;
-  }
-
-  private isRollRequestForCharacterName(request: RollRequest | undefined, characterName: string): boolean {
-    return !!request && request.char_name === characterName;
   }
 
   joinCampaign() {
