@@ -27,12 +27,14 @@ Examine **EVERYTHING** in the diff with extreme prejudice. Do not restrict yours
 - **Concurrency:** Are MongoDB queries vulnerable to race conditions (e.g., using `$set` on arrays instead of `$push`)?
 - **Resource Management:** Are there memory leaks? (e.g., catching exceptions but failing to call cleanup functions like `manager.disconnect()` in a `finally` block).
 - **Validation:** Are Pydantic schemas used correctly? Is data validated dynamically rather than hardcoded?
+- **2014 vs 2024 Edition Parity:** For any rules, character, spell, rest, level-up, or bestiary change, verify it works for **both** `"2014 Edition"` and `"2024 Revision (5.5e)"` (`dnd_edition` / `ruleset_version`), has explicit 2024 test assertions, and stays synced with the Frontend TypeScript rules engine (`client/src/app/core/rules/`).
 
 ### Frontend (Angular 19 / TypeScript)
 - **State Management:** Are Angular Signals used correctly for state? Is the UI reacting properly without unnecessary refetches?
 - **WebSockets & Networking:** Is the fallback to REST implemented for catch-up? Is the reconnection logic solid? Are errors handled gracefully without silent failures?
 - **UX Consistency:** Do all actions update the UI locally to feel "snappy" (optimistic updates)? Does the UI accurately reflect the loading/pending states?
 - **Styling:** Does it strictly follow `client/design-contract.md`? No literal colors, use the `forge-*` kit, ensure responsiveness, etc.
+- **2014 vs 2024 Edition Parity:** Verify new UI/rule logic works in both `2014` and `2024` modes (including `[data-edition="2024"]` styling and `core/rules/` calculations) and stays synced with Backend services.
 
 ## Step 3 — The Report
 
