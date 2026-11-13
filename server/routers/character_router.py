@@ -644,9 +644,11 @@ async def _cleanup_campaign_references(
 
     # 6. Reconcile campaign_members records
     if mem_coll is not None:
-        # 6a. Any records explicitly pointing at character_id == char_id
+        # 6a. Any records explicitly pointing at character_id == char_id or character_ids containing char_id
         try:
-            cursor_members = mem_coll.find({"character_id": char_id})
+            cursor_members = mem_coll.find(
+                {"$or": [{"character_id": char_id}, {"character_ids": char_id}]}
+            )
             async for member_doc in cursor_members:
                 m_camp = member_doc.get("campaign_id")
                 m_user = member_doc.get("user_id")
@@ -683,22 +685,20 @@ async def _cleanup_campaign_references(
                             if char_coll is not None
                             else None
                         )
-                        if other_char:
-                            await mem_coll.update_one(
-                                filter_doc,
-                                {"$set": {"character_id": other_char["char_id"]}},
-                            )
-                        else:
-                            await mem_coll.update_one(
-                                filter_doc,
-                                {"$set": {"character_id": None}},
-                            )
+                        update_doc: dict = {"$pull": {"character_ids": char_id}}
+                        if member_doc.get("character_id") == char_id or not member_doc.get(
+                            "character_id"
+                        ):
+                            update_doc["$set"] = {
+                                "character_id": other_char["char_id"] if other_char else None
+                            }
+                        await mem_coll.update_one(filter_doc, update_doc)
                 else:
-                    # DM membership is preserved; character_id cleared
-                    await mem_coll.update_one(
-                        filter_doc,
-                        {"$set": {"character_id": None}},
-                    )
+                    # DM membership is preserved; clear pointer if needed and pull from character_ids
+                    dm_update: dict = {"$pull": {"character_ids": char_id}}
+                    if member_doc.get("character_id") == char_id:
+                        dm_update["$set"] = {"character_id": None}
+                    await mem_coll.update_one(filter_doc, dm_update)
         except Exception as e:
             logger.warning("Error reconciling campaign_members character_id for %s: %s", char_id, e)
 

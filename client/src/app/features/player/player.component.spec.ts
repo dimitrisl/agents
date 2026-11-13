@@ -951,5 +951,71 @@ describe('PlayerComponent — DM roll requests', () => {
       component.onCombatAction('Disengage');
       expect(toastService.activeRoll()?.title).toBe('⚠️ INCAPACITATED');
     });
+
+    it('includes char_id in POST /rolls and isolates homonym whispers/requests by char_id', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      const toastService = TestBed.inject(RollToastService);
+
+      const altHero: CharacterSchema = {
+        ...HERO,
+        char_id: 'lyra2',
+        char_name: 'Lyra Meadowlark',
+      };
+      component.ngOnInit();
+      http.expectOne((r) => r.url.endsWith('/characters')).flush({ characters: [HERO, altHero], unreadable: [] });
+      charState.activeCharacter.set(HERO);
+
+      component.onCustomRoll({
+        title: '🎲 Quick d20',
+        expression: '1d20+2',
+        total: 14,
+        rolls: [12],
+        modifier: 2,
+        broadcast: true,
+      });
+
+      const rollReq = http.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Curse%20of%20Strahd/rolls')
+      );
+      expect(rollReq.request.body.char_id).toBe('lyra1');
+      expect(rollReq.request.body.char_name).toBe('Lyra Meadowlark');
+      rollReq.flush({ success: true, roll: { id: 'r-id', ...rollReq.request.body, campaign_name: 'Curse of Strahd', sender_user_id: 'u1', created_at: '2026-11-13T00:00:00Z' } });
+
+      // Incoming WS whisper for player's 2nd character (with identical char_name)
+      messages$.next({
+        type: 'whisper',
+        payload: {
+          id: 'w-alt',
+          sender: 'DM',
+          recipient: 'Lyra Meadowlark',
+          recipient_character_id: 'lyra2',
+          recipient_character_name: 'Lyra Meadowlark',
+          message: 'Hidden clue for alt hero',
+          timestamp: '2026-11-13 00:01:00',
+        },
+      } as any);
+
+      // Must NOT pollute lyra1's feed, and must surface toast pointing to lyra2
+      expect(component.whisperHistory.length).toBe(0);
+      expect(toastService.activeRoll()?.title).toBe('💬 WHISPER → Lyra Meadowlark');
+
+      // Incoming WS roll_request targeting altHero (lyra2) via target_char_id must toast, not prompt lyra1
+      messages$.next({
+        type: 'roll_request',
+        payload: {
+          id: 'req-alt',
+          char_filename: 'lyra_meadowlark_lyra2.json',
+          char_name: 'Lyra Meadowlark',
+          target_char_id: 'lyra2',
+          roll_type: 'saving_throw',
+          stat: 'WIS',
+          reason: 'Illusion',
+          status: 'pending',
+        },
+      } as any);
+
+      expect(component.activeRollPrompt).toBeNull();
+      expect(toastService.activeRoll()?.title).toBe('🎲 ROLL REQUEST → Lyra Meadowlark');
+    });
   });
 });

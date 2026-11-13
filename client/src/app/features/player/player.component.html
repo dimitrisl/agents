@@ -466,16 +466,24 @@
               @if (entry.kind === 'whisper') {
                 <article class="whisper-message" [class.broadcast]="entry.whisper.recipient === 'All'" [class.own]="isOwnWhisper(entry.whisper)">
                   <div class="whisper-meta">
-                    <span class="message-kind">{{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}</span>
+                    <span class="message-kind">{{ isOwnWhisper(entry.whisper) ? 'You (' + char.char_name + ')' : entry.whisper.sender }}</span>
                     <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(entry.whisper.timestamp) }}</time>
                   </div>
                   <p class="whisper-text">{{ entry.whisper.message }}</p>
+                  @if (!isOwnWhisper(entry.whisper) && entry.whisper.recipient !== 'All') {
+                    <p class="message-status text-micro text-muted">
+                      💬 Private to {{ entry.whisper.recipient_character_name || char.char_name }}
+                    </p>
+                  }
                 </article>
               } @else if (entry.kind === 'campaign_roll') {
-                <article class="whisper-message" [class.broadcast]="entry.roll.visibility === 'public'" [class.own]="entry.roll.char_name === char.char_name">
+                <article class="whisper-message" [class.broadcast]="entry.roll.visibility === 'public'" [class.own]="isOwnRollLog(entry.roll)">
                   <div class="whisper-meta">
                     <span class="message-kind">
-                      🎲 {{ entry.roll.char_name === char.char_name ? 'You' : entry.roll.char_name }}
+                      🎲 {{ isOwnRollLog(entry.roll) ? 'You (' + entry.roll.char_name + ')' : entry.roll.char_name }}
+                      @if (!isOwnRollLog(entry.roll) && entry.roll.sender_username) {
+                        <span class="text-micro text-muted">(&#64;{{ entry.roll.sender_username }})</span>
+                      }
                       @if (entry.roll.visibility === 'dm') {
                         <span class="ml-1 text-micro text-gold">🔒 DM</span>
                       }
@@ -1019,7 +1027,7 @@
               >
                 <div class="whisper-meta">
                   <span class="message-kind">
-                    {{ isOwnWhisper(entry.whisper) ? 'You' : entry.whisper.sender }}
+                    {{ isOwnWhisper(entry.whisper) ? 'You (' + char.char_name + ')' : entry.whisper.sender }}
                   </span>
                   <span *ngIf="entry.whisper.sender_deleted || (isOwnWhisper(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-error font-medium">
                     (Διαγραμμένος χρήστης)
@@ -1033,7 +1041,7 @@
                   <p class="message-status">
                     💬 {{ isOwnWhisper(entry.whisper)
                         ? 'Replied to ' + entry.whisper.recipient
-                        : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to you') }}
+                        : (entry.whisper.recipient === 'All' ? 'Sent to everyone' : 'Private to ' + (entry.whisper.recipient_character_name || char.char_name)) }}
                   </p>
                   <button
                     *ngIf="!isOwnWhisper(entry.whisper) && !entry.whisper.has_open_report"
@@ -1053,11 +1061,14 @@
               <article
                 class="whisper-message"
                 [class.broadcast]="entry.roll.visibility === 'public'"
-                [class.own]="entry.roll.char_name === char.char_name"
+                [class.own]="isOwnRollLog(entry.roll)"
               >
                 <div class="whisper-meta">
                   <span class="message-kind">
-                    🎲 {{ entry.roll.char_name === char.char_name ? 'You' : entry.roll.char_name }}
+                    🎲 {{ isOwnRollLog(entry.roll) ? 'You (' + entry.roll.char_name + ')' : entry.roll.char_name }}
+                    @if (!isOwnRollLog(entry.roll) && entry.roll.sender_username) {
+                      <span class="text-micro text-muted">(&#64;{{ entry.roll.sender_username }})</span>
+                    }
                     @if (entry.roll.visibility === 'dm') {
                       <span class="ml-1 text-micro text-gold">🔒 Whisper DM</span>
                     }

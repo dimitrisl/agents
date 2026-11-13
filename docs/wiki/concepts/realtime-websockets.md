@@ -44,14 +44,14 @@ Polling HTTP endpoints for live campaign state is strictly prohibited. All live 
 2. **Character Spoofing Defense:**
    - If an auth frame specifies a character name, the backend queries MongoDB to verify that `owner_id == user.id` and `active_campaign == campaign_id`. Spoofed character names are stripped, dropping the connection to an anonymous player.
 
-3. **Audience-Targeted Whispers:**
-   - Whispers directed to a specific player are routed only to the recipient and sender connections (`audience = [recipient, sender]`). Other players connected to the channel receive zero network packets containing the whisper content.
+3. **Audience-Targeted Whispers & Roll Requests (`user_ids` + `char_id`):**
+   - Whispers and roll requests route by verified `user_ids` alongside `characters` (`recipient_character_id` / `target_char_id`) when targeting specific characters. This prevents homonym character collisions across different players while still reaching a multi-character player regardless of which sheet is currently active on their WebSocket connection. Other players connected to the channel receive zero network packets containing the private whisper content.
 
 4. **VTT Redaction for Players (`VTTService.redact_for_player`):**
    - Tokens marked with `is_hidden = True` are filtered out before sending state frames to player connections. They exist neither in the UI nor in browser network payloads.
 
 5. **Secret Rolls:**
-   - When the DM requests a secret roll (e.g. Stealth or Insight), the prompt is sent to the player, but the numerical result and dice breakdown are broadcast solely to the DM connection (`dm_only=True`).
+   - When the DM requests a secret roll (e.g. Stealth or Insight), the prompt is sent to the player (`user_ids` + `target_char_id`), but the numerical result and dice breakdown are broadcast solely to the DM connection (`dm_only=True`).
 
 6. **Campaign Roll Logs (`campaign_roll`):**
-   - Player character-sheet rolls submitted via [`POST /api/v1/campaigns/{name}/rolls`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/campaign_router.py) persist to `campaign_roll_logs` first and broadcast live as `type: "campaign_roll"` frames (`dm_only=False` for `public`, `dm_only=True` for `dm` whisper mode). Historical `GET /messages` replays redact `visibility == "dm"` entries for non-DM party members unless `sender_user_id == current_user_id`.
+   - Player character-sheet rolls submitted via [`POST /api/v1/campaigns/{name}/rolls`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/campaign_router.py) resolve character ownership by `char_id` (with `sender_username` attached), persist to `campaign_roll_logs` first, and broadcast live as `type: "campaign_roll"` frames (`dm_only=False` for `public`, `dm_only=True` for `dm` whisper mode). Historical `GET /messages` replays redact `visibility == "dm"` entries for non-DM party members unless `sender_user_id == current_user_id`.

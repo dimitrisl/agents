@@ -143,6 +143,7 @@ def test_add_party_member_with_explicit_character_id(client):
     mock_members.find_one = AsyncMock(
         return_value={"campaign_id": "MyCampaign", "user_id": "dm_user", "role": "dm"}
     )
+    mock_members.update_one = AsyncMock()
 
     app.dependency_overrides[get_current_user] = lambda: {"id": "dm_user", "username": "dm"}
     app.dependency_overrides[get_database] = lambda: {

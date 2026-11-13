@@ -1073,6 +1073,43 @@ afterEach(() => {
       expect(component.showRollModal).toBe(true);
       expect(component.manualRoll).toBe(14);
     });
+
+    it('targets the exact character by char_id when two party members share the same name', () => {
+      component.campaignName = 'Neverwinter';
+      component.partyMembers = [
+        { ...hero('Thorin', 5), char_id: 'thorin-alice', owner_username: 'alice' },
+        { ...hero('Thorin', 5), char_id: 'thorin-bob', owner_username: 'bob' },
+      ];
+
+      // 1. DM targets Bob's Thorin by char_id for a roll request
+      component.openSingleRollModal(component.partyMembers[1]);
+      expect(component.rollTargetMember).toBe('thorin-bob');
+      component.sendRollRequest();
+
+      const rollReq = http.expectOne((r) => r.url.includes('/campaigns/Neverwinter/roll-request'));
+      expect(rollReq.request.body.char_name).toBe('Thorin');
+      expect(rollReq.request.body.target_char_id).toBe('thorin-bob');
+      expect(rollReq.request.body.char_filename).toBe('thorin_thorin-bob.json');
+      rollReq.flush({ success: true });
+
+      // 2. DM whispers Bob's Thorin by char_id
+      component.whisperRecipient = 'thorin-bob';
+      component.whisperMessage = 'For Bob only';
+      component.sendWhisper();
+
+      const whisperReq = http.expectOne((r) => r.url.includes('/campaigns/Neverwinter/whisper'));
+      expect(whisperReq.request.body.recipient).toBe('Thorin');
+      expect(whisperReq.request.body.recipient_character_id).toBe('thorin-bob');
+      whisperReq.flush({
+        whisper: {
+          id: 'w-bob',
+          sender: 'DM',
+          recipient: 'Thorin',
+          recipient_character_id: 'thorin-bob',
+          message: 'For Bob only',
+        },
+      });
+    });
   });
 });
 

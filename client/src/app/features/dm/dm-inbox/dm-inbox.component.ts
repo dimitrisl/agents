@@ -105,9 +105,23 @@ export class DmInboxComponent implements OnChanges, AfterViewChecked {
 
   whisperDirection(whisper: Whisper): string {
     if (this.isFromDm(whisper)) {
-      return whisper.recipient === 'All' ? 'Sent to everyone' : `Sent to ${whisper.recipient}`;
+      if (whisper.recipient === 'All') return 'Sent to everyone';
+      const targetName = whisper.recipient_character_name || whisper.recipient;
+      return `Sent to ${targetName}`;
     }
     return `↩ ${whisper.sender} replied`;
+  }
+
+  memberOptionLabel(member: PartyMember): string {
+    return member.owner_username ? `${member.name} (@${member.owner_username})` : member.name;
+  }
+
+  recipientDisplayLabel(recipientValue: string): string {
+    if (recipientValue === 'All') return 'Everyone sees this';
+    const match = this.partyMembers.find(
+      (m) => (m.char_id && m.char_id === recipientValue) || m.name === recipientValue
+    );
+    return `Private to ${match ? this.memberOptionLabel(match) : recipientValue}`;
   }
 
   rollRequestStatus(request: RollRequest): string {

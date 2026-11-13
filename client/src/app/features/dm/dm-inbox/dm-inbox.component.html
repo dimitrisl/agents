@@ -36,6 +36,9 @@
             <div class="inbox-meta">
               <span class="message-kind">
                 {{ isFromDm(entry.whisper) ? 'You (DM)' : entry.whisper.sender }}
+                @if (!isFromDm(entry.whisper) && entry.whisper.sender_username) {
+                  <span class="text-micro text-muted">(&#64;{{ entry.whisper.sender_username }})</span>
+                }
               </span>
               <span *ngIf="entry.whisper.sender_deleted || (isFromDm(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-error font-medium">
                 (Διαγραμμένος χρήστης)
@@ -69,6 +72,9 @@
             <div class="inbox-meta">
               <span class="message-kind">
                 {{ entry.roll.visibility === 'dm' ? '🔒' : '🎲' }} {{ entry.roll.char_name }}
+                @if (entry.roll.sender_username) {
+                  <span class="text-micro text-muted">(&#64;{{ entry.roll.sender_username }})</span>
+                }
               </span>
               <time class="shrink-0 text-micro text-muted">
                 {{ formatTime(entry.roll.created_at) }}
@@ -153,7 +159,7 @@
           (ngModelChange)="replyRecipientChange.emit($event)"
         >
           <option value="All">All Players</option>
-          <option *ngFor="let member of partyMembers" [value]="member.name">{{ member.name }}</option>
+          <option *ngFor="let member of partyMembers" [value]="member.char_id || member.name">{{ memberOptionLabel(member) }}</option>
         </select>
       </label>
 
@@ -170,7 +176,7 @@
 
       <div class="inbox-reply-actions">
         <span class="text-micro text-muted">
-          {{ replyRecipient === 'All' ? 'Everyone sees this' : 'Private to ' + replyRecipient }}
+          {{ recipientDisplayLabel(replyRecipient) }}
         </span>
         <button
           forgeButton

@@ -144,19 +144,25 @@ def test_campaign_creation_duplicate_key_error_handled(client):
 
 
 def test_campaign_join_existing_member_handled(client):
-    """Verify that joining an already-joined campaign returns HTTP 409 Conflict, not 500."""
+    """Verify that joining with the same character already in the campaign returns HTTP 409 Conflict."""
     mock_campaigns = MagicMock()
     mock_campaigns.find_one = AsyncMock(
         return_value={"campaign_name": "Phyrexian Invasion", "invite_code": "CODE123"}
     )
     mock_characters = MagicMock()
     mock_characters.find_one = AsyncMock(
-        return_value={"char_id": "char_999", "owner_id": "player_1"}
+        return_value={"char_id": "char_999", "char_name": "Hero", "owner_id": "player_1"}
     )
     mock_members = MagicMock()
-    # Member is already in campaign
+    # Character is already in member's character list
     mock_members.find_one = AsyncMock(
-        return_value={"campaign_id": "Phyrexian Invasion", "user_id": "player_1"}
+        return_value={
+            "campaign_id": "Phyrexian Invasion",
+            "user_id": "player_1",
+            "role": "player",
+            "character_id": "char_999",
+            "character_ids": ["char_999"],
+        }
     )
 
     app.dependency_overrides[get_current_user] = lambda: {
@@ -175,6 +181,60 @@ def test_campaign_join_existing_member_handled(client):
         )
         assert response.status_code == 409
         assert "already a member" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_campaign_join_second_character_same_user_succeeds(client):
+    """A player already in the campaign can join with a second owned character."""
+    mock_campaigns = MagicMock()
+    mock_campaigns.find_one = AsyncMock(
+        return_value={
+            "campaign_name": "Phyrexian Invasion",
+            "invite_code": "CODE123",
+            "party": ["first_char_111.json"],
+        }
+    )
+    mock_campaigns.update_one = AsyncMock()
+    mock_characters = MagicMock()
+    mock_characters.find_one = AsyncMock(
+        return_value={"char_id": "char_999", "char_name": "Alt Hero", "owner_id": "player_1"}
+    )
+    mock_characters.update_one = AsyncMock()
+    mock_members = MagicMock()
+    mock_members.find_one = AsyncMock(
+        return_value={
+            "campaign_id": "Phyrexian Invasion",
+            "user_id": "player_1",
+            "role": "player",
+            "character_id": "char_111",
+            "character_ids": ["char_111"],
+        }
+    )
+    mock_members.update_one = AsyncMock()
+
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "player_1",
+        "username": "player_one",
+    }
+    app.dependency_overrides[get_database] = lambda: {
+        "campaigns": mock_campaigns,
+        "characters": mock_characters,
+        "campaign_members": mock_members,
+    }
+    try:
+        response = client.post(
+            "/api/v1/campaigns/join",
+            json={"invite_code": "CODE123", "character_id": "char_999"},
+        )
+        assert response.status_code == 200
+        assert response.json()["campaign_name"] == "Phyrexian Invasion"
+        mock_members.update_one.assert_awaited_once_with(
+            {"campaign_id": "Phyrexian Invasion", "user_id": "player_1"},
+            {"$addToSet": {"character_ids": "char_999"}},
+        )
+        mock_campaigns.update_one.assert_awaited_once()
+        mock_characters.update_one.assert_awaited_once()
     finally:
         app.dependency_overrides.clear()
 

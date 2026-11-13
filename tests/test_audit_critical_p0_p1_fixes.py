@@ -799,8 +799,22 @@ def test_whisper_query_filters_at_mongodb_level():
         assert {"recipient": "All"} in query["$or"]
         assert {"sender_user_id": "player_123"} in query["$or"]
         assert {"recipient_user_id": "player_123"} in query["$or"]
-        assert {"sender": "Thorne"} in query["$or"]
-        assert {"recipient": "Thorne"} in query["$or"]
+        assert {"sender_character_id": {"$in": ["c1"]}} in query["$or"]
+        assert {"recipient_character_id": {"$in": ["c1"]}} in query["$or"]
+        assert {
+            "$and": [
+                {"sender": "Thorne"},
+                {"sender_user_id": None},
+                {"sender_character_id": None},
+            ]
+        } in query["$or"]
+        assert {
+            "$and": [
+                {"recipient": "Thorne"},
+                {"recipient_user_id": None},
+                {"recipient_character_id": None},
+            ]
+        } in query["$or"]
     finally:
         app.dependency_overrides.pop(get_database, None)
         app.dependency_overrides.pop(get_current_user, None)

@@ -539,18 +539,30 @@ export class DmComponent implements OnInit, OnDestroy {
     }
   }
 
+  private findPartyTarget(value: string): PartyMember | undefined {
+    return this.partyMembers.find(
+      (m) => (m.char_id && m.char_id === value) || m.name === value
+    );
+  }
+
   /** Whispers back to a player from inside the inbox, without leaving the thread. */
   sendInboxReply() {
     const message = this.inboxReplyMessage.trim();
     if (!message || this.isSendingInboxReply) return;
 
+    const target = this.inboxReplyRecipient === 'All' ? undefined : this.findPartyTarget(this.inboxReplyRecipient);
+    const payload: Record<string, any> = {
+      sender: 'DM',
+      recipient: target?.name || this.inboxReplyRecipient,
+      message,
+    };
+    if (target?.char_id) {
+      payload['recipient_character_id'] = target.char_id;
+    }
+
     this.isSendingInboxReply = true;
     this.http
-      .post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
-        sender: 'DM',
-        recipient: this.inboxReplyRecipient,
-        message,
-      })
+      .post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), payload)
       .subscribe({
         next: (res) => {
           this.isSendingInboxReply = false;
@@ -906,7 +918,7 @@ export class DmComponent implements OnInit, OnDestroy {
           }));
           this.campaignParties[this.campaignName] = [...this.partyMembers];
           this.partyStatus = 'ready';
-          this.rollTargetMember = this.partyMembers[0]?.name || '';
+          this.rollTargetMember = this.partyMembers[0]?.char_id || this.partyMembers[0]?.name || '';
           this.seedInitiativeFromParty();
         },
         error: (err) => {
@@ -1262,7 +1274,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   openSingleRollModal(m: PartyMember) {
-    this.rollTargetMember = m.name;
+    this.rollTargetMember = m.char_id || m.name;
     // A value typed into a previous, cancelled modal must never leak into this request.
     this.manualRoll = null;
     this.showRollModal = true;
@@ -1285,23 +1297,27 @@ export class DmComponent implements OnInit, OnDestroy {
     }
 
     this.showRollModal = false;
-    const target = isAllParty ? null : this.partyMembers.find((m) => m.name === this.rollTargetMember);
+    const target = isAllParty ? undefined : this.findPartyTarget(this.rollTargetMember);
+    const targetName = isAllParty ? 'ALL' : (target?.name || this.rollTargetMember);
     const charFilename = isAllParty
       ? 'all.json'
       : target?.char_id
-        ? `${this.rollTargetMember.toLowerCase()}_${target.char_id}.json`
-        : `${this.rollTargetMember.toLowerCase()}.json`;
-    const targetLabel = isAllParty ? 'all party members' : this.rollTargetMember;
+        ? `${targetName.toLowerCase()}_${target.char_id}.json`
+        : `${targetName.toLowerCase()}.json`;
+    const targetLabel = isAllParty ? 'all party members' : targetName;
 
     const rollToUse = manualVal !== undefined ? manualVal : this.manualRoll;
     const payload: any = {
       char_filename: charFilename,
-      char_name: isAllParty ? 'ALL' : this.rollTargetMember,
+      char_name: targetName,
       roll_type: this.rollType,
       stat: this.rollStat,
       reason: this.rollReason,
       is_secret: this.isSecretRoll
     };
+    if (target?.char_id) {
+      payload.target_char_id = target.char_id;
+    }
     if (rollToUse !== null && rollToUse !== undefined && `${rollToUse}`.trim() !== '') {
       payload.manual_roll = Number(rollToUse);
     }
@@ -2138,14 +2154,21 @@ export class DmComponent implements OnInit, OnDestroy {
     const message = this.whisperMessage.trim();
     if (!message) return;
 
-    this.http.post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), {
+    const target = this.whisperRecipient === 'All' ? undefined : this.findPartyTarget(this.whisperRecipient);
+    const recipientLabel = target?.name || this.whisperRecipient;
+    const payload: Record<string, any> = {
       sender: 'DM',
-      recipient: this.whisperRecipient,
-      message
-    }).subscribe({
+      recipient: recipientLabel,
+      message,
+    };
+    if (target?.char_id) {
+      payload['recipient_character_id'] = target.char_id;
+    }
+
+    this.http.post<{ whisper: Whisper }>(campaignUrl(this.campaignName, 'whisper'), payload).subscribe({
       next: (res) => {
         this.showWhisperModal = false;
-        this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${this.whisperRecipient}.`);
+        this.rollToast.showMessage('💬 WHISPER SENT', `Whisper delivered to ${recipientLabel}.`);
         this.whisperMessage = '';
         if (res?.whisper) {
           this.addInboxWhisper(res.whisper, false);

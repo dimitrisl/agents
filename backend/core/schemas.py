@@ -1207,6 +1207,7 @@ class BestiaryDeleteResponse(BaseModel):
 class SheetRollCreateRequest(BaseModel):
     """Payload submitted when a player rolls dice from their character sheet (#197)."""
 
+    char_id: Optional[str] = Field(None, max_length=120)
     char_name: str = Field(..., min_length=1, max_length=120)
     roll_label: str = Field(..., min_length=1, max_length=200)
     roll_type: Literal[
@@ -1248,6 +1249,8 @@ class CampaignRollLogSchema(BaseModel):
     id: str
     campaign_name: str
     sender_user_id: str
+    sender_username: Optional[str] = None
+    char_id: Optional[str] = None
     char_name: str
     roll_label: str
     roll_type: str

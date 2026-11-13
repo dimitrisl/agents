@@ -76,8 +76,8 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 - If the upload stream is truncated, the client disconnects, or subsequent database operations fail, any partially written file on disk is immediately unlinked (`os.remove`), preventing disk exhaustion from abandoned artifacts.
 
 ### 10. Whisper Privacy & MongoDB Query-Level Isolation (`server/routers/campaign_router.py`)
-- Retrieval of campaign messages and whispers via `/campaigns/{name}/messages` enforces privacy checks directly inside the MongoDB query filter (`$or: [{"whisper_to": None}, {"whisper_to": current_username}, {"sender": current_username}]`).
-- Pushing whisper authorization down to the database query prevents confidential whispers from leaking over the wire and eliminates post-query pagination starvation where players could receive empty message batches.
+- Retrieval of campaign messages and whispers via `/campaigns/{name}/messages` enforces privacy checks directly inside the MongoDB query filter, matching authenticated `user_id` (`sender_user_id`, `recipient_user_id`), DM broadcast flags, and all enrolled `character_ids` owned by the user (`sender_character_id` / `recipient_character_id`), while scoping legacy name fallbacks to un-keyed legacy rows (`user_id: None`).
+- Pushing whisper authorization down to the database query prevents homonym character collisions across users, prevents confidential whispers from leaking over the wire, and eliminates post-query pagination starvation where players could receive empty message batches.
 
 ---
 

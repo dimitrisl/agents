@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import logging
 import os
 import re
@@ -86,6 +87,7 @@ class AddMemberRequest(BaseModel):
 class RollRequestSchema(BaseModel):
     char_filename: str
     char_name: str
+    target_char_id: Optional[str] = None
     roll_type: str
     stat: str = ""
     reason: Optional[str] = ""
@@ -96,6 +98,8 @@ class RollRequestSchema(BaseModel):
 class WhisperRequest(BaseModel):
     recipient: str
     message: str
+    sender_character_id: Optional[str] = None
+    recipient_character_id: Optional[str] = None
 
 
 class RollRequestResultSchema(BaseModel):
@@ -169,14 +173,64 @@ _SAVE_TYPES = {"save", "saving_throw", "savingthrow"}
 _SKILL_TYPES = {"skill", "skill_check"}
 
 
+def _member_character_ids(member: Optional[dict]) -> List[str]:
+    """Collect distinct character IDs tied to a campaign_members document."""
+    if not member:
+        return []
+    ids: List[str] = []
+    for cid in member.get("character_ids") or []:
+        if cid and cid not in ids:
+            ids.append(cid)
+    single_id = member.get("character_id")
+    if single_id and single_id not in ids:
+        ids.append(single_id)
+    return ids
+
+
+async def _broadcast_roll_event(
+    manager: Any,
+    campaign_name: str,
+    message: Dict[str, Any],
+    *,
+    characters: Optional[List[str]] = None,
+    user_ids: Optional[List[str]] = None,
+    dm_only: bool = False,
+) -> None:
+    """Broadcast roll requests/results with user_ids when the manager supports it."""
+    kwargs: Dict[str, Any] = {}
+    if dm_only:
+        kwargs["dm_only"] = True
+    if characters is not None:
+        kwargs["characters"] = characters
+    if user_ids:
+        try:
+            params = inspect.signature(manager.broadcast).parameters
+            if "user_ids" in params or any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+            ):
+                kwargs["user_ids"] = user_ids
+        except (TypeError, ValueError):
+            pass
+    await manager.broadcast(campaign_name, message, **kwargs)
+
+
 async def _find_campaign_character(
-    db: AsyncIOMotorDatabase, name: str, char_filename: str, char_name: str
+    db: AsyncIOMotorDatabase,
+    name: str,
+    char_filename: str,
+    char_name: str,
+    target_char_id: Optional[str] = None,
 ) -> Optional[dict]:
     """
-    The sheet behind a roll request. The filename carries the id (`lyra_abc123.json`),
-    which is the reliable handle; the name is the fallback for a hero the DM typed in
-    by hand rather than one that joined from the vault.
+    The sheet behind a roll request. Explicit `target_char_id` or the id embedded
+    in `char_filename` (`lyra_abc123.json`) are the reliable handles; `char_name` is
+    the legacy fallback for a hero typed in by hand rather than joined from the vault.
     """
+    if target_char_id:
+        char = await db["characters"].find_one({"char_id": target_char_id, "active_campaign": name})
+        if char:
+            return char
+
     raw = (char_filename or "").removesuffix(".json")
     if raw:
         char = await db["characters"].find_one({"char_id": raw, "active_campaign": name})
@@ -592,32 +646,59 @@ async def join_campaign_by_code(
     if not char or char.get("owner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Character not found or you do not own it.")
 
+    party_filename = _build_canonical_party_filename(char, char_id, payload.char_filename)
+    party_entries = camp.get("party") or []
+    char_in_party = any(
+        entry == party_filename
+        or entry == char_id
+        or entry == f"{char_id}.json"
+        or entry.endswith(f"_{char_id}.json")
+        for entry in party_entries
+    )
+
     existing_member = await db["campaign_members"].find_one(
         {"campaign_id": camp["campaign_name"], "user_id": current_user["id"]}
     )
     if existing_member:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
-        )
+        member_char_ids = _member_character_ids(existing_member)
+        if (
+            char_id in member_char_ids
+            or char.get("active_campaign") == camp["campaign_name"]
+            or char_in_party
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Character '{char.get('char_name') or char_id}' is already a member "
+                    f"of campaign '{camp['campaign_name']}'."
+                ),
+            )
 
-    try:
-        await db["campaign_members"].insert_one(
-            {
-                "campaign_id": camp["campaign_name"],
-                "user_id": current_user["id"],
-                "role": "player",
-                "character_id": char_id,
-                "joined_at": datetime.datetime.now(datetime.timezone.utc),
-            }
+        member_update: Dict[str, Any] = {"$addToSet": {"character_ids": char_id}}
+        if not existing_member.get("character_id") and existing_member.get("role") != "dm":
+            member_update["$set"] = {"character_id": char_id}
+        await db["campaign_members"].update_one(
+            {"campaign_id": camp["campaign_name"], "user_id": current_user["id"]},
+            member_update,
         )
-    except DuplicateKeyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
-        ) from e
+    else:
+        try:
+            await db["campaign_members"].insert_one(
+                {
+                    "campaign_id": camp["campaign_name"],
+                    "user_id": current_user["id"],
+                    "role": "player",
+                    "character_id": char_id,
+                    "character_ids": [char_id],
+                    "joined_at": datetime.datetime.now(datetime.timezone.utc),
+                }
+            )
+        except DuplicateKeyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User is already a member of campaign '{camp['campaign_name']}'.",
+            ) from e
 
-    party_filename = _build_canonical_party_filename(char, char_id, payload.char_filename)
     await db["campaigns"].update_one(
         {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": party_filename}}
     )
@@ -669,8 +750,11 @@ async def add_party_member(
     )
 
     # Note: Since the DM is adding their own character, they are already a member (role='dm').
-    # We do not overwrite their role or character_id in campaign_members here,
-    # as the DM can control multiple characters or NPCs if they wish.
+    # Keep character_ids updated without overwriting role='dm'.
+    await db["campaign_members"].update_one(
+        {"campaign_id": name, "user_id": current_user["id"]},
+        {"$addToSet": {"character_ids": char_id}},
+    )
 
     return {"success": True, "message": "Member added successfully."}
 
@@ -731,12 +815,16 @@ async def add_roll_request(
                 if char_doc
                 else pf.removesuffix(".json").split("_")[0].title()
             )
+            target_char_id = char_doc.get("char_id") if char_doc else None
+            target_owner_id = char_doc.get("owner_id") if char_doc else None
             req_id = str(uuid.uuid4())
             item_req: Dict[str, Any] = {
                 "id": req_id,
                 "campaign_name": name,
                 "char_filename": pf,
                 "char_name": target_name,
+                "target_char_id": target_char_id,
+                "target_owner_id": target_owner_id,
                 "roll_type": req_in.roll_type,
                 "stat": req_in.stat,
                 "reason": req_in.reason,
@@ -755,13 +843,31 @@ async def add_roll_request(
                     name, {"type": "roll_result", "payload": item_req}, dm_only=True
                 )
             else:
+                cancel_group_filter: Dict[str, Any] = {
+                    "campaign_name": name,
+                    "char_filename": pf,
+                    "status": "pending",
+                }
+                if target_char_id:
+                    cancel_group_filter = {
+                        "campaign_name": name,
+                        "status": "pending",
+                        "$or": [
+                            {"target_char_id": target_char_id},
+                            {"char_filename": pf},
+                        ],
+                    }
                 await db["campaign_roll_requests"].update_many(
-                    {"campaign_name": name, "char_filename": pf, "status": "pending"},
+                    cancel_group_filter,
                     {"$set": {"status": "cancelled"}},
                 )
                 await db["campaign_roll_requests"].insert_one(item_req.copy())
-                await manager.broadcast(
-                    name, {"type": "roll_request", "payload": item_req}, characters=[target_name]
+                await _broadcast_roll_event(
+                    manager,
+                    name,
+                    {"type": "roll_request", "payload": item_req},
+                    characters=[target_name],
+                    user_ids=[target_owner_id] if target_owner_id else None,
                 )
             created_reqs.append(item_req)
 
@@ -776,12 +882,23 @@ async def add_roll_request(
             "requests": created_reqs,
         }
 
+    char_doc = await _find_campaign_character(
+        db, name, req_in.char_filename, req_in.char_name, target_char_id=req_in.target_char_id
+    )
+    resolved_target_char_id = (
+        char_doc.get("char_id") if char_doc else None
+    ) or req_in.target_char_id
+    resolved_target_owner_id = char_doc.get("owner_id") if char_doc else None
+    canonical_target_name = (char_doc.get("char_name") if char_doc else None) or req_in.char_name
+
     req_id = str(uuid.uuid4())
     new_req = {
         "id": req_id,
         "campaign_name": name,
         "char_filename": req_in.char_filename,
-        "char_name": req_in.char_name,
+        "char_name": canonical_target_name,
+        "target_char_id": resolved_target_char_id,
+        "target_owner_id": resolved_target_owner_id,
         "roll_type": req_in.roll_type,
         "stat": req_in.stat,
         "reason": req_in.reason,
@@ -794,8 +911,7 @@ async def add_roll_request(
     if req_in.manual_roll is not None:
         if req_in.manual_roll < 1 or req_in.manual_roll > 20:
             raise HTTPException(status_code=422, detail="Manual roll must be between 1 and 20")
-        char = await _find_campaign_character(db, name, req_in.char_filename, req_in.char_name)
-        modifier = _sheet_modifier(char, req_in.roll_type, req_in.stat) if char else 0
+        modifier = _sheet_modifier(char_doc, req_in.roll_type, req_in.stat) if char_doc else 0
         raw = req_in.manual_roll
         total = raw + modifier
         new_req["result"] = {
@@ -813,16 +929,22 @@ async def add_roll_request(
 
         db_req = new_req.copy()
         await db["campaign_roll_requests"].insert_one(db_req)
-        await manager.broadcast(
+        await _broadcast_roll_event(
+            manager,
             name,
             {"type": "roll_result", "payload": new_req},
             dm_only=req_in.is_secret,
-            characters=None if req_in.is_secret else [req_in.char_name],
+            characters=None if req_in.is_secret else [canonical_target_name],
+            user_ids=(
+                None
+                if req_in.is_secret or not resolved_target_owner_id
+                else [resolved_target_owner_id]
+            ),
         )
 
         return {
             "success": True,
-            "message": f"Manual roll recorded for {req_in.char_name}",
+            "message": f"Manual roll recorded for {canonical_target_name}",
             "request": new_req,
         }
 
@@ -830,8 +952,7 @@ async def add_roll_request(
         # A secret roll is never asked of the player: it is thrown here, against
         # their sheet, and only the DM is told. Nothing about it reaches the hero's
         # socket, and `/messages` withholds it from them on reconnect too.
-        char = await _find_campaign_character(db, name, req_in.char_filename, req_in.char_name)
-        new_req["result"] = _roll_in_secret(char, req_in.roll_type, req_in.stat)
+        new_req["result"] = _roll_in_secret(char_doc, req_in.roll_type, req_in.stat)
         new_req["status"] = "resolved"
         new_req["rolled_by"] = "dm"
         new_req["resolved_at"] = now
@@ -842,25 +963,43 @@ async def add_roll_request(
 
         return {
             "success": True,
-            "message": f"Secret roll made for {req_in.char_name}",
+            "message": f"Secret roll made for {canonical_target_name}",
             "request": new_req,
         }
 
+    cancel_single_filter: Dict[str, Any] = {
+        "campaign_name": name,
+        "char_filename": req_in.char_filename,
+        "status": "pending",
+    }
+    if resolved_target_char_id:
+        cancel_single_filter = {
+            "campaign_name": name,
+            "status": "pending",
+            "$or": [
+                {"target_char_id": resolved_target_char_id},
+                {"char_filename": req_in.char_filename},
+            ],
+        }
     await db["campaign_roll_requests"].update_many(
-        {"campaign_name": name, "char_filename": req_in.char_filename, "status": "pending"},
+        cancel_single_filter,
         {"$set": {"status": "cancelled"}},
     )
 
     db_req = new_req.copy()
     await db["campaign_roll_requests"].insert_one(db_req)
 
-    await manager.broadcast(
-        name, {"type": "roll_request", "payload": new_req}, characters=[req_in.char_name]
+    await _broadcast_roll_event(
+        manager,
+        name,
+        {"type": "roll_request", "payload": new_req},
+        characters=[canonical_target_name],
+        user_ids=[resolved_target_owner_id] if resolved_target_owner_id else None,
     )
 
     return {
         "success": True,
-        "message": f"Roll request sent for {req_in.char_name}",
+        "message": f"Roll request sent for {canonical_target_name}",
         "request": new_req,
     }
 
@@ -880,6 +1019,7 @@ async def _authorize_roll_request_target(
         campaign_name,
         target.get("char_filename", ""),
         target.get("char_name", ""),
+        target_char_id=target.get("target_char_id"),
     )
     if target_char:
         owner_id = target_char.get("owner_id")
@@ -890,8 +1030,10 @@ async def _authorize_roll_request_target(
             detail="Not authorized to act on this roll request",
         )
 
-    if member.get("character_id"):
-        member_char = await db["characters"].find_one({"char_id": member["character_id"]})
+    for cid in _member_character_ids(member):
+        if target.get("target_char_id") and target.get("target_char_id") != cid:
+            continue
+        member_char = await db["characters"].find_one({"char_id": cid})
         if member_char and member_char.get("char_name") == target.get("char_name"):
             owner_id = member_char.get("owner_id")
             if not owner_id or owner_id == current_user["id"]:
@@ -957,8 +1099,13 @@ async def resolve_roll_request(
 
     from server.routers.websocket_router import manager
 
-    await manager.broadcast(
-        name, {"type": "roll_result", "payload": target}, characters=[target.get("char_name")]
+    target_uid = target.get("target_owner_id")
+    await _broadcast_roll_event(
+        manager,
+        name,
+        {"type": "roll_result", "payload": target},
+        characters=[target.get("char_name")],
+        user_ids=[target_uid] if target_uid else None,
     )
 
     return {"success": True, "message": "Roll request resolved"}
@@ -1006,8 +1153,13 @@ async def miss_roll_request(
 
     from server.routers.websocket_router import manager
 
-    await manager.broadcast(
-        name, {"type": "roll_result", "payload": target}, characters=[target.get("char_name")]
+    target_uid = target.get("target_owner_id")
+    await _broadcast_roll_event(
+        manager,
+        name,
+        {"type": "roll_result", "payload": target},
+        characters=[target.get("char_name")],
+        user_ids=[target_uid] if target_uid else None,
     )
 
     return {"success": True, "message": "Roll request marked as missed"}
@@ -1029,31 +1181,52 @@ async def publish_sheet_roll(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     char_doc = None
+    member_char_ids = _member_character_ids(member)
     if member.get("role") != "dm":
-        char_doc = await db["characters"].find_one(
-            {
-                "char_name": {"$regex": f"^{re.escape(payload.char_name)}$", "$options": "i"},
-                "owner_id": current_user["id"],
-                "active_campaign": name,
-            }
-        )
-        if not char_doc and member.get("character_id"):
-            member_char = await db["characters"].find_one({"char_id": member["character_id"]})
-            if (
-                member_char
-                and member_char.get("owner_id") in (None, current_user["id"])
-                and (member_char.get("char_name") or "").strip().lower()
-                == payload.char_name.lower()
-            ):
-                char_doc = member_char
+        if payload.char_id:
+            char_doc = await db["characters"].find_one(
+                {
+                    "char_id": payload.char_id,
+                    "owner_id": current_user["id"],
+                    "active_campaign": name,
+                }
+            )
+            if not char_doc and payload.char_id in member_char_ids:
+                member_char = await db["characters"].find_one({"char_id": payload.char_id})
+                if member_char and member_char.get("owner_id") in (None, current_user["id"]):
+                    char_doc = member_char
+        else:
+            char_doc = await db["characters"].find_one(
+                {
+                    "char_name": {"$regex": f"^{re.escape(payload.char_name)}$", "$options": "i"},
+                    "owner_id": current_user["id"],
+                    "active_campaign": name,
+                }
+            )
+            if not char_doc:
+                for cid in member_char_ids:
+                    member_char = await db["characters"].find_one({"char_id": cid})
+                    if (
+                        member_char
+                        and member_char.get("owner_id") in (None, current_user["id"])
+                        and (member_char.get("char_name") or "").strip().lower()
+                        == payload.char_name.lower()
+                    ):
+                        char_doc = member_char
+                        break
 
         if not char_doc:
             raise HTTPException(
                 status_code=403,
                 detail="You can only broadcast rolls for your own character in this campaign.",
             )
+    elif payload.char_id:
+        char_doc = await db["characters"].find_one(
+            {"char_id": payload.char_id, "active_campaign": name}
+        )
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    canonical_char_id = (char_doc.get("char_id") if char_doc else None) or payload.char_id
     canonical_char_name = (char_doc.get("char_name") if char_doc else None) or payload.char_name
     edition = (
         payload.dnd_edition
@@ -1064,6 +1237,8 @@ async def publish_sheet_roll(
         "id": str(uuid.uuid4()),
         "campaign_name": name,
         "sender_user_id": current_user["id"],
+        "sender_username": current_user.get("username"),
+        "char_id": canonical_char_id,
         "char_name": canonical_char_name,
         "roll_label": payload.roll_label,
         "roll_type": payload.roll_type,
@@ -1111,22 +1286,55 @@ async def get_campaign_messages(
     whisper_filter: Dict[str, Any] = {"campaign_name": name, "archived_at": None}
 
     if member.get("role") == "player":
-        char_name = None
-        if member.get("character_id"):
-            char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
-            if char_doc:
-                char_name = char_doc.get("char_name")
+        my_char_ids: List[str] = list(_member_character_ids(member))
+        my_char_names: List[str] = []
+
+        for cid in list(my_char_ids):
+            char_doc = await db["characters"].find_one({"char_id": cid})
+            if char_doc and char_doc.get("char_name"):
+                my_char_names.append(char_doc["char_name"])
+
+        char_cursor = db["characters"].find(
+            {"owner_id": current_user["id"], "active_campaign": name}
+        )
+        if hasattr(char_cursor, "__aiter__"):
+            async for char_doc in char_cursor:
+                cid = char_doc.get("char_id")
+                cname = char_doc.get("char_name")
+                if cid and cid not in my_char_ids:
+                    my_char_ids.append(cid)
+                if cname and cname not in my_char_names:
+                    my_char_names.append(cname)
 
         player_conditions: List[Dict[str, Any]] = [
             {"recipient": "All"},
             {"sender_user_id": current_user["id"]},
             {"recipient_user_id": current_user["id"]},
         ]
-        if char_name:
+        if my_char_ids:
             player_conditions.extend(
                 [
-                    {"sender": char_name},
-                    {"recipient": char_name},
+                    {"sender_character_id": {"$in": my_char_ids}},
+                    {"recipient_character_id": {"$in": my_char_ids}},
+                ]
+            )
+        for cname in my_char_names:
+            player_conditions.extend(
+                [
+                    {
+                        "$and": [
+                            {"sender": cname},
+                            {"sender_user_id": None},
+                            {"sender_character_id": None},
+                        ]
+                    },
+                    {
+                        "$and": [
+                            {"recipient": cname},
+                            {"recipient_user_id": None},
+                            {"recipient_character_id": None},
+                        ]
+                    },
                 ]
             )
         whisper_filter["$or"] = player_conditions
@@ -1227,14 +1435,37 @@ async def send_whisper(
     sender_name = "DM"
 
     if member.get("role") == "player":
-        if member.get("character_id"):
-            char_doc = await db["characters"].find_one({"char_id": member["character_id"]})
-            if char_doc:
-                sender_character_id = char_doc.get("char_id")
-                sender_character_name = char_doc.get("char_name")
-                sender_name = sender_character_name or sender_username or "Player"
-            else:
-                sender_name = sender_username or "Player"
+        char_doc = None
+        member_char_ids = _member_character_ids(member)
+        if payload.sender_character_id:
+            char_doc = await db["characters"].find_one(
+                {
+                    "char_id": payload.sender_character_id,
+                    "owner_id": current_user["id"],
+                    "active_campaign": name,
+                }
+            )
+            if not char_doc and payload.sender_character_id in member_char_ids:
+                candidate = await db["characters"].find_one(
+                    {"char_id": payload.sender_character_id}
+                )
+                if candidate and candidate.get("owner_id") in (None, current_user["id"]):
+                    char_doc = candidate
+            if not char_doc:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only whisper as your own character in this campaign.",
+                )
+        elif member_char_ids:
+            for cid in member_char_ids:
+                char_doc = await db["characters"].find_one({"char_id": cid})
+                if char_doc:
+                    break
+
+        if char_doc:
+            sender_character_id = char_doc.get("char_id")
+            sender_character_name = char_doc.get("char_name")
+            sender_name = sender_character_name or sender_username or "Player"
         else:
             sender_name = sender_username or "Player"
     else:
@@ -1255,9 +1486,15 @@ async def send_whisper(
             u = await db["users"].find_one({"id": recipient_user_id})
             recipient_username = u.get("username") if u else None
     elif payload.recipient != "All":
-        target_char = await db["characters"].find_one(
-            {"active_campaign": name, "char_name": payload.recipient}
-        )
+        target_char = None
+        if payload.recipient_character_id:
+            target_char = await db["characters"].find_one(
+                {"active_campaign": name, "char_id": payload.recipient_character_id}
+            )
+        if not target_char:
+            target_char = await db["characters"].find_one(
+                {"active_campaign": name, "char_name": payload.recipient}
+            )
         if not target_char:
             target_char = await db["characters"].find_one(
                 {
@@ -1276,11 +1513,13 @@ async def send_whisper(
     now_dt = datetime.datetime.now(datetime.timezone.utc)
     now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
 
+    resolved_recipient = recipient_character_name or payload.recipient
+
     new_whisper = {
         "id": str(uuid.uuid4()),
         "campaign_name": name,
         "sender": sender_name,
-        "recipient": payload.recipient,
+        "recipient": resolved_recipient,
         "message": payload.message,
         "timestamp": now_str,
         "sender_user_id": sender_user_id,
@@ -1562,23 +1801,48 @@ async def remove_party_member(
         {"char_id": char_id, "active_campaign": name}, {"$unset": {"active_campaign": ""}}
     )
 
-    # 3. If owner is a player, remove their campaign_members record
+    # 3. Reconcile campaign_members record
     owner_id = char.get("owner_id")
     if owner_id:
         member_doc = await db["campaign_members"].find_one(
             {"campaign_id": name, "user_id": owner_id}
         )
-        if member_doc and member_doc.get("role") != "dm":
-            # Check if this user has any other active characters in this campaign
-            other_active_chars = await db["characters"].count_documents(
-                {
-                    "owner_id": owner_id,
-                    "active_campaign": name,
-                }
+        if member_doc:
+            member_filter = (
+                {"_id": member_doc["_id"]}
+                if "_id" in member_doc
+                else {"campaign_id": name, "user_id": owner_id}
             )
+            if member_doc.get("role") != "dm":
+                # Check if this user has any other active characters in this campaign
+                other_active_chars = await db["characters"].count_documents(
+                    {
+                        "owner_id": owner_id,
+                        "active_campaign": name,
+                    }
+                )
 
-            if other_active_chars == 0:
-                await db["campaign_members"].delete_one({"_id": member_doc["_id"]})
+                if other_active_chars == 0:
+                    await db["campaign_members"].delete_one(member_filter)
+                else:
+                    update_ops: Dict[str, Any] = {"$pull": {"character_ids": char_id}}
+                    if member_doc.get("character_id") == char_id:
+                        remaining = await db["characters"].find_one(
+                            {
+                                "owner_id": owner_id,
+                                "active_campaign": name,
+                                "char_id": {"$ne": char_id},
+                            }
+                        )
+                        update_ops["$set"] = {
+                            "character_id": remaining.get("char_id") if remaining else None
+                        }
+                    await db["campaign_members"].update_one(member_filter, update_ops)
+            else:
+                update_ops = {"$pull": {"character_ids": char_id}}
+                if member_doc.get("character_id") == char_id:
+                    update_ops["$set"] = {"character_id": None}
+                await db["campaign_members"].update_one(member_filter, update_ops)
 
     from server.routers.websocket_router import manager
 
