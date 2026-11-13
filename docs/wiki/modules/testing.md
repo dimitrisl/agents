@@ -33,5 +33,5 @@ client/src/
 
 ## 📐 Invariants & Mocks
 1. **No External Network Calls:** Tests must never make live network calls to Gemini or external databases. Use `unittest.mock.patch` for AI client calls and `mongomock` for MongoDB operations.
-2. **Deterministic Reproducibility:** Tests must pass cleanly and deterministically in any order (`poetry run pytest tests/ -v`).
+2. **Deterministic Parallel Reproducibility:** Tests execute in parallel across CPU cores via `pytest-xdist` (`addopts = "-n auto --dist worksteal"` in [`pyproject.toml`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/pyproject.toml)). Every test must isolate shared state (such as `CONFIG_FILE` via `tmp_path` + `monkeypatch`) and pass deterministically (`poetry run pytest tests/ -v`, or `-n 0` for single-process debugging).
 3. **Tabletop & Online QA Simulation:** Multi-client integration is verified via `scripts/qa/simulate_session.py` across both In-Person Mobile Companion (`< 1024px`) and Online VTT Desktop (`>= 1024px`) modes (`poetry run python scripts/qa/simulate_session.py --mode both`).
