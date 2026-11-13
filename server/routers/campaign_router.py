@@ -2419,6 +2419,22 @@ async def get_campaign_scenes_history(
     return history
 
 
+def _resolve_item_recipient(
+    raw_item: Dict[str, Any],
+    default_recipient_id: Optional[str],
+    fallback_first_char_id: Optional[str],
+) -> Optional[str]:
+    """Return the target char_id for an awarded loot item, or None for party-wide delivery."""
+    explicit_id = raw_item.get("recipient_id") or raw_item.get("recipient_char_id")
+    if isinstance(explicit_id, str) and explicit_id.strip():
+        return explicit_id.strip()
+    if default_recipient_id:
+        return default_recipient_id
+    if raw_item.get("requires_attunement") or raw_item.get("attuned") or raw_item.get("unique"):
+        return fallback_first_char_id
+    return None
+
+
 @router.post("/{name}/loot/distribute")
 async def distribute_loot(
     name: str,
@@ -2493,31 +2509,34 @@ async def distribute_loot(
             detail="At least one currency amount or item must be provided to distribute loot.",
         )
 
-    # Validate and classify items by schema before writing
-    validated_weapons: List[Dict[str, Any]] = []
-    validated_equipment: List[Dict[str, Any]] = []
-    validated_spells: List[SpellSchema] = []
-    validated_features: List[Dict[str, Any]] = []
+    # Validate and classify items by schema before writing, preserving raw recipient targeting
+    classified_items: List[tuple[str, Any, Dict[str, Any]]] = []
 
     try:
         for item in awarded_items:
             htype = item.get("homebrew_type") or item.get("type") or "item"
             if htype == "weapon":
-                validated_weapons.append(Weapon.model_validate(item).model_dump())
+                classified_items.append(("weapon", Weapon.model_validate(item).model_dump(), item))
             elif htype == "spell":
-                validated_spells.append(SpellSchema.model_validate(item))
+                classified_items.append(("spell", SpellSchema.model_validate(item), item))
             elif htype in ("feat", "feature"):
-                validated_features.append(
-                    FeatureTrait.model_validate(
-                        {
-                            "name": item["name"],
-                            "description": item.get("description", ""),
-                            "source": item.get("source") or "Homebrew",
-                        }
-                    ).model_dump()
+                classified_items.append(
+                    (
+                        "feature",
+                        FeatureTrait.model_validate(
+                            {
+                                "name": item["name"],
+                                "description": item.get("description", ""),
+                                "source": item.get("source") or "Homebrew",
+                            }
+                        ).model_dump(),
+                        item,
+                    )
                 )
             else:
-                validated_equipment.append(EquipmentItem.model_validate(item).model_dump())
+                classified_items.append(
+                    ("equipment", EquipmentItem.model_validate(item).model_dump(), item)
+                )
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2563,19 +2582,7 @@ async def distribute_loot(
             detail="At least one currency amount or item must be provided to distribute loot.",
         )
 
-    # Determine if items are unique/attunement-bound or targeted to a single recipient
-    has_unique_or_attuned_item = any(
-        bool(
-            it.get("requires_attunement")
-            or it.get("attuned")
-            or it.get("unique")
-            or it.get("recipient_id")
-        )
-        for it in awarded_items
-    )
-    target_item_char_id = payload.item_recipient_id or (
-        valid_chars[0]["char_id"] if (has_unique_or_attuned_item and len(valid_chars) > 0) else None
-    )
+    fallback_first_char_id = valid_chars[0]["char_id"] if valid_chars else None
 
     updated_count = 0
     updated_character_ids: List[str] = []
@@ -2598,22 +2605,36 @@ async def distribute_loot(
                 if amount + bonus_cp > 0:
                     inc_ops[f"currency.{coin}"] = amount + bonus_cp
 
-        receives_items = target_item_char_id is None or target_item_char_id == char_id
+        char_weapons_base: List[Dict[str, Any]] = []
+        char_equip_to_push: List[Dict[str, Any]] = []
+        char_feats_to_push: List[Dict[str, Any]] = []
+        char_spells_to_push: List[SpellSchema] = []
+
+        for kind, validated_data, raw_item in classified_items:
+            item_target = _resolve_item_recipient(
+                raw_item, payload.item_recipient_id, fallback_first_char_id
+            )
+            if item_target is not None and item_target != char_id:
+                continue
+            if kind == "weapon":
+                char_weapons_base.append(validated_data)
+            elif kind == "equipment":
+                char_equip_to_push.append(validated_data)
+            elif kind == "feature":
+                char_feats_to_push.append(validated_data)
+            elif kind == "spell":
+                char_spells_to_push.append(validated_data)
 
         # Compute per-character weapon stats using character's ability scores & proficiency bonus
         char_weapons_to_push: List[Dict[str, Any]] = []
-        if receives_items and validated_weapons:
+        if char_weapons_base:
             char_stats = char.get("stats") or {}
             char_prof = char.get("proficiency_bonus") or 2
-            for w_base in validated_weapons:
+            for w_base in char_weapons_base:
                 w_calc = calculate_weapon_stats(
                     dict(w_base), char_stats, char_prof, homebrew_content=awarded_items
                 )
                 char_weapons_to_push.append(Weapon.model_validate(w_calc).model_dump())
-
-        char_equip_to_push = validated_equipment if receives_items else []
-        char_feats_to_push = validated_features if receives_items else []
-        char_spells_to_push = validated_spells if receives_items else []
 
         # Ensure arrays are initialized if missing or corrupted
         if char_weapons_to_push and not isinstance(char.get("weapons"), list):
