@@ -49,12 +49,14 @@ pytest-mock = ">=3.15.1,<4.0.0"
 mongomock = ">=4.3.0,<5.0.0"
 pytest-cov = ">=7.1.0,<8.0.0"
 playwright = "^1.64.1"
+pytest-xdist = "^3.8.0"
 
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "server/tests"]
 python_files = ["test_*.py"]
+addopts = "-n auto --dist worksteal"
 
 [tool.ruff]
 line-length = 100

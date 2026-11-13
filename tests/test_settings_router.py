@@ -5,7 +5,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from backend.core.config_loader import CONFIG_FILE, get_ai_settings, set_user_ai_settings
+import backend.core.config_loader as config_loader
+from backend.core.config_loader import get_ai_settings, set_user_ai_settings
 from backend.core.providers.gemini_provider import GeminiProvider
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user, user_ai_context
@@ -15,10 +16,10 @@ client = TestClient(app)
 
 
 @pytest.fixture
-def users_db():
+def users_db(tmp_path, monkeypatch):
     """Two users with their own ai_settings; auth resolves to whichever is 'logged in'."""
-    if os.path.exists(CONFIG_FILE):
-        os.remove(CONFIG_FILE)
+    isolated_cfg = str(tmp_path / "config.json")
+    monkeypatch.setattr(config_loader, "CONFIG_FILE", isolated_cfg)
 
     users = {
         "u1": {"id": "u1", "username": "dm"},
@@ -48,8 +49,8 @@ def users_db():
     yield users, state
     app.dependency_overrides.clear()
     set_user_ai_settings(None)
-    if os.path.exists(CONFIG_FILE):
-        os.remove(CONFIG_FILE)
+    if os.path.exists(isolated_cfg):
+        os.remove(isolated_cfg)
 
 
 def test_get_ai_settings_lists_free_model_and_global_default(users_db):
@@ -86,7 +87,10 @@ def test_update_only_affects_calling_user(users_db):
     state["current"] = "u2"
     assert client.get("/api/v1/settings/ai").json()["preferred_model"] == "gemini-2.5-pro"
     # Global config untouched
-    assert not os.path.exists(CONFIG_FILE) or "gemini-3.5-flash" not in open(CONFIG_FILE).read()
+    assert (
+        not os.path.exists(config_loader.CONFIG_FILE)
+        or "gemini-3.5-flash" not in open(config_loader.CONFIG_FILE).read()
+    )
 
 
 def test_update_ai_settings_rejects_unknown_model(users_db):
@@ -106,7 +110,8 @@ def test_update_ai_settings_requires_login():
     assert response.status_code == 401
 
 
-def test_invalid_user_overrides_fall_back_to_global():
+def test_invalid_user_overrides_fall_back_to_global(tmp_path, monkeypatch):
+    monkeypatch.setattr(config_loader, "CONFIG_FILE", str(tmp_path / "config.json"))
     set_user_ai_settings({"preferred_model": "not-a-model", "temperature": 7})
     try:
         ai = get_ai_settings()
