@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { ForgeAuthShellComponent, ForgeCardComponent, ForgeEmptyStateComponent, ForgeListRowComponent, ForgeBadgeComponent } from '../../shared/ui';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
+import { RollToastService } from '../../core/services/roll-toast.service';
 import { Campaign } from '../../core/models/campaign.model';
 import { JoinCampaignModalComponent } from '../player/modals/join-campaign-modal/join-campaign-modal.component';
 import { ForgeButtonDirective } from '../../shared/ui';
@@ -29,6 +30,7 @@ export class CampaignPickerComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private router = inject(Router);
   readonly auth = inject(AuthService);
+  private readonly rollToast = inject(RollToastService);
 
   campaigns = signal<Campaign[]>([]);
   loading = signal(true);
@@ -91,17 +93,21 @@ export class CampaignPickerComponent implements OnInit, OnDestroy {
   inviteCode = signal('');
 
   onJoinCampaign() {
-    if (!this.inviteCode()) return;
+    const code = this.inviteCode().trim();
+    if (!code) return;
     this.loading.set(true);
-    this.http.post(`${environment.apiBaseUrl}/campaigns/join`, { invite_code: this.inviteCode() })
+    this.http.post(`${environment.apiBaseUrl}/campaigns/join`, { invite_code: code })
       .subscribe({
         next: () => {
           this.showJoinModal.set(false);
           this.fetchCampaigns();
         },
-        error: () => {
+        error: (err) => {
           this.loading.set(false);
-          // could show an error toast here
+          const detail =
+            err?.error?.detail ||
+            'Join failed. Open a hero in Player mode to join with your invite code.';
+          this.rollToast.showMessage('⚠️ JOIN FAILED', detail);
         }
       });
   }

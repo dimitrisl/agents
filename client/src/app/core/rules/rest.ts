@@ -1,8 +1,7 @@
 import { CharacterSchema, ClassResource } from '../models/character.model';
 import { hitDieSidesFor } from '../data/class-combat.data';
-import { abilityModifierOf } from './ability';
+import { abilityModifierOf, is2024Edition } from './ability';
 import { currentHp } from './hit-points';
-import { is2024Edition } from './skills';
 
 /**
  * Short and long rests: what a hero gets back, and what it costs them.
@@ -236,12 +235,14 @@ export function resolveShortRest(
 
 export interface LongRestOutcome {
   hpCurrent: number;
+  hpMax: number;
   /**
    * Hit dice recovered: all hit dice under 2024 Revision,
    * or half the hero's total hit dice (never fewer than one) under 2014 rules.
    */
   hitDiceRecovered: number;
   hitDiceUsed: number;
+  exhaustionLevel: number;
 }
 
 /**
@@ -259,11 +260,17 @@ export function resolveLongRest(char: CharacterSchema): LongRestOutcome {
   const totalHitDice = char.char_level || 1;
   const hitDiceRecovered = is2024 ? totalHitDice : (Math.floor(totalHitDice / 2) || 1);
   const hitDiceUsed = is2024 ? 0 : Math.max(0, (char.hit_dice_used || 0) - hitDiceRecovered);
+  const exhaustionLevel = Math.max(0, Math.floor(Number(char.exhaustion_level) || 0) - 1);
+  const hpMax = !is2024 && exhaustionLevel < 4 && (char.exhaustion_level ?? 0) >= 4 && char.base_hp_max
+    ? char.base_hp_max
+    : char.hp_max;
 
   return {
-    hpCurrent: char.hp_max,
+    hpCurrent: hpMax,
+    hpMax,
     hitDiceRecovered,
     hitDiceUsed,
+    exhaustionLevel,
   };
 }
 

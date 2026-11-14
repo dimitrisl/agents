@@ -16,7 +16,7 @@ tests/
 ├── test_websocket_channel.py         # Real-time WebSocket connection manager and channel isolation
 ├── test_campaign_roll_log.py         # Campaign sheet roll persistence, 2014/2024 parity, multi-character & homonym isolation (#197)
 ├── test_loot_distribution.py         # Per-item loot recipient_id routing, currency split, and item_recipient_id compatibility (#222)
-├── test_board_consolidation_fixes.py # Board consolidation regressions across 2014/2024 rules, campaign security guards, long rest, and encounter redaction
+├── test_board_consolidation_fixes.py # Board consolidation & QA regressions across 2014/2024 exhaustion/long-rest rules, campaign security guards, VTT/encounter/journey redaction, mixed-case invite codes, and asset URL encoding
 ├── test_mechanics*.py                # AC math, spell slots, saving throws, and conditions
 ├── test_dnd_rules_audit_fixes*.py    # 2014 vs. 2024 rule audit verifications
 ├── test_audit_critical_p0_p1_fixes.py # Regression suite for 17 code review & security audit fixes

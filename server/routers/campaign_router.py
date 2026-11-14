@@ -7,10 +7,12 @@ import re
 import secrets
 import uuid
 from typing import Any, Dict, List, Literal, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field, field_validator
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import (
@@ -18,6 +20,7 @@ from backend.core.schemas import (
     CampaignRollResponse,
     CampaignSkeletonSchema,
     EncounterStateSchema,
+    EncounterSyncResponseSchema,
     InviteCodeResponse,
     PasteExtractionRequest,
     SessionOutlineSchema,
@@ -38,6 +41,7 @@ from backend.services.stats_service import (
     get_modifier,
     has_jack_of_all_trades,
     has_remarkable_athlete,
+    sync_character_stats,
 )
 from backend.services.vtt_service import VTTService
 from server.config import settings
@@ -266,14 +270,22 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
     normalized = re.sub(r"[\s-]+", "_", (roll_type or "").lower())
     stat_clean = (stat or "").strip()
     stat_upper = stat_clean.upper()
+    edition = char.get("ruleset_version") or char.get("dnd_edition")
+    is_2024 = "2024" in str(edition or "")
+    exh_level = max(0, min(6, int(char.get("exhaustion_level", 0) or 0)))
+    exh_penalty = (2 * exh_level) if is_2024 else 0
 
     if normalized in _SAVE_TYPES:
+        save_values = char.get("saving_throw_values") or {}
+        for sv_k, sv_val in save_values.items():
+            if sv_k.upper() == stat_upper:
+                return int(sv_val)
         saving_throws = [s.upper() for s in (char.get("saving_throws") or [])]
         proficient = stat_upper in saving_throws
         stat_val = stats.get(stat_upper)
         if stat_val is None:
             stat_val = next((v for k, v in stats.items() if k.upper() == stat_upper), 10)
-        return get_modifier(stat_val) + (prof_bonus if proficient else 0)
+        return get_modifier(stat_val) + (prof_bonus if proficient else 0) - exh_penalty
 
     if normalized in _SKILL_TYPES:
         char_skills = char.get("skills") or {}
@@ -281,8 +293,6 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
             if sk_name.lower() == stat_clean.lower():
                 return int(sk_val)
 
-        edition = char.get("ruleset_version") or char.get("dnd_edition")
-        is_2024 = "2024" in str(edition or "")
         jack = has_jack_of_all_trades(char)
         remarkable = has_remarkable_athlete(char, edition=edition)
 
@@ -296,19 +306,19 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
         )
         for sk_name, sk_val in skills.items():
             if sk_name.lower() == stat_clean.lower():
-                return int(sk_val)
+                return int(sk_val) - exh_penalty
 
     if normalized == "initiative" or stat_clean.lower() == "initiative":
         if "initiative_modifier" in char and char["initiative_modifier"] is not None:
             return int(char["initiative_modifier"])
-        return get_modifier(stats.get("DEX", 10))
+        return get_modifier(stats.get("DEX", 10)) - exh_penalty
 
     if stat_upper in stats:
-        return get_modifier(stats[stat_upper])
+        return get_modifier(stats[stat_upper]) - exh_penalty
 
     for k, v in stats.items():
         if k.upper() == stat_upper:
-            return get_modifier(v)
+            return get_modifier(v) - exh_penalty
 
     return get_modifier(stats.get(stat, 10))
 
@@ -640,49 +650,146 @@ async def long_rest_party(
         char_id = char.get("char_id")
         if not char_id:
             continue
-        hp_max = char.get("hp_max") or 0
-        old_exh = int(char.get("exhaustion_level", 0) or 0)
-        new_exh = max(0, old_exh - 1)
 
-        raw_slots = char.get("spell_slots") or {}
-        reset_slots: Dict[str, Any] = {}
-        if isinstance(raw_slots, dict):
-            for k, slot_val in raw_slots.items():
-                if isinstance(slot_val, dict):
-                    reset_slots[k] = {**slot_val, "used": 0}
+        updated_doc = None
+        current_char = char
+        for attempt in range(2):
+            edition = (
+                current_char.get("dnd_edition")
+                or current_char.get("ruleset_version")
+                or camp.get("dnd_edition")
+                or ""
+            )
+            is_2024_rest = "2024" in str(edition)
+            old_exh = int(current_char.get("exhaustion_level", 0) or 0)
+            new_exh = max(0, old_exh - 1)
+
+            old_hd_used = max(0, int(current_char.get("hit_dice_used") or 0))
+            if is_2024_rest:
+                new_hd_used = 0
+            else:
+                total_hd = max(1, int(current_char.get("char_level") or 1))
+                recovered_hd = max(1, total_hd // 2)
+                new_hd_used = max(0, old_hd_used - recovered_hd)
+
+            raw_slots = current_char.get("spell_slots") or {}
+            reset_slots: Dict[str, Any] = {}
+            if isinstance(raw_slots, dict):
+                for k, slot_val in raw_slots.items():
+                    if isinstance(slot_val, dict):
+                        next_slot = {**slot_val, "used": 0}
+                        if "pact_used" in next_slot:
+                            next_slot["pact_used"] = 0
+                        reset_slots[k] = next_slot
+                    else:
+                        reset_slots[k] = slot_val
+
+            raw_resources = current_char.get("class_resources") or []
+            recharged_resources: List[Dict[str, Any]] = []
+            for res in raw_resources:
+                if isinstance(res, dict):
+                    res_max = res.get("max", res.get("current", 0))
+                    recharged_resources.append({**res, "current": res_max})
+
+            updates: Dict[str, Any] = {
+                "hp_temp": 0,
+                "hit_dice_used": new_hd_used,
+                "concentrating_on": None,
+                "death_saves": {"successes": 0, "failures": 0},
+                "exhaustion_level": new_exh,
+                "spell_slots": reset_slots,
+                "class_resources": recharged_resources,
+            }
+
+            if current_char.get("stats"):
+                working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
+                working.update(updates)
+                if edition and not working.get("dnd_edition"):
+                    working["dnd_edition"] = edition
+                synced = sync_character_stats(working)
+                for sync_key in (
+                    "hp_max",
+                    "base_hp_max",
+                    "speed",
+                    "base_speed",
+                    "skills",
+                    "saving_throw_values",
+                    "initiative_modifier",
+                    "weapons",
+                    "spell_attack_bonus",
+                    "spell_save_dc",
+                ):
+                    if sync_key in synced:
+                        updates[sync_key] = synced[sync_key]
+            else:
+                if (not is_2024_rest) and new_exh < 4 and current_char.get("base_hp_max"):
+                    updates["hp_max"] = current_char["base_hp_max"]
                 else:
-                    reset_slots[k] = slot_val
+                    updates["hp_max"] = current_char.get("hp_max") or 0
 
-        updates = {
-            "hp_current": hp_max,
-            "hp_temp": 0,
-            "hit_dice_used": 0,
-            "concentrating_on": None,
-            "death_saves": {"successes": 0, "failures": 0},
-            "exhaustion_level": new_exh,
-            "spell_slots": reset_slots,
-        }
-        new_version = int(char.get("version", 0) or 0) + 1
-        await db["characters"].update_one(
-            {"char_id": char_id, "active_campaign": name},
-            {"$set": updates, "$inc": {"version": 1}},
-        )
+            hp_max = updates.get("hp_max") or current_char.get("hp_max") or 0
+            updates["hp_current"] = hp_max
+
+            query_filter: Dict[str, Any] = {"char_id": char_id, "active_campaign": name}
+            if "version" in current_char:
+                query_filter["version"] = current_char["version"]
+
+            if hasattr(db["characters"], "find_one_and_update"):
+                updated_doc = await db["characters"].find_one_and_update(
+                    query_filter,
+                    {"$set": updates, "$inc": {"version": 1}},
+                    return_document=ReturnDocument.AFTER,
+                )
+            else:
+                await db["characters"].update_one(
+                    query_filter,
+                    {"$set": updates, "$inc": {"version": 1}},
+                )
+                updated_doc = {
+                    **current_char,
+                    **updates,
+                    "version": int(current_char.get("version", 0) or 0) + 1,
+                }
+
+            if updated_doc is not None:
+                break
+
+            refetched = await db["characters"].find_one(
+                {"char_id": char_id, "active_campaign": name}
+            )
+            if not refetched:
+                break
+            current_char = refetched
+
+        if not updated_doc:
+            continue
+
+        new_version = int(updated_doc.get("version", int(current_char.get("version", 0) or 0) + 1))
         await manager.broadcast(
             name,
             {
                 "type": "party_update",
                 "payload": {
                     "char_id": char_id,
-                    "char_name": char.get("char_name", "Unknown"),
-                    "hp_current": hp_max,
-                    "hp_max": hp_max,
+                    "char_name": updated_doc.get(
+                        "char_name", current_char.get("char_name", "Unknown")
+                    ),
+                    "hp_current": updated_doc.get("hp_current", updates["hp_current"]),
+                    "hp_max": updated_doc.get("hp_max", updates["hp_max"]),
                     "hp_temp": 0,
-                    "conditions": char.get("conditions", []),
+                    "speed": updated_doc.get("speed", current_char.get("speed")),
+                    "conditions": updated_doc.get("conditions", []),
                     "concentrating_on": None,
                     "death_saves": {"successes": 0, "failures": 0},
-                    "inspiration": bool(char.get("inspiration", False)),
-                    "exhaustion_level": new_exh,
-                    "spell_slots": reset_slots,
+                    "inspiration": bool(updated_doc.get("inspiration", False)),
+                    "exhaustion_level": updated_doc.get(
+                        "exhaustion_level", updates["exhaustion_level"]
+                    ),
+                    "hit_dice_used": updated_doc.get("hit_dice_used", updates["hit_dice_used"]),
+                    "spell_slots": updated_doc.get("spell_slots", updates["spell_slots"]),
+                    "class_resources": updated_doc.get(
+                        "class_resources", updates["class_resources"]
+                    ),
                     "version": new_version,
                     "source": "dm",
                     "action": "long_rest",
@@ -764,9 +871,11 @@ async def join_campaign_by_code(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     code = payload.invite_code.strip()
-    camp = await db["campaigns"].find_one(
-        {"$or": [{"invite_code": code}, {"invite_code": code.upper()}]}
-    )
+    camp = await db["campaigns"].find_one({"invite_code": code})
+    if not camp and code:
+        camp = await db["campaigns"].find_one(
+            {"invite_code": re.compile(f"^{re.escape(code)}$", re.IGNORECASE)}
+        )
     if not camp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
 
@@ -1840,7 +1949,7 @@ async def get_encounter_state(
     return encounter
 
 
-@router.post("/{name}/encounter", response_model=SuccessResponseSchema)
+@router.post("/{name}/encounter", response_model=EncounterSyncResponseSchema)
 async def update_encounter_state(
     name: str,
     payload: EncounterStateSchema,
@@ -1882,7 +1991,11 @@ async def update_encounter_state(
     else:
         await manager.broadcast(name, {"type": "encounter_update", "payload": enc_dict})
 
-    return {"success": True, "message": "Encounter state updated"}
+    return {
+        "success": True,
+        "message": "Encounter state updated",
+        "danger_indicator": enc_dict.get("danger_indicator"),
+    }
 
 
 @router.delete("/{name}/encounter", response_model=SuccessResponseSchema)
@@ -2505,20 +2618,24 @@ async def delete_campaign_scene(
 
     # Clean up uploaded map file if no other scene in this campaign references it
     map_url = (scene.get("grid") or {}).get("background_image_url") or ""
-    if f"/campaigns/{name}/assets/" in map_url:
-        filename = map_url.rsplit("/", 1)[-1]
+    encoded_name = quote(name, safe="")
+    if f"/campaigns/{name}/assets/" in map_url or f"/campaigns/{encoded_name}/assets/" in map_url:
+        filename = os.path.basename(map_url.rsplit("/", 1)[-1].split("?", 1)[0])
         other_scene = await db["campaign_scenes"].find_one(
             {
                 "campaign_name": name,
                 "scene_id": {"$ne": scene_id},
-                "grid.background_image_url": map_url,
+                "grid.background_image_url": {"$regex": f"/assets/{re.escape(filename)}$"},
             }
         )
-        if not other_scene:
+        if filename and not other_scene:
             asset_owner = await db["campaign_assets"].find_one({"filename": filename})
             if not asset_owner or asset_owner.get("campaign_name") == name:
-                file_path = os.path.join("data", "uploads", filename)
-                if os.path.exists(file_path):
+                uploads_base = os.path.abspath(os.path.join("data", "uploads"))
+                file_path = os.path.abspath(os.path.join(uploads_base, filename))
+                if os.path.commonpath([uploads_base, file_path]) == uploads_base and os.path.exists(
+                    file_path
+                ):
                     try:
                         os.remove(file_path)
                     except Exception as e:

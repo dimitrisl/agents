@@ -239,8 +239,11 @@ async def generate_journey(
     try:
         from fastapi.concurrency import run_in_threadpool
 
-        # Fetch all sessions in chronological order (oldest first)
-        cursor = db.session_logs.find({"campaign_name": name}).sort("session_number", 1)
+        # Fetch all sessions in chronological order (oldest first); filter unrevealed DM notes for players
+        query: dict = {"campaign_name": name}
+        if campaign_member.get("role") != "dm":
+            query["is_revealed"] = True
+        cursor = db.session_logs.find(query).sort("session_number", 1)
         past_sessions = await cursor.to_list(length=100)
 
         if not past_sessions:

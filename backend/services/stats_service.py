@@ -1451,10 +1451,21 @@ def sync_character_stats(
         base_speed = raw_speed if isinstance(raw_speed, int) else 30
         char_data["base_speed"] = base_speed
 
+    is_2024_sheet = bool(is_2024 or "2024" in str(char_data.get("ruleset_version") or ""))
     exhaustion_level = max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
-    exhaustion_penalty = 2 * exhaustion_level
+    exhaustion_penalty = (2 * exhaustion_level) if is_2024_sheet else 0
     char_data["exhaustion_level"] = exhaustion_level
-    char_data["speed"] = max(0, base_speed + equip_speed_bonus - (5 * exhaustion_level))
+    raw_speed = max(0, base_speed + equip_speed_bonus)
+    if is_2024_sheet:
+        char_data["speed"] = (
+            0 if exhaustion_level >= 6 else max(0, raw_speed - (5 * exhaustion_level))
+        )
+    elif exhaustion_level >= 5:
+        char_data["speed"] = 0
+    elif exhaustion_level >= 2:
+        char_data["speed"] = raw_speed // 2
+    else:
+        char_data["speed"] = raw_speed
     char_data["global_attack_bonus"] = equip_atk_bonus
     char_data["global_damage_bonus"] = equip_dmg_bonus
     char_data["initiative_bonus"] = equip_init_bonus
@@ -1596,6 +1607,9 @@ def sync_character_stats(
             hp_bonus_per_level += feat_data["hp_bonus_per_level"]
 
     existing_hp = char_data.get("hp_max")
+    stored_base_hp_max = char_data.get("base_hp_max")
+    if stored_base_hp_max and existing_hp == max(1, int(stored_base_hp_max) // 2):
+        existing_hp = int(stored_base_hp_max)
     current_con_mod = get_modifier(con_score)
     con_mod_applied = char_data.get("con_mod_applied")
     if con_mod_applied is None:
@@ -1647,6 +1661,16 @@ def sync_character_stats(
         char_data["hp_current"] = max(
             0, min(char_data["hp_max"], char_data["hp_current"] + total_hp_delta)
         )
+
+    if not is_2024_sheet and exhaustion_level >= 4:
+        full_hp_max = char_data["hp_max"]
+        char_data["base_hp_max"] = full_hp_max
+        halved_hp = max(1, full_hp_max // 2)
+        char_data["hp_max"] = halved_hp
+        if char_data.get("hp_current") is not None:
+            char_data["hp_current"] = max(0, min(halved_hp, char_data["hp_current"]))
+    else:
+        char_data["base_hp_max"] = None
 
     char_data["armor_class"], char_data["ac_breakdown"] = calculate_ac(
         dex_score,
@@ -1778,7 +1802,10 @@ def sync_character_stats(
         # - Jack of All Trades applies only to skill checks, not Initiative.
 
     char_data["initiative_modifier"] = (
-        get_modifier(dex_score) + init_bonus + char_data.get("initiative_bonus", 0)
+        get_modifier(dex_score)
+        + init_bonus
+        + char_data.get("initiative_bonus", 0)
+        - exhaustion_penalty
     )
 
     has_init_adv = False
@@ -1830,6 +1857,11 @@ def sync_character_stats(
                 and "is_custom" not in normalized_changes
             ):
                 w_dict["is_custom"] = True
+            if (
+                "attack_bonus" in normalized_changes
+                and "exhaustion_attack_penalty_applied" not in normalized_changes
+            ):
+                w_dict["exhaustion_attack_penalty_applied"] = 0
 
             if any(k in ["damage_dice", "damage_bonus"] for k in normalized_changes):
                 w_dict["damage"] = rebuild_damage_formula(
@@ -1874,14 +1906,20 @@ def sync_character_stats(
             )
             updated_weapons.append(new_w)
 
-    if exhaustion_penalty > 0:
-        for w in updated_weapons:
+    for w in updated_weapons:
+        prev_exh = int(w.get("exhaustion_attack_penalty_applied") or 0)
+        is_custom_weapon = bool(w.get("is_custom", False))
+        effective_penalty = (
+            (exhaustion_penalty - prev_exh) if is_custom_weapon else exhaustion_penalty
+        )
+        if effective_penalty != 0:
             try:
                 atk_val = int(str(w.get("attack_bonus", "+0")).replace("+", "").strip())
-                atk_val -= exhaustion_penalty
+                atk_val -= effective_penalty
                 w["attack_bonus"] = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
             except (ValueError, TypeError):
                 pass
+        w["exhaustion_attack_penalty_applied"] = exhaustion_penalty
 
     char_data["weapons"] = updated_weapons
 
@@ -1933,8 +1971,7 @@ def sync_character_stats(
     if spell_ability and spell_ability != "None":
         char_data["spell_ability"] = spell_ability
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
-        dc = spell_stats["spell_save_dc"] - exhaustion_penalty
-        char_data["spell_save_dc"] = dc
+        char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
         try:
             s_atk = int(str(spell_stats["spell_attack_bonus"]).replace("+", "").strip())
             s_atk -= exhaustion_penalty

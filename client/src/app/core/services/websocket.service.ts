@@ -198,6 +198,7 @@ export class WebSocketService {
     this.closeSocket();
     this.currentCampaignId = null;
     this.currentIdentity = null;
+    this.vttState.set(null);
     this.connectionStatus.set('disconnected');
   }
 

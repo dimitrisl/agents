@@ -1,5 +1,5 @@
 import { CharacterSchema, Weapon } from '../models/character.model';
-import { abilityModifier } from './ability';
+import { abilityModifier, exhaustionD20Penalty } from './ability';
 
 export interface WeaponAttackBreakdown {
   statName: string;
@@ -132,15 +132,17 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   // 5. Misc
   const miscAttack = weapon.misc_attack_bonus ?? 0;
   const miscDamage = weapon.misc_damage_bonus ?? 0;
+  const exhPenalty = exhaustionD20Penalty(char);
 
   // Attack Breakdown
-  const totalAttack = statMod + profBonus + magicBonus + archery + miscAttack;
+  const totalAttack = statMod + profBonus + magicBonus + archery + miscAttack - exhPenalty;
   const attackParts: string[] = [];
   if (statName !== 'NONE') attackParts.push(`${statName} (${statMod >= 0 ? '+' + statMod : statMod})`);
   if (profBonus > 0) attackParts.push(`Prof (+${profBonus})`);
   if (magicBonus > 0) attackParts.push(`Magic (+${magicBonus})`);
   if (archery > 0) attackParts.push(`Archery (+${archery})`);
   if (miscAttack !== 0) attackParts.push(`Misc (${miscAttack > 0 ? '+' + miscAttack : miscAttack})`);
+  if (exhPenalty > 0) attackParts.push(`Exh (-${exhPenalty})`);
 
   const attackFormula =
     attackParts.length > 0

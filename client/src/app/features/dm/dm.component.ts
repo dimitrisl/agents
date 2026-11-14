@@ -368,6 +368,7 @@ export class DmComponent implements OnInit, OnDestroy {
   private partyStateSubjects = new Map<string, Subject<void>>();
   private encounterSyncSubject = new Subject<void>();
   private encounterSub?: Subscription;
+  private encounterGeneration = 0;
 
   onlineCharacters = new Set<string>();
 
@@ -387,14 +388,19 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterSub = this.encounterSyncSubject.pipe(
       debounceTime(500),
       switchMap(() => {
-        if (!this.campaignName) return EMPTY;
+        const targetCampaign = this.campaignName;
+        const generation = this.encounterGeneration;
+        if (!targetCampaign) return EMPTY;
         const state = {
           round: this.round,
           activeCombatantId: this.activeCombatantId,
           combatants: this.combatants,
         };
-        return this.http.post<any>(campaignUrl(this.campaignName, 'encounter'), state).pipe(
+        return this.http.post<any>(campaignUrl(targetCampaign, 'encounter'), state).pipe(
           tap((resp) => {
+            if (targetCampaign !== this.campaignName || generation !== this.encounterGeneration) {
+              return;
+            }
             if (resp && typeof resp.danger_indicator === 'string') {
               this.encounterDangerIndicator = resp.danger_indicator;
             }
@@ -492,6 +498,27 @@ export class DmComponent implements OnInit, OnDestroy {
         );
       } else if (msg.type === 'party_update') {
         this.applyPartyUpdate(payload);
+      } else if (msg.type === 'encounter_update') {
+        if (payload && Array.isArray(payload.combatants)) {
+          this.combatants = this.sortCombatants(payload.combatants);
+          this.activeCombatantId = payload.activeCombatantId ?? null;
+          this.round = typeof payload.round === 'number' ? payload.round : 0;
+          this.hasLiveEncounter = this.combatants.length > 0;
+          if (typeof payload.danger_indicator === 'string') {
+            this.encounterDangerIndicator = payload.danger_indicator;
+          }
+          if (this.campaignName) {
+            if (this.hasLiveEncounter) {
+              this.encounterStorage.save(this.campaignName, {
+                round: this.round,
+                activeCombatantId: this.activeCombatantId,
+                combatants: this.combatants,
+              });
+            } else {
+              this.encounterStorage.clear(this.campaignName);
+            }
+          }
+        }
       } else if (msg.type === 'whisper') {
         const isOwnWhisper = payload.sender === 'DM';
         this.addInboxWhisper(payload, !isOwnWhisper);
@@ -868,6 +895,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   onCampaignSelect() {
     if (!this.campaignName || this.activeWorkspace === this.campaignName) return;
+    this.encounterGeneration += 1;
     const isFirstLoad = this.activeWorkspace === null;
     this.activeWorkspace = this.campaignName;
 
@@ -1622,6 +1650,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   endCombat() {
+    this.encounterGeneration += 1;
     this.combatants = [];
     this.activeCombatantId = null;
     this.round = 0;
@@ -2349,7 +2378,7 @@ export class DmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.http.delete(campaignUrl(this.campaignName, `party/${member.char_id}`)).subscribe({
+    this.http.delete(campaignUrl(this.campaignName, `party/${encodeURIComponent(member.char_id)}`)).subscribe({
       next: () => {
         this.rollToast.showMessage('👋 MEMBER REMOVED', `${member.name} has been removed from the campaign.`);
         this.loadParty();

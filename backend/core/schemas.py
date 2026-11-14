@@ -72,6 +72,7 @@ class Weapon(BaseModel):
     misc_damage_bonus: Optional[int] = 0
     damage_type: Optional[str] = ""
     conditional_effects: List[WeaponEffect] = Field(default_factory=list)
+    exhaustion_attack_penalty_applied: int = 0
 
     @field_validator("properties", "range", mode="before")
     @classmethod
@@ -344,6 +345,7 @@ class CharacterSchema(BaseModel):
     hit_dice_used: int = 0
     speed: int = 30
     base_speed: Optional[int] = None
+    base_hp_max: Optional[int] = None
     proficiency_bonus: int = 2
     base_stats: Optional[StatBlock] = None
     stats: StatBlock
@@ -673,6 +675,10 @@ class WhisperReportSchema(BaseModel):
 class SuccessResponseSchema(BaseModel):
     success: bool
     message: str
+
+
+class EncounterSyncResponseSchema(SuccessResponseSchema):
+    danger_indicator: Optional[str] = None
 
 
 class NpcResponse(BaseModel):

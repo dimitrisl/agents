@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   ElementRef,
@@ -12,6 +13,8 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { DomSanitizer, SafeStyle } from '@angular/platform-browser';
+import { Subscription } from 'rxjs';
 import { CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { AssetService } from '../../../core/services/asset.service';
@@ -246,6 +249,7 @@ import { environment } from '../../../../environments/environment';
               class="ruler-badge"
               [style.left.px]="(r.startPx.x + r.endPx.x) / 2"
               [style.top.px]="(r.startPx.y + r.endPx.y) / 2"
+              [style.transform]="'translate(-50%, -120%) scale(' + (1 / (zoomLevel || 1)) + ')'"
             >
               {{ r.feet }} ft ({{ r.cells }} sq)
             </div>
@@ -598,7 +602,7 @@ import { environment } from '../../../../environments/environment';
                 </div>
                 <div class="text-right text-micro text-muted">
                   <div>{{ h.activated_at | date:'medium' }}</div>
-                  <div class="text-[10px]">by user: {{ h.activated_by_user_id }}</div>
+                  <div class="text-micro opacity-75">by user: {{ h.activated_by_user_id }}</div>
                 </div>
               </div>
             </div>
@@ -751,6 +755,9 @@ import { environment } from '../../../../environments/environment';
     .token-label {
       position: absolute;
       bottom: -15px;
+      max-width: calc(100% + 14px);
+      overflow: hidden;
+      text-overflow: ellipsis;
       background: color-mix(in srgb, var(--color-surface) 85%, transparent);
       color: var(--color-ink);
       font-size: var(--text-micro);
@@ -772,6 +779,11 @@ import { environment } from '../../../../environments/environment';
     .vtt-token:hover .token-actions,
     .vtt-token:focus-within .token-actions {
       display: flex;
+    }
+    @media (hover: none) {
+      .vtt-token .token-actions {
+        display: flex;
+      }
     }
 
     .size-token-btn,
@@ -840,7 +852,17 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   @Input() activeCombatantId: string | null = null;
   @Input() campaignName?: string;
 
-  @ViewChild('fogCanvas') fogCanvasRef?: ElementRef<HTMLCanvasElement>;
+  private _fogCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('fogCanvas')
+  set fogCanvasRef(ref: ElementRef<HTMLCanvasElement> | undefined) {
+    this._fogCanvasRef = ref;
+    if (ref) {
+      requestAnimationFrame(() => this.renderFogCanvas());
+    }
+  }
+  get fogCanvasRef(): ElementRef<HTMLCanvasElement> | undefined {
+    return this._fogCanvasRef;
+  }
   @ViewChild('vttStage') vttStageRef?: ElementRef<HTMLDivElement>;
 
   wsService = inject(WebSocketService);
@@ -848,7 +870,13 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   private readonly assetService = inject(AssetService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly confirmDialog = inject(ForgeConfirmService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly sanitizer = inject(DomSanitizer);
   readonly vttState = this.wsService.vttState;
+
+  private mapBlobUrl: string | null = null;
+  private loadedMapSourceUrl: string | null = null;
+  private mapLoadSub?: Subscription;
 
   isMinimized = false;
   showMapModal = false;
@@ -939,6 +967,11 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   }
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.mapLoadSub?.unsubscribe();
+      this.revokeMapBlob();
+    });
+
     effect(() => {
       // Guard component effect: Only trigger renderFogCanvas when fog or grid dimensions change
       const state = this.vttState();
@@ -947,6 +980,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       const gridW = state?.grid?.width;
       const gridH = state?.grid?.height;
       const cellSize = state?.grid?.cell_size;
+      const bgUrl = state?.grid?.background_image_url;
+
+      this.syncMapBackgroundUrl(bgUrl);
 
       const revealedChanged = this.hasFogRevealedChanged(fogRevealed);
 
@@ -968,6 +1004,59 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     });
   }
 
+  private revokeMapBlob(): void {
+    if (this.mapBlobUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(this.mapBlobUrl);
+    }
+    this.mapBlobUrl = null;
+  }
+
+  private isProtectedAssetUrl(url: string): boolean {
+    return /\/api\/v1\/campaigns\/[^/]+\/assets\//.test(url);
+  }
+
+  private resolveAssetRequestUrl(url: string): string {
+    if (url.startsWith('/api/v1/') && environment.apiBaseUrl !== '/api/v1') {
+      return `${environment.apiBaseUrl}${url.slice('/api/v1'.length)}`;
+    }
+    return url;
+  }
+
+  private syncMapBackgroundUrl(url?: string): void {
+    const clean = (url || '').trim();
+    if (!clean || !this.isProtectedAssetUrl(clean)) {
+      if (this.loadedMapSourceUrl !== null || this.mapBlobUrl !== null) {
+        this.mapLoadSub?.unsubscribe();
+        this.loadedMapSourceUrl = null;
+        this.revokeMapBlob();
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    if (clean === this.loadedMapSourceUrl) return;
+
+    this.loadedMapSourceUrl = clean;
+    this.mapLoadSub?.unsubscribe();
+    this.revokeMapBlob();
+
+    const requestUrl = this.resolveAssetRequestUrl(clean);
+    this.mapLoadSub = this.http
+      .get(requestUrl, { responseType: 'blob' })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => {
+          if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return;
+          this.revokeMapBlob();
+          this.mapBlobUrl = URL.createObjectURL(blob);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.revokeMapBlob();
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
   ngOnInit(): void {}
 
   ngAfterViewInit(): void {
@@ -984,15 +1073,23 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     return (grid?.height || 30) * (grid?.cell_size || 50);
   }
 
-  getBackgroundImageStyle(): string {
-    const url = this.vttState()?.grid?.background_image_url;
+  getBackgroundImageStyle(): SafeStyle | string {
+    const url = (this.vttState()?.grid?.background_image_url || '').trim();
     if (!url) return 'none';
+    if (this.isProtectedAssetUrl(url)) {
+      return this.mapBlobUrl
+        ? this.sanitizer.bypassSecurityTrustStyle(`url("${this.mapBlobUrl}")`)
+        : 'none';
+    }
     const safeUrl = url.replace(/["\\\n\r]/g, '');
     return `url("${safeUrl}")`;
   }
 
   toggleMinimize(): void {
     this.isMinimized = !this.isMinimized;
+    if (!this.isMinimized) {
+      requestAnimationFrame(() => this.renderFogCanvas());
+    }
   }
 
   canMoveToken(token: VTTToken): boolean {
@@ -1010,9 +1107,10 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     // Snap to grid (cell_size) and clamp to canvas boundaries
     const cellSize = state?.grid?.cell_size || 50;
     const gridCols = state?.grid?.width || 30;
-    const gridRows = state?.grid?.height || 20;
-    const maxX = Math.max(0, (gridCols - 1) * cellSize);
-    const maxY = Math.max(0, (gridRows - 1) * cellSize);
+    const gridRows = state?.grid?.height || 30;
+    const tokenCells = this.getTokenScale(token);
+    const maxX = Math.max(0, (gridCols - tokenCells) * cellSize);
+    const maxY = Math.max(0, (gridRows - tokenCells) * cellSize);
 
     const rawSnappedX = Math.round(scaledX / cellSize) * cellSize;
     const rawSnappedY = Math.round(scaledY / cellSize) * cellSize;
@@ -1257,7 +1355,7 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
     const cellSize = state?.grid?.cell_size || 50;
     const gridCols = state?.grid?.width || 30;
-    const gridRows = state?.grid?.height || 20;
+    const gridRows = state?.grid?.height || 30;
     const spanCols = Math.max(1, Math.min(8, gridCols - 2));
     const slot = existingTokens.length;
     const col = 2 + (slot % spanCols);
@@ -1348,6 +1446,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     this.fogBrushMode = this.fogBrushMode === mode ? null : mode;
     if (this.fogBrushMode) {
       this.rulerMode = false;
+      this.isMeasuringRuler = false;
+      this.rulerStartCell = null;
+      this.rulerResult = null;
     }
     this.rectStartCol = null;
     this.rectStartRow = null;

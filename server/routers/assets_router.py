@@ -2,6 +2,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
@@ -72,8 +73,11 @@ async def upload_asset(
     }
     await db["campaign_assets"].insert_one(asset_doc)
 
+    from urllib.parse import quote
+
+    encoded_name = quote(name, safe="")
     return {
-        "url": f"/api/v1/campaigns/{name}/assets/{unique_filename}",
+        "url": f"/api/v1/campaigns/{encoded_name}/assets/{unique_filename}",
         "filename": unique_filename,
         "kind": asset_doc["kind"],
     }
@@ -92,6 +96,7 @@ async def list_assets(
         query["kind"] = kind
 
     cursor = db["campaign_assets"].find(query).sort("created_at", -1)
+    encoded_name = quote(name, safe="")
     assets = await cursor.to_list(length=200)
     result = []
     for a in assets:
@@ -104,7 +109,7 @@ async def list_assets(
                 "created_at": a.get("created_at").isoformat()
                 if isinstance(a.get("created_at"), datetime)
                 else str(a.get("created_at")),
-                "url": f"/api/v1/campaigns/{name}/assets/{a['filename']}",
+                "url": f"/api/v1/campaigns/{encoded_name}/assets/{a['filename']}",
             }
         )
     return result

@@ -24,8 +24,8 @@ The Angular 19 frontend uses a standalone component architecture powered by **An
 
 ### 2. Pure Client Rules Engine (`core/rules/`)
 Pure, deterministic TypeScript functions tested in isolation that mirror `backend/services/stats_service.py`:
-- [`ability.ts`](../../../client/src/app/core/rules/ability.ts), [`hit-points.ts`](../../../client/src/app/core/rules/hit-points.ts), [`skills.ts`](../../../client/src/app/core/rules/skills.ts): Ability modifiers, proficiency bonuses, HP bounds, and passive scores.
-- [`spell-casting.ts`](../../../client/src/app/core/rules/spell-casting.ts) & [`spell-slots.ts`](../../../client/src/app/core/rules/spell-slots.ts): Upcast damage/healing dice scaling, spell attack crits, and slot consumption.
+- [`ability.ts`](../../../client/src/app/core/rules/ability.ts), [`hit-points.ts`](../../../client/src/app/core/rules/hit-points.ts), [`skills.ts`](../../../client/src/app/core/rules/skills.ts): Ability modifiers, edition detection (`is2024Edition`), 2024 exhaustion D20 penalties (`exhaustionD20Penalty`), proficiency bonuses, HP bounds, and passive scores.
+- [`spell-casting.ts`](../../../client/src/app/core/rules/spell-casting.ts) & [`spell-slots.ts`](../../../client/src/app/core/rules/spell-slots.ts): Upcast damage/healing dice scaling, spell attack crits, and slot consumption/recovery (including synchronized `pact.used` tracking).
 - [`flexible-casting.ts`](../../../client/src/app/core/rules/flexible-casting.ts) & [`metamagic.ts`](../../../client/src/app/core/rules/metamagic.ts): Sorcerer spell slot $\leftrightarrow$ Sorcery Point conversions and Metamagic cost/effect rules.
 - [`weapon-calc.ts`](../../../client/src/app/core/rules/weapon-calc.ts) & [`weapon-masteries.ts`](../../../client/src/app/core/rules/weapon-masteries.ts): Weapon to-hit/damage calculation, conditional weapon effects (e.g., *vs undead*, *vs fiend*), and 2024 mastery triggers.
 - [`rest.ts`](../../../client/src/app/core/rules/rest.ts), [`level-up.ts`](../../../client/src/app/core/rules/level-up.ts), [`recommendations.ts`](../../../client/src/app/core/rules/recommendations.ts): Short/Long Rest recovery rules (including class resource pool resets), level-up progression helpers, and Background/Species mandatory grants (`getBackgroundSkills`, `getBackgroundOriginFeat`, `getRacialSkills`).
@@ -51,7 +51,7 @@ Pure, deterministic TypeScript functions tested in isolation that mirror `backen
   - [`paste-go-modal`](../../../client/src/app/features/dm/modals/paste-go-modal): AI extraction of raw pasted text into structured `CampaignEntitySchema` records.
   - [`loot-distribute-modal`](../../../client/src/app/features/dm/modals/loot-distribute-modal): Assigns items/currency directly to party member sheets.
 - **Virtual Tabletop (`features/campaigns/vtt-grid/`):**
-  - Integrated into the `🗺️ Tactical VTT Map` tab inside `Live DM` mode; features multi-scene battlemap canvas, grid calibration, drag-and-drop token movement with canvas boundary clamping (`[0, (cols - 1) * cellSize]`), hidden DM tokens, and interactive Fog of War polygon/cell reveal synced over WebSockets.
+  - Integrated into the `🗺️ Tactical VTT Map` tab inside `Live DM` mode; features multi-scene battlemap canvas, authenticated `HttpClient` Blob loading (`DomSanitizer.bypassSecurityTrustStyle`) for JWT-protected `/api/v1/campaigns/{name}/assets/` map images with object-URL cleanup, grid calibration, size-scaled drag-and-drop token boundary clamping, hidden DM tokens, reactive `#fogCanvas` remount redraw on maximize, and interactive Fog of War polygon/cell reveal synced over WebSockets.
 
 ---
 

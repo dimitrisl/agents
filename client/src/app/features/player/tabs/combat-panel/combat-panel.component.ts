@@ -36,6 +36,7 @@ import {
   extractMagicBonus,
   WeaponBreakdown,
 } from '../../../../core/rules/weapon-calc';
+import { exhaustionD20Penalty } from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
 
@@ -201,6 +202,12 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       combatant.hp > 0 &&
       combatant.hp <= combatant.max_hp / 2
     );
+  }
+
+  isCombatantDown(combatant: any): boolean {
+    if (!combatant) return false;
+    if (combatant.health_status === 'down') return true;
+    return typeof combatant.hp === 'number' && combatant.hp <= 0;
   }
 
   toggleActionEconomy(slot: 'action' | 'bonus' | 'reaction'): void {
@@ -474,6 +481,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     weapon.damage_dice = `${bd.damage.notation} ${bd.damage.damageType}`.trim();
     weapon.damage_bonus = this.dice.signed(bd.damage.totalBonus);
     weapon.magic_bonus = bd.attack.magicBonus;
+    weapon.exhaustion_attack_penalty_applied = exhaustionD20Penalty(this.char);
     this.save.emit();
     if (showToast) {
       this.rollToast.showMessage(

@@ -7,13 +7,20 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.constants import EDITION_2014, EDITION_2024
-from backend.core.schemas import LevelUpAnalysisSchema, LevelUpChoice
+from backend.core.schemas import (
+    LevelUpAnalysisSchema,
+    LevelUpChoice,
+    VTTGridSchema,
+    VTTStateSchema,
+    VTTTokenSchema,
+)
 from backend.services.rules_service import parse_character_from_text
 from backend.services.stats_service import (
     calculate_max_spell_slots,
     calculate_weapon_stats,
     sync_character_stats,
 )
+from backend.services.vtt_service import VTTService
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.main import app
@@ -65,6 +72,9 @@ class _AsyncColWrapper:
 
     async def update_one(self, *args, **kwargs):
         return self._col.update_one(*args, **kwargs)
+
+    async def find_one_and_update(self, *args, **kwargs):
+        return self._col.find_one_and_update(*args, **kwargs)
 
     async def delete_one(self, *args, **kwargs):
         return self._col.delete_one(*args, **kwargs)
@@ -163,29 +173,72 @@ def test_exhaustion_penalties_affect_skills_saves_attacks_dc_and_speed(edition):
         "char_level": 5,
         "dnd_edition": edition,
         "base_speed": 30,
+        "hp_max": 30,
+        "hp_current": 30,
         "stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 18, "WIS": 12, "CHA": 10},
         "skill_proficiencies": ["Arcana"],
-        "weapons": [{"name": "Dagger", "damage": "1d4 piercing"}],
+        "weapons": [
+            {"name": "Dagger", "damage": "1d4 piercing"},
+            {
+                "name": "Custom Wand-Blade",
+                "damage": "1d6 piercing",
+                "attack_bonus": "+7",
+                "is_custom": True,
+            },
+        ],
         "exhaustion_level": 0,
     }
     fresh = sync_character_stats(base_char)
     exh_2 = sync_character_stats({**base_char, "exhaustion_level": 2})
-    exh_6 = sync_character_stats({**base_char, "exhaustion_level": 6})
 
-    assert exh_2["speed"] == fresh["speed"] - 10
-    assert exh_2["skills"]["Arcana"] == fresh["skills"]["Arcana"] - 4
-    assert exh_2["saving_throw_values"]["INT"] == fresh["saving_throw_values"]["INT"] - 4
-    assert exh_2["spell_save_dc"] == fresh["spell_save_dc"] - 4
+    # Per both 2014 & 2024 rules, exhaustion never penalizes caster's spell save DC
+    assert exh_2["spell_save_dc"] == fresh["spell_save_dc"]
 
     fresh_spell_atk = int(str(fresh["spell_attack_bonus"]).replace("+", ""))
     exh2_spell_atk = int(str(exh_2["spell_attack_bonus"]).replace("+", ""))
-    assert exh2_spell_atk == fresh_spell_atk - 4
-
     fresh_wpn_atk = int(str(fresh["weapons"][0]["attack_bonus"]).replace("+", ""))
     exh2_wpn_atk = int(str(exh_2["weapons"][0]["attack_bonus"]).replace("+", ""))
-    assert exh2_wpn_atk == fresh_wpn_atk - 4
 
-    assert exh_6["speed"] == 0
+    if edition == EDITION_2024:
+        assert exh_2["speed"] == fresh["speed"] - 10
+        assert exh_2["skills"]["Arcana"] == fresh["skills"]["Arcana"] - 4
+        assert exh_2["saving_throw_values"]["INT"] == fresh["saving_throw_values"]["INT"] - 4
+        assert exh_2["initiative_modifier"] == fresh["initiative_modifier"] - 4
+        assert exh2_spell_atk == fresh_spell_atk - 4
+        assert exh2_wpn_atk == fresh_wpn_atk - 4
+
+        # Custom weapons must apply -4 exactly once across repeated saves (no compound decay)
+        custom_after_1 = sync_character_stats({**base_char, "exhaustion_level": 2})
+        custom_after_2 = sync_character_stats(custom_after_1)
+        custom_after_3 = sync_character_stats(custom_after_2)
+        assert custom_after_1["weapons"][1]["attack_bonus"] == "+3"
+        assert custom_after_2["weapons"][1]["attack_bonus"] == "+3"
+        assert custom_after_3["weapons"][1]["attack_bonus"] == "+3"
+        # Clearing exhaustion restores the custom weapon attack bonus to +7
+        restored = sync_character_stats({**custom_after_3, "exhaustion_level": 0})
+        assert restored["weapons"][1]["attack_bonus"] == "+7"
+
+        exh_6 = sync_character_stats({**base_char, "exhaustion_level": 6})
+        assert exh_6["speed"] == 0
+    else:
+        # 2014 PHB exhaustion: speed halved at L2, speed 0 at L5, HP max halved at L4, no -2/lvl D20 penalty
+        assert exh_2["speed"] == fresh["speed"] // 2
+        assert exh_2["skills"]["Arcana"] == fresh["skills"]["Arcana"]
+        assert exh_2["saving_throw_values"]["INT"] == fresh["saving_throw_values"]["INT"]
+        assert exh_2["initiative_modifier"] == fresh["initiative_modifier"]
+        assert exh2_spell_atk == fresh_spell_atk
+        assert exh2_wpn_atk == fresh_wpn_atk
+
+        exh_4 = sync_character_stats({**base_char, "exhaustion_level": 4})
+        assert exh_4["hp_max"] == 15
+        assert exh_4["base_hp_max"] == 30
+        exh_4_repeat = sync_character_stats(exh_4)
+        assert exh_4_repeat["hp_max"] == 15
+        restored_hp = sync_character_stats({**exh_4_repeat, "exhaustion_level": 3})
+        assert restored_hp["hp_max"] == 30
+
+        exh_5 = sync_character_stats({**base_char, "exhaustion_level": 5})
+        assert exh_5["speed"] == 0
 
 
 def test_party_long_rest_restores_party_and_reduces_exhaustion(monkeypatch):
@@ -202,21 +255,52 @@ def test_party_long_rest_restores_party_and_reduces_exhaustion(monkeypatch):
             {"campaign_id": campaign, "user_id": "p_1", "role": "player"},
         ]
     )
-    raw_db["characters"].insert_one(
-        {
-            "char_id": "hero_1",
-            "char_name": "Elesh",
-            "active_campaign": campaign,
-            "hp_current": 11,
-            "hp_max": 45,
-            "hp_temp": 6,
-            "hit_dice_used": 3,
-            "concentrating_on": "Bless",
-            "death_saves": {"successes": 2, "failures": 1},
-            "exhaustion_level": 3,
-            "spell_slots": {"level_1": {"max": 4, "used": 3}},
-            "version": 4,
-        }
+    raw_db["characters"].insert_many(
+        [
+            {
+                "char_id": "hero_1",
+                "char_name": "Elesh",
+                "char_class": "Cleric",
+                "char_level": 5,
+                "dnd_edition": EDITION_2014,
+                "active_campaign": campaign,
+                "hp_current": 11,
+                "hp_max": 22,
+                "base_hp_max": 45,
+                "hp_temp": 6,
+                "hit_dice_used": 4,
+                "concentrating_on": "Bless",
+                "death_saves": {"successes": 2, "failures": 1},
+                "exhaustion_level": 4,
+                "spell_slots": {"level_1": {"max": 4, "used": 3}},
+                "class_resources": [{"name": "Channel Divinity", "max": 2, "current": 0}],
+                "version": 4,
+            },
+            {
+                "char_id": "hero_2",
+                "char_name": "Vael",
+                "char_class": "Warlock",
+                "char_level": 5,
+                "dnd_edition": EDITION_2024,
+                "active_campaign": campaign,
+                "base_speed": 30,
+                "speed": 20,
+                "stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+                "base_stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+                "hp_current": 10,
+                "hp_max": 40,
+                "hp_temp": 0,
+                "hit_dice_used": 4,
+                "concentrating_on": None,
+                "death_saves": {"successes": 0, "failures": 0},
+                "exhaustion_level": 2,
+                "spell_slots": {
+                    "pact": {"max": 2, "used": 2, "level": 3},
+                    "level_1": {"max": 4, "used": 1},
+                },
+                "version": 2,
+            },
+        ]
     )
 
     broadcasts = []
@@ -237,15 +321,28 @@ def test_party_long_rest_restores_party_and_reduces_exhaustion(monkeypatch):
         resp = client.post(f"/api/v1/campaigns/{campaign}/party/long-rest")
         assert resp.status_code == 200
 
-        updated = raw_db["characters"].find_one({"char_id": "hero_1"})
-        assert updated["hp_current"] == 45
-        assert updated["hp_temp"] == 0
-        assert updated["hit_dice_used"] == 0
-        assert updated["concentrating_on"] is None
-        assert updated["death_saves"] == {"successes": 0, "failures": 0}
-        assert updated["exhaustion_level"] == 2
-        assert updated["spell_slots"]["level_1"]["used"] == 0
-        assert updated["version"] == 5
+        updated_2014 = raw_db["characters"].find_one({"char_id": "hero_1"})
+        assert updated_2014["exhaustion_level"] == 3
+        assert updated_2014["hp_max"] == 45
+        assert updated_2014["hp_current"] == 45
+        assert updated_2014["hp_temp"] == 0
+        # 2014 PHB: recover up to half total Hit Dice (max(1, 5 // 2) = 2), so 4 -> 2
+        assert updated_2014["hit_dice_used"] == 2
+        assert updated_2014["concentrating_on"] is None
+        assert updated_2014["death_saves"] == {"successes": 0, "failures": 0}
+        assert updated_2014["spell_slots"]["level_1"]["used"] == 0
+        assert updated_2014["class_resources"][0]["current"] == 2
+        assert updated_2014["version"] == 5
+
+        updated_2024 = raw_db["characters"].find_one({"char_id": "hero_2"})
+        assert updated_2024["exhaustion_level"] == 1
+        assert updated_2024["speed"] == 25
+        # 2024 PHB: regain all spent Hit Dice on a Long Rest
+        assert updated_2024["hit_dice_used"] == 0
+        assert updated_2024["spell_slots"]["pact"]["used"] == 0
+        assert updated_2024["spell_slots"]["level_1"]["used"] == 0
+        assert updated_2024["version"] == 3
+
         assert broadcasts[0][1]["payload"]["action"] == "long_rest"
 
         # Player cannot invoke DM Long Rest
@@ -521,4 +618,259 @@ def test_pdf_import_detects_2024_edition_markers():
         )
 
     assert result is not None
-    assert "2024 Edition" in captured_prompts[0]
+    assert EDITION_2024 in captured_prompts[0]
+
+
+# ---------------------------------------------------------------------------
+# QA Consolidation Regression Tests (VTT Redaction, Encounter, Journey, Assets, Invite Code)
+# ---------------------------------------------------------------------------
+
+
+def test_vtt_redact_for_player_strips_enemy_hp_and_max_hp():
+    state = VTTStateSchema(
+        campaign_name="Citadel",
+        grid=VTTGridSchema(width=20, height=20, cell_size=50),
+        tokens=[
+            VTTTokenSchema(id="hero_tok", name="Elesh", x=0, y=0, hp=34, max_hp=40, is_enemy=False),
+            VTTTokenSchema(
+                id="goblin_tok", name="Goblin", x=50, y=50, hp=5, max_hp=7, is_enemy=True
+            ),
+            VTTTokenSchema(
+                id="hidden_tok",
+                name="Assassin",
+                x=100,
+                y=100,
+                hp=45,
+                max_hp=78,
+                is_enemy=True,
+                is_hidden=True,
+            ),
+        ],
+    )
+    redacted = VTTService.redact_for_player(state, player_character_name="Elesh")
+    token_map = {t.id: t for t in redacted.tokens}
+
+    assert "hidden_tok" not in token_map
+    assert token_map["hero_tok"].hp == 34
+    assert token_map["hero_tok"].max_hp == 40
+    assert token_map["goblin_tok"].hp is None
+    assert token_map["goblin_tok"].max_hp is None
+
+
+def test_post_encounter_returns_danger_indicator_and_redacts_player_view(monkeypatch):
+    limiter.reset()
+    mock_client = mongomock.MongoClient()
+    raw_db = mock_client["test_encounter_qa_db"]
+    db = _AsyncDBWrapper(raw_db)
+
+    campaign = "Citadel"
+    raw_db["campaigns"].insert_one(
+        {"campaign_name": campaign, "owner_id": "dm_1", "dnd_edition": EDITION_2024}
+    )
+    raw_db["campaign_members"].insert_many(
+        [
+            {"campaign_id": campaign, "user_id": "dm_1", "role": "dm"},
+            {"campaign_id": campaign, "user_id": "p_1", "role": "player"},
+        ]
+    )
+
+    from server.routers import websocket_router
+
+    monkeypatch.setattr(websocket_router.manager, "broadcast", AsyncMock())
+
+    current_user = {"id": "dm_1", "username": "dm"}
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            f"/api/v1/campaigns/{campaign}/encounter",
+            json={
+                "round": 1,
+                "activeCombatantId": "m1",
+                "combatants": [
+                    {
+                        "id": "m1",
+                        "name": "Hobgoblin",
+                        "hp": 5,
+                        "max_hp": 11,
+                        "ac": 18,
+                        "initiative": 12,
+                        "dex": 12,
+                        "is_player": False,
+                        "cr": "1/2",
+                    }
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        assert "danger_indicator" in body
+
+        dm_get = client.get(f"/api/v1/campaigns/{campaign}/encounter")
+        assert dm_get.status_code == 200
+        assert dm_get.json()["combatants"][0]["hp"] == 5
+
+        current_user["id"] = "p_1"
+        player_get = client.get(f"/api/v1/campaigns/{campaign}/encounter")
+        assert player_get.status_code == 200
+        redacted_monster = player_get.json()["combatants"][0]
+        assert redacted_monster["hp"] is None
+        assert redacted_monster["max_hp"] is None
+        assert redacted_monster["ac"] is None
+        assert redacted_monster["cr"] is None
+        assert redacted_monster["health_status"] == "bloodied"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_generate_journey_filters_unrevealed_sessions_for_players():
+    limiter.reset()
+    mock_client = mongomock.MongoClient()
+    raw_db = mock_client["test_journey_qa_db"]
+    db = _AsyncDBWrapper(raw_db)
+
+    campaign = "Citadel"
+    raw_db["campaigns"].insert_one({"campaign_name": campaign, "owner_id": "dm_1"})
+    raw_db["campaign_members"].insert_many(
+        [
+            {"campaign_id": campaign, "user_id": "dm_1", "role": "dm"},
+            {"campaign_id": campaign, "user_id": "p_1", "role": "player"},
+        ]
+    )
+    raw_db["session_logs"].insert_many(
+        [
+            {
+                "campaign_name": campaign,
+                "session_number": 1,
+                "title": "Public Tavern",
+                "summary": "Met the guild.",
+                "is_revealed": True,
+            },
+            {
+                "campaign_name": campaign,
+                "session_number": 2,
+                "title": "Secret Lair",
+                "summary": "DM spoiler plot.",
+                "is_revealed": False,
+            },
+        ]
+    )
+
+    seen_counts = []
+
+    def _fake_journey(sessions):
+        seen_counts.append([s["title"] for s in sessions])
+        return {"nodes": [{"label": s["title"]} for s in sessions]}
+
+    current_user = {"id": "p_1", "username": "player"}
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    try:
+        client = TestClient(app)
+        with patch(
+            "server.routers.session_router.session_service.generate_journey_graph",
+            side_effect=_fake_journey,
+        ):
+            player_resp = client.post(f"/api/v1/campaigns/{campaign}/sessions/journey")
+            assert player_resp.status_code == 200
+            assert seen_counts[-1] == ["Public Tavern"]
+
+            current_user["id"] = "dm_1"
+            dm_resp = client.post(f"/api/v1/campaigns/{campaign}/sessions/journey")
+            assert dm_resp.status_code == 200
+            assert seen_counts[-1] == ["Public Tavern", "Secret Lair"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_assets_upload_and_list_url_encode_campaign_name(tmp_path, monkeypatch):
+    limiter.reset()
+    mock_client = mongomock.MongoClient()
+    raw_db = mock_client["test_assets_qa_db"]
+    db = _AsyncDBWrapper(raw_db)
+
+    campaign = "Dark Citadel"
+    raw_db["campaigns"].insert_one({"campaign_name": campaign, "owner_id": "dm_1"})
+    raw_db["campaign_members"].insert_one(
+        {"campaign_id": campaign, "user_id": "dm_1", "role": "dm"}
+    )
+
+    from server.routers import assets_router
+
+    monkeypatch.setattr(assets_router, "ASSETS_DIR", str(tmp_path))
+
+    current_user = {"id": "dm_1", "username": "dm"}
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    try:
+        client = TestClient(app)
+        png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        up_resp = client.post(
+            "/api/v1/campaigns/Dark%20Citadel/assets",
+            files={"file": ("battlemap.png", png_bytes, "image/png")},
+            data={"kind": "map"},
+        )
+        assert up_resp.status_code == 200
+        uploaded = up_resp.json()
+        assert uploaded["url"].startswith("/api/v1/campaigns/Dark%20Citadel/assets/")
+
+        list_resp = client.get("/api/v1/campaigns/Dark%20Citadel/assets?kind=map")
+        assert list_resp.status_code == 200
+        items = list_resp.json()
+        assert len(items) == 1
+        assert items[0]["url"] == uploaded["url"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_join_campaign_preserves_mixed_case_invite_codes():
+    limiter.reset()
+    mock_client = mongomock.MongoClient()
+    raw_db = mock_client["test_join_qa_db"]
+    db = _AsyncDBWrapper(raw_db)
+
+    campaign = "Citadel"
+    raw_db["campaigns"].insert_one(
+        {
+            "campaign_name": campaign,
+            "owner_id": "dm_1",
+            "invite_code": "AbC9xYz_1234qRsT",
+        }
+    )
+    raw_db["characters"].insert_many(
+        [
+            {"char_id": "char_p1", "char_name": "Kael", "owner_id": "p_1"},
+            {"char_id": "char_p2", "char_name": "Lyra", "owner_id": "p_2"},
+        ]
+    )
+
+    current_user = {"id": "p_1", "username": "player1"}
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    try:
+        client = TestClient(app)
+        resp_exact = client.post(
+            "/api/v1/campaigns/join",
+            json={"invite_code": "AbC9xYz_1234qRsT", "character_id": "char_p1"},
+        )
+        assert resp_exact.status_code == 200
+        assert resp_exact.json()["campaign_name"] == campaign
+
+        current_user["id"] = "p_2"
+        current_user["username"] = "player2"
+        resp_ci = client.post(
+            "/api/v1/campaigns/join",
+            json={"invite_code": "abc9xyz_1234qrst", "character_id": "char_p2"},
+        )
+        assert resp_ci.status_code == 200
+        assert resp_ci.json()["campaign_name"] == campaign
+
+        resp_bad = client.post(
+            "/api/v1/campaigns/join",
+            json={"invite_code": "WrongCode", "character_id": "char_p2"},
+        )
+        assert resp_bad.status_code == 404
+    finally:
+        app.dependency_overrides.clear()

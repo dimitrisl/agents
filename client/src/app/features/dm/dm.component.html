@@ -319,6 +319,7 @@
             }
             <app-vtt-grid
               #vttGrid
+              *ngIf="campaignName"
               role="dm"
               [combatants]="combatants"
               [activeCombatantId]="activeCombatantId"

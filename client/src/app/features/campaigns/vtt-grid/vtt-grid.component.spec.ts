@@ -444,4 +444,87 @@ describe('VttGridComponent', () => {
     expect(component.rulerMode).toBe(false);
     expect(component.rulerResult).toBeNull();
   });
+
+  it('loads protected campaign asset maps via HttpClient blob and revokes object URLs cleanly', () => {
+    const fixture = TestBed.createComponent(VttGridComponent);
+    component = fixture.componentInstance;
+    component.campaignName = 'TestCampaign';
+
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    (URL as any).createObjectURL = jest.fn(() => 'blob:http://localhost/fake-map-1');
+    (URL as any).revokeObjectURL = jest.fn();
+
+    try {
+      wsService.vttState.set({
+        is_active: true,
+        grid: {
+          width: 20,
+          height: 20,
+          cell_size: 50,
+          background_image_url: '/api/v1/campaigns/TestCampaign/assets/dungeon.png',
+        },
+        tokens: [],
+      });
+      fixture.detectChanges();
+
+      const req = http.expectOne(
+        `${environment.apiBaseUrl}/campaigns/TestCampaign/assets/dungeon.png`
+      );
+      expect(req.request.responseType).toBe('blob');
+      req.flush(new Blob(['png'], { type: 'image/png' }));
+
+      const bgStyle = component.getBackgroundImageStyle();
+      expect(String((bgStyle as any).changingThisBreaksApplicationSecurity || bgStyle)).toContain(
+        'blob:http://localhost/fake-map-1'
+      );
+
+      // Clearing protected map revokes the previous blob URL
+      wsService.vttState.set({
+        is_active: true,
+        grid: { width: 20, height: 20, cell_size: 50, background_image_url: '' },
+        tokens: [],
+      });
+      fixture.detectChanges();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/fake-map-1');
+    } finally {
+      (URL as any).createObjectURL = originalCreate;
+      (URL as any).revokeObjectURL = originalRevoke;
+      fixture.destroy();
+    }
+  });
+
+  it('clears rulerResult when switching to fog brush and redraws fog canvas after expand', () => {
+    jest.useFakeTimers();
+    const fixture = TestBed.createComponent(VttGridComponent);
+    component = fixture.componentInstance;
+    component.campaignName = 'TestCampaign';
+    component.role = 'dm';
+    wsService.vttState.set({
+      is_active: true,
+      grid: { width: 10, height: 10, cell_size: 50 },
+      tokens: [],
+      fog: { enabled: true, revealed: [0, 1] },
+    });
+    fixture.detectChanges();
+
+    component.rulerResult = { cells: 3, feet: 15, x1: 0, y1: 0, x2: 150, y2: 100 };
+    component.setFogBrush('reveal');
+    expect(component.rulerMode).toBe(false);
+    expect(component.rulerResult).toBeNull();
+
+    // Minimize hides canvas; expanding remounts ViewChild setter and schedules fog redraw
+    component.isMinimized = true;
+    fixture.detectChanges();
+    mockCtx.fillRect.mockClear();
+
+    component.isMinimized = false;
+    fixture.detectChanges();
+    jest.runAllTimers();
+    expect(mockCtx.clearRect).toHaveBeenCalled();
+    expect(mockCtx.fillRect).toHaveBeenCalled();
+
+    fixture.destroy();
+    jest.useRealTimers();
+  });
 });

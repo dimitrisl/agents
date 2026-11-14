@@ -54,6 +54,20 @@ export function proficiencyBonusForLevel(level: number): number {
   return Math.floor((Math.max(1, level) - 1) / 4) + 2;
 }
 
+export function is2024Edition(char: CharacterSchema | null | undefined): boolean {
+  return (
+    String(char?.dnd_edition || '').includes('2024') ||
+    String(char?.ruleset_version || '').includes('2024')
+  );
+}
+
+/** 2024 PHB Exhaustion gives -2 per level to all D20 Tests (checks, saves, attacks). */
+export function exhaustionD20Penalty(char: CharacterSchema | null | undefined): number {
+  if (!char || !is2024Edition(char)) return 0;
+  const level = Math.max(0, Math.min(6, Math.floor(Number(char.exhaustion_level) || 0)));
+  return level * 2;
+}
+
 export function isSaveProficient(
   char: CharacterSchema | null | undefined,
   ability: string
@@ -75,6 +89,7 @@ export function savingThrowModifier(
 
   return (
     abilityModifierOf(char, ability) +
-    (isSaveProficient(char, ability) ? proficiencyBonus(char) : 0)
+    (isSaveProficient(char, ability) ? proficiencyBonus(char) : 0) -
+    exhaustionD20Penalty(char)
   );
 }

@@ -758,9 +758,9 @@
       </section>
     </div>
 
-    <!-- VTT Grid ONLY when NOT in Companion Mode (#170) -->
+    <!-- VTT Grid ONLY when NOT in Companion Mode and joined to a campaign (#170) -->
     <app-vtt-grid
-      *ngIf="!isCompanionMode()"
+      *ngIf="!isCompanionMode() && !!charState.activeCharacter()?.active_campaign"
       role="player"
       [characterName]="charState.activeCharacter()?.char_name"
       [campaignName]="charState.activeCharacter()?.active_campaign"
@@ -1043,7 +1043,7 @@
                   <span class="message-kind">
                     {{ isOwnWhisper(entry.whisper) ? 'You (' + char.char_name + ')' : entry.whisper.sender }}
                   </span>
-                  <span *ngIf="entry.whisper.sender_deleted || (isOwnWhisper(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-error font-medium">
+                  <span *ngIf="entry.whisper.sender_deleted || (isOwnWhisper(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-red font-medium">
                     (Διαγραμμένος χρήστης)
                   </span>
                   <time class="shrink-0 text-micro text-muted">
@@ -1060,7 +1060,7 @@
                   <button
                     *ngIf="!isOwnWhisper(entry.whisper) && !entry.whisper.has_open_report"
                     type="button"
-                    class="text-error/70 hover:text-error text-micro hover:underline cursor-pointer"
+                    class="text-red/70 hover:text-red text-micro hover:underline cursor-pointer"
                     (click)="reportWhisper(entry.whisper)"
                     title="Report whisper to moderators"
                   >

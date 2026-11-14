@@ -91,7 +91,7 @@
             Traits
           </h4>
           <div class="space-y-2">
-            @for (trait of selectedStatblockCombatant.traits; track trait.name) {
+            @for (trait of selectedStatblockCombatant.traits; track $index) {
               <div class="rounded-lg bg-surface/40 p-2.5 border border-hairline text-body">
                 <strong class="font-bold text-ink">{{ trait.name }}.</strong>
                 <span class="text-ink/90 ml-1">{{ trait.description || trait.desc }}</span>
@@ -109,7 +109,7 @@
               {{ section.title }}
             </h4>
             <div class="space-y-3">
-              @for (action of section.items; track action.name) {
+              @for (action of section.items; track $index) {
                 <div class="rounded-lg bg-surface/40 p-3 border border-hairline flex flex-col gap-2">
                   <div class="flex flex-wrap items-center justify-between gap-2">
                     <span class="font-bold text-ink text-body flex items-center gap-1.5">

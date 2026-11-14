@@ -112,7 +112,7 @@
             encounterState.activeCombatantId === combatant.id,
           'border-hairline bg-surface text-muted':
             encounterState.activeCombatantId !== combatant.id,
-          'opacity-50 grayscale': combatant.hp <= 0,
+          'opacity-50 grayscale': isCombatantDown(combatant),
         }"
       >
         <div class="text-metric mb-1 font-black font-display">
@@ -142,7 +142,7 @@
           🩸 Bloodied
         </div>
         <div
-          *ngIf="combatant.hp <= 0 || combatant.health_status === 'down'"
+          *ngIf="isCombatantDown(combatant)"
           class="text-micro text-crimson font-bold uppercase mt-1 tracking-widest"
         >
           Down

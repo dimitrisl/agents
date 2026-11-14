@@ -208,7 +208,10 @@ class GeminiProvider(LLMProvider):
             return response.text
         except Exception as e:
             _raise_for_quota(str(e))
-            raise HTTPException(status_code=500, detail=f"Failed to generate from files: {str(e)}")
+            logger.error("Failed to generate response from files: %s", e, exc_info=True)
+            raise HTTPException(
+                status_code=500, detail="Failed to generate AI response from files."
+            )
 
     def upload_file(self, file_path: str) -> str:
         if not self.client:

@@ -90,7 +90,9 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
     - **Class & Starting Loadout Fallback:** Deterministically injects all class and active subclass features up to `char_level` and populates canonical starting weapons, armor/equipment, languages, and spellcaster cantrips/prepared spells whenever omitted during character forging.
 
 12. **Exhaustion (`exhaustion_level`) & Epic Boon ASI Cap:**
-    - `exhaustion_level` is clamped to `[0, 6]` in [`backend/services/stats_service.py`](../../../backend/services/stats_service.py) (`sync_character_stats`): applies a `-5 * exhaustion_level` ft speed penalty and `exhaustion_penalty = 2 * exhaustion_level` to skills, saving throws, weapon attack bonuses, `spell_save_dc`, and `spell_attack_bonus`.
+    - `exhaustion_level` is clamped to `[0, 6]` in [`backend/services/stats_service.py`](../../../backend/services/stats_service.py) (`sync_character_stats`) and mirrored in [`client/src/app/core/rules/ability.ts`](../../../client/src/app/core/rules/ability.ts), [`skills.ts`](../../../client/src/app/core/rules/skills.ts), [`weapon-calc.ts`](../../../client/src/app/core/rules/weapon-calc.ts), and [`rest.ts`](../../../client/src/app/core/rules/rest.ts):
+      - **2024 Revision (5.5e):** Applies `-5 * exhaustion_level` ft speed (reaching `0` at L6) and `-2 * exhaustion_level` penalty to **D20 Tests only** (skills, saving throws, Initiative, weapon attack rolls, spell attack rolls); **`spell_save_dc` is NOT penalized**. Custom weapons (`is_custom: true`) track applied deltas via `exhaustion_attack_penalty_applied` so repeated saves never compound-decay.
+      - **2014 Edition:** Applies half speed at L2+, speed `0` at L5+, and halves `hp_max` at L4+ (preserving the unhalved ceiling in `base_hp_max` for lossless restoration when exhaustion drops below L4); **no** `-2/lvl` D20 penalty applies.
     - **Level 19+ Epic Boon Cap:** [`POST /forge/level-up-apply`](../../../server/routers/forge_router.py) enforces `stat_cap = 30` when `char_level >= 19` and `"2024" in dnd_edition`, else `20`.
 
 ---

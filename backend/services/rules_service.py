@@ -639,7 +639,7 @@ def parse_character_from_text(
         or "weapon mastery" in bounded_text.lower()
         or "origin feat" in bounded_text.lower()
     ):
-        edition = "2024 Edition"
+        edition = EDITION_2024
 
     logger.info(f"Starting Chained Character Parsing (Edition: {edition}, Step 1: Core Stats)...")
 
