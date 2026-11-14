@@ -89,7 +89,9 @@ class GeminiProvider(LLMProvider):
             logger.warning(f"Failed to fetch model list, defaulting to {fallback}. Error: {e}")
             return fallback[7:] if fallback.startswith("models/") else fallback
 
-    def generate_text(self, prompt: str, temperature: Optional[float] = None) -> str:
+    def generate_text(
+        self, prompt: str, temperature: Optional[float] = None, use_cache: bool = True
+    ) -> str:
         if not self.client:
             raise HTTPException(
                 status_code=500, detail="GEMINI_API_KEY is missing in your .env file."
@@ -97,11 +99,13 @@ class GeminiProvider(LLMProvider):
 
         if temperature is None:
             temperature = get_ai_settings().get("temperature")
+        model = self._get_model()
+        if not use_cache:
+            return self._generate_text_uncached(prompt, model, temperature)
         # Model is part of the cache key: users can pick different models.
-        return self._generate_text_cached(prompt, self._get_model(), temperature)
+        return self._generate_text_cached(prompt, model, temperature)
 
-    @lru_cache(maxsize=100)
-    def _generate_text_cached(self, prompt: str, model: str, temperature: Optional[float]) -> str:
+    def _generate_text_uncached(self, prompt: str, model: str, temperature: Optional[float]) -> str:
         try:
             response = self.client.models.generate_content(
                 model=model,
@@ -110,7 +114,7 @@ class GeminiProvider(LLMProvider):
                     temperature=temperature,
                 ),
             )
-            return response.text
+            return response.text or ""
         except Exception as e:
             error_msg = str(e)
             if "503" in error_msg or "high demand" in error_msg.lower():
@@ -120,7 +124,11 @@ class GeminiProvider(LLMProvider):
                 )
             _raise_for_quota(error_msg)
             logger.error(f"Failed to generate response: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to generate response: {error_msg}")
+            raise HTTPException(status_code=500, detail="Failed to generate AI response.")
+
+    @lru_cache(maxsize=100)
+    def _generate_text_cached(self, prompt: str, model: str, temperature: Optional[float]) -> str:
+        return self._generate_text_uncached(prompt, model, temperature)
 
     def generate_json(
         self,

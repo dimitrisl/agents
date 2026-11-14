@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -69,7 +70,7 @@ describe('PlayerComponent — DM roll requests', () => {
       opened$,
       connect: () => undefined,
       disconnect: () => undefined,
-      sendMessage: () => undefined,
+      sendMessage: () => true,
     };
 
     TestBed.configureTestingModule({
@@ -1017,5 +1018,59 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(component.activeRollPrompt).toBeNull();
       expect(toastService.activeRoll()?.title).toBe('🎲 ROLL REQUEST → Lyra Meadowlark');
     });
+  });
+});
+
+describe('PlayerComponent — WebSocket stability (#235)', () => {
+  it('does not reconnect WebSocket when HP or version updates for the same active hero and campaign', () => {
+    jest.useFakeTimers();
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+    const connect = jest.fn();
+    const disconnect = jest.fn();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect,
+            disconnect,
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({ ...HERO });
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledWith('Curse of Strahd', { character: 'Lyra Meadowlark' });
+    expect(disconnect).not.toHaveBeenCalled();
+
+    // Editing HP or bumping version on the same hero/campaign must not tear down the socket.
+    charState.activeCharacter.set({ ...HERO, hp_current: 21, version: 3 } as CharacterSchema);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(disconnect).not.toHaveBeenCalled();
+
+    http.match(() => true).forEach((req) => req.flush({}));
+    fixture.destroy();
+    jest.useRealTimers();
   });
 });

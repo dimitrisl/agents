@@ -89,6 +89,15 @@ async def generate_portrait_url(
             response = await client.get(image_url, timeout=15.0)
             response.raise_for_status()
 
+        content_type = (response.headers.get("content-type") or "").lower()
+        if content_type and not content_type.startswith("image/"):
+            logger.warning(f"Rejected non-image portrait content-type: {content_type}")
+            return None
+        max_image_bytes = 10 * 1024 * 1024
+        if len(response.content) > max_image_bytes:
+            logger.warning(f"Rejected oversized portrait payload ({len(response.content)} bytes)")
+            return None
+
         # Save locally
         import time
 

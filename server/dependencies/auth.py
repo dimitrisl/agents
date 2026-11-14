@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import hmac
 import time
 from typing import Dict, Optional
 
@@ -53,7 +54,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     if not hashed_password:
         return False
     # Check legacy sha256 hash first
-    if hashed_password == legacy_sha256_hash(plain_password):
+    if hmac.compare_digest(hashed_password, legacy_sha256_hash(plain_password)):
         return True
     try:
         return pwd_context.verify(plain_password, hashed_password)

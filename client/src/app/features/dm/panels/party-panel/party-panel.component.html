@@ -22,6 +22,17 @@
         >
           💰 Distribute Loot
         </button>
+        <button
+          *ngIf="partyMembers.length > 0"
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          type="button"
+          (click)="longRest.emit()"
+        >
+          ⛺ Long Rest
+        </button>
       </div>
     </div>
 
@@ -102,8 +113,31 @@
           <div class="min-w-0">
             <div class="flex items-center justify-between gap-2">
               <span class="text-micro font-semibold uppercase text-muted">Hit Points</span>
-              <span class="text-label text-muted">{{ member.hp_current }} / {{ member.hp_max }}</span>
+              <span class="text-label text-muted">
+                {{ member.hp_current }} / {{ member.hp_max }}
+                @if ((member.hp_temp ?? 0) > 0) {
+                  <span class="text-accent font-semibold"> (+{{ member.hp_temp }} Temp)</span>
+                }
+              </span>
             </div>
+            @if (member.inspiration || (member.exhaustion_level ?? 0) > 0 || member.concentrating_on || (member.hp_current <= 0 && member.death_saves)) {
+              <div class="mt-1.5 flex flex-wrap gap-1.5">
+                @if (member.inspiration) {
+                  <forge-badge tone="accent" size="sm">✨ Inspired</forge-badge>
+                }
+                @if ((member.exhaustion_level ?? 0) > 0) {
+                  <forge-badge tone="danger" size="sm">🥱 Exhaustion {{ member.exhaustion_level }}</forge-badge>
+                }
+                @if (member.concentrating_on) {
+                  <forge-badge tone="accent" size="sm">🧠 {{ member.concentrating_on }}</forge-badge>
+                }
+                @if (member.hp_current <= 0 && member.death_saves) {
+                  <forge-badge tone="danger" size="sm">
+                    💀 Saves: {{ member.death_saves.successes }}✓ / {{ member.death_saves.failures }}✗
+                  </forge-badge>
+                }
+              </div>
+            }
 
             <div class="mt-2 flex min-w-0 items-center gap-2">
               <button

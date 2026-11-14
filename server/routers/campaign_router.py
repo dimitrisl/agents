@@ -1,3 +1,4 @@
+import copy
 import datetime
 import inspect
 import logging
@@ -9,7 +10,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import (
@@ -61,6 +62,13 @@ class CampaignSchema(BaseModel):
     vtt_state: Optional[VTTStateSchema] = None
     member_count: int = 1
 
+    @field_validator("campaign_name")
+    @classmethod
+    def validate_campaign_name(cls, v: str) -> str:
+        if "%" in v or "/" in v or "\\" in v:
+            raise ValueError("Campaign name cannot contain '%', '/', or '\\'.")
+        return v
+
 
 class PlayerCampaignSchema(BaseModel):
     campaign_name: str
@@ -97,7 +105,7 @@ class RollRequestSchema(BaseModel):
 
 class WhisperRequest(BaseModel):
     recipient: str
-    message: str
+    message: str = Field(..., min_length=1, max_length=2000)
     sender_character_id: Optional[str] = None
     recipient_character_id: Optional[str] = None
 
@@ -330,15 +338,57 @@ def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str
     }
 
 
-def _visible_roll_requests(requests: List[Dict[str, Any]], is_dm: bool) -> List[Dict[str, Any]]:
+def _visible_roll_requests(
+    requests: List[Dict[str, Any]],
+    is_dm: bool,
+    current_user_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     History as this member is allowed to see it. Secret rolls are the DM's own
-    knowledge: the socket never sends them to a player, so replaying them here
-    would hand back exactly what was withheld the moment the hero reconnects.
+    knowledge, and targeted player roll requests are scoped to their owner.
     """
     if is_dm:
         return requests
-    return [request for request in requests if not request.get("is_secret")]
+    visible: List[Dict[str, Any]] = []
+    for req in requests:
+        if req.get("is_secret"):
+            continue
+        target_owner_id = req.get("target_owner_id")
+        if current_user_id and target_owner_id and target_owner_id != current_user_id:
+            continue
+        visible.append(req)
+    return visible
+
+
+def _compute_health_status(hp: Optional[int], max_hp: Optional[int]) -> str:
+    hp_val = int(hp or 0)
+    max_val = int(max_hp or 0)
+    if hp_val <= 0:
+        return "down"
+    if max_val > 0 and hp_val <= (max_val // 2):
+        return "bloodied"
+    return "healthy"
+
+
+def _redact_encounter_for_player(enc: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip secret monster stats while preserving party state and visual health status."""
+    redacted = copy.deepcopy(enc)
+    combatants = redacted.get("combatants") or []
+    for c in combatants:
+        if not c.get("health_status"):
+            c["health_status"] = _compute_health_status(c.get("hp"), c.get("max_hp"))
+        if not c.get("is_player"):
+            c["hp"] = None
+            c["max_hp"] = None
+            c["ac"] = None
+            c["statblock"] = None
+            c["stats"] = None
+            c["traits"] = None
+            c["actions"] = None
+            c["legendary_actions"] = None
+            c["cr"] = None
+            c["xp"] = None
+    return redacted
 
 
 # _ensure_dm_access removed as per #ticket
@@ -417,7 +467,16 @@ async def save_campaign(
                 detail=f"Campaign '{payload.campaign_name}' conflict.",
             ) from e
     else:
-        camp_dict["owner_id"] = current_user["id"]
+        # #233: Allowlist safe fields on creation instead of trusting client role/party/member_count
+        camp_dict = {
+            "campaign_name": payload.campaign_name,
+            "owner_id": current_user["id"],
+            "role": "dm",
+            "notes": payload.notes,
+            "party": [],
+            "dnd_edition": payload.dnd_edition,
+            "member_count": 1,
+        }
         doc_to_insert = dict(camp_dict)
         try:
             await db["campaigns"].insert_one(doc_to_insert)
@@ -543,12 +602,15 @@ async def update_party_member_state(
         "char_name": char.get("char_name", "Unknown"),
         "hp_current": updates.get("hp_current", char.get("hp_current") or 0),
         "hp_max": char.get("hp_max") or 0,
+        "hp_temp": char.get("hp_temp", 0) or 0,
         "conditions": updates.get("conditions", char.get("conditions", [])),
+        "concentrating_on": char.get("concentrating_on"),
+        "death_saves": updates.get("death_saves", char.get("death_saves")),
+        "inspiration": bool(char.get("inspiration", False)),
+        "exhaustion_level": int(char.get("exhaustion_level", 0) or 0),
         "version": new_version,
         "source": "dm",
     }
-    if "death_saves" in updates:
-        state["death_saves"] = updates["death_saves"]
 
     from server.routers.websocket_router import manager
 
@@ -556,6 +618,80 @@ async def update_party_member_state(
     await manager.broadcast(name, {"type": "party_update", "payload": state})
 
     return {"success": True, "message": f"Updated {state['char_name']}.", **state}
+
+
+@router.post("/{name}/party/long-rest", response_model=SuccessResponseSchema)
+async def long_rest_party(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """DM Long Rest: restores HP, spell slots, hit dice, and reduces exhaustion for the party."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    from server.routers.websocket_router import manager
+
+    rested_count = 0
+    cursor = db["characters"].find({"active_campaign": name})
+    async for char in cursor:
+        char_id = char.get("char_id")
+        if not char_id:
+            continue
+        hp_max = char.get("hp_max") or 0
+        old_exh = int(char.get("exhaustion_level", 0) or 0)
+        new_exh = max(0, old_exh - 1)
+
+        raw_slots = char.get("spell_slots") or {}
+        reset_slots: Dict[str, Any] = {}
+        if isinstance(raw_slots, dict):
+            for k, slot_val in raw_slots.items():
+                if isinstance(slot_val, dict):
+                    reset_slots[k] = {**slot_val, "used": 0}
+                else:
+                    reset_slots[k] = slot_val
+
+        updates = {
+            "hp_current": hp_max,
+            "hp_temp": 0,
+            "hit_dice_used": 0,
+            "concentrating_on": None,
+            "death_saves": {"successes": 0, "failures": 0},
+            "exhaustion_level": new_exh,
+            "spell_slots": reset_slots,
+        }
+        new_version = int(char.get("version", 0) or 0) + 1
+        await db["characters"].update_one(
+            {"char_id": char_id, "active_campaign": name},
+            {"$set": updates, "$inc": {"version": 1}},
+        )
+        await manager.broadcast(
+            name,
+            {
+                "type": "party_update",
+                "payload": {
+                    "char_id": char_id,
+                    "char_name": char.get("char_name", "Unknown"),
+                    "hp_current": hp_max,
+                    "hp_max": hp_max,
+                    "hp_temp": 0,
+                    "conditions": char.get("conditions", []),
+                    "concentrating_on": None,
+                    "death_saves": {"successes": 0, "failures": 0},
+                    "inspiration": bool(char.get("inspiration", False)),
+                    "exhaustion_level": new_exh,
+                    "spell_slots": reset_slots,
+                    "version": new_version,
+                    "source": "dm",
+                    "action": "long_rest",
+                },
+            },
+        )
+        rested_count += 1
+
+    return {"success": True, "message": f"Completed Long Rest for {rested_count} party member(s)."}
 
 
 async def _extract_character_id(
@@ -772,6 +908,22 @@ async def generate_invite_code(
 
     if camp.get("invite_code"):
         return {"invite_code": camp["invite_code"]}
+
+    code = secrets.token_urlsafe(12)
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
+    return {"invite_code": code}
+
+
+@router.post("/{name}/invite-code/rotate", response_model=InviteCodeResponse)
+async def rotate_invite_code(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
 
     code = secrets.token_urlsafe(12)
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
@@ -1036,17 +1188,8 @@ async def _authorize_roll_request_target(
         member_char = await db["characters"].find_one({"char_id": cid})
         if member_char and member_char.get("char_name") == target.get("char_name"):
             owner_id = member_char.get("owner_id")
-            if not owner_id or owner_id == current_user["id"]:
+            if owner_id and owner_id == current_user["id"]:
                 return
-
-    # Fallback for mock/test environments where character doc is omitted but filename matches caller identity
-    char_filename = target.get("char_filename", "")
-    username = current_user.get("username", "")
-    user_id = current_user.get("id", "")
-    if (username and char_filename.startswith(f"{username}_")) or (
-        user_id and char_filename.startswith(f"{user_id}_")
-    ):
-        return
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -1411,7 +1554,9 @@ async def get_campaign_messages(
     return {
         "campaign_name": camp["campaign_name"],
         "whispers": whispers,
-        "roll_requests": _visible_roll_requests(roll_requests, is_dm),
+        "roll_requests": _visible_roll_requests(
+            roll_requests, is_dm, current_user_id=current_user["id"]
+        ),
         "roll_logs": roll_logs,
     }
 
@@ -1615,6 +1760,17 @@ async def report_whisper(
             detail="Not authorized to report this whisper.",
         )
 
+    existing_open = await db["whisper_reports"].find_one(
+        {
+            "campaign_name": name,
+            "whisper_id": whisper_id,
+            "reported_by_user_id": current_user["id"],
+            "status": "open",
+        }
+    )
+    if existing_open:
+        return {"success": True, "message": "Whisper already reported."}
+
     report_id = str(uuid.uuid4())
     now = datetime.datetime.now(datetime.timezone.utc)
     report_doc = {
@@ -1675,6 +1831,12 @@ async def get_encounter_state(
         return None
 
     encounter.pop("_id", None)
+    for c in encounter.get("combatants") or []:
+        if not c.get("health_status"):
+            c["health_status"] = _compute_health_status(c.get("hp"), c.get("max_hp"))
+
+    if member.get("role") != "dm":
+        return _redact_encounter_for_player(encounter)
     return encounter
 
 
@@ -1691,6 +1853,8 @@ async def update_encounter_state(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     enc_dict = payload.model_dump()
+    for c in enc_dict.get("combatants") or []:
+        c["health_status"] = _compute_health_status(c.get("hp"), c.get("max_hp"))
 
     # Calculate Danger Indicator dynamically
     enc_dict["danger_indicator"] = await calculate_danger_indicator(
@@ -1705,8 +1869,18 @@ async def update_encounter_state(
 
     from server.routers.websocket_router import manager
 
-    # Broadcast the new state to all members so their tracker syncs immediately
-    await manager.broadcast(name, {"type": "encounter_update", "payload": enc_dict})
+    params = inspect.signature(manager.broadcast).parameters
+    if "dm_only" in params and "player_only" in params:
+        await manager.broadcast(
+            name, {"type": "encounter_update", "payload": enc_dict}, dm_only=True
+        )
+        await manager.broadcast(
+            name,
+            {"type": "encounter_update", "payload": _redact_encounter_for_player(enc_dict)},
+            player_only=True,
+        )
+    else:
+        await manager.broadcast(name, {"type": "encounter_update", "payload": enc_dict})
 
     return {"success": True, "message": "Encounter state updated"}
 
@@ -1846,6 +2020,21 @@ async def remove_party_member(
 
     from server.routers.websocket_router import manager
 
+    kicked_user_id = None
+    if owner_id:
+        remaining_member = await db["campaign_members"].find_one(
+            {"campaign_id": name, "user_id": owner_id}
+        )
+        if not remaining_member:
+            kicked_user_id = owner_id
+
+    if hasattr(manager, "disconnect_campaign_member"):
+        await manager.disconnect_campaign_member(
+            name,
+            user_id=kicked_user_id,
+            character_name=char.get("char_name"),
+        )
+
     await manager.broadcast(
         name, {"type": "party_update", "payload": {"action": "removed", "char_id": char_id}}
     )
@@ -1873,6 +2062,9 @@ async def get_campaign_entities(
 
     cursor = db["campaign_entities"].find({"campaign_name": name})
     entities = await cursor.to_list(length=None)
+
+    if member.get("role") != "dm":
+        entities = [e for e in entities if e.get("is_revealed", False)]
 
     # Map _id to id
     for ent in entities:
@@ -2022,6 +2214,7 @@ async def update_campaign_skeleton(
 ):
     """Create or update the campaign skeleton."""
     data = skeleton_data.model_dump(exclude={"id"})
+    data["campaign_name"] = name
     data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
     if "created_at" not in data or not data["created_at"]:
         data["created_at"] = data["updated_at"]
@@ -2322,14 +2515,17 @@ async def delete_campaign_scene(
             }
         )
         if not other_scene:
-            # Safe to unlink file and asset doc
-            file_path = os.path.join("data", "uploads", filename)
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except Exception as e:
-                    logger.warning("Failed removing map asset file %s: %s", file_path, e)
-            await db["campaign_assets"].delete_one({"campaign_name": name, "filename": filename})
+            asset_owner = await db["campaign_assets"].find_one({"filename": filename})
+            if not asset_owner or asset_owner.get("campaign_name") == name:
+                file_path = os.path.join("data", "uploads", filename)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        logger.warning("Failed removing map asset file %s: %s", file_path, e)
+                await db["campaign_assets"].delete_one(
+                    {"campaign_name": name, "filename": filename}
+                )
 
     await db["campaign_scenes"].delete_one({"scene_id": scene_id})
     return {"success": True, "message": f"Scene {scene_id} deleted."}

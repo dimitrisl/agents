@@ -388,6 +388,8 @@ class CharacterSchema(BaseModel):
     playstyle_guide: Optional[str] = ""
     dnd_edition: str = "2014 Edition"
     active_campaign: Optional[str] = None
+    inspiration: bool = False
+    exhaustion_level: int = Field(default=0, ge=0, le=6)
     currency: CurrencySchema = Field(default_factory=CurrencySchema)
     class_resources: List[ClassResourceSchema] = Field(default_factory=list)
 
@@ -741,13 +743,18 @@ class InitiativeCombatantSchema(BaseModel):
     char_id: Optional[str] = None
     name: str
     initiative: int
-    hp: int
-    max_hp: int
-    ac: int
+    hp: Optional[int] = None
+    max_hp: Optional[int] = None
+    ac: Optional[int] = None
+    health_status: Optional[str] = None
     dex: int
     is_player: bool
     portrait: Optional[str] = None
     statblock: Optional[str] = None
+    stats: Optional[Dict[str, Any]] = None
+    traits: Optional[List[Dict[str, Any]]] = None
+    actions: Optional[List[Dict[str, Any]]] = None
+    legendary_actions: Optional[List[Dict[str, Any]]] = None
     size: Optional[Union[str, int]] = "Medium"
     cr: Optional[Union[str, float, int]] = None
     xp: Optional[int] = None
@@ -807,6 +814,7 @@ class CampaignEntitySchema(BaseModel):
     stats: Optional[Dict[str, Any]] = None  # Flexible block for statblocks
     current_location_id: Optional[str] = None
     image_url: Optional[str] = None
+    is_revealed: bool = False
     created_at: Optional[datetime] = None
 
 
@@ -827,6 +835,7 @@ class SessionLogSchema(BaseModel):
     real_world_date: Optional[datetime] = None
     extracted_entities: List[CampaignEntitySchema] = Field(default_factory=list)
     audio_file_id: Optional[str] = None
+    is_revealed: bool = False
     created_at: Optional[datetime] = None
 
 

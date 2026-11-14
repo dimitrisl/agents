@@ -367,12 +367,17 @@ def calculate_ac(
                     base_ac = val
                     armor_name = raw_item_name
                     base_source = f"{armor_name} ({base_ac})"
-                if "heavy" in item_name or "plate" in item_name or "chain mail" in item_name:
-                    max_dex = min(max_dex, 0)
-                    armor_type = "Heavy Armor"
-                elif "medium" in item_name or "scale" in item_name or "breastplate" in item_name:
+                if (
+                    "breastplate" in item_name
+                    or "half plate" in item_name
+                    or "medium" in item_name
+                    or "scale" in item_name
+                ):
                     max_dex = min(max_dex, 2)
                     armor_type = "Medium Armor"
+                elif "heavy" in item_name or "plate" in item_name or "chain mail" in item_name:
+                    max_dex = min(max_dex, 0)
+                    armor_type = "Heavy Armor"
                 else:
                     armor_type = "Light Armor"
             elif val != 0:
@@ -755,8 +760,8 @@ def calculate_max_spell_slots(
             else:
                 caster_level = 0
 
-            if caster_level > 0 and caster_level <= 20:
-                prog = full_caster_slots[caster_level]
+            if caster_level > 0:
+                prog = full_caster_slots[min(20, caster_level)]
                 for idx, count in enumerate(prog):
                     if count > 0:
                         slots[f"level_{idx + 1}"] = count
@@ -828,8 +833,29 @@ def calculate_weapon_stats(
         )
         return weapon
 
+    from backend.repositories.rules_repository import RulesRepository
+
     str_mod = get_modifier(stats.get("STR", 10))
     dex_mod = get_modifier(stats.get("DEX", 10))
+
+    repo = RulesRepository()
+    all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
+    name = weapon.get("name", "").lower()
+    weapon_data = get_base_weapon(name, all_weapons)
+
+    if weapon_data:
+        category = (weapon_data.get("category") or "").lower()
+        props = [p.lower() for p in weapon_data.get("properties", [])]
+        is_ranged = "ranged" in category or any("ammunition" in p for p in props)
+        is_finesse = any("finesse" in p for p in props)
+        is_two_handed = any("two-handed" in p for p in props)
+    else:
+        raw_props = str(weapon.get("properties") or "").lower()
+        is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart", "blowgun"])
+        is_finesse = any(
+            word in name for word in ["rapier", "dagger", "scimitar", "shortsword", "whip"]
+        )
+        is_two_handed = "two-handed" in raw_props
 
     ability_override = weapon.get("ability_modifier")
     if ability_override:
@@ -838,29 +864,7 @@ def calculate_weapon_stats(
             mod = get_modifier(stats[ability_override])
         else:
             mod = str_mod
-        is_ranged = False
     else:
-        from backend.repositories.rules_repository import RulesRepository
-
-        repo = RulesRepository()
-        all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
-        name = weapon.get("name", "").lower()
-
-        weapon_data = get_base_weapon(name, all_weapons)
-
-        if weapon_data:
-            category = (weapon_data.get("category") or "").lower()
-            props = [p.lower() for p in weapon_data.get("properties", [])]
-            is_ranged = "ranged" in category
-            is_finesse = any("finesse" in p for p in props)
-        else:
-            is_ranged = any(
-                word in name for word in ["bow", "crossbow", "sling", "dart", "blowgun"]
-            )
-            is_finesse = any(
-                word in name for word in ["rapier", "dagger", "scimitar", "shortsword", "whip"]
-            )
-
         if is_ranged:
             mod = dex_mod
         elif is_finesse:
@@ -895,7 +899,7 @@ def calculate_weapon_stats(
                 has_dueling = True
 
     archery_bonus = 2 if (has_archery and is_ranged) else 0
-    dueling_bonus = 2 if (has_dueling and not is_ranged) else 0
+    dueling_bonus = 2 if (has_dueling and not is_ranged and not is_two_handed) else 0
 
     is_proficient = weapon.get("proficient", True)
     prof_val = proficiency_bonus if is_proficient else 0
@@ -932,11 +936,9 @@ def calculate_weapon_stats(
         dmg_type = type_match.group(1).strip() if type_match else ""
 
         total_dmg_mod = mod + magic_bonus + dueling_bonus + misc_dmg
-        if total_dmg_mod < 0:
-            total_dmg_mod = 0
 
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
-        weapon["damage_bonus"] = f"+{total_dmg_mod}"
+        weapon["damage_bonus"] = f"+{total_dmg_mod}" if total_dmg_mod >= 0 else str(total_dmg_mod)
         weapon["damage"] = rebuild_damage_formula(weapon["damage_dice"], weapon["damage_bonus"])
 
     return weapon
@@ -1448,7 +1450,11 @@ def sync_character_stats(
                 raw_speed = race_info["speed"]
         base_speed = raw_speed if isinstance(raw_speed, int) else 30
         char_data["base_speed"] = base_speed
-    char_data["speed"] = base_speed + equip_speed_bonus
+
+    exhaustion_level = max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
+    exhaustion_penalty = 2 * exhaustion_level
+    char_data["exhaustion_level"] = exhaustion_level
+    char_data["speed"] = max(0, base_speed + equip_speed_bonus - (5 * exhaustion_level))
     char_data["global_attack_bonus"] = equip_atk_bonus
     char_data["global_damage_bonus"] = equip_dmg_bonus
     char_data["initiative_bonus"] = equip_init_bonus
@@ -1728,6 +1734,11 @@ def sync_character_stats(
                 char_data["saving_throw_values"][s] = (
                     char_data["saving_throw_values"].get(s, 0) + bonus_to_add
                 )
+    if exhaustion_penalty > 0:
+        for sk in char_data["skills"]:
+            char_data["skills"][sk] -= exhaustion_penalty
+        for st in char_data["saving_throw_values"]:
+            char_data["saving_throw_values"][st] -= exhaustion_penalty
 
     init_bonus = 0
     has_init_prof = bool(char_data.get("initiative_proficiency", False))
@@ -1863,6 +1874,15 @@ def sync_character_stats(
             )
             updated_weapons.append(new_w)
 
+    if exhaustion_penalty > 0:
+        for w in updated_weapons:
+            try:
+                atk_val = int(str(w.get("attack_bonus", "+0")).replace("+", "").strip())
+                atk_val -= exhaustion_penalty
+                w["attack_bonus"] = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
+            except (ValueError, TypeError):
+                pass
+
     char_data["weapons"] = updated_weapons
 
     # Infer & Calculate Spellcasting Stats (DC & Attack Bonus)
@@ -1913,8 +1933,14 @@ def sync_character_stats(
     if spell_ability and spell_ability != "None":
         char_data["spell_ability"] = spell_ability
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
-        char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
-        char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
+        dc = spell_stats["spell_save_dc"] - exhaustion_penalty
+        char_data["spell_save_dc"] = dc
+        try:
+            s_atk = int(str(spell_stats["spell_attack_bonus"]).replace("+", "").strip())
+            s_atk -= exhaustion_penalty
+            char_data["spell_attack_bonus"] = f"+{s_atk}" if s_atk >= 0 else str(s_atk)
+        except (ValueError, TypeError):
+            char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
 
     subclass = char_data.get("subclass")
     if not subclass and char_class.lower() == "fighter" and char_data.get("spells"):

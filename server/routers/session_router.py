@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import List
 
@@ -12,6 +13,8 @@ from server.config import settings
 from server.db_async import get_database
 from server.dependencies.campaign import require_campaign_member, require_campaign_role
 from server.rate_limiter import limiter
+
+logger = logging.getLogger(__name__)
 
 
 class PrepRequest(BaseModel):
@@ -33,9 +36,12 @@ async def get_sessions(
     db: AsyncIOMotorDatabase = Depends(get_database),
     campaign_member: dict = Depends(require_campaign_role("dm", "player")),
 ):
-    """Get all session logs for a campaign."""
+    """Get session logs for a campaign (DM sees all; players see only revealed logs)."""
     cursor = db.session_logs.find({"campaign_name": name}).sort("session_number", -1)
     sessions = await cursor.to_list(length=100)
+
+    if campaign_member.get("role") != "dm":
+        sessions = [s for s in sessions if s.get("is_revealed", False)]
 
     # Map _id to id
     for s in sessions:
@@ -117,7 +123,8 @@ async def process_audio_session(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to process audio session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to process audio session.")
 
 
 @router.post("/campaigns/{name}/sessions/text", response_model=SessionLogSchema)
@@ -174,8 +181,11 @@ async def process_text_session(
 
         return session_log
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to process text session: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to process text session.")
 
 
 @router.post("/campaigns/{name}/sessions/prep", response_model=SessionPrepSchema)
@@ -210,8 +220,11 @@ async def generate_prep(
 
         return SessionPrepSchema(**prep_data)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to generate session prep: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate session prep.")
 
 
 @router.post("/campaigns/{name}/sessions/journey", response_model=dict)
@@ -235,5 +248,8 @@ async def generate_journey(
 
         graph_data = await run_in_threadpool(session_service.generate_journey_graph, past_sessions)
         return graph_data
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to generate journey graph: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate journey graph.")

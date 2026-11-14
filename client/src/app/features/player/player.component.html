@@ -117,9 +117,9 @@
   </header>
 
   <div class="unreadable-alert mb-6 p-4 bg-panel border border-crimson rounded-[8px] flex gap-4 items-center" *ngIf="charState.unreadableCharacters().length > 0">
-    <i class="fas fa-exclamation-triangle text-red text-[1.5rem]"></i>
+    <i class="fas fa-exclamation-triangle text-crimson text-metric"></i>
     <div>
-      <h3 class="text-red mb-1 text-[1rem] font-semibold">
+      <h3 class="text-crimson mb-1 text-body font-semibold">
         {{ charState.unreadableCharacters().length }} hero{{ charState.unreadableCharacters().length > 1 ? 'es' : '' }} could not be loaded
       </h3>
       <p class="text-muted text-sm m-0">
@@ -128,19 +128,29 @@
     </div>
   </div>
 
+  @if (charState.isOfflineCached()) {
+    <div
+      class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-body text-gold"
+      role="status"
+      data-testid="offline-cache-banner"
+    >
+      <span>📦 Offline Copy — Showing locally cached character sheet while offline.</span>
+    </div>
+  }
+
   <ng-container *ngIf="charState.activeCharacter() as char; else emptyState">
 
     <!-- GLOBAL INITIATIVE TURN ALERT BANNER (#175) -->
     <div
       *ngIf="isMyTurn"
-      class="mb-4 p-3.5 bg-gradient-to-r from-emerald-950/80 to-panel border-2 border-emerald-500 rounded-2xl shadow-lg flex items-center justify-between animate-pulse"
+      class="mb-4 p-3.5 bg-gradient-to-r from-accent/20 to-panel border-2 border-accent rounded-2xl shadow-lg flex items-center justify-between animate-pulse"
       role="alert"
       aria-live="assertive"
     >
       <div class="flex items-center gap-3">
         <span class="text-2xl" aria-hidden="true">⚔️</span>
         <div>
-          <p class="font-display font-black text-emerald-400 text-sm sm:text-base uppercase tracking-wider">
+          <p class="font-display font-black text-accent text-sm sm:text-base uppercase tracking-wider">
             It's Your Turn! (Round {{ encounterState?.round || 1 }})
           </p>
           <p class="text-xs text-muted">You are the active combatant. Make your attack or spell!</p>
@@ -149,7 +159,7 @@
       <button
         type="button"
         (click)="selectMobileTab('combat')"
-        class="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-surface font-extrabold text-xs shadow-md transition-all cursor-pointer"
+        class="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 active:scale-95 text-surface font-extrabold text-xs shadow-md transition-all cursor-pointer"
       >
         Actions
       </button>
@@ -168,7 +178,7 @@
     <!-- CONCENTRATION CHECK PROMPT (#171) -->
     <div
       *ngIf="showConcentrationPrompt()"
-      class="mb-4 p-3 bg-red-950/40 border border-crimson/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-scaleIn"
+      class="mb-4 p-3 bg-crimson/15 border border-crimson/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-scaleIn"
     >
       <div class="flex items-center gap-2">
         <span class="text-xl">🧠</span>
@@ -186,7 +196,7 @@
           size="sm"
           type="button"
           (click)="keepConcentration()"
-          class="text-xs font-bold text-emerald"
+          class="text-xs font-bold text-accent"
           title="Passed Physical Tabletop Check"
         >
           ✓ Passed (Keep)
@@ -238,7 +248,7 @@
       <div class="flex items-center gap-3 min-w-0">
         <div class="min-w-0">
           <h2 class="font-display font-bold text-sm text-ink truncate leading-tight">{{ char.char_name }}</h2>
-          <div class="flex items-center gap-2 text-[10px] text-muted">
+          <div class="flex items-center gap-2 text-micro text-muted">
             <span>{{ char.char_class }} Lv {{ char.char_level }}</span>
             <span *ngIf="char.concentrating_on" class="text-gold font-bold flex items-center gap-0.5 truncate max-w-25">
               🧠 {{ char.concentrating_on }}
@@ -258,7 +268,7 @@
         >
           <span class="text-xs text-crimson font-bold">♥</span>
           <span class="font-mono font-bold text-xs text-ink">{{ char.hp_current ?? char.hp_max }}/{{ char.hp_max }}</span>
-          <span *ngIf="char.hp_temp" class="text-[10px] font-bold text-gold">+{{ char.hp_temp }}</span>
+          <span *ngIf="char.hp_temp" class="text-micro font-bold text-gold">+{{ char.hp_temp }}</span>
         </button>
 
         <!-- AC Badge -->
@@ -375,6 +385,7 @@
               (deleteEquipment)="deleteEquipment($event)"
               (consumePotion)="onConsumePotion($event)"
               (save)="queueCharSave()"
+              (updateHeroStatus)="onUpdateHeroStatus($event)"
             ></app-combat-panel>
           </div>
         </forge-card>
@@ -696,6 +707,7 @@
                 (deleteEquipment)="deleteEquipment($event)"
                 (consumePotion)="onConsumePotion($event)"
                 (save)="queueCharSave()"
+                (updateHeroStatus)="onUpdateHeroStatus($event)"
               ></app-combat-panel>
 
               <app-spells-panel
@@ -752,6 +764,8 @@
       role="player"
       [characterName]="charState.activeCharacter()?.char_name"
       [campaignName]="charState.activeCharacter()?.active_campaign"
+      [combatants]="encounterState?.combatants || []"
+      [activeCombatantId]="encounterState?.activeCombatantId || null"
     ></app-vtt-grid>
 
     <!-- THUMB-ZONE BOTTOM NAVIGATION BAR (#170) -->
@@ -767,7 +781,7 @@
         [ngClass]="mobileActiveTab() === 'hero' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">🛡️</span>
-        <span class="text-[10px] uppercase font-bold">Hero</span>
+        <span class="text-micro uppercase font-bold">Hero</span>
       </button>
 
       <button
@@ -777,7 +791,7 @@
         [ngClass]="mobileActiveTab() === 'combat' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">⚔️</span>
-        <span class="text-[10px] uppercase font-bold">Combat</span>
+        <span class="text-micro uppercase font-bold">Combat</span>
       </button>
 
       <button
@@ -787,7 +801,7 @@
         [ngClass]="mobileActiveTab() === 'skills' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">🎯</span>
-        <span class="text-[10px] uppercase font-bold">Skills</span>
+        <span class="text-micro uppercase font-bold">Skills</span>
       </button>
 
       <button
@@ -797,7 +811,7 @@
         [ngClass]="mobileActiveTab() === 'spells' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">✨</span>
-        <span class="text-[10px] uppercase font-bold">Spells</span>
+        <span class="text-micro uppercase font-bold">Spells</span>
       </button>
 
       <button
@@ -807,7 +821,7 @@
         [ngClass]="mobileActiveTab() === 'table' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">💬</span>
-        <span class="text-[10px] uppercase font-bold">Table</span>
+        <span class="text-micro uppercase font-bold">Table</span>
         <span *ngIf="unreadMessages > 0" class="absolute top-0 right-1 w-2.5 h-2.5 bg-accent rounded-full animate-ping"></span>
       </button>
 
@@ -817,7 +831,7 @@
         class="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-gold hover:text-gold/80 transition-all cursor-pointer active:scale-95"
       >
         <span class="text-lg">🎲</span>
-        <span class="text-[10px] uppercase font-bold">Dice</span>
+        <span class="text-micro uppercase font-bold">Dice</span>
       </button>
     </nav>
 

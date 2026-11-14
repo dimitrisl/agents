@@ -42,12 +42,14 @@ export interface InitiativeCombatant {
   size?: string | number;
   cr?: string | number;
   xp?: number;
+  health_status?: 'healthy' | 'bloodied' | 'critical' | 'down';
   conditions: CombatantCondition[];
   /** Only ever set for a player at 0 HP; cleared the moment they are healed. */
   deathSaves?: DeathSaves;
   stats?: MonsterStats;
   traits?: MonsterTrait[];
   actions?: MonsterAction[];
+  legendary_actions?: MonsterAction[];
 }
 
 /**
@@ -59,4 +61,5 @@ export interface EncounterState {
   round: number;
   activeCombatantId: string | null;
   combatants: InitiativeCombatant[];
+  danger_indicator?: string;
 }

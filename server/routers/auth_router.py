@@ -104,8 +104,8 @@ async def login(
     user = await db["users"].find_one({"username": form_data.username.lower()})
 
     # Allow direct login if password matches legacy or passlib
-    if not user or not verify_password(form_data.password, user.get("password_hash", "")):
-        # Fallback for dev mode / demo accounts — only when DEBUG_MODE is enabled
+    if user is None:
+        # Fallback for dev mode / demo accounts when user does not exist yet
         from server.config import settings as auth_settings
 
         if auth_settings.DEBUG_MODE and form_data.username.lower() in [
@@ -128,9 +128,17 @@ async def login(
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+    elif not verify_password(form_data.password, user.get("password_hash", "")):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     else:
         # Transparently upgrade legacy SHA-256 hashes to secure pbkdf2
-        if user.get("password_hash") == legacy_sha256_hash(form_data.password):
+        if user.get("password_hash") and legacy_sha256_hash(form_data.password) == user.get(
+            "password_hash"
+        ):
             new_hash = get_password_hash(form_data.password)
             user_filter = {"_id": user["_id"]} if "_id" in user else {"username": user["username"]}
             await db["users"].update_one(user_filter, {"$set": {"password_hash": new_hash}})

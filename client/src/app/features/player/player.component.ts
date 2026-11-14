@@ -9,6 +9,7 @@ import {
   computed,
   effect,
   signal,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -373,9 +374,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     });
 
-    effect((onCleanup) => {
+    const wsConnectionKey = computed(() => {
       const char = this.charState.activeCharacter();
-      if (char && char.active_campaign) {
+      return char && char.active_campaign
+        ? `${char.active_campaign}::${char.char_name}`
+        : null;
+    });
+    effect((onCleanup) => {
+      const key = wsConnectionKey();
+      const char = untracked(() => this.charState.activeCharacter());
+      if (key && char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
         // private whispers and roll requests to this hero alone.
         this.wsService.connect(char.active_campaign, {
@@ -1858,6 +1866,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       Help: 'You feint, distract the target, or help an ally, giving them advantage on their next ability check or attack roll.'
     };
     this.rollToast.showMessage(`⚔️ ACTION: ${action.toUpperCase()}`, descriptions[action] || `Took the ${action} action.`);
+  }
+
+  onUpdateHeroStatus(patch: { inspiration?: boolean; exhaustion_level?: number }): void {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.charState.activeCharacter.set({ ...char, ...patch });
+    this.queueCharSave();
   }
 
   openEditModal() {

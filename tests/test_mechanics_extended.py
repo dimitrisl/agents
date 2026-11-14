@@ -264,7 +264,7 @@ class TestWeaponStats:
         weapon = {"name": "Greataxe", "damage": "1d12"}
         result = calculate_weapon_stats(weapon, stats, 2)
         assert result["attack_bonus"] == "+0"  # -2 + 2 = 0
-        assert result["damage"] == "1d12"
+        assert result["damage"] == "1d12 - 2"
 
     def test_existing_modifier_stripped(self):
         """Old modifier in stored damage string should be stripped cleanly."""

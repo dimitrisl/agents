@@ -138,6 +138,25 @@ async def create_character(
     char_dict = char_in.model_dump()
     char_dict["owner_id"] = current_user["id"]
 
+    # #233: Verify active_campaign membership before linking or loading homebrew
+    requested_camp = char_dict.get("active_campaign")
+    if requested_camp:
+        membership = await db["campaign_members"].find_one(
+            {"campaign_id": requested_camp, "user_id": current_user["id"]}
+        )
+        if not membership:
+            char_dict["active_campaign"] = None
+
+    # #221: Omitted hp_max must be calculated by stats_service rather than stuck at schema default 10
+    hp_max_explicit = (
+        "hp_max" in char_in.model_fields_set and char_in.hp_max is not None and char_in.hp_max > 0
+    )
+    hp_current_explicit = (
+        "hp_current" in char_in.model_fields_set and char_in.hp_current is not None
+    )
+    if not hp_max_explicit:
+        char_dict["hp_max"] = None
+
     if not char_dict.get("char_id"):
         char_dict["char_id"] = str(uuid.uuid4())
     else:
@@ -154,6 +173,8 @@ async def create_character(
     char_dict = await run_in_threadpool(
         partial(process_character_update, char_dict, homebrew_content=homebrew_items)
     )
+    if not hp_current_explicit or char_dict.get("hp_current") is None:
+        char_dict["hp_current"] = char_dict.get("hp_max", 10)
 
     await _save_owned_character(db, char_dict, current_user["id"])
     return CharacterSchema.model_validate(char_dict, strict=False)
@@ -186,6 +207,15 @@ async def update_character(
     char_dict = char_in.model_dump()
     char_dict["char_id"] = char_id
     char_dict["owner_id"] = current_user["id"]
+
+    # #233: Prevent active_campaign spoofing by non-members
+    requested_camp = char_dict.get("active_campaign")
+    if requested_camp and requested_camp != existing.get("active_campaign"):
+        membership = await db["campaign_members"].find_one(
+            {"campaign_id": requested_camp, "user_id": current_user["id"]}
+        )
+        if not membership:
+            char_dict["active_campaign"] = existing.get("active_campaign")
 
     homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
 
@@ -227,9 +257,14 @@ async def update_character(
                     "char_name": char_dict.get("char_name", "Unknown"),
                     "hp_current": char_dict.get("hp_current") or 0,
                     "hp_max": char_dict.get("hp_max") or 0,
+                    "hp_temp": char_dict.get("hp_temp", 0) or 0,
                     "ac": char_dict.get("armor_class", 10),
                     "level": char_dict.get("char_level", 1),
                     "conditions": char_dict.get("conditions", []),
+                    "concentrating_on": char_dict.get("concentrating_on"),
+                    "death_saves": char_dict.get("death_saves"),
+                    "inspiration": bool(char_dict.get("inspiration", False)),
+                    "exhaustion_level": int(char_dict.get("exhaustion_level", 0) or 0),
                     "version": char_dict["version"],
                     "source": "player",
                 },

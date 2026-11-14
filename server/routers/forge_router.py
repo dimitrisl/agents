@@ -302,12 +302,18 @@ async def apply_level_up(
     old_con = int((char_doc.get("stats") or {}).get("CON", 10) or 10)
     char_doc["con_mod_applied"] = (old_con - 10) // 2
 
+    stat_cap = (
+        30
+        if (char_doc["char_level"] >= 19 and "2024" in str(char_doc.get("dnd_edition", "")))
+        else 20
+    )
+
     def _bump_stat(stat_key: str, amount: int) -> None:
         if stat_key and stat_key in char_doc.get("stats", {}):
-            char_doc["stats"][stat_key] = min(20, int(char_doc["stats"][stat_key]) + amount)
+            char_doc["stats"][stat_key] = min(stat_cap, int(char_doc["stats"][stat_key]) + amount)
             if isinstance(char_doc.get("base_stats"), dict) and stat_key in char_doc["base_stats"]:
                 char_doc["base_stats"][stat_key] = min(
-                    20, int(char_doc["base_stats"][stat_key]) + amount
+                    stat_cap, int(char_doc["base_stats"][stat_key]) + amount
                 )
 
     # Append automatic features

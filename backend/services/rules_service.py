@@ -631,10 +631,13 @@ def parse_character_from_text(
     Parses raw text extracted from a D&D Character Sheet PDF into the app's JSON structure.
     Uses a 2-step chained process for maximum precision.
     """
-    if (
-        "2024" in sheet_text
-        or "mastery" in sheet_text.lower()
-        or "origin feat" in sheet_text.lower()
+    bounded_text = (sheet_text or "")[:30000]
+    fenced_text = f"<document>\n{bounded_text}\n</document>"
+
+    if edition == EDITION_2014 and (
+        "2024 player's handbook" in bounded_text.lower()
+        or "weapon mastery" in bounded_text.lower()
+        or "origin feat" in bounded_text.lower()
     ):
         edition = "2024 Edition"
 
@@ -643,10 +646,10 @@ def parse_character_from_text(
     # STEP 1: Core Statistics & Identity
     step1_prompt = PDF_PARSING_STEP1_PROMPT.format(
         edition=edition,
-        sheet_text=sheet_text,
+        sheet_text=fenced_text,
     )
     core_data = generate_ai_json(step1_prompt)
-    if not core_data:
+    if not isinstance(core_data, dict):
         logger.error("Step 1 of chained parsing failed.")
         return None
 
@@ -656,16 +659,26 @@ def parse_character_from_text(
     step2_prompt = PDF_PARSING_STEP2_PROMPT.format(
         edition=edition,
         core_json=json.dumps(core_data),
-        sheet_text=sheet_text,
+        sheet_text=fenced_text,
     )
     combat_data = generate_ai_json(step2_prompt)
-    if not combat_data:
+    if not isinstance(combat_data, dict):
         logger.warning(
             "Step 2 of chained parsing failed; weapons, equipment and spells will be empty."
         )
+        combat_data = {}
 
-    # Merge the results
-    final_raw = {**core_data, **(combat_data or {})}
+    # Allowlist safe merge keys instead of raw dict spread
+    allowed_fields = set(CharacterSchema.model_fields.keys()) - {
+        "owner_id",
+        "active_campaign",
+        "char_id",
+    }
+    merged = {k: v for k, v in core_data.items() if k in allowed_fields}
+    for k, v in combat_data.items():
+        if k in allowed_fields:
+            merged[k] = v
+    final_raw = merged
     final_raw["dnd_edition"] = edition
 
     # Synchronize derived stats according to edition rules

@@ -40,12 +40,22 @@ describe('jwtInterceptor', () => {
     req.flush({});
   });
 
-  it('should not add Authorization header if URL does not contain /api/v1/', () => {
+  it('should not add Authorization header if URL does not match apiBaseUrl', () => {
     authServiceSpy.token.mockReturnValue('my-secret-token');
 
     http.get('/assets/images/logo.png').subscribe();
 
     const req = httpTestingController.expectOne('/assets/images/logo.png');
+    expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush({});
+  });
+
+  it('should not leak Authorization header to external URLs containing /api/v1/', () => {
+    authServiceSpy.token.mockReturnValue('my-secret-token');
+
+    http.get('https://evil.example/api/v1/protected-data').subscribe();
+
+    const req = httpTestingController.expectOne('https://evil.example/api/v1/protected-data');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush({});
   });

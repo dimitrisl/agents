@@ -175,6 +175,8 @@ export interface CharacterSchema {
   dnd_edition?: string;
   ruleset_version?: string;
   active_campaign?: string;
+  inspiration?: boolean;
+  exhaustion_level?: number;
   currency?: CurrencyBlock;
   class_resources?: ClassResource[];
   base_stats?: StatBlock;

@@ -32,6 +32,7 @@ export class PartyPanelComponent {
 
   @Output() addMember = new EventEmitter<void>();
   @Output() distributeLoot = new EventEmitter<void>();
+  @Output() longRest = new EventEmitter<void>();
   @Output() adjustHp = new EventEmitter<{ member: PartyMember; delta: number }>();
   @Output() setHp = new EventEmitter<{ member: PartyMember; hp: number }>();
   @Output() quickStatRoll = new EventEmitter<{ member: PartyMember; stat: string }>();

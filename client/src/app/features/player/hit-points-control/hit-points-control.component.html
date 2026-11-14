@@ -40,7 +40,7 @@
       [attr.aria-label]="'Hit points ' + current + ' of ' + max + '. Open the quick HP calculator'"
       (click)="openQuickPad()"
     >
-      <span class="text-[2.25rem] font-extrabold leading-none tabular-nums text-ink" [ngClass]="{ 'text-crimson': current === 0 }" aria-hidden="true">{{ current }}</span>
+      <span class="text-display font-extrabold leading-none tabular-nums text-ink" [ngClass]="{ 'text-crimson': current === 0 }" aria-hidden="true">{{ current }}</span>
       <span class="ml-1 text-title font-semibold tabular-nums text-muted" aria-hidden="true">/ {{ max }}</span>
     </button>
 
@@ -117,7 +117,7 @@
   <!-- Death Saves UI -->
   <div *ngIf="current === 0" class="mt-4 flex flex-col items-center">
     <div class="w-full flex items-center justify-between mb-2">
-      <p class="text-micro font-bold text-red-400 uppercase tracking-wider">Death Saves</p>
+      <p class="text-micro font-bold text-crimson uppercase tracking-wider">Death Saves</p>
       <button
         forgeButton
         variant="secondary"
@@ -130,14 +130,14 @@
       </button>
     </div>
 
-    <div class="w-full flex items-center justify-around bg-red-900/10 border border-red-500/20 rounded-xl px-4 py-3">
+    <div class="w-full flex items-center justify-around bg-crimson/10 border border-crimson/20 rounded-xl px-4 py-3">
       <!-- Successes -->
       <div class="flex flex-col items-center gap-1.5">
         <span class="text-micro font-semibold text-ink uppercase">Successes</span>
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
             class="min-w-11 min-h-11 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
-            [ngClass]="(deathSaves?.successes || 0) >= i ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-900/40' : 'bg-surface/50 border-hairline hover:border-emerald-500/60'"
+            [ngClass]="(deathSaves?.successes || 0) >= i ? 'bg-emerald border-emerald text-ink shadow-card' : 'bg-surface/50 border-hairline hover:border-emerald/60'"
             (click)="toggleDeathSave('successes', i)"
             aria-label="Toggle death save success"
           >
@@ -150,7 +150,7 @@
       </div>
 
       <!-- Divider -->
-      <div class="w-px h-12 bg-red-500/20 mx-2"></div>
+      <div class="w-px h-12 bg-crimson/20 mx-2"></div>
 
       <!-- Failures -->
       <div class="flex flex-col items-center gap-1.5">
@@ -158,7 +158,7 @@
         <div class="flex gap-2">
           <button *ngFor="let i of deathSaveArray"
             class="min-w-11 min-h-11 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-95"
-            [ngClass]="(deathSaves?.failures || 0) >= i ? 'bg-crimson border-red-500 text-white shadow-red-900/40' : 'bg-surface/50 border-hairline hover:border-crimson/60'"
+            [ngClass]="(deathSaves?.failures || 0) >= i ? 'bg-crimson border-crimson text-ink shadow-card' : 'bg-surface/50 border-hairline hover:border-crimson/60'"
             (click)="toggleDeathSave('failures', i)"
             aria-label="Toggle death save failure"
           >
@@ -249,15 +249,15 @@
           class="h-12 min-h-12 rounded-xl bg-crimson/20 hover:bg-crimson/30 active:scale-95 border border-crimson/40 text-crimson font-bold text-sm transition-all flex flex-col items-center justify-center"
         >
           <span>🩸 Damage</span>
-          <span class="text-[10px] opacity-80">-{{ numpadValue() }}</span>
+          <span class="text-micro opacity-80">-{{ numpadValue() }}</span>
         </button>
         <button
           type="button"
           (click)="executeHeal()"
-          class="h-12 min-h-12 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 border border-emerald-500/40 text-emerald-400 font-bold text-sm transition-all flex flex-col items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-emerald/20 hover:bg-emerald/30 active:scale-95 border border-emerald/40 text-emerald font-bold text-sm transition-all flex flex-col items-center justify-center"
         >
           <span>💚 Heal</span>
-          <span class="text-[10px] opacity-80">+{{ numpadValue() }}</span>
+          <span class="text-micro opacity-80">+{{ numpadValue() }}</span>
         </button>
         <button
           type="button"
@@ -265,7 +265,7 @@
           class="h-12 min-h-12 rounded-xl bg-gold/20 hover:bg-gold/30 active:scale-95 border border-gold/40 text-gold font-bold text-sm transition-all flex flex-col items-center justify-center"
         >
           <span>🛡️ Set Temp</span>
-          <span class="text-[10px] opacity-80">{{ numpadValue() }}</span>
+          <span class="text-micro opacity-80">{{ numpadValue() }}</span>
         </button>
       </div>
     </div>

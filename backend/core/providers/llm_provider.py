@@ -12,7 +12,9 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def generate_text(self, prompt: str, temperature: Optional[float] = None) -> str:
+    def generate_text(
+        self, prompt: str, temperature: Optional[float] = None, use_cache: bool = True
+    ) -> str:
         """
         Generates standard text response from a prompt.
         """

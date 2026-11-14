@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
 import { WebSocketService, WsIdentity } from './websocket.service';
 import { AuthService } from './auth.service';
+import { RollToastService } from './roll-toast.service';
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
@@ -50,7 +52,11 @@ describe('WebSocketService', () => {
   let originalWebSocket: any;
 
   beforeEach(() => {
-    authServiceSpy = { token: jest.fn().mockReturnValue('fake-token') };
+    authServiceSpy = {
+      token: jest.fn().mockReturnValue('fake-token'),
+      fetchCurrentUser: jest.fn().mockReturnValue(of({ username: 'hero' })),
+      logout: jest.fn(),
+    };
 
     // Mock the global WebSocket
     originalWebSocket = (window as any).WebSocket;
@@ -60,7 +66,8 @@ describe('WebSocketService', () => {
     TestBed.configureTestingModule({
       providers: [
         WebSocketService,
-        { provide: AuthService, useValue: authServiceSpy }
+        { provide: AuthService, useValue: authServiceSpy },
+        { provide: RollToastService, useValue: { showMessage: jest.fn() } },
       ]
     });
     service = TestBed.inject(WebSocketService);
@@ -145,14 +152,27 @@ describe('WebSocketService', () => {
     // Fast-forward timers for reconnect delay
   });
 
-  it('should not reconnect if closed with code 1008 (unauthorized)', () => {
+  it('should not reconnect if closed with code 1008 (unauthorized) and should re-check session', () => {
+    authServiceSpy.fetchCurrentUser.mockReturnValue(throwError(() => ({ status: 401 })));
     service.connect('camp1', {});
     const ws = MockWebSocket.instances[0];
     ws.simulateOpen();
+    expect(service.connectionStatus()).toBe('open');
 
     ws.simulateClose(1008);
 
     expect(MockWebSocket.instances.length).toBe(1); // No new instance
+    expect(service.connectionStatus()).toBe('unauthorized');
+    expect(authServiceSpy.fetchCurrentUser).toHaveBeenCalled();
+    expect(authServiceSpy.logout).toHaveBeenCalled();
+  });
+
+  it('sendMessage returns boolean indicating open socket delivery', () => {
+    expect(service.sendMessage({ type: 'ping' })).toBe(false);
+    service.connect('camp1', {});
+    const ws = MockWebSocket.instances[0];
+    ws.simulateOpen();
+    expect(service.sendMessage({ type: 'ping' })).toBe(true);
   });
 
   it('should not reconnect if manually disconnected', () => {

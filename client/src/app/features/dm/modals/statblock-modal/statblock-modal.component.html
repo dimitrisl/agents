@@ -101,55 +101,57 @@
         </div>
       }
 
-      <!-- Structured Actions Section with 1-Click Attack & Damage Rolls -->
-      @if (selectedStatblockCombatant.actions && selectedStatblockCombatant.actions.length > 0) {
-        <div class="space-y-3">
-          <h4 class="text-label font-bold uppercase tracking-wider text-accent border-b border-hairline pb-1">
-            Actions
-          </h4>
+      <!-- Structured Actions & Legendary Actions Sections with 1-Click Attack & Damage Rolls -->
+      @if (getActionSections().length > 0) {
+        @for (section of getActionSections(); track section.title) {
           <div class="space-y-3">
-            @for (action of selectedStatblockCombatant.actions; track action.name) {
-              <div class="rounded-lg bg-surface/40 p-3 border border-hairline flex flex-col gap-2">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span class="font-bold text-ink text-body flex items-center gap-1.5">
-                    <span>⚔️</span> {{ action.name }}
-                  </span>
-                  <div class="flex items-center gap-2">
-                    @if (getActionAttackBonus(action) !== null) {
-                      <button
-                        forgeButton
-                        type="button"
-                        variant="secondary"
-                        tone="accent"
-                        size="sm"
-                        (click)="rollAttack(action)"
-                      >
-                        🎲 {{ formatBonus(getActionAttackBonus(action)!) }} to Hit
-                      </button>
-                    }
-                    @if (getActionDamageDice(action); as dmgDice) {
-                      <button
-                        forgeButton
-                        type="button"
-                        variant="secondary"
-                        tone="danger"
-                        size="sm"
-                        (click)="rollDamage(action)"
-                      >
-                        💥 {{ dmgDice }} Damage
-                      </button>
-                    }
+            <h4 class="text-label font-bold uppercase tracking-wider text-accent border-b border-hairline pb-1">
+              {{ section.title }}
+            </h4>
+            <div class="space-y-3">
+              @for (action of section.items; track action.name) {
+                <div class="rounded-lg bg-surface/40 p-3 border border-hairline flex flex-col gap-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="font-bold text-ink text-body flex items-center gap-1.5">
+                      <span>⚔️</span> {{ action.name }}
+                    </span>
+                    <div class="flex items-center gap-2">
+                      @if (getActionAttackBonus(action) !== null) {
+                        <button
+                          forgeButton
+                          type="button"
+                          variant="secondary"
+                          tone="accent"
+                          size="sm"
+                          (click)="rollAttack(action)"
+                        >
+                          🎲 {{ formatBonus(getActionAttackBonus(action)!) }} to Hit
+                        </button>
+                      }
+                      @if (getActionDamageDice(action); as dmgDice) {
+                        <button
+                          forgeButton
+                          type="button"
+                          variant="secondary"
+                          tone="danger"
+                          size="sm"
+                          (click)="rollDamage(action)"
+                        >
+                          💥 {{ dmgDice }} Damage
+                        </button>
+                      }
+                    </div>
                   </div>
+                  @if (action.description || action.desc) {
+                    <p class="text-body text-ink/90 text-sm leading-relaxed whitespace-pre-wrap">
+                      {{ action.description || action.desc }}
+                    </p>
+                  }
                 </div>
-                @if (action.description || action.desc) {
-                  <p class="text-body text-ink/90 text-sm leading-relaxed whitespace-pre-wrap">
-                    {{ action.description || action.desc }}
-                  </p>
-                }
-              </div>
-            }
+              }
+            </div>
           </div>
-        </div>
+        }
       } @else {
         <!-- Fallback: Unstructured Legacy Text Statblock -->
         <div class="rounded-lg border border-hairline bg-panel p-4 text-body text-ink whitespace-pre-wrap">
