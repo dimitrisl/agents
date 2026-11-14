@@ -3,6 +3,14 @@ import { VTTState, VTTToken, VTTGrid } from '../models/vtt.model';
 import { Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
+import { RollToastService } from './roll-toast.service';
+
+export type WsConnectionStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'open'
+  | 'reconnecting'
+  | 'unauthorized';
 
 export interface WsMessage {
   type: 'whisper' | 'roll_request' | 'roll_result' | 'party_update' | 'vtt_sync' | string;
@@ -31,11 +39,13 @@ const SILENCE_TIMEOUT = 70000;
 })
 export class WebSocketService {
   private auth = inject(AuthService);
+  private toast = inject(RollToastService, { optional: true });
 
   private socket: WebSocket | null = null;
   private currentCampaignId: string | null = null;
   private currentIdentity: WsIdentity | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private onlineListener: (() => void) | null = null;
   private reconnectAttempts = 0;
   private manuallyClosed = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -43,6 +53,7 @@ export class WebSocketService {
 
   public messages$ = new Subject<WsMessage>();
   public vttState = signal<VTTState | null>(null);
+  public readonly connectionStatus = signal<WsConnectionStatus>('disconnected');
 
   /**
    * Fires every time the channel comes up — first connect and every reconnect.
@@ -95,10 +106,13 @@ export class WebSocketService {
     wsUrl = wsUrl.replace('/api/v1', '');
     const fullUrl = `${wsUrl}/ws/campaigns/${encodeURIComponent(campaignId)}`;
 
+    this.connectionStatus.set('connecting');
     const socket = new WebSocket(fullUrl);
     this.socket = socket;
 
     socket.onopen = () => {
+      if (this.socket !== socket) return;
+      this.connectionStatus.set('open');
       // Send auth payload immediately
       socket.send(
         JSON.stringify({
@@ -148,8 +162,21 @@ export class WebSocketService {
       if (event.code === 1008) {
         console.warn(`[WebSocket] Rejected by server (unauthorized): ${campaignId}`);
         if (isCurrent) {
+          this.connectionStatus.set('unauthorized');
           this.currentCampaignId = null;
           this.currentIdentity = null;
+          this.toast?.showMessage(
+            '🔒 CHANNEL UNAUTHORIZED',
+            'Your session expired or campaign access was revoked.'
+          );
+          const sessionCheck$ = this.auth.fetchCurrentUser?.();
+          if (sessionCheck$ && typeof sessionCheck$.subscribe === 'function') {
+            sessionCheck$.subscribe({
+              error: () => {
+                this.auth.logout?.();
+              },
+            });
+          }
         }
         return;
       }
@@ -171,6 +198,8 @@ export class WebSocketService {
     this.closeSocket();
     this.currentCampaignId = null;
     this.currentIdentity = null;
+    this.vttState.set(null);
+    this.connectionStatus.set('disconnected');
   }
 
   private isSameIdentity(identity: WsIdentity): boolean {
@@ -224,13 +253,28 @@ export class WebSocketService {
 
   private scheduleReconnect(campaignId: string, identity: WsIdentity): void {
     this.clearReconnectTimer();
-    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 10000);
+    this.connectionStatus.set('reconnecting');
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false && typeof window !== 'undefined') {
+      const handleOnline = () => {
+        this.onlineListener = null;
+        if (!this.manuallyClosed && this.currentCampaignId === campaignId) {
+          this.connect(campaignId, identity);
+        }
+      };
+      this.onlineListener = handleOnline;
+      window.addEventListener('online', handleOnline, { once: true });
+      return;
+    }
+
+    const baseDelay = Math.min(1000 * 2 ** this.reconnectAttempts, 10000);
+    const jitter = Math.floor(Math.random() * 400);
     this.reconnectAttempts += 1;
     this.reconnectTimer = setTimeout(() => {
       if (!this.manuallyClosed && this.currentCampaignId === campaignId) {
         this.connect(campaignId, identity);
       }
-    }, delay);
+    }, baseDelay + jitter);
   }
 
   private clearReconnectTimer(): void {
@@ -238,14 +282,19 @@ export class WebSocketService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.onlineListener && typeof window !== 'undefined') {
+      window.removeEventListener('online', this.onlineListener);
+      this.onlineListener = null;
+    }
   }
 
-  public sendMessage(msg: WsMessage): void {
+  public sendMessage(msg: WsMessage): boolean {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(msg));
-    } else {
-      console.warn('[WebSocket] Cannot send message, socket is not open');
+      return true;
     }
+    console.warn('[WebSocket] Cannot send message, socket is not open');
+    return false;
   }
 
   // --- VTT Helpers ---

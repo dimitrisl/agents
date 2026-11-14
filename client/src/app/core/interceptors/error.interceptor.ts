@@ -1,7 +1,10 @@
 import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
+import { AuthService } from '../services/auth.service';
 import { RollToastService } from '../services/roll-toast.service';
+
+const REPORTED_GLOBALLY = new WeakSet<HttpErrorResponse>();
 
 /**
  * Opt a request out of the global error toast, for calls that retry on their own
@@ -20,13 +23,29 @@ export const SILENT_HTTP_ERRORS = new HttpContextToken<boolean>(() => false);
  */
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const toast = inject(RollToastService);
+  const auth = inject(AuthService, { optional: true });
 
   return next(req).pipe(
     catchError((err: unknown) => {
-      if (err instanceof HttpErrorResponse && !req.context.get(SILENT_HTTP_ERRORS)) {
-        const message = describeHttpError(err);
-        if (message) {
-          toast.showMessage(message.title, message.body);
+      if (err instanceof HttpErrorResponse) {
+        if (
+          err.status === 401 &&
+          !req.url.includes('/auth/login') &&
+          !req.url.includes('/auth/register')
+        ) {
+          auth?.logout?.();
+          if (!req.context.get(SILENT_HTTP_ERRORS)) {
+            REPORTED_GLOBALLY.add(err);
+            toast.showMessage('🔒 SESSION EXPIRED', 'Your session expired. Please sign in again.');
+          }
+          return throwError(() => err);
+        }
+        if (!req.context.get(SILENT_HTTP_ERRORS)) {
+          const message = describeHttpError(err);
+          if (message) {
+            REPORTED_GLOBALLY.add(err);
+            toast.showMessage(message.title, message.body);
+          }
         }
       }
       return throwError(() => err);
@@ -70,5 +89,8 @@ export function describeHttpError(err: HttpErrorResponse): { title: string; body
  * for business errors such as a 400 with a `detail`.
  */
 export function isReportedGlobally(err: unknown): boolean {
-  return err instanceof HttpErrorResponse && describeHttpError(err) !== null;
+  return (
+    err instanceof HttpErrorResponse &&
+    (REPORTED_GLOBALLY.has(err) || describeHttpError(err) !== null)
+  );
 }

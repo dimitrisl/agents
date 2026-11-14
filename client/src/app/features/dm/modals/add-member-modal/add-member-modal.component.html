@@ -52,7 +52,58 @@
       </div>
     </div>
 
-
+    <div *ngIf="addMemberTab === 'custom'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-custom" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label class="flex flex-col gap-1.5 text-label font-semibold uppercase tracking-wide text-muted sm:col-span-2">
+        Hero Name
+        <input
+          forgeInput
+          type="text"
+          placeholder="e.g. Sir Alistair (Paper Sheet)"
+          [ngModel]="newMemberName"
+          (ngModelChange)="newMemberNameChange.emit($event)"
+        />
+      </label>
+      <label class="flex flex-col gap-1.5 text-label font-semibold uppercase tracking-wide text-muted">
+        Class
+        <input
+          forgeInput
+          type="text"
+          [ngModel]="newMemberClass"
+          (ngModelChange)="newMemberClassChange.emit($event)"
+        />
+      </label>
+      <label class="flex flex-col gap-1.5 text-label font-semibold uppercase tracking-wide text-muted">
+        Level
+        <input
+          forgeInput
+          type="number"
+          min="1"
+          max="20"
+          [ngModel]="newMemberLevel"
+          (ngModelChange)="newMemberLevelChange.emit(+$event)"
+        />
+      </label>
+      <label class="flex flex-col gap-1.5 text-label font-semibold uppercase tracking-wide text-muted">
+        Max HP
+        <input
+          forgeInput
+          type="number"
+          min="1"
+          [ngModel]="newMemberHp"
+          (ngModelChange)="newMemberHpChange.emit(+$event)"
+        />
+      </label>
+      <label class="flex flex-col gap-1.5 text-label font-semibold uppercase tracking-wide text-muted">
+        Armor Class (AC)
+        <input
+          forgeInput
+          type="number"
+          min="1"
+          [ngModel]="newMemberAc"
+          (ngModelChange)="newMemberAcChange.emit(+$event)"
+        />
+      </label>
+    </div>
 
     <div *ngIf="addMemberTab === 'invite'" role="tabpanel" aria-labelledby="dm-add-member-tabs-tab-invite" class="rounded-lg border border-hairline bg-panel p-4 text-center">
       <p class="mb-2 text-body text-muted">
@@ -90,6 +141,16 @@
         (click)="addExistingPartyMember.emit()"
       >
         Enlist Selected Hero
+      </button>
+
+      <button
+        *ngIf="addMemberTab === 'custom'"
+        forgeButton
+        type="button"
+        [disabled]="!newMemberName.trim()"
+        (click)="addCustomMember.emit()"
+      >
+        Add Paper Hero
       </button>
 
       <button

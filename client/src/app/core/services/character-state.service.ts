@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 
 /** The hero the player last had open, restored after a page refresh. */
 const ACTIVE_CHARACTER_KEY = 'phyrexian_forge_active_char';
+const ACTIVE_CHARACTER_SNAPSHOT_KEY = 'phyrexian_forge_active_char_snapshot';
 
 @Injectable({
   providedIn: 'root',
@@ -58,13 +59,18 @@ export class CharacterStateService {
    * "could not load" apart from a genuinely empty vault.
    */
   readonly vaultStatus = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  readonly isOfflineCached = signal<boolean>(false);
 
   constructor(private http: HttpClient) {
     // Remember whichever hero becomes active, however it got selected
     // (switcher, import, forge), so a refresh doesn't fall back to the first one.
     effect(() => {
-      const id = this.activeCharacter()?.char_id;
-      if (id && id !== 'default_paladin') this.storeActiveId(id);
+      const char = this.activeCharacter();
+      const id = char?.char_id;
+      if (id && id !== 'default_paladin') {
+        this.storeActiveId(id);
+        this.storeActiveSnapshot(char);
+      }
     });
 
     if (typeof document !== 'undefined' && document.documentElement) {
@@ -98,6 +104,7 @@ export class CharacterStateService {
         next: (resp) => {
           this.loaded = true;
           this.vaultStatus.set('loaded');
+          this.isOfflineCached.set(false);
           this.inFlight$ = null;
           const chars = resp.characters || [];
           this.unreadableCharacters.set(resp.unreadable || []);
@@ -126,9 +133,18 @@ export class CharacterStateService {
         },
         error: () => {
           this.inFlight$ = null;
-          this.vaultStatus.set('error');
-          this.characters.set([]);
-          this.activeCharacter.set(null);
+          const cached = this.readActiveSnapshot();
+          if (cached) {
+            this.vaultStatus.set('loaded');
+            this.isOfflineCached.set(true);
+            this.characters.set([cached]);
+            this.activeCharacter.set(cached);
+          } else {
+            this.vaultStatus.set('error');
+            this.isOfflineCached.set(false);
+            this.characters.set([]);
+            this.activeCharacter.set(null);
+          }
         }
       })
     );
@@ -160,10 +176,40 @@ export class CharacterStateService {
     }
   }
 
+  private readActiveSnapshot(): CharacterSchema | null {
+    try {
+      const raw = localStorage.getItem(ACTIVE_CHARACTER_SNAPSHOT_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as CharacterSchema;
+      return parsed && typeof parsed.char_id === 'string' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private storeActiveSnapshot(char: CharacterSchema | null): void {
+    if (!char?.char_id) return;
+    try {
+      localStorage.setItem(ACTIVE_CHARACTER_SNAPSHOT_KEY, JSON.stringify(char));
+    } catch {
+      // Storage quota/private mode errors are non-fatal for offline cache.
+    }
+  }
+
+  private clearActiveSnapshot(): void {
+    try {
+      localStorage.removeItem(ACTIVE_CHARACTER_SNAPSHOT_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
   /** Clears every cached signal so the next consumer refetches (used on logout). */
   reset(): void {
     this.loaded = false;
     this.vaultStatus.set('idle');
+    this.isOfflineCached.set(false);
+    this.clearActiveSnapshot();
     this.inFlight$ = null;
     this.characters.set([]);
     this.activeCharacter.set(null);

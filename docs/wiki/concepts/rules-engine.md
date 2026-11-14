@@ -11,7 +11,7 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
 ---
 
 ## 🏛️ Calculation Authority: `stats_service.py`
-[`backend/services/stats_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/stats_service.py) is the sole authority for all derived character statistics:
+[`backend/services/stats_service.py`](../../../backend/services/stats_service.py) is the sole authority for all derived character statistics:
 
 1. **Armor Class (AC) Breakdown & Equipment Invariants:**
    - Computes base AC from equipped armor (Light: Base + Full DEX; Medium: Base + min(DEX, 2); Heavy: Base, no DEX).
@@ -31,7 +31,7 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
    - Adjustments to Constitution score (e.g. from level-ups, ASI, or stat overrides) immediately and retroactively update both `hp_max` and `hp_current` (+1 HP per level per +1 CON mod).
 
 3. **Multiclass Spell Slots & Warlock Pact Magic:**
-   - Multiclass caster levels follow the official multiclassing table (Full Casters 1:1, Half Casters 1:2, Third Casters 1:3).
+   - Multiclass caster levels follow the official multiclassing table (Full Casters 1:1, Half Casters 1:2, Third Casters 1:3), with `total_caster_level > 20` clamped to the level 20 table in `calculate_max_spell_slots`.
    - Warlock **Pact Magic** slots are tracked separately from standard spellcasting slots; Short Rest restores only Pact Magic slots, while regular slots require a Long Rest.
 
 4. **Rest Recovery Invariants (`client/src/app/core/rules/rest.ts`):**
@@ -79,20 +79,26 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
    - Replaces sticky `setdefault(..., False)` logic to guarantee that changing subclasses or unequipping items cleanly clears active advantage flags.
 
 10. **Combat Action Incapacitation Guard (`DEF-CR-01`):**
-    - Checked via [`isIncapacitated(char)`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/core/rules/hit-points.ts#L22-L35).
+    - Checked via [`isIncapacitated(char)`](../../../client/src/app/core/rules/hit-points.ts#L22-L35).
     - Pristine characters (`hp_current: undefined / None`) resolve effective HP via `currentHp(char)` to `char.hp_max > 0` and are **not** incapacitated.
     - Characters are blocked from combat actions (Dodge, Dash, Disengage, Help) **only** when `currentHp(char) <= 0` or when affected by active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).
 
 11. **Deterministic Mandatory Build Grants (`inject_mandatory_character_grants`):**
-    - Executed in [`backend/services/rules_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/rules_service.py) across `forge_character`, `forge_character_manual`, and `autofix_character_build`:
+    - Executed in [`backend/services/rules_service.py`](../../../backend/services/rules_service.py) across `forge_character`, `forge_character_manual`, and `autofix_character_build`:
     - **Species / Racial Grants:** Automatically injects all static species traits from `races_{edition}.json` (`source: "Race"`), racial skill proficiencies (*Keen Senses* $\rightarrow$ `Perception`, 2024 *Naturally Stealthy* $\rightarrow$ `Stealth`, 2014 *Menacing* $\rightarrow$ `Intimidation`), and racial base speeds (`35 ft` for Goliath, `25 ft` for 2014 Dwarf/Halfling/Gnome).
     - **Background Grants:** Automatically merges mandatory background skill proficiencies (`backgrounds_{edition}.json`) into `skill_proficiencies`, injects background tool proficiencies and 2014 background features (`source: "Background"`), and injects the 2024 Background Origin Feat (plus the 2nd Origin Feat for 2024 Humans via *Versatile*) into `features_traits` and `advancements`.
     - **Class & Starting Loadout Fallback:** Deterministically injects all class and active subclass features up to `char_level` and populates canonical starting weapons, armor/equipment, languages, and spellcaster cantrips/prepared spells whenever omitted during character forging.
 
+12. **Exhaustion (`exhaustion_level`) & Epic Boon ASI Cap:**
+    - `exhaustion_level` is clamped to `[0, 6]` in [`backend/services/stats_service.py`](../../../backend/services/stats_service.py) (`sync_character_stats`) and mirrored in [`client/src/app/core/rules/ability.ts`](../../../client/src/app/core/rules/ability.ts), [`skills.ts`](../../../client/src/app/core/rules/skills.ts), [`weapon-calc.ts`](../../../client/src/app/core/rules/weapon-calc.ts), and [`rest.ts`](../../../client/src/app/core/rules/rest.ts):
+      - **2024 Revision (5.5e):** Applies `-5 * exhaustion_level` ft speed (reaching `0` at L6) and `-2 * exhaustion_level` penalty to **D20 Tests only** (skills, saving throws, Initiative, weapon attack rolls, spell attack rolls); **`spell_save_dc` is NOT penalized**. Custom weapons (`is_custom: true`) track applied deltas via `exhaustion_attack_penalty_applied` so repeated saves never compound-decay.
+      - **2014 Edition:** Applies half speed at L2+, speed `0` at L5+, and halves `hp_max` at L4+ (preserving the unhalved ceiling in `base_hp_max` for lossless restoration when exhaustion drops below L4); **no** `-2/lvl` D20 penalty applies.
+    - **Level 19+ Epic Boon Cap:** [`POST /forge/level-up-apply`](../../../server/routers/forge_router.py) enforces `stat_cap = 30` when `char_level >= 19` and `"2024" in dnd_edition`, else `20`.
+
 ---
 
 ## 🛡️ Deterministic Validation: `validation_service.py`
-[`backend/services/validation_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/validation_service.py) enforces build legality:
+[`backend/services/validation_service.py`](../../../backend/services/validation_service.py) enforces build legality:
 * **Armor & Weapon Proficiencies:** Validates that equipped items match character proficiencies fetched from `RulesRepository`.
 * **Subclass Level Locks:** Enforces that 2024 classes (Cleric, Fighter, etc.) select subclasses at **Level 3**, whereas 2014 classes follow their respective 1st/2nd/3rd level rules.
 * **Point Buy & Array Boundaries:** Enforces base stat constraints (8 to 15 before racial/background bonuses).

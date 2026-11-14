@@ -11,6 +11,7 @@ import {
   clampHp,
   conModifier,
   currentHp,
+  exhaustionD20Penalty,
   findSkill,
   formatModifier,
   hasJackOfAllTrades,
@@ -908,5 +909,88 @@ describe('Multiclass Pact Magic & 2024 Short Rest Resource Recovery', () => {
     expect(after2024.find((p: any) => p.name === 'Second Wind')?.current).toBe(1);
     expect(after2024.find((p: any) => p.name === 'Channel Divinity')?.current).toBe(1);
     expect(after2024.find((p: any) => p.name === 'Focus Points')?.current).toBe(5);
+  });
+});
+
+describe('2014 vs 2024 Exhaustion & Pact Slot Regain QA Fixes', () => {
+  const { calculateWeaponBreakdown } = require('./weapon-calc');
+
+  it('applies -2/lvl exhaustion D20 penalty only in 2024 Revision', () => {
+    const c2024 = hero({
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 2,
+      stats: { STR: 10, DEX: 16, CON: 14, INT: 12, WIS: 14, CHA: 10 },
+      skill_proficiencies: ['Perception'],
+    });
+    const c2014 = hero({
+      dnd_edition: '2014 Edition',
+      exhaustion_level: 2,
+      stats: { STR: 10, DEX: 16, CON: 14, INT: 12, WIS: 14, CHA: 10 },
+      skill_proficiencies: ['Perception'],
+    });
+
+    expect(exhaustionD20Penalty(c2024)).toBe(4);
+    expect(exhaustionD20Penalty(c2014)).toBe(0);
+
+    // Perception: WIS (+2) + Prof (+3) = +5; minus 4 under 2024 Exh 2 -> +1
+    expect(skillModifier(c2024, skill('Perception', 'WIS'))).toBe(1);
+    expect(skillModifier(c2014, skill('Perception', 'WIS'))).toBe(5);
+
+    // INT save fallback: +1 -> -3 under 2024 Exh 2
+    expect(savingThrowModifier(c2024, 'INT')).toBe(-3);
+    expect(savingThrowModifier(c2014, 'INT')).toBe(1);
+
+    const wpnBd2024 = calculateWeaponBreakdown(
+      { name: 'Rapier', damage_dice: '1d8 piercing', properties: 'Finesse' },
+      c2024
+    );
+    const wpnBd2014 = calculateWeaponBreakdown(
+      { name: 'Rapier', damage_dice: '1d8 piercing', properties: 'Finesse' },
+      c2014
+    );
+    // DEX (+3) + Prof (+3) = +6; minus 4 -> +2 under 2024 Exh 2
+    expect(wpnBd2024.attack.total).toBe(2);
+    expect(wpnBd2024.attack.formulaText).toContain('Exh (-4)');
+    expect(wpnBd2014.attack.total).toBe(6);
+    expect(wpnBd2014.attack.formulaText).not.toContain('Exh');
+  });
+
+  it('restores 2014 L4 HP Max when exhaustion drops to L3 and applies edition hit-dice rest rules', () => {
+    const l5_2014 = hero({
+      dnd_edition: '2014 Edition',
+      char_level: 5,
+      hp_max: 22,
+      base_hp_max: 44,
+      exhaustion_level: 4,
+      hit_dice_used: 4,
+    });
+    const res2014 = resolveLongRest(l5_2014);
+    expect(res2014.exhaustionLevel).toBe(3);
+    expect(res2014.hpMax).toBe(44);
+    expect(res2014.hitDiceRecovered).toBe(2);
+    expect(res2014.hitDiceUsed).toBe(2);
+
+    const l5_2024 = hero({
+      dnd_edition: '2024 Revision (5.5e)',
+      char_level: 5,
+      hp_max: 44,
+      exhaustion_level: 2,
+      hit_dice_used: 4,
+    });
+    const res2024 = resolveLongRest(l5_2024);
+    expect(res2024.exhaustionLevel).toBe(1);
+    expect(res2024.hitDiceRecovered).toBe(5);
+    expect(res2024.hitDiceUsed).toBe(0);
+  });
+
+  it('decrements mirrored pact.used when regaining a pact-backed slot level', () => {
+    const slots = {
+      level_3: { max: 2, used: 2, pact_max: 2, pact_used: 2 },
+      pact: { max: 2, used: 2, level: 3 },
+    };
+    const regained = regainSpellSlot(slots as any, 3);
+    expect(regained['level_3'].used).toBe(1);
+    expect((regained['level_3'] as any).pact_used).toBe(1);
+    expect(regained['pact'].used).toBe(1);
   });
 });

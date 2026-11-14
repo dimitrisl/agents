@@ -1,3 +1,4 @@
+import copy
 import datetime
 import inspect
 import logging
@@ -6,10 +7,12 @@ import re
 import secrets
 import uuid
 from typing import Any, Dict, List, Literal, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import (
@@ -17,6 +20,7 @@ from backend.core.schemas import (
     CampaignRollResponse,
     CampaignSkeletonSchema,
     EncounterStateSchema,
+    EncounterSyncResponseSchema,
     InviteCodeResponse,
     PasteExtractionRequest,
     SessionOutlineSchema,
@@ -37,6 +41,7 @@ from backend.services.stats_service import (
     get_modifier,
     has_jack_of_all_trades,
     has_remarkable_athlete,
+    sync_character_stats,
 )
 from backend.services.vtt_service import VTTService
 from server.config import settings
@@ -60,6 +65,13 @@ class CampaignSchema(BaseModel):
     invite_code: Optional[str] = None
     vtt_state: Optional[VTTStateSchema] = None
     member_count: int = 1
+
+    @field_validator("campaign_name")
+    @classmethod
+    def validate_campaign_name(cls, v: str) -> str:
+        if "%" in v or "/" in v or "\\" in v:
+            raise ValueError("Campaign name cannot contain '%', '/', or '\\'.")
+        return v
 
 
 class PlayerCampaignSchema(BaseModel):
@@ -97,7 +109,7 @@ class RollRequestSchema(BaseModel):
 
 class WhisperRequest(BaseModel):
     recipient: str
-    message: str
+    message: str = Field(..., min_length=1, max_length=2000)
     sender_character_id: Optional[str] = None
     recipient_character_id: Optional[str] = None
 
@@ -258,14 +270,22 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
     normalized = re.sub(r"[\s-]+", "_", (roll_type or "").lower())
     stat_clean = (stat or "").strip()
     stat_upper = stat_clean.upper()
+    edition = char.get("ruleset_version") or char.get("dnd_edition")
+    is_2024 = "2024" in str(edition or "")
+    exh_level = max(0, min(6, int(char.get("exhaustion_level", 0) or 0)))
+    exh_penalty = (2 * exh_level) if is_2024 else 0
 
     if normalized in _SAVE_TYPES:
+        save_values = char.get("saving_throw_values") or {}
+        for sv_k, sv_val in save_values.items():
+            if sv_k.upper() == stat_upper:
+                return int(sv_val)
         saving_throws = [s.upper() for s in (char.get("saving_throws") or [])]
         proficient = stat_upper in saving_throws
         stat_val = stats.get(stat_upper)
         if stat_val is None:
             stat_val = next((v for k, v in stats.items() if k.upper() == stat_upper), 10)
-        return get_modifier(stat_val) + (prof_bonus if proficient else 0)
+        return get_modifier(stat_val) + (prof_bonus if proficient else 0) - exh_penalty
 
     if normalized in _SKILL_TYPES:
         char_skills = char.get("skills") or {}
@@ -273,8 +293,6 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
             if sk_name.lower() == stat_clean.lower():
                 return int(sk_val)
 
-        edition = char.get("ruleset_version") or char.get("dnd_edition")
-        is_2024 = "2024" in str(edition or "")
         jack = has_jack_of_all_trades(char)
         remarkable = has_remarkable_athlete(char, edition=edition)
 
@@ -288,21 +306,21 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
         )
         for sk_name, sk_val in skills.items():
             if sk_name.lower() == stat_clean.lower():
-                return int(sk_val)
+                return int(sk_val) - exh_penalty
 
     if normalized == "initiative" or stat_clean.lower() == "initiative":
         if "initiative_modifier" in char and char["initiative_modifier"] is not None:
             return int(char["initiative_modifier"])
-        return get_modifier(stats.get("DEX", 10))
+        return get_modifier(stats.get("DEX", 10)) - exh_penalty
 
     if stat_upper in stats:
-        return get_modifier(stats[stat_upper])
+        return get_modifier(stats[stat_upper]) - exh_penalty
 
     for k, v in stats.items():
         if k.upper() == stat_upper:
-            return get_modifier(v)
+            return get_modifier(v) - exh_penalty
 
-    return get_modifier(stats.get(stat, 10))
+    return get_modifier(stats.get(stat, 10)) - exh_penalty
 
 
 def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str, Any]:
@@ -330,15 +348,57 @@ def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str
     }
 
 
-def _visible_roll_requests(requests: List[Dict[str, Any]], is_dm: bool) -> List[Dict[str, Any]]:
+def _visible_roll_requests(
+    requests: List[Dict[str, Any]],
+    is_dm: bool,
+    current_user_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     History as this member is allowed to see it. Secret rolls are the DM's own
-    knowledge: the socket never sends them to a player, so replaying them here
-    would hand back exactly what was withheld the moment the hero reconnects.
+    knowledge, and targeted player roll requests are scoped to their owner.
     """
     if is_dm:
         return requests
-    return [request for request in requests if not request.get("is_secret")]
+    visible: List[Dict[str, Any]] = []
+    for req in requests:
+        if req.get("is_secret"):
+            continue
+        target_owner_id = req.get("target_owner_id")
+        if current_user_id and target_owner_id and target_owner_id != current_user_id:
+            continue
+        visible.append(req)
+    return visible
+
+
+def _compute_health_status(hp: Optional[int], max_hp: Optional[int]) -> str:
+    hp_val = int(hp or 0)
+    max_val = int(max_hp or 0)
+    if hp_val <= 0:
+        return "down"
+    if max_val > 0 and hp_val <= (max_val // 2):
+        return "bloodied"
+    return "healthy"
+
+
+def _redact_encounter_for_player(enc: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip secret monster stats while preserving party state and visual health status."""
+    redacted = copy.deepcopy(enc)
+    combatants = redacted.get("combatants") or []
+    for c in combatants:
+        if not c.get("health_status"):
+            c["health_status"] = _compute_health_status(c.get("hp"), c.get("max_hp"))
+        if not c.get("is_player"):
+            c["hp"] = None
+            c["max_hp"] = None
+            c["ac"] = None
+            c["statblock"] = None
+            c["stats"] = None
+            c["traits"] = None
+            c["actions"] = None
+            c["legendary_actions"] = None
+            c["cr"] = None
+            c["xp"] = None
+    return redacted
 
 
 # _ensure_dm_access removed as per #ticket
@@ -417,7 +477,16 @@ async def save_campaign(
                 detail=f"Campaign '{payload.campaign_name}' conflict.",
             ) from e
     else:
-        camp_dict["owner_id"] = current_user["id"]
+        # #233: Allowlist safe fields on creation instead of trusting client role/party/member_count
+        camp_dict = {
+            "campaign_name": payload.campaign_name,
+            "owner_id": current_user["id"],
+            "role": "dm",
+            "notes": payload.notes,
+            "party": [],
+            "dnd_edition": payload.dnd_edition,
+            "member_count": 1,
+        }
         doc_to_insert = dict(camp_dict)
         try:
             await db["campaigns"].insert_one(doc_to_insert)
@@ -543,12 +612,15 @@ async def update_party_member_state(
         "char_name": char.get("char_name", "Unknown"),
         "hp_current": updates.get("hp_current", char.get("hp_current") or 0),
         "hp_max": char.get("hp_max") or 0,
+        "hp_temp": char.get("hp_temp", 0) or 0,
         "conditions": updates.get("conditions", char.get("conditions", [])),
+        "concentrating_on": char.get("concentrating_on"),
+        "death_saves": updates.get("death_saves", char.get("death_saves")),
+        "inspiration": bool(char.get("inspiration", False)),
+        "exhaustion_level": int(char.get("exhaustion_level", 0) or 0),
         "version": new_version,
         "source": "dm",
     }
-    if "death_saves" in updates:
-        state["death_saves"] = updates["death_saves"]
 
     from server.routers.websocket_router import manager
 
@@ -556,6 +628,177 @@ async def update_party_member_state(
     await manager.broadcast(name, {"type": "party_update", "payload": state})
 
     return {"success": True, "message": f"Updated {state['char_name']}.", **state}
+
+
+@router.post("/{name}/party/long-rest", response_model=SuccessResponseSchema)
+async def long_rest_party(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """DM Long Rest: restores HP, spell slots, hit dice, and reduces exhaustion for the party."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    from server.routers.websocket_router import manager
+
+    rested_count = 0
+    cursor = db["characters"].find({"active_campaign": name})
+    async for char in cursor:
+        char_id = char.get("char_id")
+        if not char_id:
+            continue
+
+        updated_doc = None
+        current_char = char
+        for attempt in range(2):
+            edition = (
+                current_char.get("dnd_edition")
+                or current_char.get("ruleset_version")
+                or camp.get("dnd_edition")
+                or ""
+            )
+            is_2024_rest = "2024" in str(edition)
+            old_exh = int(current_char.get("exhaustion_level", 0) or 0)
+            new_exh = max(0, old_exh - 1)
+
+            old_hd_used = max(0, int(current_char.get("hit_dice_used") or 0))
+            if is_2024_rest:
+                new_hd_used = 0
+            else:
+                total_hd = max(1, int(current_char.get("char_level") or 1))
+                recovered_hd = max(1, total_hd // 2)
+                new_hd_used = max(0, old_hd_used - recovered_hd)
+
+            raw_slots = current_char.get("spell_slots") or {}
+            reset_slots: Dict[str, Any] = {}
+            if isinstance(raw_slots, dict):
+                for k, slot_val in raw_slots.items():
+                    if isinstance(slot_val, dict):
+                        next_slot = {**slot_val, "used": 0}
+                        if "pact_used" in next_slot:
+                            next_slot["pact_used"] = 0
+                        reset_slots[k] = next_slot
+                    else:
+                        reset_slots[k] = slot_val
+
+            raw_resources = current_char.get("class_resources") or []
+            recharged_resources: List[Dict[str, Any]] = []
+            for res in raw_resources:
+                if isinstance(res, dict):
+                    res_max = res.get("max", res.get("current", 0))
+                    recharged_resources.append({**res, "current": res_max})
+
+            updates: Dict[str, Any] = {
+                "hp_temp": 0,
+                "hit_dice_used": new_hd_used,
+                "concentrating_on": None,
+                "death_saves": {"successes": 0, "failures": 0},
+                "exhaustion_level": new_exh,
+                "spell_slots": reset_slots,
+                "class_resources": recharged_resources,
+            }
+
+            if current_char.get("stats"):
+                working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
+                working.update(updates)
+                if edition and not working.get("dnd_edition"):
+                    working["dnd_edition"] = edition
+                synced = sync_character_stats(working)
+                for sync_key in (
+                    "hp_max",
+                    "base_hp_max",
+                    "speed",
+                    "base_speed",
+                    "skills",
+                    "saving_throw_values",
+                    "initiative_modifier",
+                    "weapons",
+                    "spell_attack_bonus",
+                    "spell_save_dc",
+                ):
+                    if sync_key in synced:
+                        updates[sync_key] = synced[sync_key]
+            else:
+                if (not is_2024_rest) and new_exh < 4 and current_char.get("base_hp_max"):
+                    updates["hp_max"] = current_char["base_hp_max"]
+                else:
+                    updates["hp_max"] = current_char.get("hp_max") or 0
+
+            hp_max = updates.get("hp_max") or current_char.get("hp_max") or 0
+            updates["hp_current"] = hp_max
+
+            query_filter: Dict[str, Any] = {"char_id": char_id, "active_campaign": name}
+            if "version" in current_char:
+                query_filter["version"] = current_char["version"]
+
+            if hasattr(db["characters"], "find_one_and_update"):
+                updated_doc = await db["characters"].find_one_and_update(
+                    query_filter,
+                    {"$set": updates, "$inc": {"version": 1}},
+                    return_document=ReturnDocument.AFTER,
+                )
+            else:
+                await db["characters"].update_one(
+                    query_filter,
+                    {"$set": updates, "$inc": {"version": 1}},
+                )
+                updated_doc = {
+                    **current_char,
+                    **updates,
+                    "version": int(current_char.get("version", 0) or 0) + 1,
+                }
+
+            if updated_doc is not None:
+                break
+
+            refetched = await db["characters"].find_one(
+                {"char_id": char_id, "active_campaign": name}
+            )
+            if not refetched:
+                break
+            current_char = refetched
+
+        if not updated_doc:
+            continue
+
+        new_version = int(updated_doc.get("version", int(current_char.get("version", 0) or 0) + 1))
+        await manager.broadcast(
+            name,
+            {
+                "type": "party_update",
+                "payload": {
+                    "char_id": char_id,
+                    "char_name": updated_doc.get(
+                        "char_name", current_char.get("char_name", "Unknown")
+                    ),
+                    "hp_current": updated_doc.get("hp_current", updates["hp_current"]),
+                    "hp_max": updated_doc.get("hp_max", updates["hp_max"]),
+                    "hp_temp": 0,
+                    "speed": updated_doc.get("speed", current_char.get("speed")),
+                    "conditions": updated_doc.get("conditions", []),
+                    "concentrating_on": None,
+                    "death_saves": {"successes": 0, "failures": 0},
+                    "inspiration": bool(updated_doc.get("inspiration", False)),
+                    "exhaustion_level": updated_doc.get(
+                        "exhaustion_level", updates["exhaustion_level"]
+                    ),
+                    "hit_dice_used": updated_doc.get("hit_dice_used", updates["hit_dice_used"]),
+                    "spell_slots": updated_doc.get("spell_slots", updates["spell_slots"]),
+                    "class_resources": updated_doc.get(
+                        "class_resources", updates["class_resources"]
+                    ),
+                    "version": new_version,
+                    "source": "dm",
+                    "action": "long_rest",
+                },
+            },
+        )
+        rested_count += 1
+
+    return {"success": True, "message": f"Completed Long Rest for {rested_count} party member(s)."}
 
 
 async def _extract_character_id(
@@ -628,9 +871,11 @@ async def join_campaign_by_code(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     code = payload.invite_code.strip()
-    camp = await db["campaigns"].find_one(
-        {"$or": [{"invite_code": code}, {"invite_code": code.upper()}]}
-    )
+    camp = await db["campaigns"].find_one({"invite_code": code})
+    if not camp and code:
+        camp = await db["campaigns"].find_one(
+            {"invite_code": re.compile(f"^{re.escape(code)}$", re.IGNORECASE)}
+        )
     if not camp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
 
@@ -772,6 +1017,22 @@ async def generate_invite_code(
 
     if camp.get("invite_code"):
         return {"invite_code": camp["invite_code"]}
+
+    code = secrets.token_urlsafe(12)
+    await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
+    return {"invite_code": code}
+
+
+@router.post("/{name}/invite-code/rotate", response_model=InviteCodeResponse)
+async def rotate_invite_code(
+    name: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
 
     code = secrets.token_urlsafe(12)
     await db["campaigns"].update_one({"campaign_name": name}, {"$set": {"invite_code": code}})
@@ -1036,17 +1297,8 @@ async def _authorize_roll_request_target(
         member_char = await db["characters"].find_one({"char_id": cid})
         if member_char and member_char.get("char_name") == target.get("char_name"):
             owner_id = member_char.get("owner_id")
-            if not owner_id or owner_id == current_user["id"]:
+            if owner_id and owner_id == current_user["id"]:
                 return
-
-    # Fallback for mock/test environments where character doc is omitted but filename matches caller identity
-    char_filename = target.get("char_filename", "")
-    username = current_user.get("username", "")
-    user_id = current_user.get("id", "")
-    if (username and char_filename.startswith(f"{username}_")) or (
-        user_id and char_filename.startswith(f"{user_id}_")
-    ):
-        return
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -1411,7 +1663,9 @@ async def get_campaign_messages(
     return {
         "campaign_name": camp["campaign_name"],
         "whispers": whispers,
-        "roll_requests": _visible_roll_requests(roll_requests, is_dm),
+        "roll_requests": _visible_roll_requests(
+            roll_requests, is_dm, current_user_id=current_user["id"]
+        ),
         "roll_logs": roll_logs,
     }
 
@@ -1615,6 +1869,17 @@ async def report_whisper(
             detail="Not authorized to report this whisper.",
         )
 
+    existing_open = await db["whisper_reports"].find_one(
+        {
+            "campaign_name": name,
+            "whisper_id": whisper_id,
+            "reported_by_user_id": current_user["id"],
+            "status": "open",
+        }
+    )
+    if existing_open:
+        return {"success": True, "message": "Whisper already reported."}
+
     report_id = str(uuid.uuid4())
     now = datetime.datetime.now(datetime.timezone.utc)
     report_doc = {
@@ -1675,10 +1940,16 @@ async def get_encounter_state(
         return None
 
     encounter.pop("_id", None)
+    for c in encounter.get("combatants") or []:
+        if not c.get("health_status"):
+            c["health_status"] = _compute_health_status(c.get("hp"), c.get("max_hp"))
+
+    if member.get("role") != "dm":
+        return _redact_encounter_for_player(encounter)
     return encounter
 
 
-@router.post("/{name}/encounter", response_model=SuccessResponseSchema)
+@router.post("/{name}/encounter", response_model=EncounterSyncResponseSchema)
 async def update_encounter_state(
     name: str,
     payload: EncounterStateSchema,
@@ -1691,6 +1962,8 @@ async def update_encounter_state(
         raise HTTPException(status_code=404, detail="Campaign not found")
 
     enc_dict = payload.model_dump()
+    for c in enc_dict.get("combatants") or []:
+        c["health_status"] = _compute_health_status(c.get("hp"), c.get("max_hp"))
 
     # Calculate Danger Indicator dynamically
     enc_dict["danger_indicator"] = await calculate_danger_indicator(
@@ -1705,10 +1978,24 @@ async def update_encounter_state(
 
     from server.routers.websocket_router import manager
 
-    # Broadcast the new state to all members so their tracker syncs immediately
-    await manager.broadcast(name, {"type": "encounter_update", "payload": enc_dict})
+    params = inspect.signature(manager.broadcast).parameters
+    if "dm_only" in params and "player_only" in params:
+        await manager.broadcast(
+            name, {"type": "encounter_update", "payload": enc_dict}, dm_only=True
+        )
+        await manager.broadcast(
+            name,
+            {"type": "encounter_update", "payload": _redact_encounter_for_player(enc_dict)},
+            player_only=True,
+        )
+    else:
+        await manager.broadcast(name, {"type": "encounter_update", "payload": enc_dict})
 
-    return {"success": True, "message": "Encounter state updated"}
+    return {
+        "success": True,
+        "message": "Encounter state updated",
+        "danger_indicator": enc_dict.get("danger_indicator"),
+    }
 
 
 @router.delete("/{name}/encounter", response_model=SuccessResponseSchema)
@@ -1846,6 +2133,22 @@ async def remove_party_member(
 
     from server.routers.websocket_router import manager
 
+    kicked_user_id = None
+    if owner_id:
+        remaining_member = await db["campaign_members"].find_one(
+            {"campaign_id": name, "user_id": owner_id}
+        )
+        if not remaining_member:
+            kicked_user_id = owner_id
+
+    if owner_id and hasattr(manager, "disconnect_campaign_member"):
+        await manager.disconnect_campaign_member(
+            name,
+            user_id=kicked_user_id,
+            character_name=char.get("char_name"),
+            owner_id=owner_id,
+        )
+
     await manager.broadcast(
         name, {"type": "party_update", "payload": {"action": "removed", "char_id": char_id}}
     )
@@ -1873,6 +2176,9 @@ async def get_campaign_entities(
 
     cursor = db["campaign_entities"].find({"campaign_name": name})
     entities = await cursor.to_list(length=None)
+
+    if member.get("role") != "dm":
+        entities = [e for e in entities if e.get("is_revealed", False)]
 
     # Map _id to id
     for ent in entities:
@@ -2022,6 +2328,7 @@ async def update_campaign_skeleton(
 ):
     """Create or update the campaign skeleton."""
     data = skeleton_data.model_dump(exclude={"id"})
+    data["campaign_name"] = name
     data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
     if "created_at" not in data or not data["created_at"]:
         data["created_at"] = data["updated_at"]
@@ -2312,24 +2619,31 @@ async def delete_campaign_scene(
 
     # Clean up uploaded map file if no other scene in this campaign references it
     map_url = (scene.get("grid") or {}).get("background_image_url") or ""
-    if f"/campaigns/{name}/assets/" in map_url:
-        filename = map_url.rsplit("/", 1)[-1]
+    encoded_name = quote(name, safe="")
+    if f"/campaigns/{name}/assets/" in map_url or f"/campaigns/{encoded_name}/assets/" in map_url:
+        filename = os.path.basename(map_url.rsplit("/", 1)[-1].split("?", 1)[0])
         other_scene = await db["campaign_scenes"].find_one(
             {
                 "campaign_name": name,
                 "scene_id": {"$ne": scene_id},
-                "grid.background_image_url": map_url,
+                "grid.background_image_url": {"$regex": f"/assets/{re.escape(filename)}$"},
             }
         )
-        if not other_scene:
-            # Safe to unlink file and asset doc
-            file_path = os.path.join("data", "uploads", filename)
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except Exception as e:
-                    logger.warning("Failed removing map asset file %s: %s", file_path, e)
-            await db["campaign_assets"].delete_one({"campaign_name": name, "filename": filename})
+        if filename and not other_scene:
+            asset_owner = await db["campaign_assets"].find_one({"filename": filename})
+            if not asset_owner or asset_owner.get("campaign_name") == name:
+                uploads_base = os.path.abspath(os.path.join("data", "uploads"))
+                file_path = os.path.abspath(os.path.join(uploads_base, filename))
+                if os.path.commonpath([uploads_base, file_path]) == uploads_base and os.path.exists(
+                    file_path
+                ):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        logger.warning("Failed removing map asset file %s: %s", file_path, e)
+                await db["campaign_assets"].delete_one(
+                    {"campaign_name": name, "filename": filename}
+                )
 
     await db["campaign_scenes"].delete_one({"scene_id": scene_id})
     return {"success": True, "message": f"Scene {scene_id} deleted."}

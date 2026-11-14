@@ -200,28 +200,30 @@ def forge_character(
         logger.error(f"Rule autofix failed during AI forge: {e}")
 
     # Mandatory Schema & Build Validation
+    if not isinstance(result, dict):
+        result = {}
     try:
         validated = CharacterSchema.model_validate(result, strict=False)
         return validated.model_dump()
     except Exception as e:
         logger.warning(
-            f"Forged character failed initial validation: {e}. Coercing schema defaults."
+            f"Forged character failed initial validation: {e}. Returning sanitized default character."
         )
 
         fallback = get_default_character()
-        for k, v in result.items():
-            if v is not None:
-                try:
-                    fallback[k] = v
-                except Exception:
-                    pass
-        try:
-            return CharacterSchema.model_validate(fallback, strict=False).model_dump()
-        except Exception as e2:
-            logger.error(f"Fallback validation failed: {e2}. Returning clean default character.")
-            return CharacterSchema.model_validate(
-                get_default_character(), strict=False
-            ).model_dump()
+        for k in (
+            "char_name",
+            "char_class",
+            "race",
+            "background",
+            "alignment",
+            "gender",
+            "dnd_edition",
+        ):
+            v = result.get(k)
+            if isinstance(v, str) and v.strip():
+                fallback[k] = v.strip()
+        return CharacterSchema.model_validate(fallback, strict=False).model_dump()
 
 
 def forge_character_manual(
@@ -1493,10 +1495,10 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     }
                 )
 
-    # 2. ASI/Feat
-    is_asi_level = any(
-        "ability score improvement" in f.get("name", "").lower() for f in static_features
-    )
+    # 2. ASI/Feat or 2024 Level 19/20 Epic Boon
+    from backend.services.progression_service import is_asi_or_epic_boon_feature
+
+    is_asi_level = any(is_asi_or_epic_boon_feature(f.get("name", "")) for f in static_features)
 
     if is_asi_level:
         char_race = char_data.get("race", "").lower()

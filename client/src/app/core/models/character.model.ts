@@ -37,6 +37,7 @@ export interface Weapon {
   misc_damage_bonus?: number;
   damage_type?: string;
   conditional_effects?: WeaponEffect[];
+  exhaustion_attack_penalty_applied?: number;
 }
 
 export interface CurrencyBlock {
@@ -175,10 +176,13 @@ export interface CharacterSchema {
   dnd_edition?: string;
   ruleset_version?: string;
   active_campaign?: string;
+  inspiration?: boolean;
+  exhaustion_level?: number;
   currency?: CurrencyBlock;
   class_resources?: ClassResource[];
   base_stats?: StatBlock;
   base_speed?: number;
+  base_hp_max?: number;
   equip_hp_bonus?: number;
   feat_hp_bonus?: number;
   con_mod_applied?: number;

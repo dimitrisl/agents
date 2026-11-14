@@ -334,4 +334,197 @@ describe('VttGridComponent', () => {
     expect(releasePointerCaptureSpy).toHaveBeenCalledWith(42);
     expect((component as any).isPaintingFog).toBe(false);
   });
+
+  it('toggles token hidden state as DM and broadcasts updated token (#200)', () => {
+    jest.spyOn(wsService, 'sendVttAddToken').mockImplementation();
+    const token = {
+      id: 'goblin_1',
+      name: 'Goblin',
+      x: 50,
+      y: 50,
+      size: 1,
+      is_enemy: true,
+      is_hidden: false,
+      hp: 7,
+      max_hp: 7,
+    };
+    wsService.vttState.set({
+      is_active: true,
+      grid: { width: 10, height: 10, cell_size: 50 },
+      tokens: [token],
+    });
+    component.role = 'dm';
+
+    component.toggleTokenHidden(token, new MouseEvent('click'));
+
+    expect(wsService.vttState()?.tokens[0].is_hidden).toBe(true);
+    expect(wsService.sendVttAddToken).toHaveBeenCalledWith({
+      ...token,
+      is_hidden: true,
+    });
+  });
+
+  it('merges live combatant HP and detects active combatant turn (#200)', () => {
+    const token = {
+      id: 'hero_1',
+      name: 'Elesh',
+      x: 0,
+      y: 0,
+      size: 1,
+      is_enemy: false,
+      is_hidden: false,
+      hp: 40,
+      max_hp: 40,
+    };
+    component.combatants = [
+      {
+        id: 'hero_1',
+        name: 'Elesh',
+        initiative: 18,
+        hp: 22,
+        max_hp: 40,
+        ac: 18,
+        dex: 14,
+        is_player: true,
+        conditions: [],
+      },
+    ];
+    component.activeCombatantId = 'hero_1';
+
+    expect(component.getTokenHp(token)).toEqual({ hp: 22, max_hp: 40 });
+    expect(component.getHpPercent({ hp: 22, max_hp: 40 })).toBeCloseTo(55);
+    expect(component.isTokenActiveTurn(token)).toBe(true);
+    component.activeCombatantId = 'other';
+    expect(component.isTokenActiveTurn(token)).toBe(false);
+  });
+
+  it('spawns combatant tokens snapped to grid cell boundaries (#200)', () => {
+    jest.spyOn(wsService, 'sendVttAddToken').mockImplementation();
+    wsService.vttState.set({
+      is_active: true,
+      grid: { width: 20, height: 20, cell_size: 50 },
+      tokens: [],
+    });
+    component.combatants = [
+      {
+        id: 'orc_1',
+        name: 'Orc',
+        initiative: 12,
+        hp: 15,
+        max_hp: 15,
+        ac: 13,
+        dex: 12,
+        is_player: false,
+        conditions: [],
+      },
+    ];
+
+    component.addCombatantToken('orc_1');
+
+    const placed = wsService.vttState()?.tokens[0];
+    expect(placed).toBeDefined();
+    expect(placed!.x % 50).toBe(0);
+    expect(placed!.y % 50).toBe(0);
+  });
+
+  it('calculates 5e Chebyshev grid distance in 5ft squares and clamps zoom level (#200)', () => {
+    expect(component.calculateGridDistanceFeet(1, 2, 4, 4)).toEqual({ cells: 3, feet: 15 });
+    expect(component.calculateGridDistanceFeet(5, 5, 5, 5)).toEqual({ cells: 0, feet: 0 });
+
+    component.setZoom(10);
+    expect(component.zoomLevel).toBe(2.5);
+    component.setZoom(0.1);
+    expect(component.zoomLevel).toBe(0.5);
+    expect(component.zoomPercent).toBe(50);
+
+    component.toggleRuler();
+    expect(component.rulerMode).toBe(true);
+    expect(component.fogBrushMode).toBeNull();
+    component.toggleRuler();
+    expect(component.rulerMode).toBe(false);
+    expect(component.rulerResult).toBeNull();
+  });
+
+  it('loads protected campaign asset maps via HttpClient blob and revokes object URLs cleanly', () => {
+    const fixture = TestBed.createComponent(VttGridComponent);
+    component = fixture.componentInstance;
+    component.campaignName = 'TestCampaign';
+
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    (URL as any).createObjectURL = jest.fn(() => 'blob:http://localhost/fake-map-1');
+    (URL as any).revokeObjectURL = jest.fn();
+
+    try {
+      wsService.vttState.set({
+        is_active: true,
+        grid: {
+          width: 20,
+          height: 20,
+          cell_size: 50,
+          background_image_url: '/api/v1/campaigns/TestCampaign/assets/dungeon.png',
+        },
+        tokens: [],
+      });
+      fixture.detectChanges();
+
+      const req = http.expectOne(
+        `${environment.apiBaseUrl}/campaigns/TestCampaign/assets/dungeon.png`
+      );
+      expect(req.request.responseType).toBe('blob');
+      req.flush(new Blob(['png'], { type: 'image/png' }));
+
+      const bgStyle = component.getBackgroundImageStyle();
+      expect(String((bgStyle as any).changingThisBreaksApplicationSecurity || bgStyle)).toContain(
+        'blob:http://localhost/fake-map-1'
+      );
+
+      // Clearing protected map revokes the previous blob URL
+      wsService.vttState.set({
+        is_active: true,
+        grid: { width: 20, height: 20, cell_size: 50, background_image_url: '' },
+        tokens: [],
+      });
+      fixture.detectChanges();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/fake-map-1');
+    } finally {
+      (URL as any).createObjectURL = originalCreate;
+      (URL as any).revokeObjectURL = originalRevoke;
+      fixture.destroy();
+    }
+  });
+
+  it('clears rulerResult when switching to fog brush and redraws fog canvas after expand', () => {
+    jest.useFakeTimers();
+    const fixture = TestBed.createComponent(VttGridComponent);
+    component = fixture.componentInstance;
+    component.campaignName = 'TestCampaign';
+    component.role = 'dm';
+    wsService.vttState.set({
+      is_active: true,
+      grid: { width: 10, height: 10, cell_size: 50 },
+      tokens: [],
+      fog: { enabled: true, revealed: [0, 1] },
+    });
+    fixture.detectChanges();
+
+    component.rulerResult = { cells: 3, feet: 15, x1: 0, y1: 0, x2: 150, y2: 100 };
+    component.setFogBrush('reveal');
+    expect(component.rulerMode).toBe(false);
+    expect(component.rulerResult).toBeNull();
+
+    // Minimize hides canvas; expanding remounts ViewChild setter and schedules fog redraw
+    component.isMinimized = true;
+    fixture.detectChanges();
+    mockCtx.fillRect.mockClear();
+
+    component.isMinimized = false;
+    fixture.detectChanges();
+    jest.runAllTimers();
+    expect(mockCtx.clearRect).toHaveBeenCalled();
+    expect(mockCtx.fillRect).toHaveBeenCalled();
+
+    fixture.destroy();
+    jest.useRealTimers();
+  });
 });

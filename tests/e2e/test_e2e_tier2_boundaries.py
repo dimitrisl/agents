@@ -882,7 +882,7 @@ class TestF10ToF15Boundaries:
 
     def test_f13_b03_vtt_sync_active_swaps_to_grid(self):
         """TC-B13-03: Active VTT state renders grid canvas with reference variable."""
-        html_content = DM_COMPONENT_HTML.read_text(encoding="utf-8")
+        html_content = " ".join(DM_COMPONENT_HTML.read_text(encoding="utf-8").split())
         assert "<app-vtt-grid #vttGrid" in html_content
 
     def test_f13_b04_missing_portrait_fallback(self):

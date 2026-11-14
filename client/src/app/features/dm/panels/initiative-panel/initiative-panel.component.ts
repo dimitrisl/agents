@@ -49,7 +49,15 @@ export class InitiativePanelComponent implements OnDestroy {
   @Input() combatants: InitiativeCombatant[] = [];
   @Input() activeCombatantId: string | null = null;
   @Input() round = 0;
+  @Input() dangerIndicator = '';
   @Input() availableConditions: string[] = [];
+
+  dangerTone(): 'danger' | 'accent' | 'muted' {
+    const val = (this.dangerIndicator || '').toLowerCase();
+    if (val.includes('deadly') || val.includes('high')) return 'danger';
+    if (val.includes('hard') || val.includes('medium') || val.includes('moderate')) return 'accent';
+    return 'muted';
+  }
   @Input() newCombatantName = '';
   @Input() newCombatantInit = 10;
   @Input() newCombatantHp = 20;

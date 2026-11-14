@@ -271,6 +271,7 @@
             [combatants]="combatants"
             [activeCombatantId]="activeCombatantId"
             [round]="round"
+            [dangerIndicator]="encounterDangerIndicator"
             [availableConditions]="availableConditions"
             [quickAddResults]="quickAddResults"
             [isSearching]="isSearchingBestiary"
@@ -316,7 +317,14 @@
                 </button>
               </forge-empty-state>
             }
-            <app-vtt-grid #vttGrid role="dm" [combatants]="combatants" [campaignName]="campaignName"></app-vtt-grid>
+            <app-vtt-grid
+              #vttGrid
+              *ngIf="campaignName"
+              role="dm"
+              [combatants]="combatants"
+              [activeCombatantId]="activeCombatantId"
+              [campaignName]="campaignName"
+            ></app-vtt-grid>
           </div>
 
           <app-party-panel
@@ -334,6 +342,7 @@
             (toggleCondition)="toggleCondition($event.member, $event.condition)"
             (privateRollRequest)="openSingleRollModal($event)"
             (distributeLoot)="openLootModal()"
+            (longRest)="longRestParty()"
             (removeMember)="removePartyMember($event)"
           ></app-party-panel>
 
@@ -365,6 +374,7 @@
             role="tabpanel"
             aria-labelledby="dm-tabs-prep-tab-entities"
             [campaignName]="campaignName"
+            (addToInitiative)="addEntityToInitiative($event)"
           ></app-entities-panel>
 
           <app-generators-panel
@@ -476,6 +486,7 @@
     [(newMemberAc)]="newMemberAc"
     [inviteCode]="inviteCode"
     (addExistingPartyMember)="addExistingPartyMember()"
+    (addCustomMember)="addCustomPartyMember()"
     (copyInviteCode)="copyInviteCode()"
   ></app-add-member-modal>
 

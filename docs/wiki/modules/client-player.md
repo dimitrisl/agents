@@ -18,8 +18,8 @@ The Player Companion module provides the responsive, real-time character sheet i
 ```
 
 ### 1. Character Overview & Portrait System
-- **File:** [`client/src/app/features/player/character-overview-card/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/character-overview-card/)
-- **Modal:** [`client/src/app/features/player/modals/portrait-modal/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/modals/portrait-modal/)
+- **File:** [`client/src/app/features/player/character-overview-card/`](../../../client/src/app/features/player/character-overview-card)
+- **Modal:** [`client/src/app/features/player/modals/portrait-modal/`](../../../client/src/app/features/player/modals/portrait-modal)
 - **Three Ways to Set Character Portraits:**
   1. **AI Generation:** Generates prompt-based portraits via Google Gemini / pollinations.
   2. **Custom Image URL:** Direct external image URLs can be saved without blocking on third-party CORS preview failures.
@@ -29,8 +29,8 @@ The Player Companion module provides the responsive, real-time character sheet i
 ---
 
 ### 2. Multi-Level Progression Roadmap & Dynamic Build Advisor
-- **Modal:** [`client/src/app/features/player/modals/level-up-modal/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/modals/level-up-modal/)
-- **Component:** [`client/src/app/features/player/modals/build-advisor/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/modals/build-advisor/)
+- **Modal:** [`client/src/app/features/player/modals/level-up-modal/`](../../../client/src/app/features/player/modals/level-up-modal)
+- **Component:** [`client/src/app/features/player/modals/build-advisor/`](../../../client/src/app/features/player/modals/build-advisor)
 - **Dynamic Progression Roadmap:**
   - Provides an interactive **Level Switcher** (levels 1 through 20) allowing players to inspect upcoming class features, subclass milestones, ability score improvements (ASI), and spell slot unlocks.
   - Dynamically inspects the character's primary class (or multiclass array with robust fallback to `char_class` and `char_level`).
@@ -41,9 +41,9 @@ The Player Companion module provides the responsive, real-time character sheet i
 ---
 
 ### 3. Combat Engine & Weapon Breakdown
-- **Component:** [`client/src/app/features/player/combat/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/combat/)
+- **Component:** [`client/src/app/features/player/combat/`](../../../client/src/app/features/player/combat)
 - **Incapacitation Guard (`DEF-CR-01`):**
-  - Combat actions (Dodge, Dash, Disengage, Help) evaluate eligibility via [`isIncapacitated(char)`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/core/rules/hit-points.ts#L22-L35).
+  - Combat actions (Dodge, Dash, Disengage, Help) evaluate eligibility via [`isIncapacitated(char)`](../../../client/src/app/core/rules/hit-points.ts#L22-L35).
   - Pristine characters (`hp_current: undefined / None`) resolve to `hp_max > 0` and are not locked out of action buttons. Action execution is blocked only when `currentHp(char) <= 0` or under active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).
 - **Weapon Damage Breakdown:**
   - Displays complete mathematical decomposition of attack and damage rolls:
@@ -55,7 +55,7 @@ The Player Companion module provides the responsive, real-time character sheet i
 ---
 
 ### 4. Interactive Skills & Expertise Matrix
-- **Component:** [`client/src/app/features/player/skills-panel/`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/skills-panel/)
+- **Component:** [`client/src/app/features/player/skills-panel/`](../../../client/src/app/features/player/skills-panel)
 - **Proficiency Multipliers:**
   - Players can toggle between Normal ($\times 0$), Proficient ($\times 1$), and Expertise ($\times 2$) directly on their sheet.
 - **Dynamic Passive Scores:**
@@ -68,4 +68,5 @@ The Player Companion module provides the responsive, real-time character sheet i
 2. **Deterministic Mechanics:** UI calculations for modifiers, proficiency bonuses, and DCs mirror the backend `stats_service.py` formulas precisely.
 3. **Optimistic Modal Snapshot Rollback (`saveEditModal`):** Submitting character edits preserves a snapshot of the prior `activeCharacter`. If the backend persistence fails (e.g. `HTTP 409 Conflict` or network loss), state rolls back to the snapshot, the draft is re-bound, and the modal reopens, preventing data loss.
 4. **Accessible Disclosure Controls:** Header drawer triggers and action buttons enforce ARIA disclosure semantics (`aria-expanded`, `aria-controls="mobile-hero-actions-drawer"`).
-5. **Campaign Roll Log, Multi-Character Isolation & Sibling Alerts (`#197`+):** When enrolled in an active campaign, [`PlayerComponent`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/player.component.ts) subscribes to `RollToastService.rollEvents$` to publish sheet rolls to `/campaigns/{name}/rolls` with `char_id` (respecting the player's `Public` vs `Whisper DM` toggle), while DM roll-request prompts and initiative (`skipBroadcast: true`) avoid duplicate broadcasts. Campaign inbox caching/filtering is keyed by `char_id` (`${campaignName}::${char_id || char_name}`), and live whispers/roll requests targeting another owned character enrolled in the same campaign raise an explicit `💬 WHISPER → <char_name>` / `🎲 ROLL REQUEST → <char_name>` alert without leaking into the active sheet's feed. [`QuickDiceDrawerComponent`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/player/quick-dice-drawer/quick-dice-drawer.component.ts) renders multi-die / mixed pools in 3D via `diceSides`.
+5. **Campaign Roll Log, Multi-Character Isolation & Sibling Alerts (`#197`+):** When enrolled in an active campaign, [`PlayerComponent`](../../../client/src/app/features/player/player.component.ts) keys its WebSocket connection effect (`wsConnectionKey`) by `${active_campaign}::${char_id || char_name}` (preventing save-induced socket churn while reconnecting cleanly across homonyms) and subscribes to `RollToastService.rollEvents$` to publish sheet rolls to `/campaigns/{name}/rolls` with `char_id` (respecting the player's `Public` vs `Whisper DM` toggle), while DM roll-request prompts and initiative (`skipBroadcast: true`) avoid duplicate broadcasts. Campaign inbox caching/filtering is keyed by `char_id` (`${campaignName}::${char_id || char_name}`), and live whispers/roll requests targeting another owned character enrolled in the same campaign raise an explicit `💬 WHISPER → <char_name>` / `🎲 ROLL REQUEST → <char_name>` alert without leaking into the active sheet's feed. [`QuickDiceDrawerComponent`](../../../client/src/app/features/player/quick-dice-drawer/quick-dice-drawer.component.ts) renders multi-die / mixed pools in 3D via `diceSides`.
+6. **Redacted Combatant Status & DM Long-Rest Rehydration:** [`CombatPanelComponent`](../../../client/src/app/features/player/tabs/combat-panel/combat-panel.component.ts) evaluates `isCombatantDown()` and `isCombatantBloodied()` with explicit `typeof combatant.hp === 'number'` and `health_status` checks so player-redacted enemies (`hp: null`) never falsely render as `"Down"`. `PlayerComponent.applyDmPartyUpdate()` rehydrates full server `long_rest` fields (`hit_dice_used`, `class_resources`, `exhaustion_level`, `hp_temp`, `death_saves`, `spell_slots`, `version`), gates `<app-vtt-grid>` on active campaign enrollment, and clears `WebSocketService.vttState` on `disconnect()`.

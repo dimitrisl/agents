@@ -30,6 +30,11 @@
         <forge-badge [tone]="hasStarted ? 'accent' : 'muted'" size="md">
           {{ roundLabel }}
         </forge-badge>
+        @if (dangerIndicator) {
+          <forge-badge [tone]="dangerTone()" size="md">
+            ⚠️ {{ dangerIndicator }}
+          </forge-badge>
+        }
         <p class="min-w-0 truncate text-label text-muted" aria-live="polite">
           @if (hasStarted) {
             Current turn · <span class="font-semibold text-ink">{{ currentTurnName }}</span>

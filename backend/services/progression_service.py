@@ -99,6 +99,11 @@ def get_level_up_vitals(
     }
 
 
+def is_asi_or_epic_boon_feature(name: str) -> bool:
+    lower = (name or "").lower()
+    return "ability score improvement" in lower or "epic boon" in lower
+
+
 def check_progression_features(
     char_class: str, target_level: int, edition: str = "2014 Edition"
 ) -> dict:
@@ -116,7 +121,7 @@ def check_progression_features(
     if progression:
         level_data = progression.get("progression", {}).get(str(target_level), {})
         level_features = level_data.get("features", [])
-        is_asi_level = any("Ability Score Improvement" in f.get("name", "") for f in level_features)
+        is_asi_level = any(is_asi_or_epic_boon_feature(f.get("name", "")) for f in level_features)
 
     return {
         "is_asi_level": is_asi_level,

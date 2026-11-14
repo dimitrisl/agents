@@ -1,3 +1,4 @@
+import inspect
 import logging
 
 from backend.core.providers.factory import get_llm_provider
@@ -5,11 +6,15 @@ from backend.core.providers.factory import get_llm_provider
 logger = logging.getLogger("DnDAssistant.AIClient")
 
 
-def generate_ai_response(prompt: str) -> str:
+def generate_ai_response(prompt: str, use_cache: bool = True) -> str:
     """Helper function to call the configured LLM and return standard text."""
     logger.info("Generating standard AI text response...")
     logger.debug(f"Prompt sent: {prompt[:100]}...")
     provider = get_llm_provider()
+    if not use_cache:
+        sig = inspect.signature(provider.generate_text)
+        if "use_cache" in sig.parameters:
+            return provider.generate_text(prompt, use_cache=False)
     return provider.generate_text(prompt)
 
 

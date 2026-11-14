@@ -16,10 +16,15 @@ export interface PartyMember {
   level: number;
   hp_current: number;
   hp_max: number;
+  hp_temp?: number;
   ac: number;
   ac_breakdown?: AcBreakdown;
   passive_perception: number;
   conditions: string[];
+  concentrating_on?: string | null;
+  death_saves?: { successes: number; failures: number };
+  inspiration?: boolean;
+  exhaustion_level?: number;
   stats?: { [key: string]: number };
   portrait?: string;
   owner_username?: string;

@@ -63,8 +63,10 @@ class RoutingProvider(LLMProvider):
         except HTTPException:
             return None
 
-    def generate_text(self, prompt: str, temperature: Optional[float] = None) -> str:
-        return self._text_provider().generate_text(prompt, temperature)
+    def generate_text(
+        self, prompt: str, temperature: Optional[float] = None, use_cache: bool = True
+    ) -> str:
+        return self._text_provider().generate_text(prompt, temperature, use_cache=use_cache)
 
     def generate_json(
         self,

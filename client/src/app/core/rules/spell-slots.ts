@@ -63,6 +63,12 @@ export function regainSpellSlot(slots: SpellSlots | undefined, level: number): S
   if (typeof slot.pact_used === 'number' && slot.pact_used > 0) {
     updatedSlot.pact_used = Math.max(0, slot.pact_used - 1);
   }
+  if (next['pact'] && next['pact'].level === level && (next['pact'].used ?? 0) > 0) {
+    next['pact'] = {
+      ...next['pact'],
+      used: Math.max(0, (next['pact'].used ?? 0) - 1),
+    };
+  }
   next[key] = updatedSlot;
   return next;
 }

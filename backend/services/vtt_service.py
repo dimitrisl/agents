@@ -218,7 +218,14 @@ class VTTService:
     ) -> VTTStateSchema:
         """Return a copy of the state without DM-only (hidden) tokens and with unrevealed fog filtered."""
         redacted = state.model_copy(deep=True)
-        visible_tokens = [t for t in redacted.tokens if not t.is_hidden]
+        visible_tokens = []
+        for token in redacted.tokens:
+            if token.is_hidden:
+                continue
+            if token.is_enemy:
+                token.hp = None
+                token.max_hp = None
+            visible_tokens.append(token)
 
         if redacted.fog and redacted.fog.enabled:
             revealed_set = set(redacted.fog.revealed or [])

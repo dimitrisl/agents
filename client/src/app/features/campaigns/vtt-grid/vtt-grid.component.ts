@@ -1,6 +1,8 @@
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
+  DestroyRef,
   ElementRef,
   Input,
   OnInit,
@@ -8,10 +10,14 @@ import {
   effect,
   inject,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { DomSanitizer, SafeStyle } from '@angular/platform-browser';
+import { Subscription } from 'rxjs';
 import { CdkDragEnd, DragDropModule } from '@angular/cdk/drag-drop';
 import { WebSocketService } from '../../../core/services/websocket.service';
+import { AssetService } from '../../../core/services/asset.service';
 import { VTTScene, VTTSceneHistory, VTTState, VTTToken } from '../../../core/models/vtt.model';
 import { InitiativeCombatant } from '../../../core/models/initiative.model';
 import { FormsModule } from '@angular/forms';
@@ -141,76 +147,167 @@ import { environment } from '../../../../environments/environment';
           </ng-container>
         </div>
 
-        <div class="flex gap-2">
-          <button forgeButton variant="secondary" size="sm" (click)="toggleMinimize()">
+        <div class="flex gap-2 items-center flex-wrap">
+          <!-- Zoom & Ruler Tools (#200) -->
+          <div class="flex items-center gap-1 border-r border-hairline pr-2">
+            <button
+              forgeButton
+              [variant]="rulerMode ? 'primary' : 'secondary'"
+              size="sm"
+              type="button"
+              (click)="toggleRuler()"
+              title="Measure distance in 5ft grid squares"
+            >
+              📏 Ruler
+            </button>
+            <span *ngIf="rulerResult as r" class="text-micro font-semibold text-gold px-1.5">
+              {{ r.feet }} ft ({{ r.cells }} sq)
+            </span>
+          </div>
+
+          <div class="flex items-center gap-1 border-r border-hairline pr-2">
+            <button forgeButton variant="ghost" size="sm" type="button" (click)="adjustZoom(-0.25)" title="Zoom Out" aria-label="Zoom out">
+              −
+            </button>
+            <button forgeButton variant="ghost" size="sm" type="button" (click)="setZoom(1)" title="Reset Zoom (100%)" aria-label="Reset zoom">
+              {{ zoomPercent }}%
+            </button>
+            <button forgeButton variant="ghost" size="sm" type="button" (click)="adjustZoom(0.25)" title="Zoom In" aria-label="Zoom in">
+              +
+            </button>
+          </div>
+
+          <button forgeButton variant="secondary" size="sm" type="button" (click)="toggleMinimize()">
             {{ isMinimized ? 'Expand' : 'Minimize' }}
           </button>
-          <button *ngIf="role === 'dm'" forgeButton variant="danger" size="sm" (click)="closeGrid()">Close Grid</button>
+          <button *ngIf="role === 'dm'" forgeButton variant="danger" size="sm" type="button" (click)="closeGrid()">Close Grid</button>
         </div>
       </div>
 
       <!-- The Grid Canvas -->
-      <div class="vtt-canvas" *ngIf="!isMinimized" [style.backgroundImage]="getBackgroundImageStyle()">
-        <div class="grid-overlay"
-             [style.backgroundSize]="(vttState()?.grid?.cell_size || 50) + 'px ' + (vttState()?.grid?.cell_size || 50) + 'px'">
-        </div>
+      <div class="vtt-canvas" *ngIf="!isMinimized" (wheel)="onCanvasWheel($event)">
+        <div
+          class="vtt-stage-wrapper"
+          [style.width.px]="getCanvasWidth() * zoomLevel"
+          [style.height.px]="getCanvasHeight() * zoomLevel"
+        >
+          <div
+            #vttStage
+            class="vtt-stage"
+            [style.width.px]="getCanvasWidth()"
+            [style.height.px]="getCanvasHeight()"
+            [style.transform]="'scale(' + zoomLevel + ')'"
+            [style.backgroundImage]="getBackgroundImageStyle()"
+          >
+            <div class="grid-overlay"
+                 [style.backgroundSize]="(vttState()?.grid?.cell_size || 50) + 'px ' + (vttState()?.grid?.cell_size || 50) + 'px'">
+            </div>
 
-        <!-- Fog of War HTML5 Canvas Overlay (#157) -->
-        <canvas
-          #fogCanvas
-          class="fog-canvas"
-          [class.paint-mode]="role === 'dm' && !!fogBrushMode"
-          [width]="getCanvasWidth()"
-          [height]="getCanvasHeight()"
-          [style.width.px]="getCanvasWidth()"
-          [style.height.px]="getCanvasHeight()"
-          (pointerdown)="onFogPointerDown($event)"
-          (pointermove)="onFogPointerMove($event)"
-          (pointerup)="onFogPointerUp($event)"
-          (pointercancel)="onFogPointerUp($event)"
-          (pointerleave)="onFogPointerUp($event)"
-        ></canvas>
+            <!-- Fog of War HTML5 Canvas Overlay (#157) -->
+            <canvas
+              #fogCanvas
+              class="fog-canvas"
+              [class.paint-mode]="role === 'dm' && !!fogBrushMode && !rulerMode"
+              [width]="getCanvasWidth()"
+              [height]="getCanvasHeight()"
+              [style.width.px]="getCanvasWidth()"
+              [style.height.px]="getCanvasHeight()"
+              (pointerdown)="onFogPointerDown($event)"
+              (pointermove)="onFogPointerMove($event)"
+              (pointerup)="onFogPointerUp($event)"
+              (pointercancel)="onFogPointerUp($event)"
+              (pointerleave)="onFogPointerUp($event)"
+            ></canvas>
 
-        <!-- Tokens -->
-        <div *ngFor="let token of vttState()?.tokens"
-             class="vtt-token"
-             [class.hidden-token]="token.is_hidden && role !== 'dm'"
-             [style.opacity]="token.is_hidden ? 0.5 : 1"
-             [style.width.px]="getTokenDimension(token)"
-             [style.height.px]="getTokenDimension(token)"
-             cdkDrag
-             [cdkDragFreeDragPosition]="{x: token.x, y: token.y}"
-             (cdkDragEnded)="onDragEnded($event, token)"
-             [cdkDragDisabled]="!canMoveToken(token)">
+            <!-- Distance Ruler Overlay (#200) -->
+            <svg
+              *ngIf="rulerMode || rulerResult"
+              class="ruler-overlay"
+              [class.ruler-active]="rulerMode"
+              [attr.viewBox]="'0 0 ' + getCanvasWidth() + ' ' + getCanvasHeight()"
+              [style.width.px]="getCanvasWidth()"
+              [style.height.px]="getCanvasHeight()"
+              (pointerdown)="onRulerPointerDown($event)"
+              (pointermove)="onRulerPointerMove($event)"
+              (pointerup)="onRulerPointerUp($event)"
+              (pointercancel)="onRulerPointerUp($event)"
+            >
+              <g *ngIf="rulerResult as r">
+                <line
+                  [attr.x1]="r.startPx.x"
+                  [attr.y1]="r.startPx.y"
+                  [attr.x2]="r.endPx.x"
+                  [attr.y2]="r.endPx.y"
+                  class="ruler-line"
+                />
+                <circle [attr.cx]="r.startPx.x" [attr.cy]="r.startPx.y" r="4" class="ruler-endpoint" />
+                <circle [attr.cx]="r.endPx.x" [attr.cy]="r.endPx.y" r="4" class="ruler-endpoint" />
+              </g>
+            </svg>
+            <div
+              *ngIf="rulerResult as r"
+              class="ruler-badge"
+              [style.left.px]="(r.startPx.x + r.endPx.x) / 2"
+              [style.top.px]="(r.startPx.y + r.endPx.y) / 2"
+              [style.transform]="'translate(-50%, -120%) scale(' + (1 / (zoomLevel || 1)) + ')'"
+            >
+              {{ r.feet }} ft ({{ r.cells }} sq)
+            </div>
 
-          <img *ngIf="token.image_url" [src]="token.image_url" class="token-img"
-               [style.width.px]="getTokenInnerDimension(token)"
-               [style.height.px]="getTokenInnerDimension(token)"
-               [class.enemy-border]="token.is_enemy" [class.player-border]="!token.is_enemy">
-          <div *ngIf="!token.image_url" class="token-fallback"
-               [style.width.px]="getTokenInnerDimension(token)"
-               [style.height.px]="getTokenInnerDimension(token)"
-               [style.fontSize.px]="getTokenFontSize(token)"
-               [class.enemy-fallback]="token.is_enemy" [class.player-fallback]="!token.is_enemy">
-            {{ token.name.charAt(0) }}
-          </div>
+            <!-- Tokens -->
+            <div *ngFor="let token of vttState()?.tokens"
+                 class="vtt-token"
+                 [class.hidden-token]="token.is_hidden && role !== 'dm'"
+                 [class.active-turn-token]="isTokenActiveTurn(token)"
+                 [style.opacity]="token.is_hidden ? 0.5 : 1"
+                 [style.width.px]="getTokenDimension(token)"
+                 [style.height.px]="getTokenDimension(token)"
+                 cdkDrag
+                 [cdkDragFreeDragPosition]="{x: token.x, y: token.y}"
+                 (cdkDragEnded)="onDragEnded($event, token)"
+                 [cdkDragDisabled]="!canMoveToken(token) || rulerMode">
 
-          <div class="token-label">
-            {{ token.name }}
-            <span *ngIf="getTokenScale(token) > 1" class="text-[9px] opacity-75">({{ getTokenScale(token) }}x{{ getTokenScale(token) }})</span>
-          </div>
+              <img *ngIf="token.image_url" [src]="token.image_url" class="token-img"
+                   [style.width.px]="getTokenInnerDimension(token)"
+                   [style.height.px]="getTokenInnerDimension(token)"
+                   [class.enemy-border]="token.is_enemy" [class.player-border]="!token.is_enemy">
+              <div *ngIf="!token.image_url" class="token-fallback"
+                   [style.width.px]="getTokenInnerDimension(token)"
+                   [style.height.px]="getTokenInnerDimension(token)"
+                   [style.fontSize.px]="getTokenFontSize(token)"
+                   [class.enemy-fallback]="token.is_enemy" [class.player-fallback]="!token.is_enemy">
+                {{ token.name.charAt(0) }}
+              </div>
 
-          <div *ngIf="role === 'dm'" class="token-actions">
-            <button (click)="cycleTokenSize(token, $event)" class="size-token-btn" title="Cycle Size (Medium/Large/Huge/Gargantuan)" aria-label="Cycle token size">
-              {{ getTokenScale(token) }}x
-            </button>
-            <button (click)="removeToken(token.id)" class="remove-token-btn" title="Remove Token" aria-label="Remove token">×</button>
-          </div>
+              <div class="token-label">
+                {{ token.name }}
+                <span *ngIf="getTokenScale(token) > 1" class="text-micro opacity-75">({{ getTokenScale(token) }}x{{ getTokenScale(token) }})</span>
+              </div>
 
-          <div class="token-hp-bar" *ngIf="token.max_hp && token.hp !== undefined && (role === 'dm' || !token.is_enemy)"
-               [style.width.px]="getTokenInnerDimension(token)"
-               role="meter" aria-label="Hit points" aria-valuemin="0" [attr.aria-valuemax]="token.max_hp" [attr.aria-valuenow]="token.hp">
-            <div class="hp-fill" [style.width.%]="(token.hp / token.max_hp) * 100"></div>
+              <div *ngIf="role === 'dm'" class="token-actions">
+                <button
+                  (click)="toggleTokenHidden(token, $event)"
+                  class="hide-token-btn"
+                  type="button"
+                  [title]="token.is_hidden ? 'Reveal Token to Players' : 'Hide Token from Players'"
+                  [attr.aria-label]="token.is_hidden ? 'Reveal token' : 'Hide token'"
+                >
+                  {{ token.is_hidden ? '👁️' : '🙈' }}
+                </button>
+                <button (click)="cycleTokenSize(token, $event)" class="size-token-btn" type="button" title="Cycle Size (Medium/Large/Huge/Gargantuan)" aria-label="Cycle token size">
+                  {{ getTokenScale(token) }}x
+                </button>
+                <button (click)="removeToken(token.id)" class="remove-token-btn" type="button" title="Remove Token" aria-label="Remove token">×</button>
+              </div>
+
+              <ng-container *ngIf="getTokenHp(token) as hpInfo">
+                <div class="token-hp-bar" *ngIf="role === 'dm' || !token.is_enemy"
+                     [style.width.px]="getTokenInnerDimension(token)"
+                     role="meter" aria-label="Hit points" aria-valuemin="0" [attr.aria-valuemax]="hpInfo.max_hp" [attr.aria-valuenow]="hpInfo.hp">
+                  <div class="hp-fill" [style.width.%]="getHpPercent(hpInfo)"></div>
+                </div>
+              </ng-container>
+            </div>
           </div>
         </div>
       </div>
@@ -231,6 +328,18 @@ import { environment } from '../../../../environments/environment';
               [(ngModel)]="mapUrlInput"
               class="w-full text-body"
             />
+          </div>
+          <div>
+            <label class="block text-label font-semibold text-muted mb-1">Or Upload Battlemap Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              [disabled]="uploadingMap || !campaignName"
+              (change)="onMapFileSelected($event)"
+              class="block w-full text-label text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-hairline file:bg-surface file:text-ink hover:file:border-accent"
+            />
+            <p *ngIf="uploadingMap" class="text-micro text-gold mt-1">Uploading map asset...</p>
+            <p *ngIf="mapUploadError" class="text-micro text-crimson mt-1">{{ mapUploadError }}</p>
           </div>
           <div>
             <label class="block text-label font-semibold text-muted mb-1">Grid Cell Size (px)</label>
@@ -258,7 +367,7 @@ import { environment } from '../../../../environments/environment';
         maxWidth="680px">
         <div class="flex flex-col gap-4 p-2">
           <!-- Error banner -->
-          <div *ngIf="sceneError" class="rounded-lg border border-red-500/40 bg-red-950/20 p-3 text-body text-red-300">
+          <div *ngIf="sceneError" class="rounded-lg border border-crimson/40 bg-crimson/10 p-3 text-body text-crimson">
             ⚠️ {{ sceneError }}
           </div>
 
@@ -493,7 +602,7 @@ import { environment } from '../../../../environments/environment';
                 </div>
                 <div class="text-right text-micro text-muted">
                   <div>{{ h.activated_at | date:'medium' }}</div>
-                  <div class="text-[10px]">by user: {{ h.activated_by_user_id }}</div>
+                  <div class="text-micro opacity-75">by user: {{ h.activated_by_user_id }}</div>
                 </div>
               </div>
             </div>
@@ -537,18 +646,24 @@ import { environment } from '../../../../environments/environment';
       position: relative;
       overflow: auto;
       background-color: var(--color-deep);
+    }
+    .vtt-stage-wrapper {
+      position: relative;
+    }
+    .vtt-stage {
+      position: relative;
+      transform-origin: top left;
+      background-color: var(--color-deep);
       background-repeat: no-repeat;
       background-position: top left;
-      background-attachment: local;
+      background-size: 100% 100%;
     }
     .grid-overlay {
       position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      inset: 0;
       pointer-events: none;
       background-image: linear-gradient(to right, color-mix(in srgb, var(--color-ink) 10%, transparent) 1px, transparent 1px),
                         linear-gradient(to bottom, color-mix(in srgb, var(--color-ink) 10%, transparent) 1px, transparent 1px);
-      min-width: 2000px;
-      min-height: 2000px;
     }
     .fog-canvas {
       position: absolute;
@@ -563,6 +678,43 @@ import { environment } from '../../../../environments/environment';
       z-index: 25;
       touch-action: none;
     }
+    .ruler-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 28;
+      pointer-events: none;
+    }
+    .ruler-overlay.ruler-active {
+      pointer-events: auto;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .ruler-line {
+      stroke: var(--color-gold);
+      stroke-width: 3;
+      stroke-dasharray: 6 4;
+    }
+    .ruler-endpoint {
+      fill: var(--color-gold);
+      stroke: var(--color-deep);
+      stroke-width: 1.5;
+    }
+    .ruler-badge {
+      position: absolute;
+      transform: translate(-50%, -120%);
+      z-index: 29;
+      pointer-events: none;
+      background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+      color: var(--color-gold);
+      border: 1px solid color-mix(in srgb, var(--color-gold) 55%, transparent);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: var(--text-micro);
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: var(--shadow-card);
+    }
     .vtt-token {
       position: absolute;
       cursor: grab;
@@ -574,6 +726,14 @@ import { environment } from '../../../../environments/environment';
     }
     .vtt-token:active { cursor: grabbing; }
     .hidden-token { display: none !important; }
+    .active-turn-token {
+      z-index: 15;
+    }
+    .active-turn-token .token-img,
+    .active-turn-token .token-fallback {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-gold) 80%, transparent),
+                  0 0 18px color-mix(in srgb, var(--color-gold) 65%, transparent);
+    }
 
     .token-img {
       border-radius: 50%;
@@ -595,9 +755,12 @@ import { environment } from '../../../../environments/environment';
     .token-label {
       position: absolute;
       bottom: -15px;
+      max-width: calc(100% + 14px);
+      overflow: hidden;
+      text-overflow: ellipsis;
       background: color-mix(in srgb, var(--color-surface) 85%, transparent);
       color: var(--color-ink);
-      font-size: 10px;
+      font-size: var(--text-micro);
       padding: 1px 4px;
       border-radius: 4px;
       white-space: nowrap;
@@ -617,8 +780,14 @@ import { environment } from '../../../../environments/environment';
     .vtt-token:focus-within .token-actions {
       display: flex;
     }
+    @media (hover: none) {
+      .vtt-token .token-actions {
+        display: flex;
+      }
+    }
 
-    .size-token-btn {
+    .size-token-btn,
+    .hide-token-btn {
       background: var(--color-surface);
       color: var(--color-accent);
       border: 1px solid var(--color-accent);
@@ -627,11 +796,16 @@ import { environment } from '../../../../environments/environment';
       min-width: 28px;
       min-height: 28px;
       height: 28px;
-      font-size: 10px;
+      font-size: var(--text-micro);
       font-weight: bold;
       cursor: pointer;
     }
-    .size-token-btn:focus-visible {
+    .hide-token-btn {
+      color: var(--color-gold);
+      border-color: var(--color-gold);
+    }
+    .size-token-btn:focus-visible,
+    .hide-token-btn:focus-visible {
       outline: 2px solid var(--color-accent);
     }
 
@@ -675,19 +849,58 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   @Input() role: 'dm' | 'player' = 'player';
   @Input() characterName?: string;
   @Input() combatants: InitiativeCombatant[] = [];
+  @Input() activeCombatantId: string | null = null;
   @Input() campaignName?: string;
 
-  @ViewChild('fogCanvas') fogCanvasRef?: ElementRef<HTMLCanvasElement>;
+  private _fogCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('fogCanvas')
+  set fogCanvasRef(ref: ElementRef<HTMLCanvasElement> | undefined) {
+    this._fogCanvasRef = ref;
+    if (ref) {
+      requestAnimationFrame(() => this.renderFogCanvas());
+    }
+  }
+  get fogCanvasRef(): ElementRef<HTMLCanvasElement> | undefined {
+    return this._fogCanvasRef;
+  }
+  @ViewChild('vttStage') vttStageRef?: ElementRef<HTMLDivElement>;
 
   wsService = inject(WebSocketService);
   http = inject(HttpClient);
+  private readonly assetService = inject(AssetService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly confirmDialog = inject(ForgeConfirmService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly sanitizer = inject(DomSanitizer);
   readonly vttState = this.wsService.vttState;
+
+  private mapBlobUrl: string | null = null;
+  private loadedMapSourceUrl: string | null = null;
+  private mapLoadSub?: Subscription;
 
   isMinimized = false;
   showMapModal = false;
   mapUrlInput = '';
   gridSizeInput = 50;
+  uploadingMap = false;
+  mapUploadError: string | null = null;
+
+  // Zoom & Ruler state (#200)
+  zoomLevel = 1;
+  rulerMode = false;
+  rulerResult: {
+    startPx: { x: number; y: number };
+    endPx: { x: number; y: number };
+    cells: number;
+    feet: number;
+  } | null = null;
+  private isMeasuringRuler = false;
+  private rulerStartCell: { cx: number; cy: number } | null = null;
+  private cachedStageRect: DOMRect | null = null;
+
+  get zoomPercent(): number {
+    return Math.round(this.zoomLevel * 100);
+  }
 
   // Scene management state (#156)
   showSceneModal = false;
@@ -754,6 +967,11 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   }
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.mapLoadSub?.unsubscribe();
+      this.revokeMapBlob();
+    });
+
     effect(() => {
       // Guard component effect: Only trigger renderFogCanvas when fog or grid dimensions change
       const state = this.vttState();
@@ -762,6 +980,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       const gridW = state?.grid?.width;
       const gridH = state?.grid?.height;
       const cellSize = state?.grid?.cell_size;
+      const bgUrl = state?.grid?.background_image_url;
+
+      this.syncMapBackgroundUrl(bgUrl);
 
       const revealedChanged = this.hasFogRevealedChanged(fogRevealed);
 
@@ -783,6 +1004,59 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     });
   }
 
+  private revokeMapBlob(): void {
+    if (this.mapBlobUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(this.mapBlobUrl);
+    }
+    this.mapBlobUrl = null;
+  }
+
+  private isProtectedAssetUrl(url: string): boolean {
+    return /\/api\/v1\/campaigns\/[^/]+\/assets\//.test(url);
+  }
+
+  private resolveAssetRequestUrl(url: string): string {
+    if (url.startsWith('/api/v1/') && environment.apiBaseUrl !== '/api/v1') {
+      return `${environment.apiBaseUrl}${url.slice('/api/v1'.length)}`;
+    }
+    return url;
+  }
+
+  private syncMapBackgroundUrl(url?: string): void {
+    const clean = (url || '').trim();
+    if (!clean || !this.isProtectedAssetUrl(clean)) {
+      if (this.loadedMapSourceUrl !== null || this.mapBlobUrl !== null) {
+        this.mapLoadSub?.unsubscribe();
+        this.loadedMapSourceUrl = null;
+        this.revokeMapBlob();
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    if (clean === this.loadedMapSourceUrl) return;
+
+    this.loadedMapSourceUrl = clean;
+    this.mapLoadSub?.unsubscribe();
+    this.revokeMapBlob();
+
+    const requestUrl = this.resolveAssetRequestUrl(clean);
+    this.mapLoadSub = this.http
+      .get(requestUrl, { responseType: 'blob' })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => {
+          if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return;
+          this.revokeMapBlob();
+          this.mapBlobUrl = URL.createObjectURL(blob);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.revokeMapBlob();
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
   ngOnInit(): void {}
 
   ngAfterViewInit(): void {
@@ -799,15 +1073,23 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     return (grid?.height || 30) * (grid?.cell_size || 50);
   }
 
-  getBackgroundImageStyle(): string {
-    const url = this.vttState()?.grid?.background_image_url;
+  getBackgroundImageStyle(): SafeStyle | string {
+    const url = (this.vttState()?.grid?.background_image_url || '').trim();
     if (!url) return 'none';
+    if (this.isProtectedAssetUrl(url)) {
+      return this.mapBlobUrl
+        ? this.sanitizer.bypassSecurityTrustStyle(`url("${this.mapBlobUrl}")`)
+        : 'none';
+    }
     const safeUrl = url.replace(/["\\\n\r]/g, '');
     return `url("${safeUrl}")`;
   }
 
   toggleMinimize(): void {
     this.isMinimized = !this.isMinimized;
+    if (!this.isMinimized) {
+      requestAnimationFrame(() => this.renderFogCanvas());
+    }
   }
 
   canMoveToken(token: VTTToken): boolean {
@@ -818,16 +1100,20 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   onDragEnded(event: CdkDragEnd, token: VTTToken): void {
     const position = event.source.getFreeDragPosition();
+    const scale = this.zoomLevel || 1;
+    const scaledX = token.x + (position.x - token.x) / scale;
+    const scaledY = token.y + (position.y - token.y) / scale;
     const state = this.vttState();
     // Snap to grid (cell_size) and clamp to canvas boundaries
     const cellSize = state?.grid?.cell_size || 50;
     const gridCols = state?.grid?.width || 30;
-    const gridRows = state?.grid?.height || 20;
-    const maxX = Math.max(0, (gridCols - 1) * cellSize);
-    const maxY = Math.max(0, (gridRows - 1) * cellSize);
+    const gridRows = state?.grid?.height || 30;
+    const tokenCells = this.getTokenScale(token);
+    const maxX = Math.max(0, (gridCols - tokenCells) * cellSize);
+    const maxY = Math.max(0, (gridRows - tokenCells) * cellSize);
 
-    const rawSnappedX = Math.round(position.x / cellSize) * cellSize;
-    const rawSnappedY = Math.round(position.y / cellSize) * cellSize;
+    const rawSnappedX = Math.round(scaledX / cellSize) * cellSize;
+    const rawSnappedY = Math.round(scaledY / cellSize) * cellSize;
     const snappedX = Math.max(0, Math.min(rawSnappedX, maxX));
     const snappedY = Math.max(0, Math.min(rawSnappedY, maxY));
 
@@ -888,6 +1174,143 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     return Math.max(16, 14 * scale);
   }
 
+  adjustZoom(delta: number): void {
+    this.setZoom(this.zoomLevel + delta);
+  }
+
+  setZoom(level: number): void {
+    const clamped = Math.max(0.5, Math.min(2.5, Math.round(level * 100) / 100));
+    this.zoomLevel = clamped;
+  }
+
+  onCanvasWheel(event: WheelEvent): void {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    this.adjustZoom(event.deltaY < 0 ? 0.1 : -0.1);
+  }
+
+  toggleRuler(): void {
+    this.rulerMode = !this.rulerMode;
+    if (!this.rulerMode) {
+      this.isMeasuringRuler = false;
+      this.rulerStartCell = null;
+      this.rulerResult = null;
+      this.cachedStageRect = null;
+    } else {
+      this.fogBrushMode = null;
+    }
+  }
+
+  calculateGridDistanceFeet(c1: number, r1: number, c2: number, r2: number): { cells: number; feet: number } {
+    const cells = Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1));
+    return { cells, feet: cells * 5 };
+  }
+
+  onRulerPointerDown(event: PointerEvent | MouseEvent): void {
+    if (!this.rulerMode) return;
+    event.preventDefault();
+    if ('pointerId' in event && (event.target as HTMLElement)?.setPointerCapture) {
+      try {
+        (event.target as HTMLElement).setPointerCapture(event.pointerId);
+      } catch (_) {}
+    }
+    const stageEl = this.vttStageRef?.nativeElement;
+    this.cachedStageRect = stageEl ? stageEl.getBoundingClientRect() : null;
+    const pt = this.getStageCoordsAtMouse(event);
+    if (!pt) return;
+    this.isMeasuringRuler = true;
+    this.rulerStartCell = { cx: pt.cx, cy: pt.cy };
+    this.updateRulerResult(pt.cx, pt.cy, pt.cx, pt.cy, pt.cellSize);
+  }
+
+  onRulerPointerMove(event: PointerEvent | MouseEvent): void {
+    if (!this.isMeasuringRuler || !this.rulerStartCell) return;
+    const pt = this.getStageCoordsAtMouse(event);
+    if (!pt) return;
+    this.updateRulerResult(this.rulerStartCell.cx, this.rulerStartCell.cy, pt.cx, pt.cy, pt.cellSize);
+  }
+
+  onRulerPointerUp(event?: PointerEvent | MouseEvent): void {
+    if (event && 'pointerId' in event && (event.target as HTMLElement)?.releasePointerCapture) {
+      try {
+        (event.target as HTMLElement).releasePointerCapture(event.pointerId);
+      } catch (_) {}
+    }
+    this.isMeasuringRuler = false;
+    this.cachedStageRect = null;
+  }
+
+  private getStageCoordsAtMouse(event: MouseEvent): { cx: number; cy: number; cellSize: number } | null {
+    const stageEl = this.vttStageRef?.nativeElement;
+    const rect = this.cachedStageRect || stageEl?.getBoundingClientRect();
+    if (!rect) return null;
+    const cellSize = this.vttState()?.grid?.cell_size || 50;
+    const gridW = this.vttState()?.grid?.width || 30;
+    const gridH = this.vttState()?.grid?.height || 30;
+    const scale = this.zoomLevel || 1;
+    const localX = (event.clientX - rect.left) / scale;
+    const localY = (event.clientY - rect.top) / scale;
+    const cx = Math.max(0, Math.min(gridW - 1, Math.floor(localX / cellSize)));
+    const cy = Math.max(0, Math.min(gridH - 1, Math.floor(localY / cellSize)));
+    return { cx, cy, cellSize };
+  }
+
+  private updateRulerResult(c1: number, r1: number, c2: number, r2: number, cellSize: number): void {
+    const { cells, feet } = this.calculateGridDistanceFeet(c1, r1, c2, r2);
+    const half = cellSize / 2;
+    this.rulerResult = {
+      startPx: { x: c1 * cellSize + half, y: r1 * cellSize + half },
+      endPx: { x: c2 * cellSize + half, y: r2 * cellSize + half },
+      cells,
+      feet,
+    };
+  }
+
+  toggleTokenHidden(token: VTTToken, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.role !== 'dm') return;
+    const updated: VTTToken = { ...token, is_hidden: !token.is_hidden };
+    this.wsService.vttState.update((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        tokens: s.tokens.map((t) => (t.id === token.id ? updated : t)),
+      };
+    });
+    this.wsService.sendVttAddToken(updated);
+  }
+
+  getTokenHp(token: VTTToken): { hp: number; max_hp: number } | null {
+    const exact = this.combatants.find((c) => c.id === token.id);
+    if (exact && exact.max_hp) {
+      return { hp: exact.hp, max_hp: exact.max_hp };
+    }
+    if (!token.is_enemy && token.name) {
+      const byName = this.combatants.find(
+        (c) => c.name.toLowerCase() === token.name.toLowerCase() && c.max_hp
+      );
+      if (byName) {
+        return { hp: byName.hp, max_hp: byName.max_hp };
+      }
+    }
+    if (token.max_hp && token.hp !== undefined) {
+      return { hp: token.hp, max_hp: token.max_hp };
+    }
+    return null;
+  }
+
+  getHpPercent(hpInfo: { hp: number; max_hp: number }): number {
+    if (!hpInfo.max_hp || hpInfo.max_hp <= 0) return 0;
+    return Math.max(0, Math.min(100, (hpInfo.hp / hpInfo.max_hp) * 100));
+  }
+
+  isTokenActiveTurn(token: VTTToken): boolean {
+    if (!this.activeCombatantId) return false;
+    if (token.id === this.activeCombatantId) return true;
+    const activeCombatant = this.combatants.find((c) => c.id === this.activeCombatantId);
+    return !!activeCombatant && activeCombatant.name.toLowerCase() === token.name.toLowerCase();
+  }
+
   cycleTokenSize(token: VTTToken, event: MouseEvent): void {
     event.stopPropagation();
     if (this.role !== 'dm') return;
@@ -930,11 +1353,19 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       ? `${combatant.id}_${sameNameTokens.length + 1}`
       : combatant.id;
 
+    const cellSize = state?.grid?.cell_size || 50;
+    const gridCols = state?.grid?.width || 30;
+    const gridRows = state?.grid?.height || 30;
+    const spanCols = Math.max(1, Math.min(8, gridCols - 2));
+    const slot = existingTokens.length;
+    const col = 2 + (slot % spanCols);
+    const row = 2 + (Math.floor(slot / spanCols) % Math.max(1, gridRows - 2));
+
     const token: VTTToken = {
       id: tokenId,
       name: tokenName,
-      x: 100 + Math.floor(Math.random() * 50),
-      y: 100 + Math.floor(Math.random() * 50),
+      x: col * cellSize,
+      y: row * cellSize,
       size: this.parseCreatureSize(combatant.size || (combatant as any).creature_size),
       is_enemy: !combatant.is_player,
       is_hidden: false,
@@ -964,7 +1395,29 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   changeBackground() {
     this.mapUrlInput = this.vttState()?.grid?.background_image_url || 'https://i.imgur.com/G4hXqD7.jpg';
     this.gridSizeInput = this.vttState()?.grid?.cell_size || 50;
+    this.mapUploadError = null;
     this.showMapModal = true;
+  }
+
+  onMapFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file || !this.campaignName) return;
+    this.uploadingMap = true;
+    this.mapUploadError = null;
+    this.assetService
+      .uploadAsset(this.campaignName, file)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.mapUrlInput = res.url;
+          this.uploadingMap = false;
+        },
+        error: (err) => {
+          this.mapUploadError = err.error?.detail || 'Failed to upload map image.';
+          this.uploadingMap = false;
+        },
+      });
   }
 
   applyMapBackground() {
@@ -991,6 +1444,12 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   setFogBrush(mode: 'reveal' | 'hide' | 'rect_reveal' | 'rect_hide' | null): void {
     this.fogBrushMode = this.fogBrushMode === mode ? null : mode;
+    if (this.fogBrushMode) {
+      this.rulerMode = false;
+      this.isMeasuringRuler = false;
+      this.rulerStartCell = null;
+      this.rulerResult = null;
+    }
     this.rectStartCol = null;
     this.rectStartRow = null;
     this.rectCurrentCol = null;
@@ -1009,6 +1468,24 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   hideAllFog(): void {
     if (this.role !== 'dm') return;
     this.wsService.sendVttFogHideAll();
+  }
+
+  private getThemeColor(varName: string, fallback: string): string {
+    if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
+      return fallback;
+    }
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return raw || fallback;
+  }
+
+  private hexToRgba(hexColor: string, alpha: number, fallback: string): string {
+    const clean = hexColor.replace('#', '').trim();
+    if (clean.length !== 6) return fallback;
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    if ([r, g, b].some((n) => Number.isNaN(n))) return fallback;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   renderFogCanvas(): void {
@@ -1032,8 +1509,16 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    const deepColor = this.getThemeColor('--bg-deep', '#09090c');
+    const cobaltColor = this.getThemeColor('--accent-cobalt', '#0a84ff');
+    const redColor = this.getThemeColor('--primary-red', '#df4a55');
+    const dmFogFill = this.hexToRgba(deepColor, 0.72, 'rgba(9, 9, 12, 0.72)');
+    const revealTint = this.hexToRgba(cobaltColor, 0.25, 'rgba(10, 132, 255, 0.25)');
+    const hideTint = this.hexToRgba(redColor, 0.25, 'rgba(223, 74, 85, 0.25)');
+    const fogFill = this.role === 'dm' ? dmFogFill : deepColor;
+
     // Punch-Out rendering: Fill entire canvas once with fog color
-    ctx.fillStyle = this.role === 'dm' ? 'rgba(15, 23, 42, 0.70)' : '#0a0d14';
+    ctx.fillStyle = fogFill;
     ctx.fillRect(0, 0, totalW, totalH);
 
     // Punch out transparent holes for revealed cells (no redundant strokeRect calls)
@@ -1053,16 +1538,16 @@ export class VttGridComponent implements OnInit, AfterViewInit {
         this.paintedFogCells.forEach((coord) => {
           const [cx, cy] = coord.split(',').map(Number);
           ctx.clearRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
-          ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+          ctx.fillStyle = revealTint;
           ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
         });
       } else if (this.fogBrushMode === 'hide') {
-        ctx.fillStyle = this.role === 'dm' ? 'rgba(15, 23, 42, 0.70)' : '#0a0d14';
+        ctx.fillStyle = fogFill;
         this.paintedFogCells.forEach((coord) => {
           const [cx, cy] = coord.split(',').map(Number);
           ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
         });
-        ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
+        ctx.fillStyle = hideTint;
         this.paintedFogCells.forEach((coord) => {
           const [cx, cy] = coord.split(',').map(Number);
           ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
@@ -1087,14 +1572,11 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       const ph = (maxRow - minRow + 1) * cellSize;
 
       ctx.save();
-      ctx.strokeStyle = this.fogBrushMode === 'rect_reveal' ? '#38bdf8' : '#f43f5e';
+      ctx.strokeStyle = this.fogBrushMode === 'rect_reveal' ? cobaltColor : redColor;
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(px, py, pw, ph);
-      ctx.fillStyle =
-        this.fogBrushMode === 'rect_reveal'
-          ? 'rgba(56, 189, 248, 0.25)'
-          : 'rgba(244, 63, 94, 0.25)';
+      ctx.fillStyle = this.fogBrushMode === 'rect_reveal' ? revealTint : hideTint;
       ctx.fillRect(px, py, pw, ph);
       ctx.restore();
     }
@@ -1293,9 +1775,10 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     const cellSize = this.vttState()?.grid?.cell_size || 50;
     const gridW = this.vttState()?.grid?.width || 30;
     const gridH = this.vttState()?.grid?.height || 30;
+    const scale = this.zoomLevel || 1;
 
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const mouseX = (event.clientX - rect.left) / scale;
+    const mouseY = (event.clientY - rect.top) / scale;
     const cx = Math.max(0, Math.min(gridW - 1, Math.floor(mouseX / cellSize)));
     const cy = Math.max(0, Math.min(gridH - 1, Math.floor(mouseY / cellSize)));
     return { cx, cy };
@@ -1308,9 +1791,10 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     const cellSize = this.vttState()?.grid?.cell_size || 50;
     const gridW = this.vttState()?.grid?.width || 30;
     const gridH = this.vttState()?.grid?.height || 30;
+    const scale = this.zoomLevel || 1;
 
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const mouseX = (event.clientX - rect.left) / scale;
+    const mouseY = (event.clientY - rect.top) / scale;
     const cx = Math.floor(mouseX / cellSize);
     const cy = Math.floor(mouseY / cellSize);
 
@@ -1351,13 +1835,16 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       this.expandedSceneNotesId === scene.scene_id ? null : scene.scene_id;
   }
 
+  private sceneBaseUrl(): string {
+    return `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName || '')}/scenes`;
+  }
+
   loadSceneHistory(): void {
     if (!this.campaignName) return;
     this.loadingHistory = true;
     this.http
-      .get<VTTSceneHistory[]>(
-        `${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/history`
-      )
+      .get<VTTSceneHistory[]>(`${this.sceneBaseUrl()}/history`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (history) => {
           this.sceneHistory = history;
@@ -1377,10 +1864,8 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       dm_notes: scene.dm_notes,
     };
     this.http
-      .put<VTTScene>(
-        `${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/${scene.scene_id}`,
-        body
-      )
+      .put<VTTScene>(`${this.sceneBaseUrl()}/${encodeURIComponent(scene.scene_id)}`, body)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
           scene.name = updated.name;
@@ -1397,7 +1882,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   loadScenes(): void {
     if (!this.campaignName) return;
     this.loadingScenes = true;
-    this.http.get<VTTScene[]>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes`)
+    this.http
+      .get<VTTScene[]>(this.sceneBaseUrl())
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (scenes) => {
           this.scenes = scenes;
@@ -1421,7 +1908,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
         height: Number(this.newSceneHeight) || 30,
       },
     };
-    this.http.post<VTTScene>(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes`, body)
+    this.http
+      .post<VTTScene>(this.sceneBaseUrl(), body)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.newSceneName = '';
@@ -1436,7 +1925,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   activateScene(scene: VTTScene): void {
     if (!this.campaignName || scene.is_active_scene) return;
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/${scene.scene_id}/activate`, {})
+    this.http
+      .post(`${this.sceneBaseUrl()}/${encodeURIComponent(scene.scene_id)}/activate`, {})
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.loadScenes();
@@ -1449,7 +1940,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
 
   duplicateScene(scene: VTTScene): void {
     if (!this.campaignName) return;
-    this.http.post(`${environment.apiBaseUrl}/campaigns/${this.campaignName}/scenes/${scene.scene_id}/duplicate`, {})
+    this.http
+      .post(`${this.sceneBaseUrl()}/${encodeURIComponent(scene.scene_id)}/duplicate`, {})
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.loadScenes();
@@ -1474,7 +1967,9 @@ export class VttGridComponent implements OnInit, AfterViewInit {
     });
     if (!confirmed) return;
 
-    this.http.delete(`${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/scenes/${scene.scene_id}`)
+    this.http
+      .delete(`${this.sceneBaseUrl()}/${encodeURIComponent(scene.scene_id)}`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.loadScenes();

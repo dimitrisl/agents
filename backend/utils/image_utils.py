@@ -85,9 +85,36 @@ async def generate_portrait_url(
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&seed={seed}&nologo=true"
 
     try:
+        max_image_bytes = 10 * 1024 * 1024
+        image_buffer = bytearray()
         async with httpx.AsyncClient() as client:
-            response = await client.get(image_url, timeout=15.0)
-            response.raise_for_status()
+            async with client.stream("GET", image_url, timeout=15.0) as response:
+                response.raise_for_status()
+                content_type = (response.headers.get("content-type") or "").lower()
+                if not content_type.startswith("image/"):
+                    logger.warning(f"Rejected non-image portrait content-type: {content_type!r}")
+                    return None
+                content_length = response.headers.get("content-length")
+                if (
+                    content_length
+                    and content_length.isdigit()
+                    and int(content_length) > max_image_bytes
+                ):
+                    logger.warning(
+                        f"Rejected oversized portrait Content-Length ({content_length} bytes)"
+                    )
+                    return None
+                async for chunk in response.aiter_bytes():
+                    image_buffer.extend(chunk)
+                    if len(image_buffer) > max_image_bytes:
+                        logger.warning(
+                            f"Rejected oversized portrait payload (>{max_image_bytes} bytes)"
+                        )
+                        return None
+
+        image_bytes = bytes(image_buffer)
+        if not image_bytes:
+            return None
 
         # Save locally
         import time
@@ -100,7 +127,7 @@ async def generate_portrait_url(
         filepath = safe_path(os.path.join(PORTRAIT_DIR, filename), scope="portraits")
 
         with open(filepath, "wb") as f:
-            f.write(response.content)
+            f.write(image_bytes)
 
         logger.info(f"Successfully downloaded and saved portrait to {filepath}")
         return f"{base_url_path}{filename}"

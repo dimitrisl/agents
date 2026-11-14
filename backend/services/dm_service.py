@@ -29,12 +29,11 @@ def generate_random_encounter(
         difficulty=difficulty,
     )
     result = generate_ai_json(prompt)
-    if result:
+    if isinstance(result, dict):
         try:
             return EncounterSchema(**result).model_dump()
         except Exception as e:
-            logger.warning(f"Encounter generation failed validation: {e}. Returning raw result.")
-            return result
+            logger.warning(f"Encounter generation failed validation: {e}")
     return None
 
 
@@ -42,27 +41,27 @@ def generate_riddle(location: str, edition: str = EDITION_2014) -> str:
     """Generates a thematic riddle based on the environment."""
     prompt = RIDDLE_PROMPT.format(
         edition=edition,
-        location=location,
+        location=location[:2000],
     )
-    return generate_ai_response(prompt)
+    return generate_ai_response(prompt, use_cache=False)
 
 
 def generate_npc(npc_concept: str, edition: str = EDITION_2014) -> str:
     """Creates a thematic NPC."""
     prompt = NPC_PROMPT.format(
         edition=edition,
-        npc_concept=npc_concept,
+        npc_concept=npc_concept[:2000],
     )
-    return generate_ai_response(prompt)
+    return generate_ai_response(prompt, use_cache=False)
 
 
 def generate_session_prep(campaign_notes: str, party_info: str) -> str:
     """Generates plot hooks and session developments."""
     prompt = SESSION_PREP_PROMPT.format(
-        campaign_notes=campaign_notes,
-        party_info=party_info,
+        campaign_notes=f"<notes>\n{campaign_notes[:12000]}\n</notes>",
+        party_info=party_info[:6000],
     )
-    return generate_ai_response(prompt)
+    return generate_ai_response(prompt, use_cache=False)
 
 
 def create_manual_npc(

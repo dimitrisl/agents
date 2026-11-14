@@ -49,9 +49,23 @@ export class StatblockModalComponent {
   hasStructuredContent(): boolean {
     if (!this.combatant) return false;
     const hasActions = Array.isArray(this.combatant.actions) && this.combatant.actions.length > 0;
+    const hasLegendary =
+      Array.isArray(this.combatant.legendary_actions) &&
+      this.combatant.legendary_actions.length > 0;
     const hasTraits = Array.isArray(this.combatant.traits) && this.combatant.traits.length > 0;
     const hasStats = !!this.combatant.stats;
-    return hasActions || hasTraits || hasStats;
+    return hasActions || hasLegendary || hasTraits || hasStats;
+  }
+
+  getActionSections(): Array<{ title: string; items: MonsterAction[] }> {
+    const sections: Array<{ title: string; items: MonsterAction[] }> = [];
+    if (this.combatant?.actions && this.combatant.actions.length > 0) {
+      sections.push({ title: 'Actions', items: this.combatant.actions });
+    }
+    if (this.combatant?.legendary_actions && this.combatant.legendary_actions.length > 0) {
+      sections.push({ title: 'Legendary Actions', items: this.combatant.legendary_actions });
+    }
+    return sections;
   }
 
   abilityMod(score?: number | null): string {

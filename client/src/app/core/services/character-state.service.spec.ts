@@ -12,6 +12,8 @@ describe('CharacterStateService', () => {
   const mockChar2024 = { char_id: 'c2', name: 'Hero 2024', dnd_edition: '2024 Revision (5.5e)', stats: { STR: 18, DEX: 10, CON: 14, INT: 8, WIS: 10, CHA: 12 }, passive_perception: 10 } as any;
 
   beforeEach(() => {
+    localStorage.removeItem('phyrexian_forge_active_char');
+    localStorage.removeItem('phyrexian_forge_active_char_snapshot');
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [CharacterStateService]
@@ -22,6 +24,8 @@ describe('CharacterStateService', () => {
 
   afterEach(() => {
     httpMock.verify();
+    localStorage.removeItem('phyrexian_forge_active_char');
+    localStorage.removeItem('phyrexian_forge_active_char_snapshot');
   });
 
   it('should be created', () => {
@@ -52,6 +56,18 @@ describe('CharacterStateService', () => {
 
       expect(service.characters().length).toBe(0);
       expect(service.activeCharacter()).toBeNull();
+    });
+
+    it('falls back to cached active character snapshot when API fails offline', () => {
+      localStorage.setItem('phyrexian_forge_active_char_snapshot', JSON.stringify(mockChar2024));
+      service.loadCharacters().subscribe({ error: () => {} });
+
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/characters`);
+      req.error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(true);
+      expect(service.vaultStatus()).toBe('loaded');
+      expect(service.activeCharacter()).toEqual(mockChar2024);
     });
   });
 

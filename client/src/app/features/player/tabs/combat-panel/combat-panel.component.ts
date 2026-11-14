@@ -36,6 +36,7 @@ import {
   extractMagicBonus,
   WeaponBreakdown,
 } from '../../../../core/rules/weapon-calc';
+import { exhaustionD20Penalty } from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
 
@@ -79,6 +80,12 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Output() deleteEquipment = new EventEmitter<number>();
   @Output() save = new EventEmitter<void>();
   @Output() consumePotion = new EventEmitter<{ item: EquipmentItem; dice: string; bonus: number; name: string }>();
+  @Output() updateHeroStatus = new EventEmitter<{ inspiration?: boolean; exhaustion_level?: number }>();
+
+  actionUsed = false;
+  bonusActionUsed = false;
+  reactionUsed = false;
+  private lastActiveCombatantId: string | null = null;
 
   showCoinModal = false;
   selectedCoin: 'cp' | 'sp' | 'ep' | 'gp' | 'pp' = 'gp';
@@ -107,6 +114,23 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   private profileKey?: string;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['encounterState'] || changes['char']) {
+      const nextActiveId: string | null = this.encounterState?.activeCombatantId ?? null;
+      if (nextActiveId !== this.lastActiveCombatantId) {
+        this.lastActiveCombatantId = nextActiveId;
+        const activeCombatant = (this.encounterState?.combatants || []).find(
+          (c: any) => c.id === nextActiveId
+        );
+        if (
+          activeCombatant &&
+          this.char &&
+          ((activeCombatant.char_id && activeCombatant.char_id === this.char.char_id) ||
+            (activeCombatant.name || '').toLowerCase() === (this.char.char_name || '').toLowerCase())
+        ) {
+          this.resetTurnEconomy();
+        }
+      }
+    }
     if (!changes['char']) return;
 
     if (!this.char) {
@@ -164,6 +188,52 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     }
 
     this.cdr.markForCheck();
+  }
+
+  isCombatantBloodied(combatant: any): boolean {
+    if (!combatant) return false;
+    if (combatant.health_status) {
+      return combatant.health_status === 'bloodied';
+    }
+    return (
+      typeof combatant.hp === 'number' &&
+      typeof combatant.max_hp === 'number' &&
+      combatant.max_hp > 0 &&
+      combatant.hp > 0 &&
+      combatant.hp <= combatant.max_hp / 2
+    );
+  }
+
+  isCombatantDown(combatant: any): boolean {
+    if (!combatant) return false;
+    if (combatant.health_status === 'down') return true;
+    return typeof combatant.hp === 'number' && combatant.hp <= 0;
+  }
+
+  toggleActionEconomy(slot: 'action' | 'bonus' | 'reaction'): void {
+    if (slot === 'action') this.actionUsed = !this.actionUsed;
+    else if (slot === 'bonus') this.bonusActionUsed = !this.bonusActionUsed;
+    else this.reactionUsed = !this.reactionUsed;
+  }
+
+  resetTurnEconomy(): void {
+    this.actionUsed = false;
+    this.bonusActionUsed = false;
+    this.reactionUsed = false;
+  }
+
+  toggleInspiration(): void {
+    if (!this.char) return;
+    this.updateHeroStatus.emit({ inspiration: !this.char.inspiration });
+  }
+
+  adjustExhaustion(delta: number): void {
+    if (!this.char) return;
+    const current = this.char.exhaustion_level ?? 0;
+    const next = Math.max(0, Math.min(6, current + delta));
+    if (next !== current) {
+      this.updateHeroStatus.emit({ exhaustion_level: next });
+    }
   }
 
   ngOnDestroy(): void {
@@ -411,6 +481,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     weapon.damage_dice = `${bd.damage.notation} ${bd.damage.damageType}`.trim();
     weapon.damage_bonus = this.dice.signed(bd.damage.totalBonus);
     weapon.magic_bonus = bd.attack.magicBonus;
+    weapon.exhaustion_attack_penalty_applied = exhaustionD20Penalty(this.char);
     this.save.emit();
     if (showToast) {
       this.rollToast.showMessage(

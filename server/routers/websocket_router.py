@@ -3,7 +3,6 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set
-from urllib.parse import unquote
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from pydantic import ValidationError
@@ -71,7 +70,9 @@ class ConnectionManager:
 
         # Send presence_sync to the new connection
         online_chars = [
-            conn.character for conn in self.active_connections[campaign_id] if conn.character
+            conn.character
+            for conn in self.active_connections[campaign_id]
+            if isinstance(conn.character, str) and conn.character
         ]
         # Remove duplicates if a user has multiple tabs
         online_chars = list(set(online_chars))
@@ -135,6 +136,7 @@ class ConnectionManager:
         characters: Optional[Iterable[str]] = None,
         user_ids: Optional[Iterable[str]] = None,
         dm_only: bool = False,
+        player_only: bool = False,
     ):
         """Fan a message out to a campaign room.
 
@@ -146,8 +148,9 @@ class ConnectionManager:
 
         `dm_only` is the one exception to "the DM sees everything": it means no
         player socket may see this at all.
+
+        `player_only` sends only to non-DM sockets (e.g., redacted encounter updates).
         """
-        campaign_id = unquote(campaign_id)
         connections = self.active_connections.get(campaign_id)
         if not connections:
             return
@@ -163,6 +166,8 @@ class ConnectionManager:
         dead_connections: List[CampaignConnection] = []
         for connection in list(connections):
             if dm_only and not connection.is_dm:
+                continue
+            if player_only and connection.is_dm:
                 continue
 
             # Check targeting
@@ -199,6 +204,36 @@ class ConnectionManager:
                     pass
                 await self.disconnect(campaign_id, conn.websocket)
 
+    async def disconnect_campaign_member(
+        self,
+        campaign_id: str,
+        user_id: Optional[str] = None,
+        character_name: Optional[str] = None,
+        owner_id: Optional[str] = None,
+    ) -> None:
+        """Close and disconnect sockets for a removed member/character in a campaign."""
+        connections = self.active_connections.get(campaign_id)
+        if not connections:
+            return
+        char_norm = character_name.strip().lower() if isinstance(character_name, str) else None
+        to_remove = [
+            c
+            for c in list(connections)
+            if (user_id and c.user_id == user_id)
+            or (
+                char_norm
+                and isinstance(c.character, str)
+                and c.character.strip().lower() == char_norm
+                and (owner_id is None or c.user_id == owner_id)
+            )
+        ]
+        for conn in to_remove:
+            try:
+                await conn.websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            except Exception:
+                pass
+            await self.disconnect(campaign_id, conn.websocket)
+
     def get_online_user_ids(self) -> Set[str]:
         """Returns the set of user_ids that currently hold at least one open WebSocket."""
         uids: Set[str] = set()
@@ -226,7 +261,10 @@ async def campaign_websocket_endpoint(
         if payload.get("type") != "auth":
             raise ValueError("First message must be auth")
         token = payload.get("token")
-        character = payload.get("character")
+        raw_character = payload.get("character")
+        character = (
+            raw_character if isinstance(raw_character, str) and len(raw_character) <= 100 else None
+        )
     except Exception as e:
         logger.warning(f"WebSocket auth frame failed: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -239,7 +277,7 @@ async def campaign_websocket_endpoint(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    decoded_id = unquote(campaign_id)
+    decoded_id = campaign_id
 
     db = await get_database()
     member = await db["campaign_members"].find_one(
@@ -269,16 +307,19 @@ async def campaign_websocket_endpoint(
             # We don't reject the connection, we just ignore the spoofed character
             # so they connect as a generic player/DM.
 
-    await manager.connect(
-        decoded_id,
-        websocket,
-        role=db_role,
-        character=verified_character,
-        user_id=user.get("id"),
-    )
     try:
+        await manager.connect(
+            decoded_id,
+            websocket,
+            role=db_role,
+            character=verified_character,
+            user_id=user.get("id"),
+        )
         while True:
             data = await websocket.receive_text()
+            if len(data) > 65536:
+                logger.warning("Oversized WebSocket frame dropped")
+                continue
             try:
                 payload = json.loads(data)
             except Exception as e:
@@ -312,7 +353,18 @@ async def campaign_websocket_endpoint(
                     new_state = None
 
                     if event_type == "vtt_request_sync":
-                        new_state = await vtt_service.get_vtt_state(db, decoded_id)
+                        sync_state = await vtt_service.get_vtt_state(db, decoded_id)
+                        if sync_state:
+                            payload_to_send = (
+                                sync_state.model_dump()
+                                if db_role == "dm"
+                                else VTTService.redact_for_player(
+                                    sync_state, player_character_name=verified_character
+                                ).model_dump()
+                            )
+                            await websocket.send_json(
+                                {"type": "vtt_sync", "payload": payload_to_send}
+                            )
                     elif event_type == "vtt_token_move":
                         new_state = await vtt_service.move_token(
                             db,

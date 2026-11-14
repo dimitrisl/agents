@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -69,7 +70,7 @@ describe('PlayerComponent — DM roll requests', () => {
       opened$,
       connect: () => undefined,
       disconnect: () => undefined,
-      sendMessage: () => undefined,
+      sendMessage: () => true,
     };
 
     TestBed.configureTestingModule({
@@ -1017,5 +1018,159 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(component.activeRollPrompt).toBeNull();
       expect(toastService.activeRoll()?.title).toBe('🎲 ROLL REQUEST → Lyra Meadowlark');
     });
+  });
+});
+
+describe('PlayerComponent — WebSocket stability (#235)', () => {
+  it('does not reconnect WebSocket when HP or version updates for the same active hero and campaign', () => {
+    jest.useFakeTimers();
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+    const connect = jest.fn();
+    const disconnect = jest.fn();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect,
+            disconnect,
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({ ...HERO });
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenCalledWith('Curse of Strahd', { character: 'Lyra Meadowlark' });
+    expect(disconnect).not.toHaveBeenCalled();
+
+    // Editing HP or bumping version on the same hero/campaign must not tear down the socket.
+    charState.activeCharacter.set({ ...HERO, hp_current: 21, version: 3 } as CharacterSchema);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(disconnect).not.toHaveBeenCalled();
+
+    // Switching to another owned character sharing the same char_name MUST update wsConnectionKey.
+    charState.activeCharacter.set({ ...HERO, char_id: 'lyra_homonym_2' } as CharacterSchema);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(connect).toHaveBeenCalledTimes(2);
+    expect(disconnect).toHaveBeenCalled();
+
+    http.match(() => true).forEach((req) => req.flush({}));
+    fixture.destroy();
+    jest.useRealTimers();
+  });
+});
+
+describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fixes', () => {
+  it('rehydrates full party_update long_rest payload and applies 2024 exhaustion immutably', () => {
+    jest.useFakeTimers();
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      dnd_edition: '2024 Revision (5.5e)',
+      speed: 30,
+      hp_current: 12,
+      hp_temp: 5,
+      hit_dice_used: 4,
+      exhaustion_level: 3,
+      spell_slots: {
+        level_1: { max: 4, used: 3 },
+        pact: { max: 2, used: 2, level: 3 },
+      },
+      class_resources: [{ name: 'Favored Enemy', current: 0, max: 3, recharge: 'long' }],
+      version: 2,
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    // 1) Simulate DM broadcasting full long_rest payload
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        action: 'long_rest',
+        hp_current: 44,
+        hp_max: 44,
+        hp_temp: 0,
+        hit_dice_used: 0,
+        exhaustion_level: 2,
+        speed: 20,
+        death_saves: { successes: 0, failures: 0 },
+        spell_slots: {
+          level_1: { max: 4, used: 0 },
+          pact: { max: 2, used: 0, level: 3 },
+        },
+        class_resources: [{ name: 'Favored Enemy', current: 3, max: 3, recharge: 'long' }],
+        version: 3,
+      },
+    } as any);
+
+    const afterRest = charState.activeCharacter()!;
+    expect(afterRest.hp_current).toBe(44);
+    expect(afterRest.hp_temp).toBe(0);
+    expect(afterRest.hit_dice_used).toBe(0);
+    expect(afterRest.exhaustion_level).toBe(2);
+    expect(afterRest.speed).toBe(20);
+    expect(afterRest.spell_slots?.['pact']?.used).toBe(0);
+    expect(afterRest.class_resources?.[0]?.current).toBe(3);
+    expect(afterRest.version).toBe(3);
+
+    // 2) Player updates exhaustion locally from 2 -> 0: speed restores 20 -> 30 immutably
+    fixture.componentInstance.onUpdateHeroStatus({ exhaustion_level: 0 });
+    expect(afterRest.speed).toBe(20);
+    expect(charState.activeCharacter()!.exhaustion_level).toBe(0);
+    expect(charState.activeCharacter()!.speed).toBe(30);
+
+    http.match(() => true).forEach((req) => req.flush({}));
+    fixture.destroy();
+    jest.useRealTimers();
   });
 });

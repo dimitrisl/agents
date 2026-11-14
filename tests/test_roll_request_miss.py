@@ -55,7 +55,13 @@ def table(monkeypatch):
     }
 
     characters = MagicMock()
-    characters.find_one = AsyncMock(return_value=None)
+    characters.find_one = AsyncMock(
+        return_value={
+            "char_id": "hero_1",
+            "char_name": "Lyra Meadowlark",
+            "owner_id": "player_1",
+        }
+    )
     campaigns = MagicMock()
     campaigns.find_one = AsyncMock(side_effect=lambda q: state["campaign"])
     campaigns.update_one = AsyncMock(

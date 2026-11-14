@@ -12,12 +12,27 @@
       <div
         *ngFor="let ent of entities"
         (click)="selectEntity(ent)"
-        class="cursor-pointer p-2 rounded hover:bg-tile transition-colors border border-transparent"
+        class="cursor-pointer p-2 rounded hover:bg-tile transition-colors border border-transparent flex items-center justify-between gap-2"
         [class.bg-tile]="selectedEntity?.id === ent.id"
         [class.border-hairline]="selectedEntity?.id === ent.id"
       >
-        <div class="font-semibold text-ink">{{ ent.name }}</div>
-        <div class="text-micro text-muted uppercase">{{ ent.type }}</div>
+        <div class="min-w-0 flex-1">
+          <div class="font-semibold text-ink truncate">{{ ent.name }}</div>
+          <div class="text-micro text-muted uppercase">{{ ent.type }}</div>
+        </div>
+        @if (canAddToInitiative(ent)) {
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            title="Add to Initiative Tracker"
+            [attr.aria-label]="'Add ' + ent.name + ' to initiative'"
+            (click)="$event.stopPropagation(); addToInitiative.emit(ent)"
+          >
+            ⚔️
+          </button>
+        }
       </div>
       <div *ngIf="entities.length === 0" class="text-center text-muted p-4 italic text-sm">
         No entities found. Create one or use Paste & Go!
@@ -39,6 +54,17 @@
           placeholder="Entity Name"
         />
         <div class="flex gap-2">
+          @if (canAddToInitiative(selectedEntity)) {
+            <button
+              forgeButton
+              variant="secondary"
+              tone="accent"
+              type="button"
+              (click)="addToInitiative.emit(selectedEntity!)"
+            >
+              ⚔️ Add to Initiative
+            </button>
+          }
           <button forgeButton variant="danger" *ngIf="selectedEntity.id" (click)="deleteEntity(selectedEntity.id)">Delete</button>
           <button forgeButton (click)="saveEntity()">Save</button>
         </div>

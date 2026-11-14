@@ -1,5 +1,12 @@
 import { CharacterSchema } from '../models/character.model';
-import { abilityModifier, abilityScore, formatModifier, proficiencyBonus } from './ability';
+import {
+  abilityModifier,
+  abilityScore,
+  exhaustionD20Penalty,
+  formatModifier,
+  is2024Edition,
+  proficiencyBonus,
+} from './ability';
 
 export type SkillAbility = 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
 
@@ -56,13 +63,6 @@ export function hasJackOfAllTrades(char: CharacterSchema | null | undefined): bo
     return true;
   }
   return false;
-}
-
-export function is2024Edition(char: CharacterSchema | null | undefined): boolean {
-  return (
-    String(char?.dnd_edition || '').includes('2024') ||
-    String(char?.ruleset_version || '').includes('2024')
-  );
 }
 
 export function hasRemarkableAthlete(char: CharacterSchema | null | undefined): boolean {
@@ -139,7 +139,7 @@ export function skillModifier(
     }
   }
 
-  return abilityModifier(abilityScore(char, skill.ability)) + bonus;
+  return abilityModifier(abilityScore(char, skill.ability)) + bonus - exhaustionD20Penalty(char);
 }
 
 export function skillModifierString(

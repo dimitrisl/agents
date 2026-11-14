@@ -9,6 +9,7 @@ import {
   computed,
   effect,
   signal,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -53,11 +54,13 @@ import {
   availableHitDieOptions,
   conModifier,
   diceForCast,
+  exhaustionD20Penalty,
   findSkill,
   formatModifier,
   hasSpellSlotLevel,
   HitDieOption,
   hitDieSize,
+  is2024Edition,
   isProficientIn,
   hasExpertiseIn,
   hasInitiativeAdvantage,
@@ -373,9 +376,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     });
 
-    effect((onCleanup) => {
+    const wsConnectionKey = computed(() => {
       const char = this.charState.activeCharacter();
-      if (char && char.active_campaign) {
+      return char && char.active_campaign
+        ? `${char.active_campaign}::${char.char_id || char.char_name}`
+        : null;
+    });
+    effect((onCleanup) => {
+      const key = wsConnectionKey();
+      const char = untracked(() => this.charState.activeCharacter());
+      if (key && char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
         // private whispers and roll requests to this hero alone.
         this.wsService.connect(char.active_campaign, {
@@ -585,6 +595,42 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
    * written server-side, so this only catches the open page up — saving from
    * here would race the DM with a stale copy of the hero.
    */
+  private applyExhaustionDelta(char: CharacterSchema, nextLevel: number): CharacterSchema {
+    const prevLevel = Math.max(0, Math.min(6, Math.floor(Number(char.exhaustion_level) || 0)));
+    const clampedNext = Math.max(0, Math.min(6, Math.floor(Number(nextLevel) || 0)));
+    if (prevLevel === clampedNext) return char;
+
+    let next: CharacterSchema = { ...char, exhaustion_level: clampedNext };
+    if (is2024Edition(next)) {
+      const d20Delta = (clampedNext - prevLevel) * 2;
+      const baseSpd = next.base_speed ?? ((next.speed ?? 30) + prevLevel * 5);
+      next.speed = clampedNext >= 6 ? 0 : Math.max(0, baseSpd - clampedNext * 5);
+      if (typeof next.initiative_modifier === 'number') {
+        next.initiative_modifier -= d20Delta;
+      }
+      if (next.saving_throw_values) {
+        const updatedSaves: Record<string, number> = {};
+        for (const [k, v] of Object.entries(next.saving_throw_values)) {
+          updatedSaves[k] = v - d20Delta;
+        }
+        next.saving_throw_values = updatedSaves;
+      }
+      if (next.skills) {
+        const updatedSkills: Record<string, number> = {};
+        for (const [k, v] of Object.entries(next.skills)) {
+          updatedSkills[k] = v - d20Delta;
+        }
+        next.skills = updatedSkills;
+      }
+    } else {
+      const baseSpd =
+        next.base_speed ??
+        (prevLevel >= 5 ? 30 : prevLevel >= 2 ? (next.speed ?? 15) * 2 : (next.speed ?? 30));
+      next.speed = clampedNext >= 5 ? 0 : clampedNext >= 2 ? Math.floor(baseSpd / 2) : baseSpd;
+    }
+    return next;
+  }
+
   private applyDmPartyUpdate(payload: any, char: CharacterSchema) {
     if (!payload || payload.char_id !== char.char_id) return;
 
@@ -592,7 +638,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (typeof payload.version === 'number' && payload.version > this.knownVersion(char)) {
         const synced: CharacterSchema = { ...char, version: payload.version };
         if (typeof payload.hp_current === 'number') synced.hp_current = payload.hp_current;
+        if (typeof payload.hp_temp === 'number') synced.hp_temp = payload.hp_temp;
         if (Array.isArray(payload.conditions)) synced.conditions = [...payload.conditions];
+        if (typeof payload.exhaustion_level === 'number') {
+          Object.assign(synced, this.applyExhaustionDelta(synced, payload.exhaustion_level));
+        }
         this.rememberVersion(synced);
         this.charState.activeCharacter.set(synced);
         this.charState.upsertCharacter(synced);
@@ -601,9 +651,27 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     const previousHp = char.hp_current ?? char.hp_max;
-    const updated: CharacterSchema = { ...char };
+    let updated: CharacterSchema = { ...char };
+    if (typeof payload.exhaustion_level === 'number') {
+      updated = this.applyExhaustionDelta(updated, payload.exhaustion_level);
+    }
+    if (typeof payload.hp_max === 'number' && payload.hp_max > 0) updated.hp_max = payload.hp_max;
     if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
+    if (typeof payload.hp_temp === 'number') updated.hp_temp = payload.hp_temp;
+    if (typeof payload.speed === 'number') updated.speed = payload.speed;
     if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
+    if (payload.concentrating_on !== undefined) updated.concentrating_on = payload.concentrating_on ?? undefined;
+    if (payload.death_saves !== undefined && payload.death_saves !== null) {
+      updated.death_saves = { ...payload.death_saves };
+    }
+    if (typeof payload.inspiration === 'boolean') updated.inspiration = payload.inspiration;
+    if (typeof payload.hit_dice_used === 'number') updated.hit_dice_used = payload.hit_dice_used;
+    if (payload.spell_slots && typeof payload.spell_slots === 'object') {
+      updated.spell_slots = { ...payload.spell_slots };
+    }
+    if (Array.isArray(payload.class_resources)) {
+      updated.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
+    }
     if (typeof payload.version === 'number') updated.version = payload.version;
 
     // When healed from 0 HP, automatically reset death saves to 0
@@ -612,7 +680,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     const hp = updated.hp_current ?? updated.hp_max;
-    if (hp !== previousHp) {
+    if (payload.action === 'long_rest') {
+      this.showConcentrationPrompt.set(false);
+      this.rollToast.showMessage(
+        '🌙 DM GRANTED LONG REST',
+        `${updated.char_name} recovered HP (${hp}/${updated.hp_max}), spell slots, and resources.`
+      );
+    } else if (hp !== previousHp) {
       const delta = hp - previousHp;
       const verb = delta < 0 ? `took ${Math.abs(delta)} damage` : `healed ${delta}`;
       this.rollToast.showMessage('❤️ DM UPDATED YOUR HP', `You ${verb} — now ${hp}/${updated.hp_max}.`);
@@ -819,17 +893,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char) return;
 
     const rest = resolveLongRest(char);
-    char.hp_current = rest.hpCurrent;
-    char.hit_dice_used = rest.hitDiceUsed;
-
-    if (char.spell_slots) {
-      char.spell_slots = restoreAllSpellSlots(char.spell_slots);
-    }
-    if (char.class_resources) {
-      char.class_resources.forEach((r) => {
-        r.current = r.max;
-      });
-    }
+    let updated: CharacterSchema = this.applyExhaustionDelta(char, rest.exhaustionLevel);
+    updated = {
+      ...updated,
+      hp_max: rest.hpMax,
+      hp_current: rest.hpCurrent,
+      hp_temp: 0,
+      hit_dice_used: rest.hitDiceUsed,
+      concentrating_on: undefined,
+      death_saves: { successes: 0, failures: 0 },
+      spell_slots: updated.spell_slots ? restoreAllSpellSlots(updated.spell_slots) : updated.spell_slots,
+      class_resources: updated.class_resources
+        ? updated.class_resources.map((r) => ({ ...r, current: r.max }))
+        : updated.class_resources,
+    };
+    this.charState.activeCharacter.set(updated);
     this.saveCurrentChar();
     this.rollToast.showMessage('🌙 LONG REST COMPLETED', `Full HP, spell slots, and ${rest.hitDiceRecovered} Hit Dice restored for ${char.char_name}.`);
   }
@@ -1017,7 +1095,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat), this.rollMode, {
+    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat) - exhaustionD20Penalty(char), this.rollMode, {
       rollType: 'ability',
     });
   }
@@ -1067,21 +1145,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       return {
         title: '⚔️ INITIATIVE ROLL',
         label: 'initiative roll',
-        modifier: char.initiative_modifier ?? abilityModifierOf(char, 'DEX'),
+        modifier: char.initiative_modifier ?? (abilityModifierOf(char, 'DEX') - exhaustionD20Penalty(char)),
       };
     }
 
     return {
       title: `🎲 ${stat} CHECK`,
       label: `${stat} check`,
-      modifier: abilityModifierOf(char, stat),
+      modifier: abilityModifierOf(char, stat) - exhaustionD20Penalty(char),
     };
   }
 
   rollInitiative() {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
-    const mod = char.initiative_modifier ?? abilityModifierOf(char, 'DEX');
+    const mod = char.initiative_modifier ?? (abilityModifierOf(char, 'DEX') - exhaustionD20Penalty(char));
     const autoAdv = hasInitiativeAdvantage(char);
     const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
     const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod, mode, { skipBroadcast: true });
@@ -1378,7 +1456,6 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const key = `${campaignName}::${charKey}`;
     if (!isCatchUp) {
       if (this.loadedCampaignMessageKey === key) return;
-      this.loadedCampaignMessageKey = key;
     }
 
     this.http
@@ -1388,6 +1465,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           const char = this.charState.activeCharacter();
           const currentCharKey = char?.char_id || char?.char_name;
           if (char?.active_campaign !== campaignName || currentCharKey !== charKey) return;
+          if (!isCatchUp) {
+            this.loadedCampaignMessageKey = key;
+          }
 
           const whispers = (messages.whispers || []).filter((whisper) =>
             this.isWhisperForCharacter(whisper, char)
@@ -1782,10 +1862,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   joinCampaign() {
     const char = this.charState.activeCharacter();
-    if (!char || !this.joinInviteCode) return;
+    const code = this.joinInviteCode.trim();
+    if (!char || !code) return;
 
     this.http.post<any>(`${environment.apiBaseUrl}/campaigns/join`, {
-      invite_code: this.joinInviteCode.toUpperCase(),
+      invite_code: code,
       char_filename: `${char.char_name.toLowerCase().replace(/\s+/g, '_')}_${char.char_id}.json`,
       character_id: char.char_id
     }).subscribe({
@@ -1858,6 +1939,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       Help: 'You feint, distract the target, or help an ally, giving them advantage on their next ability check or attack roll.'
     };
     this.rollToast.showMessage(`⚔️ ACTION: ${action.toUpperCase()}`, descriptions[action] || `Took the ${action} action.`);
+  }
+
+  onUpdateHeroStatus(patch: { inspiration?: boolean; exhaustion_level?: number }): void {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    let updated: CharacterSchema = { ...char, ...patch };
+    if (patch.exhaustion_level !== undefined) {
+      updated = this.applyExhaustionDelta(char, patch.exhaustion_level);
+      if (patch.inspiration !== undefined) {
+        updated.inspiration = patch.inspiration;
+      }
+    }
+    this.charState.activeCharacter.set(updated);
+    this.queueCharSave();
   }
 
   openEditModal() {
@@ -1939,7 +2034,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!reason || !reason.trim()) return;
 
     this.http.post<{ success: boolean; message: string }>(
-      `${environment.apiBaseUrl}/campaigns/${char.active_campaign}/whispers/${whisper.id}/report`,
+      campaignUrl(char.active_campaign, `whispers/${encodeURIComponent(whisper.id)}/report`),
       { reason: reason.trim() }
     ).subscribe({
       next: () => {
@@ -2194,7 +2289,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   rollDeathSave() {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const roll = this.dice.roll({ numDice: 1, sides: 20, modifier: 0 });
+    const exhPenalty = exhaustionD20Penalty(char);
+    const roll = this.dice.roll({ numDice: 1, sides: 20, modifier: -exhPenalty });
     const currentSaves = { ...(char.death_saves || { successes: 0, failures: 0 }) };
     let newHp = char.hp_current;
 
@@ -2208,14 +2304,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.haptics.critFail();
       currentSaves.failures = Math.min(3, currentSaves.failures + 2);
       this.rollToast.showMessage('💀 CRITICAL FAILURE!', 'Natural 1: You take 2 Death Save Failures!');
-    } else if (roll.raw >= 10) {
+    } else if (roll.total >= 10) {
       this.haptics.lightTap();
       currentSaves.successes = Math.min(3, currentSaves.successes + 1);
-      this.rollToast.showMessage('✨ DEATH SAVE SUCCESS!', `Rolled ${roll.raw} (Successes: ${currentSaves.successes}/3)`);
+      const rollDetail = exhPenalty > 0 ? `${roll.total} (${roll.expression})` : `${roll.raw}`;
+      this.rollToast.showMessage('✨ DEATH SAVE SUCCESS!', `Rolled ${rollDetail} (Successes: ${currentSaves.successes}/3)`);
     } else {
       this.haptics.critFail();
       currentSaves.failures = Math.min(3, currentSaves.failures + 1);
-      this.rollToast.showMessage('❌ DEATH SAVE FAILURE!', `Rolled ${roll.raw} (Failures: ${currentSaves.failures}/3)`);
+      const rollDetail = exhPenalty > 0 ? `${roll.total} (${roll.expression})` : `${roll.raw}`;
+      this.rollToast.showMessage('❌ DEATH SAVE FAILURE!', `Rolled ${rollDetail} (Failures: ${currentSaves.failures}/3)`);
     }
 
     const updated: CharacterSchema = {

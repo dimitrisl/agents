@@ -9,11 +9,12 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
 import { Subject, EMPTY } from 'rxjs';
-import { debounceTime, catchError, switchMap } from 'rxjs/operators';
+import { debounceTime, catchError, switchMap, tap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { HomebrewService, HomebrewItem } from '../../core/services/homebrew.service';
 import { BestiaryService } from '../../core/services/bestiary.service';
 import type { BestiaryMonster } from '../../core/models/bestiary.model';
+import type { CampaignEntity } from '../../core/models/campaign-entity.model';
 import {
   Campaign,
   CampaignMessages,
@@ -75,8 +76,13 @@ interface PartyStateChanges {
 interface PartyStatePayload extends PartyStateChanges {
   char_id?: string;
   hp_max?: number;
+  hp_temp?: number;
   ac?: number;
   level?: number;
+  concentrating_on?: string | null;
+  death_saves?: { successes: number; failures: number };
+  inspiration?: boolean;
+  exhaustion_level?: number;
   version?: number;
   source?: string;
 }
@@ -195,6 +201,7 @@ export class DmComponent implements OnInit, OnDestroy {
   newMemberAc = 16;
 
   selectedStatblockCombatant: InitiativeCombatant | null = null;
+  encounterDangerIndicator = '';
   showLootModal = false;
   homebrewItems: HomebrewItem[] = [];
 
@@ -361,6 +368,7 @@ export class DmComponent implements OnInit, OnDestroy {
   private partyStateSubjects = new Map<string, Subject<void>>();
   private encounterSyncSubject = new Subject<void>();
   private encounterSub?: Subscription;
+  private encounterGeneration = 0;
 
   onlineCharacters = new Set<string>();
 
@@ -380,15 +388,26 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterSub = this.encounterSyncSubject.pipe(
       debounceTime(500),
       switchMap(() => {
-        if (!this.campaignName) return EMPTY;
+        const targetCampaign = this.campaignName;
+        const generation = this.encounterGeneration;
+        if (!targetCampaign) return EMPTY;
         const state = {
           round: this.round,
           activeCombatantId: this.activeCombatantId,
           combatants: this.combatants,
         };
-        return this.http.post(campaignUrl(this.campaignName, 'encounter'), state).pipe(
+        return this.http.post<any>(campaignUrl(targetCampaign, 'encounter'), state).pipe(
+          tap((resp) => {
+            if (targetCampaign !== this.campaignName || generation !== this.encounterGeneration) {
+              return;
+            }
+            if (resp && typeof resp.danger_indicator === 'string') {
+              this.encounterDangerIndicator = resp.danger_indicator;
+            }
+          }),
           catchError((e) => {
             console.error('Failed to sync encounter state', e);
+            this.rollToast.showMessage('⚠️ ENCOUNTER SYNC FAILED', 'Encounter changes stayed in this browser.');
             return EMPTY;
           })
         );
@@ -479,6 +498,27 @@ export class DmComponent implements OnInit, OnDestroy {
         );
       } else if (msg.type === 'party_update') {
         this.applyPartyUpdate(payload);
+      } else if (msg.type === 'encounter_update') {
+        if (payload && Array.isArray(payload.combatants)) {
+          this.combatants = this.sortCombatants(payload.combatants);
+          this.activeCombatantId = payload.activeCombatantId ?? null;
+          this.round = typeof payload.round === 'number' ? payload.round : 0;
+          this.hasLiveEncounter = this.combatants.length > 0;
+          if (typeof payload.danger_indicator === 'string') {
+            this.encounterDangerIndicator = payload.danger_indicator;
+          }
+          if (this.campaignName) {
+            if (this.hasLiveEncounter) {
+              this.encounterStorage.save(this.campaignName, {
+                round: this.round,
+                activeCombatantId: this.activeCombatantId,
+                combatants: this.combatants,
+              });
+            } else {
+              this.encounterStorage.clear(this.campaignName);
+            }
+          }
+        }
       } else if (msg.type === 'whisper') {
         const isOwnWhisper = payload.sender === 'DM';
         this.addInboxWhisper(payload, !isOwnWhisper);
@@ -496,6 +536,14 @@ export class DmComponent implements OnInit, OnDestroy {
         );
       }
     });
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && this.campaignName) {
+      this.loadCampaignMessages(this.campaignName, true);
+      this.restoreEncounter(this.campaignName);
+    }
   }
 
   @HostListener('window:beforeunload', ['$event'])
@@ -847,6 +895,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   onCampaignSelect() {
     if (!this.campaignName || this.activeWorkspace === this.campaignName) return;
+    this.encounterGeneration += 1;
     const isFirstLoad = this.activeWorkspace === null;
     this.activeWorkspace = this.campaignName;
 
@@ -898,24 +947,31 @@ export class DmComponent implements OnInit, OnDestroy {
       .get<any[]>(campaignUrl(this.campaignName, 'party'))
       .subscribe({
         next: (chars) => {
-          this.partyMembers = (chars || []).map((char) => ({
+          const serverMembers: PartyMember[] = (chars || []).map((char) => ({
             char_id: char.char_id,
             name: char.char_name || 'Unknown',
             char_class: char.char_class || 'Unknown',
             level: char.char_level || 1,
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
+            hp_temp: char.hp_temp ?? 0,
             ac: char.armor_class ?? 10,
             ac_breakdown: char.ac_breakdown,
             passive_perception: char.passive_perception ?? 10,
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
             conditions: char.conditions || [],
+            concentrating_on: char.concentrating_on ?? null,
+            death_saves: char.death_saves,
+            inspiration: !!char.inspiration,
+            exhaustion_level: char.exhaustion_level ?? 0,
             stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
             portrait: char.char_portrait,
             owner_username: char.owner_username,
             isOnline: this.onlineCharacters.has(char.char_name || '')
           }));
+          const customMembers = this.readCustomPartyMembers(this.campaignName);
+          this.partyMembers = [...serverMembers, ...customMembers];
           this.campaignParties[this.campaignName] = [...this.partyMembers];
           this.partyStatus = 'ready';
           this.rollTargetMember = this.partyMembers[0]?.char_id || this.partyMembers[0]?.name || '';
@@ -957,6 +1013,82 @@ export class DmComponent implements OnInit, OnDestroy {
           this.rollToast.showMessage('❌ ERROR', 'Failed to add member to the campaign.');
         }
       }
+    });
+  }
+
+  private customMembersStorageKey(campaign: string): string {
+    return `phyrexian_forge_paper_party_${campaign}`;
+  }
+
+  private readCustomPartyMembers(campaign: string): PartyMember[] {
+    if (!campaign) return [];
+    try {
+      const raw = localStorage.getItem(this.customMembersStorageKey(campaign));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveCustomPartyMembers(campaign: string, members: PartyMember[]): void {
+    if (!campaign) return;
+    try {
+      const paperOnly = members.filter((m) => !m.char_id);
+      if (paperOnly.length > 0) {
+        localStorage.setItem(this.customMembersStorageKey(campaign), JSON.stringify(paperOnly));
+      } else {
+        localStorage.removeItem(this.customMembersStorageKey(campaign));
+      }
+    } catch {
+      // Ignore storage quota/mode restrictions.
+    }
+  }
+
+  addCustomPartyMember(): void {
+    const name = this.newMemberName.trim();
+    if (!name || !this.campaignName) return;
+
+    const hp = Math.max(1, Number(this.newMemberHp) || 10);
+    const ac = Math.max(1, Number(this.newMemberAc) || 10);
+    const level = Math.max(1, Math.min(20, Number(this.newMemberLevel) || 1));
+    const paperHero: PartyMember = {
+      name,
+      char_class: this.newMemberClass.trim() || 'Adventurer',
+      level,
+      hp_current: hp,
+      hp_max: hp,
+      ac,
+      passive_perception: 10,
+      conditions: [],
+      stats: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+    };
+
+    this.partyMembers = [...this.partyMembers, paperHero];
+    this.campaignParties[this.campaignName] = [...this.partyMembers];
+    this.saveCustomPartyMembers(this.campaignName, this.partyMembers);
+    this.seedInitiativeFromParty();
+    this.newMemberName = '';
+    this.showAddMemberModal = false;
+    this.rollToast.showMessage('📝 PAPER HERO ADDED', `${name} added to the table roster.`);
+  }
+
+  longRestParty(): void {
+    if (!this.campaignName) return;
+    this.http.post<any>(campaignUrl(this.campaignName, 'party/long-rest'), {}).subscribe({
+      next: (res) => {
+        this.rollToast.showMessage(
+          '⛺ LONG REST COMPLETE',
+          res?.message || 'Party HP, spell slots, hit dice, and exhaustion updated.'
+        );
+        this.loadParty();
+      },
+      error: (err) => {
+        if (!this.handleAuthFailure(err)) {
+          this.rollToast.showMessage('❌ ERROR', 'Could not apply party long rest.');
+        }
+      },
     });
   }
 
@@ -1518,11 +1650,13 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   endCombat() {
+    this.encounterGeneration += 1;
     this.combatants = [];
     this.activeCombatantId = null;
     this.round = 0;
     this.hasLiveEncounter = false;
-    this.encounterStorage.clear(this.campaignName);
+    this.encounterDangerIndicator = '';
+    this.persistEncounter();
     this.rollToast.showMessage('⏹️ COMBAT ENDED', 'The encounter was cleared. Initiative starts fresh.');
   }
 
@@ -1715,18 +1849,24 @@ export class DmComponent implements OnInit, OnDestroy {
     const nextAc = typeof payload.ac === 'number' && payload.ac > 0 ? payload.ac : member.ac;
     const nextLevel = typeof payload.level === 'number' && payload.level > 0 ? payload.level : member.level;
     const nextConditions = Array.isArray(payload.conditions) ? [...payload.conditions] : member.conditions;
-    member.hp_current = nextHp;
-    member.hp_max = nextHpMax;
-    member.ac = nextAc;
-    member.level = nextLevel;
-    member.conditions = nextConditions;
-    const updated = {
+    const updated: PartyMember = {
       ...member,
       hp_current: nextHp,
       hp_max: nextHpMax,
+      hp_temp: typeof payload.hp_temp === 'number' ? payload.hp_temp : member.hp_temp,
       ac: nextAc,
       level: nextLevel,
       conditions: nextConditions,
+      concentrating_on:
+        payload.concentrating_on !== undefined ? payload.concentrating_on : member.concentrating_on,
+      death_saves:
+        payload.death_saves !== undefined ? payload.death_saves : member.death_saves,
+      inspiration:
+        typeof payload.inspiration === 'boolean' ? payload.inspiration : member.inspiration,
+      exhaustion_level:
+        typeof payload.exhaustion_level === 'number'
+          ? payload.exhaustion_level
+          : member.exhaustion_level,
     };
     this.partyMembers = this.partyMembers.map((m) =>
       m.char_id === payload.char_id ? updated : m
@@ -1781,6 +1921,8 @@ export class DmComponent implements OnInit, OnDestroy {
     this.http.get<any>(`${campaignUrl(campaignName, 'encounter')}`).subscribe({
       next: (serverState) => {
         if (!serverState) return;
+        this.encounterDangerIndicator =
+          typeof serverState.danger_indicator === 'string' ? serverState.danger_indicator : '';
 
         // If server state is ahead or we had no local state, use it
         if (!saved || saved.combatants.length === 0 || serverState.round >= this.round) {
@@ -1963,6 +2105,9 @@ export class DmComponent implements OnInit, OnDestroy {
       stats: monster['stats'] ? { ...monster['stats'] } : undefined,
       traits: Array.isArray(monster['traits']) ? [...monster['traits']] : [],
       actions: Array.isArray(monster['actions']) ? [...monster['actions']] : [],
+      legendary_actions: Array.isArray(monster['legendary_actions'])
+        ? [...monster['legendary_actions']]
+        : [],
     });
 
     this.combatants = this.sortCombatants([...this.combatants, added]);
@@ -2053,12 +2198,46 @@ export class DmComponent implements OnInit, OnDestroy {
       stats: monster.stats ? { ...monster.stats } : undefined,
       traits: monster.traits ? [...monster.traits] : [],
       actions: monster.actions ? [...monster.actions] : [],
+      legendary_actions: monster.legendary_actions ? [...monster.legendary_actions] : [],
       statblock,
     });
 
     this.combatants = this.sortCombatants([...this.combatants, added]);
     this.persistEncounter();
     this.rollToast.showMessage('⚔️ MONSTER ADDED', `Added ${finalName} to Initiative Tracker.`);
+  }
+
+  addEntityToInitiative(entity: CampaignEntity): void {
+    if (!entity) return;
+    const baseName = (entity.name || 'Campaign Entity').trim();
+    const statsObj = entity.stats || {};
+    const parseNum = (val: unknown, fallback: number): number => {
+      const parsed = typeof val === 'number' ? val : parseInt(String(val ?? ''), 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    };
+    const acMatch = entity.content?.match(/\bAC\b\s*[:=]?\s*(\d+)/i);
+    const hpMatch = entity.content?.match(/\bHP\b\s*[:=]?\s*(\d+)/i);
+    const ac = parseNum(statsObj['ac'] ?? statsObj['armor_class'], acMatch ? Number(acMatch[1]) : 12);
+    const hp = parseNum(statsObj['hp'] ?? statsObj['max_hp'], hpMatch ? Number(hpMatch[1]) : 20);
+    const dex = parseNum(statsObj['dex'] ?? statsObj['DEX'], 10);
+    const dexMod = Math.floor((dex - 10) / 2);
+
+    const added = this.buildCombatant({
+      name: baseName,
+      initiative: 10 + dexMod,
+      hp,
+      max_hp: hp,
+      ac,
+      dex,
+      is_player: false,
+      cr: statsObj['cr'],
+      portrait: entity.image_url,
+      statblock: entity.content || `${baseName} (${entity.type})`,
+    });
+
+    this.combatants = this.sortCombatants([...this.combatants, added]);
+    this.persistEncounter();
+    this.rollToast.showMessage('⚔️ ENTITY ADDED', `Added ${baseName} to Initiative Tracker.`);
   }
 
   private formatMonsterStatblock(monster: BestiaryMonster, ac: number, hp: number, dex: number): string {
@@ -2180,16 +2359,26 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   async removePartyMember(member: PartyMember) {
-    if (!this.campaignName || !member.char_id) return;
+    if (!this.campaignName) return;
     const confirmed = await this.confirmDialog.ask({
       title: `Remove ${member.name}?`,
-      message: `${member.name} will leave the campaign. Their character stays in the player's vault.`,
+      message: member.char_id
+        ? `${member.name} will leave the campaign. Their character stays in the player's vault.`
+        : `${member.name} will be removed from the table roster.`,
       confirmLabel: 'Remove from campaign',
       tone: 'danger',
     });
     if (!confirmed) return;
 
-    this.http.delete(campaignUrl(this.campaignName, `party/${member.char_id}`)).subscribe({
+    if (!member.char_id) {
+      this.partyMembers = this.partyMembers.filter((m) => m !== member && m.name !== member.name);
+      this.campaignParties[this.campaignName] = [...this.partyMembers];
+      this.saveCustomPartyMembers(this.campaignName, this.partyMembers);
+      this.rollToast.showMessage('👋 MEMBER REMOVED', `${member.name} has been removed from the roster.`);
+      return;
+    }
+
+    this.http.delete(campaignUrl(this.campaignName, `party/${encodeURIComponent(member.char_id)}`)).subscribe({
       next: () => {
         this.rollToast.showMessage('👋 MEMBER REMOVED', `${member.name} has been removed from the campaign.`);
         this.loadParty();

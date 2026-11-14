@@ -419,4 +419,20 @@ describe('CombatPanelComponent', () => {
     expect(component.displayedAttackBonus(weapon)).toBe('+9');
     expect(saveSpy).toHaveBeenCalled();
   });
+
+  it('does not treat redacted enemy combatants with hp null as Down unless health_status is down', () => {
+    const healthyMonster = { id: 'm1', name: 'Goblin', hp: null, max_hp: null, health_status: 'healthy' };
+    const bloodiedMonster = { id: 'm2', name: 'Orc', hp: null, max_hp: null, health_status: 'bloodied' };
+    const downMonster = { id: 'm3', name: 'Kobold', hp: null, max_hp: null, health_status: 'down' };
+    const zeroHpNpc = { id: 'a1', name: 'Scout', hp: 0, max_hp: 16 };
+
+    expect(component.isCombatantDown(healthyMonster)).toBe(false);
+    expect(component.isCombatantBloodied(healthyMonster)).toBe(false);
+
+    expect(component.isCombatantDown(bloodiedMonster)).toBe(false);
+    expect(component.isCombatantBloodied(bloodiedMonster)).toBe(true);
+
+    expect(component.isCombatantDown(downMonster)).toBe(true);
+    expect(component.isCombatantDown(zeroHpNpc)).toBe(true);
+  });
 });

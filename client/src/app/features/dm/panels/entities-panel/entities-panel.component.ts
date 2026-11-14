@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ForgeButtonDirective } from '../../../../shared/ui';
@@ -16,6 +16,11 @@ import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-moda
 })
 export class EntitiesPanelComponent implements OnInit, OnChanges {
   @Input() campaignName!: string;
+  @Output() addToInitiative = new EventEmitter<CampaignEntity>();
+
+  canAddToInitiative(entity: CampaignEntity | null | undefined): boolean {
+    return !!entity && ['npc', 'villain', 'monster'].includes((entity.type || '').toLowerCase());
+  }
 
   entities: CampaignEntity[] = [];
   selectedEntity: CampaignEntity | null = null;

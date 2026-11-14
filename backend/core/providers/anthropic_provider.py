@@ -1,6 +1,5 @@
 import json
 import logging
-from functools import lru_cache
 from typing import Any, Dict, Optional, Type
 
 import anthropic
@@ -71,7 +70,7 @@ class AnthropicProvider(LLMProvider):
         except anthropic.APIStatusError as e:
             logger.error(f"Anthropic API error ({e.status_code}): {e.message}")
             status = 503 if e.status_code >= 500 else 502
-            raise HTTPException(status_code=status, detail=f"Claude request failed: {e.message}")
+            raise HTTPException(status_code=status, detail="Claude request failed.")
         except anthropic.APIConnectionError as e:
             logger.error(f"Could not reach Anthropic API: {e}")
             raise HTTPException(status_code=503, detail="Could not reach the Anthropic API.")
@@ -83,12 +82,10 @@ class AnthropicProvider(LLMProvider):
 
         return "".join(block.text for block in response.content if block.type == "text")
 
-    def generate_text(self, prompt: str, temperature: Optional[float] = None) -> str:
-        return self._generate_text_cached(prompt, self._model())
-
-    @lru_cache(maxsize=100)
-    def _generate_text_cached(self, prompt: str, model: str) -> str:
-        return self._create(model, prompt)
+    def generate_text(
+        self, prompt: str, temperature: Optional[float] = None, use_cache: bool = True
+    ) -> str:
+        return self._create(self._model(), prompt)
 
     def generate_json(
         self,
