@@ -209,6 +209,7 @@ class ConnectionManager:
         campaign_id: str,
         user_id: Optional[str] = None,
         character_name: Optional[str] = None,
+        owner_id: Optional[str] = None,
     ) -> None:
         """Close and disconnect sockets for a removed member/character in a campaign."""
         connections = self.active_connections.get(campaign_id)
@@ -223,6 +224,7 @@ class ConnectionManager:
                 char_norm
                 and isinstance(c.character, str)
                 and c.character.strip().lower() == char_norm
+                and (owner_id is None or c.user_id == owner_id)
             )
         ]
         for conn in to_remove:

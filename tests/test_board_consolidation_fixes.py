@@ -29,6 +29,7 @@ from server.routers.campaign_router import (
     CampaignSchema,
     _compute_health_status,
     _redact_encounter_for_player,
+    _sheet_modifier,
 )
 
 
@@ -874,3 +875,121 @@ def test_join_campaign_preserves_mixed_case_invite_codes():
         assert resp_bad.status_code == 404
     finally:
         app.dependency_overrides.clear()
+
+
+def test_remove_homonym_character_does_not_disconnect_other_players_socket(monkeypatch):
+    limiter.reset()
+    mock_client = mongomock.MongoClient()
+    raw_db = mock_client["test_homonym_disconnect_db"]
+    db = _AsyncDBWrapper(raw_db)
+
+    campaign = "Citadel"
+    raw_db["campaigns"].insert_one(
+        {
+            "campaign_name": campaign,
+            "owner_id": "dm_1",
+            "party": ["kael_c1.json", "lyra_c1b.json", "kael_c2.json"],
+        }
+    )
+    raw_db["campaign_members"].insert_many(
+        [
+            {"campaign_id": campaign, "user_id": "dm_1", "role": "dm"},
+            {
+                "campaign_id": campaign,
+                "user_id": "p_1",
+                "role": "player",
+                "character_id": "c1",
+                "character_ids": ["c1", "c1b"],
+            },
+            {
+                "campaign_id": campaign,
+                "user_id": "p_2",
+                "role": "player",
+                "character_id": "c2",
+                "character_ids": ["c2"],
+            },
+        ]
+    )
+    raw_db["characters"].insert_many(
+        [
+            {
+                "char_id": "c1",
+                "char_name": "Kael",
+                "owner_id": "p_1",
+                "active_campaign": campaign,
+            },
+            {
+                "char_id": "c1b",
+                "char_name": "Lyra",
+                "owner_id": "p_1",
+                "active_campaign": campaign,
+            },
+            {
+                "char_id": "c2",
+                "char_name": "Kael",
+                "owner_id": "p_2",
+                "active_campaign": campaign,
+            },
+        ]
+    )
+
+    from server.routers import websocket_router
+    from server.routers.websocket_router import CampaignConnection
+
+    class _DummyWS:
+        def __init__(self):
+            self.close = AsyncMock()
+            self.send_json = AsyncMock()
+
+    ws_p1_kael = _DummyWS()
+    ws_p2_kael = _DummyWS()
+
+    orig_active = websocket_router.manager.active_connections
+    websocket_router.manager.active_connections = {
+        campaign: [
+            CampaignConnection(
+                websocket=ws_p1_kael, role="player", character="Kael", user_id="p_1"
+            ),
+            CampaignConnection(
+                websocket=ws_p2_kael, role="player", character="Kael", user_id="p_2"
+            ),
+        ]
+    }
+    monkeypatch.setattr(websocket_router.manager, "broadcast", AsyncMock())
+
+    current_user = {"id": "dm_1", "username": "dm"}
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: current_user
+    try:
+        client = TestClient(app)
+        resp = client.delete(f"/api/v1/campaigns/{campaign}/party/c1")
+        assert resp.status_code == 200
+
+        ws_p1_kael.close.assert_awaited_once()
+        ws_p2_kael.close.assert_not_awaited()
+        remaining_uids = [
+            c.user_id for c in websocket_router.manager.active_connections.get(campaign, [])
+        ]
+        assert remaining_uids == ["p_2"]
+    finally:
+        websocket_router.manager.active_connections = orig_active
+        app.dependency_overrides.clear()
+
+
+def test_sheet_modifier_ability_check_fallback_applies_2024_exhaustion():
+    stats = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
+    c_2024 = {
+        "dnd_edition": EDITION_2024,
+        "exhaustion_level": 2,
+        "proficiency_bonus": 2,
+        "stats": stats,
+    }
+    c_2014 = {
+        "dnd_edition": EDITION_2014,
+        "exhaustion_level": 2,
+        "proficiency_bonus": 2,
+        "stats": stats,
+    }
+
+    assert _sheet_modifier(c_2024, "ability_check", "Luck") == -4
+    assert _sheet_modifier(c_2014, "ability_check", "Luck") == 0

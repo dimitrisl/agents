@@ -379,7 +379,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const wsConnectionKey = computed(() => {
       const char = this.charState.activeCharacter();
       return char && char.active_campaign
-        ? `${char.active_campaign}::${char.char_name}`
+        ? `${char.active_campaign}::${char.char_id || char.char_name}`
         : null;
     });
     effect((onCleanup) => {

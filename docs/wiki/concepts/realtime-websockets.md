@@ -55,3 +55,6 @@ Polling HTTP endpoints for live campaign state is strictly prohibited. All live 
 
 6. **Campaign Roll Logs (`campaign_roll`):**
    - Player character-sheet rolls submitted via [`POST /api/v1/campaigns/{name}/rolls`](../../../server/routers/campaign_router.py) resolve character ownership by `char_id` (with `sender_username` attached), persist to `campaign_roll_logs` first, and broadcast live as `type: "campaign_roll"` frames (`dm_only=False` for `public`, `dm_only=True` for `dm` whisper mode). Historical `GET /messages` replays redact `visibility == "dm"` entries for non-DM party members unless `sender_user_id == current_user_id`.
+
+7. **Member Removal & Homonym Socket Isolation (`disconnect_campaign_member`):**
+   - Removing a character via `DELETE /api/v1/campaigns/{name}/party/{char_id}` passes `owner_id` alongside `user_id` (`kicked_user_id` only when no owned characters remain) and `character_name` to [`ConnectionManager.disconnect_campaign_member`](../../../server/routers/websocket_router.py). Name-based socket closure requires `c.user_id == owner_id` when `owner_id` is present and skips teardown for unowned paper heroes, ensuring another player sharing the same `char_name` never receives a spurious `1008` closure.

@@ -320,7 +320,7 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
         if k.upper() == stat_upper:
             return get_modifier(v) - exh_penalty
 
-    return get_modifier(stats.get(stat, 10))
+    return get_modifier(stats.get(stat, 10)) - exh_penalty
 
 
 def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str, Any]:
@@ -2141,11 +2141,12 @@ async def remove_party_member(
         if not remaining_member:
             kicked_user_id = owner_id
 
-    if hasattr(manager, "disconnect_campaign_member"):
+    if owner_id and hasattr(manager, "disconnect_campaign_member"):
         await manager.disconnect_campaign_member(
             name,
             user_id=kicked_user_id,
             character_name=char.get("char_name"),
+            owner_id=owner_id,
         )
 
     await manager.broadcast(

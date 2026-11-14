@@ -1069,6 +1069,14 @@ describe('PlayerComponent — WebSocket stability (#235)', () => {
     expect(connect).toHaveBeenCalledTimes(1);
     expect(disconnect).not.toHaveBeenCalled();
 
+    // Switching to another owned character sharing the same char_name MUST update wsConnectionKey.
+    charState.activeCharacter.set({ ...HERO, char_id: 'lyra_homonym_2' } as CharacterSchema);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(connect).toHaveBeenCalledTimes(2);
+    expect(disconnect).toHaveBeenCalled();
+
     http.match(() => true).forEach((req) => req.flush({}));
     fixture.destroy();
     jest.useRealTimers();
