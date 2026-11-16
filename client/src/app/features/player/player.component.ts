@@ -19,8 +19,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, finalize, tap } from 'rxjs';
+import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, finalize, switchMap, tap } from 'rxjs';
 import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
+import { resolvePortraitUrl } from '../../core/utils/portrait';
 import { CharacterImportService, ImportedCharacter } from '../../core/services/character-import.service';
 import { CharacterImportPanelComponent } from '../../shared/components/character-import-panel/character-import-panel.component';
 import { CharacterStateService } from '../../core/services/character-state.service';
@@ -307,6 +308,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // only the value the user settles on is worth a round trip, so writes are
   // collapsed into a single trailing save.
   private readonly hpSave$ = new Subject<{ char: CharacterSchema; version: number }>();
+  private readonly levelUpAnalysis$ = new Subject<{
+    char: CharacterSchema;
+    choices: Record<string, any>;
+    openModalOnSuccess: boolean;
+    rollbackChoices?: Record<string, any>;
+    failedClassLabel?: string;
+  }>();
   private localSaveVersion = 0;
   /**
    * Last `version` the server returned per character. The API rejects a PUT whose
@@ -361,6 +369,65 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
             })
           )
         ),
+        takeUntilDestroyed()
+      )
+      .subscribe();
+
+    this.levelUpAnalysis$
+      .pipe(
+        switchMap((req) => {
+          const prevBonus = this.levelUpAnalysis?.hp_bonus_per_level ?? 0;
+          return this.http
+            .post<LevelUpAnalysis>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
+              character: req.char,
+              user_choices: req.choices,
+            })
+            .pipe(
+              tap((analysis) => {
+                this.levelUpLoading.set(false);
+                this.levelUpAnalysis = analysis;
+                if (this.levelUpUserChoices['hp_method'] === 'average' && analysis?.hp_increase) {
+                  this.levelUpUserChoices = {
+                    ...this.levelUpUserChoices,
+                    custom_hp_increase: String(analysis.hp_increase),
+                  };
+                } else if (
+                  this.levelUpUserChoices['hp_method'] === 'roll' &&
+                  this.levelUpUserChoices['custom_hp_increase'] !== undefined
+                ) {
+                  const nextBonus = analysis?.hp_bonus_per_level ?? 0;
+                  const included =
+                    this.levelUpUserChoices['hp_bonus_included'] !== undefined
+                      ? Number(this.levelUpUserChoices['hp_bonus_included'])
+                      : prevBonus;
+                  const prevCustom = Number(this.levelUpUserChoices['custom_hp_increase']);
+                  if (Number.isFinite(included) && Number.isFinite(prevCustom) && nextBonus !== included) {
+                    this.levelUpUserChoices = {
+                      ...this.levelUpUserChoices,
+                      custom_hp_increase: String(Math.max(1, prevCustom + (nextBonus - included))),
+                      hp_bonus_included: String(nextBonus),
+                    };
+                  }
+                }
+                if (req.openModalOnSuccess) {
+                  this.showLevelUpModal.set(true);
+                }
+              }),
+              catchError((err) => {
+                this.levelUpLoading.set(false);
+                if (req.rollbackChoices) {
+                  this.levelUpUserChoices = req.rollbackChoices;
+                }
+                if (!isReportedGlobally(err)) {
+                  const fallbackMsg = req.failedClassLabel
+                    ? `Could not analyse a ${req.failedClassLabel} level. Try again.`
+                    : 'Could not analyse the level up. Try again.';
+                  this.rollToast.showMessage('✦ LEVEL UP UNAVAILABLE', err?.error?.detail || fallbackMsg);
+                }
+                return EMPTY;
+              })
+            );
+        }),
         takeUntilDestroyed()
       )
       .subscribe();
@@ -2717,18 +2784,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getPortraitUrl(char: any): string {
-    if (char && char.char_portrait && !char.char_portrait.includes('anvil.png')) {
-      return char.char_portrait;
-    }
-    const className = (char?.char_class || '').toLowerCase();
-    if (className.includes('paladin') || className.includes('fighter') || className.includes('barbarian')) {
-      return 'https://image.pollinations.ai/prompt/sir%20valeros%20dnd%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true';
-    } else if (className.includes('wizard') || className.includes('sorcerer') || className.includes('warlock') || className.includes('mage')) {
-      return 'https://image.pollinations.ai/prompt/epic%20dnd%20wizard%20archmage%20glowing%20runes%20cinematic%20portrait?width=300&height=300&nologo=true';
-    } else if (className.includes('rogue') || className.includes('ranger') || className.includes('monk')) {
-      return 'https://image.pollinations.ai/prompt/epic%20dnd%20shadow%20rogue%20assassin%20hooded%20cinematic%20portrait?width=300&height=300&nologo=true';
-    }
-    return 'https://image.pollinations.ai/prompt/epic%20dnd%20heroic%20paladin%20knight%20in%20shining%20armor%20cinematic%20portrait?width=300&height=300&nologo=true';
+    return resolvePortraitUrl(char);
   }
 
   generateAiPortrait() {
@@ -2840,44 +2896,36 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         : char.char_class || 'Fighter';
     this.levelUpUserChoices = { 'level_up_class': initialClass };
     this.levelUpLoading.set(true);
-    this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
-      character: char,
-      user_choices: this.levelUpUserChoices,
-    }).pipe(finalize(() => this.levelUpLoading.set(false))).subscribe({
-      next: (analysis) => {
-        this.levelUpAnalysis = analysis;
-        this.showLevelUpModal.set(true);
-      },
-      error: (err) => {
-        if (!isReportedGlobally(err)) {
-          this.rollToast.showMessage('✦ LEVEL UP UNAVAILABLE', err?.error?.detail || 'Could not analyse the level up. Try again.');
-        }
-      },
+    this.levelUpAnalysis$.next({
+      char,
+      choices: this.levelUpUserChoices,
+      openModalOnSuccess: true,
     });
+  }
+
+  private extractChosenSubclass(choices: Record<string, any>): string {
+    if (!choices) return '';
+    if (choices['subclass']) return String(choices['subclass']);
+    const subKey = Object.keys(choices).find((k) => k.startsWith('subclass_'));
+    return subKey && choices[subKey] ? String(choices[subKey]) : '';
   }
 
   onLevelUpChoicesChange(choices: Record<string, any>) {
     const oldClass = this.levelUpUserChoices['level_up_class'];
     const newClass = choices['level_up_class'];
+    const oldSubclass = this.extractChosenSubclass(this.levelUpUserChoices);
+    const newSubclass = this.extractChosenSubclass(choices);
     this.levelUpUserChoices = choices;
 
-    if (newClass && oldClass !== newClass) {
+    if ((newClass && oldClass !== newClass) || oldSubclass !== newSubclass) {
       const char = this.charState.activeCharacter();
       if (!char) return;
-      this.http.post<any>(`${environment.apiBaseUrl}/forge/level-up-analysis`, {
-        character: char,
-        user_choices: this.levelUpUserChoices
-      }).subscribe({
-        next: (analysis) => {
-          this.levelUpAnalysis = analysis;
-        },
-        error: (err) => {
-          // Keep the previous class's analysis on screen rather than a half-updated one.
-          this.levelUpUserChoices = { ...choices, level_up_class: oldClass };
-          if (!isReportedGlobally(err)) {
-            this.rollToast.showMessage('✦ LEVEL UP UNAVAILABLE', err?.error?.detail || `Could not analyse a ${newClass} level. Try again.`);
-          }
-        },
+      this.levelUpAnalysis$.next({
+        char,
+        choices: this.levelUpUserChoices,
+        openModalOnSuccess: false,
+        rollbackChoices: newClass && oldClass !== newClass ? { ...choices, level_up_class: oldClass } : undefined,
+        failedClassLabel: newClass ? String(newClass) : undefined,
       });
     }
   }

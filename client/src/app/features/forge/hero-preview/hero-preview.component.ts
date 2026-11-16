@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema } from '../../../core/models/character.model';
+import { resolvePortraitUrl } from '../../../core/utils/portrait';
 import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
@@ -40,4 +41,8 @@ export class HeroPreviewComponent {
   @Output() accept = new EventEmitter<void>();
   @Output() discard = new EventEmitter<void>();
   @Output() regeneratePortrait = new EventEmitter<void>();
+
+  get portraitUrl(): string {
+    return resolvePortraitUrl(this.hero);
+  }
 }

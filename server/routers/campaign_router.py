@@ -965,6 +965,20 @@ async def join_campaign_by_code(
         {"$set": {"active_campaign": camp["campaign_name"]}},
     )
 
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(
+        camp["campaign_name"],
+        {
+            "type": "party_member_joined",
+            "payload": {
+                "campaign_name": camp["campaign_name"],
+                "char_id": char_id,
+                "char_name": char.get("char_name", "Unknown"),
+            },
+        },
+    )
+
     return {
         "success": True,
         "campaign_name": camp["campaign_name"],
@@ -1011,6 +1025,20 @@ async def add_party_member(
     await db["campaign_members"].update_one(
         {"campaign_id": name, "user_id": current_user["id"]},
         {"$addToSet": {"character_ids": char_id}},
+    )
+
+    from server.routers.websocket_router import manager
+
+    await manager.broadcast(
+        name,
+        {
+            "type": "party_member_joined",
+            "payload": {
+                "campaign_name": name,
+                "char_id": char_id,
+                "char_name": char.get("char_name", "Unknown"),
+            },
+        },
     )
 
     return {"success": True, "message": "Member added successfully."}

@@ -70,23 +70,25 @@ async def run_cleanup(dry_run: bool = True, include_unknown: bool = False):
         print(f"   - {uname} (email: {u.get('email')}, id: {local_id})")
 
     # 2. Identify test campaigns
+    all_fake_actor_refs = list(fake_user_ids | fake_owner_ids | fake_usernames)
     fake_campaigns = await db.campaigns.find(
         {
             "$or": [
                 {
                     "campaign_name": {
-                        "$regex": r"^(Visual QA Realm|Crypt of Gargoyle|UI Verifier|Test Live Realm)"
+                        "$regex": r"^(Visual QA Realm|Crypt of Gargoyle|UI Verifier|Test Live Realm|Shadowfell Keep|Shattered Vault)"
                     }
                 },
-                {"dm_id": {"$in": list(fake_user_ids) + list(fake_usernames)}},
-                {"created_by": {"$in": list(fake_user_ids) + list(fake_usernames)}},
+                {"owner_id": {"$in": all_fake_actor_refs}},
+                {"dm_id": {"$in": all_fake_actor_refs}},
+                {"created_by": {"$in": all_fake_actor_refs}},
             ]
         }
     ).to_list(1000)
     fake_campaign_names = [c["campaign_name"] for c in fake_campaigns]
     print(f"\n2. Found {len(fake_campaigns)} fake test campaigns:")
     for c in fake_campaigns:
-        print(f"   - {c.get('campaign_name')} (dm: {c.get('dm_id')})")
+        print(f"   - {c.get('campaign_name')} (owner: {c.get('owner_id') or c.get('dm_id')})")
 
     # 3. Identify test characters
     fake_chars = await db.characters.find(
@@ -131,6 +133,16 @@ async def run_cleanup(dry_run: bool = True, include_unknown: bool = False):
     ).to_list(5000)
     print(f"7. Found {len(fake_scenes)} fake scenes.")
 
+    fake_roll_logs = await db.campaign_roll_logs.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    print(f"8. Found {len(fake_roll_logs)} fake roll logs.")
+
+    fake_encounters = await db.campaign_encounters.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    print(f"9. Found {len(fake_encounters)} fake encounters.")
+
     if dry_run:
         print("\n" + "=" * 60)
         print("💡 Dry run complete. No records were deleted.")
@@ -145,8 +157,17 @@ async def run_cleanup(dry_run: bool = True, include_unknown: bool = False):
         print(f"   ✓ Deleted {res.deleted_count} fake users.")
 
     if fake_campaign_names:
-        res = await db.campaigns.delete_many({"campaign_name": {"$in": fake_campaign_names}})
-        print(f"   ✓ Deleted {res.deleted_count} fake campaigns.")
+        from backend.services.campaign_service import delete_campaign_cascade
+
+        for cname in fake_campaign_names:
+            await delete_campaign_cascade(db, cname, broadcast=False)
+        res_wh = await db.campaign_whispers.delete_many(
+            {"campaign_name": {"$in": fake_campaign_names}}
+        )
+        print(
+            f"   ✓ Cascade-deleted {len(fake_campaign_names)} fake campaigns "
+            f"(+ purged {res_wh.deleted_count} test whispers)."
+        )
 
     if fake_chars:
         char_ids = [c.get("char_id") for c in fake_chars if c.get("char_id")]
@@ -184,23 +205,7 @@ async def run_cleanup(dry_run: bool = True, include_unknown: bool = False):
                 ]
             }
         )
-        print(f"   ✓ Deleted {res.deleted_count} campaign memberships.")
-
-    if fake_whispers:
-        res = await db.campaign_whispers.delete_many(
-            {"campaign_name": {"$in": fake_campaign_names}}
-        )
-        print(f"   ✓ Deleted {res.deleted_count} whispers.")
-
-    if fake_rolls:
-        res = await db.campaign_roll_requests.delete_many(
-            {"campaign_name": {"$in": fake_campaign_names}}
-        )
-        print(f"   ✓ Deleted {res.deleted_count} roll requests.")
-
-    if fake_scenes:
-        res = await db.campaign_scenes.delete_many({"campaign_name": {"$in": fake_campaign_names}})
-        print(f"   ✓ Deleted {res.deleted_count} scenes.")
+        print(f"   ✓ Deleted {res.deleted_count} remaining campaign memberships.")
 
     print("\n✅ Database cleanup finished successfully!")
 

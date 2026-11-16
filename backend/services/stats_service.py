@@ -1081,14 +1081,18 @@ def sync_character_stats(
         ]
     else:
         # Convert pydantic ClassEntry to dict if it's not already
-        classes = [c.model_dump() if hasattr(c, "model_dump") else c for c in classes]
+        classes = [
+            c.model_dump() if hasattr(c, "model_dump") else dict(c)
+            for c in classes
+            if isinstance(c, dict) or hasattr(c, "model_dump")
+        ]
 
     level = sum(c.get("level", 1) for c in classes)
     char_data["char_level"] = level
 
     edition = char_data.get("dnd_edition", "2014 Edition")
     char_class = classes[0].get("class_name", "Fighter")
-    subclass = classes[0].get("subclass")
+    subclass = classes[0].get("subclass") or char_data.get("subclass")
 
     if not class_data:
         class_data = repo.get_class_progression(char_class, edition)
@@ -1994,27 +1998,67 @@ def sync_character_stats(
     char_data["weapons"] = updated_weapons
 
     # Infer & Calculate Spellcasting Stats (DC & Attack Bonus)
+    def _has_populated_spells(spells_val: Any) -> bool:
+        if isinstance(spells_val, dict):
+            return any(isinstance(v, list) and len(v) > 0 for v in spells_val.values())
+        if isinstance(spells_val, list):
+            return len(spells_val) > 0
+        return False
+
+    def _has_populated_spell_slots(slots_val: Any) -> bool:
+        if isinstance(slots_val, dict):
+            for v in slots_val.values():
+                if isinstance(v, dict) and int(v.get("max", 0) or 0) > 0:
+                    return True
+                if isinstance(v, int) and v > 0:
+                    return True
+        return False
+
+    fighter_entries = [
+        c for c in classes if (c.get("class_name") or "").strip().lower() == "fighter"
+    ]
+    fighter_level = sum(int(c.get("level", 0) or 0) for c in fighter_entries)
+    fighter_subclass = next(
+        (c.get("subclass") for c in fighter_entries if c.get("subclass")), None
+    ) or (char_data.get("subclass") if (char_class or "").lower() == "fighter" else None)
+
+    standard_spell_abilities = {
+        "wizard": "INT",
+        "artificer": "INT",
+        "cleric": "WIS",
+        "druid": "WIS",
+        "ranger": "WIS",
+        "paladin": "CHA",
+        "sorcerer": "CHA",
+        "warlock": "CHA",
+        "bard": "CHA",
+    }
+    caster_class_ability = next(
+        (
+            standard_spell_abilities[(c.get("class_name") or "").strip().lower()]
+            for c in classes
+            if (c.get("class_name") or "").strip().lower() in standard_spell_abilities
+        ),
+        None,
+    )
+    has_casting_class_in_classes = caster_class_ability is not None or any(
+        "eldritch knight" in str(c.get("subclass") or "").lower()
+        or "arcane trickster" in str(c.get("subclass") or "").lower()
+        for c in classes
+    )
+
     spell_ability = char_data.get("spell_ability")
     if not spell_ability or spell_ability == "None":
         if class_data and "spellcasting_ability" in class_data:
             spell_ability = class_data.get("spellcasting_ability")
         else:
             class_lower = (char_class or "").lower()
-            subclass_lower = (char_data.get("subclass") or "").lower()
+            subclass_lower = (classes[0].get("subclass") or char_data.get("subclass") or "").lower()
             feats_str = str(char_data.get("features_traits", [])).lower()
-            standard_spell_abilities = {
-                "wizard": "INT",
-                "artificer": "INT",
-                "cleric": "WIS",
-                "druid": "WIS",
-                "ranger": "WIS",
-                "paladin": "CHA",
-                "sorcerer": "CHA",
-                "warlock": "CHA",
-                "bard": "CHA",
-            }
             if class_lower in standard_spell_abilities:
                 spell_ability = standard_spell_abilities[class_lower]
+            elif caster_class_ability is not None:
+                spell_ability = caster_class_ability
             elif (
                 "eldritch knight" in subclass_lower
                 or "arcane trickster" in subclass_lower
@@ -2022,14 +2066,20 @@ def sync_character_stats(
                 or "arcane trickster" in feats_str
                 or (
                     class_lower == "fighter"
-                    and (char_data.get("spell_slots") or char_data.get("spells"))
+                    and fighter_level >= 3
+                    and not fighter_subclass
+                    and not has_casting_class_in_classes
+                    and (
+                        _has_populated_spell_slots(char_data.get("spell_slots"))
+                        or _has_populated_spells(char_data.get("spells"))
+                    )
                 )
             ):
                 spell_ability = "INT"
             elif (
-                char_data.get("spells")
-                or char_data.get("prepared_spells")
-                or char_data.get("spell_slots")
+                _has_populated_spells(char_data.get("spells"))
+                or bool(char_data.get("prepared_spells"))
+                or _has_populated_spell_slots(char_data.get("spell_slots"))
             ):
                 mental_stats = {
                     "INT": stats.get("INT", 10),
@@ -2049,10 +2099,18 @@ def sync_character_stats(
         except (ValueError, TypeError):
             char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
 
-    subclass = char_data.get("subclass")
-    if not subclass and char_class.lower() == "fighter" and char_data.get("spells"):
-        subclass = "Eldritch Knight"
-        char_data["subclass"] = subclass
+    subclass = classes[0].get("subclass") or char_data.get("subclass")
+    if (
+        not fighter_subclass
+        and fighter_entries
+        and fighter_level >= 3
+        and not has_casting_class_in_classes
+        and _has_populated_spells(char_data.get("spells"))
+    ):
+        fighter_entries[0]["subclass"] = "Eldritch Knight"
+        if (char_class or "").lower() == "fighter":
+            subclass = "Eldritch Knight"
+            char_data["subclass"] = subclass
 
     for cls in classes:
         cname = cls.get("class_name")
@@ -2230,9 +2288,12 @@ def sync_character_stats(
                         if m_string not in equipped_weapon_masteries:
                             equipped_weapon_masteries.append(m_string)
 
-            for m in equipped_weapon_masteries:
-                if m not in existing_masteries:
-                    existing_masteries.insert(0, m)
+            # Preserve existing masteries that already match equipped weapons first,
+            # then newly equipped weapon masteries, then any other existing masteries.
+            kept_equipped = [m for m in existing_masteries if m in equipped_weapon_masteries]
+            new_equipped = [m for m in equipped_weapon_masteries if m not in kept_equipped]
+            other_existing = [m for m in existing_masteries if m not in equipped_weapon_masteries]
+            merged_masteries = kept_equipped + new_equipped + other_existing
 
             # Popular defaults to ensure we have a good pool of different masteries
             default_weapon_names = [
@@ -2251,12 +2312,12 @@ def sync_character_stats(
                 )
                 if w_data and "mastery" in w_data:
                     m_string = f"{w_data['mastery']} ({w_data['name']})"
-                    if len(existing_masteries) >= target_masteries_count:
+                    if len(merged_masteries) >= target_masteries_count:
                         break
-                    if m_string not in existing_masteries:
-                        existing_masteries.append(m_string)
+                    if m_string not in merged_masteries:
+                        merged_masteries.append(m_string)
 
-            char_data["weapon_masteries"] = existing_masteries[:target_masteries_count]
+            char_data["weapon_masteries"] = merged_masteries[:target_masteries_count]
 
             for w in char_data.get("weapons", []):
                 if isinstance(w, dict):

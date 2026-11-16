@@ -10,7 +10,7 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { DiceService } from '../../core/services/dice.service';
 import { Subscription } from 'rxjs';
 import { Subject, EMPTY } from 'rxjs';
-import { debounceTime, catchError, switchMap, tap } from 'rxjs/operators';
+import { debounceTime, catchError, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { HomebrewService, HomebrewItem } from '../../core/services/homebrew.service';
 import { BestiaryService } from '../../core/services/bestiary.service';
@@ -370,9 +370,16 @@ export class DmComponent implements OnInit, OnDestroy {
 
   private pendingPartyState = new Map<string, PartyStateChanges>();
   private partyStateSubjects = new Map<string, Subject<void>>();
-  private encounterSyncSubject = new Subject<void>();
+  private encounterSyncSubject = new Subject<{
+    campaignName: string;
+    generation: number;
+    state: { round: number; activeCombatantId: string | null; combatants: InitiativeCombatant[] };
+  } | null>();
+  private readonly cancelEncounterSync$ = new Subject<void>();
   private encounterSub?: Subscription;
   private encounterGeneration = 0;
+  private pendingEncounterSyncGeneration: number | null = null;
+  private inFlightEncounterGeneration: number | null = null;
 
   onlineCharacters = new Set<string>();
 
@@ -391,18 +398,17 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.encounterSub = this.encounterSyncSubject.pipe(
       debounceTime(500),
-      switchMap(() => {
-        const targetCampaign = this.campaignName;
-        const generation = this.encounterGeneration;
-        if (!targetCampaign) return EMPTY;
-        const state = {
-          round: this.round,
-          activeCombatantId: this.activeCombatantId,
-          combatants: this.combatants,
-        };
-        return this.http.post<any>(campaignUrl(targetCampaign, 'encounter'), state).pipe(
+      switchMap((job) => {
+        if (!job || job.campaignName !== this.campaignName || job.generation !== this.encounterGeneration) {
+          this.pendingEncounterSyncGeneration = null;
+          return EMPTY;
+        }
+        this.pendingEncounterSyncGeneration = null;
+        this.inFlightEncounterGeneration = job.generation;
+        return this.http.post<any>(campaignUrl(job.campaignName, 'encounter'), job.state).pipe(
+          takeUntil(this.cancelEncounterSync$),
           tap((resp) => {
-            if (targetCampaign !== this.campaignName || generation !== this.encounterGeneration) {
+            if (job.campaignName !== this.campaignName || job.generation !== this.encounterGeneration) {
               return;
             }
             if (resp && typeof resp.danger_indicator === 'string') {
@@ -413,6 +419,11 @@ export class DmComponent implements OnInit, OnDestroy {
             console.error('Failed to sync encounter state', e);
             this.rollToast.showMessage('⚠️ ENCOUNTER SYNC FAILED', 'Encounter changes stayed in this browser.');
             return EMPTY;
+          }),
+          finalize(() => {
+            if (this.inFlightEncounterGeneration === job.generation) {
+              this.inFlightEncounterGeneration = null;
+            }
           })
         );
       })
@@ -500,11 +511,20 @@ export class DmComponent implements OnInit, OnDestroy {
           `${payload.roll_type} (${payload.stat}) = ${result.total}${mode}` +
             (secret ? ' — the player was not asked.' : '')
         );
+      } else if (msg.type === 'party_member_joined') {
+        this.loadParty();
       } else if (msg.type === 'party_update') {
         this.applyPartyUpdate(payload);
       } else if (msg.type === 'encounter_update') {
+        if (
+          this.pendingEncounterSyncGeneration === this.encounterGeneration ||
+          this.inFlightEncounterGeneration === this.encounterGeneration
+        ) {
+          return;
+        }
         if (payload && Array.isArray(payload.combatants)) {
           this.combatants = this.sortCombatants(payload.combatants);
+          this.syncPartyMembersOntoCombatants();
           this.activeCombatantId = payload.activeCombatantId ?? null;
           this.round = typeof payload.round === 'number' ? payload.round : 0;
           this.hasLiveEncounter = this.combatants.length > 0;
@@ -879,8 +899,17 @@ export class DmComponent implements OnInit, OnDestroy {
     return false;
   }
 
+  private cancelPendingEncounterSync(): void {
+    this.pendingEncounterSyncGeneration = null;
+    this.inFlightEncounterGeneration = null;
+    this.cancelEncounterSync$.next();
+    this.encounterSyncSubject.next(null);
+  }
+
   /** Drops every trace of the previous campaign so nothing lingers on screen. */
   private clearWorkspace() {
+    this.encounterGeneration += 1;
+    this.cancelPendingEncounterSync();
     this.activeWorkspace = null;
     this.campaignName = '';
     this.campaignNotes = '';
@@ -917,6 +946,7 @@ export class DmComponent implements OnInit, OnDestroy {
     }
 
     this.encounterGeneration += 1;
+    this.cancelPendingEncounterSync();
     const isFirstLoad = this.activeWorkspace === null;
     this.activeWorkspace = this.campaignName;
 
@@ -1000,6 +1030,7 @@ export class DmComponent implements OnInit, OnDestroy {
           this.partyStatus = 'ready';
           this.rollTargetMember = this.partyMembers[0]?.char_id || this.partyMembers[0]?.name || '';
           this.seedInitiativeFromParty();
+          this.syncPartyMembersOntoCombatants();
         },
         error: (err) => {
           if (requestedCampaign !== this.campaignName) return;
@@ -1346,9 +1377,36 @@ export class DmComponent implements OnInit, OnDestroy {
     }));
 
     this.combatants = this.combatants.map((c) =>
-      linked.has(c.id) ? { ...c, hp: member.hp_current, max_hp: member.hp_max, conditions } : c
+      linked.has(c.id)
+        ? { ...c, hp: member.hp_current, max_hp: member.hp_max, ac: member.ac, conditions }
+        : c
     );
     this.persistEncounter();
+  }
+
+  /** Synchronizes post-level-up PartyMember HP/MaxHP/AC onto existing player combatants when max_hp changed, without overwriting mid-fight damage on same-level restores. */
+  private syncPartyMembersOntoCombatants() {
+    if (this.combatants.length === 0 || this.partyMembers.length === 0) return;
+    let changed = false;
+    const nextCombatants = this.combatants.map((c) => {
+      if (!c.is_player) return c;
+      const member = this.partyMembers.find((m) =>
+        c.char_id && m.char_id ? c.char_id === m.char_id : c.name === m.name
+      );
+      if (!member) return c;
+      if (c.max_hp !== member.hp_max) {
+        changed = true;
+        return { ...c, hp: member.hp_current, max_hp: member.hp_max, ac: member.ac };
+      }
+      if (c.ac !== member.ac) {
+        changed = true;
+        return { ...c, ac: member.ac };
+      }
+      return c;
+    });
+    if (changed) {
+      this.combatants = nextCombatants;
+    }
   }
 
   private addConditionToCombatants(
@@ -1640,8 +1698,16 @@ export class DmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // No active turn yet (-1) advances to the top of the order, which is also
+    // No active turn yet (-1) or round 0 advances to the top of the order, which is also
     // what opens round 1.
+    if (this.round === 0) {
+      this.round = 1;
+      this.activeCombatantId = this.combatants[0].id;
+      this.persistEncounter();
+      this.reconcileLapsedConditions();
+      return;
+    }
+
     const current = this.combatants.findIndex((c) => c.id === this.activeCombatantId);
     const next = (current + 1) % this.combatants.length;
 
@@ -1917,6 +1983,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.hasLiveEncounter = this.combatants.length > 0;
     if (!this.hasLiveEncounter) {
+      this.cancelPendingEncounterSync();
       this.encounterStorage.clear(this.campaignName);
       this.http.delete(campaignUrl(this.campaignName, 'encounter')).subscribe({
         error: (e) => console.error('Failed to clear encounter state', e)
@@ -1924,12 +1991,18 @@ export class DmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.encounterStorage.save(this.campaignName, {
+    const state = {
       round: this.round,
       activeCombatantId: this.activeCombatantId,
       combatants: this.combatants,
+    };
+    this.encounterStorage.save(this.campaignName, state);
+    this.pendingEncounterSyncGeneration = this.encounterGeneration;
+    this.encounterSyncSubject.next({
+      campaignName: this.campaignName,
+      generation: this.encounterGeneration,
+      state,
     });
-    this.encounterSyncSubject.next();
   }
 
   private restoreEncounter(campaignName: string) {
@@ -1937,6 +2010,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
     if (saved && saved.combatants.length > 0) {
       this.combatants = this.sortCombatants(saved.combatants);
+      this.syncPartyMembersOntoCombatants();
       this.activeCombatantId = saved.activeCombatantId;
       this.round = saved.round;
       this.hasLiveEncounter = true;
@@ -1960,6 +2034,7 @@ export class DmComponent implements OnInit, OnDestroy {
         // If server state is ahead or we had no local state, use it
         if (!saved || saved.combatants.length === 0 || serverState.round >= this.round) {
           this.combatants = this.sortCombatants(serverState.combatants || []);
+          this.syncPartyMembersOntoCombatants();
           this.activeCombatantId = serverState.activeCombatantId;
           this.round = serverState.round || 0;
           this.hasLiveEncounter = this.combatants.length > 0;

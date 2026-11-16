@@ -335,10 +335,19 @@ async def apply_level_up(
         subclass=chosen_subclass,
     )
     hp_increase = vitals["average_hp_gain"]
+    hp_method = str(user_choices.get("hp_method") or "").strip().lower()
     custom_hp = user_choices.get("custom_hp_increase")
-    if custom_hp is not None:
+    if custom_hp is not None and hp_method != "average":
         try:
-            hp_increase = max(1, min(vitals["max_hp_gain"], int(custom_hp)))
+            adjusted_hp = int(custom_hp)
+            if hp_method == "roll" and "hp_bonus_included" in user_choices:
+                try:
+                    included = int(user_choices["hp_bonus_included"])
+                    current_bonus = int(vitals.get("hp_bonus_per_level") or 0)
+                    adjusted_hp += current_bonus - included
+                except (ValueError, TypeError):
+                    pass
+            hp_increase = max(1, min(vitals["max_hp_gain"], adjusted_hp))
         except (ValueError, TypeError):
             pass
 
@@ -607,7 +616,62 @@ async def apply_level_up(
 
     active_camp = synced_char.get("active_campaign")
     if active_camp:
+        from backend.services.encounter_service import calculate_danger_indicator
         from server.routers.websocket_router import manager
+
+        # Atomically update only this character's encounter combatant fields so DM reloads
+        # see post-level-up HP/AC/danger without colliding on homonyms or overwriting concurrent edits.
+        camp_doc = await db["campaigns"].find_one({"campaign_name": active_camp})
+        camp_edition = (camp_doc or {}).get("dnd_edition", "2014 Edition")
+        char_name_lower = str(synced_char.get("char_name") or "").strip().lower()
+        new_hp = synced_char.get("hp_current") or 0
+        new_hp_max = synced_char.get("hp_max") or 0
+        new_ac = synced_char.get("armor_class", 10)
+
+        for _attempt in range(2):
+            enc_doc = await db["campaign_encounters"].find_one({"campaign_name": active_camp})
+            if not enc_doc or not isinstance(enc_doc.get("combatants"), list):
+                break
+            filter_query: Dict[str, Any] = {"campaign_name": active_camp}
+            set_fields: Dict[str, Any] = {}
+            preview_combatants = []
+            for idx, c in enumerate(enc_doc["combatants"]):
+                if not isinstance(c, dict):
+                    preview_combatants.append(c)
+                    continue
+                c_id = c.get("char_id")
+                c_name_lower = str(c.get("name") or "").strip().lower()
+                is_match = bool(c.get("is_player")) and (
+                    c_id == payload.character_id
+                    if c_id
+                    else (bool(char_name_lower) and c_name_lower == char_name_lower)
+                )
+                if is_match:
+                    if c.get("id") is not None:
+                        filter_query[f"combatants.{idx}.id"] = c["id"]
+                    if c_id:
+                        filter_query[f"combatants.{idx}.char_id"] = c_id
+                    else:
+                        filter_query[f"combatants.{idx}.char_id"] = {"$in": [None, ""]}
+                    set_fields[f"combatants.{idx}.hp"] = new_hp
+                    set_fields[f"combatants.{idx}.max_hp"] = new_hp_max
+                    set_fields[f"combatants.{idx}.ac"] = new_ac
+                    set_fields[f"combatants.{idx}.health_status"] = "Healthy"
+                    preview_combatants.append(
+                        {**c, "hp": new_hp, "max_hp": new_hp_max, "ac": new_ac}
+                    )
+                else:
+                    preview_combatants.append(c)
+
+            if not set_fields:
+                break
+
+            set_fields["danger_indicator"] = await calculate_danger_indicator(
+                preview_combatants, db, edition=camp_edition
+            )
+            enc_res = await db["campaign_encounters"].update_one(filter_query, {"$set": set_fields})
+            if enc_res.matched_count > 0:
+                break
 
         await manager.broadcast(
             active_camp,

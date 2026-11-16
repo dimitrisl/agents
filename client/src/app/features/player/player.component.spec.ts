@@ -1237,4 +1237,86 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     http.match(() => true).forEach((req) => req.flush({ ...charState.activeCharacter(), version: 4 }));
     fixture.destroy();
   });
+
+  it('cancels superseded /forge/level-up-analysis calls via switchMap and updates rolled HP when subclass adds hp_bonus_per_level', () => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'sorc_l2',
+      char_name: 'Lyra Emberveil',
+      char_class: 'Sorcerer',
+      char_level: 2,
+      dnd_edition: '2024 Revision (5.5e)',
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    const comp = fixture.componentInstance;
+
+    comp.onLevelUp();
+    const initialReq = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    initialReq.flush({
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 20,
+      choices_required: [],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: { level_1: 4, level_2: 2 },
+    });
+
+    // Player rolls 6 (1d6+2) BEFORE picking Draconic Sorcery
+    comp.levelUpUserChoices = {
+      level_up_class: 'Sorcerer',
+      hp_method: 'roll',
+      hp_bonus_included: '0',
+      custom_hp_increase: '6',
+    };
+
+    // Rapid subclass switches cancel the first in-flight request via switchMap
+    comp.onLevelUpChoicesChange({ ...comp.levelUpUserChoices, subclass_0: 'Wild Magic Sorcery' });
+    const req1 = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    comp.onLevelUpChoicesChange({ ...comp.levelUpUserChoices, subclass_0: 'Draconic Sorcery' });
+    expect(req1.cancelled).toBe(true);
+
+    const req2 = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    req2.flush({
+      automatic_changes: [],
+      hp_increase: 7,
+      hp_bonus_per_level: 1,
+      new_total_hp: 23,
+      choices_required: [],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: { level_1: 4, level_2: 2 },
+    });
+
+    expect(comp.levelUpUserChoices['custom_hp_increase']).toBe('7');
+    expect(comp.levelUpUserChoices['hp_bonus_included']).toBe('1');
+
+    http.verify();
+    fixture.destroy();
+  });
 });
