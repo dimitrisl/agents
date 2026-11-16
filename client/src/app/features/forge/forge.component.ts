@@ -9,6 +9,7 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { DiceService } from '../../core/services/dice.service';
 import { WakeLockService } from '../../core/services/wake-lock.service';
 import { CharacterSchema } from '../../core/models/character.model';
+import { buildDefaultPortraitSvg } from '../../core/utils/portrait';
 import { environment } from '../../../environments/environment';
 import {
   ForgeBadgeComponent,
@@ -754,13 +755,11 @@ export class ForgeComponent implements OnInit, OnDestroy {
       edition: this.charState.dndEdition()
     }).subscribe({
       next: (char) => {
-        // Dynamically assign an AI portrait matching chosen options if missing
-        if (!char.char_portrait) {
-          const promptRace = char.race || this.aiRace || 'Heroic';
-          const promptClass = char.char_class || this.aiClass || 'Warrior';
-          const encoded = encodeURIComponent(`epic fantasy dnd ${promptRace} ${promptClass} character portrait dramatic lighting cinematic highly detailed`);
-          const seed = Math.floor(Math.random() * 90000) + 10000;
-          char.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
+        if (!char.char_portrait || char.char_portrait.includes('image.pollinations.ai')) {
+          char.char_portrait = buildDefaultPortraitSvg(
+            char.char_name || this.aiName || 'Hero',
+            char.char_class || this.aiClass || 'Warrior'
+          );
         }
 
         this.finishForgingProgress(char);
@@ -796,12 +795,11 @@ export class ForgeComponent implements OnInit, OnDestroy {
       chosen_spells: this.manualSpells.length > 0 ? this.manualSpells : null,
     }).subscribe({
       next: (char) => {
-        if (!char.char_portrait) {
-          const promptRace = char.race || this.manualRace || 'Heroic';
-          const promptClass = char.char_class || this.manualClass || 'Warrior';
-          const encoded = encodeURIComponent(`epic fantasy dnd ${promptRace} ${promptClass} character portrait dramatic lighting cinematic highly detailed`);
-          const seed = Math.floor(Math.random() * 90000) + 10000;
-          char.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
+        if (!char.char_portrait || char.char_portrait.includes('image.pollinations.ai')) {
+          char.char_portrait = buildDefaultPortraitSvg(
+            char.char_name || this.manualName || 'Hero',
+            char.char_class || this.manualClass || 'Warrior'
+          );
         }
 
         this.finishForgingProgress(char);
@@ -814,13 +812,12 @@ export class ForgeComponent implements OnInit, OnDestroy {
 
   regeneratePortrait() {
     if (!this.tempForgedChar) return;
-    const promptRace = this.tempForgedChar.race || 'Heroic';
-    const promptClass = this.tempForgedChar.char_class || 'Warrior';
-    const encoded = encodeURIComponent(`epic fantasy dnd ${promptRace} ${promptClass} character portrait dramatic lighting cinematic highly detailed`);
-    const seed = Math.floor(Math.random() * 90000) + 10000;
-
-    // Instant high quality fallback portrait update
-    this.tempForgedChar.char_portrait = `https://image.pollinations.ai/prompt/${encoded}?width=400&height=400&seed=${seed}&nologo=true`;
+    if (!this.tempForgedChar.char_portrait || this.tempForgedChar.char_portrait.includes('image.pollinations.ai')) {
+      this.tempForgedChar.char_portrait = buildDefaultPortraitSvg(
+        this.tempForgedChar.char_name || 'Hero',
+        this.tempForgedChar.char_class || 'Warrior'
+      );
+    }
 
     this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: this.tempForgedChar.char_id || 'temp',

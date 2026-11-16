@@ -206,13 +206,15 @@ export class LevelUpModalComponent {
     if (!this.character) return;
 
     const dieSize = this.levelUpHitDie;
-    const bonus = this.conModifier + this.perLevelHpBonus;
+    const bonusPerLvl = this.perLevelHpBonus;
+    const bonus = this.conModifier + bonusPerLvl;
 
     const roll = this.dice.roll({ numDice: 1, sides: dieSize, modifier: bonus });
     // D&D HP gain minimum is 1
     const finalHpGain = Math.max(1, roll.total);
 
     this.onChoiceChange('hp_method', 'roll');
+    this.onChoiceChange('hp_bonus_included', bonusPerLvl.toString());
     this.onChoiceChange('custom_hp_increase', finalHpGain.toString());
   }
 }

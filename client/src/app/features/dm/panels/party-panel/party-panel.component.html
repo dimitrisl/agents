@@ -52,9 +52,9 @@
         *ngFor="let member of partyMembers; trackBy: trackMember"
         class="flex min-w-0 flex-col overflow-hidden rounded-xl bg-panel"
       >
-        <header class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 bg-tile px-4 py-3">
-          <div class="flex items-center gap-3 min-w-0 flex-1">
-            @if (member.portrait) {
+        <header class="flex flex-wrap items-center justify-between gap-3 bg-tile px-4 py-3">
+          <div class="flex items-center gap-3 min-w-[180px] flex-1">
+            @if (member.portrait && !member.portrait.includes('image.pollinations.ai')) {
               <img
                 [src]="member.portrait"
                 (error)="member.portrait = ''"
@@ -71,15 +71,14 @@
             }
             <div class="min-w-0 flex-1">
               <h3
-                class="font-display text-title text-ink flex items-center gap-1.5 truncate"
+                class="font-display text-title text-ink flex items-center gap-1.5 min-w-0"
                 [title]="member.name + (member.owner_username ? ' (' + member.owner_username + ')' : '')"
               >
-                <span class="text-xs" [attr.aria-label]="member.isOnline ? 'Online' : 'Offline'">{{ member.isOnline ? '🟢' : '⚪' }}</span>
+                <span class="text-xs shrink-0" [attr.aria-label]="member.isOnline ? 'Online' : 'Offline'">{{ member.isOnline ? '🟢' : '⚪' }}</span>
                 <span class="font-bold truncate">{{ member.name }}</span>
-                <span *ngIf="member.owner_username" class="text-muted text-xs font-normal truncate">({{ member.owner_username }})</span>
               </h3>
               <p class="truncate text-micro font-semibold uppercase text-muted">
-                Level {{ member.level }} {{ member.char_class }}
+                Level {{ member.level }} {{ member.char_class }}<ng-container *ngIf="member.owner_username"> · ({{ member.owner_username }})</ng-container>
               </p>
             </div>
           </div>

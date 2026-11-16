@@ -346,8 +346,11 @@ def test_level_up_analysis_and_apply_deterministic_lvl3_and_lvl8(
     )
 
     expected_analysis_gain = (hit_die // 2 + 1) + 2 + (1 if has_draconic_after else 0)
+    expected_final_hp = (hit_die + 2 + (1 if has_draconic_after else 0)) + (target_level - 1) * (
+        hit_die // 2 + 1 + 2 + (1 if has_draconic_after else 0)
+    )
     assert analysis["hp_increase"] == expected_analysis_gain
-    assert analysis["new_total_hp"] == starting_hp + expected_analysis_gain
+    assert analysis["new_total_hp"] == expected_final_hp
     assert analysis["updated_proficiency_bonus"] == (2 if target_level == 3 else 3)
 
     if char_class in ("Wizard", "Sorcerer"):

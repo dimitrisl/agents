@@ -39,6 +39,15 @@ class _AsyncColl:
 
         return Res(self._coll.update_one(query, update, upsert=upsert))
 
+    async def update_many(self, query, update, *args, **kwargs):
+        return self._coll.update_many(query, update, *args, **kwargs)
+
+    async def delete_one(self, query, *args, **kwargs):
+        return self._coll.delete_one(query, *args, **kwargs)
+
+    async def delete_many(self, query, *args, **kwargs):
+        return self._coll.delete_many(query, *args, **kwargs)
+
     async def count_documents(self, query=None):
         return self._coll.count_documents(query or {})
 
@@ -76,6 +85,9 @@ class _AsyncDB:
         if item not in self._colls:
             self._colls[item] = _AsyncColl(self._db[item])
         return self._colls[item]
+
+    def __getattr__(self, item):
+        return self[item]
 
 
 def test_settings_rejects_placeholder_and_ephemeral_secrets_in_non_debug():
@@ -697,3 +709,569 @@ def test_rules_repository_returns_deep_copies():
     spells = repo.get_all_spells(EDITION_2024)
     spells[0]["classes"].append("FAKE_CLASS")
     assert "FAKE_CLASS" not in repo.get_all_spells(EDITION_2024)[0]["classes"]
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_l2_fighter_empty_spells_dict_not_forced_to_eldritch_knight_2014_and_2024(edition):
+    from backend.services.forge_service import analyze_level_up
+
+    fighter_l2 = CharacterSchema(
+        char_id="f_l2",
+        char_name="Valerius",
+        char_class="Fighter",
+        char_level=2,
+        classes=[{"class_name": "Fighter", "level": 2, "subclass": None}],
+        race="Human",
+        background="Soldier",
+        dnd_edition=edition,
+        stats={"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 12, "CHA": 8},
+    ).model_dump()
+
+    synced = sync_character_stats(fighter_l2)
+    assert not synced.get("subclass")
+    assert synced.get("spell_ability") in (None, "", "None")
+    assert synced.get("spell_slots") == {}
+
+    analysis = analyze_level_up(synced, user_choices={"level_up_class": "Fighter"})
+    subclass_choices = [c for c in analysis["choices_required"] if c.get("type") == "subclass"]
+    assert len(subclass_choices) == 1
+    assert "Champion" in subclass_choices[0]["options"]
+
+
+def test_2024_draconic_sorcerer_l3_take_average_ignores_stale_pre_subclass_custom_hp():
+    from backend.services.forge_service import analyze_level_up
+
+    char_doc = {
+        "char_id": "drac_stale_l2",
+        "owner_id": "u1",
+        "char_name": "Lyra Emberveil",
+        "char_class": "Sorcerer",
+        "char_level": 2,
+        "classes": [{"class_name": "Sorcerer", "level": 2, "subclass": None}],
+        "race": "Tiefling",
+        "background": "Sage",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 17},
+        "hp_max": 14,
+        "hp_current": 14,
+        "feat_hp_bonus": 0,
+        "features_traits": [],
+        "version": 0,
+    }
+    pre_analysis = analyze_level_up(char_doc, user_choices={"level_up_class": "Sorcerer"})
+    assert pre_analysis["hp_increase"] == 6
+    assert pre_analysis["new_total_hp"] == 20
+
+    # Re-analysis when user selects subclass_0 = Draconic Sorcery while Take Average is active
+    post_analysis = analyze_level_up(
+        char_doc,
+        user_choices={
+            "level_up_class": "Sorcerer",
+            "subclass_0": "Draconic Sorcery",
+            "hp_method": "average",
+            "custom_hp_increase": "6",
+        },
+    )
+    assert post_analysis["hp_increase"] == 7
+    assert post_analysis["new_total_hp"] == 23
+
+    db = _AsyncDB("drac_stale_l3_db")
+    db._db["characters"].insert_one(dict(char_doc))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "sorc"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "drac_stale_l2",
+                "analysis": pre_analysis,
+                "user_choices": {
+                    "level_up_class": "Sorcerer",
+                    "subclass_0": "Draconic Sorcery",
+                    "hp_method": "average",
+                    "custom_hp_increase": "6",
+                },
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["hp_max"] == 23
+        assert body["hp_current"] == 23
+        assert body["armor_class"] == 15
+        feat_names = [
+            f.get("name", "") for f in body.get("features_traits", []) if isinstance(f, dict)
+        ]
+        assert any("Draconic Resilience" in n for n in feat_names)
+    finally:
+        app.dependency_overrides = orig
+
+
+@pytest.mark.parametrize(
+    "edition_param",
+    ["2014", "2014 Edition", "2014 Legacy", "2024", "2024 Edition", "2024 Revision", "5.5e"],
+)
+def test_rules_spells_accepts_all_edition_variants(edition_param):
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "tester"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.get("/api/v1/rules/spells", params={"edition": edition_param})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list) and len(data) > 0
+    finally:
+        app.dependency_overrides = orig
+
+
+def test_2024_rogue_weapon_masteries_preserved_on_sync():
+    rogue_doc = {
+        "char_id": "rog_l3",
+        "char_name": "Vex Nightwhisper",
+        "char_class": "Rogue",
+        "char_level": 3,
+        "classes": [{"class_name": "Rogue", "level": 3, "subclass": "Thief"}],
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 16, "CON": 14, "INT": 12, "WIS": 12, "CHA": 10},
+        "weapons": [
+            {"name": "Shortsword", "damage_dice": "1d6"},
+            {"name": "Shortbow", "damage_dice": "1d6"},
+            {"name": "Dagger", "damage_dice": "1d4"},
+        ],
+        "weapon_masteries": ["Vex (Shortbow)", "Vex (Shortsword)"],
+    }
+    synced = sync_character_stats(rogue_doc)
+    assert synced["weapon_masteries"] == ["Vex (Shortbow)", "Vex (Shortsword)"]
+
+
+def test_join_campaign_broadcasts_party_member_joined_ws_event():
+    db = _AsyncDB("join_ws_db")
+    db._db["campaigns"].insert_one(
+        {
+            "campaign_name": "Test Join WS",
+            "owner_id": "dm1",
+            "invite_code": "INV-JOIN-1",
+            "party": [],
+        }
+    )
+    db._db["characters"].insert_one(
+        {
+            "char_id": "hero1",
+            "owner_id": "p1",
+            "char_name": "Aldric",
+            "char_class": "Cleric",
+            "char_level": 2,
+        }
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "p1", "username": "player1"}
+    limiter.reset()
+    try:
+        from unittest.mock import AsyncMock
+
+        client = TestClient(app)
+        with patch(
+            "server.routers.websocket_router.manager.broadcast", new_callable=AsyncMock
+        ) as mock_bcast:
+            resp = client.post(
+                "/api/v1/campaigns/join",
+                json={"invite_code": "INV-JOIN-1", "character_id": "hero1"},
+            )
+            assert resp.status_code == 200
+            mock_bcast.assert_awaited_once()
+            args, _ = mock_bcast.await_args
+            assert args[0] == "Test Join WS"
+            assert args[1]["type"] == "party_member_joined"
+            assert args[1]["payload"]["char_id"] == "hero1"
+    finally:
+        app.dependency_overrides = orig
+
+
+def test_level_up_apply_encounter_sync_isolates_homonyms_and_preserves_monsters():
+    from backend.services.forge_service import analyze_level_up
+
+    char_doc = {
+        "char_id": "c1",
+        "owner_id": "u1",
+        "char_name": "Aria",
+        "char_class": "Fighter",
+        "char_level": 2,
+        "classes": [{"class_name": "Fighter", "level": 2, "subclass": None}],
+        "race": "Human",
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8},
+        "hp_max": 20,
+        "hp_current": 14,
+        "active_campaign": "Homonym Keep",
+        "version": 1,
+    }
+    analysis = analyze_level_up(char_doc, user_choices={"level_up_class": "Fighter"})
+
+    db = _AsyncDB("homonym_enc_db")
+    db._db["characters"].insert_one(dict(char_doc))
+    db._db["characters"].insert_one(
+        {
+            "char_id": "c2",
+            "owner_id": "u2",
+            "char_name": "Aria",
+            "char_class": "Wizard",
+            "char_level": 2,
+            "hp_max": 12,
+            "hp_current": 11,
+            "armor_class": 13,
+            "active_campaign": "Homonym Keep",
+        }
+    )
+    db._db["campaigns"].insert_one(
+        {"campaign_name": "Homonym Keep", "owner_id": "dm1", "dnd_edition": EDITION_2024}
+    )
+    db._db["campaign_encounters"].insert_one(
+        {
+            "campaign_name": "Homonym Keep",
+            "round": 1,
+            "danger_indicator": "Easy",
+            "combatants": [
+                {
+                    "id": "e1",
+                    "char_id": "c1",
+                    "name": "Aria",
+                    "hp": 14,
+                    "max_hp": 20,
+                    "ac": 16,
+                    "is_player": True,
+                },
+                {
+                    "id": "e2",
+                    "char_id": "c2",
+                    "name": "Aria",
+                    "hp": 11,
+                    "max_hp": 12,
+                    "ac": 13,
+                    "is_player": True,
+                },
+                {
+                    "id": "m1",
+                    "name": "Goblin",
+                    "hp": 7,
+                    "max_hp": 7,
+                    "ac": 15,
+                    "is_player": False,
+                    "cr": "1/4",
+                },
+            ],
+        }
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "p1"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "c1",
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "subclass_0": "Champion",
+                    "hp_method": "average",
+                },
+            },
+        )
+        assert resp.status_code == 200
+        enc = db._db["campaign_encounters"].find_one({"campaign_name": "Homonym Keep"})
+        rows = {c["id"]: c for c in enc["combatants"]}
+        # c1 updated to L3 full HP
+        assert rows["e1"]["hp"] == 28
+        assert rows["e1"]["max_hp"] == 28
+        # c2 homonym with distinct char_id MUST stay completely untouched!
+        assert rows["e2"]["hp"] == 11
+        assert rows["e2"]["max_hp"] == 12
+        assert rows["e2"]["ac"] == 13
+        # Monster stays untouched
+        assert rows["m1"]["hp"] == 7
+        assert enc.get("danger_indicator") in {"Trivial", "Easy", "Medium", "Hard", "Deadly"}
+    finally:
+        app.dependency_overrides = orig
+
+
+def test_fighter_eldritch_knight_inference_respects_multiclass_and_classes_subclass():
+    # 1) Fighter 1 / Wizard 2 (total level=3, Wizard spells) -> NOT Eldritch Knight
+    f1_w2 = CharacterSchema(
+        char_id="mc_fw",
+        char_name="GandalfFighter",
+        char_class="Fighter",
+        char_level=3,
+        classes=[
+            {"class_name": "Fighter", "level": 1, "subclass": None},
+            {"class_name": "Wizard", "level": 2, "subclass": None},
+        ],
+        race="Human",
+        background="Sage",
+        dnd_edition=EDITION_2024,
+        stats={"STR": 14, "DEX": 12, "CON": 14, "INT": 16, "WIS": 10, "CHA": 8},
+        spells={"cantrips": ["Fire Bolt"], "level_1": ["Magic Missile"]},
+    ).model_dump()
+    s_fw = sync_character_stats(f1_w2)
+    assert s_fw.get("subclass") in (None, "")
+    assert s_fw["classes"][0].get("subclass") in (None, "")
+    assert s_fw.get("spell_ability") == "INT"
+
+    # 2) Fighter 2 / Sorcerer 1 (CHA 16, INT 8, Sorcerer spells) -> spell_ability CHA, NOT EK
+    f2_s1 = CharacterSchema(
+        char_id="mc_fs",
+        char_name="SorcBlade",
+        char_class="Fighter",
+        char_level=3,
+        classes=[
+            {"class_name": "Fighter", "level": 2, "subclass": None},
+            {"class_name": "Sorcerer", "level": 1, "subclass": None},
+        ],
+        race="Human",
+        background="Soldier",
+        dnd_edition=EDITION_2024,
+        stats={"STR": 16, "DEX": 12, "CON": 14, "INT": 8, "WIS": 10, "CHA": 16},
+        spells={"cantrips": ["Light"], "level_1": ["Shield"]},
+    ).model_dump()
+    s_fs = sync_character_stats(f2_s1)
+    assert s_fs.get("subclass") in (None, "")
+    assert s_fs["classes"][0].get("subclass") in (None, "")
+    assert s_fs.get("spell_ability") == "CHA"
+
+    # 3) Single-class Fighter 3 with classes[0].subclass="Champion" and racial Misty Step -> stays Champion, NOT INT/EK
+    champ = {
+        "char_id": "champ_3",
+        "char_name": "ElvenChamp",
+        "char_class": "Fighter",
+        "char_level": 3,
+        "subclass": None,
+        "classes": [{"class_name": "Fighter", "level": 3, "subclass": "Champion"}],
+        "race": "High Elf",
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 8, "WIS": 12, "CHA": 14},
+        "spells": {"level_2": ["Misty Step"]},
+    }
+    s_champ = sync_character_stats(champ)
+    assert s_champ["classes"][0]["subclass"] == "Champion"
+    assert s_champ.get("subclass") != "Eldritch Knight"
+    assert s_champ.get("spell_ability") == "CHA"
+    assert s_champ.get("spell_slots") == {}
+
+    # 4) Legacy Fighter 3 with no subclass and populated spells -> legitimately infers Eldritch Knight
+    ek = CharacterSchema(
+        char_id="ek_3",
+        char_name="EldritchL3",
+        char_class="Fighter",
+        char_level=3,
+        classes=[{"class_name": "Fighter", "level": 3, "subclass": None}],
+        race="Human",
+        background="Sage",
+        dnd_edition=EDITION_2014,
+        stats={"STR": 16, "DEX": 10, "CON": 14, "INT": 14, "WIS": 10, "CHA": 8},
+        spells={"cantrips": ["Fire Bolt"], "level_1": ["Shield"]},
+    ).model_dump()
+    s_ek = sync_character_stats(ek)
+    assert s_ek.get("subclass") == "Eldritch Knight"
+    assert s_ek.get("spell_ability") == "INT"
+    assert s_ek["spell_slots"]["level_1"]["max"] == 2
+
+
+@pytest.mark.parametrize(
+    "char_class,subclass,target_level",
+    [
+        ("Barbarian", "Path of the Berserker", 3),
+        ("Bard", "College of Lore", 3),
+        ("Druid", "Circle of the Moon", 2),
+        ("Monk", "Way of the Open Hand", 3),
+        ("Paladin", "Oath of Devotion", 3),
+        ("Ranger", "Hunter", 3),
+        ("Warlock", "The Fiend", 1),
+        ("Artificer", "Alchemist", 3),
+    ],
+)
+def test_resolve_level_up_automatic_features_replaces_all_2014_subclass_placeholders(
+    char_class, subclass, target_level
+):
+    from backend.services.forge_service import resolve_level_up_automatic_features
+
+    features = resolve_level_up_automatic_features(
+        char_class=char_class,
+        target_level=target_level,
+        subclass_to_use=subclass,
+        edition=EDITION_2014,
+    )
+    names = [str(f.get("name", "")) for f in features]
+    assert names, f"Expected features for {char_class} L{target_level}"
+    raw_placeholders = {
+        "Primal Path",
+        "Bard College",
+        "Druid Circle",
+        "Monastic Tradition",
+        "Sacred Oath",
+        "Ranger Archetype",
+        "Otherworldly Patron",
+        "Artificer Specialist",
+    }
+    assert not any(n in raw_placeholders for n in names)
+
+
+def test_2024_draconic_sorcerer_roll_before_subclass_applies_l3_bonus():
+    from backend.services.forge_service import analyze_level_up
+
+    char_doc = {
+        "char_id": "drac_roll_l2",
+        "owner_id": "u1",
+        "char_name": "Lyra Roll",
+        "char_class": "Sorcerer",
+        "char_level": 2,
+        "classes": [{"class_name": "Sorcerer", "level": 2, "subclass": None}],
+        "race": "Tiefling",
+        "background": "Sage",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 17},
+        "hp_max": 14,
+        "hp_current": 14,
+        "feat_hp_bonus": 0,
+        "features_traits": [],
+        "version": 0,
+    }
+    pre_analysis = analyze_level_up(char_doc, user_choices={"level_up_class": "Sorcerer"})
+
+    db = _AsyncDB("drac_roll_l3_db")
+    db._db["characters"].insert_one(dict(char_doc))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "sorc"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        # Player rolled max d6 (6) + CON (2) = 8 BEFORE selecting Draconic Sorcery (hp_bonus_included=0)
+        resp = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "drac_roll_l2",
+                "analysis": pre_analysis,
+                "user_choices": {
+                    "level_up_class": "Sorcerer",
+                    "subclass_0": "Draconic Sorcery",
+                    "hp_method": "roll",
+                    "hp_bonus_included": "0",
+                    "custom_hp_increase": "8",
+                },
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # 14 + (6+2+1) + 2 retroactive L1-L2 Draconic = 25
+        assert body["hp_max"] == 25
+        assert body["hp_current"] == 25
+    finally:
+        app.dependency_overrides = orig
+
+
+def test_add_party_member_broadcasts_party_member_joined_ws_event():
+    db = _AsyncDB("add_member_ws_db")
+    db._db["campaigns"].insert_one({"campaign_name": "Test Add WS", "owner_id": "dm1", "party": []})
+    db._db["campaign_members"].insert_one(
+        {"campaign_id": "Test Add WS", "user_id": "dm1", "role": "dm"}
+    )
+    db._db["characters"].insert_one(
+        {
+            "char_id": "dm_hero",
+            "owner_id": "dm1",
+            "char_name": "DMCompanion",
+            "char_class": "Cleric",
+            "char_level": 2,
+        }
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "dm1", "username": "dm"}
+    limiter.reset()
+    try:
+        from unittest.mock import AsyncMock
+
+        client = TestClient(app)
+        with patch(
+            "server.routers.websocket_router.manager.broadcast", new_callable=AsyncMock
+        ) as mock_bcast:
+            resp = client.post(
+                "/api/v1/campaigns/Test%20Add%20WS/party/members",
+                json={"character_id": "dm_hero"},
+            )
+            assert resp.status_code == 200
+            mock_bcast.assert_awaited_once()
+            args, _ = mock_bcast.await_args
+            assert args[0] == "Test Add WS"
+            assert args[1]["type"] == "party_member_joined"
+            assert args[1]["payload"]["char_id"] == "dm_hero"
+    finally:
+        app.dependency_overrides = orig
+
+
+def test_cleanup_fake_users_cascades_all_campaign_collections_and_preserves_real_users():
+    import asyncio
+
+    from scripts.cleanup_fake_users import run_cleanup
+
+    db = _AsyncDB("cleanup_cascade_db")
+    db._db["users"].insert_many(
+        [
+            {"id": "qa_u1", "username": "qa_g1_dm_1", "email": "dm@phyrexian.test"},
+            {"id": "real_u1", "username": "mitsos", "email": "mitsos@real.dnd"},
+        ]
+    )
+    db._db["campaigns"].insert_many(
+        [
+            {"campaign_name": "Shadowfell Keep 1", "owner_id": "qa_u1", "party": []},
+            {"campaign_name": "Real Campaign", "owner_id": "real_u1", "party": []},
+        ]
+    )
+    for coll in (
+        "campaign_roll_logs",
+        "campaign_encounters",
+        "campaign_entities",
+        "session_logs",
+        "campaign_skeletons",
+        "homebrew_content",
+        "campaign_whispers",
+        "campaign_scenes",
+    ):
+        db._db[coll].insert_many(
+            [
+                {"campaign_name": "Shadowfell Keep 1", "val": 1},
+                {"campaign_name": "Real Campaign", "val": 2},
+            ]
+        )
+
+    with patch("scripts.cleanup_fake_users.get_database", return_value=db):
+        asyncio.run(run_cleanup(dry_run=False, include_unknown=False))
+
+    assert db._db["users"].count_documents({"username": "qa_g1_dm_1"}) == 0
+    assert db._db["users"].count_documents({"username": "mitsos"}) == 1
+    assert db._db["campaigns"].count_documents({"campaign_name": "Shadowfell Keep 1"}) == 0
+    assert db._db["campaigns"].count_documents({"campaign_name": "Real Campaign"}) == 1
+    for coll in (
+        "campaign_roll_logs",
+        "campaign_encounters",
+        "campaign_entities",
+        "session_logs",
+        "campaign_skeletons",
+        "homebrew_content",
+        "campaign_whispers",
+        "campaign_scenes",
+    ):
+        assert db._db[coll].count_documents({"campaign_name": "Shadowfell Keep 1"}) == 0
+        assert db._db[coll].count_documents({"campaign_name": "Real Campaign"}) == 1

@@ -43,15 +43,16 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
      - 2024 rules recover +1 expended use on Short Rest for *Rage*, *Second Wind*, *Channel Divinity*, and *Wild Shape*.
 
 5. **2024 Weapon Masteries & Draconic Resilience:**
-   - Limits weapon masteries known based on 2024 class tables (Paladin/Ranger/Rogue: 2; Barbarian: 2–4; Fighter: 3–6), summing across all martial classes in `classes` for multiclass builds ([`stats_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/stats_service.py)).
+   - Limits weapon masteries known based on 2024 class tables (Paladin/Ranger/Rogue: 2; Barbarian: 2–4; Fighter: 3–6), summing across all martial classes in `classes` for multiclass builds ([`stats_service.py`](../../../backend/services/stats_service.py)). Existing masteries that already match equipped weapons are preserved in order before appending newly equipped or default fallback masteries.
    - Calculates dynamic Topple Save DC: `8 + Proficiency Bonus + weapon scaling ability modifier` (via `resolveWeaponStat()`, supporting CHA/INT/WIS pact/blade weapons in addition to STR).
-   - **Draconic Resilience:** In 2024 Revision, base unarmored AC is `10 + DEX + CHA` (no `13` floor); Draconic HP bonus scales strictly with Sorcerer class levels in both [`stats_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/stats_service.py) and [`progression_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/progression_service.py), rather than total multiclass level.
+   - **Draconic Resilience:** In 2024 Revision, base unarmored AC is `10 + DEX + CHA` (no `13` floor); Draconic HP bonus scales strictly with Sorcerer class levels in both [`stats_service.py`](../../../backend/services/stats_service.py) and [`progression_service.py`](../../../backend/services/progression_service.py), rather than total multiclass level.
+   - **Populated Spells Check (`_has_populated_spells` / `_has_populated_spell_slots`):** Fighter `Eldritch Knight` inference in [`stats_service.py`](../../../backend/services/stats_service.py) inspects the Fighter class's own level (`fighter_level >= 3`, never total multiclass level) and ignores empty `SpellsSchema` dicts; it never overrides an explicit Fighter subclass (from `classes` or top-level `subclass`) or multiclass characters that already include a spellcasting class.
 
-5. **Weapon Attack & Damage Mathematical Breakdown:**
+6. **Weapon Attack & Damage Mathematical Breakdown:**
    - **Attack Bonus:** `Proficiency Bonus (if proficient) + Ability Mod (STR or Finesse/Ranged DEX) + Magic Bonus (+1/+2/+3) + Fighting Style (Archery +2)`.
    - **Damage Roll Breakdown:** Returns an itemized structure including base weapon damage dice, ability score modifier, magical bonus, and conditional fighting style additions (e.g., Dueling +2 when wielding a melee weapon in one hand with no other weapons).
 
-6. **Subclass Feature Resolution & Dynamic Scaling:**
+7. **Subclass Feature Resolution & Dynamic Scaling:**
    - Ingests class matrices from `data/rules/classes.json` and evaluates level gates dynamically.
    - **Horizon Walker Ranger:**
      - *Planar Warrior:* Base 1d8 force damage on weapon hit, automatically scaling to **2d8** at Ranger Level 11.
@@ -59,7 +60,7 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
      - *Spectral Defense (Level 15):* Reaction ability granting resistance against all damage dealt by the incoming attack.
    - Enforces backwards and forward compatibility between 2014 and 2024 rulesets.
 
-7. **Interactive Skills, Expertise & Passive Scores:**
+8. **Interactive Skills, Expertise & Passive Scores:**
    - Skills support three distinct states: **Normal** (no bonus), **Proficient** (`+PB`), and **Expertise** (`+2 * PB`).
    - Toggling state recalculates the total skill check modifier dynamically: `AbilityMod + (PB * Multiplier)`.
    - Passive perception, passive insight, and passive investigation update automatically based on active proficiency/expertise:
@@ -68,39 +69,39 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
      - Passive Insight: `10 + WIS mod + (PB if proficient, 2*PB if expertise)`.
      - Passive Investigation: `10 + INT mod + (PB if proficient, 2*PB if expertise)`.
 
-8. **2014 vs. 2024 Edition Split (Jack of All Trades & Remarkable Athlete):**
+9. **2014 vs. 2024 Edition Split (Jack of All Trades & Remarkable Athlete):**
    - **Jack of All Trades (Bard Level 2):**
      - Both 2014 & 2024 RAW: Applies $\lfloor PB / 2 \rfloor$ to all ability checks lacking proficiency.
    - **Remarkable Athlete (Champion Fighter Level 7):**
      - **2014 RAW:** Applies $\lceil PB / 2 \rceil$ (half PB rounded up) to physical ability checks (Strength, Dexterity, Constitution) lacking proficiency. This applies to physical skill checks (Athletics, Acrobatics, Sleight of Hand, Stealth) and to Initiative (`DEX mod + ceil(PB / 2)`).
      - **2024 RAW:** Grants **Advantage** on Initiative checks and Athletics checks, with no numeric modifier bonus.
 
-9. **Dynamic Advantage State Hygiene:**
-   - Evaluates boolean advantage flags (`initiative_advantage`, `athletics_advantage`) dynamically on each sync cycle from subclass features (e.g. 2024 Remarkable Athlete, Barbarian *Feral Instinct*) and equipped magic items (e.g. *Weapon of Warning*).
-   - Replaces sticky `setdefault(..., False)` logic to guarantee that changing subclasses or unequipping items cleanly clears active advantage flags.
+10. **Dynamic Advantage State Hygiene:**
+    - Evaluates boolean advantage flags (`initiative_advantage`, `athletics_advantage`) dynamically on each sync cycle from subclass features (e.g. 2024 Remarkable Athlete, Barbarian *Feral Instinct*) and equipped magic items (e.g. *Weapon of Warning*).
+    - Replaces sticky `setdefault(..., False)` logic to guarantee that changing subclasses or unequipping items cleanly clears active advantage flags.
 
-10. **Combat Action Incapacitation Guard (`DEF-CR-01`):**
+11. **Combat Action Incapacitation Guard (`DEF-CR-01`):**
     - Checked via [`isIncapacitated(char)`](../../../client/src/app/core/rules/hit-points.ts#L22-L35).
     - Pristine characters (`hp_current: undefined / None`) resolve effective HP via `currentHp(char)` to `char.hp_max > 0` and are **not** incapacitated.
     - Characters are blocked from combat actions (Dodge, Dash, Disengage, Help) **only** when `currentHp(char) <= 0` or when affected by active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).
 
-11. **Deterministic Mandatory Build Grants (`inject_mandatory_character_grants`):**
+12. **Deterministic Mandatory Build Grants (`inject_mandatory_character_grants`):**
     - Executed in [`backend/services/rules_service.py`](../../../backend/services/rules_service.py) across `forge_character`, `forge_character_manual`, and `autofix_character_build`:
     - **Species / Racial Grants:** Automatically injects all static species traits from `races_{edition}.json` (`source: "Race"`), racial skill proficiencies (*Keen Senses* $\rightarrow$ `Perception`, 2024 *Naturally Stealthy* $\rightarrow$ `Stealth`, 2014 *Menacing* $\rightarrow$ `Intimidation`), and racial base speeds (`35 ft` for Goliath, `25 ft` for 2014 Dwarf/Halfling/Gnome).
     - **Background Grants:** Automatically merges mandatory background skill proficiencies (`backgrounds_{edition}.json`) into `skill_proficiencies`, injects background tool proficiencies and 2014 background features (`source: "Background"`), and injects the 2024 Background Origin Feat (plus the 2nd Origin Feat for 2024 Humans via *Versatile*) into `features_traits` and `advancements`.
     - **Class & Starting Loadout Fallback:** Deterministically injects all class and active subclass features up to `char_level` and populates canonical starting weapons, armor/equipment, languages, and spellcaster cantrips/prepared spells whenever omitted during character forging.
 
-12. **Exhaustion (`exhaustion_level`) & Epic Boon ASI Cap:**
+13. **Exhaustion (`exhaustion_level`) & Epic Boon ASI Cap:**
     - `exhaustion_level` is clamped to `[0, 6]` in [`backend/services/stats_service.py`](../../../backend/services/stats_service.py) (`sync_character_stats`) and mirrored in [`client/src/app/core/rules/ability.ts`](../../../client/src/app/core/rules/ability.ts), [`skills.ts`](../../../client/src/app/core/rules/skills.ts), [`weapon-calc.ts`](../../../client/src/app/core/rules/weapon-calc.ts), and [`rest.ts`](../../../client/src/app/core/rules/rest.ts):
       - **2024 Revision (5.5e):** Applies `-5 * exhaustion_level` ft speed (reaching `0` at L6) and `-2 * exhaustion_level` penalty to **D20 Tests only** (skills, saving throws, Initiative, weapon attack rolls, spell attack rolls); **`spell_save_dc` is NOT penalized**. Custom weapons (`is_custom: true`) track applied deltas via `exhaustion_attack_penalty_applied` so repeated saves never compound-decay.
       - **2014 Edition:** Applies half speed at L2+, speed `0` at L5+, and halves `hp_max` at L4+ (preserving the unhalved ceiling in `base_hp_max` for lossless restoration when exhaustion drops below L4); **no** `-2/lvl` D20 penalty applies.
     - **Level 19+ Epic Boon Cap:** [`POST /forge/level-up-apply`](../../../server/routers/forge_router.py) enforces `stat_cap = 30` when `char_level >= 19` and `"2024" in dnd_edition`, else `20`.
 
-13. **Zero-LLM-Math & Level-Up Authority:**
-    - [`strip_derived_character_fields`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/stats_service.py) strips LLM-emitted derived numbers before `sync_character_stats()` runs in `forge_character`, `forge_character_manual`, and `parse_character_from_text`.
-    - [`POST /forge/level-up-apply`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/forge_router.py) resolves `chosen_subclass` before computing `get_level_up_vitals(...)`, computes automatic class/subclass/spell-slot transitions server-side via [`resolve_level_up_automatic_features`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/forge_service.py) (ignoring client-spoofed `analysis.automatic_changes` or `analysis.new_total_hp`), aligns Level 3 2024 Draconic Sorcerer HP whether `custom_hp_increase` is sent from average/roll or omitted, handles `version: None` / missing version filters safely, skips unknown spell keys, and enforces `stat_cap = 30` for 2024 Level 19+ Epic Boons. Also `_enforce_deterministic_forge_stats` in [`forge_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/forge_service.py) syncs picked Level 4+ feats into `features_traits` (deduped), constrains `has_stat_choice` to `stat_choice_options`, skips `"Ability Score Improvement"` in feat lookup so it grants full `+2` ASI, checks `prerequisites.min_level <= asi_lvl`, and parses ordinal advancement levels safely.
-    - [`rules_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/rules_router.py) forwards `edition` into `calculate_max_spell_slots`, [`rules_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/rules_service.py) sanitizes non-int imported stats/levels, computes multiclass hit-die bounds, and clamps `hp_current` to `[0, hp_max]`, and [`character_import_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/character_import_service.py) excludes `"half-proficiency"` from `skill_expertise` and normalizes temporary HP to `"hp_temp"`.
-    - [`generate_random_encounter`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/dm_service.py) hydrates matching monsters from static SRD datasets (`official_monsters`) and falls back to `_build_deterministic_encounter()` mapping `cr` / `cr_numeric` to canonical 5e XP via `_CR_TO_XP` when `xp` is absent on static monster records.
+14. **Zero-LLM-Math & Level-Up Authority:**
+    - [`strip_derived_character_fields`](../../../backend/services/stats_service.py) strips LLM-emitted derived numbers before `sync_character_stats()` runs in `forge_character`, `forge_character_manual`, and `parse_character_from_text`.
+    - [`POST /forge/level-up-apply`](../../../server/routers/forge_router.py) resolves `chosen_subclass` before computing `get_level_up_vitals(...)`, computes automatic class/subclass/spell-slot transitions server-side via [`resolve_level_up_automatic_features`](../../../backend/services/forge_service.py) (matching `" subclass"` plus all 2014/2024 class placeholder labels against `SUBCLASS_FEATURES_DETAILS_2024` / `SUBCLASS_FEATURES_DETAILS`), prioritizes `vitals["average_hp_gain"]` whenever `hp_method == "average"` (and adjusts rolled HP delta via `hp_bonus_included` if subclass is chosen after rolling), includes retroactive L1–L2 Draconic HP in `analyze_level_up`'s `new_total_hp`, handles `version: None` / missing version filters safely, skips unknown spell keys, and enforces `stat_cap = 30` for 2024 Level 19+ Epic Boons. Also `_enforce_deterministic_forge_stats` in [`forge_service.py`](../../../backend/services/forge_service.py) syncs picked Level 4+ feats into `features_traits` (deduped), constrains `has_stat_choice` to `stat_choice_options`, skips `"Ability Score Improvement"` in feat lookup so it grants full `+2` ASI, checks `prerequisites.min_level <= asi_lvl`, and parses ordinal advancement levels safely.
+    - [`rules_router.py`](../../../server/routers/rules_router.py) normalizes `"2014 Edition"`, `"2014 Legacy"`, `"2024 Edition"`, `"2024 Revision"`, and `"5.5e"` in `parse_edition()` and forwards `edition` into `calculate_max_spell_slots`, [`rules_service.py`](../../../backend/services/rules_service.py) sanitizes non-int imported stats/levels, computes multiclass hit-die bounds, and clamps `hp_current` to `[0, hp_max]`, and [`character_import_service.py`](../../../backend/services/character_import_service.py) excludes `"half-proficiency"` from `skill_expertise` and normalizes temporary HP to `"hp_temp"`.
+    - [`generate_random_encounter`](../../../backend/services/dm_service.py) hydrates matching monsters from static SRD datasets (`official_monsters`) and falls back to `_build_deterministic_encounter()` mapping `cr` / `cr_numeric` to canonical 5e XP via `_CR_TO_XP` when `xp` is absent on static monster records.
 
 ---
 
@@ -109,4 +110,4 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
 * **Armor & Weapon Proficiencies:** Validates that equipped items match character proficiencies fetched from `RulesRepository`.
 * **Subclass Level Locks:** Enforces that 2024 classes (Cleric, Fighter, etc.) select subclasses at **Level 3**, whereas 2014 classes follow their respective 1st/2nd/3rd level rules.
 * **Point Buy & Array Boundaries:** Enforces base stat constraints (8 to 15 before racial/background bonuses).
-* **Repo/Schema Guards:** [`RulesRepository`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/repositories/rules_repository.py) enforces path confinement and returns deep copies (`copy.deepcopy`) on catalog getters so caller mutations cannot corrupt cached datasets; [`schemas.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/core/schemas.py) (`sanitize_class_subclass_and_spells`) strips leading/trailing class whitespace and avoids `IndexError` or splitting multiclass/level strings into `subclass`.
+* **Repo/Schema Guards:** [`RulesRepository`](../../../backend/repositories/rules_repository.py) enforces path confinement and returns deep copies (`copy.deepcopy`) on catalog getters so caller mutations cannot corrupt cached datasets; [`schemas.py`](../../../backend/core/schemas.py) (`sanitize_class_subclass_and_spells`) strips leading/trailing class whitespace and avoids `IndexError` or splitting multiclass/level strings into `subclass`.

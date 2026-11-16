@@ -1054,6 +1054,34 @@ SUBCLASS_FEATURES_DETAILS_2024 = {
         "name": "Survivor (Champion)",
         "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left, and have Advantage on Death Saving Throws.",
     },
+    ("Fighter", "Battle Master", 3): {
+        "name": "Combat Superiority & Student of War (Battle Master)",
+        "description": "Gain 3 maneuvers and 4 Superiority Dice (d8), plus proficiency in one Artisan's Tool and one skill available to Fighters.",
+    },
+    ("Fighter", "Eldritch Knight", 3): {
+        "name": "Spellcasting & War Bond (Eldritch Knight)",
+        "description": "Augment martial prowess with Wizard spells (INT) and bond with up to two weapons so you cannot be disarmed and can summon them as a Bonus Action.",
+    },
+    ("Sorcerer", "Draconic Sorcery", 3): {
+        "name": "Draconic Resilience & Draconic Spells (Draconic Sorcery)",
+        "description": "Your HP maximum increases by 3 (and by 1 whenever you gain another Sorcerer level), your unarmored AC equals 10 + DEX + CHA modifiers, and you always have your Draconic Spells prepared.",
+    },
+    ("Rogue", "Thief", 3): {
+        "name": "Fast Hands & Second-Story Work (Thief)",
+        "description": "Use your Cunning Action Bonus Action to make Sleight of Hand checks, use Thieves' Tools, or take the Utilize/Magic action with an item, and gain a Climb Speed equal to your Speed.",
+    },
+    ("Cleric", "Life Domain", 3): {
+        "name": "Disciple of Life & Preserve Life (Life Domain)",
+        "description": "Healing spells you cast with a spell slot restore an additional 2 + spell slot level HP on the turn cast, and you can use Channel Divinity to distribute 5x Cleric level healing.",
+    },
+    ("Wizard", "School of Evocation", 3): {
+        "name": "Evocation Savant & Potent Cantrip (School of Evocation)",
+        "description": "Gain two Evocation spells in your spellbook, and creatures that succeed on a saving throw against your damaging cantrips or pass your cantrip attack roll still take half damage.",
+    },
+    ("Wizard", "Evoker", 3): {
+        "name": "Evocation Savant & Potent Cantrip (Evoker)",
+        "description": "Gain two Evocation spells in your spellbook, and creatures that succeed on a saving throw against your damaging cantrips or pass your cantrip attack roll still take half damage.",
+    },
 }
 
 
@@ -1766,18 +1794,30 @@ def resolve_level_up_automatic_features(
     if not subclass_to_use:
         return static_features
 
+    _SUBCLASS_PLACEHOLDERS = (
+        "archetype feature",
+        "tradition feature",
+        "subclass feature",
+        "domain feature",
+        "martial archetype",
+        "roguish archetype",
+        "sorcerous origin",
+        "divine domain",
+        "arcane tradition",
+        "primal path",
+        "bard college",
+        "druid circle",
+        "monastic tradition",
+        "sacred oath",
+        "ranger archetype",
+        "otherworldly patron",
+        "artificer specialist",
+    )
+
     resolved_features = []
     for feat in static_features:
-        flwr = feat.get("name", "").lower()
-        if any(
-            ph in flwr
-            for ph in [
-                "archetype feature",
-                "tradition feature",
-                "subclass feature",
-                "domain feature",
-            ]
-        ):
+        flwr = feat.get("name", "").lower().strip()
+        if flwr.endswith(" subclass") or any(ph in flwr for ph in _SUBCLASS_PLACEHOLDERS):
             sub_detail = None
             details_map = SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
             for (c, sc, lvl), detail in details_map.items():
@@ -1860,7 +1900,15 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             break
     if not classes and char_class.lower() == char_data.get("char_class", "").lower():
         current_subclass = char_data.get("subclass")
-    subclass_to_use = current_subclass or user_choices.get("subclass")
+    chosen_subclass_choice = user_choices.get("subclass") or next(
+        (
+            str(v)
+            for k, v in user_choices.items()
+            if v and (k == "subclass" or k.startswith("subclass_"))
+        ),
+        None,
+    )
+    subclass_to_use = current_subclass or chosen_subclass_choice
 
     hp_bonus_per_level = 0
     try:
@@ -1880,12 +1928,23 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         max_legal_hp_gain = 1
         hp_bonus_per_level = 0
 
+    hp_method = str(user_choices.get("hp_method") or "").strip().lower()
     custom_hp = user_choices.get("custom_hp_increase")
-    if custom_hp is not None:
+    if custom_hp is not None and hp_method != "average":
         try:
             hp_increase = max(1, min(max_legal_hp_gain, int(custom_hp)))
         except (ValueError, TypeError):
             pass
+
+    retroactive_hp_bonus = 0
+    if (
+        is_2024
+        and char_class.lower() == "sorcerer"
+        and not current_subclass
+        and "draconic" in str(subclass_to_use or "").lower()
+        and target_level >= 3
+    ):
+        retroactive_hp_bonus = class_current_level
 
     updated_pb = math.ceil(target_total_level / 4) + 1
 
@@ -2187,7 +2246,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "automatic_changes": static_features,
         "hp_increase": hp_increase,
         "hp_bonus_per_level": hp_bonus_per_level,
-        "new_total_hp": char_data.get("hp_max", 0) + hp_increase,
+        "new_total_hp": char_data.get("hp_max", 0) + hp_increase + retroactive_hp_bonus,
         "choices_required": choices,
         "updated_proficiency_bonus": updated_pb,
         "updated_spell_slots": updated_spell_slots,

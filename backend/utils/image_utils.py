@@ -113,7 +113,13 @@ async def generate_portrait_url(
                         return None
 
         image_bytes = bytes(image_buffer)
-        if not image_bytes:
+        if not image_bytes or len(image_bytes) < 1024:
+            return None
+        if not any(
+            validate_image_magic_bytes(image_bytes[:16], ext)
+            for ext in (".png", ".jpg", ".webp", ".gif")
+        ):
+            logger.warning("Rejected portrait payload with unrecognized image magic bytes")
             return None
 
         # Save locally

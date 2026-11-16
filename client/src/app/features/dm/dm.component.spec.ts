@@ -1674,4 +1674,80 @@ describe('DmComponent — Quick-Add & Bestiary Integration', () => {
     expect(partyHealthText).toContain('(PlayerOne)');
     expect(partyHealthText).toContain('Grom');
   });
+
+  it('cancels debounced encounter sync on campaign switch and endCombat without blocking Campaign B WS updates', () => {
+    jest.useFakeTimers();
+    const http = TestBed.inject(HttpTestingController);
+    const messages$ = (TestBed.inject(WebSocketService) as any).messages$ as Subject<WsMessage>;
+
+    component.campaignsStatus = 'ready';
+    component.userCampaigns = [
+      { campaign_name: 'CampA', role: 'dm' } as any,
+      { campaign_name: 'CampB', role: 'dm' } as any,
+    ];
+    component.campaignName = 'CampA';
+    component.ngOnInit();
+    http.match((r) => r.url.includes('/campaigns')).forEach((r) => r.flush([]));
+
+    component.onCampaignSelect();
+    http.match((r) => r.url.includes('/party')).forEach((r) => r.flush([]));
+    http.match((r) => r.url.includes('/encounter')).forEach((r) => r.flush(null));
+
+    // Edit in CampA queues debounced POST (500ms)
+    component.newCombatantName = 'Goblin';
+    component.addCombatant();
+    jest.advanceTimersByTime(100);
+
+    // Switching to CampB before 500ms must cancel CampA's debounced POST and allow CampB WS frames
+    component.campaignName = 'CampB';
+    component.onCampaignSelect();
+    http.match((r) => r.url.includes('/party')).forEach((r) => r.flush([]));
+    http.match((r) => r.url.includes('/encounter')).forEach((r) => r.flush(null));
+
+    jest.advanceTimersByTime(600);
+    http.expectNone((r) => r.method === 'POST' && r.url.includes('/encounter'));
+
+    messages$.next({
+      type: 'encounter_update',
+      payload: {
+        round: 2,
+        activeCombatantId: 'orc-1',
+        combatants: [{ id: 'orc-1', name: 'Orc', initiative: 12, hp: 15, max_hp: 15, ac: 13, dex: 12, is_player: false, conditions: [] }],
+      },
+    } as WsMessage);
+    expect(component.round).toBe(2);
+    expect(component.combatants.map((c) => c.name)).toEqual(['Orc']);
+
+    // Queue an edit in CampB and immediately call endCombat() -> DELETE must not be followed by stale POST
+    component.newCombatantName = 'Bandit';
+    component.addCombatant();
+    jest.advanceTimersByTime(100);
+    component.endCombat();
+    http.expectOne((r) => r.method === 'DELETE' && r.url.includes('CampB/encounter')).flush({ success: true });
+
+    jest.advanceTimersByTime(600);
+    http.expectNone((r) => r.method === 'POST' && r.url.includes('/encounter'));
+    jest.useRealTimers();
+  });
+
+  it('syncs updated AC onto restored player combatants without overwriting mid-fight HP', () => {
+    const http = TestBed.inject(HttpTestingController);
+    const encStorage = TestBed.inject(EncounterStorageService);
+    encStorage.save('Curse of Strahd', {
+      round: 2,
+      activeCombatantId: 'v1',
+      combatants: [combatant('v1', 18, { char_id: 'v1', name: 'Valeros', is_player: true, hp: 5, max_hp: 20, ac: 15 })],
+    });
+
+    const restored = makeComponent();
+    restored.campaignName = 'Curse of Strahd';
+    restored.onCampaignSelect();
+
+    http.expectOne((r) => r.url.includes('/party')).flush([
+      { char_id: 'v1', char_name: 'Valeros', hp_current: 20, hp_max: 20, armor_class: 18 },
+    ]);
+
+    expect(restored.combatants[0].ac).toBe(18);
+    expect(restored.combatants[0].hp).toBe(5);
+  });
 });

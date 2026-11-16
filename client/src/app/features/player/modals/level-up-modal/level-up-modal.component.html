@@ -187,7 +187,7 @@
         </button>
       </div>
       <p class="text-body text-muted">
-        New Total Max HP: <strong class="text-emerald">{{ levelUpAnalysis.new_total_hp - levelUpAnalysis.hp_increase + ((userChoices['custom_hp_increase'] !== undefined ? userChoices['custom_hp_increase'] * 1 : null) || levelUpAnalysis.hp_increase) }}</strong>
+        New Total Max HP: <strong class="text-emerald">{{ levelUpAnalysis.new_total_hp - levelUpAnalysis.hp_increase + ((userChoices['hp_method'] === 'roll' && userChoices['custom_hp_increase'] !== undefined ? userChoices['custom_hp_increase'] * 1 : null) || levelUpAnalysis.hp_increase) }}</strong>
       </p>
     </div>
 

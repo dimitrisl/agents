@@ -505,8 +505,8 @@
         </div>
 
         <div class="flex flex-col gap-1.5">
-          <div *ngFor="let spell of group.spells; let idx = index" class="rounded-xl overflow-hidden flex items-center bg-panel border border-hairline/60 hover:border-accent/40 transition-colors p-1">
-            <div class="flex-1 min-w-0">
+          <div *ngFor="let spell of group.spells; let idx = index" class="rounded-xl overflow-hidden flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 bg-panel border border-hairline/60 hover:border-accent/40 transition-colors p-1">
+            <div class="w-full sm:w-auto sm:flex-1 min-w-0">
               <forge-list-row [title]="spell" actionLabel="Details" (onClick)="selectedSpell.set(spell)">
                 <ng-container trailing>
                   <forge-badge *ngIf="isPrepared(spell)" tone="accent" size="sm">Prepared</forge-badge>
@@ -515,7 +515,7 @@
             </div>
 
             <!-- Cast: one click spends the lowest open slot and rolls; ▾ picks the slot level (#173) -->
-            <div class="mr-1 flex shrink-0 items-center" role="group" [attr.aria-label]="'Cast ' + spell">
+            <div class="ml-auto mr-1 pb-1 sm:pb-0 flex shrink-0 items-center" role="group" [attr.aria-label]="'Cast ' + spell">
               <button
                 forgeButton
                 variant="secondary"
