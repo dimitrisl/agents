@@ -117,7 +117,9 @@
   </header>
 
   <div class="unreadable-alert mb-6 p-4 bg-panel border border-crimson rounded-[8px] flex gap-4 items-center" *ngIf="charState.unreadableCharacters().length > 0">
-    <i class="fas fa-exclamation-triangle text-crimson text-metric"></i>
+    <svg class="h-6 w-6 shrink-0 text-crimson" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+    </svg>
     <div>
       <h3 class="text-crimson mb-1 text-body font-semibold">
         {{ charState.unreadableCharacters().length }} hero{{ charState.unreadableCharacters().length > 1 ? 'es' : '' }} could not be loaded
@@ -143,7 +145,7 @@
     <!-- GLOBAL INITIATIVE TURN ALERT BANNER (#175) -->
     <div
       *ngIf="isMyTurn"
-      class="mb-4 p-3.5 bg-gradient-to-r from-accent/20 to-panel border-2 border-accent rounded-2xl shadow-lg flex items-center justify-between animate-pulse"
+      class="mb-4 p-3.5 bg-gradient-to-r from-accent/20 to-panel border-2 border-accent rounded-2xl shadow-lg flex items-center justify-between animate-pulse motion-reduce:animate-none"
       role="alert"
       aria-live="assertive"
     >
@@ -159,7 +161,7 @@
       <button
         type="button"
         (click)="selectMobileTab('combat')"
-        class="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 active:scale-95 text-surface font-extrabold text-xs shadow-md transition-all cursor-pointer"
+        class="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 text-surface font-extrabold text-xs shadow-md transition-colors cursor-pointer"
       >
         Actions
       </button>
@@ -178,7 +180,7 @@
     <!-- CONCENTRATION CHECK PROMPT (#171) -->
     <div
       *ngIf="showConcentrationPrompt()"
-      class="mb-4 p-3 bg-crimson/15 border border-crimson/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-scaleIn"
+      class="mb-4 p-3 bg-crimson/15 border border-crimson/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md"
     >
       <div class="flex items-center gap-2">
         <span class="text-xl">🧠</span>
@@ -263,7 +265,7 @@
         <button
           type="button"
           (click)="selectMobileTab('hero')"
-          class="flex items-baseline gap-1 px-2.5 py-1 rounded-lg bg-panel border border-hairline cursor-pointer active:scale-95 transition-all"
+          class="flex items-baseline gap-1 px-2.5 py-1 rounded-lg bg-panel border border-hairline cursor-pointer transition-colors hover:bg-surface-hover"
           title="Hit points (tap to view hero overview)"
         >
           <span class="text-xs text-crimson font-bold">♥</span>
@@ -306,7 +308,7 @@
         <button
           type="button"
           (click)="showQuickDiceDrawer.set(true)"
-          class="p-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-xs font-bold cursor-pointer active:scale-95"
+          class="p-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-xs font-bold cursor-pointer transition-colors hover:bg-accent/30"
           title="Open Quick-Dice Tray"
         >
           🎲
@@ -468,7 +470,7 @@
             </button>
           </header>
 
-          <div class="whisper-list max-h-75 overflow-y-auto" role="log">
+          <div #whisperFeed class="whisper-list max-h-75 overflow-y-auto" role="log">
             <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
               Nothing yet. Whispers, party rolls, and DM roll requests appear here as they happen.
             </div>
@@ -537,21 +539,21 @@
             <button
               type="button"
               (click)="sendQuickWhisper('👁️ I make a secret perception / insight check.')"
-              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 active:scale-95 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0"
+              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0 transition-colors"
             >
               👁️ Secret Perception
             </button>
             <button
               type="button"
               (click)="sendQuickWhisper('🗡️ I attempt Sleight of Hand / Stealth quietly.')"
-              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 active:scale-95 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0"
+              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0 transition-colors"
             >
               🗡️ Sleight of Hand
             </button>
             <button
               type="button"
               (click)="sendQuickWhisper('🔍 I investigate the area secretly.')"
-              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 active:scale-95 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0"
+              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0 transition-colors"
             >
               🔍 Investigation
             </button>
@@ -777,8 +779,8 @@
       <button
         type="button"
         (click)="selectMobileTab('hero')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'hero' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'hero' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">🛡️</span>
         <span class="text-micro uppercase font-bold">Hero</span>
@@ -787,8 +789,8 @@
       <button
         type="button"
         (click)="selectMobileTab('combat')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'combat' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'combat' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">⚔️</span>
         <span class="text-micro uppercase font-bold">Combat</span>
@@ -797,8 +799,8 @@
       <button
         type="button"
         (click)="selectMobileTab('skills')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'skills' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'skills' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">🎯</span>
         <span class="text-micro uppercase font-bold">Skills</span>
@@ -807,8 +809,8 @@
       <button
         type="button"
         (click)="selectMobileTab('spells')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'spells' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'spells' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">✨</span>
         <span class="text-micro uppercase font-bold">Spells</span>
@@ -817,18 +819,18 @@
       <button
         type="button"
         (click)="selectMobileTab('table')"
-        class="relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'table' ? 'text-accent font-bold scale-105' : 'text-muted hover:text-ink'"
+        class="relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
+        [ngClass]="mobileActiveTab() === 'table' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
       >
         <span class="text-lg">💬</span>
         <span class="text-micro uppercase font-bold">Table</span>
-        <span *ngIf="unreadMessages > 0" class="absolute top-0 right-1 w-2.5 h-2.5 bg-accent rounded-full animate-ping"></span>
+        <span *ngIf="unreadMessages > 0" class="absolute top-0 right-1 w-2.5 h-2.5 bg-accent rounded-full animate-ping motion-reduce:animate-none"></span>
       </button>
 
       <button
         type="button"
         (click)="showQuickDiceDrawer.set(true)"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-gold hover:text-gold/80 transition-all cursor-pointer active:scale-95"
+        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-gold hover:text-gold/80 transition-colors cursor-pointer"
       >
         <span class="text-lg">🎲</span>
         <span class="text-micro uppercase font-bold">Dice</span>
@@ -1044,7 +1046,7 @@
                     {{ isOwnWhisper(entry.whisper) ? 'You (' + char.char_name + ')' : entry.whisper.sender }}
                   </span>
                   <span *ngIf="entry.whisper.sender_deleted || (isOwnWhisper(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-red font-medium">
-                    (Διαγραμμένος χρήστης)
+                    (Deleted user)
                   </span>
                   <time class="shrink-0 text-micro text-muted">
                     {{ formatWhisperTime(entry.whisper.timestamp) }}

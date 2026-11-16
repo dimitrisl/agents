@@ -34,9 +34,10 @@ import { CombatDicePanelComponent } from './combat-dice-panel/combat-dice-panel.
 import {
   calculateWeaponBreakdown,
   extractMagicBonus,
+  resolveWeaponStat,
   WeaponBreakdown,
 } from '../../../../core/rules/weapon-calc';
-import { exhaustionD20Penalty } from '../../../../core/rules';
+import { abilityModifier, exhaustionD20Penalty } from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
 
@@ -640,25 +641,18 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   getToppleDc(w?: any): number {
-    const stats = this.char.stats || { STR: 10, DEX: 10 };
-    const strMod = Math.floor(((stats.STR ?? 10) - 10) / 2);
-    const dexMod = Math.floor(((stats.DEX ?? 10) - 10) / 2);
+    const stats = this.char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 };
+    const strMod = abilityModifier(stats.STR ?? 10);
     const pb = this.char.proficiency_bonus || 2;
 
     const resolveWeaponMod = (weapon: any): number => {
-      if (weapon.ability_modifier !== undefined && weapon.ability_modifier !== null) {
-        if (typeof weapon.ability_modifier === 'number') return weapon.ability_modifier;
-        const explicit = String(weapon.ability_modifier).toUpperCase().trim();
-        if (explicit === 'STR') return strMod;
-        if (explicit === 'DEX') return dexMod;
+      if (typeof weapon.ability_modifier === 'number') {
+        return weapon.ability_modifier;
       }
-      const props = (weapon.properties || '').toLowerCase();
-      const isFinesse = props.includes('finesse');
-      const isRanged = (weapon.range || '').includes('/') && !props.includes('thrown');
-      if (!isFinesse && !isRanged) {
-        return strMod;
-      }
-      return Math.max(strMod, dexMod);
+      const statName = resolveWeaponStat(weapon, this.char);
+      if (statName === 'NONE') return 0;
+      const score = stats[statName as keyof typeof stats] ?? 10;
+      return abilityModifier(score);
     };
 
     if (w) {

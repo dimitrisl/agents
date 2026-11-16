@@ -78,4 +78,27 @@ describe('HomebrewService', () => {
     expect(receivedBlob).toBe(mockBlob);
     clickSpy.mockRestore();
   });
+
+  it('saveHomebrew, deleteHomebrew, and importHomebrew succeed even if trailing list refresh fails', () => {
+    const results: any[] = [];
+    service.saveHomebrew('Neverwinter', { name: 'Blade', homebrew_type: 'weapon' }).subscribe((r) => results.push(r));
+    httpTestingController.expectOne(`${environment.apiBaseUrl}/campaigns/Neverwinter/homebrew`).flush({ _id: '1' });
+    httpTestingController
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('/campaigns/Neverwinter/homebrew'))
+      .flush('Server error', { status: 503, statusText: 'Service Unavailable' });
+
+    service.deleteHomebrew('Neverwinter', '1').subscribe((r) => results.push(r));
+    httpTestingController.expectOne(`${environment.apiBaseUrl}/campaigns/Neverwinter/homebrew/1`).flush({ ok: true });
+    httpTestingController
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('/campaigns/Neverwinter/homebrew'))
+      .flush('Server error', { status: 503, statusText: 'Service Unavailable' });
+
+    service.importHomebrew('Neverwinter', [{ name: 'Ring', homebrew_type: 'item' }]).subscribe((r) => results.push(r));
+    httpTestingController.expectOne(`${environment.apiBaseUrl}/campaigns/Neverwinter/homebrew/import`).flush({ imported: 1 });
+    httpTestingController
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('/campaigns/Neverwinter/homebrew'))
+      .flush('Server error', { status: 503, statusText: 'Service Unavailable' });
+
+    expect(results).toEqual([{ _id: '1' }, { ok: true }, { imported: 1 }]);
+  });
 });

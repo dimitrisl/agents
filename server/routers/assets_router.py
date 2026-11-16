@@ -8,13 +8,14 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from backend.utils.image_utils import ALLOWED_IMAGE_EXTENSIONS, stream_validated_image_upload
 from server.db_async import get_database
 from server.dependencies.campaign import require_campaign_member
 
 router = APIRouter(prefix="/campaigns/{name}/assets", tags=["Assets"])
 
 ASSETS_DIR = "data/uploads"
-ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
@@ -36,33 +37,13 @@ async def upload_asset(
 
     raw_filename = file.filename or ""
     file_extension = os.path.splitext(raw_filename)[1].lower()
-    if file_extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported image extension '{file_extension}'. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
-        )
-
     unique_filename = f"{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(ASSETS_DIR, unique_filename)
+    base_dir = os.path.realpath(ASSETS_DIR)
+    file_path = os.path.realpath(os.path.join(base_dir, unique_filename))
+    if os.path.commonpath([base_dir, file_path]) != base_dir:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
 
-    total_bytes = 0
-    try:
-        with open(file_path, "wb") as buffer:
-            while chunk := await file.read(1024 * 1024):
-                total_bytes += len(chunk)
-                if total_bytes > MAX_UPLOAD_BYTES:
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="Uploaded image exceeds the 10 MB limit.",
-                    )
-                buffer.write(chunk)
-    except Exception:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except OSError:
-                pass
-        raise
+    await stream_validated_image_upload(file, file_path, file_extension, max_bytes=MAX_UPLOAD_BYTES)
 
     asset_doc = {
         "filename": unique_filename,
@@ -72,8 +53,6 @@ async def upload_asset(
         "created_at": datetime.now(timezone.utc),
     }
     await db["campaign_assets"].insert_one(asset_doc)
-
-    from urllib.parse import quote
 
     encoded_name = quote(name, safe="")
     return {

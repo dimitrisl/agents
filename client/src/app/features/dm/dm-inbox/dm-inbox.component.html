@@ -40,8 +40,8 @@
                   <span class="text-micro text-muted">(&#64;{{ entry.whisper.sender_username }})</span>
                 }
               </span>
-              <span *ngIf="entry.whisper.sender_deleted || (isFromDm(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-error font-medium">
-                (Διαγραμμένος χρήστης)
+              <span *ngIf="entry.whisper.sender_deleted || (isFromDm(entry.whisper) && entry.whisper.recipient_deleted)" class="text-micro text-crimson font-medium">
+                (Deleted user)
               </span>
               <time class="shrink-0 text-micro text-muted">
                 {{ formatTime(entry.whisper.timestamp) }}
@@ -53,7 +53,7 @@
               <button
                 *ngIf="!isFromDm(entry.whisper) && !entry.whisper.has_open_report"
                 type="button"
-                class="text-error/70 hover:text-error text-micro hover:underline cursor-pointer"
+                class="text-crimson/80 hover:text-crimson text-micro hover:underline cursor-pointer"
                 (click)="reportWhisper.emit(entry.whisper)"
                 title="Report whisper to moderators"
               >

@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # 🩸 Phyrexian Forge - One-Click Setup Script (Windows PowerShell)
 # ==============================================================================
 
@@ -78,12 +78,19 @@ if (-not (Test-Path ".env")) {
         Write-Host "✓ Created new .env file" -ForegroundColor Green
     }
 
-    # Generate random secret key for JWT
+    # Generate random secret key for JWT, replacing any .env_example placeholder
     $Bytes = New-Object byte[] 32
     $Rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
     $Rng.GetBytes($Bytes)
     $RandomKey = -join ($Bytes | ForEach-Object { "{0:x2}" -f $_ })
-    Add-Content -Path ".env" -Value "`nJWT_SECRET_KEY=$RandomKey"
+    $EnvContent = Get-Content -Path ".env" -Raw
+    $Placeholder = "JWT_SECRET_KEY=replace_with_a_secure_random_hex_string_in_production"
+    if ($EnvContent -match [regex]::Escape($Placeholder)) {
+        $EnvContent = $EnvContent.Replace($Placeholder, "JWT_SECRET_KEY=$RandomKey")
+        Set-Content -Path ".env" -Value $EnvContent -NoNewline
+    } elseif ($EnvContent -notmatch "(?m)^JWT_SECRET_KEY=") {
+        Add-Content -Path ".env" -Value "`nJWT_SECRET_KEY=$RandomKey"
+    }
     Write-Host "ℹ️  Generated secure JWT_SECRET_KEY in .env" -ForegroundColor Cyan
 } else {
     Write-Host "✓ Existing .env file found (skipping overwrite)" -ForegroundColor Green

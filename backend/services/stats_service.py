@@ -102,16 +102,77 @@ def calculate_hp(
 
         for i in range(count):
             if not first_level_added:
-                total_hp += die_size + con_mod
+                total_hp += max(1, die_size + con_mod)
                 first_level_added = True
             else:
-                total_hp += (die_size // 2 + 1) + con_mod
+                total_hp += max(1, (die_size // 2 + 1) + con_mod)
 
     if not first_level_added:
         # Fallback if list was empty or invalid
-        total_hp = 8 + con_mod
+        total_hp = max(1, 8 + con_mod)
 
     return total_hp
+
+
+_DERIVED_CHARACTER_KEYS = (
+    "armor_class",
+    "ac_breakdown",
+    "proficiency_bonus",
+    "skills",
+    "saving_throw_values",
+    "spell_save_dc",
+    "spell_attack_bonus",
+    "spell_slots",
+    "hit_dice",
+    "initiative_modifier",
+    "initiative_bonus",
+    "initiative_advantage",
+    "athletics_advantage",
+    "speed",
+    "base_speed",
+    "passive_perception",
+    "global_attack_bonus",
+    "global_damage_bonus",
+    "equip_stat_bonuses",
+    "equip_hp_bonus",
+    "feat_hp_bonus",
+    "con_mod_applied",
+    "base_hp_max",
+    "class_resources",
+    "base_stats",
+)
+
+
+def strip_derived_character_fields(
+    char_data: Dict[str, Any],
+    *,
+    strip_hp: bool = True,
+    strip_weapon_bonuses: bool = True,
+) -> Dict[str, Any]:
+    """Remove derived/computed fields so deterministic rules math always owns them."""
+    if not isinstance(char_data, dict):
+        return char_data
+
+    for key in _DERIVED_CHARACTER_KEYS:
+        char_data.pop(key, None)
+
+    if strip_hp:
+        char_data.pop("hp_max", None)
+        char_data.pop("hp_current", None)
+
+    if strip_weapon_bonuses and isinstance(char_data.get("weapons"), list):
+        cleaned_weapons = []
+        for w in char_data["weapons"]:
+            if isinstance(w, dict):
+                w_copy = dict(w)
+                for w_key in ("attack_bonus", "damage_bonus", "damage", "is_custom"):
+                    w_copy.pop(w_key, None)
+                cleaned_weapons.append(w_copy)
+            else:
+                cleaned_weapons.append(w)
+        char_data["weapons"] = cleaned_weapons
+
+    return char_data
 
 
 def _parse_item_name(raw_name: str) -> Tuple[str, int]:
@@ -285,14 +346,16 @@ def calculate_ac(
                 )
         if has_draconic_resilience:
             is_2024_drac = "2024" in str(edition or "")
-            drac_val = (
-                max(13, 10 + get_modifier(cha_score))
-                if (is_2024_drac and cha_score is not None)
-                else 13
-            )
+            if is_2024_drac and cha_score is not None:
+                cha_mod = get_modifier(cha_score)
+                drac_val = 10 + cha_mod
+                drac_label = f"Draconic Resilience (10 + CHA {cha_mod:+d})"
+            else:
+                drac_val = 13
+                drac_label = "Draconic Resilience (13)"
             if drac_val > base_ac:
                 base_ac = drac_val
-                base_source = f"Draconic Resilience ({drac_val})"
+                base_source = drac_label
         if has_mage_armor:
             if 13 > base_ac:
                 base_ac = 13
@@ -1589,8 +1652,11 @@ def sync_character_stats(
         f_desc = f.get("description", "")
         full_text = f"{f_name} {f_desc}".lower()
 
-        if "dwarven toughness" in full_text or "draconic resilience" in full_text:
+        if "dwarven toughness" in full_text:
             hp_bonus_per_level += 1
+            continue
+        if "draconic resilience" in full_text:
+            # Scaled strictly by Sorcerer levels below so multiclass levels aren't inflated.
             continue
 
         clean_name = f_name.lower().replace("origin feat: ", "").replace("feat: ", "").strip()
@@ -1623,12 +1689,16 @@ def sync_character_stats(
         isinstance(f, dict) and "draconic resilience" in f.get("name", "").lower() for f in features
     )
     draconic_sorcerer_levels = 0
-    if not has_draconic_feat:
-        for cls in classes:
-            c_name = (cls.get("class_name") or "").lower()
-            c_sub = (cls.get("subclass") or subclass or "").lower()
-            if c_name == "sorcerer" and "draconic" in c_sub:
-                draconic_sorcerer_levels += int(cls.get("level", 1) or 1)
+    has_sorcerer_class = any((cls.get("class_name") or "").lower() == "sorcerer" for cls in classes)
+    for cls in classes:
+        c_name = (cls.get("class_name") or "").lower()
+        c_sub = (cls.get("subclass") or subclass or "").lower()
+        c_lvl = int(cls.get("level", 1) or 1)
+        if c_name == "sorcerer" and ("draconic" in c_sub or has_draconic_feat):
+            if not is_2024_sheet or c_lvl >= 3 or has_draconic_feat:
+                draconic_sorcerer_levels += c_lvl
+    if draconic_sorcerer_levels == 0 and has_draconic_feat and not has_sorcerer_class:
+        draconic_sorcerer_levels = level
 
     feat_hp_bonus = hp_bonus_per_level * level + draconic_sorcerer_levels
     prev_feat_hp = char_data.get("feat_hp_bonus", 0)
@@ -2131,19 +2201,21 @@ def sync_character_stats(
     # 2024 Edition Rules (5.5e) Enhancements: Masteries, Fighter Features, Spell Cleanup
     # ----------------------------------------------------
     if is_2024:
-        # A. Weapon Masteries (Fighter Lvl 1-3 = 3, Lvl 4+ = 4 masteries)
-        martial_classes = ["fighter", "barbarian", "paladin", "ranger", "rogue"]
-        if (char_class or "").lower() in martial_classes:
-            c_low = (char_class or "").lower()
+        # A. Weapon Masteries (per-class martial scaling summed across multiclass builds)
+        target_masteries_count = 0
+        for cls in classes:
+            c_low = (cls.get("class_name") or "").strip().lower()
+            c_lvl = int(cls.get("level", 1) or 1)
             if c_low == "fighter":
-                target_masteries_count = (
-                    6 if level >= 16 else (5 if level >= 10 else (4 if level >= 4 else 3))
+                target_masteries_count += (
+                    6 if c_lvl >= 16 else (5 if c_lvl >= 10 else (4 if c_lvl >= 4 else 3))
                 )
             elif c_low == "barbarian":
-                target_masteries_count = 4 if level >= 10 else (3 if level >= 4 else 2)
-            else:
-                # Paladin, Ranger, Rogue strictly get 2 weapon masteries
-                target_masteries_count = 2
+                target_masteries_count += 4 if c_lvl >= 10 else (3 if c_lvl >= 4 else 2)
+            elif c_low in ("paladin", "ranger", "rogue"):
+                target_masteries_count += 2
+
+        if target_masteries_count > 0:
             existing_masteries = list(char_data.get("weapon_masteries") or [])
             all_weapons = _merge_homebrew_weapons(repo.get_all_weapons(), homebrew_content)
 

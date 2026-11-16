@@ -23,9 +23,11 @@ import { InitiativeCombatant } from '../../../core/models/initiative.model';
 import { FormsModule } from '@angular/forms';
 import {
   ForgeButtonDirective,
+  ForgeIconComponent,
   ForgeInputDirective,
   ForgeModalComponent,
   ForgeSelectDirective,
+  ForgeSpinnerComponent,
   ForgeConfirmService,
 } from '../../../shared/ui';
 import { environment } from '../../../../environments/environment';
@@ -38,9 +40,11 @@ import { environment } from '../../../../environments/environment';
     DragDropModule,
     FormsModule,
     ForgeButtonDirective,
+    ForgeIconComponent,
     ForgeInputDirective,
     ForgeModalComponent,
     ForgeSelectDirective,
+    ForgeSpinnerComponent,
   ],
   template: `
     <div class="vtt-container" *ngIf="vttState()?.is_active" [class.minimized]="isMinimized">
@@ -297,7 +301,9 @@ import { environment } from '../../../../environments/environment';
                 <button (click)="cycleTokenSize(token, $event)" class="size-token-btn" type="button" title="Cycle Size (Medium/Large/Huge/Gargantuan)" aria-label="Cycle token size">
                   {{ getTokenScale(token) }}x
                 </button>
-                <button (click)="removeToken(token.id)" class="remove-token-btn" type="button" title="Remove Token" aria-label="Remove token">×</button>
+                <button (click)="removeToken(token.id)" class="remove-token-btn" type="button" title="Remove Token" aria-label="Remove token">
+                  <forge-icon name="close" size="xs" />
+                </button>
               </div>
 
               <ng-container *ngIf="getTokenHp(token) as hpInfo">
@@ -397,7 +403,7 @@ import { environment } from '../../../../environments/environment';
           <ng-container *ngIf="sceneModalTab === 'scenes'">
             <!-- Loading state -->
             <div *ngIf="loadingScenes" class="flex justify-center py-6">
-              <div class="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+              <forge-spinner size="md" label="Loading scenes" />
             </div>
 
             <!-- Scene List -->
@@ -587,7 +593,7 @@ import { environment } from '../../../../environments/environment';
           <ng-container *ngIf="sceneModalTab === 'history'">
             <div class="flex flex-col gap-2 max-h-87.5 overflow-y-auto">
               <div *ngIf="loadingHistory" class="flex justify-center py-6">
-                <div class="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+                <forge-spinner size="md" label="Loading scene history" />
               </div>
               <div *ngIf="!loadingHistory && sceneHistory.length === 0" class="text-micro text-muted p-4 text-center">
                 No scene activation history recorded yet.
@@ -909,6 +915,7 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   sceneHistory: VTTSceneHistory[] = [];
   loadingScenes = false;
   loadingHistory = false;
+  isMutatingScene = false;
   sceneError: string | null = null;
   expandedSceneNotesId: string | null = null;
   newSceneName = '';
@@ -1081,8 +1088,22 @@ export class VttGridComponent implements OnInit, AfterViewInit {
         ? this.sanitizer.bypassSecurityTrustStyle(`url("${this.mapBlobUrl}")`)
         : 'none';
     }
-    const safeUrl = url.replace(/["\\\n\r]/g, '');
+    if (!this.isSafeCssImageUrl(url)) {
+      return 'none';
+    }
+    const safeUrl = url.replace(/["\\()\n\r]/g, '');
     return `url("${safeUrl}")`;
+  }
+
+  private isSafeCssImageUrl(url: string): boolean {
+    if (/[\n\r"\\()]/.test(url)) return false;
+    if (url.startsWith('/') || url.startsWith('assets/')) return true;
+    try {
+      const parsed = new URL(url, 'http://localhost');
+      return ['http:', 'https:', 'blob:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
   }
 
   toggleMinimize(): void {
@@ -1858,7 +1879,8 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   }
 
   saveSceneNotes(scene: VTTScene): void {
-    if (!this.campaignName) return;
+    if (!this.campaignName || this.isMutatingScene) return;
+    this.isMutatingScene = true;
     const body = {
       name: scene.name,
       dm_notes: scene.dm_notes,
@@ -1868,12 +1890,14 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
+          this.isMutatingScene = false;
           scene.name = updated.name;
           scene.dm_notes = updated.dm_notes;
           this.expandedSceneNotesId = null;
           this.loadScenes();
         },
         error: (err) => {
+          this.isMutatingScene = false;
           this.sceneError = err.error?.detail || 'Failed to update scene notes.';
         },
       });
@@ -1898,7 +1922,8 @@ export class VttGridComponent implements OnInit, AfterViewInit {
   }
 
   createScene(): void {
-    if (!this.campaignName || !this.newSceneName.trim()) return;
+    if (!this.campaignName || !this.newSceneName.trim() || this.isMutatingScene) return;
+    this.isMutatingScene = true;
     const body = {
       name: this.newSceneName.trim(),
       grid: {
@@ -1913,41 +1938,49 @@ export class VttGridComponent implements OnInit, AfterViewInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          this.isMutatingScene = false;
           this.newSceneName = '';
           this.newSceneMapUrl = '';
           this.loadScenes();
         },
         error: (err) => {
+          this.isMutatingScene = false;
           this.sceneError = err.error?.detail || 'Failed to create scene.';
         }
       });
   }
 
   activateScene(scene: VTTScene): void {
-    if (!this.campaignName || scene.is_active_scene) return;
+    if (!this.campaignName || scene.is_active_scene || this.isMutatingScene) return;
+    this.isMutatingScene = true;
     this.http
       .post(`${this.sceneBaseUrl()}/${encodeURIComponent(scene.scene_id)}/activate`, {})
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          this.isMutatingScene = false;
           this.loadScenes();
         },
         error: (err) => {
+          this.isMutatingScene = false;
           this.sceneError = err.error?.detail || 'Failed to activate scene.';
         }
       });
   }
 
   duplicateScene(scene: VTTScene): void {
-    if (!this.campaignName) return;
+    if (!this.campaignName || this.isMutatingScene) return;
+    this.isMutatingScene = true;
     this.http
       .post(`${this.sceneBaseUrl()}/${encodeURIComponent(scene.scene_id)}/duplicate`, {})
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          this.isMutatingScene = false;
           this.loadScenes();
         },
         error: (err) => {
+          this.isMutatingScene = false;
           this.sceneError = err.error?.detail || 'Failed to duplicate scene.';
         }
       });

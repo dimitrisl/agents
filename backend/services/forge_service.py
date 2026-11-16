@@ -1,7 +1,9 @@
 import functools
 import logging
 import random
+import re
 import uuid
+from typing import Any
 
 from backend.core.ai_client import generate_ai_json, generate_ai_response
 from backend.core.constants import (
@@ -18,18 +20,352 @@ from backend.core.schemas import CharacterSchema
 from backend.core.state_manager import get_default_character
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
+from backend.services.progression_service import (
+    check_progression_features,
+    get_level_up_vitals,
+)
 from backend.services.rules_service import (
     autofix_character_build,
     inject_mandatory_character_grants,
+)
+from backend.services.stats_service import (
+    calculate_max_spell_slots,
+    strip_derived_character_fields,
 )
 from backend.services.validation_service import deterministic_validate_build
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
 
+_STANDARD_ARRAY = [15, 14, 13, 12, 10, 8]
+_STAT_KEYS = ("STR", "DEX", "CON", "INT", "WIS", "CHA")
+_POINT_BUY_COSTS = {8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9}
+_CLASS_STAT_PRIORITY: dict[str, tuple[str, ...]] = {
+    "barbarian": ("STR", "CON", "DEX", "WIS", "CHA", "INT"),
+    "bard": ("CHA", "DEX", "CON", "WIS", "INT", "STR"),
+    "cleric": ("WIS", "CON", "STR", "DEX", "CHA", "INT"),
+    "druid": ("WIS", "CON", "DEX", "INT", "CHA", "STR"),
+    "fighter": ("STR", "CON", "DEX", "WIS", "CHA", "INT"),
+    "monk": ("DEX", "WIS", "CON", "STR", "INT", "CHA"),
+    "paladin": ("STR", "CHA", "CON", "WIS", "DEX", "INT"),
+    "ranger": ("DEX", "WIS", "CON", "INT", "STR", "CHA"),
+    "rogue": ("DEX", "CON", "INT", "WIS", "CHA", "STR"),
+    "sorcerer": ("CHA", "CON", "DEX", "WIS", "INT", "STR"),
+    "warlock": ("CHA", "CON", "DEX", "WIS", "INT", "STR"),
+    "wizard": ("INT", "CON", "DEX", "WIS", "CHA", "STR"),
+    "artificer": ("INT", "CON", "DEX", "WIS", "CHA", "STR"),
+}
+
 
 @functools.lru_cache(maxsize=1)
 def _get_rules_repo():
     return RulesRepository()
+
+
+def _get_class_stat_priority(char_class: str, repo: RulesRepository, edition: str) -> list[str]:
+    """Return ordered 6 ability keys tailored to the class's primary abilities."""
+    c_low = (char_class or "").strip().lower()
+    if c_low in _CLASS_STAT_PRIORITY:
+        return list(_CLASS_STAT_PRIORITY[c_low])
+
+    prog = repo.get_class_progression(char_class, edition)
+    order: list[str] = []
+    if prog:
+        for ab in prog.get("primary_ability") or []:
+            key = str(ab).strip().upper()[:3]
+            if key in _STAT_KEYS and key not in order:
+                order.append(key)
+    for fallback_key in ("CON", "DEX", "WIS", "STR", "INT", "CHA"):
+        if fallback_key not in order:
+            order.append(fallback_key)
+    return order
+
+
+def _coerce_stats_dict(raw_stats: Any) -> dict[str, int] | None:
+    """Coerce an arbitrary LLM stats dict into 6 integer ability scores, or None if unusable."""
+    if not isinstance(raw_stats, dict):
+        return None
+    alias_map = {
+        "STRENGTH": "STR",
+        "DEXTERITY": "DEX",
+        "CONSTITUTION": "CON",
+        "INTELLIGENCE": "INT",
+        "WISDOM": "WIS",
+        "CHARISMA": "CHA",
+    }
+    parsed: dict[str, int] = {}
+    for k, v in raw_stats.items():
+        key = alias_map.get(str(k).strip().upper(), str(k).strip().upper())
+        if key not in _STAT_KEYS:
+            continue
+        try:
+            parsed[key] = int(v)
+        except (TypeError, ValueError):
+            continue
+    return parsed if parsed else None
+
+
+def _is_valid_point_buy(stats: dict[str, int]) -> bool:
+    if len(stats) != 6 or any(k not in stats for k in _STAT_KEYS):
+        return False
+    total = 0
+    for k in _STAT_KEYS:
+        val = stats[k]
+        if val not in _POINT_BUY_COSTS:
+            return False
+        total += _POINT_BUY_COSTS[val]
+    return total == 27
+
+
+def _assign_array_by_priority(
+    scores: list[int],
+    raw_stats: dict[str, int] | None,
+    priority_order: list[str],
+) -> dict[str, int]:
+    """Distribute sorted scores using LLM preference rank where valid, else class priority."""
+    sorted_scores = sorted((int(x) for x in scores), reverse=True)
+    rank_index = {stat: idx for idx, stat in enumerate(priority_order)}
+    if raw_stats and len(raw_stats) == 6:
+        ordered_stats = sorted(
+            _STAT_KEYS,
+            key=lambda s: (-raw_stats.get(s, 0), rank_index.get(s, 99)),
+        )
+    else:
+        ordered_stats = priority_order
+    return {stat: sorted_scores[idx] for idx, stat in enumerate(ordered_stats)}
+
+
+def _enforce_deterministic_forge_stats(
+    char_data: dict,
+    char_class: str,
+    race: str,
+    background: str,
+    target_level: int,
+    edition: str,
+    stats_mode: str,
+    rolled_stats: list[int] | None,
+    auto_feats: bool,
+    repo: RulesRepository,
+) -> None:
+    """Enforce legal base stats (Standard Array / Point Buy / Rolled), 2014/2024 bonuses, and ASIs."""
+    is_2024 = "2024" in str(edition or "")
+    priority_order = _get_class_stat_priority(char_class, repo, edition)
+    raw_stats = _coerce_stats_dict(char_data.get("stats"))
+
+    if stats_mode == "rolled" and rolled_stats and len(rolled_stats) == 6:
+        target_sorted = sorted(rolled_stats, reverse=True)
+        if raw_stats and sorted(raw_stats.values(), reverse=True) == target_sorted:
+            base = {k: raw_stats[k] for k in _STAT_KEYS}
+        else:
+            base = _assign_array_by_priority(target_sorted, raw_stats, priority_order)
+    elif stats_mode == "point_buy":
+        if raw_stats and _is_valid_point_buy(raw_stats):
+            base = {k: raw_stats[k] for k in _STAT_KEYS}
+        else:
+            base = _assign_array_by_priority(_STANDARD_ARRAY, raw_stats, priority_order)
+    else:
+        if raw_stats and sorted(raw_stats.values(), reverse=True) == _STANDARD_ARRAY:
+            base = {k: raw_stats[k] for k in _STAT_KEYS}
+        else:
+            base = _assign_array_by_priority(_STANDARD_ARRAY, raw_stats, priority_order)
+
+    # Apply edition-specific origin ability bonuses deterministically
+    if is_2024:
+        bg_data = repo.get_background_data(background, edition) or {}
+        ab_cfg = bg_data.get("ability_scores") or {}
+        options_groups = ab_cfg.get("options") or []
+        allowed_pool = (
+            [str(x).strip().upper()[:3] for x in options_groups[0]]
+            if options_groups and isinstance(options_groups[0], list)
+            else []
+        )
+        valid_pool = [s for s in priority_order if s in allowed_pool]
+        if len(valid_pool) >= 2:
+            base[valid_pool[0]] = min(20, base[valid_pool[0]] + 2)
+            base[valid_pool[1]] = min(20, base[valid_pool[1]] + 1)
+        elif len(valid_pool) == 1:
+            base[valid_pool[0]] = min(20, base[valid_pool[0]] + 2)
+    else:
+        race_data = repo.get_race_data(race, edition) or {}
+        stat_bonuses = race_data.get("stat_bonuses") or {}
+        if isinstance(stat_bonuses, dict):
+            for k, bonus in stat_bonuses.items():
+                key = str(k).strip().upper()[:3]
+                if key in base:
+                    base[key] = min(20, base[key] + int(bonus or 0))
+                elif key == "CHO" or str(k).strip().lower() in ("choice", "any", "flex"):
+                    for p in priority_order:
+                        if p not in stat_bonuses:
+                            base[p] = min(20, base[p] + int(bonus or 0))
+                            break
+
+    # Apply deterministic Level >= 4 ASI / Epic Boon advancements
+    def _safe_adv_level(raw_lvl: Any) -> int:
+        if raw_lvl is None or isinstance(raw_lvl, bool):
+            return 0
+        if isinstance(raw_lvl, (int, float)):
+            return int(raw_lvl)
+        match = re.match(r"^\s*(\d+)", str(raw_lvl))
+        return int(match.group(1)) if match else 0
+
+    def _sync_feat_to_traits(feat_obj: dict) -> None:
+        feat_name = str(feat_obj.get("name") or "").strip()
+        if not feat_name:
+            return
+        features_list = char_data.setdefault("features_traits", [])
+        if not isinstance(features_list, list):
+            features_list = []
+            char_data["features_traits"] = features_list
+        feat_low = feat_name.lower()
+        for existing in features_list:
+            if not isinstance(existing, dict):
+                continue
+            ex_name = str(existing.get("name") or "").strip().lower()
+            ex_clean = ex_name.removeprefix("origin feat: ").removeprefix("feat: ").strip()
+            if ex_clean == feat_low:
+                return
+        features_list.append(
+            {
+                "name": f"Feat: {feat_name}",
+                "description": str(feat_obj.get("description") or "").strip(),
+                "source": "Feat",
+            }
+        )
+
+    asi_levels: list[int] = []
+    if auto_feats and target_level >= 4:
+        for lvl in range(1, target_level + 1):
+            prog = check_progression_features(char_class, lvl, edition)
+            if prog.get("is_asi_level"):
+                asi_levels.append(lvl)
+
+    cleaned_advs: list[dict] = []
+    if auto_feats and asi_levels:
+        all_feats = {
+            f["name"].lower(): f
+            for f in repo.get_all_feats(edition)
+            if isinstance(f, dict)
+            and "name" in f
+            and f["name"].strip().lower() != "ability score improvement"
+        }
+        raw_advs = [
+            a
+            for a in (char_data.get("advancements") or [])
+            if isinstance(a, dict)
+            and str(a.get("type") or "").strip().lower() == "feat"
+            and _safe_adv_level(a.get("level")) != 1
+        ]
+        consumed_adv_indices: set[int] = set()
+        used_feat_names: set[str] = set()
+        for asi_lvl in asi_levels:
+            stat_cap = 30 if (is_2024 and asi_lvl >= 19) else 20
+            picked_feat = None
+
+            # Prefer explicit level match first, otherwise next unused feat entry <= asi_lvl
+            candidate_indices = [
+                i
+                for i, a in enumerate(raw_advs)
+                if i not in consumed_adv_indices and _safe_adv_level(a.get("level")) == asi_lvl
+            ] + [
+                i
+                for i, a in enumerate(raw_advs)
+                if i not in consumed_adv_indices
+                and _safe_adv_level(a.get("level")) in (0, *range(2, asi_lvl + 1))
+            ]
+
+            for idx in candidate_indices:
+                cand_name = str(raw_advs[idx].get("name") or "").strip()
+                cand_low = cand_name.lower()
+                if not cand_low or cand_low == "ability score improvement":
+                    consumed_adv_indices.add(idx)
+                    break
+                f_obj = all_feats.get(cand_low)
+                if not f_obj or f_obj["name"].lower() in used_feat_names:
+                    continue
+                prereqs = f_obj.get("prerequisites") or {}
+                min_req_lvl = _safe_adv_level(prereqs.get("min_level"))
+                if min_req_lvl > asi_lvl:
+                    continue
+                picked_feat = f_obj
+                consumed_adv_indices.add(idx)
+                break
+
+            if picked_feat:
+                used_feat_names.add(picked_feat["name"].lower())
+                for sk, bv in (picked_feat.get("stat_bonus") or {}).items():
+                    if bv and sk in base:
+                        base[sk] = min(stat_cap, base[sk] + int(bv))
+                if picked_feat.get("has_stat_choice"):
+                    allowed_opts = {
+                        str(opt).strip().upper()[:3]
+                        for opt in (picked_feat.get("stat_choice_options") or [])
+                        if str(opt).strip()
+                    }
+                    search_order = [
+                        s for s in priority_order if not allowed_opts or s in allowed_opts
+                    ]
+                    for s in _STAT_KEYS:
+                        if (not allowed_opts or s in allowed_opts) and s not in search_order:
+                            search_order.append(s)
+                    for p in search_order:
+                        if base[p] < stat_cap:
+                            base[p] = min(stat_cap, base[p] + 1)
+                            break
+                _sync_feat_to_traits(picked_feat)
+                cleaned_advs.append(
+                    {
+                        "level": asi_lvl,
+                        "type": "Feat",
+                        "name": picked_feat["name"],
+                        "description": str(picked_feat.get("description") or "")[:200],
+                    }
+                )
+            else:
+                remaining_points = 2
+                applied_parts: list[str] = []
+                for p in priority_order:
+                    if remaining_points <= 0:
+                        break
+                    room = stat_cap - base[p]
+                    if room > 0:
+                        delta = min(remaining_points, room)
+                        base[p] += delta
+                        remaining_points -= delta
+                        applied_parts.append(f"+{delta} {p}")
+                if applied_parts:
+                    title = (
+                        f"Epic Boon ({', '.join(applied_parts)})"
+                        if (is_2024 and asi_lvl >= 19)
+                        else f"Ability Score Improvement ({', '.join(applied_parts)})"
+                    )
+                    cleaned_advs.append(
+                        {
+                            "level": asi_lvl,
+                            "type": "ASI",
+                            "name": title,
+                            "description": f"Deterministic level {asi_lvl} increase: {', '.join(applied_parts)}",
+                        }
+                    )
+
+    if is_2024:
+        # Preserve any level 1 Origin Feat entries so inject_mandatory_character_grants doesn't duplicate
+        origin_advs = []
+        for a in char_data.get("advancements") or []:
+            if isinstance(a, dict) and _safe_adv_level(a.get("level")) == 1:
+                adv_name = str(a.get("name") or "").strip()
+                origin_advs.append(
+                    {
+                        "level": 1,
+                        "type": str(a.get("type") or "Feat").strip() or "Feat",
+                        "name": adv_name or "Origin Feat",
+                        "description": str(a.get("description") or "").strip() or adv_name,
+                    }
+                )
+        char_data["advancements"] = origin_advs + cleaned_advs
+    elif auto_feats:
+        char_data["advancements"] = cleaned_advs
+
+    overall_cap = 30 if (is_2024 and target_level >= 19) else 20
+    char_data["stats"] = {k: max(1, min(overall_cap, int(base[k]))) for k in _STAT_KEYS}
 
 
 def forge_character(
@@ -91,6 +427,9 @@ def forge_character(
         rolled_stats = sorted([roll_stat() for _ in range(6)], reverse=True)
         stats_instruction = f"Assign exactly these rolled scores: {rolled_stats} to the character's base ability scores. You MUST logically distribute these scores to best fit the primary ability scores of the {forge_class} class. DO NOT just assign them in descending order to STR, DEX, CON, INT, WIS, CHA."
 
+    if stats_mode != "rolled":
+        rolled_stats = None
+
     pref_instructions = []
     if custom_preferences and custom_preferences.strip():
         pref_instructions.append(
@@ -126,14 +465,14 @@ def forge_character(
     )
 
     result = generate_ai_json(prompt)
-    if not result:
+    if not isinstance(result, dict) or not result:
         logger.warning("AI JSON generation returned None. Generating default fallback character.")
         result = get_default_character()
         result.update(
             {
                 "char_name": name if name != "AI Choice" else "Forged Hero",
                 "gender": gender if gender != "AI Choice" else "Male",
-                "char_class": forge_class if forge_class != "AI Choice" else "",
+                "char_class": forge_class if forge_class != "AI Choice" else "Fighter",
                 "subclass": subclass if subclass and subclass != "AI Choice" else None,
                 "char_level": target_level,
                 "race": forge_race if forge_race != "AI Choice" else "Human",
@@ -144,8 +483,54 @@ def forge_character(
             }
         )
 
-    # Sanitize Hallucinations (Bug 5)
-    result.pop("initiative_bonus", None)
+    # Enforce explicit user selections and strip any LLM-computed derived numbers
+    if name != "AI Choice":
+        result["char_name"] = name
+    if gender != "AI Choice":
+        result["gender"] = gender
+    if forge_race != "AI Choice":
+        result["race"] = forge_race
+    if forge_class != "AI Choice":
+        result["char_class"] = forge_class
+    elif not str(result.get("char_class") or "").strip():
+        result["char_class"] = "Fighter"
+    if forge_background != "AI Choice":
+        result["background"] = forge_background
+    if alignment != "AI Choice":
+        result["alignment"] = alignment
+    if subclass and subclass != "AI Choice":
+        result["subclass"] = subclass
+    result["char_level"] = max(1, min(20, int(target_level)))
+    result["dnd_edition"] = edition
+
+    strip_derived_character_fields(result, strip_hp=True, strip_weapon_bonuses=True)
+
+    is_2024 = "2024" in str(edition or "")
+    resolved_class = str(result.get("char_class") or "Fighter").strip()
+    if not result.get("subclass"):
+        sub_unlock = 3
+        if not is_2024:
+            if resolved_class.title() in ("Cleric", "Sorcerer", "Warlock"):
+                sub_unlock = 1
+            elif resolved_class.title() in ("Wizard", "Druid"):
+                sub_unlock = 2
+        if result["char_level"] >= sub_unlock:
+            avail_subs = repo.get_subclasses(resolved_class, edition)
+            if avail_subs:
+                result["subclass"] = avail_subs[0]
+
+    _enforce_deterministic_forge_stats(
+        result,
+        char_class=resolved_class,
+        race=str(result.get("race") or "Human"),
+        background=str(result.get("background") or "Soldier"),
+        target_level=result["char_level"],
+        edition=edition,
+        stats_mode=stats_mode,
+        rolled_stats=rolled_stats,
+        auto_feats=auto_feats,
+        repo=repo,
+    )
 
     # Fix Custom Background (Bug 3 & 4)
     # Custom Background is now entirely handled by the AI prompt.
@@ -188,14 +573,16 @@ def forge_character(
         auto_spells=auto_spells,
     )
 
-    # Synchronize derived stats (HP, AC, Proficiency, etc.)
+    # Synchronize derived stats (HP, AC, Proficiency, etc.) deterministically
     class_data = _get_rules_repo().get_class_progression(result.get("char_class"), edition)
     result = sync_character_stats(result, class_data)
+    result["hp_current"] = result.get("hp_max", 10)
 
     # D&D Rules Autofix & Deep Validation
     try:
         autofix_result = autofix_character_build(result)
         result = autofix_result.get("character", result)
+        result["hp_current"] = result.get("hp_max", 10)
     except Exception as e:
         logger.error(f"Rule autofix failed during AI forge: {e}")
 
@@ -219,10 +606,22 @@ def forge_character(
             "alignment",
             "gender",
             "dnd_edition",
+            "subclass",
         ):
             v = result.get(k)
             if isinstance(v, str) and v.strip():
                 fallback[k] = v.strip()
+        fallback["char_level"] = max(1, min(20, int(target_level)))
+        fallback = inject_mandatory_character_grants(
+            fallback,
+            edition=edition,
+            is_forge=True,
+            auto_feats=auto_feats,
+            auto_spells=auto_spells,
+        )
+        fb_class_data = _get_rules_repo().get_class_progression(fallback.get("char_class"), edition)
+        fallback = sync_character_stats(fallback, fb_class_data)
+        fallback["hp_current"] = fallback.get("hp_max", 10)
         return CharacterSchema.model_validate(fallback, strict=False).model_dump()
 
 
@@ -291,11 +690,14 @@ def forge_character_manual(
         custom_preferences_instruction=custom_pref_inst,
     )
     result = generate_ai_json(prompt)
-    if not result:
+    if not isinstance(result, dict) or not result:
         logger.warning(
             "AI JSON generation returned None in manual forge. Generating default fallback character."
         )
         result = get_default_character()
+
+    # Strip any LLM-hallucinated derived stats before merging manual choices
+    strip_derived_character_fields(result, strip_hp=True, strip_weapon_bonuses=True)
 
     # Merge manual choices
     result["char_name"] = name
@@ -306,16 +708,13 @@ def forge_character_manual(
     result["race"] = race
     result["background"] = background
     result["alignment"] = alignment
-    result["stats"] = base_stats
+    result["stats"] = dict(base_stats)
     result["saving_throws"] = saving_throws
     result["skill_proficiencies"] = skill_proficiencies
     result["spell_ability"] = spell_ability
     result["dnd_edition"] = edition
 
     result["char_id"] = str(uuid.uuid4())[:8]
-
-    # Sanitize Hallucinations (Bug 5)
-    result.pop("initiative_bonus", None)
 
     # Fix Custom Background (Bug 3 & 4)
     # Custom Background is now entirely handled by the AI prompt.
@@ -423,11 +822,13 @@ def forge_character_manual(
     # Synchronize derived stats (HP, AC, Proficiency, etc.)
     class_data = _get_rules_repo().get_class_progression(char_class, edition)
     result = sync_character_stats(result, class_data)
+    result["hp_current"] = result.get("hp_max", 10)
 
     # D&D Rules Autofix & Deep Validation
     try:
         autofix_result = autofix_character_build(result)
         result = autofix_result.get("character", result)
+        result["hp_current"] = result.get("hp_max", 10)
     except Exception as e:
         logger.error(f"Rule autofix failed during manual forge: {e}")
 
@@ -442,6 +843,9 @@ def forge_character_manual(
 
         fallback = get_default_character()
         fallback.update({k: v for k, v in result.items() if v is not None})
+        strip_derived_character_fields(fallback, strip_hp=True, strip_weapon_bonuses=False)
+        fallback = sync_character_stats(fallback, class_data)
+        fallback["hp_current"] = fallback.get("hp_max", 10)
         return CharacterSchema.model_validate(fallback, strict=False).model_dump()
 
 
@@ -662,8 +1066,6 @@ def _generate_dynamic_future_milestones(
     archetype: str,
     known_spells: list[str] | None = None,
 ) -> list[str]:
-    from backend.services.stats_service import calculate_max_spell_slots
-
     repo = _get_rules_repo()
     is_2024 = "2024" in str(edition)
     known_set = {k.strip().lower() for k in (known_spells or [])}
@@ -1091,8 +1493,6 @@ def generate_level_up_build_recommendations(
     Analyzes the character and returns up to 3 distinct, highly synergistic build paths
     for their upcoming level up.
     """
-    from backend.services.stats_service import calculate_max_spell_slots
-
     repo = _get_rules_repo()
     edition = char_data.get("dnd_edition", EDITION_2014)
     classes = char_data.get("classes", [])
@@ -1351,12 +1751,74 @@ def generate_level_up_build_recommendations(
         return fallback_result()
 
 
+def resolve_level_up_automatic_features(
+    char_class: str,
+    target_level: int,
+    subclass_to_use: str | None = None,
+    edition: str = "2014 Edition",
+) -> list[dict]:
+    """Build deterministic automatic level-up features from RulesRepository."""
+    from backend.repositories.rules_repository import RulesRepository
+
+    is_2024 = "2024" in str(edition)
+    rules_repo = RulesRepository()
+    static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
+    if not subclass_to_use:
+        return static_features
+
+    resolved_features = []
+    for feat in static_features:
+        flwr = feat.get("name", "").lower()
+        if any(
+            ph in flwr
+            for ph in [
+                "archetype feature",
+                "tradition feature",
+                "subclass feature",
+                "domain feature",
+            ]
+        ):
+            sub_detail = None
+            details_map = SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
+            for (c, sc, lvl), detail in details_map.items():
+                if (
+                    c.lower() == char_class.lower()
+                    and sc.lower() in subclass_to_use.lower()
+                    and lvl == target_level
+                ):
+                    sub_detail = detail
+                    break
+            if not sub_detail and is_2024:
+                for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
+                    if (
+                        c.lower() == char_class.lower()
+                        and sc.lower() in subclass_to_use.lower()
+                        and lvl == target_level
+                    ):
+                        sub_detail = detail
+                        break
+            if sub_detail:
+                resolved_features.append(dict(sub_detail))
+            else:
+                resolved_features.append(
+                    {
+                        "name": f"{subclass_to_use} Subclass Feature",
+                        "description": feat.get(
+                            "description",
+                            f"Special feature granted by the {subclass_to_use} subclass at Level {target_level}.",
+                        ),
+                    }
+                )
+        else:
+            resolved_features.append(dict(feat))
+    return resolved_features
+
+
 def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     """Determines level up changes deterministically without an LLM call."""
     import math
 
     from backend.repositories.rules_repository import RulesRepository
-    from backend.services.progression_service import get_level_up_vitals
 
     classes = char_data.get("classes", [])
     user_choices = user_choices or {}
@@ -1390,6 +1852,17 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     rules_repo = RulesRepository()
     static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
 
+    # Resolve subclass early so Draconic Sorcerer HP vitals and feature placeholders match
+    current_subclass = None
+    for cls in classes:
+        if cls.get("class_name", "").lower() == char_class.lower():
+            current_subclass = cls.get("subclass")
+            break
+    if not classes and char_class.lower() == char_data.get("char_class", "").lower():
+        current_subclass = char_data.get("subclass")
+    subclass_to_use = current_subclass or user_choices.get("subclass")
+
+    hp_bonus_per_level = 0
     try:
         vitals = get_level_up_vitals(
             char_class=char_class,
@@ -1397,89 +1870,35 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             con_score=char_data.get("stats", {}).get("CON", 10),
             edition=edition,
             features=char_data.get("features_traits", []),
+            subclass=subclass_to_use,
         )
-        hp_increase = max(1, vitals.get("average_hp_gain", 0))
+        hp_increase = max(1, vitals.get("average_hp_gain", 1))
+        max_legal_hp_gain = max(1, vitals.get("max_hp_gain", hp_increase))
+        hp_bonus_per_level = int(vitals.get("hp_bonus_per_level") or 0)
     except Exception:
-        hp_increase = 0
+        hp_increase = 1
+        max_legal_hp_gain = 1
+        hp_bonus_per_level = 0
 
     custom_hp = user_choices.get("custom_hp_increase")
     if custom_hp is not None:
         try:
-            hp_increase = max(1, int(custom_hp))
+            hp_increase = max(1, min(max_legal_hp_gain, int(custom_hp)))
         except (ValueError, TypeError):
             pass
 
     updated_pb = math.ceil(target_total_level / 4) + 1
 
     choices = []
-
-    # 1. Subclass
-    current_subclass = None
-    for cls in classes:
-        if cls.get("class_name", "").lower() == char_class.lower():
-            current_subclass = cls.get("subclass")
-            break
-
-    if not classes and char_class.lower() == char_data.get("char_class", "").lower():
-        current_subclass = char_data.get("subclass")
-
-    # Resolve subclass specific features for generic placeholder entries
-    subclass_to_use = current_subclass or user_choices.get("subclass")
-    if subclass_to_use:
-        resolved_features = []
-        for feat in static_features:
-            flwr = feat.get("name", "").lower()
-            if any(
-                ph in flwr
-                for ph in [
-                    "archetype feature",
-                    "tradition feature",
-                    "subclass feature",
-                    "domain feature",
-                ]
-            ):
-                sub_detail = None
-                details_map = (
-                    SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
-                )
-                for (c, sc, lvl), detail in details_map.items():
-                    if (
-                        c.lower() == char_class.lower()
-                        and sc.lower() in subclass_to_use.lower()
-                        and lvl == target_level
-                    ):
-                        sub_detail = detail
-                        break
-                if not sub_detail and is_2024:
-                    for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
-                        if (
-                            c.lower() == char_class.lower()
-                            and sc.lower() in subclass_to_use.lower()
-                            and lvl == target_level
-                        ):
-                            sub_detail = detail
-                            break
-                if sub_detail:
-                    resolved_features.append(sub_detail)
-                else:
-                    resolved_features.append(
-                        {
-                            "name": f"{subclass_to_use} Subclass Feature",
-                            "description": feat.get(
-                                "description",
-                                f"Special feature granted by the {subclass_to_use} subclass at Level {target_level}.",
-                            ),
-                        }
-                    )
-            else:
-                resolved_features.append(feat)
-        static_features = resolved_features
+    static_features = resolve_level_up_automatic_features(
+        char_class, target_level, subclass_to_use, edition
+    )
 
     if not current_subclass:
         subclasses = rules_repo.get_subclasses(char_class, edition)
         if subclasses:
             subclass_level = 3
-            if edition == EDITION_2014:
+            if not is_2024:
                 if char_class.title() in ["Cleric", "Sorcerer", "Warlock"]:
                     subclass_level = 1
                 elif char_class.title() in ["Wizard", "Druid"]:
@@ -1530,8 +1949,6 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "Artificer",
     ]
     if char_class in spellcasters:
-        from backend.services.stats_service import calculate_max_spell_slots
-
         max_slots = calculate_max_spell_slots(
             char_class, target_level, current_subclass, edition=edition
         )
@@ -1662,7 +2079,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "Stealth",
         "Survival",
     ]
-    if char_class == "Bard" and target_level in [3, 10]:
+    if char_class == "Bard" and (
+        (is_2024 and target_level in [2, 9]) or (not is_2024 and target_level in [3, 10])
+    ):
         choices.append(
             {
                 "type": "expertise_1",
@@ -1696,14 +2115,82 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 "ai_recommendation": "Pick another skill for Expertise.",
             }
         )
+    elif is_2024 and char_class == "Ranger" and target_level == 2:
+        choices.append(
+            {
+                "type": "expertise_1",
+                "label": "Deft Explorer: Choose a skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick Stealth, Perception, or Survival for your Ranger Expertise.",
+            }
+        )
+    elif is_2024 and char_class == "Ranger" and target_level == 9:
+        choices.append(
+            {
+                "type": "expertise_1",
+                "label": "Expertise (Level 9): Choose 1st skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick a skill you are already proficient in.",
+            }
+        )
+        choices.append(
+            {
+                "type": "expertise_2",
+                "label": "Expertise (Level 9): Choose 2nd skill for Expertise",
+                "options": skills,
+                "ai_recommendation": "Pick another skill for Expertise.",
+            }
+        )
+    elif is_2024 and char_class == "Wizard" and target_level == 2:
+        choices.append(
+            {
+                "type": "expertise_1",
+                "label": "Scholar: Choose an Academic Skill for Expertise",
+                "options": ["Arcana", "History", "Investigation", "Medicine", "Nature", "Religion"],
+                "ai_recommendation": "Arcana or Investigation synergizes best with Wizard INT.",
+            }
+        )
+
+    # Deterministically compute updated spell slots for the target level
+    updated_classes = [dict(c) for c in classes] if classes else []
+    if updated_classes:
+        matched_cls = False
+        for c in updated_classes:
+            if (c.get("class_name") or "").lower() == char_class.lower():
+                c["level"] = target_level
+                if subclass_to_use and not c.get("subclass"):
+                    c["subclass"] = subclass_to_use
+                matched_cls = True
+                break
+        if not matched_cls:
+            updated_classes.append(
+                {
+                    "class_name": char_class,
+                    "level": target_level,
+                    "subclass": subclass_to_use,
+                }
+            )
+        for c in updated_classes:
+            c_prog = rules_repo.get_class_progression(c.get("class_name", ""), edition)
+            if c_prog and "caster_type" in c_prog:
+                c["caster_type"] = c_prog.get("caster_type")
+
+    updated_spell_slots = calculate_max_spell_slots(
+        char_class,
+        target_total_level,
+        subclass=subclass_to_use,
+        classes=updated_classes,
+        edition=edition,
+    )
 
     return {
         "automatic_changes": static_features,
         "hp_increase": hp_increase,
+        "hp_bonus_per_level": hp_bonus_per_level,
         "new_total_hp": char_data.get("hp_max", 0) + hp_increase,
         "choices_required": choices,
         "updated_proficiency_bonus": updated_pb,
-        "updated_spell_slots": {},
+        "updated_spell_slots": updated_spell_slots,
         "new_spells_known": [],
         "new_features": static_features,
     }

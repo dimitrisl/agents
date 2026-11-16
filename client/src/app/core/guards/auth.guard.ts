@@ -20,9 +20,11 @@ export const authGuard: CanActivateFn = (route, state) => {
           authService.logout();
           return of(router.createUrlTree(['/login']));
         }
-        // For network errors or 5xx, allow access to proceed with cached local data
-        // or let the route fail gracefully without destroying the user's session
-        return of(true);
+        // For network errors or 5xx, proceed offline only if AuthService restored a cached user
+        if (authService.isAuthenticated()) {
+          return of(true);
+        }
+        return of(router.createUrlTree(['/login']));
       })
     );
   }

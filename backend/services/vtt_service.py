@@ -580,7 +580,10 @@ class VTTService:
         rect = payload.get("rect")
         extracted_coords = []
 
+        max_limit = width * height
         if cells and isinstance(cells, list):
+            if len(cells) > max_limit:
+                raise ValueError(f"Fog update exceeds maximum limit of {max_limit} cells per event")
             for c in cells:
                 if isinstance(c, (list, tuple)) and len(c) >= 2:
                     extracted_coords.append((int(c[0]), int(c[1])))
@@ -590,11 +593,14 @@ class VTTService:
             ry = int(rect.get("y", 0))
             rw = int(rect.get("w", 0))
             rh = int(rect.get("h", 0))
+            if rw < 0 or rh < 0:
+                raise ValueError("Fog rectangle dimensions must be non-negative")
+            if rw * rh > max_limit:
+                raise ValueError(f"Fog update exceeds maximum limit of {max_limit} cells per event")
             for dy in range(rh):
                 for dx in range(rw):
                     extracted_coords.append((rx + dx, ry + dy))
 
-        max_limit = width * height
         if len(extracted_coords) > max_limit:
             raise ValueError(f"Fog update exceeds maximum limit of {max_limit} cells per event")
 

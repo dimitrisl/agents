@@ -55,14 +55,26 @@ async def migrate():
                 )
 
     if members_to_insert:
-        # Avoid duplicate inserts if run multiple times
-        await db["campaign_members"].delete_many({})
-        await db["campaign_members"].insert_many(members_to_insert)
+        # Idempotent upsert preserves any manually joined members or existing roles.
+        from pymongo import UpdateOne
+
+        ops = [
+            UpdateOne(
+                {"campaign_id": m["campaign_id"], "user_id": m["user_id"]},
+                {"$setOnInsert": m},
+                upsert=True,
+            )
+            for m in members_to_insert
+        ]
+        result = await db["campaign_members"].bulk_write(ops, ordered=False)
 
         from server.db_async import init_indexes
 
         await init_indexes(db)
-        print(f"Migration completed. Inserted {len(members_to_insert)} members.")
+        print(
+            f"Migration completed. Processed {len(members_to_insert)} entries "
+            f"(inserted {result.upserted_count}, existing preserved)."
+        )
     else:
         print("No members to migrate.")
 

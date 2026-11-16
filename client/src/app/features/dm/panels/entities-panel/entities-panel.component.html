@@ -11,15 +11,18 @@
     <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
       <div
         *ngFor="let ent of entities"
-        (click)="selectEntity(ent)"
-        class="cursor-pointer p-2 rounded hover:bg-tile transition-colors border border-transparent flex items-center justify-between gap-2"
+        class="flex items-center justify-between gap-2 rounded border border-transparent p-1 transition-colors hover:bg-tile"
         [class.bg-tile]="selectedEntity?.id === ent.id"
         [class.border-hairline]="selectedEntity?.id === ent.id"
       >
-        <div class="min-w-0 flex-1">
+        <button
+          type="button"
+          (click)="selectEntity(ent)"
+          class="min-w-0 flex-1 cursor-pointer rounded p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           <div class="font-semibold text-ink truncate">{{ ent.name }}</div>
           <div class="text-micro text-muted uppercase">{{ ent.type }}</div>
-        </div>
+        </button>
         @if (canAddToInitiative(ent)) {
           <button
             forgeButton
@@ -28,7 +31,7 @@
             type="button"
             title="Add to Initiative Tracker"
             [attr.aria-label]="'Add ' + ent.name + ' to initiative'"
-            (click)="$event.stopPropagation(); addToInitiative.emit(ent)"
+            (click)="addToInitiative.emit(ent)"
           >
             ⚔️
           </button>
@@ -71,8 +74,8 @@
       </div>
 
       <div class="flex gap-4 items-center">
-        <label class="text-label text-muted">Type:</label>
-        <select [(ngModel)]="selectedEntity.type" class="forge-input w-48">
+        <label for="entity-type-select" class="text-label text-muted">Type:</label>
+        <select id="entity-type-select" forgeSelect [(ngModel)]="selectedEntity.type" class="w-48">
           <option value="lore">Lore Note</option>
           <option value="npc">NPC</option>
           <option value="villain">Villain</option>
@@ -81,18 +84,18 @@
           <option value="monster">Monster</option>
         </select>
 
-        <label class="text-label text-muted ml-4" *ngIf="selectedEntity.type === 'npc' || selectedEntity.type === 'monster'">Location:</label>
-        <select *ngIf="selectedEntity.type === 'npc' || selectedEntity.type === 'monster'" [(ngModel)]="selectedEntity.current_location_id" class="forge-input w-48">
+        <label for="entity-location-select" class="text-label text-muted ml-4" *ngIf="selectedEntity.type === 'npc' || selectedEntity.type === 'monster'">Location:</label>
+        <select id="entity-location-select" forgeSelect *ngIf="selectedEntity.type === 'npc' || selectedEntity.type === 'monster'" [(ngModel)]="selectedEntity.current_location_id" class="w-48">
           <option [ngValue]="undefined">Unknown / None</option>
           <option *ngFor="let loc of getLocations()" [value]="loc.id">{{ loc.name }}</option>
         </select>
       </div>
 
       <div class="flex flex-col gap-2">
-        <label class="text-label text-muted">Asset Image (Map/Portrait):</label>
+        <label for="entity-asset-image" class="text-label text-muted">Asset Image (Map/Portrait):</label>
         <div class="flex items-center gap-4">
-          <img *ngIf="selectedEntity.image_url" [src]="selectedEntity.image_url" class="w-16 h-16 object-cover rounded border border-hairline">
-          <input type="file" accept="image/*" (change)="onImageSelected($event)" class="text-sm">
+          <img *ngIf="selectedEntity.image_url" [src]="selectedEntity.image_url" alt="" class="w-16 h-16 object-cover rounded border border-hairline">
+          <input id="entity-asset-image" type="file" accept="image/*" (change)="onImageSelected($event)" class="text-sm">
           <button *ngIf="selectedImage" forgeButton variant="secondary" size="sm" (click)="uploadImage()" [disabled]="isUploadingImage">
             {{ isUploadingImage ? 'Uploading...' : 'Upload' }}
           </button>
@@ -100,10 +103,12 @@
       </div>
 
       <div class="flex flex-col gap-2 flex-1 min-h-75">
-        <label class="text-label text-muted">Content (Markdown):</label>
+        <label for="entity-content-markdown" class="text-label text-muted">Content (Markdown):</label>
         <textarea
+          id="entity-content-markdown"
+          forgeTextarea
           [(ngModel)]="selectedEntity.content"
-          class="forge-input flex-1 font-mono text-sm resize-none"
+          class="flex-1 font-mono text-sm resize-none"
           placeholder="Write lore, background, or stats here..."
         ></textarea>
       </div>

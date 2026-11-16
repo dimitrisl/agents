@@ -1,4 +1,4 @@
-import { Component, effect, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RollToastService } from '../../../core/services/roll-toast.service';
 import { Dice3dComponent } from '../dice-3d/dice-3d.component';
@@ -15,6 +15,8 @@ const REVEAL_FALLBACK = 6500;
   styleUrl: './roll-toast.component.css',
 })
 export class RollToastComponent {
+  private readonly destroyRef = inject(DestroyRef);
+
   /** Fallback flat-die animation, only used when WebGL is unavailable. */
   isRolling = signal(false);
   webglFailed = signal(false);
@@ -24,8 +26,14 @@ export class RollToastComponent {
   accent = signal('#d9b355');
 
   private revealTimer: ReturnType<typeof setTimeout> | null = null;
+  private fallbackTimers: Array<ReturnType<typeof setTimeout>> = [];
 
   constructor(public rollService: RollToastService) {
+    this.destroyRef.onDestroy(() => {
+      this.clearReveal();
+      this.clearFallbackTimers();
+    });
+
     // The dice view is lazy so three.js stays out of the initial bundle. Warm the
     // chunk up front so the first roll of a session does not wait on the network.
     import('../dice-3d/dice-3d.component').catch(() => this.webglFailed.set(true));
@@ -34,23 +42,35 @@ export class RollToastComponent {
       const roll = this.rollService.activeRoll();
       if (!roll || roll.message) return;
 
-      this.diceSettled.set(false);
-      this.rollKey.update((key) => key + 1);
-      this.accent.set(this.readAccent());
-      // Reveal the result anyway if the dice never report back.
-      this.armReveal();
+      untracked(() => {
+        this.clearFallbackTimers();
+        this.diceSettled.set(false);
+        this.rollKey.update((key) => key + 1);
+        this.accent.set(this.readAccent());
+        // Reveal the result anyway if the dice never report back.
+        this.armReveal();
 
-      if (!this.webglFailed()) return;
+        if (!this.webglFailed()) return;
 
-      this.isRolling.set(false);
-      setTimeout(() => {
-        this.isRolling.set(true);
-        setTimeout(() => {
-          this.isRolling.set(false);
-          this.onDiceSettled();
-        }, 650);
+        this.isRolling.set(false);
+        const startTimer = setTimeout(() => {
+          this.isRolling.set(true);
+          const endTimer = setTimeout(() => {
+            this.isRolling.set(false);
+            this.onDiceSettled();
+          }, 650);
+          this.fallbackTimers.push(endTimer);
+        });
+        this.fallbackTimers.push(startTimer);
       });
     });
+  }
+
+  private clearFallbackTimers(): void {
+    for (const t of this.fallbackTimers) {
+      clearTimeout(t);
+    }
+    this.fallbackTimers = [];
   }
 
   onDiceSettled(): void {

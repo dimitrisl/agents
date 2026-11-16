@@ -82,9 +82,11 @@ if [ ! -f .env ]; then
         echo -e "${GREEN}✓ Created new .env file${NC}"
     fi
 
-    # Generate a random secret key for JWT if not present
+    # Generate a random secret key for JWT if unset or still using the example placeholder
     RANDOM_KEY=$($PYTHON_BIN -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null || openssl rand -hex 32 2>/dev/null || echo "dev_jwt_secret_phyrexian_forge_$(date +%s)")
-    if ! grep -q "JWT_SECRET_KEY" .env; then
+    if grep -q "JWT_SECRET_KEY=replace_with_a_secure_random_hex_string_in_production" .env; then
+        $PYTHON_BIN -c "from pathlib import Path; p = Path('.env'); p.write_text(p.read_text().replace('JWT_SECRET_KEY=replace_with_a_secure_random_hex_string_in_production', 'JWT_SECRET_KEY=$RANDOM_KEY'))"
+    elif ! grep -q "^JWT_SECRET_KEY=" .env; then
         echo "JWT_SECRET_KEY=$RANDOM_KEY" >> .env
     fi
     echo -e "${CYAN}ℹ️  Generated secure JWT_SECRET_KEY in .env${NC}"

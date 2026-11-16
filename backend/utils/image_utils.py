@@ -156,3 +156,78 @@ def save_custom_portrait(image_bytes: bytes, filename: str) -> str:
     with open(filepath, "wb") as f:
         f.write(image_bytes)
     return f"{settings.API_V1_STR}/portraits/{safe_name}"
+
+
+ALLOWED_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
+
+
+def validate_image_magic_bytes(header: bytes, extension: str) -> bool:
+    """Verify binary file header matches the declared image extension."""
+    ext = (extension or "").lower().strip()
+    if ext == ".png":
+        return header.startswith(b"\x89PNG\r\n\x1a\n")
+    if ext in (".jpg", ".jpeg"):
+        return header.startswith(b"\xff\xd8\xff")
+    if ext == ".gif":
+        return header.startswith((b"GIF87a", b"GIF89a"))
+    if ext == ".webp":
+        return len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+    return False
+
+
+async def stream_validated_image_upload(
+    upload_file,
+    dest_path: str,
+    file_extension: str,
+    max_bytes: int = 10 * 1024 * 1024,
+    chunk_size: int = 1024 * 1024,
+) -> int:
+    """Stream an uploaded image to disk while validating magic bytes and size cap."""
+    from fastapi import HTTPException, status
+
+    if file_extension.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Unsupported image extension '{file_extension}'. "
+                f"Allowed: {', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))}"
+            ),
+        )
+
+    total_bytes = 0
+    first_chunk = True
+    try:
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        with open(dest_path, "wb") as buffer:
+            while chunk := await upload_file.read(chunk_size):
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail="Uploaded image exceeds the 10 MB limit.",
+                    )
+                if first_chunk:
+                    first_chunk = False
+                    if not validate_image_magic_bytes(chunk, file_extension):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=(
+                                f"Invalid image signature: file content does not match "
+                                f"expected '{file_extension}' format."
+                            ),
+                        )
+                buffer.write(chunk)
+
+        if total_bytes == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded image file is empty.",
+            )
+        return total_bytes
+    except Exception:
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+            except OSError:
+                pass
+        raise

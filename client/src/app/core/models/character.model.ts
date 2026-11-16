@@ -203,6 +203,7 @@ export interface LevelUpChoice {
 export interface LevelUpAnalysis {
   automatic_changes: FeatureTrait[];
   hp_increase: number;
+  hp_bonus_per_level?: number;
   new_total_hp: number;
   choices_required: LevelUpChoice[];
   updated_proficiency_bonus?: number;

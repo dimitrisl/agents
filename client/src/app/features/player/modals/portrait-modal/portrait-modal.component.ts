@@ -5,6 +5,7 @@ import {
   EventEmitter,
   Input,
   OnChanges,
+  OnDestroy,
   Output,
   SimpleChanges,
   inject,
@@ -34,8 +35,15 @@ import {
   templateUrl: './portrait-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PortraitModalComponent implements OnChanges {
+export class PortraitModalComponent implements OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
+
+  ngOnDestroy(): void {
+    if (this.filePreviewUrl) {
+      URL.revokeObjectURL(this.filePreviewUrl);
+      this.filePreviewUrl = null;
+    }
+  }
 
   @Input() open = false;
   @Input() currentPortraitUrl: string = '';

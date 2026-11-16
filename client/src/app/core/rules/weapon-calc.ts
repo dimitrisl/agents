@@ -56,7 +56,7 @@ export function resolveWeaponStat(weapon: Weapon, char?: CharacterSchema | null)
   const name = (weapon.name || '').toLowerCase();
 
   const isRanged = range.includes('/') || /bow|crossbow|sling|dart|blowgun/.test(name);
-  const isFinesse = props.includes('finesse') || /rapier|scimitar|dagger|shortsword|whip/.test(name);
+  const isFinesse = props.includes('finesse') || /rapier|scimitar|dagger|shortsword|whip|dart/.test(name);
 
   if (isRanged && !props.includes('thrown')) {
     return 'DEX';
@@ -129,18 +129,21 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   const archery = getArcheryBonus(weapon, char);
   const dueling = getDuelingBonus(weapon, char);
 
-  // 5. Misc
+  // 5. Misc & Global Equipment Bonuses
   const miscAttack = weapon.misc_attack_bonus ?? 0;
   const miscDamage = weapon.misc_damage_bonus ?? 0;
+  const globalAttack = char?.global_attack_bonus ?? 0;
+  const globalDamage = char?.global_damage_bonus ?? 0;
   const exhPenalty = exhaustionD20Penalty(char);
 
   // Attack Breakdown
-  const totalAttack = statMod + profBonus + magicBonus + archery + miscAttack - exhPenalty;
+  const totalAttack = statMod + profBonus + magicBonus + archery + miscAttack + globalAttack - exhPenalty;
   const attackParts: string[] = [];
   if (statName !== 'NONE') attackParts.push(`${statName} (${statMod >= 0 ? '+' + statMod : statMod})`);
   if (profBonus > 0) attackParts.push(`Prof (+${profBonus})`);
   if (magicBonus > 0) attackParts.push(`Magic (+${magicBonus})`);
   if (archery > 0) attackParts.push(`Archery (+${archery})`);
+  if (globalAttack !== 0) attackParts.push(`Gear (${globalAttack > 0 ? '+' + globalAttack : globalAttack})`);
   if (miscAttack !== 0) attackParts.push(`Misc (${miscAttack > 0 ? '+' + miscAttack : miscAttack})`);
   if (exhPenalty > 0) attackParts.push(`Exh (-${exhPenalty})`);
 
@@ -157,11 +160,12 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   const typeMatch = /\d\s*([a-zA-Z][a-zA-Z ]*)$/.exec(rawDice);
   const damageType = weapon.damage_type || (typeMatch ? typeMatch[1].trim() : '');
 
-  const totalDamageBonus = statMod + magicBonus + dueling + miscDamage;
+  const totalDamageBonus = statMod + magicBonus + dueling + miscDamage + globalDamage;
   const damageParts: string[] = [baseDice];
   if (statName !== 'NONE' && statMod !== 0) damageParts.push(`${statMod >= 0 ? '+' + statMod : statMod} (${statName})`);
   if (magicBonus > 0) damageParts.push(`+${magicBonus} (Magic)`);
   if (dueling > 0) damageParts.push(`+${dueling} (Dueling)`);
+  if (globalDamage !== 0) damageParts.push(`${globalDamage > 0 ? '+' + globalDamage : globalDamage} (Gear)`);
   if (miscDamage !== 0) damageParts.push(`${miscDamage > 0 ? '+' + miscDamage : miscDamage} (Misc)`);
 
   const bonusString = totalDamageBonus !== 0 ? (totalDamageBonus > 0 ? `+${totalDamageBonus}` : `${totalDamageBonus}`) : '';

@@ -49,6 +49,42 @@ def _is_safe_id(monster_id: str) -> bool:
     return True
 
 
+def _build_bestiary_filter_clauses(
+    edition: Optional[str],
+    cr: Optional[str],
+    monster_type: Optional[str],
+    search: Optional[str],
+) -> List[Dict[str, Any]]:
+    """Build normalized Mongo filter clauses shared by official and custom monster queries."""
+    clauses: List[Dict[str, Any]] = []
+    if edition is not None and str(edition).strip().lower() not in ("", "all"):
+        norm_ed = "2024" if "2024" in str(edition) else "2014"
+        clauses.append({"edition": {"$regex": norm_ed, "$options": "i"}})
+    if cr is not None and str(cr).strip() != "":
+        target_cr_str = str(cr).strip()
+        target_cr_num = RulesRepository._parse_cr_numeric(target_cr_str)
+        clauses.append(
+            {
+                "$or": [
+                    {"cr": target_cr_str},
+                    {
+                        "cr_numeric": {
+                            "$gte": target_cr_num - 1e-4,
+                            "$lte": target_cr_num + 1e-4,
+                        }
+                    },
+                ]
+            }
+        )
+    if monster_type is not None and str(monster_type).strip() != "":
+        safe_type = re.escape(str(monster_type).strip())
+        clauses.append({"type": {"$regex": safe_type, "$options": "i"}})
+    if search is not None and str(search).strip() != "":
+        safe_search = re.escape(str(search).strip())
+        clauses.append({"name": {"$regex": safe_search, "$options": "i"}})
+    return clauses
+
+
 @router.get("", response_model=List[Monster])
 async def list_monsters(
     edition: Optional[str] = Query(
@@ -86,15 +122,8 @@ async def list_monsters(
     if include_official:
         mongo_official_count = await db["official_monsters"].count_documents({})
         if mongo_official_count > 0:
-            query_off: Dict[str, Any] = {}
-            if edition:
-                query_off["edition"] = edition
-            if monster_type:
-                query_off["type"] = {"$regex": re.escape(monster_type), "$options": "i"}
-            if cr:
-                query_off["cr"] = str(cr).strip()
-            if search and search.strip():
-                query_off["name"] = {"$regex": re.escape(search.strip()), "$options": "i"}
+            off_clauses = _build_bestiary_filter_clauses(edition, cr, monster_type, search)
+            query_off: Dict[str, Any] = {"$and": off_clauses} if off_clauses else {}
 
             cursor_off = db["official_monsters"].find(query_off)
             docs_off = await cursor_off.to_list(5000)
@@ -140,38 +169,7 @@ async def list_monsters(
                 }
             )
 
-        # Edition Filter
-        if edition is not None and str(edition).strip().lower() not in ("", "all"):
-            norm_ed = "2024" if "2024" in str(edition) else "2014"
-            and_clauses.append({"edition": {"$regex": norm_ed, "$options": "i"}})
-
-        # CR Filter (string match or float numeric tolerance)
-        if cr is not None and str(cr).strip() != "":
-            target_cr_str = str(cr).strip()
-            target_cr_num = RulesRepository._parse_cr_numeric(target_cr_str)
-            and_clauses.append(
-                {
-                    "$or": [
-                        {"cr": target_cr_str},
-                        {
-                            "cr_numeric": {
-                                "$gte": target_cr_num - 1e-4,
-                                "$lte": target_cr_num + 1e-4,
-                            }
-                        },
-                    ]
-                }
-            )
-
-        # Monster Type Filter
-        if monster_type is not None and str(monster_type).strip() != "":
-            safe_type = re.escape(str(monster_type).strip())
-            and_clauses.append({"type": {"$regex": safe_type, "$options": "i"}})
-
-        # Search Query Filter (name matching)
-        if search is not None and str(search).strip() != "":
-            safe_search = re.escape(str(search).strip())
-            and_clauses.append({"name": {"$regex": safe_search, "$options": "i"}})
+        and_clauses.extend(_build_bestiary_filter_clauses(edition, cr, monster_type, search))
 
         query = {"$and": and_clauses} if and_clauses else {}
         cursor = db["custom_monsters"].find(query)

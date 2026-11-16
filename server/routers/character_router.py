@@ -35,7 +35,11 @@ from backend.services.character_import_service import (
 from backend.services.forge_service import process_character_update
 from backend.services.homebrew_service import HomebrewService
 from backend.services.rules_service import parse_character_from_text
-from backend.utils.image_utils import PORTRAIT_DIR, _secure_filename
+from backend.utils.image_utils import (
+    PORTRAIT_DIR,
+    _secure_filename,
+    stream_validated_image_upload,
+)
 from backend.utils.import_utils import FoundryImportError, import_vtt_character
 from backend.utils.path_safety import safe_path
 from backend.utils.pdf_exporter import export_character_to_pdf
@@ -295,48 +299,44 @@ async def upload_character_portrait(
 
     raw_filename = file.filename or ""
     file_extension = os.path.splitext(raw_filename)[1].lower()
-    allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
-    if file_extension not in allowed_exts:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported image extension '{file_extension}'. Allowed: {', '.join(sorted(allowed_exts))}",
-        )
-
     os.makedirs(PORTRAIT_DIR, exist_ok=True)
     unique_filename = f"{uuid.uuid4().hex}{file_extension}"
     file_path = safe_path(os.path.join(PORTRAIT_DIR, unique_filename), scope="portraits")
 
-    max_bytes = 10 * 1024 * 1024  # 10 MB
-    total_bytes = 0
-    try:
-        with open(file_path, "wb") as buffer:
-            while chunk := await file.read(1024 * 1024):
-                total_bytes += len(chunk)
-                if total_bytes > max_bytes:
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="Uploaded image exceeds maximum limit of 10 MB.",
-                    )
-                buffer.write(chunk)
-    except Exception:
+    await stream_validated_image_upload(file, file_path, file_extension)
+
+    portrait_url = f"{settings.API_V1_STR}/portraits/{unique_filename}"
+    raw_version = char_doc.get("version")
+    old_version = int(raw_version or 0)
+    new_version = old_version + 1
+    old_portrait = char_doc.get("char_portrait")
+
+    version_filter = (
+        {"$or": [{"version": 0}, {"version": None}, {"version": {"$exists": False}}]}
+        if raw_version in (None, 0)
+        else {"version": old_version}
+    )
+
+    update_res = await db["characters"].update_one(
+        {"char_id": char_id, "owner_id": current_user["id"], **version_filter},
+        {"$set": {"char_portrait": portrait_url, "version": new_version}},
+    )
+    if (
+        getattr(update_res, "matched_count", 0) == 0
+        and getattr(update_res, "modified_count", 0) == 0
+    ):
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except OSError:
                 pass
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently. Please refresh.",
+        )
 
-    portrait_url = f"{settings.API_V1_STR}/portraits/{unique_filename}"
-    new_version = int(char_doc.get("version", 0) or 0) + 1
-
-    old_portrait = char_doc.get("char_portrait")
     if old_portrait:
         await _cleanup_character_portraits(db, char_id, old_portrait)
-
-    await db["characters"].update_one(
-        {"char_id": char_id, "owner_id": current_user["id"]},
-        {"$set": {"char_portrait": portrait_url, "version": new_version}},
-    )
 
     return {
         "success": True,

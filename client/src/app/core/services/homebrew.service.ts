@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, shareReplay, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, of, shareReplay, switchMap, tap } from 'rxjs';
 import { campaignUrl } from '../config/api-urls';
 
 export interface HomebrewItem {
@@ -32,15 +32,29 @@ export class HomebrewService {
   }
 
   saveHomebrew(campaignName: string, item: Partial<HomebrewItem>): Observable<any> {
-    return this.http.post(campaignUrl(campaignName, 'homebrew'), { type: item.homebrew_type, data: item }).pipe(
-      tap(() => this.loadHomebrew(campaignName).subscribe())
-    );
+    return this.http
+      .post(campaignUrl(campaignName, 'homebrew'), { type: item.homebrew_type, data: item })
+      .pipe(
+        switchMap((res) =>
+          this.loadHomebrew(campaignName).pipe(
+            catchError(() => of([])),
+            map(() => res)
+          )
+        )
+      );
   }
 
   deleteHomebrew(campaignName: string, itemId: string): Observable<any> {
-    return this.http.delete(campaignUrl(campaignName, `homebrew/${encodeURIComponent(itemId)}`)).pipe(
-      tap(() => this.loadHomebrew(campaignName).subscribe())
-    );
+    return this.http
+      .delete(campaignUrl(campaignName, `homebrew/${encodeURIComponent(itemId)}`))
+      .pipe(
+        switchMap((res) =>
+          this.loadHomebrew(campaignName).pipe(
+            catchError(() => of([])),
+            map(() => res)
+          )
+        )
+      );
   }
 
   exportHomebrew(campaignName: string): Observable<any> {
@@ -71,8 +85,15 @@ export class HomebrewService {
   }
 
   importHomebrew(campaignName: string, items: any[]): Observable<any> {
-    return this.http.post(campaignUrl(campaignName, 'homebrew/import'), { items }).pipe(
-      tap(() => this.loadHomebrew(campaignName).subscribe())
-    );
+    return this.http
+      .post(campaignUrl(campaignName, 'homebrew/import'), { items })
+      .pipe(
+        switchMap((res) =>
+          this.loadHomebrew(campaignName).pipe(
+            catchError(() => of([])),
+            map(() => res)
+          )
+        )
+      );
   }
 }

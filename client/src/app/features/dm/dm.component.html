@@ -351,6 +351,7 @@
             class="block min-w-0"
             role="tabpanel"
             aria-labelledby="dm-tabs-live-tab-notes"
+            [campaignName]="campaignName"
             [(campaignNotes)]="campaignNotes"
             (saveNotes)="saveCampaignNotes()"
           ></app-notes-panel>

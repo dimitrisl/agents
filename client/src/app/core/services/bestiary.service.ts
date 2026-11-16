@@ -27,11 +27,13 @@ export class BestiaryService {
 
   /**
    * Search and filter Bestiary monsters from backend API.
-   * Updates `monsters`, `isLoading`, and `error` signals.
+   * Updates `monsters`, `isLoading`, and `error` signals when `syncSignal` is true.
    */
-  getMonsters(filters: BestiaryFilterParams = {}): Observable<BestiaryMonster[]> {
-    this.isLoading.set(true);
-    this.error.set(null);
+  getMonsters(filters: BestiaryFilterParams = {}, syncSignal: boolean = true): Observable<BestiaryMonster[]> {
+    if (syncSignal) {
+      this.isLoading.set(true);
+      this.error.set(null);
+    }
 
     let params = new HttpParams();
 
@@ -71,13 +73,17 @@ export class BestiaryService {
         return monsters;
       }),
       tap((monsters) => {
-        this.monsters.set(monsters);
-        this.isLoading.set(false);
+        if (syncSignal) {
+          this.monsters.set(monsters);
+          this.isLoading.set(false);
+        }
       }),
       catchError((err) => {
-        const errorMsg = err?.error?.detail || 'Failed to load monsters from bestiary.';
-        this.error.set(errorMsg);
-        this.isLoading.set(false);
+        if (syncSignal) {
+          const errorMsg = err?.error?.detail || 'Failed to load monsters from bestiary.';
+          this.error.set(errorMsg);
+          this.isLoading.set(false);
+        }
         return throwError(() => err);
       })
     );

@@ -335,7 +335,7 @@ class CharacterImportService:
                     sk_name = SKILL_NAME_MAP[sub_type]
                     if sk_name not in skill_proficiencies:
                         skill_proficiencies.append(sk_name)
-            elif m_type in ("expertise", "half-proficiency"):
+            elif m_type == "expertise":
                 if sub_type in SKILL_NAME_MAP:
                     sk_name = SKILL_NAME_MAP[sub_type]
                     if sk_name not in skill_expertise:
@@ -557,7 +557,7 @@ class CharacterImportService:
             "initiative_modifier": dex_mod,
             "hp_max": hp_max,
             "hp_current": hp_current,
-            "temp_hp": temp_hp,
+            "hp_temp": temp_hp,
             "hit_dice": hit_dice,
             "currency": currency,
             "weapons": weapons,

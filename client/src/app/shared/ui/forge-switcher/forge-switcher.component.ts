@@ -2,11 +2,13 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  DestroyRef,
   ElementRef,
   EventEmitter,
   Input,
   Output,
   ViewChild,
+  inject,
 } from '@angular/core';
 import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition } from '@angular/cdk/overlay';
 import { CdkListbox, CdkOption, ListboxValueChangeEvent } from '@angular/cdk/listbox';
@@ -58,8 +60,25 @@ export class ForgeSwitcherComponent {
     { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 6 },
     { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -6 },
   ];
+  private readonly destroyRef = inject(DestroyRef);
+  private pendingTimers = new Set<ReturnType<typeof setTimeout>>();
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(private cdr: ChangeDetectorRef) {
+    this.destroyRef.onDestroy(() => {
+      for (const timer of this.pendingTimers) {
+        clearTimeout(timer);
+      }
+      this.pendingTimers.clear();
+    });
+  }
+
+  private scheduleTimer(fn: () => void): void {
+    const id = setTimeout(() => {
+      this.pendingTimers.delete(id);
+      fn();
+    });
+    this.pendingTimers.add(id);
+  }
 
   get selected(): ForgeSwitcherOption | undefined {
     return this.options.find((option) => option.id === this.value);
@@ -90,7 +109,7 @@ export class ForgeSwitcherComponent {
 
   onAttached(): void {
     // Hand the keyboard to the list: arrows move, Enter/Space picks, typing jumps.
-    setTimeout(() => this.listbox?.focus());
+    this.scheduleTimer(() => this.listbox?.focus());
   }
 
   onKeydown(event: KeyboardEvent): void {
@@ -115,6 +134,6 @@ export class ForgeSwitcherComponent {
    * emits no value change; close anyway, after the listbox has handled the event.
    */
   onSelectionGesture(): void {
-    setTimeout(() => this.close(true));
+    this.scheduleTimer(() => this.close(true));
   }
 }

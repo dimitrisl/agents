@@ -73,12 +73,15 @@ export class CharacterStateService {
       }
     });
 
-    if (typeof document !== 'undefined' && document.documentElement) {
-      document.documentElement.setAttribute(
-        'data-edition',
-        this.dndEdition().includes('2024') ? '2024' : '2014'
-      );
-    }
+    effect(() => {
+      const edition = this.dndEdition();
+      if (typeof document !== 'undefined' && document.documentElement) {
+        document.documentElement.setAttribute(
+          'data-edition',
+          edition.includes('2024') ? '2024' : '2014'
+        );
+      }
+    });
   }
 
   /**
@@ -210,6 +213,11 @@ export class CharacterStateService {
     this.vaultStatus.set('idle');
     this.isOfflineCached.set(false);
     this.clearActiveSnapshot();
+    try {
+      localStorage.removeItem(ACTIVE_CHARACTER_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
     this.inFlight$ = null;
     this.characters.set([]);
     this.activeCharacter.set(null);
@@ -285,10 +293,6 @@ export class CharacterStateService {
     const current = this.dndEdition();
     const next = current === '2014 Edition' ? '2024 Revision (5.5e)' : '2014 Edition';
     this.dndEdition.set(next);
-    document.documentElement.setAttribute(
-      'data-edition',
-      next.includes('2024') ? '2024' : '2014'
-    );
 
     // Auto switch active character to match the new edition
     const available = this.filteredCharacters();

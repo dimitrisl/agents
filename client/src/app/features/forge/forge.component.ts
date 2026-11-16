@@ -1,4 +1,5 @@
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Observable, Subject, of } from 'rxjs';
 import { switchMap, tap, catchError } from 'rxjs/operators';
@@ -6,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
+import { WakeLockService } from '../../core/services/wake-lock.service';
 import { CharacterSchema } from '../../core/models/character.model';
 import { environment } from '../../../environments/environment';
 import {
@@ -52,12 +54,15 @@ const PENDING_GEN_STORAGE_KEY = 'phyrexian_forge_pending_generation';
   templateUrl: './forge.component.html',
 })
 export class ForgeComponent implements OnInit, OnDestroy {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly wakeLock = inject(WakeLockService);
   readonly subclassLockHint = 'Subclasses unlock at higher levels depending on class and edition';
   Math = Math;
   activeTab: 'ai' | 'manual' | 'import' = 'ai';
   loading = false;
   tempForgedChar: CharacterSchema | null = null;
   generationInterruptedNotice = false;
+  saveError: string | null = null;
 
   // Forging Progress Modal State
   isForgingModalOpen = false;
@@ -65,7 +70,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
   forgeCurrentPhaseIndex = 0;
   forgingError: string | null = null;
   private progressInterval: any = null;
-  private wakeLockSentinel: any = null;
+  private finishModalTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly forgePhases = [
     {
@@ -277,7 +282,11 @@ export class ForgeComponent implements OnInit, OnDestroy {
     if (this.progressInterval) {
       clearInterval(this.progressInterval);
     }
-    this.releaseWakeLock();
+    if (this.finishModalTimer) {
+      clearTimeout(this.finishModalTimer);
+      this.finishModalTimer = null;
+    }
+    this.wakeLock.disable();
   }
 
   saveAiDraft(): void {
@@ -380,23 +389,12 @@ export class ForgeComponent implements OnInit, OnDestroy {
     } catch {}
   }
 
-  private async requestWakeLock(): Promise<void> {
-    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-      try {
-        this.wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
-      } catch {
-        // WakeLock may be rejected on low battery or inactive tabs; ignore safely
-      }
-    }
+  private requestWakeLock(): void {
+    this.wakeLock.enable();
   }
 
   private releaseWakeLock(): void {
-    if (this.wakeLockSentinel) {
-      try {
-        this.wakeLockSentinel.release().catch(() => {});
-      } catch {}
-      this.wakeLockSentinel = null;
-    }
+    this.wakeLock.disable();
   }
 
   toggleEditionAndRefresh() {
@@ -693,9 +691,13 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.clearPendingGeneration();
     this.releaseWakeLock();
 
-    setTimeout(() => {
+    if (this.finishModalTimer) {
+      clearTimeout(this.finishModalTimer);
+    }
+    this.finishModalTimer = setTimeout(() => {
       this.loading = false;
       this.isForgingModalOpen = false;
+      this.finishModalTimer = null;
     }, 600);
   }
 
@@ -837,9 +839,12 @@ export class ForgeComponent implements OnInit, OnDestroy {
   acceptAndEquipHero() {
     if (!this.tempForgedChar) return;
     this.loading = true;
+    this.saveError = null;
     const heroToSave = { ...this.tempForgedChar };
 
-    this.charState.saveCharacter(heroToSave).subscribe({
+    this.charState.saveCharacter(heroToSave)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (saved) => {
         this.loading = false;
 
@@ -855,15 +860,9 @@ export class ForgeComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loading = false;
-        console.error('Failed to save character to DB:', err);
-        alert('Error saving character to database. Check console for details. ' + (err.error?.detail || err.message));
-
-        // Force local fallback so player can still play, but warn them
-        this.charState.activeCharacter.set(heroToSave);
-        const list = this.charState.characters();
-        this.charState.characters.set([...list, heroToSave]);
-        this.clearTempHero();
-        this.router.navigate(['/player']);
+        const msg = err?.error?.detail || err?.message || 'Could not save character to database. Please try again.';
+        this.saveError = msg;
+        this.rollToast.showMessage('⚠️ SAVE FAILED', msg);
       }
     });
   }

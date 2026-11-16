@@ -305,7 +305,7 @@ async def get_spells(
     if char_class and char_level is not None:
         from backend.services.stats_service import calculate_max_spell_slots
 
-        max_slots = calculate_max_spell_slots(char_class, char_level, None)
+        max_slots = calculate_max_spell_slots(char_class, char_level, None, edition=edition)
         max_spell_level = 0
         for i in range(1, 10):
             if max_slots.get(f"level_{i}", 0) > 0:

@@ -38,9 +38,10 @@ def get_level_up_vitals(
     con_score: int,
     edition: str = "2014 Edition",
     features: List[dict] = None,
+    subclass: str = None,
 ) -> dict:
     """
-    Returns standard level-up vitals (hit die, average HP gain).
+    Returns deterministic level-up vitals (hit die, average HP gain, max legal HP gain).
     """
     hit_die_str = get_hit_die_for_class(char_class, edition)
     if not hit_die_str.startswith("1"):
@@ -54,6 +55,8 @@ def get_level_up_vitals(
     con_mod = get_modifier(con_score)
 
     hp_bonus_per_level = 0
+    is_sorcerer_level = (char_class or "").strip().lower() == "sorcerer"
+    has_draconic_hp = False
     if features:
         from backend.repositories.rules_repository import RulesRepository
 
@@ -70,6 +73,12 @@ def get_level_up_vitals(
 
                 if "dwarven toughness" in full_text:
                     hp_bonus_per_level += 1
+                    continue
+                if "draconic resilience" in full_text:
+                    # Draconic Resilience grants +1 HP strictly when gaining a Sorcerer level
+                    if is_sorcerer_level and not has_draconic_hp:
+                        hp_bonus_per_level += 1
+                        has_draconic_hp = True
                     continue
 
                 feat_name = (
@@ -88,7 +97,15 @@ def get_level_up_vitals(
                 if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
                     hp_bonus_per_level += feat_data["hp_bonus_per_level"]
 
+    if (
+        not has_draconic_hp
+        and (char_class or "").strip().lower() == "sorcerer"
+        and "draconic" in (subclass or "").lower()
+    ):
+        hp_bonus_per_level += 1
+
     avg_gain = (die_size // 2) + 1 + con_mod + hp_bonus_per_level
+    max_gain = die_size + con_mod + hp_bonus_per_level
 
     return {
         "hit_die": hit_die_str,
@@ -96,6 +113,7 @@ def get_level_up_vitals(
         "con_mod": con_mod,
         "hp_bonus_per_level": hp_bonus_per_level,
         "average_hp_gain": max(1, avg_gain),
+        "max_hp_gain": max(1, max_gain),
     }
 
 

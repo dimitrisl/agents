@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, Output, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective } from '../../../../shared/ui';
+import { EMPTY, Subject, catchError, switchMap } from 'rxjs';
+import { ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent } from '../../../../shared/ui';
 import {
   LevelUpAnalysis,
   LevelUpBuildRecommendation,
@@ -17,16 +19,47 @@ import { environment } from '../../../../../environments/environment';
 @Component({
   selector: 'app-level-up-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent],
   templateUrl: './level-up-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LevelUpModalComponent {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly recommendationsTrigger$ = new Subject<void>();
+
   constructor(
     private dice: DiceService,
     private http: HttpClient,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) {
+    this.recommendationsTrigger$
+      .pipe(
+        switchMap(() => {
+          if (!this.character) return EMPTY;
+          return this.http
+            .post<LevelUpRecommendationsResponse>(`${environment.apiBaseUrl}/forge/level-up-recommendations`, {
+              character: this.character,
+              target_class: this.levelUpClass,
+              target_level: this.planningClassLevel,
+            })
+            .pipe(
+              catchError(() => {
+                this.recommendationsError =
+                  'Could not load build recommendations at this time. You can still proceed with manual choices.';
+                this.isLoadingRecommendations = false;
+                this.cdr.markForCheck();
+                return EMPTY;
+              })
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        this.buildRecommendations = res?.builds || [];
+        this.isLoadingRecommendations = false;
+        this.cdr.markForCheck();
+      });
+  }
 
   @Input() open = false;
   @Input() character: CharacterSchema | null = null;
@@ -101,6 +134,16 @@ export class LevelUpModalComponent {
     return abilityModifier(this.character?.stats?.CON || 10);
   }
 
+  get perLevelHpBonus(): number {
+    if (typeof this.levelUpAnalysis?.hp_bonus_per_level === 'number') {
+      return Math.max(0, this.levelUpAnalysis.hp_bonus_per_level);
+    }
+    if (!this.levelUpAnalysis) return 0;
+    const avgBaseGain = Math.floor(this.levelUpHitDie / 2) + 1 + this.conModifier;
+    if (avgBaseGain < 1) return 0;
+    return Math.max(0, this.levelUpAnalysis.hp_increase - avgBaseGain);
+  }
+
   get planningClassLevel(): number {
     return this.planningLevel ?? this.targetClassLevel;
   }
@@ -132,23 +175,7 @@ export class LevelUpModalComponent {
     this.isLoadingRecommendations = true;
     this.recommendationsError = null;
     this.showRecommendations = true;
-
-    this.http.post<LevelUpRecommendationsResponse>(`${environment.apiBaseUrl}/forge/level-up-recommendations`, {
-      character: this.character,
-      target_class: this.levelUpClass,
-      target_level: this.planningClassLevel,
-    }).subscribe({
-      next: (res) => {
-        this.buildRecommendations = res?.builds || [];
-        this.isLoadingRecommendations = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.recommendationsError = 'Could not load build recommendations at this time. You can still proceed with manual choices.';
-        this.isLoadingRecommendations = false;
-        this.cdr.markForCheck();
-      }
-    });
+    this.recommendationsTrigger$.next();
   }
 
   onClassChange(val: string) {
@@ -179,9 +206,9 @@ export class LevelUpModalComponent {
     if (!this.character) return;
 
     const dieSize = this.levelUpHitDie;
-    const conBonus = this.conModifier;
+    const bonus = this.conModifier + this.perLevelHpBonus;
 
-    const roll = this.dice.roll({ numDice: 1, sides: dieSize, modifier: conBonus });
+    const roll = this.dice.roll({ numDice: 1, sides: dieSize, modifier: bonus });
     // D&D HP gain minimum is 1
     const finalHpGain = Math.max(1, roll.total);
 

@@ -18,15 +18,15 @@
       <button
         type="button"
         (click)="setRollMode('advantage')"
-        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
-        [ngClass]="rollMode === 'advantage' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-muted hover:text-emerald-400'"
+        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+        [ngClass]="rollMode === 'advantage' ? 'bg-emerald/20 text-emerald border border-emerald/40' : 'text-muted hover:text-emerald'"
       >
         <span>▲ Adv</span>
       </button>
       <button
         type="button"
         (click)="setRollMode('disadvantage')"
-        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
+        class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
         [ngClass]="rollMode === 'disadvantage' ? 'bg-crimson/20 text-crimson border border-crimson/40' : 'text-muted hover:text-crimson'"
       >
         <span>▼ Dis</span>
@@ -47,10 +47,10 @@
         *ngFor="let sides of [4, 6, 8, 10, 12, 20, 100]"
         type="button"
         (click)="addDie(sides)"
-        class="relative h-14 min-h-12.5 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline transition-all flex flex-col items-center justify-center cursor-pointer group"
+        class="relative h-14 min-h-12.5 rounded-xl bg-panel hover:bg-tile border border-hairline transition-colors flex flex-col items-center justify-center cursor-pointer group"
       >
         <span class="font-display font-extrabold text-lg text-ink">d{{ sides }}</span>
-        <span *ngIf="dicePool()[sides] > 0" class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-accent text-surface text-[10px] font-black rounded-full shadow-md animate-scaleIn">
+        <span *ngIf="dicePool()[sides] > 0" class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-accent text-surface text-[10px] font-black rounded-full shadow-md">
           {{ dicePool()[sides] }}
         </span>
       </button>
@@ -59,7 +59,7 @@
       <button
         type="button"
         (click)="clearPool()"
-        class="h-14 min-h-12.5 rounded-xl bg-surface hover:bg-tile active:scale-95 border border-hairline text-xs font-bold text-muted uppercase transition-all flex items-center justify-center cursor-pointer"
+        class="h-14 min-h-12.5 rounded-xl bg-surface hover:bg-tile border border-hairline text-xs font-bold text-muted uppercase transition-colors flex items-center justify-center cursor-pointer"
         title="Clear dice pool"
       >
         Clear
@@ -72,8 +72,9 @@
       <div class="flex items-center gap-3">
         <button
           type="button"
+          aria-label="Decrease modifier"
           (click)="adjustModifier(-1)"
-          class="w-8 h-8 rounded-lg bg-tile hover:bg-tile/80 active:scale-95 text-ink font-bold flex items-center justify-center border border-hairline cursor-pointer"
+          class="min-w-11 min-h-11 rounded-lg bg-tile hover:bg-tile/80 text-ink font-bold flex items-center justify-center border border-hairline cursor-pointer transition-colors"
         >
           −
         </button>
@@ -82,8 +83,9 @@
         </span>
         <button
           type="button"
+          aria-label="Increase modifier"
           (click)="adjustModifier(1)"
-          class="w-8 h-8 rounded-lg bg-tile hover:bg-tile/80 active:scale-95 text-ink font-bold flex items-center justify-center border border-hairline cursor-pointer"
+          class="min-w-11 min-h-11 rounded-lg bg-tile hover:bg-tile/80 text-ink font-bold flex items-center justify-center border border-hairline cursor-pointer transition-colors"
         >
           +
         </button>
@@ -117,16 +119,16 @@
     <!-- Last Roll Result Card -->
     <div
       *ngIf="lastRoll() as lr"
-      class="mt-1 p-3 rounded-xl border bg-panel transition-all"
+      class="mt-1 p-3 rounded-xl border bg-panel transition-colors"
       [ngClass]="{
-        'border-emerald-500/50 bg-emerald-950/20': lr.isCritSuccess,
-        'border-crimson/50 bg-red-950/20': lr.isCritFail,
+        'border-emerald/50 bg-emerald/10': lr.isCritSuccess,
+        'border-crimson/50 bg-crimson/10': lr.isCritFail,
         'border-accent/40': !lr.isCritSuccess && !lr.isCritFail
       }"
     >
       <div class="flex items-center justify-between">
         <span class="text-micro font-bold uppercase text-muted">Last Roll Result</span>
-        <span *ngIf="lr.isCritSuccess" class="text-xs font-black text-emerald-400">💥 NATURAL 20!</span>
+        <span *ngIf="lr.isCritSuccess" class="text-xs font-black text-emerald">💥 NATURAL 20!</span>
         <span *ngIf="lr.isCritFail" class="text-xs font-black text-crimson">💀 CRITICAL FAIL!</span>
       </div>
       <div class="flex items-baseline justify-between mt-1">

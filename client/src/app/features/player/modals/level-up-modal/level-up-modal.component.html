@@ -34,7 +34,7 @@
         <span *ngIf="!showRecommendations">✨ View 3 Build Suggestions</span>
         <span *ngIf="showRecommendations && !isLoadingRecommendations">Hide Suggestions</span>
         <span *ngIf="isLoadingRecommendations" class="flex items-center gap-1.5">
-          <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gold border-t-transparent"></span>
+          <forge-spinner size="sm" tone="current" label="Analyzing build suggestions" />
           Analyzing...
         </span>
       </button>
@@ -55,14 +55,14 @@
 
     <!-- Loading State -->
     <div *ngIf="showRecommendations && isLoadingRecommendations" class="mt-4 flex flex-col items-center justify-center rounded-lg border border-hairline bg-tile/50 p-6 text-center">
-      <div class="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent"></div>
+      <forge-spinner class="mb-2" size="md" label="Analyzing character synergies" />
       <p class="text-body font-semibold text-ink">Analyzing character synergies and tactical options...</p>
       <p class="text-micro text-muted">Consulting ruleset and progression for {{ levelUpClass }}.</p>
     </div>
 
     <!-- Error State -->
-    <div *ngIf="showRecommendations && !isLoadingRecommendations && recommendationsError" class="mt-4 rounded border border-rose-500/30 bg-rose-500/10 p-3 text-center">
-      <p class="text-body text-rose-300">{{ recommendationsError }}</p>
+    <div *ngIf="showRecommendations && !isLoadingRecommendations && recommendationsError" class="mt-4 rounded border border-crimson/30 bg-crimson/10 p-3 text-center">
+      <p class="text-body text-crimson">{{ recommendationsError }}</p>
       <button forgeButton variant="secondary" size="sm" type="button" class="mt-2" (click)="fetchRecommendations()">
         🔄 Retry
       </button>
@@ -138,10 +138,10 @@
               </ul>
             </div>
             <div>
-              <span class="text-micro font-semibold uppercase tracking-wider text-amber">Cons:</span>
+              <span class="text-micro font-semibold uppercase tracking-wider text-gold">Cons:</span>
               <ul class="mt-1 space-y-0.5">
                 <li *ngFor="let con of build.cons" class="flex items-start gap-1 text-micro text-muted">
-                  <span class="text-amber font-bold">•</span>
+                  <span class="text-gold font-bold">•</span>
                   <span>{{ con }}</span>
                 </li>
               </ul>
@@ -182,7 +182,7 @@
           [class.ring-emerald]="userChoices['hp_method'] === 'roll'"
           [disabled]="userChoices['hp_method'] === 'roll'"
           (click)="rollHp()">
-          <span *ngIf="userChoices['hp_method'] !== 'roll'">🎲 Roll 1d{{ levelUpHitDie }} {{ conModifier >= 0 ? '+' : '' }}{{ conModifier }}</span>
+          <span *ngIf="userChoices['hp_method'] !== 'roll'">🎲 Roll 1d{{ levelUpHitDie }} {{ (conModifier + perLevelHpBonus) >= 0 ? '+' : '' }}{{ conModifier + perLevelHpBonus }}</span>
           <span *ngIf="userChoices['hp_method'] === 'roll'">🎲 Rolled: +{{ userChoices['custom_hp_increase'] }}</span>
         </button>
       </div>

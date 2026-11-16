@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 import re
+from typing import Any
 
 from backend.core.ai_client import generate_ai_json, generate_ai_response
 from backend.core.constants import EDITION_2014, EDITION_2024
@@ -24,7 +25,6 @@ def _get_rules_repo():
     return RulesRepository()
 
 
-@functools.lru_cache(maxsize=128)
 def query_rules(query: str, edition: str = EDITION_2014) -> str:
     """Uses AI to answer questions about D&D rules."""
     prompt = RULES_ORACLE_PROMPT.format(
@@ -34,7 +34,6 @@ def query_rules(query: str, edition: str = EDITION_2014) -> str:
     return generate_ai_response(prompt)
 
 
-@functools.lru_cache(maxsize=128)
 def compare_rules(query: str) -> str:
     """Uses AI to compare 2014 and 2024 rules."""
     prompt = RULE_COMPARISON_PROMPT.format(query=query)
@@ -681,11 +680,96 @@ def parse_character_from_text(
     final_raw = merged
     final_raw["dnd_edition"] = edition
 
-    # Synchronize derived stats according to edition rules
-    from backend.services.stats_service import sync_character_stats
+    # Strip LLM-guessed derived math so deterministic rules calculations own them.
+    # For imported PDFs, preserve hp_max ONLY when within legal D&D Hit Die bounds.
+    from backend.services.progression_service import get_level_up_vitals
+    from backend.services.stats_service import strip_derived_character_fields, sync_character_stats
+
+    strip_derived_character_fields(final_raw, strip_hp=False, strip_weapon_bonuses=False)
+
+    def _safe_int(val: Any, default: int) -> int:
+        if isinstance(val, bool) or val is None:
+            return default
+        try:
+            return int(float(val))
+        except (TypeError, ValueError):
+            return default
+
+    parsed_level = max(1, min(20, _safe_int(final_raw.get("char_level"), 1)))
+    final_raw["char_level"] = parsed_level
+    raw_stats = final_raw.get("stats") if isinstance(final_raw.get("stats"), dict) else {}
+    stat_keys = ("STR", "DEX", "CON", "INT", "WIS", "CHA")
+    parsed_stats = {k: max(1, min(30, _safe_int(raw_stats.get(k), 10))) for k in stat_keys}
+    final_raw["stats"] = parsed_stats
+    parsed_con = parsed_stats["CON"]
+
+    raw_classes = final_raw.get("classes")
+    valid_classes = (
+        [c for c in raw_classes if isinstance(c, dict) and c.get("class_name")]
+        if isinstance(raw_classes, list)
+        else []
+    )
+    if valid_classes:
+        min_legal_hp = 0
+        max_legal_hp = 0
+        total_cls_levels = 0
+        for cls_entry in valid_classes:
+            cls_name = str(cls_entry.get("class_name") or "Fighter")
+            cls_lvl = max(1, min(20, _safe_int(cls_entry.get("level"), 1)))
+            cls_sub = cls_entry.get("subclass") or final_raw.get("subclass")
+            cls_vitals = get_level_up_vitals(
+                char_class=cls_name,
+                current_level=cls_lvl,
+                con_score=parsed_con,
+                edition=edition,
+                features=final_raw.get("features_traits", []),
+                subclass=cls_sub,
+            )
+            min_legal_hp += cls_lvl * max(
+                1, 1 + cls_vitals["con_mod"] + cls_vitals["hp_bonus_per_level"]
+            )
+            max_legal_hp += cls_lvl * cls_vitals["max_hp_gain"]
+            total_cls_levels += cls_lvl
+        if total_cls_levels > 0:
+            parsed_level = total_cls_levels
+    else:
+        parsed_vitals = get_level_up_vitals(
+            char_class=str(final_raw.get("char_class") or "Fighter"),
+            current_level=parsed_level,
+            con_score=parsed_con,
+            edition=edition,
+            features=final_raw.get("features_traits", []),
+            subclass=final_raw.get("subclass"),
+        )
+        min_legal_hp = parsed_level * max(
+            1, 1 + parsed_vitals["con_mod"] + parsed_vitals["hp_bonus_per_level"]
+        )
+        max_legal_hp = parsed_level * parsed_vitals["max_hp_gain"]
+
+    raw_hp = final_raw.get("hp_max")
+    hp_max_rejected = False
+    if raw_hp is not None:
+        try:
+            hp_int = int(raw_hp)
+            if hp_int < min_legal_hp or hp_int > max_legal_hp:
+                final_raw.pop("hp_max", None)
+                hp_max_rejected = True
+        except (TypeError, ValueError):
+            final_raw.pop("hp_max", None)
+            hp_max_rejected = True
 
     class_data = _get_rules_repo().get_class_progression(final_raw.get("char_class", ""), edition)
     final_raw = sync_character_stats(final_raw, class_data, homebrew_content=homebrew_content)
+    synced_hp_max = int(final_raw.get("hp_max") or 10)
+    if hp_max_rejected or final_raw.get("hp_current") is None:
+        final_raw["hp_current"] = synced_hp_max
+    else:
+        raw_cur = final_raw.get("hp_current")
+        try:
+            cur_int = int(raw_cur)
+            final_raw["hp_current"] = max(0, min(synced_hp_max, cur_int))
+        except (TypeError, ValueError):
+            final_raw["hp_current"] = synced_hp_max
 
     try:
         # Validate against schema to ensure data integrity
@@ -728,6 +812,9 @@ def parse_character_from_text(
                 fallback_data[key] = final_raw[key]
 
         try:
+            fallback_data = sync_character_stats(fallback_data)
+            if fallback_data.get("hp_current") is None:
+                fallback_data["hp_current"] = fallback_data.get("hp_max", 10)
             validated = CharacterSchema.model_validate(fallback_data, strict=False)
             return validated.model_dump()
         except Exception as fallback_err:
@@ -747,6 +834,9 @@ def parse_character_from_text(
             ]:
                 if final_raw.get(k):
                     default_char[k] = final_raw[k]
+            default_char["dnd_edition"] = edition
+            default_char = sync_character_stats(default_char)
+            default_char["hp_current"] = default_char.get("hp_max", 10)
             return default_char
 
 

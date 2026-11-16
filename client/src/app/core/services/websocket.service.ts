@@ -50,6 +50,7 @@ export class WebSocketService {
   private manuallyClosed = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private lastMessageAt = 0;
+  private lastOfflineToastAt = 0;
 
   public messages$ = new Subject<WsMessage>();
   public vttState = signal<VTTState | null>(null);
@@ -293,48 +294,58 @@ export class WebSocketService {
       this.socket.send(JSON.stringify(msg));
       return true;
     }
-    console.warn('[WebSocket] Cannot send message, socket is not open');
+    console.warn(`[WebSocket] Cannot send '${msg.type}' message, socket is not open`);
+    if (msg.type !== 'ping') {
+      const now = Date.now();
+      if (now - this.lastOfflineToastAt > 5000) {
+        this.lastOfflineToastAt = now;
+        this.toast?.showMessage(
+          '⚠️ LIVE TABLE OFFLINE',
+          'Action was not sent to the live table — connection is offline.'
+        );
+      }
+    }
     return false;
   }
 
   // --- VTT Helpers ---
-  public sendVttToggle(isActive: boolean): void {
-    this.sendMessage({ type: 'vtt_toggle', payload: { is_active: isActive } });
+  public sendVttToggle(isActive: boolean): boolean {
+    return this.sendMessage({ type: 'vtt_toggle', payload: { is_active: isActive } });
   }
 
-  public sendVttMove(tokenId: string, x: number, y: number): void {
-    this.sendMessage({ type: 'vtt_token_move', payload: { token_id: tokenId, x, y } });
+  public sendVttMove(tokenId: string, x: number, y: number): boolean {
+    return this.sendMessage({ type: 'vtt_token_move', payload: { token_id: tokenId, x, y } });
   }
 
-  public sendVttAddToken(token: VTTToken): void {
-    this.sendMessage({ type: 'vtt_add_token', payload: { token } });
+  public sendVttAddToken(token: VTTToken): boolean {
+    return this.sendMessage({ type: 'vtt_add_token', payload: { token } });
   }
 
-  public sendVttRemoveToken(tokenId: string): void {
-    this.sendMessage({ type: 'vtt_remove_token', payload: { token_id: tokenId } });
+  public sendVttRemoveToken(tokenId: string): boolean {
+    return this.sendMessage({ type: 'vtt_remove_token', payload: { token_id: tokenId } });
   }
 
-  public sendVttUpdateGrid(grid: Partial<VTTGrid>): void {
-    this.sendMessage({ type: 'vtt_update_grid', payload: { grid } });
+  public sendVttUpdateGrid(grid: Partial<VTTGrid>): boolean {
+    return this.sendMessage({ type: 'vtt_update_grid', payload: { grid } });
   }
 
-  public sendVttFogToggle(enabled: boolean): void {
-    this.sendMessage({ type: 'vtt_fog_toggle', payload: { enabled } });
+  public sendVttFogToggle(enabled: boolean): boolean {
+    return this.sendMessage({ type: 'vtt_fog_toggle', payload: { enabled } });
   }
 
-  public sendVttFogReveal(cells?: number[][], rect?: { x: number; y: number; w: number; h: number }): void {
-    this.sendMessage({ type: 'vtt_fog_reveal', payload: { cells, rect } });
+  public sendVttFogReveal(cells?: number[][], rect?: { x: number; y: number; w: number; h: number }): boolean {
+    return this.sendMessage({ type: 'vtt_fog_reveal', payload: { cells, rect } });
   }
 
-  public sendVttFogHide(cells?: number[][], rect?: { x: number; y: number; w: number; h: number }): void {
-    this.sendMessage({ type: 'vtt_fog_hide', payload: { cells, rect } });
+  public sendVttFogHide(cells?: number[][], rect?: { x: number; y: number; w: number; h: number }): boolean {
+    return this.sendMessage({ type: 'vtt_fog_hide', payload: { cells, rect } });
   }
 
-  public sendVttFogRevealAll(): void {
-    this.sendMessage({ type: 'vtt_fog_reveal_all', payload: {} });
+  public sendVttFogRevealAll(): boolean {
+    return this.sendMessage({ type: 'vtt_fog_reveal_all', payload: {} });
   }
 
-  public sendVttFogHideAll(): void {
-    this.sendMessage({ type: 'vtt_fog_hide_all', payload: {} });
+  public sendVttFogHideAll(): boolean {
+    return this.sendMessage({ type: 'vtt_fog_hide_all', payload: {} });
   }
 }

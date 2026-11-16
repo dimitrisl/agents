@@ -53,22 +53,25 @@ class RulesRepository:
         Loads the progression data for a specific class and edition.
         Results are cached in module-level dict to avoid instance-level memory leaks.
         """
+        if not class_name:
+            return None
         edition_dir = _norm_edition(edition)
         cache_key = (class_name.lower(), edition_dir)
         if cache_key in _class_progression_cache:
-            return _class_progression_cache[cache_key]
+            return copy.deepcopy(_class_progression_cache[cache_key])
 
-        filename = f"{class_name.lower().replace(' ', '_')}.json"
-        filepath = os.path.join(RULES_DIR, edition_dir, filename)
-
-        if not os.path.exists(filepath):
+        safe_cls = os.path.basename(class_name.lower().replace(" ", "_"))
+        filename = f"{safe_cls}.json"
+        base_dir = os.path.realpath(os.path.join(RULES_DIR, edition_dir))
+        filepath = os.path.realpath(os.path.join(base_dir, filename))
+        if os.path.commonpath([base_dir, filepath]) != base_dir or not os.path.exists(filepath):
             logger.warning(f"No progression data found for {class_name} ({edition}) at {filepath}")
             _class_progression_cache[cache_key] = None
             return None
 
         result = _load_json(filepath)
         _class_progression_cache[cache_key] = result
-        return result
+        return copy.deepcopy(result)
 
     def get_available_classes(self, edition: str = EDITION_2014) -> list:
         """
@@ -76,7 +79,7 @@ class RulesRepository:
         """
         edition_dir = _norm_edition(edition)
         if edition_dir in _available_classes_cache:
-            return _available_classes_cache[edition_dir]
+            return list(_available_classes_cache[edition_dir])
 
         dir_path = os.path.join(RULES_DIR, edition_dir)
         if not os.path.exists(dir_path):
@@ -90,7 +93,7 @@ class RulesRepository:
                 classes.append(class_name)
         result = sorted(classes)
         _available_classes_cache[edition_dir] = result
-        return result
+        return list(result)
 
     def get_features_at_level(
         self, class_name: str, level: int, edition: str = EDITION_2014
@@ -103,7 +106,7 @@ class RulesRepository:
         edition_dir = _norm_edition(edition)
         cache_key = (class_name.lower(), level, edition_dir)
         if cache_key in _features_level_cache:
-            return _features_level_cache[cache_key]
+            return copy.deepcopy(_features_level_cache[cache_key])
 
         progression = self.get_class_progression(class_name, edition)
         if not progression:
@@ -114,7 +117,7 @@ class RulesRepository:
         level_data = progression.get("progression", {}).get(level_str, {})
         result = level_data.get("features", [])
         _features_level_cache[cache_key] = result
-        return result
+        return copy.deepcopy(result)
 
     def get_all_feats(self, edition: str = EDITION_2014) -> list:
         """
@@ -122,13 +125,13 @@ class RulesRepository:
         """
         edition_val = _norm_edition(edition)
         if edition_val in _feats_cache:
-            return _feats_cache[edition_val]
+            return copy.deepcopy(_feats_cache[edition_val])
 
         filename = f"feats_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         result = _load_json(filepath)
         _feats_cache[edition_val] = result
-        return result
+        return copy.deepcopy(result)
 
     def search_feats(self, query: str, edition: str = EDITION_2014) -> list:
         """
@@ -144,11 +147,11 @@ class RulesRepository:
         """
         global _items_cache
         if _items_cache is not None:
-            return _items_cache
+            return copy.deepcopy(_items_cache)
 
         filepath = os.path.join(DATA_DIR, "rules", "items.json")
         _items_cache = _load_json(filepath)
-        return _items_cache
+        return copy.deepcopy(_items_cache)
 
     def get_all_spells(self, edition: str = EDITION_2014) -> list:
         """
@@ -156,13 +159,13 @@ class RulesRepository:
         """
         edition_val = _norm_edition(edition)
         if edition_val in _spells_cache:
-            return list(_spells_cache[edition_val])
+            return copy.deepcopy(_spells_cache[edition_val])
 
         filename = f"spells_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         spells = _load_json(filepath)
         _spells_cache[edition_val] = spells
-        return list(spells)
+        return copy.deepcopy(spells)
 
     def search_spells(self, query: str, edition: str = EDITION_2014) -> list:
         """
@@ -178,7 +181,7 @@ class RulesRepository:
         """
         edition_val = _norm_edition(edition)
         if edition_val in _races_cache:
-            return _races_cache[edition_val]
+            return copy.deepcopy(_races_cache[edition_val])
 
         filename = f"races_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
@@ -189,7 +192,7 @@ class RulesRepository:
         data = _load_json(filepath)
         races = [r for r in data if "name" in r]
         _races_cache[edition_val] = races
-        return races
+        return copy.deepcopy(races)
 
     def get_race_data(self, race_name: str, edition: str = EDITION_2014) -> Optional[dict]:
         """
@@ -224,27 +227,31 @@ class RulesRepository:
         data = _load_json(filepath)
         target_key = "2024 Edition" if "2024" in str(edition) else EDITION_2014
         edition_data = data.get(target_key, data.get(EDITION_2014, {}))
-        return edition_data.get(class_name, [])
+        return copy.deepcopy(edition_data.get(class_name, []))
 
     def get_subclass_mechanics(self, class_name: str, edition: str = EDITION_2014) -> dict:
         """
         Loads the rich mechanical data (like scaling tables) for a class's subclasses.
         """
+        if not class_name:
+            return {}
         edition_dir = _norm_edition(edition)
         cache_key = (class_name.lower(), edition_dir)
         if cache_key in _subclasses_cache:
-            return _subclasses_cache[cache_key]
+            return copy.deepcopy(_subclasses_cache[cache_key])
 
-        filename = f"{class_name.lower().replace(' ', '_')}.json"
-        filepath = os.path.join(DATA_DIR, "rules", "subclasses", edition_dir, filename)
+        safe_cls = os.path.basename(class_name.lower().replace(" ", "_"))
+        filename = f"{safe_cls}.json"
+        base_dir = os.path.realpath(os.path.join(DATA_DIR, "rules", "subclasses", edition_dir))
+        filepath = os.path.realpath(os.path.join(base_dir, filename))
 
-        if not os.path.exists(filepath):
+        if os.path.commonpath([base_dir, filepath]) != base_dir or not os.path.exists(filepath):
             _subclasses_cache[cache_key] = {}
             return {}
 
         result = _load_json(filepath)
         _subclasses_cache[cache_key] = result
-        return result
+        return copy.deepcopy(result)
 
     def get_available_backgrounds(self, edition: str = EDITION_2014) -> list:
         """
@@ -252,7 +259,7 @@ class RulesRepository:
         """
         edition_val = _norm_edition(edition)
         if edition_val in _backgrounds_cache:
-            return _backgrounds_cache[edition_val]
+            return copy.deepcopy(_backgrounds_cache[edition_val])
 
         filename = f"backgrounds_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
@@ -263,7 +270,7 @@ class RulesRepository:
         data = _load_json(filepath)
         backgrounds = [b for b in data if "name" in b]
         _backgrounds_cache[edition_val] = backgrounds
-        return backgrounds
+        return copy.deepcopy(backgrounds)
 
     def get_background_data(
         self, background_name: str, edition: str = EDITION_2014
@@ -291,11 +298,11 @@ class RulesRepository:
         """
         global _weapons_cache
         if _weapons_cache is not None:
-            return _weapons_cache
+            return copy.deepcopy(_weapons_cache)
 
         filepath = os.path.join(DATA_DIR, "rules", "weapons.json")
         _weapons_cache = _load_json(filepath)
-        return _weapons_cache
+        return copy.deepcopy(_weapons_cache)
 
     def get_all_weapon_masteries(self, edition: str = EDITION_2024) -> list:
         """
@@ -303,7 +310,7 @@ class RulesRepository:
         """
         edition_val = _norm_edition(edition)
         if edition_val in _weapon_masteries_cache:
-            return _weapon_masteries_cache[edition_val]
+            return copy.deepcopy(_weapon_masteries_cache[edition_val])
 
         filename = f"weapon_masteries_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
@@ -313,7 +320,7 @@ class RulesRepository:
 
         data = _load_json(filepath)
         _weapon_masteries_cache[edition_val] = data
-        return data
+        return copy.deepcopy(data)
 
     # ----------------------------------------------------------------------- #
     # Monsters (SRD Bestiary)                                                 #

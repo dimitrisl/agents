@@ -87,8 +87,9 @@
         <div class="flex items-center justify-between gap-3">
           <button
             type="button"
+            [attr.aria-label]="'Decrease ' + res.name"
             (click)="decrementResource(res, $event)"
-            class="w-9 h-9 rounded-lg bg-surface hover:bg-surface/80 active:scale-95 border border-hairline font-bold text-ink flex items-center justify-center cursor-pointer disabled:opacity-30"
+            class="w-9 h-9 rounded-lg bg-surface hover:bg-surface/80 transition-colors border border-hairline font-bold text-ink flex items-center justify-center cursor-pointer disabled:opacity-30"
             [disabled]="res.current === 0"
           >
             −
@@ -98,8 +99,8 @@
           <div *ngIf="res.max <= 10" class="flex flex-wrap gap-1.5 justify-center flex-1">
             <span
               *ngFor="let i of [1,2,3,4,5,6,7,8,9,10].slice(0, res.max)"
-              class="w-3.5 h-3.5 rounded-full transition-all"
-              [ngClass]="i <= res.current ? 'bg-accent shadow-sm scale-105' : 'bg-surface border border-hairline'"
+              class="w-3.5 h-3.5 rounded-full transition-colors"
+              [ngClass]="i <= res.current ? 'bg-accent shadow-sm' : 'bg-surface border border-hairline'"
             ></span>
           </div>
           <div *ngIf="res.max > 10" class="flex items-baseline gap-1 justify-center flex-1">
@@ -109,8 +110,9 @@
 
           <button
             type="button"
+            [attr.aria-label]="'Increase ' + res.name"
             (click)="incrementResource(res, $event)"
-            class="w-9 h-9 rounded-lg bg-surface hover:bg-surface/80 active:scale-95 border border-hairline font-bold text-ink flex items-center justify-center cursor-pointer disabled:opacity-30"
+            class="w-9 h-9 rounded-lg bg-surface hover:bg-surface/80 transition-colors border border-hairline font-bold text-ink flex items-center justify-center cursor-pointer disabled:opacity-30"
             [disabled]="res.current >= res.max"
           >
             +

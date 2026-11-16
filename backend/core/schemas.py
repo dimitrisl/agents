@@ -469,20 +469,28 @@ class CharacterSchema(BaseModel):
             if not data.get("background"):
                 data["background"] = "None"
 
-        # 1. Base class and Subclass splitting
+        # 1. Base class and Subclass splitting (only for single-class "Class Subclass" strings,
+        # never multiclass "Fighter 5 / Wizard 3" or "Fighter 5" strings with levels)
         char_class = data.get("char_class")
         subclass = data.get("subclass")
-        if char_class and isinstance(char_class, str) and " " in char_class:
-            parts = [p.strip() for p in char_class.split()]
-            from backend.core.constants import SUBCLASSES_2014, SUBCLASSES_2024
+        if isinstance(char_class, str):
+            stripped_class = char_class.strip()
+            if stripped_class != char_class:
+                char_class = stripped_class
+                data["char_class"] = stripped_class
+            if stripped_class and " " in stripped_class and "/" not in stripped_class:
+                parts = [p.strip() for p in stripped_class.split() if p.strip()]
+                if len(parts) >= 2:
+                    from backend.core.constants import SUBCLASSES_2014, SUBCLASSES_2024
 
-            known_classes = {
-                c.lower() for c in list(SUBCLASSES_2014.keys()) + list(SUBCLASSES_2024.keys())
-            }
-            if parts[0].lower() in known_classes:
-                data["char_class"] = parts[0]
-                if not subclass:
-                    data["subclass"] = " ".join(parts[1:])
+                    known_classes = {
+                        c.lower()
+                        for c in list(SUBCLASSES_2014.keys()) + list(SUBCLASSES_2024.keys())
+                    }
+                    if parts[0].lower() in known_classes and not parts[1][:1].isdigit():
+                        data["char_class"] = parts[0]
+                        if not subclass:
+                            data["subclass"] = " ".join(parts[1:])
 
         # 2. Spells type correction (e.g. from null/invalid type to dict)
         spells = data.get("spells")
