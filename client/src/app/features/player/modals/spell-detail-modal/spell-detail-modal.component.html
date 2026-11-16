@@ -11,13 +11,13 @@
 
   <!-- Loading State -->
   <div *ngIf="isLoading()" class="flex flex-col items-center justify-center py-12">
-    <div class="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent"></div>
+    <forge-spinner size="lg" label="Reading spellbook..." />
     <p class="mt-4 text-body text-muted">Reading spellbook...</p>
   </div>
 
   <!-- Error State -->
-  <div *ngIf="error()" class="rounded-lg bg-red-900/20 border border-red-500/30 p-4 text-center">
-    <p class="text-body text-red-400">{{ error() }}</p>
+  <div *ngIf="error()" class="rounded-lg bg-crimson/15 border border-crimson/40 p-4 text-center">
+    <p class="text-body text-crimson">{{ error() }}</p>
   </div>
 
   <!-- Spell Data -->

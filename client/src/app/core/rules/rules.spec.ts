@@ -994,3 +994,53 @@ describe('2014 vs 2024 Exhaustion & Pact Slot Regain QA Fixes', () => {
     expect(regained['pact'].used).toBe(1);
   });
 });
+
+describe('Code Review Regression Fixes (Rules)', () => {
+  const { calculateWeaponBreakdown } = require('./weapon-calc');
+  const {
+    getMaxPreparedSpells,
+    getMaxOriginFeats,
+    getMaxGeneralFeats,
+  } = require('./recommendations');
+
+  it('includes 2024 Artificer in halfCaster table for getMaxPreparedSpells', () => {
+    expect(getMaxPreparedSpells('Artificer', 5, 4, true)).toBe(6);
+    expect(getMaxPreparedSpells('Artificer', 5, 4, false)).toBe(6); // floor(5/2) + 4 = 6
+    expect(getMaxPreparedSpells('Artificer', 1, 3, true)).toBe(2);
+  });
+
+  it('grants Human (2024) 2 origin feats without treating half-races as Human, and sums multiclass general feats', () => {
+    expect(getMaxOriginFeats('Human (2024)', '2024 Revision (5.5e)')).toBe(2);
+    expect(getMaxOriginFeats('Half-Elf', '2024 Revision (5.5e)')).toBe(1);
+    expect(
+      getMaxGeneralFeats('Fighter', 8, [
+        { class_name: 'Fighter', level: 4 },
+        { class_name: 'Rogue', level: 4 },
+      ])
+    ).toBe(2);
+  });
+
+  it('treats Dart as finesse/ranged and includes global weapon bonuses', () => {
+    const rogue = hero({
+      stats: { STR: 8, DEX: 18, CON: 12, INT: 10, WIS: 12, CHA: 10 },
+      proficiency_bonus: 3,
+      global_attack_bonus: 2,
+      global_damage_bonus: 1,
+    });
+    const bd = calculateWeaponBreakdown({ name: 'Dart', damage_dice: '1d4 piercing' }, rogue);
+    // DEX +4 + Prof +3 + Global +2 = +9 attack; DEX +4 + Global +1 = +5 damage
+    expect(bd.attack.statName).toBe('DEX');
+    expect(bd.attack.total).toBe(9);
+    expect(bd.damage.totalBonus).toBe(5);
+  });
+
+  it('prefers authoritative char.skills[name] value when present and numeric', () => {
+    const customHero = hero({
+      stats: { STR: 10, DEX: 12, CON: 12, INT: 10, WIS: 14, CHA: 10 },
+      proficiency_bonus: 3,
+      skill_proficiencies: ['Perception'],
+      skills: { Perception: 11 },
+    });
+    expect(skillModifier(customHero, skill('Perception', 'WIS'))).toBe(11);
+  });
+});

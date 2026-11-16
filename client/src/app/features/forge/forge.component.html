@@ -255,6 +255,11 @@
   }
 
   @if (tempForgedChar) {
+    @if (saveError) {
+      <div class="mb-4 rounded-xl border border-crimson/50 bg-crimson/10 p-3 text-body text-crimson" role="alert">
+        ⚠️ Failed to save hero to database: {{ saveError }}
+      </div>
+    }
     <app-hero-preview
       [hero]="tempForgedChar"
       [edition]="tempForgedChar.dnd_edition || charState.dndEdition()"
@@ -285,7 +290,7 @@
 
       <!-- Header / Icon -->
       <div class="flex flex-col items-center gap-2 relative z-10">
-        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 border border-accent/40 text-3xl shadow-glow animate-pulse">
+        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 border border-accent/40 text-3xl shadow-glow animate-pulse motion-reduce:animate-none">
           {{ forgePhases[forgeCurrentPhaseIndex].icon || '✨' }}
         </div>
         <p class="text-micro font-bold uppercase tracking-wider text-accent">
@@ -307,10 +312,10 @@
         </div>
         <div class="h-3 w-full overflow-hidden rounded-full bg-tile border border-hairline relative">
           <div
-            class="h-full rounded-full bg-gradient-to-r from-accent via-accent-hover to-gold transition-all duration-200 relative shadow-glow"
+            class="h-full rounded-full bg-gradient-to-r from-accent via-accent/80 to-gold transition-all duration-200 relative shadow-glow"
             [style.width.%]="forgeProgress"
           >
-            <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+            <div class="absolute inset-0 bg-white/20 animate-pulse motion-reduce:animate-none"></div>
           </div>
         </div>
       </div>
@@ -330,7 +335,7 @@
             @if (i < forgeCurrentPhaseIndex || forgeProgress === 100) {
               <span class="text-emerald font-bold">✓</span>
             } @else if (i === forgeCurrentPhaseIndex && !forgingError) {
-              <span class="inline-block animate-spin text-accent">✦</span>
+              <span class="inline-block animate-spin motion-reduce:animate-none text-accent">✦</span>
             } @else {
               <span class="text-muted/40">○</span>
             }

@@ -59,13 +59,21 @@ def get_real_ip(request: Request) -> str:
 
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            candidate = forwarded.split(",")[0].strip()
-            if candidate:
+            # Walk right-to-left skipping trusted proxies: clients control leftmost values,
+            # while reverse proxies append peer IPs on the right.
+            candidates = [part.strip() for part in forwarded.split(",") if part.strip()]
+            first_valid_ip = None
+            for candidate in reversed(candidates):
                 try:
                     ipaddress.ip_address(candidate)
-                    return candidate
                 except ValueError:
-                    pass
+                    continue
+                if first_valid_ip is None:
+                    first_valid_ip = candidate
+                if not is_trusted_proxy(candidate):
+                    return candidate
+            if first_valid_ip is not None:
+                return first_valid_ip
     return remote_ip
 
 

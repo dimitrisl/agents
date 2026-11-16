@@ -141,7 +141,7 @@ export class FaqComponent {
       answerHtml: `
         <p>Η επικοινωνία και οι ζαριές ανάμεσα στον DM και τους παίκτες γίνονται σε πραγματικό χρόνο μέσω WebSockets:</p>
         <ul class="list-disc list-inside mt-2 space-y-1">
-          <li><strong>🎲 Request a Roll Modal:</strong> Ο DM επιλέγει παίκτη, τύπο ζαριάς (<em>Ability Check, Skill Check, Saving Throw, Attack Roll, Initiative</em>), το αντίστοιχο Skill/Stat (π.χ. <em>Perception</em> ή <em>DEX</em>) και την αιτιολογία (π.χ. <em>Dragon Breath Fire Save</em>). Στην οθόνη του παίκτη ανοίγει αμέσως διαδραστικό prompt 30 δευτερολέπτων!</li>
+          <li><strong>🎲 Request a Roll Modal:</strong> Ο DM επιλέγει παίκτη, τύπο ζαριάς (<em>Ability Check, Skill Check, Saving Throw, Attack Roll, Initiative</em>), το αντίστοιχο Skill/Stat (π.χ. <em>Perception</em> ή <em>DEX</em>) και την αιτιολογία (π.χ. <em>Dragon Breath Fire Save</em>). Στην οθόνη του παίκτη ανοίγει αμέσως διαδραστικό prompt 60 δευτερολέπτων!</li>
           <li><strong>🔒 Secret Roll Flag &amp; Behind-the-Screen Rolls:</strong> Ο DM μπορεί είτε να μαρκάρει το αίτημα ως <em>Secret Roll</em>, είτε να ρίξει ο ίδιος κρυφά τη ζαριά από το Party Panel (<em>DM Quick Check</em>) χωρίς να εμφανιστεί τίποτα στην οθόνη του παίκτη.</li>
           <li><strong>💬 Send Whisper &amp; Broadcast:</strong> Αποστολή ιδιωτικού μηνύματος (Whisper) σε συγκεκριμένο χαρακτήρα ή ανακοίνωσης σε ολόκληρο το τραπέζι (<code>All Players</code>).</li>
           <li><strong>📥 Table Inbox Drawer:</strong> Ενοποιημένο συρτάρι ιστορικού στο κάτω μέρος της οθόνης του DM με badge μη αναγνωσμένων μηνυμάτων. Δείχνει όλα τα Whispers, την κατάσταση κάθε Roll Request (<code>Pending</code>, <code>Resolved</code> με το τελικό νούμερο, τη μαθηματική έκφραση, το Advantage/Disadvantage και τυχόν Situational Bonus, ή <code>Missed</code>), φόρμα γρήγορης απάντησης και κουμπί <strong>🚩 Report</strong> για moderation.</li>
@@ -253,7 +253,7 @@ export class FaqComponent {
         <p>Όταν ο χαρακτήρας συνδεθεί σε ένα Campaign μέσω <strong>🔑 Join Campaign (Invite Code)</strong>:</p>
         <ul class="list-disc list-inside mt-2 space-y-1">
           <li><strong>Real-Time WebSocket Sync:</strong> Κάθε αλλαγή HP ή Condition από τον DM ενημερώνει ακαριαία το φύλλο του παίκτη με ενημερωτικό toast.</li>
-          <li><strong>🎲 DM Roll Requests:</strong> Όταν ο DM ζητήσει ζαριά (π.χ. <em>Stealth Check</em> ή <em>Wisdom Save</em>), ανοίγει διαδραστικό modal με χρονόμετρο 30 δευτερολέπτων, επιλογή Advantage/Disadvantage και Situational Bonus, στέλνοντας το αποτέλεσμα πίσω στον DM. Αν χαθεί, μπορεί να ριχτεί εκ των υστέρων από το Inbox.</li>
+          <li><strong>🎲 DM Roll Requests:</strong> Όταν ο DM ζητήσει ζαριά (π.χ. <em>Stealth Check</em> ή <em>Wisdom Save</em>), ανοίγει διαδραστικό modal με χρονόμετρο 60 δευτερολέπτων, επιλογή Advantage/Disadvantage και Situational Bonus, στέλνοντας το αποτέλεσμα πίσω στον DM. Αν χαθεί, μπορεί να ριχτεί εκ των υστέρων από το Inbox.</li>
           <li><strong>💬 Whisper Inbox &amp; Quick Replies:</strong> Ιδιωτική συνομιλία με τον DM, προβολή ανακοινώσεων τραπεζιού (<em>All</em>), έτοιμα κουμπιά γρήγορης απάντησης και δυνατότητα Report σε μηνύματα.</li>
           <li><strong>🧪 Campaign Homebrew:</strong> Άμεση πρόσβαση και προσθήκη στο inventory/spellbook όλων των custom αντικειμένων και ξορκιών που έχει φτιάξει ο DM για το campaign.</li>
         </ul>

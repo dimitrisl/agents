@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeButtonDirective } from '../../../../shared/ui';
+import { ForgeButtonDirective, ForgeSelectDirective, ForgeTextareaDirective } from '../../../../shared/ui';
 import { CampaignEntity } from '../../../../core/models/campaign-entity.model';
 import { CampaignEntityService } from '../../../../core/services/campaign-entity.service';
 import { AssetService } from '../../../../core/services/asset.service';
@@ -11,7 +11,7 @@ import { PasteGoModalComponent } from '../../modals/paste-go-modal/paste-go-moda
 @Component({
   selector: 'app-entities-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, PasteGoModalComponent],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeSelectDirective, ForgeTextareaDirective, PasteGoModalComponent],
   templateUrl: './entities-panel.component.html',
 })
 export class EntitiesPanelComponent implements OnInit, OnChanges {

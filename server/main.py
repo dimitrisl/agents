@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 
 import slowapi.middleware
@@ -42,6 +43,10 @@ logger = logging.getLogger("PhyrexianForge.Server")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Fail fast in real server runs if production booted without persistent JWT_SECRET_KEY.
+    if "pytest" not in sys.modules:
+        settings.validate_production_secrets()
+
     # Startup: Connect to MongoDB async
     logger.info("Initializing Phyrexian Forge FastAPI Backend Server...")
     os.makedirs(os.path.join("data", "portraits"), exist_ok=True)
@@ -127,6 +132,7 @@ async def root():
 def main():
     import uvicorn
 
+    settings.validate_production_secrets()
     uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=True)
 
 

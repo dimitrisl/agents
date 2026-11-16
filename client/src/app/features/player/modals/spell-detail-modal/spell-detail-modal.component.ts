@@ -1,20 +1,22 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment';
 import { CharacterStateService } from '../../../../core/services/character-state.service';
 import { DiceService } from '../../../../core/services/dice.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
-import { ForgeBadgeComponent, ForgeButtonDirective, ForgeModalComponent } from '../../../../shared/ui';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeModalComponent, ForgeSpinnerComponent } from '../../../../shared/ui';
 
 @Component({
   selector: 'app-spell-detail-modal',
   standalone: true,
-  imports: [CommonModule, ForgeModalComponent, ForgeButtonDirective, ForgeBadgeComponent],
+  imports: [CommonModule, ForgeModalComponent, ForgeButtonDirective, ForgeBadgeComponent, ForgeSpinnerComponent],
   templateUrl: './spell-detail-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SpellDetailModalComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   @Input({ required: true }) spellName!: string;
   @Input() isPrepared = false;
 
@@ -50,7 +52,7 @@ export class SpellDetailModalComponent implements OnInit {
     // We use exact search or just grab the first result
     this.http.get<any[]>(`${environment.apiBaseUrl}/rules/spells`, {
       params: { search: this.spellName, edition }
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (results) => {
         if (results && results.length > 0) {
           // Find exact match if possible, otherwise first

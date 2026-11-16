@@ -1,7 +1,7 @@
 import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ForgeButtonDirective, ForgeTextareaDirective } from '../../../../shared/ui';
+import { ForgeButtonDirective, ForgeInputDirective, ForgeTextareaDirective } from '../../../../shared/ui';
 import { SessionService } from '../../../../core/services/session.service';
 import { SessionLog, SessionPrep } from '../../../../core/models/session.model';
 import { CampaignPlotService } from '../../../../core/services/campaign-plot.service';
@@ -11,7 +11,7 @@ import { RollToastService } from '../../../../core/services/roll-toast.service';
 @Component({
   selector: 'app-prep-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeTextareaDirective],
+  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeInputDirective, ForgeTextareaDirective],
   templateUrl: './prep-panel.component.html',
 })
 export class PrepPanelComponent implements OnInit, OnChanges {

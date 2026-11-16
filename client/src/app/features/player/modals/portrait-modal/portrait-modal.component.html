@@ -62,7 +62,7 @@
       <div class="min-w-0 flex-1">
         <span class="block text-micro font-semibold uppercase text-gold">Live Preview</span>
         <span class="block truncate text-xs text-muted">{{ urlInput || 'Enter a valid image URL above' }}</span>
-        <span *ngIf="urlPreviewFailed" class="block text-micro text-amber-400 mt-0.5">Preview couldn't be loaded (host may block direct embeds). You can still save this link!</span>
+        <span *ngIf="urlPreviewFailed" class="block text-micro text-gold mt-0.5">Preview couldn't be loaded (host may block direct embeds). You can still save this link!</span>
       </div>
     </div>
 
@@ -72,7 +72,7 @@
         forgeButton
         variant="ghost"
         type="button"
-        class="text-xs text-rose-400 hover:text-rose-300"
+        class="text-xs text-crimson hover:text-red"
         [disabled]="isSubmitting"
         (click)="clearPortrait()">
         🗑️ Reset to Default
@@ -148,7 +148,7 @@
       </button>
     </div>
 
-    <div *ngIf="uploadError" class="rounded bg-rose-500/10 border border-rose-500/20 p-2 text-xs text-rose-300">
+    <div *ngIf="uploadError" class="rounded bg-crimson/10 border border-crimson/30 p-2 text-xs text-crimson">
       {{ uploadError }}
     </div>
 

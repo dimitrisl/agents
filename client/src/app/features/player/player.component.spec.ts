@@ -8,6 +8,7 @@ import { PlayerComponent } from './player.component';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { ForgeConfirmService } from '../../shared/ui';
 import { SpellRulesService } from '../../core/services/spell-rules.service';
 import { analyzeSpell } from '../../core/rules';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
@@ -372,14 +373,15 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(charState.activeCharacter()?.char_name).toBe('DDB Hero');
     });
 
-    it('submits whisper moderation report to campaign endpoint', () => {
+    it('submits whisper moderation report to campaign endpoint', async () => {
       const charState = TestBed.inject(CharacterStateService);
       charState.activeCharacter.set({
         ...HERO,
         active_campaign: 'CurseOfStrahd',
       });
 
-      jest.spyOn(window, 'prompt').mockReturnValue('Harassment in secret whisper');
+      const confirmDialog = TestBed.inject(ForgeConfirmService);
+      jest.spyOn(confirmDialog, 'askPrompt').mockResolvedValue('Harassment in secret whisper');
 
       const whisper: Whisper = {
         id: 'whisp-123',
@@ -389,8 +391,9 @@ describe('PlayerComponent — DM roll requests', () => {
         timestamp: '12:00',
         has_open_report: false,
       };
+      component.whisperHistory = [whisper];
 
-      component.reportWhisper(whisper);
+      await component.reportWhisper(whisper);
 
       const req = http.expectOne((r) =>
         r.method === 'POST' && r.url.endsWith('/campaigns/CurseOfStrahd/whispers/whisp-123/report')
@@ -398,7 +401,7 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(req.request.body).toEqual({ reason: 'Harassment in secret whisper' });
       req.flush({ success: true, message: 'Report submitted.' });
 
-      expect(whisper.has_open_report).toBe(true);
+      expect(component.whisperHistory[0].has_open_report).toBe(true);
     });
   });
 
@@ -1172,5 +1175,66 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     http.match(() => true).forEach((req) => req.flush({}));
     fixture.destroy();
     jest.useRealTimers();
+  });
+
+  it('recomputes char.skills on Quick Edit toggle and clears stale caches on saveEditModal', () => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      // Server-synced cached skills (WIS 16 (+3) + PB 3 = 6 for Perception)
+      skill_proficiencies: ['Perception'],
+      skill_expertise: [],
+      skills: { Perception: 6, Stealth: 4 },
+      saving_throw_values: { WIS: 3 },
+      version: 1,
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    const comp = fixture.componentInstance;
+
+    // Adding Expertise raises Perception 6 -> 9 (must not short-circuit on stale 6!)
+    comp.toggleSkillExpertise('Perception');
+    expect(charState.activeCharacter()!.skills!['Perception']).toBe(9);
+    http.match(() => true).forEach((req) => req.flush({ ...charState.activeCharacter(), version: 2 }));
+
+    // Removing Proficiency drops Perception 9 -> 3
+    comp.toggleSkillProficiency('Perception');
+    expect(charState.activeCharacter()!.skills!['Perception']).toBe(3);
+    http.match(() => true).forEach((req) => req.flush({ ...charState.activeCharacter(), version: 3 }));
+
+    // Opening Edit modal, changing WIS 16 -> 20 (+5), saving -> clears stale cached skills/saves
+    comp.openEditModal();
+    comp.editDraftChar!.stats!.WIS = 20;
+    comp.saveEditModal();
+    expect(charState.activeCharacter()!.skills).toBeUndefined();
+    expect(charState.activeCharacter()!.saving_throw_values).toBeUndefined();
+    expect(comp.getSkillModifier({ name: 'Perception', ability: 'WIS', label: 'Perception' } as any)).toBe(5);
+
+    http.match(() => true).forEach((req) => req.flush({ ...charState.activeCharacter(), version: 4 }));
+    fixture.destroy();
   });
 });

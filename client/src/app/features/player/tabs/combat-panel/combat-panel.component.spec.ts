@@ -435,4 +435,19 @@ describe('CombatPanelComponent', () => {
     expect(component.isCombatantDown(downMonster)).toBe(true);
     expect(component.isCombatantDown(zeroHpNpc)).toBe(true);
   });
+
+  it('scales getToppleDc with the weapon scaling ability instead of always using STR', () => {
+    component.char = {
+      ...component.char,
+      proficiency_bonus: 3,
+      stats: { STR: 8, DEX: 14, CON: 12, INT: 10, WIS: 12, CHA: 20 }, // CHA +5, STR -1
+    } as any;
+    const chaMaul = {
+      name: 'Pact Maul',
+      ability_modifier: 'CHA',
+      mastery: 'Topple',
+    };
+    // 8 + PB (3) + CHA (+5) = 16
+    expect(component.getToppleDc(chaMaul)).toBe(16);
+  });
 });

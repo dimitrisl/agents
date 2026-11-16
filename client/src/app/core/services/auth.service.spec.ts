@@ -125,5 +125,21 @@ describe('AuthService', () => {
       expect(service.currentUser()).toBeNull();
       expect(service.authStatus()).toBe('anonymous');
     });
+
+    it('restores cached user on transient 5xx failure when token exists', () => {
+      localStorage.setItem('currentUser', JSON.stringify(mockUser));
+      service.token.set('valid-token');
+
+      service.fetchCurrentUser().subscribe({
+        error: () => {}
+      });
+
+      const req = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/me`);
+      req.flush('Server Error', { status: 503, statusText: 'Service Unavailable' });
+
+      expect(service.currentUser()).toEqual(mockUser);
+      expect(service.authStatus()).toBe('authenticated');
+      expect(service.isAuthenticated()).toBe(true);
+    });
   });
 });

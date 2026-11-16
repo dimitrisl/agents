@@ -267,19 +267,32 @@ export function getSubclassUnlockLevel(className: string, is2024: boolean = fals
 // --- Maximum Capacity Limits ---
 
 export function getMaxOriginFeats(race: string, edition: string = '2014'): number {
+  const r = (race || '').toLowerCase();
   const is2024 = (edition || '').includes('2024');
   if (is2024) {
-    return (race || '').toLowerCase() === 'human' ? 2 : 1;
+    return r.includes('human') && !r.includes('half') ? 2 : 1;
   }
-  return (race || '').toLowerCase() === 'variant human' ? 1 : 0;
+  return r === 'variant human' ? 1 : 0;
 }
 
-export function getMaxGeneralFeats(className: string, level: number = 1): number {
-  const c = (className || '').toLowerCase();
-  let milestones = [4, 8, 12, 16, 19];
-  if (c === 'fighter') milestones = [4, 6, 8, 12, 14, 16, 19];
-  else if (c === 'rogue') milestones = [4, 8, 10, 12, 16, 19];
-  return milestones.filter((m) => m <= level).length;
+export function getMaxGeneralFeats(
+  className: string,
+  level: number = 1,
+  classes?: Array<{ class_name?: string; level?: number }>
+): number {
+  const milestonesFor = (name: string): number[] => {
+    const c = (name || '').toLowerCase();
+    if (c === 'fighter') return [4, 6, 8, 12, 14, 16, 19];
+    if (c === 'rogue') return [4, 8, 10, 12, 16, 19];
+    return [4, 8, 12, 16, 19];
+  };
+  if (classes && classes.length > 0) {
+    return classes.reduce((total, cls) => {
+      const clsLvl = Number(cls.level ?? 1);
+      return total + milestonesFor(cls.class_name || '').filter((m) => m <= clsLvl).length;
+    }, 0);
+  }
+  return milestonesFor(className).filter((m) => m <= level).length;
 }
 
 export function getMaxCantrips(className: string, level: number = 1, subclass: string = ''): number {
@@ -325,7 +338,7 @@ export function getMaxPreparedSpells(
 
     if (['wizard', 'cleric', 'druid', 'bard', 'sorcerer'].includes(c)) return fullCaster[idx];
     if (c === 'warlock') return warlock[idx];
-    if (['paladin', 'ranger'].includes(c)) return halfCaster[idx];
+    if (['paladin', 'ranger', 'artificer'].includes(c)) return halfCaster[idx];
     return 0;
   } else {
     // 2014 rules

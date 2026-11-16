@@ -1,10 +1,12 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   QueryList,
   ViewChild,
   ViewChildren,
+  inject,
   signal,
 } from '@angular/core';
 import { A11yModule } from '@angular/cdk/a11y';
@@ -37,6 +39,8 @@ export class CommandPaletteComponent {
   searchQuery = '';
   selectedIndex = 0;
   private previouslyFocusedElement?: HTMLElement;
+  private readonly destroyRef = inject(DestroyRef);
+  private pendingTimers = new Set<ReturnType<typeof setTimeout>>();
 
   commands: CommandItem[] = [
     { icon: '\u2728', title: 'Open Character Forge', category: 'Navigation', route: '/forge' },
@@ -51,7 +55,14 @@ export class CommandPaletteComponent {
 
   filteredCommands: CommandItem[] = [...this.commands];
 
-  constructor(private router: Router) {}
+  constructor(private router: Router) {
+    this.destroyRef.onDestroy(() => {
+      for (const timer of this.pendingTimers) {
+        clearTimeout(timer);
+      }
+      this.pendingTimers.clear();
+    });
+  }
 
   @HostListener('window:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
@@ -133,16 +144,24 @@ export class CommandPaletteComponent {
     this.scrollSelectedIntoView();
   }
 
+  private scheduleTimer(fn: () => void): void {
+    const id = window.setTimeout(() => {
+      this.pendingTimers.delete(id);
+      fn();
+    });
+    this.pendingTimers.add(id);
+  }
+
   private focusSearchInput(): void {
-    window.setTimeout(() => this.searchInput?.nativeElement.focus());
+    this.scheduleTimer(() => this.searchInput?.nativeElement.focus());
   }
 
   private restoreFocus(): void {
-    window.setTimeout(() => this.previouslyFocusedElement?.focus());
+    this.scheduleTimer(() => this.previouslyFocusedElement?.focus());
   }
 
   private scrollSelectedIntoView(): void {
-    window.setTimeout(() => {
+    this.scheduleTimer(() => {
       this.commandRows
         ?.get(this.selectedIndex)
         ?.nativeElement.scrollIntoView({ block: 'nearest' });

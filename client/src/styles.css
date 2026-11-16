@@ -285,7 +285,7 @@
 body {
   background-color: var(--bg-deep);
   background-image:
-    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--primary-red) 6%, transparent) 0%, transparent 58%);
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--theme-accent) 6%, transparent) 0%, transparent 58%);
   color: var(--text-primary);
   font-family: var(--font-body);
   min-height: 100vh;

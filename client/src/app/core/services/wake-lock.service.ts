@@ -49,10 +49,14 @@ export class WakeLockService {
       this.wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
       this.isActive.set(true);
 
-      this.wakeLockSentinel.addEventListener('release', () => {
-        this.isActive.set(false);
-        this.wakeLockSentinel = null;
-      });
+      this.wakeLockSentinel.addEventListener(
+        'release',
+        () => {
+          this.isActive.set(false);
+          this.wakeLockSentinel = null;
+        },
+        { once: true }
+      );
     } catch {
       this.isActive.set(false);
       this.wakeLockSentinel = null;

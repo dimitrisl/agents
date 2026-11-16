@@ -1,10 +1,21 @@
 import logging
 import secrets
+from typing import Optional
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("PhyrexianForge.Config")
+
+_INSECURE_PLACEHOLDER_SECRETS = frozenset(
+    {
+        "",
+        "replace_with_a_secure_random_hex_string_in_production",
+        "changeme",
+        "secret",
+        "your-secret-key",
+    }
+)
 
 
 def _generate_dev_secret() -> str:
@@ -30,10 +41,11 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Security
-    SECRET_KEY: str = Field(
-        default_factory=_generate_dev_secret,
+    SECRET_KEY: Optional[str] = Field(
+        default=None,
         alias="JWT_SECRET_KEY",
     )
+    _ephemeral_secret: bool = PrivateAttr(default=False)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
@@ -42,6 +54,37 @@ class Settings(BaseSettings):
 
     # Debug mode — enables demo login bypass. MUST be False in production.
     DEBUG_MODE: bool = False
+
+    @model_validator(mode="after")
+    def _resolve_and_check_secret_key(self) -> "Settings":
+        raw_secret = (self.SECRET_KEY or "").strip()
+        if raw_secret in _INSECURE_PLACEHOLDER_SECRETS:
+            if not self.DEBUG_MODE and self.SECRET_KEY is not None:
+                raise RuntimeError(
+                    "JWT_SECRET_KEY is set to an insecure placeholder value while DEBUG_MODE=False. "
+                    "Set a strong random secret in .env or environment variables."
+                )
+            self._ephemeral_secret = True
+            self.SECRET_KEY = _generate_dev_secret()
+        else:
+            self._ephemeral_secret = False
+            self.SECRET_KEY = raw_secret
+        return self
+
+    @property
+    def is_ephemeral_secret(self) -> bool:
+        return self._ephemeral_secret
+
+    def validate_production_secrets(self) -> None:
+        """Fail fast if non-debug mode starts without a persistent JWT_SECRET_KEY."""
+        if not self.DEBUG_MODE and (
+            self._ephemeral_secret
+            or (self.SECRET_KEY or "").strip() in _INSECURE_PLACEHOLDER_SECRETS
+        ):
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be explicitly configured when DEBUG_MODE=False. "
+                "Refusing to boot with an ephemeral or placeholder signing key."
+            )
 
     MONGO_URI: str = "mongodb://localhost:27017"
     DATABASE_NAME: str = Field(

@@ -20,7 +20,29 @@ REAL_USERS = {
 }
 
 
-async def run_cleanup(dry_run: bool = True):
+TEST_USERNAME_PATTERN = r"^(qa_|test_|e2e_|visual_qa|playtest)|(_test|_qa)$"
+TEST_EMAIL_PATTERN = r"@(example\.com|test\.com|phyrexian\.test)$"
+
+
+def _build_fake_user_query(include_unknown: bool = False) -> dict:
+    """Build an explicit QA/test user query while never matching allowlisted real users."""
+    guard = {"username": {"$nin": list(REAL_USERS)}}
+    if include_unknown:
+        return guard
+    return {
+        "$and": [
+            guard,
+            {
+                "$or": [
+                    {"username": {"$regex": TEST_USERNAME_PATTERN, "$options": "i"}},
+                    {"email": {"$regex": TEST_EMAIL_PATTERN, "$options": "i"}},
+                ]
+            },
+        ]
+    }
+
+
+async def run_cleanup(dry_run: bool = True, include_unknown: bool = False):
     db = await get_database()
 
     print("=" * 60)
@@ -28,7 +50,8 @@ async def run_cleanup(dry_run: bool = True):
     print("=" * 60)
 
     # 1. Identify fake users
-    fake_users = await db.users.find({"username": {"$nin": list(REAL_USERS)}}).to_list(1000)
+    fake_user_query = _build_fake_user_query(include_unknown=include_unknown)
+    fake_users = await db.users.find(fake_user_query).to_list(1000)
     print(f"\n1. Found {len(fake_users)} fake test users:")
     fake_usernames = set()
     fake_user_ids = set()
@@ -118,7 +141,7 @@ async def run_cleanup(dry_run: bool = True):
     # Execute deletion
     print("\n🗑️ Executing deletion...")
     if fake_users:
-        res = await db.users.delete_many({"username": {"$nin": list(REAL_USERS)}})
+        res = await db.users.delete_many(fake_user_query)
         print(f"   ✓ Deleted {res.deleted_count} fake users.")
 
     if fake_campaign_names:
@@ -186,4 +209,5 @@ if __name__ == "__main__":
     import sys
 
     dry = "--apply" not in sys.argv
-    asyncio.run(run_cleanup(dry_run=dry))
+    include_unknown_users = "--include-unknown-users" in sys.argv
+    asyncio.run(run_cleanup(dry_run=dry, include_unknown=include_unknown_users))

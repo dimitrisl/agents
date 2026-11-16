@@ -31,7 +31,8 @@ STRICT RULES:
 
 {stats_instruction}
 
-Calculate their HP, AC, Proficiency Bonus, and choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
+Choose appropriate skills, weapons, equipment, features/traits, and spells (if applicable) for a level {target_level} character.
+DO NOT compute or guess derived numbers (HP, AC, Proficiency Bonus, skill modifiers, weapon attack/damage bonuses, spell save DC, or passive perception) — the deterministic backend rules engine calculates all character math server-side.
 For spellcasters of level {target_level}, generate appropriate spells across ALL unlocked spell levels (cantrips, level_1, level_2, ..., up to level 9 as appropriate for their level and class).
 If the level is 4 or higher (or 1 if 2024 edition), explicitly list their Feats and Ability Score Improvements (ASI) in the 'advancements' field.
 If specific user preferences for Feats, Spells, ASIs, or Build choices are provided above, PRIORITIZE including those requested Feats in 'advancements' and 'features_traits', and those requested Spells in the 'spells' object.
@@ -53,27 +54,18 @@ Output the character strictly as a JSON object with exactly the following schema
     "background": "...",
     "alignment": "...",
     "backstory": "...",
-    "armor_class": 16,
-    "hp_max": 45,
-    "speed": 30,
-    "proficiency_bonus": 3,
     "stats": {{
         "STR": 15, "DEX": 10, "CON": 14, "INT": 8, "WIS": 12, "CHA": 10
     }},
     "saving_throws": ["STR", "CON"],
-    "skills": {{"Athletics": 5, "Intimidation": 2}},
     "skill_proficiencies": ["Athletics", "Intimidation"],
     "skill_expertise": [],
     "weapon_masteries": ["Slow", "Topple"],
-    "weapons": [{{"name": "Warhammer", "attack_bonus": "+5", "damage_dice": "1d8 bludgeoning", "damage_bonus": "+3"}}],
-    "equipment": [{{"name": "Chain mail", "equipped": true, "ac_base": 16}}, {{"name": "Shield", "equipped": true, "ac_bonus": 2}}, {{"name": "Backpack", "equipped": false}}],
+    "weapons": [{{"name": "Warhammer", "damage_dice": "1d8 bludgeoning"}}],
+    "equipment": [{{"name": "Chain mail", "equipped": true}}, {{"name": "Shield", "equipped": true}}, {{"name": "Backpack", "equipped": false}}],
     "features_traits": [{{"name": "Action Surge", "description": "Push yourself..."}}],
     "spells": {{"cantrips": ["Fire Bolt"], "level_1": ["Shield"], "level_2": ["Misty Step"]}},
     "spell_ability": "INT",
-    "spell_save_dc": 15,
-    "spell_attack_bonus": "+7",
-    "hit_dice": "1d10",
-    "passive_perception": 12,
     "advancements": [{{"level": 4, "type": "ASI", "name": "Ability Score Improvement", "description": "Increase INT by 2"}}],
     "personality_traits": "...",
     "ideals": "...",
@@ -312,13 +304,9 @@ Return JSON:
     "race": "string",
     "background": "string",
     "alignment": "string",
-    "armor_class": integer,
     "hp_max": integer,
-    "speed": integer,
-    "proficiency_bonus": integer,
     "stats": {{"STR": 0, "DEX": 0, "CON": 0, "INT": 0, "WIS": 0, "CHA": 0}},
     "saving_throws": [],
-    "skills": {{"Name": 0}},
     "skill_proficiencies": [],
     "skill_expertise": [],
     "languages": [],
@@ -422,7 +410,7 @@ Output strictly a JSON object matching this schema:
         {{"level": 4, "type": "Feat", "name": "War Caster", "description": "Advantage on CON saves for concentration"}}
     ],
     "weapons": [
-        {{"name": "Longsword", "attack_bonus": "+5", "damage_dice": "1d8", "damage_bonus": "+3"}}
+        {{"name": "Longsword", "damage_dice": "1d8"}}
     ],
     "equipment": [
         {{"name": "Scale mail", "equipped": true}},

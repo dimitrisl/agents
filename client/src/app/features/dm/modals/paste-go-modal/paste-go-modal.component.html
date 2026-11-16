@@ -14,9 +14,10 @@
     </div>
 
     <textarea
+      forgeTextarea
       [(ngModel)]="rawText"
       rows="10"
-      class="forge-input font-mono text-sm resize-y"
+      class="font-mono text-sm resize-y"
       placeholder="e.g. Goblin Boss
 Armor Class 15 (chain shirt)
 Hit Points 21 (6d6)
@@ -29,7 +30,7 @@ STR 10 DEX 14 CON 10 INT 10 WIS 8 CHA 10..."
       <button forgeButton variant="secondary" (click)="close()" [disabled]="isExtracting">Cancel</button>
       <button forgeButton (click)="extract()" [disabled]="!rawText.trim() || isExtracting">
         <span *ngIf="!isExtracting">Extract via AI</span>
-        <span *ngIf="isExtracting" class="animate-pulse">Extracting...</span>
+        <span *ngIf="isExtracting" class="animate-pulse motion-reduce:animate-none">Extracting...</span>
       </button>
     </div>
   </div>

@@ -435,10 +435,12 @@
             <!-- Stat Selector -->
             <div>
               <label
+                for="weapon-ability-{{ index }}"
                 class="block mb-1 text-micro font-semibold uppercase text-muted"
                 >Scaling Ability:</label
               >
               <select
+                id="weapon-ability-{{ index }}"
                 forgeSelect
                 dense
                 class="w-full"
@@ -474,10 +476,12 @@
             <!-- Magic Bonus -->
             <div>
               <label
+                for="weapon-magic-{{ index }}"
                 class="block mb-1 text-micro font-semibold uppercase text-muted"
                 >Magic Weapon Bonus:</label
               >
               <select
+                id="weapon-magic-{{ index }}"
                 forgeSelect
                 dense
                 class="w-full"
@@ -545,10 +549,12 @@
             <!-- Misc Attack Bonus -->
             <div>
               <label
+                for="weapon-misc-attack-{{ index }}"
                 class="block mb-1 text-micro font-semibold uppercase text-muted"
                 >Misc Attack Bonus:</label
               >
               <input
+                id="weapon-misc-attack-{{ index }}"
                 forgeInput
                 dense
                 type="number"
@@ -562,10 +568,12 @@
             <!-- Misc Damage Bonus -->
             <div>
               <label
+                for="weapon-misc-damage-{{ index }}"
                 class="block mb-1 text-micro font-semibold uppercase text-muted"
                 >Misc Damage Bonus:</label
               >
               <input
+                id="weapon-misc-damage-{{ index }}"
                 forgeInput
                 dense
                 type="number"
@@ -579,10 +587,12 @@
             <!-- Damage Dice -->
             <div>
               <label
+                for="weapon-base-dice-{{ index }}"
                 class="block mb-1 text-micro font-semibold uppercase text-muted"
                 >Base Damage Dice:</label
               >
               <input
+                id="weapon-base-dice-{{ index }}"
                 forgeInput
                 dense
                 type="text"
@@ -598,10 +608,12 @@
             <!-- Damage Type -->
             <div>
               <label
+                for="weapon-damage-type-{{ index }}"
                 class="block mb-1 text-micro font-semibold uppercase text-muted"
                 >Damage Type:</label
               >
               <input
+                id="weapon-damage-type-{{ index }}"
                 forgeInput
                 dense
                 type="text"
@@ -881,7 +893,7 @@
       <button
         type="button"
         (click)="openCoinModal('pp')"
-        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile border border-hairline transition-colors cursor-pointer group"
         title="Platinum Pieces"
       >
         <span
@@ -897,7 +909,7 @@
       <button
         type="button"
         (click)="openCoinModal('gp')"
-        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-gold/40 transition-all cursor-pointer group shadow-sm"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile border border-gold/40 transition-colors cursor-pointer group shadow-sm"
         title="Gold Pieces"
       >
         <span class="text-micro font-black uppercase text-gold">GP</span>
@@ -910,7 +922,7 @@
       <button
         type="button"
         (click)="openCoinModal('ep')"
-        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile border border-hairline transition-colors cursor-pointer group"
         title="Electrum Pieces"
       >
         <span
@@ -926,7 +938,7 @@
       <button
         type="button"
         (click)="openCoinModal('sp')"
-        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile border border-hairline transition-colors cursor-pointer group"
         title="Silver Pieces"
       >
         <span
@@ -942,7 +954,7 @@
       <button
         type="button"
         (click)="openCoinModal('cp')"
-        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile active:scale-95 border border-hairline transition-all cursor-pointer group"
+        class="flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-surface hover:bg-tile border border-hairline transition-colors cursor-pointer group"
         title="Copper Pieces"
       >
         <span class="text-micro font-black uppercase text-gold">CP</span>
@@ -1006,7 +1018,7 @@
           *ngFor="let p of [1, 5, 10, 50, 100]"
           type="button"
           (click)="addCoinPill(p)"
-          class="flex-1 py-1 rounded bg-tile hover:bg-tile/80 active:scale-95 border border-hairline text-xs font-bold text-ink"
+          class="flex-1 py-1 rounded bg-tile hover:bg-tile/80 border border-hairline text-xs font-bold text-ink transition-colors"
         >
           +{{ p }}
         </button>
@@ -1018,21 +1030,21 @@
           *ngFor="let digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9']"
           type="button"
           (click)="appendCoinDigit(digit)"
-          class="h-11 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-ink"
+          class="h-11 rounded-xl bg-panel hover:bg-tile border border-hairline text-base font-bold text-ink transition-colors"
         >
           {{ digit }}
         </button>
         <button
           type="button"
           (click)="clearCoinNumpad()"
-          class="h-11 rounded-xl bg-tile/50 hover:bg-tile text-xs font-bold text-muted uppercase"
+          class="h-11 rounded-xl bg-tile/50 hover:bg-tile text-xs font-bold text-muted uppercase transition-colors"
         >
           Clear
         </button>
         <button
           type="button"
           (click)="appendCoinDigit('0')"
-          class="h-11 rounded-xl bg-panel hover:bg-tile active:scale-95 border border-hairline text-base font-bold text-ink"
+          class="h-11 rounded-xl bg-panel hover:bg-tile border border-hairline text-base font-bold text-ink transition-colors"
         >
           0
         </button>

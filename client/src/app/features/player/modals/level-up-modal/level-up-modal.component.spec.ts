@@ -163,4 +163,39 @@ describe('LevelUpModalComponent', () => {
     expect(component.userChoices['hp_method']).toBe('roll');
     expect(component.userChoices['custom_hp_increase']).toBe('8');
   });
+
+  it('rollHp includes per-level feat/subclass HP bonus when rolling', () => {
+    const diceService = TestBed.inject(DiceService);
+    const rollSpy = jest.spyOn(diceService, 'roll').mockReturnValue({
+      raw: [4],
+      rolls: [4],
+      sides: 10,
+      modifier: 4, // CON +2 + Tough +2
+      total: 8,
+    } as any);
+
+    component.character = {
+      char_name: 'Borin',
+      char_class: 'Fighter',
+      hit_dice: '3d10',
+      stats: { CON: 14 }, // +2
+    } as any;
+    component.levelUpAnalysis = {
+      automatic_changes: [],
+      hp_increase: 10, // average 6 + CON 2 + Tough 2
+      hp_bonus_per_level: 2,
+      new_total_hp: 38,
+      choices_required: [],
+    } as any;
+    component.userChoices = { level_up_class: 'Fighter' };
+
+    component.rollHp();
+
+    expect(rollSpy).toHaveBeenCalledWith({
+      numDice: 1,
+      sides: 10,
+      modifier: 4,
+    });
+    expect(component.userChoices['custom_hp_increase']).toBe('8');
+  });
 });

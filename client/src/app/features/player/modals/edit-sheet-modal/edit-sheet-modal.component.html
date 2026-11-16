@@ -1,56 +1,59 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'✏️ Edit Character Sheet: ' + (editChar?.char_name || '')" maxWidth="960px">
   <ng-container *ngIf="editChar">
     <p class="mb-2 text-body text-muted">Modify core stats, vitals, background traits, and backstory.</p>
-    <div class="mb-4 rounded-lg bg-violet/10 border border-violet/40 p-3 text-body text-ink">
-      <i class="fas fa-info-circle mr-2"></i><strong>Note:</strong> To edit Skills, Spells, Attacks, and Features, close this modal and use the <strong>⚡ Quick Edit</strong> button on the main dashboard to toggle inline editing mode!
+    <div class="mb-4 flex items-start gap-2 rounded-lg bg-accent/10 border border-accent/40 p-3 text-body text-ink">
+      <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+      </svg>
+      <span><strong>Note:</strong> To edit Skills, Spells, Attacks, and Features, close this modal and use the <strong>⚡ Quick Edit</strong> button on the main dashboard to toggle inline editing mode!</span>
     </div>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
       <div>
-        <label class="mb-1 block text-label font-semibold text-muted">Hero Name:</label>
-        <input forgeInput type="text" [(ngModel)]="editChar.char_name" />
+        <label for="edit-char-name" class="mb-1 block text-label font-semibold text-muted">Hero Name:</label>
+        <input id="edit-char-name" forgeInput type="text" [(ngModel)]="editChar.char_name" />
       </div>
       <div>
-        <label class="mb-1 block text-label font-semibold text-muted">Level:</label>
-        <input forgeInput type="number" [(ngModel)]="editChar.char_level" min="1" max="20" />
+        <label for="edit-char-level" class="mb-1 block text-label font-semibold text-muted">Level:</label>
+        <input id="edit-char-level" forgeInput type="number" [(ngModel)]="editChar.char_level" min="1" max="20" />
       </div>
     </div>
 
     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <div><label class="mb-1 block text-label font-semibold text-muted">Race:</label><input forgeInput type="text" [(ngModel)]="editChar.race" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Class:</label><input forgeInput type="text" [(ngModel)]="editChar.char_class" /></div>
+      <div><label for="edit-char-race" class="mb-1 block text-label font-semibold text-muted">Race:</label><input id="edit-char-race" forgeInput type="text" [(ngModel)]="editChar.race" /></div>
+      <div><label for="edit-char-class" class="mb-1 block text-label font-semibold text-muted">Class:</label><input id="edit-char-class" forgeInput type="text" [(ngModel)]="editChar.char_class" /></div>
       <div>
-        <label class="mb-1 block text-label font-semibold text-muted">Subclass:</label>
-        <input forgeInput type="text" [(ngModel)]="editChar.subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'edit-subclass-hint' : null" />
+        <label for="edit-char-subclass" class="mb-1 block text-label font-semibold text-muted">Subclass:</label>
+        <input id="edit-char-subclass" forgeInput type="text" [(ngModel)]="editChar.subclass" [readonly]="!canEditSubclass" [attr.aria-describedby]="!canEditSubclass ? 'edit-subclass-hint' : null" />
         <p *ngIf="!canEditSubclass" id="edit-subclass-hint" class="mt-1 text-micro uppercase text-muted">Subclasses unlock at level {{ subclassUnlockLevel }}</p>
       </div>
     </div>
 
     <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div><label class="mb-1 block text-label font-semibold text-muted">Background:</label><input forgeInput type="text" [(ngModel)]="editChar.background" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Max HP:</label><input forgeInput type="number" [(ngModel)]="editChar.hp_max" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Armor Class (AC):</label><input forgeInput type="number" [(ngModel)]="editChar.armor_class" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Speed (ft):</label><input forgeInput type="number" [(ngModel)]="editChar.speed" /></div>
+      <div><label for="edit-char-background" class="mb-1 block text-label font-semibold text-muted">Background:</label><input id="edit-char-background" forgeInput type="text" [(ngModel)]="editChar.background" /></div>
+      <div><label for="edit-char-hp-max" class="mb-1 block text-label font-semibold text-muted">Max HP:</label><input id="edit-char-hp-max" forgeInput type="number" [(ngModel)]="editChar.hp_max" /></div>
+      <div><label for="edit-char-ac" class="mb-1 block text-label font-semibold text-muted">Armor Class (AC):</label><input id="edit-char-ac" forgeInput type="number" [(ngModel)]="editChar.armor_class" /></div>
+      <div><label for="edit-char-speed" class="mb-1 block text-label font-semibold text-muted">Speed (ft):</label><input id="edit-char-speed" forgeInput type="number" [(ngModel)]="editChar.speed" /></div>
     </div>
 
     <h4 class="mt-5 font-display text-body font-bold text-accent">Ability Scores</h4>
     <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" *ngIf="editChar.stats">
-      <div><label class="mb-1 block text-label font-semibold text-muted">STR:</label><input forgeInput type="number" [(ngModel)]="editChar.stats['STR']" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">DEX:</label><input forgeInput type="number" [(ngModel)]="editChar.stats['DEX']" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">CON:</label><input forgeInput type="number" [(ngModel)]="editChar.stats['CON']" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">INT:</label><input forgeInput type="number" [(ngModel)]="editChar.stats['INT']" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">WIS:</label><input forgeInput type="number" [(ngModel)]="editChar.stats['WIS']" /></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">CHA:</label><input forgeInput type="number" [(ngModel)]="editChar.stats['CHA']" /></div>
+      <div><label for="edit-stat-str" class="mb-1 block text-label font-semibold text-muted">STR:</label><input id="edit-stat-str" forgeInput type="number" [(ngModel)]="editChar.stats['STR']" /></div>
+      <div><label for="edit-stat-dex" class="mb-1 block text-label font-semibold text-muted">DEX:</label><input id="edit-stat-dex" forgeInput type="number" [(ngModel)]="editChar.stats['DEX']" /></div>
+      <div><label for="edit-stat-con" class="mb-1 block text-label font-semibold text-muted">CON:</label><input id="edit-stat-con" forgeInput type="number" [(ngModel)]="editChar.stats['CON']" /></div>
+      <div><label for="edit-stat-int" class="mb-1 block text-label font-semibold text-muted">INT:</label><input id="edit-stat-int" forgeInput type="number" [(ngModel)]="editChar.stats['INT']" /></div>
+      <div><label for="edit-stat-wis" class="mb-1 block text-label font-semibold text-muted">WIS:</label><input id="edit-stat-wis" forgeInput type="number" [(ngModel)]="editChar.stats['WIS']" /></div>
+      <div><label for="edit-stat-cha" class="mb-1 block text-label font-semibold text-muted">CHA:</label><input id="edit-stat-cha" forgeInput type="number" [(ngModel)]="editChar.stats['CHA']" /></div>
     </div>
 
     <h4 class="mt-5 font-display text-body font-bold text-accent">Traits & Backstory</h4>
     <div class="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
-      <div><label class="mb-1 block text-label font-semibold text-muted">Personality Traits:</label><textarea forgeTextarea rows="2" [(ngModel)]="editChar.personality_traits"></textarea></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Ideals:</label><textarea forgeTextarea rows="2" [(ngModel)]="editChar.ideals"></textarea></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Bonds:</label><textarea forgeTextarea rows="2" [(ngModel)]="editChar.bonds"></textarea></div>
-      <div><label class="mb-1 block text-label font-semibold text-muted">Flaws:</label><textarea forgeTextarea rows="2" [(ngModel)]="editChar.flaws"></textarea></div>
+      <div><label for="edit-char-personality" class="mb-1 block text-label font-semibold text-muted">Personality Traits:</label><textarea id="edit-char-personality" forgeTextarea rows="2" [(ngModel)]="editChar.personality_traits"></textarea></div>
+      <div><label for="edit-char-ideals" class="mb-1 block text-label font-semibold text-muted">Ideals:</label><textarea id="edit-char-ideals" forgeTextarea rows="2" [(ngModel)]="editChar.ideals"></textarea></div>
+      <div><label for="edit-char-bonds" class="mb-1 block text-label font-semibold text-muted">Bonds:</label><textarea id="edit-char-bonds" forgeTextarea rows="2" [(ngModel)]="editChar.bonds"></textarea></div>
+      <div><label for="edit-char-flaws" class="mb-1 block text-label font-semibold text-muted">Flaws:</label><textarea id="edit-char-flaws" forgeTextarea rows="2" [(ngModel)]="editChar.flaws"></textarea></div>
     </div>
-    <div class="mt-3"><label class="mb-1 block text-label font-semibold text-muted">Backstory:</label><textarea forgeTextarea rows="3" [(ngModel)]="editChar.backstory"></textarea></div>
+    <div class="mt-3"><label for="edit-char-backstory" class="mb-1 block text-label font-semibold text-muted">Backstory:</label><textarea id="edit-char-backstory" forgeTextarea rows="3" [(ngModel)]="editChar.backstory"></textarea></div>
 
     <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
       <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>

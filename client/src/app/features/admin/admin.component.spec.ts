@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminComponent } from './admin.component';
@@ -91,8 +91,15 @@ describe('AdminComponent', () => {
     expect(el.querySelector('tbody')!.textContent).toContain('test@example.com');
   });
 
-  it('filters users on search term change', () => {
+  it('filters users on search term change after debounce', fakeAsync(() => {
+    component.onSearchChange('h');
+    component.onSearchChange('he');
     component.onSearchChange('hero');
+
+    // Before 300ms debounce settles, no HTTP request is fired
+    http.expectNone((r) => r.url.includes('/admin/users'));
+
+    tick(300);
 
     const searchReq = http.expectOne(
       (r) => r.method === 'GET' && r.url.includes('/admin/users') && r.params.get('search') === 'hero'
@@ -101,7 +108,7 @@ describe('AdminComponent', () => {
 
     expect(component.searchQuery()).toBe('hero');
     expect(component.users().length).toBe(1);
-  });
+  }));
 
   it('handles user deletion preview and confirmation flow', () => {
     component.openDeleteModal(MOCK_USER);

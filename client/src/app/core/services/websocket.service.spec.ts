@@ -214,4 +214,19 @@ describe('WebSocketService', () => {
     jest.advanceTimersByTime(50000);
     expect(ws.readyState).toBe(WebSocket.CLOSED);
   });
+
+  it('notifies user when non-ping message is sent while socket is closed without spamming', () => {
+    const toast = TestBed.inject(RollToastService) as unknown as { showMessage: jest.Mock };
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(service.sendMessage({ type: 'ping' })).toBe(false);
+    expect(toast.showMessage).not.toHaveBeenCalled();
+
+    expect(service.sendVttToggle(true)).toBe(false);
+    expect(toast.showMessage).toHaveBeenCalledTimes(1);
+
+    // Within 5s cooldown -> still 1 toast
+    expect(service.sendVttMove('token1', 5, 5)).toBe(false);
+    expect(toast.showMessage).toHaveBeenCalledTimes(1);
+  });
 });

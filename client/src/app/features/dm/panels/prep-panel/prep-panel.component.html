@@ -32,14 +32,14 @@
       </div>
 
       <div class="flex items-center gap-4 mt-2">
-        <label class="font-bold text-label text-muted">Max Sessions:</label>
-        <input type="number" [(ngModel)]="skeleton.max_sessions" class="forge-input w-24" min="1" max="100">
+        <label for="skeleton-max-sessions" class="font-bold text-label text-muted">Max Sessions:</label>
+        <input id="skeleton-max-sessions" forgeInput type="number" [(ngModel)]="skeleton.max_sessions" class="w-24" min="1" max="100">
 
         <div class="flex-1 flex justify-end gap-2">
           <button forgeButton variant="secondary" (click)="saveSkeleton()">Save Skeleton</button>
           <button forgeButton variant="secondary" (click)="generateOutlines()" [disabled]="isGeneratingOutlines">
             <span *ngIf="!isGeneratingOutlines">Generate Session Outlines</span>
-            <span *ngIf="isGeneratingOutlines" class="animate-pulse">Forging Arc...</span>
+            <span *ngIf="isGeneratingOutlines" class="animate-pulse motion-reduce:animate-none">Forging Arc...</span>
           </button>
         </div>
       </div>
@@ -92,7 +92,7 @@
         </p>
         <button forgeButton (click)="generatePrep()" [disabled]="isGeneratingPrep">
           <span *ngIf="!isGeneratingPrep">Forge Next Session</span>
-          <span *ngIf="isGeneratingPrep" class="animate-pulse">Forging...</span>
+          <span *ngIf="isGeneratingPrep" class="animate-pulse motion-reduce:animate-none">Forging...</span>
         </button>
       </div>
 
@@ -145,25 +145,26 @@
       <!-- Upload form -->
       <div class="flex items-end gap-4 p-4 bg-obsidian rounded border border-dashed border-hairline flex-wrap">
         <div class="flex flex-col gap-1 w-24">
-          <label class="text-micro font-bold uppercase text-muted">Session #</label>
-          <input type="number" [(ngModel)]="newSessionNumber" class="forge-input" min="1">
+          <label for="prep-session-number" class="text-micro font-bold uppercase text-muted">Session #</label>
+          <input id="prep-session-number" forgeInput type="number" [(ngModel)]="newSessionNumber" min="1">
         </div>
 
         <div class="flex flex-col gap-1 flex-1 min-w-50">
-          <label class="text-micro font-bold uppercase text-muted">Audio File (MP3/WAV)</label>
-          <input type="file" accept="audio/*" (change)="onFileSelected($event)" class="text-body text-ink" [disabled]="isProcessingSession">
+          <label for="prep-audio-file" class="text-micro font-bold uppercase text-muted">Audio File (MP3/WAV)</label>
+          <input id="prep-audio-file" type="file" accept="audio/*" (change)="onFileSelected($event)" class="text-body text-ink" [disabled]="isProcessingSession">
         </div>
 
         <button forgeButton variant="secondary" (click)="uploadAudio()" [disabled]="!selectedFile || isProcessingSession">
-          <span [class.animate-pulse]="isProcessingSession">{{ isProcessingSession ? 'Processing...' : 'Upload Audio' }}</span>
+          <span [class.animate-pulse]="isProcessingSession" [class.motion-reduce:animate-none]="isProcessingSession">{{ isProcessingSession ? 'Processing...' : 'Upload Audio' }}</span>
         </button>
       </div>
 
       <!-- Text notes form -->
       <div class="flex flex-col gap-4 p-4 bg-obsidian rounded border border-dashed border-hairline mt-2">
         <div class="flex flex-col gap-1">
-          <label class="text-micro font-bold uppercase text-muted">Or Process Text Notes</label>
+          <label for="prep-text-notes" class="text-micro font-bold uppercase text-muted">Or Process Text Notes</label>
           <textarea
+            id="prep-text-notes"
             forgeTextarea
             rows="4"
             [(ngModel)]="sessionTextNotes"
@@ -175,7 +176,7 @@
         <div class="flex justify-end">
           <button forgeButton variant="secondary" (click)="processTextSession()" [disabled]="!sessionTextNotes || isProcessingSession">
             <span *ngIf="!isProcessingSession">Process Text Notes</span>
-            <span *ngIf="isProcessingSession" class="animate-pulse">Processing...</span>
+            <span *ngIf="isProcessingSession" class="animate-pulse motion-reduce:animate-none">Processing...</span>
           </button>
         </div>
       </div>
@@ -227,7 +228,7 @@
         </p>
         <button forgeButton variant="secondary" (click)="generateJourney()" [disabled]="isGeneratingJourney">
           <span *ngIf="!isGeneratingJourney">Map Journey</span>
-          <span *ngIf="isGeneratingJourney" class="animate-pulse">Charting...</span>
+          <span *ngIf="isGeneratingJourney" class="animate-pulse motion-reduce:animate-none">Charting...</span>
         </button>
       </div>
 

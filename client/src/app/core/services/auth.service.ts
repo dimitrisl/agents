@@ -42,8 +42,8 @@ export class AuthService {
         error: (error) => {
           if (this.isAuthFailure(error)) {
             this.logout();
+            this.authStatus.set('anonymous');
           }
-          this.authStatus.set('anonymous');
         },
       });
     }
@@ -91,8 +91,17 @@ export class AuthService {
             this.currentUser.set(user);
             this.authStatus.set('authenticated');
           },
-          error: () => {
+          error: (error) => {
             this.currentUser$ = null;
+            if (!this.isAuthFailure(error) && this.token()) {
+              const cached = this.readCachedUser();
+              if (cached) {
+                this.currentUser.set(cached);
+                this.authStatus.set('authenticated');
+                return;
+              }
+            }
+            this.currentUser.set(null);
             this.authStatus.set('anonymous');
           },
         }),
@@ -127,6 +136,17 @@ export class AuthService {
     // the next user to sign in would open onto the previous one's heroes.
     this.charState.reset();
     this.router.navigate(['/login']);
+  }
+
+  private readCachedUser(): User | null {
+    try {
+      const raw = localStorage.getItem(this.USER_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as User;
+      return parsed && typeof parsed.username === 'string' ? parsed : null;
+    } catch {
+      return null;
+    }
   }
 
   private persistSession(res: AuthResponse) {

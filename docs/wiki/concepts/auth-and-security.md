@@ -79,14 +79,20 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 - Retrieval of campaign messages and whispers via `/campaigns/{name}/messages` enforces privacy checks directly inside the MongoDB query filter, matching authenticated `user_id` (`sender_user_id`, `recipient_user_id`), DM broadcast flags, and all enrolled `character_ids` owned by the user (`sender_character_id` / `recipient_character_id`), while scoping legacy name fallbacks to un-keyed legacy rows (`user_id: None`).
 - Pushing whisper authorization down to the database query prevents homonym character collisions across users, prevents confidential whispers from leaking over the wire, and eliminates post-query pagination starvation where players could receive empty message batches.
 
+### 11. Production Secret Fail-Closed & Upload/VTT Bounds
+- **Startup Secret Enforcement ([`server/config.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/config.py), [`server/main.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/main.py)):** Rejects known placeholder values (`_INSECURE_PLACEHOLDER_SECRETS`) via `@model_validator` and enforces `settings.validate_production_secrets()` in non-debug startup (`DEBUG_MODE=False`) so ephemeral fallback secrets cannot sign production JWTs.
+- **Image Magic-Byte & Optimistic Version Upload Guard ([`backend/utils/image_utils.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/utils/image_utils.py), [`assets_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/assets_router.py), [`character_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/character_router.py)):** Validates PNG/JPEG/GIF/WEBP magic bytes and streams up to size limit cleanly before performing atomic optimistic `version` `update_one` and unlinking any superseded portrait file.
+- **Fog-of-War Pre-Allocation Bound ([`backend/services/vtt_service.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/vtt_service.py)):** `_extract_valid_cell_indices()` validates non-negative rect bounds (`rw * rh <= max_limit`) and `len(cells) <= max_limit` prior to list allocation to prevent memory-exhaustion DoS.
+- **VTT Map URL Scheme Sanitization ([`vtt-grid.component.ts`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/src/app/features/campaigns/vtt-grid/vtt-grid.component.ts)):** `isSafeCssImageUrl()` permits only `http:`, `https:`, `blob:`, or relative paths for CSS `background-image` URLs.
+
 ---
 
-## ⏱️ Rate Limiting & DoS / Quota Exhaustion Defenses (`server/rate_limiter.py`)
+## ⏱️ Rate Limiting & DoS / Quota Exhaustion Defenses ([`server/rate_limiter.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/rate_limiter.py))
 
 To protect the server from credential brute-forcing and safeguard the Gemini API quota/wallet against infinite loops or abuse, **SlowAPI** is integrated:
 
 ### 1. Key Extraction & Isolation
-- **Unauthenticated / Auth Endpoints:** Rate limited strictly per client IP address (`ip:<ip_address>`), resolving `X-Forwarded-For` when behind reverse proxies.
+- **Unauthenticated / Auth Endpoints:** Rate limited strictly per client IP address (`ip:<ip_address>`). `get_real_ip()` scans comma-separated `X-Forwarded-For` headers from **right to left**, skipping configured trusted proxies (`TRUSTED_PROXY_IPS`), so spoofed left-most `X-Forwarded-For` headers cannot bypass rate limits.
 - **Authenticated / AI Endpoints:** Rate limited per user (`user:<user_id>`), fast-extracted from JWT Bearer tokens without requiring synchronous DB lookups.
 - **Fallback:** Defaults to client IP when no valid token is provided.
 

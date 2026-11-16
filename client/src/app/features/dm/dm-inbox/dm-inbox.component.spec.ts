@@ -56,9 +56,9 @@ describe('DmInboxComponent', () => {
     component.ngOnChanges();
     fixture.detectChanges();
 
-    const badge: HTMLElement | null = fixture.nativeElement.querySelector('.text-error');
+    const badge: HTMLElement | null = fixture.nativeElement.querySelector('.text-crimson');
     expect(badge).toBeTruthy();
-    expect(badge?.textContent).toContain('(Διαγραμμένος χρήστης)');
+    expect(badge?.textContent).toContain('(Deleted user)');
   });
 
   it('displays Reported badge and suppresses report button when whisper is reported', () => {

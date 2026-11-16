@@ -21,7 +21,12 @@ logger = logging.getLogger("DnDAssistant.GeminiProvider")
 
 
 def _raise_for_quota(error_msg: str) -> None:
-    """Free-tier keys hit per-minute/per-day limits; surface them as 429s."""
+    """Free-tier keys hit per-minute/per-day limits or transient 503 overload; surface them cleanly."""
+    if "503" in error_msg or "high demand" in error_msg.lower():
+        raise HTTPException(
+            status_code=503,
+            detail="The AI is currently experiencing high demand. Please wait a few seconds and try again.",
+        )
     if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
         raise HTTPException(
             status_code=429,
@@ -116,13 +121,7 @@ class GeminiProvider(LLMProvider):
             )
             return response.text or ""
         except Exception as e:
-            error_msg = str(e)
-            if "503" in error_msg or "high demand" in error_msg.lower():
-                raise HTTPException(
-                    status_code=503,
-                    detail="The AI is currently experiencing high demand. Please wait a few seconds and try again.",
-                )
-            _raise_for_quota(error_msg)
+            _raise_for_quota(str(e))
             logger.error(f"Failed to generate response: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to generate AI response.")
 
@@ -180,6 +179,7 @@ class GeminiProvider(LLMProvider):
             logger.error(f"JSONDecodeError parsing Gemini output: {e}\nRaw Text: {cleaned_text}")
             return None
         except Exception as e:
+            _raise_for_quota(str(e))
             logger.error(f"Failed to generate JSON from Gemini: {e}")
             return None
 
@@ -283,5 +283,6 @@ class GeminiProvider(LLMProvider):
             logger.error(f"JSONDecodeError parsing Gemini output: {e}\nRaw Text: {cleaned_text}")
             return None
         except Exception as e:
+            _raise_for_quota(str(e))
             logger.error(f"Failed to generate JSON from files: {str(e)}")
             return None

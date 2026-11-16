@@ -1,6 +1,8 @@
-import { Component, computed, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import {
   AdminService,
   AdminUser,
@@ -97,11 +99,23 @@ export class AdminComponent implements OnInit {
   selectedReport = signal<WhisperReport | null>(null);
   resolutionNote = signal<string>('');
   isUpdatingReport = signal<boolean>(false);
+  updatingReportAction = signal<'resolved' | 'dismissed' | null>(null);
+
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly searchTerms$ = new Subject<string>();
+  private usersRequestSeq = 0;
 
   constructor(
     private adminService: AdminService,
     private rollToast: RollToastService
-  ) {}
+  ) {
+    this.searchTerms$
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.currentPage.set(1);
+        this.loadUsers();
+      });
+  }
 
   ngOnInit(): void {
     this.loadUsers();
@@ -109,15 +123,21 @@ export class AdminComponent implements OnInit {
   }
 
   loadUsers(): void {
+    const seq = ++this.usersRequestSeq;
     this.isLoadingUsers.set(true);
     const skip = (this.currentPage() - 1) * this.pageSize();
-    this.adminService.getUsers(this.searchQuery(), skip, this.pageSize()).subscribe({
+    this.adminService
+      .getUsers(this.searchQuery(), skip, this.pageSize())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (resp) => {
+        if (seq !== this.usersRequestSeq) return;
         this.users.set(resp.users);
         this.totalUsers.set(resp.total);
         this.isLoadingUsers.set(false);
       },
       error: (err) => {
+        if (seq !== this.usersRequestSeq) return;
         this.isLoadingUsers.set(false);
         this.rollToast.showMessage('⚠️ ERROR', err?.error?.detail || 'Failed to load users.');
       },
@@ -126,8 +146,7 @@ export class AdminComponent implements OnInit {
 
   onSearchChange(term: string): void {
     this.searchQuery.set(term);
-    this.currentPage.set(1);
-    this.loadUsers();
+    this.searchTerms$.next(term);
   }
 
   onPageSizeChange(size: number): void {
@@ -229,18 +248,21 @@ export class AdminComponent implements OnInit {
     if (!rep) return;
 
     this.isUpdatingReport.set(true);
+    this.updatingReportAction.set(status);
     this.adminService.updateReport(rep.report_id, {
       status,
       resolution_note: this.resolutionNote().trim() || undefined,
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.isUpdatingReport.set(false);
+        this.updatingReportAction.set(null);
         this.showReportModal.set(false);
         this.rollToast.showMessage('✅ REPORT UPDATED', `Report marked as ${status}.`);
         this.loadReports();
       },
       error: (err) => {
         this.isUpdatingReport.set(false);
+        this.updatingReportAction.set(null);
         this.rollToast.showMessage('⚠️ ERROR', err?.error?.detail || 'Failed to update report status.');
       },
     });

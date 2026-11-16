@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import datetime
 import inspect
@@ -462,14 +463,25 @@ async def save_campaign(
         if not member or member.get("role") != "dm":
             raise HTTPException(status_code=403, detail="Not authorized to edit this campaign")
 
-        camp_dict["owner_id"] = existing.get("owner_id") or current_user["id"]
-        camp_dict["party"] = existing.get("party", [])
+        camp_updates = {
+            "notes": payload.notes,
+            "dnd_edition": payload.dnd_edition,
+        }
+        camp_dict = {
+            "campaign_name": payload.campaign_name,
+            "owner_id": existing.get("owner_id") or current_user["id"],
+            "role": existing.get("role", "dm"),
+            "notes": payload.notes,
+            "party": existing.get("party", []),
+            "dnd_edition": payload.dnd_edition,
+            "member_count": existing.get("member_count", 1),
+        }
         if "invite_code" in existing:
             camp_dict["invite_code"] = existing["invite_code"]
 
         try:
             await db["campaigns"].update_one(
-                {"campaign_name": payload.campaign_name}, {"$set": camp_dict}
+                {"campaign_name": payload.campaign_name}, {"$set": camp_updates}
             )
         except DuplicateKeyError as e:
             raise HTTPException(
@@ -2532,18 +2544,7 @@ async def update_campaign_scene(
 
         vtt_srv = VTTService()
         new_state = await vtt_srv.get_vtt_state(db, name)
-        state_dump = new_state.model_dump()
-        connections = manager.active_connections.get(name) or []
-        for conn in list(connections):
-            payload_to_send = (
-                state_dump
-                if conn.is_dm
-                else VTTService.redact_for_player(new_state, conn.character).model_dump()
-            )
-            try:
-                await conn.websocket.send_json({"type": "vtt_sync", "payload": payload_to_send})
-            except Exception:
-                pass
+        await _broadcast_vtt_sync(manager, name, new_state)
 
     return VTTSceneSchema(**updated)
 
@@ -2690,20 +2691,27 @@ async def activate_campaign_scene(
 
     vtt_srv = VTTService()
     new_state = await vtt_srv.get_vtt_state(db, name)
-    state_dump = new_state.model_dump()
-    connections = manager.active_connections.get(name) or []
-    for conn in list(connections):
-        payload_to_send = (
-            state_dump
-            if conn.is_dm
-            else VTTService.redact_for_player(new_state, conn.character).model_dump()
-        )
-        try:
-            await conn.websocket.send_json({"type": "vtt_sync", "payload": payload_to_send})
-        except Exception:
-            pass
+    await _broadcast_vtt_sync(manager, name, new_state)
 
     return {"success": True, "message": f"Scene '{scene.get('name')}' activated."}
+
+
+async def _broadcast_vtt_sync(manager: Any, campaign_name: str, state: VTTStateSchema) -> None:
+    """Concurrently send redacted/full vtt_sync payloads to connected room clients."""
+    connections = list(manager.active_connections.get(campaign_name) or [])
+    if not connections:
+        return
+    state_dump = state.model_dump()
+
+    async def _dispatch(conn: Any) -> None:
+        payload = (
+            state_dump
+            if conn.is_dm
+            else VTTService.redact_for_player(state, conn.character).model_dump()
+        )
+        await conn.websocket.send_json({"type": "vtt_sync", "payload": payload})
+
+    await asyncio.gather(*(_dispatch(c) for c in connections), return_exceptions=True)
 
 
 @router.get("/{name}/scenes/history", response_model=List[VTTSceneHistorySchema])

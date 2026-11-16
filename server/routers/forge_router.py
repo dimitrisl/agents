@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -29,6 +30,7 @@ from server.dependencies.auth import get_current_user
 from server.rate_limiter import limiter
 
 router = APIRouter(prefix="/forge", tags=["Forge (AI)"])
+logger = logging.getLogger(__name__)
 
 
 class ForgeCharacterRequest(BaseModel):
@@ -291,15 +293,100 @@ async def apply_level_up(
 
     # Note: if they change primary class logic, they will update it elsewhere, but we preserve primary char_class.
 
-    # Update HP (new_total_hp already includes any existing feat_hp_bonus for the new level)
-    char_doc["hp_max"] = payload.analysis.new_total_hp
-    char_doc["hp_current"] = payload.analysis.new_total_hp  # heal on level up
-    if char_doc.get("feat_hp_bonus", 0) > 0:
-        char_doc["feat_hp_bonus"] = (char_doc["feat_hp_bonus"] // old_level) * char_doc[
-            "char_level"
-        ]
+    # Compute legal level-up HP gain deterministically server-side
+    from backend.services.forge_service import resolve_level_up_automatic_features
+    from backend.services.progression_service import get_level_up_vitals
+    from backend.services.stats_service import calculate_hp
+
+    edition = char_doc.get("dnd_edition", "2014 Edition")
+    is_2024_edition = "2024" in str(edition)
+    target_class_entry = next(
+        (c for c in classes if (c.get("class_name") or "").lower() == target_class.lower()),
+        None,
+    )
+    new_class_level = int((target_class_entry or {}).get("level") or char_doc["char_level"])
+    old_class_level = max(0, new_class_level - 1)
+    pre_subclass = (
+        target_class_entry.get("subclass") if target_class_entry else None
+    ) or char_doc.get("subclass")
+    # Resolve any newly selected subclass before computing HP vitals so unlocks (e.g. 2024 L3 Draconic) match analyze_level_up
+    chosen_subclass = pre_subclass
+    if payload.user_choices:
+        for choice_key, choice_val in payload.user_choices.items():
+            if not choice_val:
+                continue
+            base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
+            if base_type == "subclass":
+                chosen_subclass = choice_val
+                for cls in char_doc["classes"]:
+                    if cls.get("class_name", "").lower() == target_class.lower():
+                        cls["subclass"] = choice_val
+                        break
+                if target_class.lower() == char_doc.get("char_class", "").lower():
+                    char_doc["subclass"] = choice_val
 
     old_con = int((char_doc.get("stats") or {}).get("CON", 10) or 10)
+    vitals = get_level_up_vitals(
+        char_class=target_class,
+        current_level=old_class_level,
+        con_score=old_con,
+        edition=edition,
+        features=char_doc.get("features_traits", []),
+        subclass=chosen_subclass,
+    )
+    hp_increase = vitals["average_hp_gain"]
+    custom_hp = user_choices.get("custom_hp_increase")
+    if custom_hp is not None:
+        try:
+            hp_increase = max(1, min(vitals["max_hp_gain"], int(custom_hp)))
+        except (ValueError, TypeError):
+            pass
+
+    old_hp_max = int(char_doc.get("hp_max") or 0)
+    if old_hp_max <= 0:
+        old_hp_max = calculate_hp(
+            vitals["hit_die"],
+            old_level,
+            old_con,
+        )
+
+    char_doc["hp_max"] = old_hp_max + hp_increase
+    char_doc["hp_current"] = char_doc["hp_max"]  # heal on level up
+    # Compute the pre-existing feat/subclass HP already baked into old_hp_max (for legacy docs
+    # that omit `feat_hp_bonus`) plus the +1 level increment included in `vitals["hp_bonus_per_level"]`
+    # so sync_character_stats() adds retroactive levels (e.g. L1-L2 Draconic on 2024 L3 unlock) once.
+    pre_bonus_per_lvl = int(vitals.get("hp_bonus_per_level") or 0)
+    is_target_draconic_sorc = target_class.lower() == "sorcerer" and (
+        "draconic" in str(chosen_subclass or "").lower()
+        or any(
+            isinstance(f, dict) and "draconic resilience" in (f.get("name") or "").lower()
+            for f in char_doc.get("features_traits", [])
+        )
+    )
+
+    if char_doc.get("feat_hp_bonus"):
+        prev_baked_feat_hp = int(char_doc["feat_hp_bonus"])
+    else:
+        non_drac_per_lvl = pre_bonus_per_lvl - (1 if is_target_draconic_sorc else 0)
+        non_drac_per_lvl = max(0, non_drac_per_lvl)
+        pre_drac_levels = 0
+        has_drac_trait = any(
+            isinstance(f, dict) and "draconic resilience" in (f.get("name") or "").lower()
+            for f in char_doc.get("features_traits", [])
+        )
+        for cls in classes:
+            if (cls.get("class_name") or "").lower() == "sorcerer":
+                c_sub = (cls.get("subclass") or char_doc.get("subclass") or "").lower()
+                if "draconic" in c_sub or has_drac_trait:
+                    pre_lvl = int(cls.get("level", 1) or 1)
+                    if (cls.get("class_name") or "").lower() == target_class.lower():
+                        pre_lvl = old_class_level
+                    if not is_2024_edition or pre_lvl >= 3 or has_drac_trait:
+                        pre_drac_levels += pre_lvl
+        prev_baked_feat_hp = non_drac_per_lvl * old_level + pre_drac_levels
+
+    char_doc["feat_hp_bonus"] = prev_baked_feat_hp + pre_bonus_per_lvl
+
     char_doc["con_mod_applied"] = (old_con - 10) // 2
 
     stat_cap = (
@@ -316,16 +403,20 @@ async def apply_level_up(
                     stat_cap, int(char_doc["base_stats"][stat_key]) + amount
                 )
 
-    # Append automatic features
+    # Inject authoritative automatic features from static RulesRepository only (never trust client list)
+    static_auto_features = resolve_level_up_automatic_features(
+        target_class, new_class_level, chosen_subclass, edition
+    )
     existing_features = {
         f.get("name") for f in char_doc.get("features_traits", []) if isinstance(f, dict)
     }
-    for feature in payload.analysis.automatic_changes:
-        if feature.name not in existing_features:
-            char_doc.setdefault("features_traits", []).append(feature.model_dump())
-            existing_features.add(feature.name)
+    for feature in static_auto_features:
+        f_name = feature.get("name")
+        if f_name and f_name not in existing_features:
+            char_doc.setdefault("features_traits", []).append(feature)
+            existing_features.add(f_name)
 
-    # Process user choices (Subclass, etc)
+    # Process user choices (feats, spells, skills — subclass already applied above)
     if payload.user_choices:
         for choice_key, choice_val in payload.user_choices.items():
             if (
@@ -340,13 +431,6 @@ async def apply_level_up(
             base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
 
             if base_type == "subclass":
-                for cls in char_doc["classes"]:
-                    if cls.get("class_name", "").lower() == target_class.lower():
-                        cls["subclass"] = choice_val
-                        break
-
-                if target_class.lower() == char_doc.get("char_class", "").lower():
-                    char_doc["subclass"] = choice_val
                 continue
 
             # Check the type of choice from the analysis to know how to apply it
@@ -364,25 +448,39 @@ async def apply_level_up(
                     pass
 
             if choice_type == "spell" or "spell" in choice_label.lower():
-                clean_val = choice_val
+                clean_val = str(choice_val).strip()
 
                 rules_repo = RulesRepository()
                 edition = char_doc.get("dnd_edition", "2014 Edition")
                 all_spells = rules_repo.get_all_spells(edition)
 
-                spell_level = next(
-                    (s.get("level") for s in all_spells if s.get("name") == clean_val), None
+                matched_spell = next(
+                    (
+                        s
+                        for s in all_spells
+                        if str(s.get("name", "")).strip().lower() == clean_val.lower()
+                    ),
+                    None,
                 )
+                if matched_spell is None:
+                    logger.warning(
+                        "Ignoring unknown spell choice %r during level-up for %s",
+                        clean_val,
+                        payload.character_id,
+                    )
+                    continue
+
+                spell_level = matched_spell.get("level")
+                canonical_name = matched_spell.get("name") or clean_val
                 spells_dict = char_doc.setdefault("spells", {})
 
-                target_list = None
-                if spell_level == 0 or spell_level is None:
+                if spell_level == 0:
                     target_list = spells_dict.setdefault("cantrips", [])
                 else:
                     target_list = spells_dict.setdefault(f"level_{spell_level}", [])
 
-                if clean_val not in target_list:
-                    target_list.append(clean_val)
+                if canonical_name not in target_list:
+                    target_list.append(canonical_name)
             elif choice_type == "feat" or "feat" in choice_label.lower():
                 if choice_val == "+2 to one Stat":
                     # Reconstruct the stat keys (e.g. feat_stat1_0)
@@ -475,6 +573,7 @@ async def apply_level_up(
     }
 
     synced_char = sync_character_stats(char_doc, homebrew_content=homebrew_items)
+    synced_char["hp_current"] = synced_char.get("hp_max", char_doc.get("hp_max", 10))
 
     # Grant newly gained resource capacity delta on level-up even when pool was partially spent
     for r in synced_char.get("class_resources") or []:
@@ -488,11 +587,17 @@ async def apply_level_up(
     if "_id" in synced_char:
         del synced_char["_id"]
 
-    client_version = char_doc.get("version", 0)
+    raw_version = char_doc.get("version")
+    client_version = int(raw_version or 0)
     synced_char["version"] = client_version + 1
+    version_filter = (
+        {"$or": [{"version": 0}, {"version": None}, {"version": {"$exists": False}}]}
+        if raw_version in (None, 0)
+        else {"version": client_version}
+    )
 
     result = await db["characters"].update_one(
-        {"char_id": payload.character_id, "version": client_version}, {"$set": synced_char}
+        {"char_id": payload.character_id, **version_filter}, {"$set": synced_char}
     )
     if result.modified_count == 0 and result.matched_count == 0:
         raise HTTPException(

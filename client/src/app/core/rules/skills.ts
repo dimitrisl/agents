@@ -119,6 +119,10 @@ export function skillModifier(
 ): number {
   if (!char?.stats) return 0;
 
+  if (char.skills && typeof char.skills[skill.name] === 'number') {
+    return char.skills[skill.name];
+  }
+
   const profBonus = proficiencyBonus(char);
   let bonus = 0;
 

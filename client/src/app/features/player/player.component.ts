@@ -2,12 +2,15 @@ import { LevelUpAnalysis, LevelUpApplyRequest, LevelUpChoice } from '../../core/
 import {
   AfterViewChecked,
   Component,
+  DestroyRef,
   ElementRef,
   OnDestroy,
   OnInit,
-  ViewChild,
+  QueryList,
+  ViewChildren,
   computed,
   effect,
+  inject,
   signal,
   untracked,
 } from '@angular/core';
@@ -188,7 +191,8 @@ interface RollTarget {
   styleUrl: './player.component.css',
 })
 export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
-  @ViewChild('whisperFeed') private whisperFeed?: ElementRef<HTMLElement>;
+  private readonly destroyRef = inject(DestroyRef);
+  @ViewChildren('whisperFeed') private whisperFeeds?: QueryList<ElementRef<HTMLElement>>;
 
   sheetSubTab = signal<'skills' | 'combat' | 'spells' | 'roleplay'>('skills');
 
@@ -439,7 +443,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private queryParamsSub?: Subscription;
 
   ngOnInit() {
-    this.charState.ensureLoaded().subscribe();
+    this.charState.ensureLoaded().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       this.mq = window.matchMedia('(max-width: 1023px)');
@@ -451,7 +455,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       document.addEventListener('visibilitychange', this.visibilityListener);
     }
 
-    this.queryParamsSub = this.route.queryParams.subscribe((params) => {
+    this.queryParamsSub = this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       if (params['import'] === '1') {
         this.openImportModal();
       }
@@ -588,6 +592,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
     this.openedSub?.unsubscribe();
     this.clearPromptCountdown();
+    this.closePdfPreview();
   }
 
   /**
@@ -713,10 +718,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   /** A chat thread is only useful if it lands on the newest message. */
   ngAfterViewChecked() {
-    if (!this.pendingFeedScroll || !this.whisperFeed) return;
+    if (!this.pendingFeedScroll || !this.whisperFeeds?.length) return;
     this.pendingFeedScroll = false;
-    const element = this.whisperFeed.nativeElement;
-    element.scrollTop = element.scrollHeight;
+    this.whisperFeeds.forEach((feedRef) => {
+      const element = feedRef.nativeElement;
+      element.scrollTop = element.scrollHeight;
+    });
   }
 
   private rebuildInboxFeed() {
@@ -993,55 +1000,69 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   toggleSkillProficiency(skillName: string) {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    if (!char.skill_proficiencies) char.skill_proficiencies = [];
-    if (!char.skill_expertise) char.skill_expertise = [];
 
-    const index = char.skill_proficiencies.indexOf(skillName);
+    const profs = [...(char.skill_proficiencies || [])];
+    const exps = [...(char.skill_expertise || [])];
+    const index = profs.indexOf(skillName);
     if (index > -1) {
-      char.skill_proficiencies.splice(index, 1);
-      const expIdx = char.skill_expertise.indexOf(skillName);
+      profs.splice(index, 1);
+      const expIdx = exps.indexOf(skillName);
       if (expIdx > -1) {
-        char.skill_expertise.splice(expIdx, 1);
+        exps.splice(expIdx, 1);
       }
       this.rollToast.showMessage('⚪ PROFICIENCY REMOVED', `${skillName} is no longer proficient.`);
     } else {
-      char.skill_proficiencies.push(skillName);
+      profs.push(skillName);
       this.rollToast.showMessage('⭐ PROFICIENCY ADDED', `${skillName} is now proficient.`);
     }
 
+    char.skill_proficiencies = profs;
+    char.skill_expertise = exps;
     if (char.skills) {
       const skillDef = ALL_SKILLS.find((s) => s.name === skillName);
       if (skillDef) {
-        char.skills[skillName] = skillModifier(char, skillDef);
+        const nextSkills = { ...char.skills };
+        delete nextSkills[skillName];
+        const recomputeChar = { ...char, skills: nextSkills };
+        nextSkills[skillName] = skillModifier(recomputeChar, skillDef);
+        char.skills = nextSkills;
       }
     }
+    this.charState.activeCharacter.set({ ...char });
     this.saveCurrentChar();
   }
 
   toggleSkillExpertise(skillName: string) {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    if (!char.skill_proficiencies) char.skill_proficiencies = [];
-    if (!char.skill_expertise) char.skill_expertise = [];
 
-    const expIndex = char.skill_expertise.indexOf(skillName);
+    const profs = [...(char.skill_proficiencies || [])];
+    const exps = [...(char.skill_expertise || [])];
+    const expIndex = exps.indexOf(skillName);
     if (expIndex > -1) {
-      char.skill_expertise.splice(expIndex, 1);
+      exps.splice(expIndex, 1);
       this.rollToast.showMessage('⚪ EXPERTISE REMOVED', `${skillName} expertise removed.`);
     } else {
-      char.skill_expertise.push(skillName);
-      if (!char.skill_proficiencies.includes(skillName)) {
-        char.skill_proficiencies.push(skillName);
+      exps.push(skillName);
+      if (!profs.includes(skillName)) {
+        profs.push(skillName);
       }
       this.rollToast.showMessage('🌟 EXPERTISE ADDED', `${skillName} now has Expertise.`);
     }
 
+    char.skill_proficiencies = profs;
+    char.skill_expertise = exps;
     if (char.skills) {
       const skillDef = ALL_SKILLS.find((s) => s.name === skillName);
       if (skillDef) {
-        char.skills[skillName] = skillModifier(char, skillDef);
+        const nextSkills = { ...char.skills };
+        delete nextSkills[skillName];
+        const recomputeChar = { ...char, skills: nextSkills };
+        nextSkills[skillName] = skillModifier(recomputeChar, skillDef);
+        char.skills = nextSkills;
       }
     }
+    this.charState.activeCharacter.set({ ...char });
     this.saveCurrentChar();
   }
 
@@ -1869,12 +1890,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       invite_code: code,
       char_filename: `${char.char_name.toLowerCase().replace(/\s+/g, '_')}_${char.char_id}.json`,
       character_id: char.char_id
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res) => {
         this.showJoinModal.set(false);
         // The backend already updated the character's active_campaign.
         // We just need to reload from the server to get the fresh state (and correct version number).
-        this.charState.loadCharacters().subscribe();
+        this.charState.loadCharacters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
         this.loadedCampaignMessageKey = null;
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
@@ -1969,6 +1990,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       const backupCopy = backupChar ? JSON.parse(JSON.stringify(backupChar)) : null;
       const draftCopy = JSON.parse(JSON.stringify(this.editDraftChar));
 
+      // Clear cached derived skill/save tables so modified stats/level/class recompute immediately
+      delete draftCopy.skills;
+      delete draftCopy.saving_throw_values;
+
       this.charState.activeCharacter.set(draftCopy);
       this.showEditModal.set(false);
       this.editDraftChar = null;
@@ -2011,7 +2036,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.importError.set(null);
     this.importWarnings.set([]);
 
-    request.pipe(finalize(() => this.isImporting.set(false))).subscribe({
+    request.pipe(finalize(() => this.isImporting.set(false)), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res) => {
         if (res.warnings && res.warnings.length > 0) {
           this.importWarnings.set(res.warnings);
@@ -2027,18 +2052,28 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
-  reportWhisper(whisper: Whisper): void {
+  async reportWhisper(whisper: Whisper): Promise<void> {
     const char = this.charState.activeCharacter();
     if (!char?.active_campaign || !whisper.id) return;
-    const reason = window.prompt('Please enter the reason for reporting this message:');
-    if (!reason || !reason.trim()) return;
+    const reason = await this.confirmDialog.askPrompt({
+      title: 'Report Message',
+      message: 'Describe why this table message should be reviewed by moderators.',
+      promptLabel: 'Reason',
+      promptPlaceholder: 'Enter report reason...',
+      confirmLabel: 'Submit Report',
+      tone: 'danger',
+    });
+    if (!reason) return;
 
     this.http.post<{ success: boolean; message: string }>(
       campaignUrl(char.active_campaign, `whispers/${encodeURIComponent(whisper.id)}/report`),
-      { reason: reason.trim() }
-    ).subscribe({
+      { reason }
+    ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
-        whisper.has_open_report = true;
+        this.whisperHistory = this.whisperHistory.map((w) =>
+          w.id === whisper.id ? { ...w, has_open_report: true } : w
+        );
+        this.rebuildInboxFeed();
         this.rollToast.showMessage('REPORT SUBMITTED', 'Whisper has been reported to moderators.');
       },
       error: (err) => {
@@ -2858,12 +2893,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     };
 
     this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/level-up-apply`, payload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (syncedChar) => {
+          this.rememberVersion(syncedChar);
           this.charState.activeCharacter.set(syncedChar);
-          // Assuming upsertCharacter is a public method or the state relies on a refresh:
-          // Just refreshing the character list is safer.
-          this.charState.loadCharacters();
+          this.charState.upsertCharacter(syncedChar);
+          this.charState.loadCharacters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
           this.showLevelUpModal.set(false);
           this.levelUpAnalysis = null;
           this.levelUpUserChoices = {};
@@ -2880,7 +2916,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.validationResult = null;
     this.showValidationModal.set(true);
 
-    this.http.post<any>(`${environment.apiBaseUrl}/rules/validate`, { character: char }).subscribe({
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/validate`, { character: char })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (res) => {
         this.isValidating = false;
         this.validationResult = res.validation_result;
@@ -2897,7 +2935,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char) return;
     this.isAutoFixing = true;
 
-    this.http.post<any>(`${environment.apiBaseUrl}/rules/autofix`, { character: char }).subscribe({
+    this.http.post<any>(`${environment.apiBaseUrl}/rules/autofix`, { character: char })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (res) => {
         this.isAutoFixing = false;
         this.showValidationModal.set(false);
@@ -2920,7 +2960,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
     this.isGeneratingStrategy.set(true);
-    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char).subscribe({
+    this.http.post<any>(`${environment.apiBaseUrl}/forge/playstyle-guide`, char)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (res) => {
         this.isGeneratingStrategy.set(false);
         this.strategyGuideText = res.guide_markdown;
@@ -2937,8 +2979,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char || !char.char_id) return;
     this.rollToast.showMessage('📄 EXPORTING PDF', 'Generating your character sheet...');
     this.http.post(`${environment.apiBaseUrl}/characters/${char.char_id}/export-pdf`, {}, { responseType: 'blob' })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (blob) => {
+          this.closePdfPreview();
           const url = window.URL.createObjectURL(blob);
           this.pdfPreviewBlobUrl = url;
           this.pdfPreviewUrl = url;

@@ -40,8 +40,10 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
 
-      - name: Run Ruff Linting Check
-        run: poetry run ruff check .
+      - name: Run Ruff Linting & Formatting Check
+        run: |
+          poetry run ruff check .
+          poetry run ruff format --check .
 
       - name: Run Pytest Test Suite with Coverage
         run: |

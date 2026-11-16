@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit, HostListener, signal, ViewChild, Signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, HostListener, signal, ViewChild, Signal, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -160,6 +161,7 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   @ViewChild(VttGridComponent) vttGrid?: VttGridComponent;
+  @ViewChild(NotesPanelComponent) notesPanel?: NotesPanelComponent;
 
   get vttState(): Signal<VTTState | null> {
     return this.wsService.vttState;
@@ -305,6 +307,8 @@ export class DmComponent implements OnInit, OnDestroy {
 
   addMemberTab: 'existing' | 'custom' | 'invite' = 'existing';
   selectedExistingCharId = '';
+
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private confirmDialog: ForgeConfirmService,
@@ -627,19 +631,30 @@ export class DmComponent implements OnInit, OnDestroy {
       });
   }
 
-  onReportWhisper(whisper: Whisper) {
+  async onReportWhisper(whisper: Whisper): Promise<void> {
     if (!this.campaignName || !whisper.id) return;
-    const reason = window.prompt('Please enter the reason for reporting this message:');
-    if (!reason || !reason.trim()) return;
+    const requestedCampaign = this.campaignName;
+    const reason = await this.confirmDialog.askPrompt({
+      title: 'Report Message',
+      message: 'Describe why this table message should be reviewed by moderators.',
+      promptLabel: 'Reason',
+      promptPlaceholder: 'Enter report reason...',
+      confirmLabel: 'Submit Report',
+      tone: 'danger',
+    });
+    if (!reason) return;
 
     this.http
       .post<{ success: boolean; message: string }>(
-        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(this.campaignName)}/whispers/${encodeURIComponent(whisper.id)}/report`,
-        { reason: reason.trim() }
+        `${environment.apiBaseUrl}/campaigns/${encodeURIComponent(requestedCampaign)}/whispers/${encodeURIComponent(whisper.id)}/report`,
+        { reason }
       )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          whisper.has_open_report = true;
+          this.inboxWhispers = this.inboxWhispers.map((w) =>
+            w.id === whisper.id ? { ...w, has_open_report: true } : w
+          );
           this.rollToast.showMessage('REPORT SUBMITTED', 'Whisper has been reported to moderators.');
         },
         error: (err) => {
@@ -895,6 +910,12 @@ export class DmComponent implements OnInit, OnDestroy {
 
   onCampaignSelect() {
     if (!this.campaignName || this.activeWorkspace === this.campaignName) return;
+    const previousCampaign = this.activeWorkspace;
+    const pendingNotes = this.notesPanel?.consumePendingNotes();
+    if (previousCampaign && pendingNotes !== null && pendingNotes !== undefined) {
+      this.saveCampaignNotes(previousCampaign, pendingNotes);
+    }
+
     this.encounterGeneration += 1;
     const isFirstLoad = this.activeWorkspace === null;
     this.activeWorkspace = this.campaignName;
@@ -941,12 +962,15 @@ export class DmComponent implements OnInit, OnDestroy {
   /** Also the retry target for the party error state, hence its own method. */
   loadParty() {
     if (!this.campaignName) return;
+    const requestedCampaign = this.campaignName;
 
     this.partyStatus = 'loading';
     this.http
-      .get<any[]>(campaignUrl(this.campaignName, 'party'))
+      .get<any[]>(campaignUrl(requestedCampaign, 'party'))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (chars) => {
+          if (requestedCampaign !== this.campaignName) return;
           const serverMembers: PartyMember[] = (chars || []).map((char) => ({
             char_id: char.char_id,
             name: char.char_name || 'Unknown',
@@ -970,14 +994,15 @@ export class DmComponent implements OnInit, OnDestroy {
             owner_username: char.owner_username,
             isOnline: this.onlineCharacters.has(char.char_name || '')
           }));
-          const customMembers = this.readCustomPartyMembers(this.campaignName);
+          const customMembers = this.readCustomPartyMembers(requestedCampaign);
           this.partyMembers = [...serverMembers, ...customMembers];
-          this.campaignParties[this.campaignName] = [...this.partyMembers];
+          this.campaignParties[requestedCampaign] = [...this.partyMembers];
           this.partyStatus = 'ready';
           this.rollTargetMember = this.partyMembers[0]?.char_id || this.partyMembers[0]?.name || '';
           this.seedInitiativeFromParty();
         },
         error: (err) => {
+          if (requestedCampaign !== this.campaignName) return;
           if (this.handleAuthFailure(err)) return;
           // The roster is unknown, not empty — say so instead of inventing heroes.
           this.partyMembers = [];
@@ -1209,11 +1234,16 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 
-  saveCampaignNotes() {
-    this.http.post(campaignUrl(this.campaignName, 'notes'), {
-      notes: this.campaignNotes
-    }).subscribe({
-      next: () => this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved to database.'),
+  saveCampaignNotes(targetCampaign: string = this.campaignName, notes: string = this.campaignNotes) {
+    if (!targetCampaign) return;
+    this.http.post(campaignUrl(targetCampaign, 'notes'), {
+      notes,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        const entry = this.userCampaigns.find((c) => c.campaign_name === targetCampaign);
+        if (entry) entry.notes = notes;
+        this.rollToast.showMessage('📝 NOTES SAVED', 'Campaign notes auto-saved to database.');
+      },
       error: (err) => {
         if (this.handleAuthFailure(err)) return;
         this.rollToast.showMessage('⚠️ SAVE FAILED', 'Failed to save campaign notes.');
@@ -1918,9 +1948,12 @@ export class DmComponent implements OnInit, OnDestroy {
     }
 
     // Try pulling from the server to support multi-device persistence
-    this.http.get<any>(`${campaignUrl(campaignName, 'encounter')}`).subscribe({
+    this.http
+      .get<any>(`${campaignUrl(campaignName, 'encounter')}`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (serverState) => {
-        if (!serverState) return;
+        if (!serverState || campaignName !== this.campaignName) return;
         this.encounterDangerIndicator =
           typeof serverState.danger_indicator === 'string' ? serverState.danger_indicator : '';
 
@@ -2127,13 +2160,17 @@ export class DmComponent implements OnInit, OnDestroy {
     }
     this.isSearchingBestiary = true;
     this.bestiaryService
-      .getMonsters({
-        search: event.query.trim(),
-        edition: this.editionShort,
-        include_official: event.includeOfficial,
-        include_mine: event.includeMine,
-        include_community: event.includeCommunity,
-      })
+      .getMonsters(
+        {
+          search: event.query.trim(),
+          edition: this.editionShort,
+          include_official: event.includeOfficial,
+          include_mine: event.includeMine,
+          include_community: event.includeCommunity,
+        },
+        false
+      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (monsters) => {
           this.quickAddResults = monsters;
