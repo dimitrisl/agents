@@ -13,6 +13,15 @@ _FEAT_PREFIX_RE = re.compile(r"^(?:origin\s+)?feat:\s*", flags=re.IGNORECASE)
 _NON_FEAT_SOURCES = {"race", "species", "class", "subclass", "background"}
 
 
+def stat_choice_keys_for(choice_key: str) -> tuple[str, str]:
+    """Return the companion stat1/stat2 choice keys for an indexed choice key."""
+    parts = choice_key.rsplit("_", 1)
+    has_idx = len(parts) > 1 and parts[1].isdigit()
+    idx_suffix = f"_{parts[1]}" if has_idx else ""
+    base = parts[0] if has_idx else choice_key
+    return f"{base}_stat1{idx_suffix}", f"{base}_stat2{idx_suffix}"
+
+
 def normalize_feat_name(raw_name: str | None) -> str:
     """Strip common UI/audit prefixes ('Feat:', 'Origin Feat:') and normalize casing."""
     if not raw_name:
@@ -54,8 +63,14 @@ def resolve_known_feat(
         fdata = feat_lookup[norm]
         return str(fdata.get("name") or clean), fdata
 
+    is_explicit_feat = has_feat_prefix or src_low in ("feat", "origin feat")
     for k in sorted(feat_lookup.keys(), key=len, reverse=True):
-        if k and re.search(rf"\b{re.escape(k)}\b", norm):
+        if not k:
+            continue
+        if norm.startswith(f"{k} ("):
+            fdata = feat_lookup[k]
+            return str(fdata.get("name") or clean), fdata
+        if is_explicit_feat and re.search(rf"\b{re.escape(k)}\b", norm):
             fdata = feat_lookup[k]
             return str(fdata.get("name") or clean), fdata
 

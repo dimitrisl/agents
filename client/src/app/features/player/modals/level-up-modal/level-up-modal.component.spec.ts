@@ -293,4 +293,93 @@ describe('LevelUpModalComponent', () => {
     fixture.detectChanges();
     expect(document.body.textContent).toContain('Select +1 Stat (Half-Feat):');
   });
+
+  it('disables Apply Level Up when ASI or half-feat stat picks are incomplete or invalid', () => {
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 40,
+      choices_required: [
+        {
+          type: 'feat',
+          description: 'Feat or ASI',
+          options: ['+2 to one Stat', '+1 to two Stats', 'Charger'],
+          feat_metadata: {
+            Charger: {
+              has_stat_choice: true,
+              stat_choice_options: ['STR', 'DEX'],
+              stat_bonus: {},
+              hp_bonus_per_level: 0,
+            },
+          },
+        },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+    fixture.componentRef.setInput('open', true);
+
+    const getApplyButton = (): HTMLButtonElement | null =>
+      Array.from(document.body.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Apply Level Up')
+      ) as HTMLButtonElement | null;
+
+    // +2 to one Stat without stat1 -> disabled
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Fighter', feat_0: '+2 to one Stat' });
+    fixture.detectChanges();
+    expect(component.hasIncompleteStatChoices).toBe(true);
+    expect(getApplyButton()?.disabled).toBe(true);
+
+    // +2 to one Stat with valid stat1 -> enabled
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      feat_0: '+2 to one Stat',
+      feat_stat1_0: 'STR',
+    });
+    fixture.detectChanges();
+    expect(component.hasIncompleteStatChoices).toBe(false);
+    expect(getApplyButton()?.disabled).toBe(false);
+
+    // +1 to two Stats with missing/duplicate second stat -> disabled
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      feat_0: '+1 to two Stats',
+      feat_stat1_0: 'STR',
+      feat_stat2_0: 'STR',
+    });
+    fixture.detectChanges();
+    expect(component.hasIncompleteStatChoices).toBe(true);
+    expect(getApplyButton()?.disabled).toBe(true);
+
+    // +1 to two Stats with distinct stats -> enabled
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      feat_0: '+1 to two Stats',
+      feat_stat1_0: 'STR',
+      feat_stat2_0: 'CON',
+    });
+    fixture.detectChanges();
+    expect(component.hasIncompleteStatChoices).toBe(false);
+    expect(getApplyButton()?.disabled).toBe(false);
+
+    // Half-feat Charger without stat or with disallowed stat -> disabled; with DEX -> enabled
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      feat_0: 'Charger',
+      feat_stat1_0: 'INT',
+    });
+    fixture.detectChanges();
+    expect(component.hasIncompleteStatChoices).toBe(true);
+    expect(getApplyButton()?.disabled).toBe(true);
+
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      feat_0: 'Charger',
+      feat_stat1_0: 'DEX',
+    });
+    fixture.detectChanges();
+    expect(component.hasIncompleteStatChoices).toBe(false);
+    expect(getApplyButton()?.disabled).toBe(false);
+  });
 });

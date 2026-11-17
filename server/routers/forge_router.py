@@ -29,6 +29,7 @@ from backend.services.validation_service import (
     get_owned_non_repeatable_feats,
     is_feat_repeatable,
     resolve_known_feat,
+    stat_choice_keys_for,
 )
 from backend.utils.image_utils import generate_portrait_url, prune_unreferenced_preview_portraits
 from server.config import settings
@@ -441,12 +442,29 @@ async def apply_level_up(
         else 20
     )
 
+    valid_stat_keys = {"STR", "DEX", "CON", "INT", "WIS", "CHA"}
+
+    def _norm_stat(val: Any) -> str:
+        clean = str(val or "").strip().upper()
+        if len(clean) > 3:
+            stat_aliases = {
+                "STRENGTH": "STR",
+                "DEXTERITY": "DEX",
+                "CONSTITUTION": "CON",
+                "INTELLIGENCE": "INT",
+                "WISDOM": "WIS",
+                "CHARISMA": "CHA",
+            }
+            clean = stat_aliases.get(clean, clean[:3])
+        return clean
+
     def _bump_stat(stat_key: str, amount: int) -> None:
-        if stat_key and stat_key in char_doc.get("stats", {}):
-            char_doc["stats"][stat_key] = min(stat_cap, int(char_doc["stats"][stat_key]) + amount)
-            if isinstance(char_doc.get("base_stats"), dict) and stat_key in char_doc["base_stats"]:
-                char_doc["base_stats"][stat_key] = min(
-                    stat_cap, int(char_doc["base_stats"][stat_key]) + amount
+        norm_key = _norm_stat(stat_key)
+        if norm_key in valid_stat_keys and norm_key in char_doc.get("stats", {}):
+            char_doc["stats"][norm_key] = min(stat_cap, int(char_doc["stats"][norm_key]) + amount)
+            if isinstance(char_doc.get("base_stats"), dict) and norm_key in char_doc["base_stats"]:
+                char_doc["base_stats"][norm_key] = min(
+                    stat_cap, int(char_doc["base_stats"][norm_key]) + amount
                 )
 
     # Inject authoritative automatic features from static RulesRepository only (never trust client list)
@@ -537,7 +555,7 @@ async def apply_level_up(
                 else:
                     target_list = spells_dict.setdefault(f"level_{spell_level}", [])
 
-                if canonical_name not in target_list:
+                if not any(str(s).strip().lower() == canonical_name.lower() for s in target_list):
                     target_list.append(canonical_name)
                 prepared_list = char_doc.get("prepared_spells")
                 if not isinstance(prepared_list, list):
@@ -547,24 +565,24 @@ async def apply_level_up(
                     prepared_list.append(canonical_name)
             elif choice_type == "feat" or "feat" in choice_label.lower():
                 if choice_val == "+2 to one Stat":
-                    # Reconstruct the stat keys (e.g. feat_stat1_0)
-                    parts = choice_key.rsplit("_", 1)
-                    idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
-                    base = parts[0] if len(parts) > 1 else choice_key
-                    stat1_key = f"{base}_stat1{idx_suffix}"
-
-                    stat1 = payload.user_choices.get(stat1_key)
+                    stat1_key, _ = stat_choice_keys_for(choice_key)
+                    stat1 = _norm_stat(payload.user_choices.get(stat1_key))
+                    if stat1 not in valid_stat_keys:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Please select a valid ability score for '+2 to one Stat'.",
+                        )
                     _bump_stat(stat1, 2)
                 elif choice_val == "+1 to two Stats":
-                    parts = choice_key.rsplit("_", 1)
-                    idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
-                    base = parts[0] if len(parts) > 1 else choice_key
-                    stat1_key = f"{base}_stat1{idx_suffix}"
-                    stat2_key = f"{base}_stat2{idx_suffix}"
-
-                    stat1 = payload.user_choices.get(stat1_key)
-                    stat2 = payload.user_choices.get(stat2_key)
-                    if stat1 and stat2 and str(stat1).strip().upper() == str(stat2).strip().upper():
+                    stat1_key, stat2_key = stat_choice_keys_for(choice_key)
+                    stat1 = _norm_stat(payload.user_choices.get(stat1_key))
+                    stat2 = _norm_stat(payload.user_choices.get(stat2_key))
+                    if stat1 not in valid_stat_keys or stat2 not in valid_stat_keys:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Please select two valid ability scores for '+1 to two Stats'.",
+                        )
+                    if stat1 == stat2:
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Choose two different ability scores for '+1 to two Stats'.",
@@ -600,23 +618,21 @@ async def apply_level_up(
                                 if bonus > 0:
                                     _bump_stat(stat, bonus)
 
-                        # Handle stat choice for half-feats if user provided it
+                        # Handle stat choice for half-feats cleanly with validation
                         if feat_data.get("has_stat_choice"):
-                            parts = choice_key.rsplit("_", 1)
-                            idx_suffix = f"_{parts[1]}" if len(parts) > 1 else ""
-                            base = parts[0] if len(parts) > 1 else choice_key
-                            stat1_key = f"{base}_stat1{idx_suffix}"
-                            stat1 = payload.user_choices.get(stat1_key)
+                            stat1_key, _ = stat_choice_keys_for(choice_key)
+                            stat1 = _norm_stat(payload.user_choices.get(stat1_key))
+                            if stat1 not in valid_stat_keys:
+                                raise HTTPException(
+                                    status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail=f"Please select a valid ability score for half-feat '{canon_name}'.",
+                                )
                             allowed_opts = {
-                                str(opt).strip().upper()[:3]
+                                _norm_stat(opt)
                                 for opt in (feat_data.get("stat_choice_options") or [])
                                 if str(opt).strip()
                             }
-                            if (
-                                stat1
-                                and allowed_opts
-                                and str(stat1).strip().upper()[:3] not in allowed_opts
-                            ):
+                            if allowed_opts and stat1 not in allowed_opts:
                                 raise HTTPException(
                                     status_code=status.HTTP_400_BAD_REQUEST,
                                     detail=f"Feat '{canon_name}' only allows increasing {', '.join(sorted(allowed_opts))}.",

@@ -42,6 +42,7 @@ from backend.services.validation_service import (
     get_owned_non_repeatable_feats,
     is_feat_repeatable,
     resolve_known_feat,
+    stat_choice_keys_for,
 )
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
@@ -1757,7 +1758,7 @@ def resolve_level_up_automatic_features(
     rules_repo = RulesRepository()
     static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
     if not subclass_to_use:
-        return static_features
+        return [{"source": f.get("source") or "Class", **f} for f in static_features]
 
     _SUBCLASS_PLACEHOLDERS = (
         "archetype feature",
@@ -1793,7 +1794,7 @@ def resolve_level_up_automatic_features(
                     SUBCLASS_FEATURES_DETAILS, char_class, subclass_to_use, target_level
                 )
             if sub_detail:
-                resolved_features.append(dict(sub_detail))
+                resolved_features.append({**sub_detail, "source": "Subclass"})
             else:
                 resolved_features.append(
                     {
@@ -1802,10 +1803,11 @@ def resolve_level_up_automatic_features(
                             "description",
                             f"Special feature granted by the {subclass_to_use} subclass at Level {target_level}.",
                         ),
+                        "source": "Subclass",
                     }
                 )
         else:
-            resolved_features.append(dict(feat))
+            resolved_features.append({"source": feat.get("source") or "Class", **feat})
     return resolved_features
 
 
@@ -1858,12 +1860,9 @@ def _extract_level_up_hp_deltas(
         ):
             continue
 
-        parts = choice_key.rsplit("_", 1)
-        has_idx = len(parts) > 1 and parts[1].isdigit()
-        idx_suffix = f"_{parts[1]}" if has_idx else ""
-        base = parts[0] if has_idx else choice_key
-        stat1 = str((user_choices or {}).get(f"{base}_stat1{idx_suffix}") or "").strip().upper()
-        stat2 = str((user_choices or {}).get(f"{base}_stat2{idx_suffix}") or "").strip().upper()
+        stat1_key, stat2_key = stat_choice_keys_for(choice_key)
+        stat1 = str((user_choices or {}).get(stat1_key) or "").strip().upper()
+        stat2 = str((user_choices or {}).get(stat2_key) or "").strip().upper()
 
         val_str = str(choice_val).strip()
         if val_str == "+2 to one Stat":

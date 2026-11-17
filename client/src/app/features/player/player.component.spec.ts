@@ -1319,4 +1319,91 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     http.verify();
     fixture.destroy();
   });
+
+  it('excludes feat_* and _stat* keys when refreshing level-up-analysis on subclass change', () => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'fighter_l3_sub',
+      char_name: 'Valerius',
+      char_class: 'Fighter',
+      char_level: 2,
+      dnd_edition: '2024 Revision (5.5e)',
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    const comp = fixture.componentInstance;
+
+    comp.onLevelUp();
+    const initialReq = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    initialReq.flush({
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 20,
+      choices_required: [],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+
+    comp.onLevelUpChoicesChange({
+      level_up_class: 'Fighter',
+      subclass_0: 'Champion',
+      hp_method: 'roll',
+      custom_hp_increase: '8',
+      hp_bonus_included: '0',
+      feat_0: 'Tough',
+      feat_stat1_0: 'CON',
+      feat_stat2_0: 'STR',
+    });
+
+    const req = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    expect(req.request.body.user_choices).toEqual({
+      level_up_class: 'Fighter',
+      subclass: 'Champion',
+      hp_method: 'roll',
+      custom_hp_increase: '8',
+      hp_bonus_included: '0',
+    });
+    expect(req.request.body.user_choices['feat_0']).toBeUndefined();
+    expect(req.request.body.user_choices['feat_stat1_0']).toBeUndefined();
+    expect(req.request.body.user_choices['feat_stat2_0']).toBeUndefined();
+
+    req.flush({
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 20,
+      choices_required: [],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+
+    http.verify();
+    fixture.destroy();
+  });
 });

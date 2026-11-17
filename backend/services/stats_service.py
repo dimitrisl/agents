@@ -2168,21 +2168,21 @@ def sync_character_stats(
                 )
                 spells_dict[lvl_key] = []
 
-        # Update prepared_spells as well to remove spells we just deleted
+        # Update prepared_spells as well to remove spells we just deleted (case-insensitive)
         valid_spell_names = set()
         for s in spells_dict.get("cantrips", []) or []:
             s_name = (
                 s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
             ).strip()
             if s_name:
-                valid_spell_names.add(s_name)
+                valid_spell_names.add(s_name.lower())
         for i in range(1, max_spell_level + 1):
             for s in spells_dict.get(f"level_{i}", []) or []:
                 s_name = (
                     s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
                 ).strip()
                 if s_name:
-                    valid_spell_names.add(s_name)
+                    valid_spell_names.add(s_name.lower())
 
         if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
             char_data["prepared_spells"] = [
@@ -2190,9 +2190,9 @@ def sync_character_stats(
                     ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)
                 ).strip()
                 for ps in char_data["prepared_spells"]
-                if (
-                    ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)
-                ).strip()
+                if (ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps))
+                .strip()
+                .lower()
                 in valid_spell_names
             ]
 

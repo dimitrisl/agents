@@ -306,6 +306,29 @@ export class LevelUpModalComponent {
     return Math.max(1, priorHpBase + baseLevelGain + this.previewPendingHpAdjustment);
   }
 
+  get hasIncompleteStatChoices(): boolean {
+    const choices = this.levelUpAnalysis?.choices_required ?? [];
+    return choices.some((choice, i) => {
+      if (choice.type !== 'feat') return false;
+      const val = this.userChoices[`${choice.type}_${i}`];
+      if (!val) return false;
+      const s1 = String(this.userChoices[`${choice.type}_stat1_${i}`] ?? '').trim().toUpperCase();
+      const s2 = String(this.userChoices[`${choice.type}_stat2_${i}`] ?? '').trim().toUpperCase();
+      if (val === '+2 to one Stat') {
+        return !s1;
+      }
+      if (val === '+1 to two Stats') {
+        return !s1 || !s2 || s1 === s2;
+      }
+      if (this.showsSingleStatPicker(choice, val)) {
+        if (!s1) return true;
+        const allowed = this.allowedSingleStatsForChoice(choice, val).map((s) => s.code);
+        return !allowed.includes(s1);
+      }
+      return false;
+    });
+  }
+
   selectHpAverage() {
     if (!this.levelUpAnalysis) return;
     this.onChoiceChange('hp_method', 'average');

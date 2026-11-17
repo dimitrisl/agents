@@ -2920,9 +2920,26 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if ((newClass && oldClass !== newClass) || oldSubclass !== newSubclass) {
       const char = this.charState.activeCharacter();
       if (!char) return;
+      // Forward only class/subclass/HP baseline keys so feat/CON deltas aren't baked into
+      // server `levelUpAnalysis` and double-counted by `LevelUpModalComponent.previewNewTotalHp`.
+      const baselineChoices: Record<string, any> = {
+        level_up_class: newClass || oldClass,
+      };
+      if (newSubclass) {
+        baselineChoices['subclass'] = newSubclass;
+      }
+      if (choices['hp_method']) {
+        baselineChoices['hp_method'] = choices['hp_method'];
+      }
+      if (choices['custom_hp_increase'] !== undefined) {
+        baselineChoices['custom_hp_increase'] = choices['custom_hp_increase'];
+      }
+      if (choices['hp_bonus_included'] !== undefined) {
+        baselineChoices['hp_bonus_included'] = choices['hp_bonus_included'];
+      }
       this.levelUpAnalysis$.next({
         char,
-        choices: this.levelUpUserChoices,
+        choices: baselineChoices,
         openModalOnSuccess: false,
         rollbackChoices: newClass && oldClass !== newClass ? { ...choices, level_up_class: oldClass } : undefined,
         failedClassLabel: newClass ? String(newClass) : undefined,

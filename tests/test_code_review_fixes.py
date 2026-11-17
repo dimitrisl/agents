@@ -2041,3 +2041,289 @@ def test_all_2024_subclasses_resolve_concrete_higher_level_features():
     assert any(f.get("name") == "Elemental Affinity (Draconic Sorcery)" for f in sorc_l6)
     rogue_l9 = resolve_level_up_automatic_features("Rogue", 9, "Thief", EDITION_2024)
     assert any(f.get("name") == "Supreme Sneak (Thief)" for f in rogue_l9)
+
+
+def test_subclass_features_stamped_source_and_never_collide_with_feats():
+    """Class/subclass features are stamped cleanly and never trigger false-positive feat collisions."""
+    from backend.services.forge_service import analyze_level_up, resolve_level_up_automatic_features
+    from backend.services.validation_service import (
+        build_feat_lookup,
+        deterministic_validate_build,
+        resolve_known_feat,
+    )
+
+    # Class-only call (no subclass) stamps source == "Class"
+    fighter_l2 = resolve_level_up_automatic_features("Fighter", 2, None, EDITION_2024)
+    assert fighter_l2
+    assert all(f.get("source") == "Class" for f in fighter_l2)
+
+    collision_checks = [
+        (
+            "Fighter",
+            7,
+            "Psi Warrior",
+            EDITION_2024,
+            "Telekinetic Adept (Psi Warrior)",
+            "Telekinetic",
+        ),
+        (
+            "Fighter",
+            18,
+            "Psi Warrior",
+            EDITION_2024,
+            "Telekinetic Master (Psi Warrior)",
+            "Telekinetic",
+        ),
+        ("Cleric", 6, "Life Domain", EDITION_2024, "Blessed Healer (Life Domain)", "Healer"),
+        (
+            "Paladin",
+            15,
+            "Oath of the Ancients",
+            EDITION_2024,
+            "Undying Sentinel (Oath of the Ancients)",
+            "Sentinel",
+        ),
+        (
+            "Sorcerer",
+            3,
+            "Aberrant Sorcery",
+            EDITION_2024,
+            "Psionic Spells & Telepathic Speech (Aberrant Sorcery)",
+            "Telepathic",
+        ),
+        ("Fighter", 7, "Champion", EDITION_2014, "Remarkable Athlete (Champion)", "Athlete"),
+    ]
+
+    for cls_name, lvl, sub_name, ed, expected_feat_name, real_feat in collision_checks:
+        resolved = resolve_level_up_automatic_features(cls_name, lvl, sub_name, ed)
+        matched = [f for f in resolved if f.get("name") == expected_feat_name]
+        assert matched, f"Expected {expected_feat_name} in {resolved}"
+        assert matched[0].get("source") == "Subclass"
+        feat_lookup = build_feat_lookup(ed)
+        assert resolve_known_feat(expected_feat_name, feat_lookup, source="Subclass") is None
+        assert resolve_known_feat(expected_feat_name, feat_lookup, source=None) is None
+
+        # Taking the homonymous real feat remains valid and audit preserves both entries
+        hero = {
+            "char_id": f"col_{cls_name}_{lvl}",
+            "owner_id": "u_qa",
+            "char_name": "Test Hero",
+            "char_class": cls_name,
+            "subclass": sub_name,
+            "char_level": 7,
+            "classes": [{"class_name": cls_name, "level": 7, "subclass": sub_name}],
+            "race": "Human",
+            "background": "Soldier",
+            "dnd_edition": ed,
+            "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 12, "WIS": 12, "CHA": 12},
+            "base_stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 12, "WIS": 12, "CHA": 12},
+            "features_traits": [
+                {"name": expected_feat_name, "description": "Subclass feature", "source": None},
+                {"name": f"Feat: {real_feat}", "description": "Feat", "source": "Feat"},
+            ],
+            "version": 1,
+        }
+        analysis = analyze_level_up(copy.deepcopy(hero), user_choices={"level_up_class": cls_name})
+        feat_choices = [c for c in analysis.get("choices_required", []) if c.get("type") == "feat"]
+        if feat_choices:
+            # Already owns real_feat explicitly -> excluded once, NOT because of subclass feature
+            assert real_feat not in feat_choices[0]["options"]
+
+        # Without real_feat, hero with ONLY the subclass feature can still pick real_feat at L8
+        hero_no_feat = copy.deepcopy(hero)
+        hero_no_feat["features_traits"] = [
+            {"name": expected_feat_name, "description": "Subclass feature", "source": None}
+        ]
+        analysis_open = analyze_level_up(hero_no_feat, user_choices={"level_up_class": cls_name})
+        open_feat_choices = [
+            c for c in analysis_open.get("choices_required", []) if c.get("type") == "feat"
+        ]
+        if open_feat_choices:
+            assert real_feat in open_feat_choices[0]["options"]
+
+        is_valid, issues = deterministic_validate_build(copy.deepcopy(hero))
+        assert not any(
+            expected_feat_name.lower() in i.lower() or "duplicate" in i.lower() for i in issues
+        ), f"False positive audit failure on {expected_feat_name}: {issues}"
+
+
+def test_2024_repeatable_skilled_and_magic_initiate_allowed_twice():
+    """In 2024 Edition, Skilled and Magic Initiate remain repeatable across analysis, apply, and audit."""
+    from backend.services.forge_service import analyze_level_up
+    from backend.services.validation_service import (
+        build_feat_lookup,
+        deterministic_validate_build,
+        is_feat_repeatable,
+    )
+
+    feat_lookup_2024 = build_feat_lookup(EDITION_2024)
+    for feat_name in ("Skilled", "Magic Initiate"):
+        assert is_feat_repeatable(feat_lookup_2024.get(feat_name.lower()), feat_name) is True
+
+    hero = {
+        "char_id": "repeatable_2024",
+        "owner_id": "u_qa",
+        "char_name": "Versatile Hero",
+        "char_class": "Fighter",
+        "subclass": "Champion",
+        "char_level": 3,
+        "classes": [{"class_name": "Fighter", "level": 3, "subclass": "Champion"}],
+        "race": "Human",
+        "background": "Sage",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 8},
+        "base_stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 8},
+        "hp_max": 31,
+        "hp_current": 31,
+        "features_traits": [
+            {"name": "Origin Feat: Skilled", "description": "3 skills", "source": "Origin Feat"},
+            {
+                "name": "Origin Feat: Magic Initiate (Wizard)",
+                "description": "Spells",
+                "source": "Origin Feat",
+            },
+        ],
+        "version": 1,
+    }
+
+    analysis = analyze_level_up(copy.deepcopy(hero), user_choices={"level_up_class": "Fighter"})
+    feat_choices = [c for c in analysis["choices_required"] if c["type"] == "feat"]
+    assert feat_choices
+    assert "Skilled" in feat_choices[0]["options"]
+    assert "Magic Initiate" in feat_choices[0]["options"]
+
+    db = _AsyncDB("repeatable_2024_db")
+    db._db["characters"].insert_one(copy.deepcopy(hero))
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": hero["char_id"],
+                "analysis": analysis,
+                "user_choices": {"level_up_class": "Fighter", "feat_0": "Skilled"},
+            },
+        )
+        assert resp.status_code == 200
+        updated = resp.json()
+        skilled_entries = [
+            f
+            for f in updated.get("features_traits", [])
+            if "skilled" in (f.get("name") or "").lower()
+        ]
+        assert len(skilled_entries) == 2
+
+        _, issues = deterministic_validate_build(updated)
+        assert not any("skilled" in i.lower() or "duplicate" in i.lower() for i in issues)
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_2014_half_feats_stat_validation_and_case_insensitive_spell_dedup():
+    """2014 half-feats expose stat metadata, accept lowercase stats, reject missing/invalid picks with 400, and dedup spells case-insensitively."""
+    from backend.services.forge_service import analyze_level_up
+
+    hero_2014 = {
+        "char_id": "sorc_2014_half",
+        "owner_id": "u_qa",
+        "char_name": "Kaelen",
+        "char_class": "Sorcerer",
+        "subclass": "Draconic Bloodline",
+        "char_level": 7,
+        "classes": [{"class_name": "Sorcerer", "level": 7, "subclass": "Draconic Bloodline"}],
+        "race": "Human",
+        "background": "Sage",
+        "dnd_edition": EDITION_2014,
+        "stats": {"STR": 8, "DEX": 14, "CON": 15, "INT": 12, "WIS": 12, "CHA": 16},
+        "base_stats": {"STR": 8, "DEX": 14, "CON": 15, "INT": 12, "WIS": 12, "CHA": 16},
+        "hp_max": 47,
+        "hp_current": 47,
+        "spells": {"level_1": ["magic missile"], "level_3": ["fireball"]},
+        "prepared_spells": [],
+        "version": 1,
+    }
+
+    analysis = analyze_level_up(
+        copy.deepcopy(hero_2014), user_choices={"level_up_class": "Sorcerer"}
+    )
+    feat_choices = [c for c in analysis["choices_required"] if c["type"] == "feat"]
+    assert feat_choices
+    meta = feat_choices[0]["feat_metadata"]
+    assert meta["Resilient"]["has_stat_choice"] is True
+    assert len(meta["Resilient"]["stat_choice_options"]) == 6
+    assert meta["Observant"]["has_stat_choice"] is True
+    assert meta["Observant"]["stat_choice_options"] == ["INT", "WIS"]
+
+    db = _AsyncDB("half_feats_2014_db")
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+
+        invalid_payloads = [
+            {"level_up_class": "Sorcerer", "feat_0": "+2 to one Stat"},
+            {"level_up_class": "Sorcerer", "feat_0": "+2 to one Stat", "feat_stat1_0": "XYZ"},
+            {"level_up_class": "Sorcerer", "feat_0": "+1 to two Stats", "feat_stat1_0": "CHA"},
+            {
+                "level_up_class": "Sorcerer",
+                "feat_0": "+1 to two Stats",
+                "feat_stat1_0": "CHA",
+                "feat_stat2_0": "FOO",
+            },
+            {"level_up_class": "Sorcerer", "feat_0": "Resilient"},
+            {"level_up_class": "Sorcerer", "feat_0": "Resilient", "feat_stat1_0": "XYZ"},
+            {"level_up_class": "Sorcerer", "feat_0": "Observant", "feat_stat1_0": "STR"},
+        ]
+        for bad_choices in invalid_payloads:
+            db._db["characters"].replace_one(
+                {"char_id": hero_2014["char_id"]}, copy.deepcopy(hero_2014), upsert=True
+            )
+            resp = client.post(
+                "/api/v1/forge/level-up-apply",
+                json={
+                    "character_id": hero_2014["char_id"],
+                    "analysis": analysis,
+                    "user_choices": bad_choices,
+                },
+            )
+            assert resp.status_code == 400, (
+                f"Expected 400 for {bad_choices}, got {resp.status_code}: {resp.text}"
+            )
+
+        # Lowercase 'con' on Resilient succeeds and bumps CON 15 -> 16; Fireball dedups case-insensitively on level_3
+        db._db["characters"].replace_one(
+            {"char_id": hero_2014["char_id"]}, copy.deepcopy(hero_2014), upsert=True
+        )
+        ok_analysis = copy.deepcopy(analysis)
+        spell_idx = len(ok_analysis["choices_required"])
+        ok_analysis["choices_required"].append(
+            {"type": "spell", "label": "Learn 1 Level 3 spell", "options": ["Fireball"]}
+        )
+        resp_ok = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": hero_2014["char_id"],
+                "analysis": ok_analysis,
+                "user_choices": {
+                    "level_up_class": "Sorcerer",
+                    "feat_0": "Resilient",
+                    "feat_stat1_0": "con",
+                    f"spell_{spell_idx}": "Fireball",
+                },
+            },
+        )
+        assert resp_ok.status_code == 200
+        body = resp_ok.json()
+        assert body["stats"]["CON"] == 16
+        assert [s.lower() for s in body["spells"]["level_3"]].count("fireball") == 1
+        assert "Fireball" in body["prepared_spells"]
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()

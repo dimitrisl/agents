@@ -41,7 +41,8 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false
+        "has_stat_choice": false,
+        "repeatable": true
     },
     {
         "name": "Musician",
@@ -104,7 +105,8 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false
+        "has_stat_choice": false,
+        "repeatable": true
     },
     {
         "name": "Tavern Brawler",

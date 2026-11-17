@@ -276,6 +276,6 @@
 
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
     <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button forgeButton variant="primary" type="button" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
+    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
   </div>
 </forge-modal>

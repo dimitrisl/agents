@@ -1,7 +1,7 @@
 [
     {
         "name": "Actor",
-        "description": "Skilled at mimicry and dramatics, you gain the following benefits.\n \n\u2022 Increase your Charisma score by 1, to a maximum of 20.\n \n\u2022 You have advantage on Charisma (Deception) and Charisma (Performance) checks when trying to pass yourself off as a different person.\n \n\u2022 You can mimic the speech of another person or the sounds made by other creatures. You must have heard the person speaking, or heard the creature make the sound, for at least 1 minute. A successful Wisdom (Insight) check contested by your Charisma (Deception) check allows a listener to determine that the effect is faked.",
+        "description": "Skilled at mimicry and dramatics, you gain the following benefits.\n \n• Increase your Charisma score by 1, to a maximum of 20.\n \n• You have advantage on Charisma (Deception) and Charisma (Performance) checks when trying to pass yourself off as a different person.\n \n• You can mimic the speech of another person or the sounds made by other creatures. You must have heard the person speaking, or heard the creature make the sound, for at least 1 minute. A successful Wisdom (Insight) check contested by your Charisma (Deception) check allows a listener to determine that the effect is faked.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -23,7 +23,7 @@
     },
     {
         "name": "Alert",
-        "description": "Always on the lookout for danger, you gain the following \n \n\u2022 You gain a +5 bonus to initiative.\n \n\u2022 You can't be surprised while you are conscious.\n \n\u2022 Other creatures don\u2019t gain advantage on attack rolls against you as a result of being unseen by you.",
+        "description": "Always on the lookout for danger, you gain the following \n \n• You gain a +5 bonus to initiative.\n \n• You can't be surprised while you are conscious.\n \n• Other creatures don’t gain advantage on attack rolls against you as a result of being unseen by you.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -47,7 +47,7 @@
     },
     {
         "name": "Athlete",
-        "description": "You have undergone extensive physical training to gain the following benefits.\n \n\u2022 Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n\u2022 When you are prone, standing up uses only 5 feet of your movement.\n \n\u2022 Climbing doesn't cost you extra movement.\n \n\u2022 You can make a running long jump or a running high jump after moving only 5 feet on foot, rather than 10 feet.",
+        "description": "You have undergone extensive physical training to gain the following benefits.\n \n• Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n• When you are prone, standing up uses only 5 feet of your movement.\n \n• Climbing doesn't cost you extra movement.\n \n• You can make a running long jump or a running high jump after moving only 5 feet on foot, rather than 10 feet.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -118,7 +118,7 @@
     },
     {
         "name": "Crossbow Expert",
-        "description": "Thanks to extensive practice with the crossbow, you gain the following benefits.\n \n\u2022 You ignore the loading quality of crossbows with which you are proficient.\n \n\u2022 Being within 5 feet of a hostile creature doesn't impose disadvantage on your ranged attack rolls.\n \n\u2022 When you use the Attack action and attack with a one-handed weapon, you can use a bonus action to attack with a hand crossbow you are holding.",
+        "description": "Thanks to extensive practice with the crossbow, you gain the following benefits.\n \n• You ignore the loading quality of crossbows with which you are proficient.\n \n• Being within 5 feet of a hostile creature doesn't impose disadvantage on your ranged attack rolls.\n \n• When you use the Attack action and attack with a one-handed weapon, you can use a bonus action to attack with a hand crossbow you are holding.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -164,7 +164,7 @@
     },
     {
         "name": "Dragon Fear",
-        "description": "When angered, you radiate menace. You gain the following benefits: \n  \n\u2022 Increase your Charisma, Constitution or Strength score by 1, up to a maximum of 20. \n  \n\u2022 Instead of exhaling destructive energy, you can expend a use of your Breath Weapon trait to roar, forcing each creature of your choice within 30 feet of you to make a Wisdom saving throw (DC 8 + your proficiency bonus + your Charisma modifier). A target automatically succeeds if it can\u2019t hear or see you. On a failed save, a target becomes frightened for 1 minute. If the frightened target takes any damage, it can repeat the saving throw, ending the effect on itself on a success.",
+        "description": "When angered, you radiate menace. You gain the following benefits: \n  \n• Increase your Charisma, Constitution or Strength score by 1, up to a maximum of 20. \n  \n• Instead of exhaling destructive energy, you can expend a use of your Breath Weapon trait to roar, forcing each creature of your choice within 30 feet of you to make a Wisdom saving throw (DC 8 + your proficiency bonus + your Charisma modifier). A target automatically succeeds if it can’t hear or see you. On a failed save, a target becomes frightened for 1 minute. If the frightened target takes any damage, it can repeat the saving throw, ending the effect on itself on a success.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -183,12 +183,16 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON",
+            "CHA"
+        ]
     },
     {
         "name": "Dragon Hide",
-        "description": "You manifest scales and claws reminiscent of your draconic ancestors. You gain the following benefits: \n  \n\u2022 Increase your Charisma, Constitution, or Strength score by 1, up to a maximum of 20. \n  \n\u2022 Your scales harden; while you aren't wearing armor, you can calculate your AC as 13 + your Dexterity modifier. You can use a shield and still gain this benefit.\n  \n\u2022 You grow retractable claws from the tips of your fingers. Extending or retracting the claws requires no action. The claws are natural weapons, which you can use to make unarmed strikes. If you hit with them, you deal slashing damage equal to 1d4 + your Strength modifier, instead of the bludgeoning damage normal for an unarmed strike. ",
+        "description": "You manifest scales and claws reminiscent of your draconic ancestors. You gain the following benefits: \n  \n• Increase your Charisma, Constitution, or Strength score by 1, up to a maximum of 20. \n  \n• Your scales harden; while you aren't wearing armor, you can calculate your AC as 13 + your Dexterity modifier. You can use a shield and still gain this benefit.\n  \n• You grow retractable claws from the tips of your fingers. Extending or retracting the claws requires no action. The claws are natural weapons, which you can use to make unarmed strikes. If you hit with them, you deal slashing damage equal to 1d4 + your Strength modifier, instead of the bludgeoning damage normal for an unarmed strike. ",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -207,8 +211,12 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON",
+            "CHA"
+        ]
     },
     {
         "name": "Drow High Magic",
@@ -236,7 +244,7 @@
     },
     {
         "name": "Dual Wielder",
-        "description": "You master fighting with two weapons, gaining the following benefits.\n \n\u2022 You gain a +1 bonus to AC while you are wielding a separate melee weapon in each hand.\n \n\u2022 You can use two-weapon fighting even when the one-handed melee weapons you are wielding aren't light.\n \n\u2022 You can draw or stow two one-handed weapons when you would normally be able to draw or stow only one.",
+        "description": "You master fighting with two weapons, gaining the following benefits.\n \n• You gain a +1 bonus to AC while you are wielding a separate melee weapon in each hand.\n \n• You can use two-weapon fighting even when the one-handed melee weapons you are wielding aren't light.\n \n• You can draw or stow two one-handed weapons when you would normally be able to draw or stow only one.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -258,7 +266,7 @@
     },
     {
         "name": "Dungeon Delver",
-        "description": "Alert to the hidden traps and secret doors found in many dungeons, you gain the following benefits.\n \n\u2022 You have advantage on Wisdom (Perception) and Intelligence (Investigation) checks made to detect the presence of secret doors.\n \n\u2022 You have advantage on saving throws made to avoid or resist traps.\n \n\u2022 You have resistance to the damage dealt by traps.\n \n\u2022 You can search for traps while traveling at a normal pace, instead of only at a slow pace.",
+        "description": "Alert to the hidden traps and secret doors found in many dungeons, you gain the following benefits.\n \n• You have advantage on Wisdom (Perception) and Intelligence (Investigation) checks made to detect the presence of secret doors.\n \n• You have advantage on saving throws made to avoid or resist traps.\n \n• You have resistance to the damage dealt by traps.\n \n• You can search for traps while traveling at a normal pace, instead of only at a slow pace.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -280,7 +288,7 @@
     },
     {
         "name": "Durable",
-        "description": "Hardy and resilient, you gain the following benefits.\n \n\u2022 Increase your Constitution score by 1, to a maximum of 20.\n \n\u2022 When you roll a Hit Die to regain hit points, the minimum number of hit points you regain from the roll equals twice your Constitution modifier (minimum of 2).",
+        "description": "Hardy and resilient, you gain the following benefits.\n \n• Increase your Constitution score by 1, to a maximum of 20.\n \n• When you roll a Hit Die to regain hit points, the minimum number of hit points you regain from the roll equals twice your Constitution modifier (minimum of 2).",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -302,7 +310,7 @@
     },
     {
         "name": "Dwarven Fortitude",
-        "description": "You have the blood of dwarf heroes flowing through your veins. You gain the following benefits: \n  \n\u2022 Increase your Constitution score by 1, to a maximum of 20. \n  \n\u2022 Whenever you take the Dodge action in combat, you can spend one Hit Die to heal yourself. Roll the die, add your Constitution modifier, and regain a number of hit points equal to the total (minimum of 1).",
+        "description": "You have the blood of dwarf heroes flowing through your veins. You gain the following benefits: \n  \n• Increase your Constitution score by 1, to a maximum of 20. \n  \n• Whenever you take the Dodge action in combat, you can spend one Hit Die to heal yourself. Roll the die, add your Constitution modifier, and regain a number of hit points equal to the total (minimum of 1).",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -446,7 +454,7 @@
     },
     {
         "name": "Elven Accuracy",
-        "description": "The accuracy of elves is legendary, especially that of elf archers and spellcasters. You gain the following benefits: \n  \n\u2022 Increase your Dexterity, Intelligence, Wisdom or Charisma  score by 1, to a maximum of 20. \n  \n\u2022 Whenever you have advantage on an attack roll using Dexterity, Intelligence, Wisdom, or Charisma, you can reroll one of the dice once.",
+        "description": "The accuracy of elves is legendary, especially that of elf archers and spellcasters. You gain the following benefits: \n  \n• Increase your Dexterity, Intelligence, Wisdom or Charisma  score by 1, to a maximum of 20. \n  \n• Whenever you have advantage on an attack roll using Dexterity, Intelligence, Wisdom, or Charisma, you can reroll one of the dice once.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -466,12 +474,17 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "DEX",
+            "INT",
+            "WIS",
+            "CHA"
+        ]
     },
     {
         "name": "Fade Away",
-        "description": "You can draw on your magical heritage to escape danger. You gain the following benefits: \n  \n\u2022 Increase your Dexterity or Intelligence score by 1, up to a maximum of 20. \n  \n\u2022 Immediately after you take damage, you can use a reaction to magically become invisible until the end of your next turn or until you attack, deal damage, or force someone to make a saving throw. Once you use this ability, you can\u2019t do so again until you finish a short or long rest.",
+        "description": "You can draw on your magical heritage to escape danger. You gain the following benefits: \n  \n• Increase your Dexterity or Intelligence score by 1, up to a maximum of 20. \n  \n• Immediately after you take damage, you can use a reaction to magically become invisible until the end of your next turn or until you attack, deal damage, or force someone to make a saving throw. Once you use this ability, you can’t do so again until you finish a short or long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -490,12 +503,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "DEX",
+            "INT"
+        ]
     },
     {
         "name": "Fey Teleportation",
-        "description": "Your study of high elven lore has unlocked fey power that few other elves possess, except your eladrin cousins. Drawing on your fey ancestry, you can momentarily stride through the Feywild to shorten your path from one place to another. You gain the following benefits: \n  \n\u2022 Increase your Intelligence or Charisma score by 1, to a maximum of 20. \n  \n\u2022 You learn to speak, read, and write Sylvan.\n  \n\u2022  You learn the misty step spell and can cast it once without expending a spell slot. You regain the ability to cast it in this way when you finish a short or long rest. Intelligence is your spellcasting ability for this spell.",
+        "description": "Your study of high elven lore has unlocked fey power that few other elves possess, except your eladrin cousins. Drawing on your fey ancestry, you can momentarily stride through the Feywild to shorten your path from one place to another. You gain the following benefits: \n  \n• Increase your Intelligence or Charisma score by 1, to a maximum of 20. \n  \n• You learn to speak, read, and write Sylvan.\n  \n•  You learn the misty step spell and can cast it once without expending a spell slot. You regain the ability to cast it in this way when you finish a short or long rest. Intelligence is your spellcasting ability for this spell.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -514,12 +530,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "CHA"
+        ]
     },
     {
         "name": "Flames of Phlegethos (Charisma)",
-        "description": "You learn to call on hellfire to serve your commands. You gain the following benefits: \n  \n\u2022 Increase your Charisma or Intelligence score by 1, to a maximum of 20. \n  \n\u2022 When you roll fire damage for a spell you cast, you can reroll any roll of 1 on the fire damage dice, but you must use the new roll, even if it is another 1. \n  \n\u2022 Whenever you cast a spell that deals fire damage, you can cause flames to wreathe you until the end of your next turn. The flames don\u2019t harm you or your possessions, and they shed bright light out to 30 feet and dim light for an additional 30 feet. While the flames are present, any creature within 5 feet of you that hits you with a melee attack takes 1d4 fire damage.",
+        "description": "You learn to call on hellfire to serve your commands. You gain the following benefits: \n  \n• Increase your Charisma or Intelligence score by 1, to a maximum of 20. \n  \n• When you roll fire damage for a spell you cast, you can reroll any roll of 1 on the fire damage dice, but you must use the new roll, even if it is another 1. \n  \n• Whenever you cast a spell that deals fire damage, you can cause flames to wreathe you until the end of your next turn. The flames don’t harm you or your possessions, and they shed bright light out to 30 feet and dim light for an additional 30 feet. While the flames are present, any creature within 5 feet of you that hits you with a melee attack takes 1d4 fire damage.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -536,12 +555,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "CHA"
+        ]
     },
     {
         "name": "Grappler",
-        "description": "You've developed the skills necessary to hold your own in close-quarters grappling. You gain the following benefits.\n \n\u2022 You have advantage on attack rolls against a creature you are grappling.\n \n\u2022 You can use your action to try to pin a creature grappled by you. To do so, make another grapple check. If you succeed, you and the creature are both restrained until the grapple ends.",
+        "description": "You've developed the skills necessary to hold your own in close-quarters grappling. You gain the following benefits.\n \n• You have advantage on attack rolls against a creature you are grappling.\n \n• You can use your action to try to pin a creature grappled by you. To do so, make another grapple check. If you succeed, you and the creature are both restrained until the grapple ends.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {
@@ -565,7 +587,7 @@
     },
     {
         "name": "Great Weapon Master",
-        "description": "You've learned to put the weight of a weapon to your advantage, letting its momentum empower your strikes. You gain the following benefits.\n \n\u2022 On your turn, when you score a critical hit with a melee weapon or reduce a creature to 0 hit points with one, you can make one melee weapon attack as a bonus action.\n \n\u2022 Before you make a melee attack with a heavy weapon that you are proficient with, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the attack's damage.",
+        "description": "You've learned to put the weight of a weapon to your advantage, letting its momentum empower your strikes. You gain the following benefits.\n \n• On your turn, when you score a critical hit with a melee weapon or reduce a creature to 0 hit points with one, you can make one melee weapon attack as a bonus action.\n \n• Before you make a melee attack with a heavy weapon that you are proficient with, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the attack's damage.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -587,7 +609,7 @@
     },
     {
         "name": "Healer",
-        "description": "You are an able physician, allowing you to mend wounds quickly and get your allies back in the fight. You gain the following benefits.\n \n\u2022 When you use a healer's kit to stabilize a dying creature, that creature also regains 1 hit point.\n \n\u2022 As an action, you can spend one use of a healer's kit to tend to a creature and restore 1d6+4 hit points to it, plus additional hit points equal to the creature's maximum number of Hit Dice. The creature can't regain hit points from this feat again until it finishes a short or long rest.",
+        "description": "You are an able physician, allowing you to mend wounds quickly and get your allies back in the fight. You gain the following benefits.\n \n• When you use a healer's kit to stabilize a dying creature, that creature also regains 1 hit point.\n \n• As an action, you can spend one use of a healer's kit to tend to a creature and restore 1d6+4 hit points to it, plus additional hit points equal to the creature's maximum number of Hit Dice. The creature can't regain hit points from this feat again until it finishes a short or long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -609,7 +631,7 @@
     },
     {
         "name": "Heavily Armored",
-        "description": "You have trained to master the use of heavy armor, gaining the following benefits.\n \n\u2022 Increase your Strength score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with heavy armor.",
+        "description": "You have trained to master the use of heavy armor, gaining the following benefits.\n \n• Increase your Strength score by 1, to a maximum of 20.\n \n• You gain proficiency with heavy armor.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -634,7 +656,7 @@
     },
     {
         "name": "Heavy Armor Master",
-        "description": "You can use your armor to deflect strikes that would kill others. You gain the following benefits.\n \n\u2022 Increase your Strength score by 1, to a maximum of 20.\n \n\u2022 While you are wearing heavy armor, bludgeoning, piercing, and slashing damage that you take from nonmagical weapons is reduced by 3.",
+        "description": "You can use your armor to deflect strikes that would kill others. You gain the following benefits.\n \n• Increase your Strength score by 1, to a maximum of 20.\n \n• While you are wearing heavy armor, bludgeoning, piercing, and slashing damage that you take from nonmagical weapons is reduced by 3.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -658,7 +680,7 @@
     },
     {
         "name": "Infernal Constitution",
-        "description": "Fiendish blood runs strong in you, unlocking a resilience akinto that possessed by some fiends. You gain the following benefits: \n  \n\u2022 Increase your Constitution score by 1, up to a maximum of 20. \n  \n\u2022 You have resistance to cold and poison damage. \n  \n\u2022 You have advantage on saving throws against being poisoned.",
+        "description": "Fiendish blood runs strong in you, unlocking a resilience akinto that possessed by some fiends. You gain the following benefits: \n  \n• Increase your Constitution score by 1, up to a maximum of 20. \n  \n• You have resistance to cold and poison damage. \n  \n• You have advantage on saving throws against being poisoned.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -706,7 +728,7 @@
     },
     {
         "name": "Keen Mind",
-        "description": "You have a mind that can track time, direction, and detail with uncanny precision. You gain the following benefits.\n \n\u2022 Increase your Intelligence score by 1, to a maximum of 20.\n \n\u2022 You always know which way is north.\n \n\u2022 You always know the number of hours left before the next sunrise or sunset.\n \n\u2022 You can accurately recall anything you have seen or heard within the past month.",
+        "description": "You have a mind that can track time, direction, and detail with uncanny precision. You gain the following benefits.\n \n• Increase your Intelligence score by 1, to a maximum of 20.\n \n• You always know which way is north.\n \n• You always know the number of hours left before the next sunrise or sunset.\n \n• You can accurately recall anything you have seen or heard within the past month.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -728,7 +750,7 @@
     },
     {
         "name": "Lightly Armored",
-        "description": "You have trained to master the use of light armor, gaining the following benefits.\n \n\u2022 Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with light armor.",
+        "description": "You have trained to master the use of light armor, gaining the following benefits.\n \n• Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n• You gain proficiency with light armor.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -755,7 +777,7 @@
     },
     {
         "name": "Linguist",
-        "description": "You have studied languages and codes, gaining the following benefits.\n \n\u2022 Increase your Intelligence score by 1, to a maximum of 20.\n \n\u2022 You learn three languages of your choice.\n \n\u2022 You can ably create written ciphers. Others can't decipher a code you create unless you teach them, they succeed on an Intelligence check (DC equal to your Intelligence score + your proficiency bonus), or they use magic to decipher it.",
+        "description": "You have studied languages and codes, gaining the following benefits.\n \n• Increase your Intelligence score by 1, to a maximum of 20.\n \n• You learn three languages of your choice.\n \n• You can ably create written ciphers. Others can't decipher a code you create unless you teach them, they succeed on an Intelligence check (DC equal to your Intelligence score + your proficiency bonus), or they use magic to decipher it.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -799,7 +821,7 @@
     },
     {
         "name": "Mage Slayer",
-        "description": "You have practiced techniques useful in melee combat against spellcasters, gaining the following benefits.\n \n\u2022 When a creature within 5 feet of you casts a spell, you can use your reaction to make a melee weapon attack against that creature.\n \n\u2022 When you damage a creature that is concentrating on a spell, that creature has disadvantage on the saving throw it makes to maintain its concentration.\n \n\u2022 You have advantage on saving throws against spells cast by creatures within 5 feet of you.",
+        "description": "You have practiced techniques useful in melee combat against spellcasters, gaining the following benefits.\n \n• When a creature within 5 feet of you casts a spell, you can use your reaction to make a melee weapon attack against that creature.\n \n• When you damage a creature that is concentrating on a spell, that creature has disadvantage on the saving throw it makes to maintain its concentration.\n \n• You have advantage on saving throws against spells cast by creatures within 5 feet of you.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -965,7 +987,7 @@
     },
     {
         "name": "Martial Adept",
-        "description": "You have martial training that allows you to perform special combat maneuvers. You gain the following benefits:\n  \n\u2022 You learn two maneuvers of your choice from among those available to the Battle Master archetype in the fighter class. If a maneuver you use requires your target to make a saving throw to resist the maneuver\u2019s effects, the saving throw DC equals 8 + your proficiency bonus + your Strength or Dexterity modifier (your choice).\n  \n\u2022 You gain one superiority die, which is a d6 (this die is added to any superiority dice you have from another source). This die is used to fuel your maneuvers. A superiority die is expended when you use it. You regain your expended superiority dice when you finish a short or long rest.",
+        "description": "You have martial training that allows you to perform special combat maneuvers. You gain the following benefits:\n  \n• You learn two maneuvers of your choice from among those available to the Battle Master archetype in the fighter class. If a maneuver you use requires your target to make a saving throw to resist the maneuver’s effects, the saving throw DC equals 8 + your proficiency bonus + your Strength or Dexterity modifier (your choice).\n  \n• You gain one superiority die, which is a d6 (this die is added to any superiority dice you have from another source). This die is used to fuel your maneuvers. A superiority die is expended when you use it. You regain your expended superiority dice when you finish a short or long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -987,7 +1009,7 @@
     },
     {
         "name": "Medium Armor Master",
-        "description": "You have practiced moving in medium armor to gain the following benefits.\n \n\u2022 Wearing medium armor doesn't impose disadvantage on your Dexterity (Stealth) checks.\n \n\u2022 When you wear medium armor, you can add 3, rather than 2, to your AC if you have a Dexterity of 16 or higher.",
+        "description": "You have practiced moving in medium armor to gain the following benefits.\n \n• Wearing medium armor doesn't impose disadvantage on your Dexterity (Stealth) checks.\n \n• When you wear medium armor, you can add 3, rather than 2, to your AC if you have a Dexterity of 16 or higher.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1011,7 +1033,7 @@
     },
     {
         "name": "Mobile",
-        "description": "You are exceptionally speedy and agile. You gain the following benefits.\n \n\u2022 Your speed increases by 10 feet.\n \n\u2022 When you use the Dash action, difficult terrain doesn't cost you extra movement on that turn.\n \n\u2022 When you make a melee attack against a creature, you don't provoke opportunity attacks from that creature for the rest of the turn, whether you hit or not.",
+        "description": "You are exceptionally speedy and agile. You gain the following benefits.\n \n• Your speed increases by 10 feet.\n \n• When you use the Dash action, difficult terrain doesn't cost you extra movement on that turn.\n \n• When you make a melee attack against a creature, you don't provoke opportunity attacks from that creature for the rest of the turn, whether you hit or not.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1033,7 +1055,7 @@
     },
     {
         "name": "Moderately Armored",
-        "description": "You have trained to master the use of medium armor and shields, gaining the following benefits.\n \n\u2022 Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with medium armor and shields.",
+        "description": "You have trained to master the use of medium armor and shields, gaining the following benefits.\n \n• Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n• You gain proficiency with medium armor and shields.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1062,7 +1084,7 @@
     },
     {
         "name": "Mounted Combatant",
-        "description": "You are a dangerous foe to face while mounted. While you are mounted and aren't incapacitated, you gain the following benefits.\n \n\u2022 You have advantage on melee attack rolls against any unmounted creature that is smaller than your mount.\n \n\u2022 You can force an attack targeted at your mount to target you instead.\n \n\u2022 If your mount is subjected to an effect that allows it to make a Dexterity saving throw to take only half damage, it instead takes no damage if it succeeds on the saving throw, and only half damage if it fails.",
+        "description": "You are a dangerous foe to face while mounted. While you are mounted and aren't incapacitated, you gain the following benefits.\n \n• You have advantage on melee attack rolls against any unmounted creature that is smaller than your mount.\n \n• You can force an attack targeted at your mount to target you instead.\n \n• If your mount is subjected to an effect that allows it to make a Dexterity saving throw to take only half damage, it instead takes no damage if it succeeds on the saving throw, and only half damage if it fails.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1084,7 +1106,7 @@
     },
     {
         "name": "Observant",
-        "description": "Quick to notice details of your environment, you gain the following benefits.\n \n\u2022 Increase your Intelligence or Wisdom score by 1, to a maximum of 20.\n \n\u2022 If you can see a creature's mouth while it is speaking a language you understand, you can interpret what it's saying by reading its lips.\n \n\u2022 You have a +5 bonus to your passive Wisdom (Perception) and passive Intelligence (Investigation) scores.",
+        "description": "Quick to notice details of your environment, you gain the following benefits.\n \n• Increase your Intelligence or Wisdom score by 1, to a maximum of 20.\n \n• If you can see a creature's mouth while it is speaking a language you understand, you can interpret what it's saying by reading its lips.\n \n• You have a +5 bonus to your passive Wisdom (Perception) and passive Intelligence (Investigation) scores.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1101,12 +1123,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS"
+        ]
     },
     {
         "name": "Orcish Fury (Constitution)",
-        "description": "Your fury burns tirelessly. You gain the following benefits: \n  \n\u2022 Increase your Constitution  or Strength score by 1, up to a maximum of 20. \n  \n\u2022 When you hit with an attack using a simple or martial weapon, you can roll one of the weapon\u2019s damage dice an additional time and add it as extra damage of the weapon\u2019s damage type. Once you use this ability, you can\u2019t use it again until you finish a short or long rest. \n  \n\u2022 Immediately after you use your Relentless Endurance trait, you can use your reaction to make one weapon attack.",
+        "description": "Your fury burns tirelessly. You gain the following benefits: \n  \n• Increase your Constitution  or Strength score by 1, up to a maximum of 20. \n  \n• When you hit with an attack using a simple or martial weapon, you can roll one of the weapon’s damage dice an additional time and add it as extra damage of the weapon’s damage type. Once you use this ability, you can’t use it again until you finish a short or long rest. \n  \n• Immediately after you use your Relentless Endurance trait, you can use your reaction to make one weapon attack.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1123,12 +1148,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON"
+        ]
     },
     {
         "name": "Polearm Master",
-        "description": "You can keep your enemies at bay with reach weapons. You gain the following benefits.\n \n\u2022 When you take the Attack action and attack with only a glaive, halberd, or quarterstaff, you can use a bonus action to make a melee attack with the opposite end of the weapon. This attack uses the same ability modifier as the primary attack. The weapon\u2019s damage die for this attack is a d4, and it deals bludgeoning damage.\n \n\u2022 While you are wielding a glaive, halberd, pike, or quarterstaff, other creatures provoke an opportunity attack from you when they enter your reach.",
+        "description": "You can keep your enemies at bay with reach weapons. You gain the following benefits.\n \n• When you take the Attack action and attack with only a glaive, halberd, or quarterstaff, you can use a bonus action to make a melee attack with the opposite end of the weapon. This attack uses the same ability modifier as the primary attack. The weapon’s damage die for this attack is a d4, and it deals bludgeoning damage.\n \n• While you are wielding a glaive, halberd, pike, or quarterstaff, other creatures provoke an opportunity attack from you when they enter your reach.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1150,7 +1178,7 @@
     },
     {
         "name": "Prodigy",
-        "description": "You have a knack for learning new things. You gain the following benefits:\n  \n\u2022 You gain one skill proficiency of your choice, one tool proficiency of your choice, and fluency in one language of your choice.\n  \n\u2022 Choose one skill in which you have proficiency. You gain expertise in that skill, which means your proficiency bonus is doubled for any ability check you make with it. The skill you choose must be one that isn't already benefitting from a feature, such as Expertise, that doubles your proficiency bonus.",
+        "description": "You have a knack for learning new things. You gain the following benefits:\n  \n• You gain one skill proficiency of your choice, one tool proficiency of your choice, and fluency in one language of your choice.\n  \n• Choose one skill in which you have proficiency. You gain expertise in that skill, which means your proficiency bonus is doubled for any ability check you make with it. The skill you choose must be one that isn't already benefitting from a feature, such as Expertise, that doubles your proficiency bonus.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1176,7 +1204,7 @@
     },
     {
         "name": "Resilient",
-        "description": "Choose one ability score. You gain the following benefits.\n \n\u2022 Increase the chosen ability score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency in saving throws using the chosen ability.",
+        "description": "Choose one ability score. You gain the following benefits.\n \n• Increase the chosen ability score by 1, to a maximum of 20.\n \n• You gain proficiency in saving throws using the chosen ability.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1193,8 +1221,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA"
+        ]
     },
     {
         "name": "Ritual Caster",
@@ -1246,7 +1281,7 @@
     },
     {
         "name": "Second Chance",
-        "description": "Fortune favors you when someone tries to strike you. You gain the following benefits: \n  \n\u2022 Increase your Charisma, Constitution, or Dexterity score by 1, to a maximum of 20. \n  \n\u2022 When a creature you can see hits you with an attack roll, you can use your reaction to force that creature to reroll. Once you use this ability, you can\u2019t do so again until you roll initiative at the start of combat or until you finish a short or long rest.",
+        "description": "Fortune favors you when someone tries to strike you. You gain the following benefits: \n  \n• Increase your Charisma, Constitution, or Dexterity score by 1, to a maximum of 20. \n  \n• When a creature you can see hits you with an attack roll, you can use your reaction to force that creature to reroll. Once you use this ability, you can’t do so again until you roll initiative at the start of combat or until you finish a short or long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1265,12 +1300,16 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "DEX",
+            "CON",
+            "CHA"
+        ]
     },
     {
         "name": "Sentinel",
-        "description": "You have mastered techniques to take advantage of every drop in any enemy's guard, gaining the following benefits.\n \n\u2022 When you hit a creature with an opportunity attack, the creature's speed becomes 0 for the rest of the turn.\n \n\u2022 Creatures provoke opportunity attacks from you even if they take the Disengage action before leaving your reach.\n \n\u2022 When a creature within 5 feet of you makes an attack against a target other than you (and that target doesn't have this feat), you can use your reaction to make a melee weapon attack against the attacking creature.",
+        "description": "You have mastered techniques to take advantage of every drop in any enemy's guard, gaining the following benefits.\n \n• When you hit a creature with an opportunity attack, the creature's speed becomes 0 for the rest of the turn.\n \n• Creatures provoke opportunity attacks from you even if they take the Disengage action before leaving your reach.\n \n• When a creature within 5 feet of you makes an attack against a target other than you (and that target doesn't have this feat), you can use your reaction to make a melee weapon attack against the attacking creature.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1292,7 +1331,7 @@
     },
     {
         "name": "Sharpshooter",
-        "description": "You have mastered ranged weapons and can make shots that others find impossible. You gain the following benefits.\n \n\u2022 Attacking at long range doesn't impose disadvantage on your ranged weapon attack rolls.\n \n\u2022 Your ranged weapon attacks ignore half cover and three-quarters cover.\n \n\u2022 Before you make an attack with a ranged weapon that you are proficient with, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the attack's damage.",
+        "description": "You have mastered ranged weapons and can make shots that others find impossible. You gain the following benefits.\n \n• Attacking at long range doesn't impose disadvantage on your ranged weapon attack rolls.\n \n• Your ranged weapon attacks ignore half cover and three-quarters cover.\n \n• Before you make an attack with a ranged weapon that you are proficient with, you can choose to take a -5 penalty to the attack roll. If the attack hits, you add +10 to the attack's damage.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1314,7 +1353,7 @@
     },
     {
         "name": "Shield Master",
-        "description": "You use shields not just for protection but also for offense. You gain the following benefits while you are wielding a shield.\n \n\u2022 If you take the Attack action on your turn, you can use a bonus action to try to shove a creature within 5 feet of you with your shield.\n \n\u2022 If you aren't incapacitated, you can add your shield's AC bonus to any Dexterity saving throw you make against a spell or other harmful effect that targets only you.\n \n\u2022 If you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you can use your reaction to take no damage if you succeed on the saving throw, interposing your shield between yourself and the source of the effect.",
+        "description": "You use shields not just for protection but also for offense. You gain the following benefits while you are wielding a shield.\n \n• If you take the Attack action on your turn, you can use a bonus action to try to shove a creature within 5 feet of you with your shield.\n \n• If you aren't incapacitated, you can add your shield's AC bonus to any Dexterity saving throw you make against a spell or other harmful effect that targets only you.\n \n• If you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you can use your reaction to take no damage if you succeed on the saving throw, interposing your shield between yourself and the source of the effect.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1358,7 +1397,7 @@
     },
     {
         "name": "Skulker",
-        "description": "You are expert at slinking through shadows. You gain the following benefits.\n \n\u2022 You can try to hide when you are lightly obscured from the creature from which you are hiding.\n \n\u2022 When you are hidden from a creature and miss it with a ranged weapon attack, making the attack doesn't reveal your position.\n \n\u2022 Dim light doesn't impose disadvantage on your Wisdom (Perception) checks relying on sight.",
+        "description": "You are expert at slinking through shadows. You gain the following benefits.\n \n• You can try to hide when you are lightly obscured from the creature from which you are hiding.\n \n• When you are hidden from a creature and miss it with a ranged weapon attack, making the attack doesn't reveal your position.\n \n• Dim light doesn't impose disadvantage on your Wisdom (Perception) checks relying on sight.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {
@@ -1382,7 +1421,7 @@
     },
     {
         "name": "Spell Sniper",
-        "description": "You have learned techniques to enhance your attacks with certain kinds of spells, gaining the following benefits.\n \n\u2022 When you cast a spell that requires you to make an attack roll, the spell's range is doubled.\n \n\u2022 Your ranged spell attacks ignore half cover and three-quarters cover.\n \n\u2022 You learn one cantrip that requires an attack roll. Choose the cantrip from the bard, cleric, druid, sorcerer, warlock, or wizard spell list. Your spellcasting ability for this cantrip depends on the spell list you chose from: Charisma for bard, sorcerer, or warlock; Wisdom for cleric or druid; or Intelligence for wizard.",
+        "description": "You have learned techniques to enhance your attacks with certain kinds of spells, gaining the following benefits.\n \n• When you cast a spell that requires you to make an attack roll, the spell's range is doubled.\n \n• Your ranged spell attacks ignore half cover and three-quarters cover.\n \n• You learn one cantrip that requires an attack roll. Choose the cantrip from the bard, cleric, druid, sorcerer, warlock, or wizard spell list. Your spellcasting ability for this cantrip depends on the spell list you chose from: Charisma for bard, sorcerer, or warlock; Wisdom for cleric or druid; or Intelligence for wizard.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1406,7 +1445,7 @@
     },
     {
         "name": "Squat Nimbleness",
-        "description": "You are uncommonly nimble for your race. You gain the following benefits: \n  \n\u2022 Increase your Dexterity or Strength score by 1, to a maximum of 20. \n  \n\u2022 Increase your walking speed by 5 feet. \n  \n\u2022 You gain proficiency in the Acrobatics or Athletics skill (your choice).\n  \n\u2022 You have advantage on any Strength 9Athletics) or Dexterity (Acrobatics) check you makes to escape from being grappled.",
+        "description": "You are uncommonly nimble for your race. You gain the following benefits: \n  \n• Increase your Dexterity or Strength score by 1, to a maximum of 20. \n  \n• Increase your walking speed by 5 feet. \n  \n• You gain proficiency in the Acrobatics or Athletics skill (your choice).\n  \n• You have advantage on any Strength 9Athletics) or Dexterity (Acrobatics) check you makes to escape from being grappled.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {
@@ -1429,8 +1468,11 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
     },
     {
         "name": "Svirfneblin Magic",
@@ -1458,7 +1500,7 @@
     },
     {
         "name": "Tavern Brawler",
-        "description": "Accustomed to rough-and-tumble fighting using whatever weapons happen to be at hand, you gain the following benefits.\n \n\u2022 Increase your Strength or Constitution score by 1, to a maximum of 20.\n \n\u2022 You are proficient with improvised weapons.\n \n\u2022 Your unarmed strike uses a d4 for damage.\n \n\u2022 When you hit a creature with an unarmed strike or an improvised weapon on your turn, you can use a bonus action to attempt to grapple the target.",
+        "description": "Accustomed to rough-and-tumble fighting using whatever weapons happen to be at hand, you gain the following benefits.\n \n• Increase your Strength or Constitution score by 1, to a maximum of 20.\n \n• You are proficient with improvised weapons.\n \n• Your unarmed strike uses a d4 for damage.\n \n• When you hit a creature with an unarmed strike or an improvised weapon on your turn, you can use a bonus action to attempt to grapple the target.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1475,8 +1517,11 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON"
+        ]
     },
     {
         "name": "Tough",
@@ -1502,7 +1547,7 @@
     },
     {
         "name": "War Caster",
-        "description": "You have practiced casting spells in the midst of combat, learning techniques that grant you the following benefits.\n \n\u2022 You have advantage on Constitution saving throws that you make to maintain your concentration on a spell when you take damage.\n \n\u2022 You can perform the somatic components of spells even when you have weapons or a shield in one or both hands.\n \n\u2022 When a hostile creature's movement provokes an opportunity attack from you, you can use your reaction to cast a spell at the creature, rather than making an opportunity attack. The spell must have a casting time of 1 action and must target only that creature.",
+        "description": "You have practiced casting spells in the midst of combat, learning techniques that grant you the following benefits.\n \n• You have advantage on Constitution saving throws that you make to maintain your concentration on a spell when you take damage.\n \n• You can perform the somatic components of spells even when you have weapons or a shield in one or both hands.\n \n• When a hostile creature's movement provokes an opportunity attack from you, you can use your reaction to cast a spell at the creature, rather than making an opportunity attack. The spell must have a casting time of 1 action and must target only that creature.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1526,7 +1571,7 @@
     },
     {
         "name": "Weapon Master",
-        "description": "You have practiced extensively with a variety of weapons, gaining the following benefits.\n \n\u2022 Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with four weapons of your choice. Each one must be a simple or a martial weapon.",
+        "description": "You have practiced extensively with a variety of weapons, gaining the following benefits.\n \n• Increase your Strength or Dexterity score by 1, to a maximum of 20.\n \n• You gain proficiency with four weapons of your choice. Each one must be a simple or a martial weapon.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1575,7 +1620,7 @@
     },
     {
         "name": "Acrobat",
-        "description": "You become more nimble, gaining the following benefits: \n  \n\u2022 Increase your Dexterity score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Acrobatics skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 As a bonus action, you can make a DC 15 Dexterity (Acrobatics) check. If you succeed, difficult terrain doesn\u2019t cost you extra movement until the end of the current turn.",
+        "description": "You become more nimble, gaining the following benefits: \n  \n• Increase your Dexterity score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Acrobatics skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• As a bonus action, you can make a DC 15 Dexterity (Acrobatics) check. If you succeed, difficult terrain doesn’t cost you extra movement until the end of the current turn.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1597,7 +1642,7 @@
     },
     {
         "name": "Alchemist",
-        "description": "You have studied the secrets of alchemy and are an expert in its practice, gaining the following benefits:\n \n\u2022 Increase your Intelligence score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with alchemist\u2019s supplies. If you are already proficient with them, you add double your proficiency bonus to checks you make with them.\n \n\u2022 As an action, you can identify one potion within 5 feet of you, as if you had tasted it. You must see the liquid for this benefit to work.\n \n\u2022 Over the course of any short rest, you can temporarily improve the potency of one potion of healing of any rarity. To use this benefit, you must have alchemist\u2019s supplies with you, and the potion must be within reach. If the potion is drunk no more than 1 hour after the short rest ends, the creature drinking the potion can forgo the potion\u2019s die roll and regains the maximum number of hit points that the potion can restore.",
+        "description": "You have studied the secrets of alchemy and are an expert in its practice, gaining the following benefits:\n \n• Increase your Intelligence score by 1, to a maximum of 20.\n \n• You gain proficiency with alchemist’s supplies. If you are already proficient with them, you add double your proficiency bonus to checks you make with them.\n \n• As an action, you can identify one potion within 5 feet of you, as if you had tasted it. You must see the liquid for this benefit to work.\n \n• Over the course of any short rest, you can temporarily improve the potency of one potion of healing of any rarity. To use this benefit, you must have alchemist’s supplies with you, and the potion must be within reach. If the potion is drunk no more than 1 hour after the short rest ends, the creature drinking the potion can forgo the potion’s die roll and regains the maximum number of hit points that the potion can restore.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1619,7 +1664,7 @@
     },
     {
         "name": "Animal Handler",
-        "description": "You master the techniques needed to train and handle animals. You gain the following benefits. \n  \n\u2022 Increase your Wisdom score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Animal Handling skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You can use a bonus action on your turn to command one friendly beast within 60 feet of you that can hear you and that isn\u2019t currently following the command of someone else. You decide now what action the beast will take and where it will move during its next turn, or you issue a general command that lasts for 1 minute, such as to guard a particular area.",
+        "description": "You master the techniques needed to train and handle animals. You gain the following benefits. \n  \n• Increase your Wisdom score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Animal Handling skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You can use a bonus action on your turn to command one friendly beast within 60 feet of you that can hear you and that isn’t currently following the command of someone else. You decide now what action the beast will take and where it will move during its next turn, or you issue a general command that lasts for 1 minute, such as to guard a particular area.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1641,7 +1686,7 @@
     },
     {
         "name": "Arcanist",
-        "description": "You study the arcane arts, gaining the following benefits: \n  \n\u2022 Increase your Intelligence score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Arcana skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You learn the prestidigitation and detect magic spells. You can cast detect magic once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
+        "description": "You study the arcane arts, gaining the following benefits: \n  \n• Increase your Intelligence score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Arcana skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You learn the prestidigitation and detect magic spells. You can cast detect magic once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1663,7 +1708,7 @@
     },
     {
         "name": "Barbed Hide",
-        "description": "One of your ancestors was a barbed devil or other spiky fiend. Barbs protrude from your head. You gain the following benefits: \n  \n\u2022 Increase your Constitution or Charisma score by 1, up to a maximum of 20. \n  \n\u2022 As a bonus action, you can cause small barbs to protrude all over your body or cause them to retract. At the start of each of your turns while the barbs are out, you deal 1d6 piercing damage to any creature grappling you or any creature grappled by you. \n  \n\u2022 You gain proficiency in the Intimidation skill. If you\u2019re already proficient in it, your proficiency bonus is doubled for any check you make with it.",
+        "description": "One of your ancestors was a barbed devil or other spiky fiend. Barbs protrude from your head. You gain the following benefits: \n  \n• Increase your Constitution or Charisma score by 1, up to a maximum of 20. \n  \n• As a bonus action, you can cause small barbs to protrude all over your body or cause them to retract. At the start of each of your turns while the barbs are out, you deal 1d6 piercing damage to any creature grappling you or any creature grappled by you. \n  \n• You gain proficiency in the Intimidation skill. If you’re already proficient in it, your proficiency bonus is doubled for any check you make with it.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1680,12 +1725,15 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "CON",
+            "CHA"
+        ]
     },
     {
         "name": "Blade Mastery",
-        "description": "You master the shortsword, longsword, scimitar, rapier, and greatsword. You gain the following benefits when using any of them:\n \n\u2022 You gain a +1 bonus to attack rolls you make with the weapon.\n \n\u2022 On your turn, you can use your reaction to assume a parrying stance, provided you have the weapon in hand. Doing so grants you a +1 bonus to your AC until the start of your next turn or until you\u2019re not holding the weapon.\n \n\u2022 When you make an opportunity attack with the weapon, you have advantage on the attack roll.",
+        "description": "You master the shortsword, longsword, scimitar, rapier, and greatsword. You gain the following benefits when using any of them:\n \n• You gain a +1 bonus to attack rolls you make with the weapon.\n \n• On your turn, you can use your reaction to assume a parrying stance, provided you have the weapon in hand. Doing so grants you a +1 bonus to your AC until the start of your next turn or until you’re not holding the weapon.\n \n• When you make an opportunity attack with the weapon, you have advantage on the attack roll.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1707,7 +1755,7 @@
     },
     {
         "name": "Brawny",
-        "description": "You become stronger, gaining the following benefits: \n  \n\u2022 Increase your Strength score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Athletics skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You count as if you were one size larger for the purpose of determining your carrying capacity.",
+        "description": "You become stronger, gaining the following benefits: \n  \n• Increase your Strength score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Athletics skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You count as if you were one size larger for the purpose of determining your carrying capacity.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1729,7 +1777,7 @@
     },
     {
         "name": "Burglar",
-        "description": "You pride yourself on your quickness and your close study of certain clandestine activities. You gain the following benefits:\n \n\u2022 Increase your Dexterity score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with thieves\u2019 tools. If you are already proficient with them, you add double your proficiency bonus to checks you make with them.",
+        "description": "You pride yourself on your quickness and your close study of certain clandestine activities. You gain the following benefits:\n \n• Increase your Dexterity score by 1, to a maximum of 20.\n \n• You gain proficiency with thieves’ tools. If you are already proficient with them, you add double your proficiency bonus to checks you make with them.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1751,7 +1799,7 @@
     },
     {
         "name": "Critter Friend",
-        "description": "Your friendship with animals mystically deepens. You gain the following benefits: \n  \n\u2022 You gain proficiency in the Animal Handling skill. If you\u2019re already proficient in it, your proficiency bonus is doubled for any check you make with it. \n  \n\u2022 You learn the speak with animals spell and can cast it at will, without expending a spell slot. You also learn the animal friendship spell, and you can cast it once with this feat, without expending a spell slot. You regain the ability to cast it in this way when you finish a long rest. Intelligence is your spellcasting ability for these spells.",
+        "description": "Your friendship with animals mystically deepens. You gain the following benefits: \n  \n• You gain proficiency in the Animal Handling skill. If you’re already proficient in it, your proficiency bonus is doubled for any check you make with it. \n  \n• You learn the speak with animals spell and can cast it at will, without expending a spell slot. You also learn the animal friendship spell, and you can cast it once with this feat, without expending a spell slot. You regain the ability to cast it in this way when you finish a long rest. Intelligence is your spellcasting ability for these spells.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1775,7 +1823,7 @@
     },
     {
         "name": "Diplomat",
-        "description": "You master the arts of diplomacy, gaining the following benefits: \n  \n\u2022 Increase your Charisma score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Persuasion skill. If you are already proficient in this skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 If you spend 1 minute talking to someone who can understand what you say, you can make a Charisma (Persuasion) check contested by the creature\u2019s Wisdom (Insight) check. If you or your companions are fighting the creature, your check automatically fails. If your check succeeds, the target is charmed by you as long as it remains within 60 feet of you and for 1 minute thereafter.",
+        "description": "You master the arts of diplomacy, gaining the following benefits: \n  \n• Increase your Charisma score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Persuasion skill. If you are already proficient in this skill, you add double your proficiency bonus to checks you make with it. \n  \n• If you spend 1 minute talking to someone who can understand what you say, you can make a Charisma (Persuasion) check contested by the creature’s Wisdom (Insight) check. If you or your companions are fighting the creature, your check automatically fails. If your check succeeds, the target is charmed by you as long as it remains within 60 feet of you and for 1 minute thereafter.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -1797,7 +1845,7 @@
     },
     {
         "name": "Dragon Wings",
-        "description": "You sprout draconic wings. With your wings, you have a flying speed of 20 feet if you aren\u2019t wearing heavy armor and aren\u2019t exceeding your carrying capacity.",
+        "description": "You sprout draconic wings. With your wings, you have a flying speed of 20 feet if you aren’t wearing heavy armor and aren’t exceeding your carrying capacity.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2107,7 +2155,7 @@
     },
     {
         "name": "Empathic",
-        "description": "You possess keen insight into how other people think and feel. You gain the following benefits: \n  \n\u2022 Increase your Wisdom score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Insight skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You can use your action to try to get uncanny insight about one humanoid you can see within 30 feet of you. Make a Wisdom (Insight) check contested by the target\u2019s Charisma (Deception) check. If your check succeeds, you have advantage on attack rolls and ability checks against the target until the end of your next turn.",
+        "description": "You possess keen insight into how other people think and feel. You gain the following benefits: \n  \n• Increase your Wisdom score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Insight skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You can use your action to try to get uncanny insight about one humanoid you can see within 30 feet of you. Make a Wisdom (Insight) check contested by the target’s Charisma (Deception) check. If your check succeeds, you have advantage on attack rolls and ability checks against the target until the end of your next turn.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2129,7 +2177,7 @@
     },
     {
         "name": "Everybody's Friend",
-        "description": "You develop your magnetic personality to ease your way through the world. You gain the following benefits: \n  \n\u2022 Increase your Charisma score by 1, up to a maximum of 20. \n  \n\u2022 You gain proficiency in the Deception and Persuasion skills. If you\u2019re already proficient in either skill, your proficiency bonus is doubled for any check you make with that skill.",
+        "description": "You develop your magnetic personality to ease your way through the world. You gain the following benefits: \n  \n• Increase your Charisma score by 1, up to a maximum of 20. \n  \n• You gain proficiency in the Deception and Persuasion skills. If you’re already proficient in either skill, your proficiency bonus is doubled for any check you make with that skill.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2151,7 +2199,7 @@
     },
     {
         "name": "Fell Handed",
-        "description": "You master the handaxe, battleaxe, greataxe, warhammer, and maul. You gain the following benefits when using any of them:\n \n\u2022 You gain a +1 bonus to attack rolls you make with the weapon.\n \n\u2022 Whenever you have advantage on a melee attack roll you make with the weapon and hit, you can knock the target prone if the lower of the two d20 rolls would also hit the target.\n \n\u2022 Whenever you have disadvantage on a melee attack roll you make with the weapon, the target takes bludgeoning damage equal to your Strength modifier (minimum of 0) if the attack misses but the higher of the two d20 rolls would have hit.\n \n\u2022 If you use the Help action to aid an ally\u2019s melee attack while you\u2019re wielding the weapon, you knock the target\u2019s shield aside momentarily. In addition to the ally gaining advantage on the attack roll, the ally gains a +2 bonus to the roll if the target is using a shield.",
+        "description": "You master the handaxe, battleaxe, greataxe, warhammer, and maul. You gain the following benefits when using any of them:\n \n• You gain a +1 bonus to attack rolls you make with the weapon.\n \n• Whenever you have advantage on a melee attack roll you make with the weapon and hit, you can knock the target prone if the lower of the two d20 rolls would also hit the target.\n \n• Whenever you have disadvantage on a melee attack roll you make with the weapon, the target takes bludgeoning damage equal to your Strength modifier (minimum of 0) if the attack misses but the higher of the two d20 rolls would have hit.\n \n• If you use the Help action to aid an ally’s melee attack while you’re wielding the weapon, you knock the target’s shield aside momentarily. In addition to the ally gaining advantage on the attack roll, the ally gains a +2 bonus to the roll if the target is using a shield.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2173,7 +2221,7 @@
     },
     {
         "name": "Flail Mastery",
-        "description": "The flail is a tricky weapon to use, but you have spent countless hours mastering it. You gain the following benefits.\n \n\u2022 You gain a +1 bonus to attack rolls you make with a flail.\n \n\u2022 As a bonus action on your turn, you can prepare yourself to extend your flail to sweep over targets\u2019 shields. Until the end of this turn, your attack rolls with a flail gain a +2 bonus against any target using a shield.\n \n\u2022 When you hit with an opportunity attack using a flail, the target must succeed on a Strength saving throw (DC 8 + your proficiency bonus + your Strength modifier) or be knocked prone.",
+        "description": "The flail is a tricky weapon to use, but you have spent countless hours mastering it. You gain the following benefits.\n \n• You gain a +1 bonus to attack rolls you make with a flail.\n \n• As a bonus action on your turn, you can prepare yourself to extend your flail to sweep over targets’ shields. Until the end of this turn, your attack rolls with a flail gain a +2 bonus against any target using a shield.\n \n• When you hit with an opportunity attack using a flail, the target must succeed on a Strength saving throw (DC 8 + your proficiency bonus + your Strength modifier) or be knocked prone.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2195,7 +2243,7 @@
     },
     {
         "name": "Gourmand",
-        "description": "You have mastered a variety of special recipes, allowing you to prepare exotic dishes with useful effects. You gain the following benefits:\n \n\u2022 Increase your Constitution score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with cook\u2019s utensils. If you are already proficient with them, you add double your proficiency bonus to checks you make with them.\n \n\u2022 As an action, you can inspect a drink or plate of food within 5 feet of you and determine whether it is poisoned, provided that you can see and smell it.\n \n\u2022 During a long rest, you can prepare and serve a meal that helps you and your allies recover from the rigors of adventuring, provided you have suitable food, cook\u2019s utensils, and other supplies on hand. The meal serves up to six people, and each person who eats it regains two additional Hit Dice at the end of the long rest. In addition, those who partake of the meal have advantage on Constitution saving throws against disease for the next 24 hours.",
+        "description": "You have mastered a variety of special recipes, allowing you to prepare exotic dishes with useful effects. You gain the following benefits:\n \n• Increase your Constitution score by 1, to a maximum of 20.\n \n• You gain proficiency with cook’s utensils. If you are already proficient with them, you add double your proficiency bonus to checks you make with them.\n \n• As an action, you can inspect a drink or plate of food within 5 feet of you and determine whether it is poisoned, provided that you can see and smell it.\n \n• During a long rest, you can prepare and serve a meal that helps you and your allies recover from the rigors of adventuring, provided you have suitable food, cook’s utensils, and other supplies on hand. The meal serves up to six people, and each person who eats it regains two additional Hit Dice at the end of the long rest. In addition, those who partake of the meal have advantage on Constitution saving throws against disease for the next 24 hours.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2217,7 +2265,7 @@
     },
     {
         "name": "Grudge-Bearer",
-        "description": "You have a deep hatred for a particular kind of creature. Choose your foes, a type of creature to bear the burden of your wrath: aberrations, beasts, celestials, constructs, dragons, elementals, fey, fiends, giants, monstrosities, oozes, plants, or undead. Alternatively, you can choose two races of humanoid (such as gnolls and orcs). You gain the following benefits: \n  \n\u2022 Increase your Strength, Constitution, or Wisdom score by 1, to a maximum of 20. \n  \n\u2022 During the first round of any combat against your chosen foes, your attack rolls against any of them have advantage. \n  \n\u2022 When any of your chosen foes makes an opportunity attack against you, it makes the attack roll with disadvantage. \n  \n\u2022 Whenever you make an Intelligence (Arcana, History, Nature, or Religion) check to recall information about your chosen foes, you add double your proficiency bonus to the check, even if you\u2019re not normally proficient.",
+        "description": "You have a deep hatred for a particular kind of creature. Choose your foes, a type of creature to bear the burden of your wrath: aberrations, beasts, celestials, constructs, dragons, elementals, fey, fiends, giants, monstrosities, oozes, plants, or undead. Alternatively, you can choose two races of humanoid (such as gnolls and orcs). You gain the following benefits: \n  \n• Increase your Strength, Constitution, or Wisdom score by 1, to a maximum of 20. \n  \n• During the first round of any combat against your chosen foes, your attack rolls against any of them have advantage. \n  \n• When any of your chosen foes makes an opportunity attack against you, it makes the attack roll with disadvantage. \n  \n• Whenever you make an Intelligence (Arcana, History, Nature, or Religion) check to recall information about your chosen foes, you add double your proficiency bonus to the check, even if you’re not normally proficient.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2234,12 +2282,16 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON",
+            "WIS"
+        ]
     },
     {
         "name": "Historian",
-        "description": "Your study of history rewards you with the following benefits: \n  \n\u2022 Increase your Intelligence score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the History skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 When you take the Help action to aid another creature\u2019s ability check, you can make a DC 15 Intelligence (History) check. On a success, that creature\u2019s check gains a bonus equal to your proficiency bonus, as you share pertinent advice and historical examples. To receive this bonus, the creature must be able to understand what you\u2019re saying.",
+        "description": "Your study of history rewards you with the following benefits: \n  \n• Increase your Intelligence score by 1, to a maximum of 20. \n  \n• You gain proficiency in the History skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• When you take the Help action to aid another creature’s ability check, you can make a DC 15 Intelligence (History) check. On a success, that creature’s check gains a bonus equal to your proficiency bonus, as you share pertinent advice and historical examples. To receive this bonus, the creature must be able to understand what you’re saying.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2261,7 +2313,7 @@
     },
     {
         "name": "Human Determination",
-        "description": "You are filled with a determination that can draw the unreachable within your reach. You gain the following benefits: \n  \n\u2022 Increase one ability score of your choice by 1, to a maximum of 20. \n  \n\u2022 When you make an attack roll, an ability check, or a saving throw, you can do so with advantage. Once you use this ability, you can\u2019t use it again until you finish a short or long rest.",
+        "description": "You are filled with a determination that can draw the unreachable within your reach. You gain the following benefits: \n  \n• Increase one ability score of your choice by 1, to a maximum of 20. \n  \n• When you make an attack roll, an ability check, or a saving throw, you can do so with advantage. Once you use this ability, you can’t use it again until you finish a short or long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2290,7 +2342,7 @@
     },
     {
         "name": "Investigator",
-        "description": "You have an eye for detail and can pick out the smallest clues. You gain the following benefits: \n  \n\u2022 Increase your Intelligence score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Investigation skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You can take the Search action as a bonus action.",
+        "description": "You have an eye for detail and can pick out the smallest clues. You gain the following benefits: \n  \n• Increase your Intelligence score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Investigation skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You can take the Search action as a bonus action.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2312,7 +2364,7 @@
     },
     {
         "name": "Master of Disguise",
-        "description": "You have honed your ability to shape your personality and to read the personalities of others. You gain the following benefits:\n \n\u2022 Increase your Charisma score by 1, to a maximum of 20.\n \n\u2022 You gain proficiency with the disguise kit. If you are already proficient with it, you add double your proficiency bonus to checks you make with it.\n \n\u2022 If you spend 1 hour observing a creature, you can then spend 8 hours crafting a disguise you can quickly don to mimic that creature. Making the disguise requires a disguise kit. You must make checks as normal to disguise yourself, but you can assume the disguise as an action.",
+        "description": "You have honed your ability to shape your personality and to read the personalities of others. You gain the following benefits:\n \n• Increase your Charisma score by 1, to a maximum of 20.\n \n• You gain proficiency with the disguise kit. If you are already proficient with it, you add double your proficiency bonus to checks you make with it.\n \n• If you spend 1 hour observing a creature, you can then spend 8 hours crafting a disguise you can quickly don to mimic that creature. Making the disguise requires a disguise kit. You must make checks as normal to disguise yourself, but you can assume the disguise as an action.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2334,7 +2386,7 @@
     },
     {
         "name": "Medic",
-        "description": "You master the physician\u2019s arts, gaining the following benefits: \n  \n\u2022 Increase your Wisdom score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Medicine skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 During a short rest, you can clean and bind the wounds of up to six willing beasts and humanoids. Make a DC 15 Wisdom (Medicine) check for each creature. On a success, if a creature spends a Hit Die during this rest, that creature can forgo the roll and instead regain the maximum number of hit points the die can restore. A creature can do so only once per rest, regardless of how many Hit Dice it spends.",
+        "description": "You master the physician’s arts, gaining the following benefits: \n  \n• Increase your Wisdom score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Medicine skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• During a short rest, you can clean and bind the wounds of up to six willing beasts and humanoids. Make a DC 15 Wisdom (Medicine) check for each creature. On a success, if a creature spends a Hit Die during this rest, that creature can forgo the roll and instead regain the maximum number of hit points the die can restore. A creature can do so only once per rest, regardless of how many Hit Dice it spends.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2356,7 +2408,7 @@
     },
     {
         "name": "Menacing",
-        "description": "You become fearsome to others, gaining the following benefits: \n  \n\u2022 Increase your Charisma score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Intimidation skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 When you take the Attack action on your turn, you can replace one attack with an attempt to demoralize one humanoid you can see within 30 feet of you that can see and hear you. Make a Charisma (Intimidation) check contested by the target\u2019s Wisdom (Insight) check. If your check succeeds, the target is frightened until the end of your next turn. If your check fails, the target can\u2019t be frightened by you in this way for 1 hour.",
+        "description": "You become fearsome to others, gaining the following benefits: \n  \n• Increase your Charisma score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Intimidation skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• When you take the Attack action on your turn, you can replace one attack with an attempt to demoralize one humanoid you can see within 30 feet of you that can see and hear you. Make a Charisma (Intimidation) check contested by the target’s Wisdom (Insight) check. If your check succeeds, the target is frightened until the end of your next turn. If your check fails, the target can’t be frightened by you in this way for 1 hour.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2378,7 +2430,7 @@
     },
     {
         "name": "Naturalist",
-        "description": "Your extensive study of nature rewards you with the following benefits: \n  \n\u2022 Increase your Intelligence score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Nature skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You learn the druidcraft and detect poison and disease spells. You can cast detect poison and disease once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
+        "description": "Your extensive study of nature rewards you with the following benefits: \n  \n• Increase your Intelligence score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Nature skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You learn the druidcraft and detect poison and disease spells. You can cast detect poison and disease once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2422,7 +2474,7 @@
     },
     {
         "name": "Perceptive",
-        "description": "You hone your senses until they become razor sharp. You gain the following benefits: \n  \n\u2022 Increase your Wisdom score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Perception skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 Being in a lightly obscured area doesn\u2019t impose disadvantage on your Wisdom (Perception) checks if you can both see and hear.",
+        "description": "You hone your senses until they become razor sharp. You gain the following benefits: \n  \n• Increase your Wisdom score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Perception skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• Being in a lightly obscured area doesn’t impose disadvantage on your Wisdom (Perception) checks if you can both see and hear.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2444,7 +2496,7 @@
     },
     {
         "name": "Performer",
-        "description": "You master performance so that you can command any stage. You gain the following benefits: \n  \n\u2022 Increase your Charisma score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Performance skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 While performing, you can try to distract one humanoid you can see who can see and hear you. Make a Charisma (Performance) check contested by the humanoid\u2019s Wisdom (Insight) check. If your check succeeds, you grab the humanoid\u2019s attention enough that it makes Wisdom (Perception) and Intelligence (Investigation) checks with disadvantage until you stop performing.",
+        "description": "You master performance so that you can command any stage. You gain the following benefits: \n  \n• Increase your Charisma score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Performance skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• While performing, you can try to distract one humanoid you can see who can see and hear you. Make a Charisma (Performance) check contested by the humanoid’s Wisdom (Insight) check. If your check succeeds, you grab the humanoid’s attention enough that it makes Wisdom (Perception) and Intelligence (Investigation) checks with disadvantage until you stop performing.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2466,7 +2518,7 @@
     },
     {
         "name": "Quick-Fingered",
-        "description": "Your nimble fingers and agility let you perform sleight of hand. You gain the following benefits: \n  \n\u2022 Increase your Dexterity score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Sleight of Hand skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 As a bonus action, you can make a Dexterity (Sleight of Hand) check to plant something on someone else, conceal an object on a creature, lift a purse, or take something from a pocket.",
+        "description": "Your nimble fingers and agility let you perform sleight of hand. You gain the following benefits: \n  \n• Increase your Dexterity score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Sleight of Hand skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• As a bonus action, you can make a Dexterity (Sleight of Hand) check to plant something on someone else, conceal an object on a creature, lift a purse, or take something from a pocket.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2488,7 +2540,7 @@
     },
     {
         "name": "Silver-Tongued",
-        "description": "You develop your conversational skill to better deceive others. You gain the following benefits: \n  \n  \n\u2022 Increase your Charisma score by 1, to a maximum of 20. \n  \n  \n\u2022 You gain proficiency in the Deception skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n  \n\u2022 When you take the Attack action on your turn, you can replace one attack with an attempt to deceive one humanoid you can see within 30 feet of you that can see and hear you. Make a Charisma (Deception) check contested by the target\u2019s Wisdom (Insight) check. If your check succeeds, your movement doesn\u2019t provoke opportunity attacks from the target and your attack rolls against it have advantage; both benefits last until the end of your next turn or until you use this ability on a different target. If your check fails, the target can\u2019t be deceived by you in this way for 1 hour.",
+        "description": "You develop your conversational skill to better deceive others. You gain the following benefits: \n  \n  \n• Increase your Charisma score by 1, to a maximum of 20. \n  \n  \n• You gain proficiency in the Deception skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n  \n• When you take the Attack action on your turn, you can replace one attack with an attempt to deceive one humanoid you can see within 30 feet of you that can see and hear you. Make a Charisma (Deception) check contested by the target’s Wisdom (Insight) check. If your check succeeds, your movement doesn’t provoke opportunity attacks from the target and your attack rolls against it have advantage; both benefits last until the end of your next turn or until you use this ability on a different target. If your check fails, the target can’t be deceived by you in this way for 1 hour.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2510,7 +2562,7 @@
     },
     {
         "name": "Spear Mastery",
-        "description": "Though the spear is a simple weapon to learn, it rewards you for the time you have taken to master it. You gain the following benefits.\n \n\u2022 You gain a +1 bonus to attack rolls you make with a spear.\n \n\u2022 When you use a spear, its damage die changes from a d6 to a d8, and from a d8 to a d10 when wielded with two hands. (This benefit has no effect if another feature has already improved the weapon\u2019s die.)\n \n\u2022 You can set your spear to receive a charge. As a bonus action, choose a creature you can see that is at least 20 feet away from you. If that creatures moves within your spear\u2019s reach on its next turn, you can make a melee attack against it with your spear as a reaction. If the attack hits, the target takes an extra 1d8 piercing damage, or an extra 1d10 piercing damage if you wield the spear with two hands. You can\u2019t use this ability if the creature used the Disengage action before moving.\n \n\u2022 As a bonus action on your turn, you can increase your reach with a spear by 5 feet for the rest of your turn.",
+        "description": "Though the spear is a simple weapon to learn, it rewards you for the time you have taken to master it. You gain the following benefits.\n \n• You gain a +1 bonus to attack rolls you make with a spear.\n \n• When you use a spear, its damage die changes from a d6 to a d8, and from a d8 to a d10 when wielded with two hands. (This benefit has no effect if another feature has already improved the weapon’s die.)\n \n• You can set your spear to receive a charge. As a bonus action, choose a creature you can see that is at least 20 feet away from you. If that creatures moves within your spear’s reach on its next turn, you can make a melee attack against it with your spear as a reaction. If the attack hits, the target takes an extra 1d8 piercing damage, or an extra 1d10 piercing damage if you wield the spear with two hands. You can’t use this ability if the creature used the Disengage action before moving.\n \n• As a bonus action on your turn, you can increase your reach with a spear by 5 feet for the rest of your turn.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2532,7 +2584,7 @@
     },
     {
         "name": "Stealthy",
-        "description": "You know how best to hide. You gain the following benefits: \n  \n\u2022 Increase your Dexterity score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Stealth skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 If you are hidden, you can move up to 10 feet in the open without revealing yourself if you end the move in a position where you\u2019re not clearly visible.",
+        "description": "You know how best to hide. You gain the following benefits: \n  \n• Increase your Dexterity score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Stealth skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• If you are hidden, you can move up to 10 feet in the open without revealing yourself if you end the move in a position where you’re not clearly visible.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2554,7 +2606,7 @@
     },
     {
         "name": "Survivalist",
-        "description": "You master wilderness lore, gaining the following benefits: \n  \n\u2022 Increase your Wisdom score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Survival skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You learn the alarm spell. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
+        "description": "You master wilderness lore, gaining the following benefits: \n  \n• Increase your Wisdom score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Survival skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You learn the alarm spell. You can cast it once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2576,7 +2628,7 @@
     },
     {
         "name": "Theologian",
-        "description": "Your extensive study of religion rewards you with the following benefits: \n  \n\u2022 Increase your Intelligence score by 1, to a maximum of 20. \n  \n\u2022 You gain proficiency in the Religion skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n\u2022 You learn the thaumaturgy and detect evil and good spells. You can cast detect evil and good once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
+        "description": "Your extensive study of religion rewards you with the following benefits: \n  \n• Increase your Intelligence score by 1, to a maximum of 20. \n  \n• You gain proficiency in the Religion skill. If you are already proficient in the skill, you add double your proficiency bonus to checks you make with it. \n  \n• You learn the thaumaturgy and detect evil and good spells. You can cast detect evil and good once without expending a spell slot, and you regain the ability to do so when you finish a long rest.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2598,7 +2650,7 @@
     },
     {
         "name": "Wonder Maker",
-        "description": "You master the tinker techniques of your people. You gain the following benefits: \n  \n\u2022 Increase your Dexterity or Intelligence score by 1, to a maximum of 20. \n  \n\u2022 When you make a check using your proficiency with tinker\u2019s tools, you add double your proficiency bonus to the check. \n  \n\u2022 When you make a device with your Tinker trait, you have the following additional options for what you make: \n  \nAlarm: This device senses when a creature moves to within 15 feet of it without speaking aloud a password chosen when you create it. One round after a creature moves into range, the alarm makes a shrill ringing that lasts for 1 minute and can be heard from up to 300 feet away. \n  \nCalculator: This device makes doing sums easy. \n  \nLifter: This device can be used as a block and tackle, allowing its user to hoist five times the weight the user can normally lift. \n  \nTimekeeper: This pocket watch keeps accurate time. \n  \nWeather Sensor: When used as an action, this device predicts weather conditions in a 1-mile radius over the next 4 hours, showing one symbol (clouds, sun/moon, rain, or snow) for each hour.",
+        "description": "You master the tinker techniques of your people. You gain the following benefits: \n  \n• Increase your Dexterity or Intelligence score by 1, to a maximum of 20. \n  \n• When you make a check using your proficiency with tinker’s tools, you add double your proficiency bonus to the check. \n  \n• When you make a device with your Tinker trait, you have the following additional options for what you make: \n  \nAlarm: This device senses when a creature moves to within 15 feet of it without speaking aloud a password chosen when you create it. One round after a creature moves into range, the alarm makes a shrill ringing that lasts for 1 minute and can be heard from up to 300 feet away. \n  \nCalculator: This device makes doing sums easy. \n  \nLifter: This device can be used as a block and tackle, allowing its user to hoist five times the weight the user can normally lift. \n  \nTimekeeper: This pocket watch keeps accurate time. \n  \nWeather Sensor: When used as an action, this device predicts weather conditions in a 1-mile radius over the next 4 hours, showing one symbol (clouds, sun/moon, rain, or snow) for each hour.",
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
@@ -2615,7 +2667,10 @@
             "CHA": 0
         },
         "hp_bonus_per_level": 0,
-        "has_stat_choice": false,
-        "stat_choice_options": []
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "DEX",
+            "INT"
+        ]
     }
 ]
