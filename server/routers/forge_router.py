@@ -24,6 +24,12 @@ from backend.services.forge_service import (
     generate_level_up_build_recommendations,
     generate_playstyle_guide,
 )
+from backend.services.validation_service import (
+    build_feat_lookup,
+    get_owned_non_repeatable_feats,
+    is_feat_repeatable,
+    resolve_known_feat,
+)
 from backend.utils.image_utils import generate_portrait_url, prune_unreferenced_preview_portraits
 from server.config import settings
 from server.db_async import get_database
@@ -456,6 +462,19 @@ async def apply_level_up(
             char_doc.setdefault("features_traits", []).append(feature)
             existing_features.add(f_name)
 
+    # Load campaign homebrew once so feat validation & stats sync share the same feat catalog
+    from backend.services.homebrew_service import HomebrewService
+    from backend.services.mechanics_service import sync_character_stats
+
+    homebrew_service = HomebrewService()
+    homebrew_items = await homebrew_service.get_campaign_homebrew(
+        db, char_doc.get("active_campaign")
+    )
+    feat_lookup = build_feat_lookup(edition, homebrew_content=homebrew_items)
+    owned_non_repeatable = get_owned_non_repeatable_feats(
+        char_doc, edition=edition, feat_lookup=feat_lookup
+    )
+
     # Process user choices (feats, spells, skills — subclass already applied above)
     if payload.user_choices:
         for choice_key, choice_val in payload.user_choices.items():
@@ -491,7 +510,6 @@ async def apply_level_up(
                 clean_val = str(choice_val).strip()
 
                 rules_repo = RulesRepository()
-                edition = char_doc.get("dnd_edition", "2014 Edition")
                 all_spells = rules_repo.get_all_spells(edition)
 
                 matched_spell = next(
@@ -521,6 +539,12 @@ async def apply_level_up(
 
                 if canonical_name not in target_list:
                     target_list.append(canonical_name)
+                prepared_list = char_doc.get("prepared_spells")
+                if not isinstance(prepared_list, list):
+                    prepared_list = []
+                    char_doc["prepared_spells"] = prepared_list
+                if not any(str(s).strip().lower() == canonical_name.lower() for s in prepared_list):
+                    prepared_list.append(canonical_name)
             elif choice_type == "feat" or "feat" in choice_label.lower():
                 if choice_val == "+2 to one Stat":
                     # Reconstruct the stat keys (e.g. feat_stat1_0)
@@ -540,19 +564,30 @@ async def apply_level_up(
 
                     stat1 = payload.user_choices.get(stat1_key)
                     stat2 = payload.user_choices.get(stat2_key)
+                    if stat1 and stat2 and str(stat1).strip().upper() == str(stat2).strip().upper():
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Choose two different ability scores for '+1 to two Stats'.",
+                        )
                     _bump_stat(stat1, 1)
                     _bump_stat(stat2, 1)
                 else:
-                    rules_repo = RulesRepository()
-                    edition = char_doc.get("dnd_edition", "2014 Edition")
-                    feat_data = next(
-                        (
-                            f
-                            for f in rules_repo.get_all_feats(edition)
-                            if f.get("name") == choice_val
-                        ),
-                        None,
+                    resolved = resolve_known_feat(str(choice_val), feat_lookup, source="Feat")
+                    canon_name, feat_data = (
+                        resolved if resolved else (str(choice_val).strip(), None)
                     )
+                    canon_low = canon_name.lower()
+                    if (
+                        feat_data is not None
+                        and not is_feat_repeatable(feat_data, canon_low)
+                        and canon_low in owned_non_repeatable
+                    ):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Character already has non-repeatable feat '{canon_name}'.",
+                        )
+                    if feat_data is not None and not is_feat_repeatable(feat_data, canon_low):
+                        owned_non_repeatable.add(canon_low)
 
                     feat_desc = "Selected via Level Up."
                     if feat_data:
@@ -572,11 +607,34 @@ async def apply_level_up(
                             base = parts[0] if len(parts) > 1 else choice_key
                             stat1_key = f"{base}_stat1{idx_suffix}"
                             stat1 = payload.user_choices.get(stat1_key)
+                            allowed_opts = {
+                                str(opt).strip().upper()[:3]
+                                for opt in (feat_data.get("stat_choice_options") or [])
+                                if str(opt).strip()
+                            }
+                            if (
+                                stat1
+                                and allowed_opts
+                                and str(stat1).strip().upper()[:3] not in allowed_opts
+                            ):
+                                raise HTTPException(
+                                    status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail=f"Feat '{canon_name}' only allows increasing {', '.join(sorted(allowed_opts))}.",
+                                )
                             _bump_stat(stat1, 1)
 
                     char_doc.setdefault("features_traits", []).append(
-                        {"name": choice_val, "description": feat_desc}
+                        {"name": canon_name, "description": feat_desc, "source": "Feat"}
                     )
+                    if canon_low != "ability score improvement":
+                        char_doc.setdefault("advancements", []).append(
+                            {
+                                "level": char_doc["char_level"],
+                                "type": "Feat",
+                                "name": canon_name,
+                                "description": feat_desc[:200],
+                            }
+                        )
             elif "expertise" in choice_label.lower():
                 char_doc.setdefault("skill_expertise", []).append(choice_val)
             elif "skill" in choice_label.lower() or "proficiency" in choice_label.lower():
@@ -598,13 +656,6 @@ async def apply_level_up(
                     )
 
     # Sync stats deterministically
-    from backend.services.homebrew_service import HomebrewService
-    from backend.services.mechanics_service import sync_character_stats
-
-    homebrew_service = HomebrewService()
-    homebrew_items = await homebrew_service.get_campaign_homebrew(
-        db, char_doc.get("active_campaign")
-    )
 
     old_resource_state = {
         str(r.get("name")): (int(r.get("current", 0) or 0), int(r.get("max", 0) or 0))

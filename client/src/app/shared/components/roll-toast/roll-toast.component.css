@@ -21,8 +21,9 @@
   background: transparent;
   justify-content: flex-end;
   /* Matches the card's own `100vw - 2rem` ceiling, so the narrowest phone still
-     has room for it instead of pushing the page sideways. */
-  padding: 1rem;
+     has room for it instead of pushing the page sideways, and clears the fixed
+     Companion bottom navigation bar below 1024px. */
+  padding: 1rem 1rem calc(5rem + env(safe-area-inset-bottom));
   pointer-events: none;
 }
 
@@ -30,7 +31,13 @@
   pointer-events: auto;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 640px) and (max-width: 1023px) {
+  .roll-toast-overlay.message-only {
+    padding: 1.5rem 1.5rem calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 1024px) {
   .roll-toast-overlay.message-only {
     padding: 1.5rem;
   }

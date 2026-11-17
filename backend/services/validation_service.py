@@ -1,5 +1,6 @@
 import copy
 import logging
+import re
 from typing import Any, Dict
 
 from backend.repositories.rules_repository import RulesRepository
@@ -7,6 +8,182 @@ from backend.repositories.rules_repository import RulesRepository
 logger = logging.getLogger("DnDAssistant.ValidationService")
 
 SUBCLASS_MIN_LEVEL = 3
+
+_FEAT_PREFIX_RE = re.compile(r"^(?:origin\s+)?feat:\s*", flags=re.IGNORECASE)
+_NON_FEAT_SOURCES = {"race", "species", "class", "subclass", "background"}
+
+
+def normalize_feat_name(raw_name: str | None) -> str:
+    """Strip common UI/audit prefixes ('Feat:', 'Origin Feat:') and normalize casing."""
+    if not raw_name:
+        return ""
+    return _FEAT_PREFIX_RE.sub("", str(raw_name).strip()).strip().lower()
+
+
+def is_feat_repeatable(feat_data: Dict[str, Any] | None, canonical_name: str = "") -> bool:
+    """Return True only when a feat may legally be selected multiple times."""
+    name_low = normalize_feat_name(canonical_name or (feat_data or {}).get("name"))
+    if name_low == "ability score improvement":
+        return True
+    return bool(feat_data and feat_data.get("repeatable") is True)
+
+
+def resolve_known_feat(
+    raw_name: str | None,
+    feat_lookup: Dict[str, Dict[str, Any]],
+    source: str | None = None,
+) -> tuple[str, Dict[str, Any]] | None:
+    """Resolve a trait/advancement name against known feats while ignoring non-feat grants."""
+    clean = str(raw_name or "").strip()
+    if not clean or not feat_lookup:
+        return None
+
+    low = clean.lower()
+    has_feat_prefix = bool(_FEAT_PREFIX_RE.match(low))
+    src_low = str(source or "").strip().lower()
+
+    # Protect racial/class/background traits (e.g. Halfling 'Lucky', Half-Orc 'Menacing')
+    if src_low in _NON_FEAT_SOURCES and not has_feat_prefix:
+        return None
+
+    norm = normalize_feat_name(clean)
+    if not norm:
+        return None
+
+    if norm in feat_lookup:
+        fdata = feat_lookup[norm]
+        return str(fdata.get("name") or clean), fdata
+
+    for k in sorted(feat_lookup.keys(), key=len, reverse=True):
+        if k and re.search(rf"\b{re.escape(k)}\b", norm):
+            fdata = feat_lookup[k]
+            return str(fdata.get("name") or clean), fdata
+
+    return None
+
+
+def build_feat_lookup(
+    edition: str = "2014 Edition", homebrew_content: list[dict] | None = None
+) -> Dict[str, Dict[str, Any]]:
+    """Build a lowercase-name feat lookup merged with optional campaign homebrew feats."""
+    repo = RulesRepository()
+    feats = list(repo.get_all_feats(edition))
+    if homebrew_content:
+        feats.extend(
+            f
+            for f in homebrew_content
+            if isinstance(f, dict) and f.get("homebrew_type") in ("feat", "feature")
+        )
+    return {
+        str(f.get("name") or "").strip().lower(): f
+        for f in feats
+        if isinstance(f, dict) and f.get("name")
+    }
+
+
+def _is_racial_homonym_entry(entry: Dict[str, Any], canon_low: str) -> bool:
+    """Protect legacy Halfling 'Lucky' and Half-Orc 'Menacing' traits lacking source metadata."""
+    src_low = str(entry.get("source") or "").strip().lower()
+    name_low = str(entry.get("name") or "").strip().lower()
+    if src_low in ("feat", "origin feat") or bool(_FEAT_PREFIX_RE.match(name_low)):
+        return False
+    desc_low = str(entry.get("description") or "").lower()
+    if canon_low == "lucky" and "roll a 1 on the d20" in desc_low:
+        return True
+    if canon_low == "menacing" and "intimidation skill" in desc_low:
+        return True
+    return False
+
+
+def get_owned_non_repeatable_feats(
+    char_data: Dict[str, Any],
+    edition: str | None = None,
+    feat_lookup: Dict[str, Dict[str, Any]] | None = None,
+) -> set[str]:
+    """Collect canonical lowercase names of non-repeatable feats already owned by the character."""
+    if feat_lookup is None:
+        ed = edition or char_data.get("dnd_edition", "2014 Edition")
+        feat_lookup = build_feat_lookup(ed)
+
+    owned: set[str] = set()
+    for entry in char_data.get("features_traits") or []:
+        if not isinstance(entry, dict):
+            continue
+        resolved = resolve_known_feat(entry.get("name"), feat_lookup, source=entry.get("source"))
+        if resolved:
+            canon_name, feat_data = resolved
+            canon_low = canon_name.lower()
+            if _is_racial_homonym_entry(entry, canon_low):
+                continue
+            if not is_feat_repeatable(feat_data, canon_low):
+                owned.add(canon_low)
+
+    for adv in char_data.get("advancements") or []:
+        if not isinstance(adv, dict):
+            continue
+        if str(adv.get("type") or "").strip().lower() != "feat":
+            continue
+        resolved = resolve_known_feat(adv.get("name"), feat_lookup, source="Feat")
+        if resolved:
+            canon_name, feat_data = resolved
+            canon_low = canon_name.lower()
+            if not is_feat_repeatable(feat_data, canon_low):
+                owned.add(canon_low)
+
+    return owned
+
+
+def calculate_feature_hp_bonus_per_level(
+    features: list[Dict[str, Any]] | None,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+    *,
+    is_sorcerer_level: bool = False,
+    count_draconic: bool = False,
+) -> tuple[int, bool]:
+    """Sum per-level HP bonuses from traits and feats without double-counting non-repeatable feats."""
+    if not features:
+        return 0, False
+
+    feat_lookup = build_feat_lookup(edition, homebrew_content=homebrew_content)
+    hp_bonus_per_level = 0
+    has_draconic_hp = False
+    has_dwarven_toughness = False
+    seen_hp_feats: set[str] = set()
+
+    for f in features:
+        if not isinstance(f, dict):
+            continue
+        f_name = str(f.get("name") or "")
+        f_desc = str(f.get("description") or "")
+        full_text = f"{f_name} {f_desc}".lower()
+
+        if "dwarven toughness" in full_text:
+            if not has_dwarven_toughness:
+                hp_bonus_per_level += 1
+                has_dwarven_toughness = True
+            continue
+        if "draconic resilience" in full_text:
+            if count_draconic and is_sorcerer_level and not has_draconic_hp:
+                hp_bonus_per_level += 1
+                has_draconic_hp = True
+            continue
+
+        resolved = resolve_known_feat(f_name, feat_lookup, source=f.get("source"))
+        if not resolved:
+            continue
+        canon_name, feat_data = resolved
+        per_lvl = int((feat_data or {}).get("hp_bonus_per_level") or 0)
+        if per_lvl <= 0:
+            continue
+        canon_low = canon_name.lower()
+        if not is_feat_repeatable(feat_data, canon_low):
+            if canon_low in seen_hp_feats:
+                continue
+            seen_hp_feats.add(canon_low)
+        hp_bonus_per_level += per_lvl
+
+    return hp_bonus_per_level, has_draconic_hp
 
 
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
@@ -282,6 +459,72 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
                         cls.subclass = None
                     if c_name.lower() == char_class.lower():
                         corrected_char["subclass"] = None
+
+    # 5. Duplicate Non-Repeatable Feat Validation
+    feat_lookup = build_feat_lookup(edition)
+    raw_features = list(corrected_char.get("features_traits") or [])
+    feat_occurrences: Dict[str, list[tuple[int, int, str]]] = {}
+    for idx, entry in enumerate(raw_features):
+        if not isinstance(entry, dict):
+            continue
+        resolved = resolve_known_feat(entry.get("name"), feat_lookup, source=entry.get("source"))
+        if not resolved:
+            continue
+        canon_name, feat_data = resolved
+        canon_low = canon_name.lower()
+        if _is_racial_homonym_entry(entry, canon_low) or is_feat_repeatable(feat_data, canon_low):
+            continue
+        src_low = str(entry.get("source") or "").strip().lower()
+        name_low = str(entry.get("name") or "").strip().lower()
+        priority = (
+            1
+            if (src_low in ("feat", "origin feat") or bool(_FEAT_PREFIX_RE.match(name_low)))
+            else 0
+        )
+        feat_occurrences.setdefault(canon_low, []).append((priority, idx, canon_name))
+
+    duplicate_indices: set[int] = set()
+    flagged_dupes: set[str] = set()
+    for canon_low, occs in feat_occurrences.items():
+        if len(occs) > 1:
+            # Keep the highest-priority (earliest) entry, drop the duplicates
+            keep_priority, keep_idx, display_name = max(occs, key=lambda item: (item[0], -item[1]))
+            for _, idx, _ in occs:
+                if idx != keep_idx:
+                    duplicate_indices.add(idx)
+            flagged_dupes.add(canon_low)
+            issue_msg = f"Duplicate non-repeatable feat '{display_name}' is not allowed. Removing duplicate entry."
+            logger.warning(issue_msg)
+            if issue_msg not in issues:
+                issues.append(issue_msg)
+
+    if duplicate_indices:
+        corrected_char["features_traits"] = [
+            f for idx, f in enumerate(raw_features) if idx not in duplicate_indices
+        ]
+
+    raw_advs = list(corrected_char.get("advancements") or [])
+    seen_adv_feats: set[str] = set()
+    cleaned_advs = []
+    for adv in raw_advs:
+        if isinstance(adv, dict) and str(adv.get("type") or "").strip().lower() == "feat":
+            resolved = resolve_known_feat(adv.get("name"), feat_lookup, source="Feat")
+            if resolved:
+                canon_name, feat_data = resolved
+                canon_low = canon_name.lower()
+                if not is_feat_repeatable(feat_data, canon_low):
+                    if canon_low in seen_adv_feats:
+                        if canon_low not in flagged_dupes:
+                            flagged_dupes.add(canon_low)
+                            issue_msg = f"Duplicate non-repeatable feat '{canon_name}' is not allowed. Removing duplicate entry."
+                            logger.warning(issue_msg)
+                            if issue_msg not in issues:
+                                issues.append(issue_msg)
+                        continue
+                    seen_adv_feats.add(canon_low)
+        cleaned_advs.append(adv)
+    if len(cleaned_advs) != len(raw_advs):
+        corrected_char["advancements"] = cleaned_advs
 
     return corrected_char, issues
 

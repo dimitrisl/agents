@@ -192,12 +192,20 @@ export interface CharacterSchema {
   equip_stat_bonuses?: { [key: string]: number };
 }
 
+export interface LevelUpFeatMetadata {
+  has_stat_choice: boolean;
+  stat_choice_options: string[];
+  stat_bonus: Record<string, number>;
+  hp_bonus_per_level: number;
+}
+
 export interface LevelUpChoice {
   type: string;
   label: string;
   options: string[];
   ai_recommendation?: string;
   reasoning?: string;
+  feat_metadata?: Record<string, LevelUpFeatMetadata>;
 }
 
 export interface LevelUpAnalysis {

@@ -54,48 +54,15 @@ def get_level_up_vitals(
 
     con_mod = get_modifier(con_score)
 
-    hp_bonus_per_level = 0
     is_sorcerer_level = (char_class or "").strip().lower() == "sorcerer"
-    has_draconic_hp = False
-    if features:
-        from backend.repositories.rules_repository import RulesRepository
+    from backend.services.validation_service import calculate_feature_hp_bonus_per_level
 
-        repo = RulesRepository()
-        feat_library = repo.get_all_feats(edition)
-        feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
-        import re
-
-        for f in features:
-            if isinstance(f, dict):
-                f_name = f.get("name", "")
-                f_desc = f.get("description", "")
-                full_text = f"{f_name} {f_desc}".lower()
-
-                if "dwarven toughness" in full_text:
-                    hp_bonus_per_level += 1
-                    continue
-                if "draconic resilience" in full_text:
-                    # Draconic Resilience grants +1 HP strictly when gaining a Sorcerer level
-                    if is_sorcerer_level and not has_draconic_hp:
-                        hp_bonus_per_level += 1
-                        has_draconic_hp = True
-                    continue
-
-                feat_name = (
-                    f_name.lower().replace("origin feat: ", "").replace("feat: ", "").strip()
-                )
-                if not feat_name:
-                    continue
-
-                feat_data = feat_lookup.get(feat_name)
-                if not feat_data:
-                    for k, v in feat_lookup.items():
-                        if k and re.search(rf"\b{re.escape(k)}\b", feat_name):
-                            feat_data = v
-                            break
-
-                if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
-                    hp_bonus_per_level += feat_data["hp_bonus_per_level"]
+    hp_bonus_per_level, has_draconic_hp = calculate_feature_hp_bonus_per_level(
+        features,
+        edition=edition,
+        is_sorcerer_level=is_sorcerer_level,
+        count_draconic=True,
+    )
 
     if (
         not has_draconic_hp

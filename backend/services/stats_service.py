@@ -7,14 +7,17 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.services.dice_service import rebuild_damage_formula
 from backend.services.validation_service import (
+    build_feat_lookup,
+    calculate_feature_hp_bonus_per_level,
     get_character_armor_proficiencies,
     get_max_attunement_slots,
+    is_feat_repeatable,
+    resolve_known_feat,
 )
 
 logger = logging.getLogger("DnDAssistant.StatsService")
 
 _ITEM_TYPES = ("item", "armor", "shield", "weapon")
-_FEAT_TYPES = ("feat", "feature")
 
 
 def _merge_homebrew_items(
@@ -33,15 +36,6 @@ def _merge_homebrew_weapons(
     if not homebrew_content:
         return base_weapons
     return base_weapons + [w for w in homebrew_content if w.get("homebrew_type") == "weapon"]
-
-
-def _merge_homebrew_feats(
-    base_feats: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
-) -> List[Dict[str, Any]]:
-    """Merge homebrew feats/features into the static feat list."""
-    if not homebrew_content:
-        return base_feats
-    return base_feats + [f for f in homebrew_content if f.get("homebrew_type") in _FEAT_TYPES]
 
 
 @functools.lru_cache(maxsize=128)
@@ -1645,40 +1639,13 @@ def sync_character_stats(
         for size, count in sorted(hd_counts.items(), key=lambda x: int(x[0]), reverse=True)
     )
 
-    hp_bonus_per_level = 0
     features = char_data.get("features_traits", [])
-
-    feat_library = _merge_homebrew_feats(repo.get_all_feats(edition), homebrew_content)
-    feat_lookup = {f["name"].lower(): f for f in feat_library} if feat_library else {}
-
-    import re
-
-    for f in features:
-        if not isinstance(f, dict):
-            continue
-        f_name = f.get("name", "")
-        f_desc = f.get("description", "")
-        full_text = f"{f_name} {f_desc}".lower()
-
-        if "dwarven toughness" in full_text:
-            hp_bonus_per_level += 1
-            continue
-        if "draconic resilience" in full_text:
-            # Scaled strictly by Sorcerer levels below so multiclass levels aren't inflated.
-            continue
-
-        clean_name = f_name.lower().replace("origin feat: ", "").replace("feat: ", "").strip()
-        if not clean_name:
-            continue
-
-        feat_data = feat_lookup.get(clean_name)
-        if not feat_data:
-            for k, v in feat_lookup.items():
-                if k and re.search(rf"\b{re.escape(k)}\b", clean_name):
-                    feat_data = v
-                    break
-        if feat_data and feat_data.get("hp_bonus_per_level", 0) > 0:
-            hp_bonus_per_level += feat_data["hp_bonus_per_level"]
+    hp_bonus_per_level, _ = calculate_feature_hp_bonus_per_level(
+        features,
+        edition=edition,
+        homebrew_content=homebrew_content,
+        count_draconic=False,
+    )
 
     existing_hp = char_data.get("hp_max")
     stored_base_hp_max = char_data.get("base_hp_max")
@@ -1844,27 +1811,27 @@ def sync_character_stats(
 
     init_bonus = 0
     has_init_prof = bool(char_data.get("initiative_proficiency", False))
+    feat_lookup = build_feat_lookup(edition, homebrew_content=homebrew_content)
+    seen_init_feats: set[str] = set()
     for f in features:
         if not isinstance(f, dict):
             continue
-        feat_name = (
-            f.get("name", "").lower().replace("origin feat: ", "").replace("feat: ", "").strip()
-        )
-        if not feat_name:
-            continue
-        feat_data = feat_lookup.get(feat_name)
-        if not feat_data:
-            for k, v in feat_lookup.items():
-                if k and re.search(rf"\b{re.escape(k)}\b", feat_name):
-                    feat_data = v
-                    break
+        resolved = resolve_known_feat(f.get("name"), feat_lookup, source=f.get("source"))
+        feat_data = resolved[1] if resolved else None
+        canon_low = resolved[0].lower() if resolved else ""
+        if resolved and not is_feat_repeatable(feat_data, canon_low):
+            if canon_low in seen_init_feats:
+                continue
+            seen_init_feats.add(canon_low)
         if feat_data:
             init_bonus += feat_data.get("initiative_bonus", 0)
-            if feat_data.get("initiative_proficiency", False):
+            if feat_data.get("initiative_proficiency", False) and not has_init_prof:
                 init_bonus += prof_bonus
                 has_init_prof = True
-        if f.get("initiative_proficiency", False) and not (
-            feat_data and feat_data.get("initiative_proficiency", False)
+        if (
+            f.get("initiative_proficiency", False)
+            and not (feat_data and feat_data.get("initiative_proficiency", False))
+            and not has_init_prof
         ):
             init_bonus += prof_bonus
             has_init_prof = True

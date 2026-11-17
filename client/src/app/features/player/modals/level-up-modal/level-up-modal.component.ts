@@ -8,6 +8,8 @@ import { ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeS
 import {
   LevelUpAnalysis,
   LevelUpBuildRecommendation,
+  LevelUpChoice,
+  LevelUpFeatMetadata,
   LevelUpRecommendationsResponse,
   CharacterSchema,
 } from '../../../../core/models/character.model';
@@ -76,6 +78,15 @@ export class LevelUpModalComponent {
   recommendationsError: string | null = null;
   showRecommendations = false;
   planningLevel: number | null = null;
+
+  readonly abilityStatOptions = [
+    { code: 'STR', label: 'Strength (STR)' },
+    { code: 'DEX', label: 'Dexterity (DEX)' },
+    { code: 'CON', label: 'Constitution (CON)' },
+    { code: 'INT', label: 'Intelligence (INT)' },
+    { code: 'WIS', label: 'Wisdom (WIS)' },
+    { code: 'CHA', label: 'Charisma (CHA)' },
+  ];
 
   get characterClasses() {
     if (this.character?.classes && this.character.classes.length > 0) {
@@ -191,8 +202,108 @@ export class LevelUpModalComponent {
   }
 
   onChoiceChange(choiceKey: string, val: string) {
-    this.userChoices = { ...this.userChoices, [choiceKey]: val };
+    const nextChoices: Record<string, any> = { ...this.userChoices, [choiceKey]: val };
+    const topMatch = /^(feat)_(\d+)$/.exec(choiceKey);
+    if (topMatch) {
+      const [, baseType, idx] = topMatch;
+      delete nextChoices[`${baseType}_stat1_${idx}`];
+      delete nextChoices[`${baseType}_stat2_${idx}`];
+    }
+    const stat1Match = /^([a-zA-Z0-9]+)_stat1_(\d+)$/.exec(choiceKey);
+    if (stat1Match) {
+      const [, baseType, idx] = stat1Match;
+      if (nextChoices[`${baseType}_stat2_${idx}`] === val) {
+        delete nextChoices[`${baseType}_stat2_${idx}`];
+      }
+    }
+    this.userChoices = nextChoices;
     this.userChoicesChange.emit(this.userChoices);
+  }
+
+  selectedFeatMeta(choice: LevelUpChoice, choiceVal: string | undefined): LevelUpFeatMetadata | null {
+    if (!choiceVal || !choice.feat_metadata) return null;
+    return choice.feat_metadata[choiceVal] ?? null;
+  }
+
+  showsSingleStatPicker(choice: LevelUpChoice, choiceVal: string | undefined): boolean {
+    if (!choiceVal) return false;
+    if (choiceVal === '+2 to one Stat') return true;
+    if (choice.type !== 'feat' || choiceVal === '+1 to two Stats') return false;
+    if (choice.feat_metadata !== undefined) {
+      return Boolean(choice.feat_metadata[choiceVal]?.has_stat_choice);
+    }
+    return false;
+  }
+
+  allowedSingleStatsForChoice(choice: LevelUpChoice, choiceVal: string | undefined): { code: string; label: string }[] {
+    if (choiceVal === '+2 to one Stat') return this.abilityStatOptions;
+    const opts = this.selectedFeatMeta(choice, choiceVal)?.stat_choice_options ?? [];
+    if (!opts.length) return this.abilityStatOptions;
+    const allowed = new Set(opts.map((o) => o.toUpperCase()));
+    return this.abilityStatOptions.filter((s) => allowed.has(s.code));
+  }
+
+  secondStatsForChoice(firstStat: string | undefined): { code: string; label: string }[] {
+    if (!firstStat) return this.abilityStatOptions;
+    return this.abilityStatOptions.filter((s) => s.code !== firstStat);
+  }
+
+  private get pendingHpChoiceDeltas(): { conModDelta: number; addedFeatHpPerLvl: number } {
+    const choices = this.levelUpAnalysis?.choices_required ?? [];
+    const baseCon = Number(this.character?.stats?.CON ?? 10);
+    const is2024 = String(this.character?.dnd_edition ?? '').includes('2024');
+    const statCap = is2024 && this.nextLevel >= 19 ? 30 : 20;
+
+    let conBump = 0;
+    let addedFeatHpPerLvl = 0;
+
+    choices.forEach((choice, i) => {
+      if (choice.type !== 'feat') return;
+      const val = this.userChoices[`${choice.type}_${i}`];
+      if (!val) return;
+      const s1 = String(this.userChoices[`${choice.type}_stat1_${i}`] ?? '').toUpperCase();
+      const s2 = String(this.userChoices[`${choice.type}_stat2_${i}`] ?? '').toUpperCase();
+
+      if (val === '+2 to one Stat') {
+        if (s1 === 'CON') conBump += 2;
+      } else if (val === '+1 to two Stats') {
+        if (s1 === 'CON') conBump += 1;
+        if (s2 === 'CON' && s2 !== s1) conBump += 1;
+      } else {
+        const meta = this.selectedFeatMeta(choice, val);
+        if (meta) {
+          conBump += Number(meta.stat_bonus?.['CON'] ?? 0);
+          if (meta.has_stat_choice && s1 === 'CON') {
+            const opts = meta.stat_choice_options ?? [];
+            if (!opts.length || opts.map((o) => o.toUpperCase()).includes('CON')) {
+              conBump += 1;
+            }
+          }
+          addedFeatHpPerLvl += Number(meta.hp_bonus_per_level ?? 0);
+        }
+      }
+    });
+
+    const newCon = Math.min(statCap, baseCon + conBump);
+    const conModDelta = abilityModifier(newCon) - this.conModifier;
+    return { conModDelta, addedFeatHpPerLvl };
+  }
+
+  get previewPendingHpAdjustment(): number {
+    if (!this.levelUpAnalysis) return 0;
+    const { conModDelta, addedFeatHpPerLvl } = this.pendingHpChoiceDeltas;
+    return (conModDelta + addedFeatHpPerLvl) * Math.max(1, this.nextLevel);
+  }
+
+  get previewNewTotalHp(): number {
+    if (!this.levelUpAnalysis) return 0;
+    const priorHpBase = this.levelUpAnalysis.new_total_hp - this.levelUpAnalysis.hp_increase;
+    const customRaw = this.userChoices['custom_hp_increase'];
+    const baseLevelGain =
+      this.userChoices['hp_method'] === 'roll' && customRaw !== undefined && Number.isFinite(Number(customRaw))
+        ? Number(customRaw)
+        : this.levelUpAnalysis.hp_increase;
+    return Math.max(1, priorHpBase + baseLevelGain + this.previewPendingHpAdjustment);
   }
 
   selectHpAverage() {

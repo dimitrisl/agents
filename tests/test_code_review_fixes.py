@@ -1,4 +1,6 @@
+import copy
 import io
+import json
 from unittest.mock import MagicMock, patch
 
 import mongomock
@@ -1706,3 +1708,336 @@ def test_cleanup_fake_users_dry_run_reports_all_cascade_collections(capsys):
     ):
         assert expected_label in out
     assert db._db["campaigns"].count_documents({"campaign_name": "Shadowfell Keep 1"}) == 1
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_non_repeatable_feat_dedup_blocked_on_level_up_and_flagged_by_audit(edition):
+    """Tough (or any non-repeatable feat) cannot be picked twice, never double-stacks HP, and fails Rules Audit."""
+    from backend.services.forge_service import analyze_level_up
+    from backend.services.progression_service import get_level_up_vitals
+    from backend.services.rules_service import autofix_character_build
+    from backend.services.stats_service import sync_character_stats
+    from backend.services.validation_service import deterministic_validate_build
+
+    is_2024 = "2024" in edition
+    fighter_l5 = {
+        "char_id": f"valerius_{'24' if is_2024 else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Valerius",
+        "char_class": "Fighter",
+        "subclass": "Champion",
+        "char_level": 5,
+        "classes": [{"class_name": "Fighter", "level": 5, "subclass": "Champion"}],
+        "race": "Human",
+        "background": "Soldier",
+        "dnd_edition": edition,
+        "stats": {"STR": 18, "DEX": 13, "CON": 16, "INT": 10, "WIS": 12, "CHA": 8},
+        "base_stats": {"STR": 18, "DEX": 13, "CON": 16, "INT": 10, "WIS": 12, "CHA": 8},
+        "hp_max": 59,  # 13 + 4*(6+3) + 10 (Tough at L1..5)
+        "hp_current": 59,
+        "feat_hp_bonus": 10,
+        "con_mod_applied": 3,
+        "features_traits": [
+            {"name": "Feat: Tough", "description": "+2 HP per level", "source": "Feat"},
+            {"name": "Feat: Alert", "description": "Init bonus", "source": "Feat"},
+        ],
+        "advancements": [{"level": 1, "type": "Feat", "name": "Tough"}],
+        "version": 1,
+    }
+
+    # 1. analyze_level_up filters already-owned Tough & Alert and omits raw 'Ability Score Improvement'
+    analysis = analyze_level_up(fighter_l5, user_choices={"level_up_class": "Fighter"})
+    feat_choice = next(c for c in analysis["choices_required"] if c["type"] == "feat")
+    assert "Tough" not in feat_choice["options"]
+    assert "Alert" not in feat_choice["options"]
+    assert "Ability Score Improvement" not in feat_choice["options"]
+    assert feat_choice["feat_metadata"]
+    if is_2024:
+        assert feat_choice["feat_metadata"]["Charger"]["has_stat_choice"] is True
+        assert feat_choice["feat_metadata"]["Charger"]["stat_choice_options"] == ["STR", "DEX"]
+        assert feat_choice["feat_metadata"]["Actor"]["has_stat_choice"] is False
+        assert feat_choice["feat_metadata"]["Actor"]["stat_bonus"] == {"CHA": 1}
+
+    # 2. level-up-apply rejects duplicate non-repeatable Tough, identical +1/+1 stats, and illegal half-feat stat
+    db = _AsyncDB(f"dupe_feat_{'24' if is_2024 else '14'}")
+    db._db["characters"].insert_one(dict(fighter_l5))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp_dupe = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": fighter_l5["char_id"],
+                "analysis": analysis,
+                "user_choices": {"level_up_class": "Fighter", "feat_0": "Tough"},
+            },
+        )
+        assert resp_dupe.status_code == 400
+        assert "already has non-repeatable feat" in resp_dupe.json()["detail"].lower()
+
+        resp_same_stats = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": fighter_l5["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "feat_0": "+1 to two Stats",
+                    "feat_stat1_0": "STR",
+                    "feat_stat2_0": "STR",
+                },
+            },
+        )
+        assert resp_same_stats.status_code == 400
+
+        if is_2024:
+            resp_bad_half = client.post(
+                "/api/v1/forge/level-up-apply",
+                json={
+                    "character_id": fighter_l5["char_id"],
+                    "analysis": analysis,
+                    "user_choices": {
+                        "level_up_class": "Fighter",
+                        "feat_0": "Charger",
+                        "feat_stat1_0": "CHA",
+                    },
+                },
+            )
+            assert resp_bad_half.status_code == 400
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+    # 3. Corrupted doc with double Tough + double Alert never double-stacks HP/Initiative and fails Rules Audit
+    corrupted = copy.deepcopy(fighter_l5)
+    corrupted["char_level"] = 10
+    corrupted["classes"][0]["level"] = 10
+    corrupted["hp_max"] = 129
+    corrupted["feat_hp_bonus"] = 40
+    corrupted["features_traits"].append(
+        {"name": "Tough", "description": "Selected via Level Up.", "source": None}
+    )
+    corrupted["features_traits"].append(
+        {"name": "Alert", "description": "Selected via Level Up.", "source": None}
+    )
+
+    vitals = get_level_up_vitals(
+        "Fighter", 9, 16, edition=edition, features=corrupted["features_traits"]
+    )
+    assert vitals["hp_bonus_per_level"] == 2  # Never 4
+
+    synced = sync_character_stats(copy.deepcopy(corrupted))
+    assert synced["feat_hp_bonus"] == 20  # Never 40
+    expected_init = (
+        synced["proficiency_bonus"] + 1  # 2024: Alert (+PB) + DEX(+1), Remarkable Athlete = Adv
+        if is_2024
+        else 5
+        + 2
+        + 1  # 2014 Champion L10: Alert (+5) + Remarkable Athlete (ceil(PB/2)=+2) + DEX(+1)
+    )
+    assert synced["initiative_modifier"] == expected_init  # Never double-counted Alert
+
+    _, issues = deterministic_validate_build(corrupted)
+    assert any("tough" in msg.lower() and "duplicate" in msg.lower() for msg in issues)
+
+    fixed = autofix_character_build(copy.deepcopy(corrupted))
+    assert fixed["validation_result"]["is_valid"] is False
+    fixed_char = fixed["character"]
+    assert fixed_char["feat_hp_bonus"] == 20
+    assert fixed_char["hp_max"] == 109  # 129 - 20 excess Tough HP
+
+    # 4. Halfling 'Lucky' (Race trait) + Repeated ASI class features must NOT trigger false duplicate-feat errors
+    halfling = {
+        "char_id": "halfling_ok",
+        "owner_id": "u_qa",
+        "char_name": "Pip",
+        "char_class": "Fighter",
+        "subclass": "Champion",
+        "char_level": 8,
+        "classes": [{"class_name": "Fighter", "level": 8, "subclass": "Champion"}],
+        "race": "Halfling",
+        "background": "Criminal",
+        "dnd_edition": edition,
+        "stats": {"STR": 10, "DEX": 20, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10},
+        "features_traits": [
+            {
+                "name": "Lucky",
+                "description": "When you roll a 1 on the d20, reroll.",
+                "source": None,
+            },
+            {"name": "Ability Score Improvement", "description": "L4 ASI", "source": None},
+            {"name": "Ability Score Improvement", "description": "L6 ASI", "source": None},
+            {"name": "Ability Score Improvement", "description": "L8 ASI", "source": None},
+        ],
+    }
+    _, halfling_issues = deterministic_validate_build(halfling)
+    assert halfling_issues == []
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_level_up_analysis_reflects_con_bump_tough_and_exposes_metadata_over_http(edition):
+    """POST /forge/level-up-analysis previews retroactive CON & Tough HP and serializes feat_metadata."""
+    rogue_l9 = {
+        "char_id": "vex_preview",
+        "owner_id": "u_qa",
+        "char_name": "Vex Shadowstep",
+        "char_class": "Rogue",
+        "subclass": "Thief",
+        "char_level": 9,
+        "classes": [{"class_name": "Rogue", "level": 9, "subclass": "Thief"}],
+        "race": "Elf",
+        "background": "Criminal",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 20, "CON": 15, "INT": 14, "WIS": 12, "CHA": 10},
+        "hp_max": 66,  # (8+2) + 8*(5+2) = 66
+        "hp_current": 66,
+        "features_traits": [],
+        "version": 9,
+    }
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forge/level-up-analysis",
+            json={
+                "character": rogue_l9,
+                "user_choices": {
+                    "level_up_class": "Rogue",
+                    "feat_0": "+2 to one Stat",
+                    "feat_stat1_0": "CON",
+                },
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["hp_increase"] == 8  # 5 + new CON (+3)
+        assert body["new_total_hp"] == 83  # 66 + 8 + 9*1 retroactive CON
+        feat_choice = next(c for c in body["choices_required"] if c["type"] == "feat")
+        assert feat_choice["feat_metadata"]["Tough"]["has_stat_choice"] is False
+        assert feat_choice["feat_metadata"]["Tough"]["hp_bonus_per_level"] == 2
+
+        resp_tough = client.post(
+            "/api/v1/forge/level-up-analysis",
+            json={
+                "character": rogue_l9,
+                "user_choices": {"level_up_class": "Rogue", "feat_0": "Tough"},
+            },
+        )
+        assert resp_tough.status_code == 200
+        body_tough = resp_tough.json()
+        assert body_tough["hp_bonus_per_level"] == 2
+        assert body_tough["hp_increase"] == 9  # 5 + 2 (CON) + 2 (Tough)
+        assert body_tough["new_total_hp"] == 93  # 66 + 9 + 9*2 retroactive Tough
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_level_up_apply_adds_learned_spells_to_prepared_spells(edition):
+    """Leveled spells picked via /forge/level-up-apply are appended to both spells and prepared_spells."""
+    from backend.services.forge_service import analyze_level_up
+
+    sorc_l5 = {
+        "char_id": f"sorc_prep_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Lyra",
+        "char_class": "Sorcerer",
+        "subclass": "Draconic Sorcery" if "2024" in edition else "Draconic Bloodline",
+        "char_level": 5,
+        "classes": [
+            {
+                "class_name": "Sorcerer",
+                "level": 5,
+                "subclass": "Draconic Sorcery" if "2024" in edition else "Draconic Bloodline",
+            }
+        ],
+        "race": "Tiefling",
+        "background": "Sage",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+        "hp_max": 37,
+        "hp_current": 37,
+        "spells": {"cantrips": ["Fire Bolt"], "level_1": ["Magic Missile"]},
+        "prepared_spells": ["Fire Bolt", "Magic Missile"],
+        "version": 1,
+    }
+    analysis = analyze_level_up(sorc_l5, user_choices={"level_up_class": "Sorcerer"})
+
+    db = _AsyncDB(f"prep_spells_{'24' if '2024' in edition else '14'}")
+    db._db["characters"].insert_one(dict(sorc_l5))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": sorc_l5["char_id"],
+                "analysis": analysis,
+                "user_choices": {"level_up_class": "Sorcerer", "spell_0": "Fireball"},
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "Fireball" in body["spells"]["level_3"]
+        assert "Fireball" in body["prepared_spells"]
+        assert body["prepared_spells"].count("Magic Missile") == 1
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_all_2024_subclasses_resolve_concrete_higher_level_features():
+    """Every 2024 subclass across all 13 classes resolves specific subclass feature names at every subclass level."""
+    import glob
+
+    from backend.services.forge_service import resolve_level_up_automatic_features
+
+    with open("data/rules/subclasses.json") as f:
+        subclasses_2024 = json.load(f)["2024 Edition"]
+
+    for cls_file in sorted(glob.glob("data/rules/classes/2024/*.json")):
+        with open(cls_file) as cf:
+            cls_data = json.load(cf)
+        cls_name = cls_data["class_name"]
+        sub_levels = [
+            int(lvl_str)
+            for lvl_str, lvl_info in sorted(
+                cls_data.get("progression", {}).items(), key=lambda item: int(item[0])
+            )
+            if any(
+                "subclass" in feat.get("name", "").lower() for feat in lvl_info.get("features", [])
+            )
+        ]
+        for sub_name in subclasses_2024.get(cls_name, []):
+            for lvl in sub_levels:
+                feats = resolve_level_up_automatic_features(
+                    char_class=cls_name,
+                    target_level=lvl,
+                    subclass_to_use=sub_name,
+                    edition=EDITION_2024,
+                )
+                assert any(
+                    sub_name.lower() in (f.get("name") or "").lower()
+                    and not (f.get("name") or "").endswith(" Subclass Feature")
+                    for f in feats
+                ), (
+                    f"Missing concrete 2024 subclass feature for {cls_name} ({sub_name}) at L{lvl}: {feats}"
+                )
+
+    # Verify the two exact QA cases (Draconic Sorcery L6, Thief L9)
+    sorc_l6 = resolve_level_up_automatic_features("Sorcerer", 6, "Draconic Sorcery", EDITION_2024)
+    assert any(f.get("name") == "Elemental Affinity (Draconic Sorcery)" for f in sorc_l6)
+    rogue_l9 = resolve_level_up_automatic_features("Rogue", 9, "Thief", EDITION_2024)
+    assert any(f.get("name") == "Supreme Sneak (Thief)" for f in rogue_l9)

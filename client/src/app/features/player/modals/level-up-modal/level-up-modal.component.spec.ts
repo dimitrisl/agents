@@ -198,4 +198,99 @@ describe('LevelUpModalComponent', () => {
     });
     expect(component.userChoices['custom_hp_increase']).toBe('8');
   });
+
+  it('dynamically updates New Total Max HP preview for retroactive +2 CON ASI and Tough across levels', () => {
+    component.character = {
+      ...mockCharacter,
+      char_name: 'Vex',
+      char_class: 'Rogue',
+      char_level: 9,
+      dnd_edition: '2024 Revision (5.5e)',
+      stats: { STR: 8, DEX: 20, CON: 15, INT: 14, WIS: 12, CHA: 10 },
+      hp_max: 66,
+    } as any;
+    component.nextLevel = 10;
+    component.levelUpAnalysis = {
+      automatic_changes: [],
+      hp_increase: 7, // average 5 + CON 2
+      hp_bonus_per_level: 0,
+      new_total_hp: 73,
+      choices_required: [
+        {
+          type: 'feat',
+          label: 'Choose a Feat or Ability Score Improvement',
+          options: ['+2 to one Stat', '+1 to two Stats', 'Tough', 'Charger'],
+          feat_metadata: {
+            Tough: { has_stat_choice: false, stat_choice_options: [], stat_bonus: {}, hp_bonus_per_level: 2 },
+            Charger: { has_stat_choice: true, stat_choice_options: ['STR', 'DEX'], stat_bonus: {}, hp_bonus_per_level: 0 },
+          },
+        },
+      ],
+    };
+
+    expect(component.previewNewTotalHp).toBe(73);
+
+    component.onChoiceChange('feat_0', '+2 to one Stat');
+    component.onChoiceChange('feat_stat1_0', 'CON');
+    fixture.detectChanges();
+
+    expect(component.previewPendingHpAdjustment).toBe(10);
+    expect(component.previewNewTotalHp).toBe(83);
+
+    // Rolled HP keeps base modifier (CON +2) while preview reflects +10 retroactive CON boost
+    const diceService = TestBed.inject(DiceService);
+    jest.spyOn(diceService, 'roll').mockReturnValue({
+      raw: [4],
+      rolls: [4],
+      sides: 8,
+      modifier: 2,
+      total: 6,
+    } as any);
+    component.userChoices = { level_up_class: 'Rogue', feat_0: '+2 to one Stat', feat_stat1_0: 'CON' };
+    component.rollHp();
+    expect(component.previewNewTotalHp).toBe(82);
+
+    // Selecting Tough previews +2 * 10 = +20 HP and switching resets prior CON choices cleanly
+    component.onChoiceChange('feat_0', 'Tough');
+    expect(component.userChoices['feat_stat1_0']).toBeUndefined();
+    expect(component.previewPendingHpAdjustment).toBe(20);
+  });
+
+  it('hides half-feat stat dropdown for non-half feats like Tough and filters stat_choice_options', () => {
+    const featChoice = {
+      type: 'feat',
+      label: 'Choose a Feat or Ability Score Improvement',
+      options: ['+2 to one Stat', '+1 to two Stats', 'Tough', 'Charger'],
+      feat_metadata: {
+        Tough: { has_stat_choice: false, stat_choice_options: [], stat_bonus: {}, hp_bonus_per_level: 2 },
+        Charger: { has_stat_choice: true, stat_choice_options: ['STR', 'DEX'], stat_bonus: {}, hp_bonus_per_level: 0 },
+      },
+    };
+    component.levelUpAnalysis = {
+      automatic_changes: [],
+      hp_increase: 8,
+      new_total_hp: 36,
+      choices_required: [featChoice],
+    };
+
+    expect(component.showsSingleStatPicker(featChoice, 'Tough')).toBe(false);
+    expect(component.showsSingleStatPicker(featChoice, 'Charger')).toBe(true);
+    expect(component.allowedSingleStatsForChoice(featChoice, 'Charger').map((s) => s.code)).toEqual(['STR', 'DEX']);
+
+    component.onChoiceChange('feat_0', '+1 to two Stats');
+    component.onChoiceChange('feat_stat1_0', 'DEX');
+    expect(component.secondStatsForChoice('DEX').map((s) => s.code)).not.toContain('DEX');
+
+    // Render modal in overlay DOM with OnPush inputs: Tough must NOT render the half-feat dropdown; Charger MUST render it
+    fixture.componentRef.setInput('nextLevel', 4);
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Fighter', feat_0: 'Tough' });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    expect(document.body.textContent).not.toContain('Select +1 Stat');
+    expect(document.body.textContent).toContain('Lv 1–4');
+
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Fighter', feat_0: 'Charger' });
+    fixture.detectChanges();
+    expect(document.body.textContent).toContain('Select +1 Stat (Half-Feat):');
+  });
 });

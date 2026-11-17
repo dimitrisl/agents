@@ -187,7 +187,10 @@
         </button>
       </div>
       <p class="text-body text-muted">
-        New Total Max HP: <strong class="text-emerald">{{ levelUpAnalysis.new_total_hp - levelUpAnalysis.hp_increase + ((userChoices['hp_method'] === 'roll' && userChoices['custom_hp_increase'] !== undefined ? userChoices['custom_hp_increase'] * 1 : null) || levelUpAnalysis.hp_increase) }}</strong>
+        New Total Max HP: <strong class="text-emerald">{{ previewNewTotalHp }}</strong>
+        <span *ngIf="previewPendingHpAdjustment !== 0" class="ml-2 text-micro text-muted">
+          (includes {{ previewPendingHpAdjustment > 0 ? '+' : '' }}{{ previewPendingHpAdjustment }} from CON / feat scaling across Lv 1–{{ nextLevel }})
+        </span>
       </p>
     </div>
 
@@ -206,20 +209,23 @@
         </select>
         <p *ngIf="choice.ai_recommendation" class="text-micro text-muted">💡 AI Suggests: {{ choice.ai_recommendation }}</p>
 
-        <!-- ASI Stat Pickers -->
-        <ng-container *ngIf="userChoices[choice.type + '_' + i] === '+2 to one Stat' || (choice.type === 'feat' && userChoices[choice.type + '_' + i] && userChoices[choice.type + '_' + i] !== '+2 to one Stat' && userChoices[choice.type + '_' + i] !== '+1 to two Stats')">
+        <!-- ASI / Variable Half-Feat Stat Pickers -->
+        <ng-container *ngIf="showsSingleStatPicker(choice, userChoices[choice.type + '_' + i])">
           <div class="mt-1 flex items-center gap-2 rounded bg-surface p-2">
             <span class="text-label font-semibold text-muted">
-              {{ userChoices[choice.type + '_' + i] === '+2 to one Stat' ? 'Select Stat for +2:' : 'Select +1 Stat (if Half-Feat):' }}
+              {{ userChoices[choice.type + '_' + i] === '+2 to one Stat' ? 'Select Stat for +2:' : 'Select +1 Stat (Half-Feat):' }}
             </span>
-            <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
+            <select
+              forgeSelect
+              dense
+              [ngModel]="userChoices[choice.type + '_stat1_' + i]"
+              (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
               <option [value]="undefined" disabled selected>-- Select Stat --</option>
-              <option value="STR">Strength (STR)</option>
-              <option value="DEX">Dexterity (DEX)</option>
-              <option value="CON">Constitution (CON)</option>
-              <option value="INT">Intelligence (INT)</option>
-              <option value="WIS">Wisdom (WIS)</option>
-              <option value="CHA">Charisma (CHA)</option>
+              <option
+                *ngFor="let stat of allowedSingleStatsForChoice(choice, userChoices[choice.type + '_' + i])"
+                [value]="stat.code">
+                {{ stat.label }}
+              </option>
             </select>
           </div>
         </ng-container>
@@ -228,26 +234,28 @@
           <div class="mt-1 flex flex-col gap-2 rounded bg-surface p-2">
             <div class="flex items-center gap-2">
               <span class="text-label font-semibold text-muted">Select 1st Stat (+1):</span>
-              <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat1_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
+              <select
+                forgeSelect
+                dense
+                [ngModel]="userChoices[choice.type + '_stat1_' + i]"
+                (ngModelChange)="onChoiceChange(choice.type + '_stat1_' + i, $event)">
                 <option [value]="undefined" disabled selected>-- Select 1st Stat --</option>
-                <option value="STR">Strength (STR)</option>
-                <option value="DEX">Dexterity (DEX)</option>
-                <option value="CON">Constitution (CON)</option>
-                <option value="INT">Intelligence (INT)</option>
-                <option value="WIS">Wisdom (WIS)</option>
-                <option value="CHA">Charisma (CHA)</option>
+                <option *ngFor="let stat of abilityStatOptions" [value]="stat.code">{{ stat.label }}</option>
               </select>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-label font-semibold text-muted">Select 2nd Stat (+1):</span>
-              <select class="rounded border border-hairline bg-tile p-1 text-sm text-ink" [ngModel]="userChoices[choice.type + '_stat2_' + i]" (ngModelChange)="onChoiceChange(choice.type + '_stat2_' + i, $event)">
+              <select
+                forgeSelect
+                dense
+                [ngModel]="userChoices[choice.type + '_stat2_' + i]"
+                (ngModelChange)="onChoiceChange(choice.type + '_stat2_' + i, $event)">
                 <option [value]="undefined" disabled selected>-- Select 2nd Stat --</option>
-                <option value="STR">Strength (STR)</option>
-                <option value="DEX">Dexterity (DEX)</option>
-                <option value="CON">Constitution (CON)</option>
-                <option value="INT">Intelligence (INT)</option>
-                <option value="WIS">Wisdom (WIS)</option>
-                <option value="CHA">Charisma (CHA)</option>
+                <option
+                  *ngFor="let stat of secondStatsForChoice(userChoices[choice.type + '_stat1_' + i])"
+                  [value]="stat.code">
+                  {{ stat.label }}
+                </option>
               </select>
             </div>
           </div>

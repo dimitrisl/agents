@@ -526,11 +526,19 @@ class EncounterSchema(BaseModel):
     monsters: List[MonsterEncounter] = Field(default_factory=list)
 
 
+class LevelUpFeatMetadata(BaseModel):
+    has_stat_choice: bool = False
+    stat_choice_options: List[str] = Field(default_factory=list)
+    stat_bonus: Dict[str, int] = Field(default_factory=dict)
+    hp_bonus_per_level: int = 0
+
+
 class LevelUpChoice(BaseModel):
     type: str  # subclass|feat|spell|other
     label: str
     options: List[str] = Field(default_factory=list)
     ai_recommendation: Optional[str] = None
+    feat_metadata: Optional[Dict[str, LevelUpFeatMetadata]] = None
 
 
 class LevelUpAnalysisSchema(BaseModel):

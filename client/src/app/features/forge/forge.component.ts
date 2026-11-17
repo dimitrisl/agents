@@ -76,33 +76,33 @@ export class ForgeComponent implements OnInit, OnDestroy {
   readonly forgePhases = [
     {
       icon: '🎲',
-      title: 'Υπολογισμός Ability Scores & Modifiers',
-      subtitle: 'Ρίψη ζαριών 4d6 (drop lowest) και βελτιστοποίηση πρωτευόντων στατιστικών...',
+      title: 'Calculating Ability Scores & Modifiers',
+      subtitle: 'Rolling ability scores and optimizing primary attributes...',
     },
     {
       icon: '⚔️',
-      title: 'Επιλογή Κλάσης, Archetype & Hit Points',
-      subtitle: 'Υπολογισμός Hit Dice, Armor Class, Saving Throws & Proficiencies...',
+      title: 'Configuring Class, Subclass & Hit Points',
+      subtitle: 'Computing Hit Dice, Armor Class, Saving Throws & Proficiencies...',
     },
     {
       icon: '✨',
-      title: 'Σύνθεση Ξορκιών & Class Features',
-      subtitle: 'Επιλογή Cantrips, Spells, Weapon Masteries και οργάνωση Grimoire...',
+      title: 'Curating Spells & Class Features',
+      subtitle: 'Selecting Cantrips, Spells, Weapon Masteries, and Grimoire entries...',
     },
     {
       icon: '📜',
-      title: 'Δημιουργία Backstory & Flavor',
-      subtitle: 'Σύνταξη ιστορικού, Ideals, Bonds, Flaws και χαρακτηριστικών...',
+      title: 'Crafting Backstory & Flavor',
+      subtitle: 'Writing character background, Ideals, Bonds, Flaws, and personality...',
     },
     {
       icon: '🎨',
-      title: 'Σχεδιασμός Πορτρέτου & Επαλήθευση Κανόνων',
-      subtitle: 'Σύνθεση fantasy portrait και τελικός έλεγχος κανόνων D&D 5e / 5.5e...',
+      title: 'Generating Portrait & Rules Verification',
+      subtitle: 'Rendering fantasy portrait and running D&D 5e / 5.5e rules checks...',
     },
     {
       icon: '✅',
-      title: 'Ο Ήρωας Σφυρηλατήθηκε!',
-      subtitle: 'Προετοιμασία διαδραστικού φύλλου προεπισκόπησης...',
+      title: 'Hero Forged!',
+      subtitle: 'Preparing interactive character preview sheet...',
     },
   ];
 
@@ -713,7 +713,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.releaseWakeLock();
     this.forgingError =
       err?.error?.detail ||
-      'Παρουσιάστηκε σφάλμα κατά τη σφυρηλάτηση ή εξαντλήθηκε το όριο αιτημάτων. Παρακαλούμε δοκιμάστε ξανά.';
+      'An error occurred while forging your hero or the request rate limit was reached. Please try again.';
   }
 
   closeForgingModal(): void {
