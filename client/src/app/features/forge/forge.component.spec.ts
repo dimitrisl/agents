@@ -166,6 +166,8 @@ describe('ForgeComponent', () => {
     expect(component.tempForgedChar?.char_name).toBe('Aeris');
     expect(component.forgeProgress).toBe(100);
     expect(component.forgeCurrentPhaseIndex).toBe(5);
+    expect(component.forgePhases.every((p) => !/[\u0370-\u03FF]/.test(p.title + p.subtitle))).toBe(true);
+    expect(component.forgePhases[5].title).toBe('Hero Forged!');
 
     // Verify temp hero was persisted to localStorage
     const saved = localStorage.getItem('phyrexian_forge_temp_hero');

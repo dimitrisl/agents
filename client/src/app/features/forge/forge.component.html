@@ -37,7 +37,7 @@
       <div class="flex items-center gap-2">
         <span class="text-lg">ℹ️</span>
         <span>
-          Η προηγούμενη παραγωγή διακόπηκε επειδή απομακρυνθήκατε από τη σελίδα. Τα στοιχεία της φόρμας σας έχουν διατηρηθεί άθικτα.
+          Your previous character generation was interrupted because you navigated away from the page. Your form inputs have been preserved.
         </span>
       </div>
       <button
@@ -297,7 +297,7 @@
           Phyrexian Character Forge
         </p>
         <h2 id="forging-modal-title" class="font-display text-xl sm:text-2xl font-bold text-ink leading-tight">
-          {{ forgePhases[forgeCurrentPhaseIndex].title || 'Σφυρηλάτηση Ήρωα...' }}
+          {{ forgePhases[forgeCurrentPhaseIndex].title || 'Forging Hero...' }}
         </h2>
         <p class="text-label text-muted max-w-md min-h-[2.5rem] flex items-center justify-center transition-all">
           {{ forgePhases[forgeCurrentPhaseIndex].subtitle }}
@@ -307,7 +307,7 @@
       <!-- Progress Bar & Percentage -->
       <div class="flex flex-col gap-2 relative z-10">
         <div class="flex items-center justify-between text-micro font-semibold text-muted">
-          <span>Πρόοδος Σφυρηλάτησης</span>
+          <span>Forging Progress</span>
           <span class="text-accent font-mono text-sm font-bold">{{ forgeProgress }}%</span>
         </div>
         <div class="h-3 w-full overflow-hidden rounded-full bg-tile border border-hairline relative">
@@ -349,7 +349,7 @@
         <div class="rounded-xl border border-hairline bg-tile/60 p-3 text-micro text-muted flex items-start gap-2 text-left relative z-10">
           <span class="text-gold shrink-0 text-sm">⚠️</span>
           <span>
-            <strong>Μην κλείσετε και μην απομακρυνθείτε από τη σελίδα</strong> όσο η τεχνητή νοημοσύνη σφυρηλατεί τα στατιστικά, το lore και το πορτρέτο του ήρωα.
+            <strong>Do not close or navigate away from this page</strong> while the forge compiles your hero's stats, lore, and portrait.
           </span>
         </div>
       } @else {
@@ -367,7 +367,7 @@
               type="button"
               (click)="closeForgingModal()"
             >
-              Κλείσιμο
+              Close
             </button>
             <button
               forgeButton
@@ -376,7 +376,7 @@
               type="button"
               (click)="retryForging()"
             >
-              🔄 Δοκιμή Ξανά
+              🔄 Try Again
             </button>
           </div>
         </div>

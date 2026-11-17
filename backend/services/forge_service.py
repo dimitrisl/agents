@@ -18,6 +18,10 @@ from backend.core.prompts import (
 )
 from backend.core.schemas import CharacterSchema
 from backend.core.state_manager import get_default_character
+from backend.core.subclass_features_2024 import (
+    KNOWN_SUBCLASS_FEATURES_2024,
+    SUBCLASS_FEATURES_DETAILS_2024,
+)
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.mechanics_service import sync_character_stats
 from backend.services.progression_service import (
@@ -32,7 +36,14 @@ from backend.services.stats_service import (
     calculate_max_spell_slots,
     strip_derived_character_fields,
 )
-from backend.services.validation_service import deterministic_validate_build
+from backend.services.validation_service import (
+    build_feat_lookup,
+    deterministic_validate_build,
+    get_owned_non_repeatable_feats,
+    is_feat_repeatable,
+    resolve_known_feat,
+    stat_choice_keys_for,
+)
 
 logger = logging.getLogger("DnDAssistant.ForgeService")
 
@@ -966,17 +977,6 @@ KNOWN_SUBCLASS_FEATURES = {
     ("Wizard", "Evocation", 14): "Overchannel",
 }
 
-KNOWN_SUBCLASS_FEATURES_2024 = {
-    (
-        "Fighter",
-        "Champion",
-        3,
-    ): "Improved Critical (19-20) & Remarkable Athlete (Advantage on Initiative & Athletics)",
-    ("Fighter", "Champion", 7): "Additional Fighting Style",
-    ("Fighter", "Champion", 10): "Heroic Warrior (Heroic Inspiration on turn start)",
-    ("Fighter", "Champion", 15): "Superior Critical (18-20)",
-    ("Fighter", "Champion", 18): "Survivor & Death Save Advantage",
-}
 
 SUBCLASS_FEATURES_DETAILS = {
     ("Ranger", "Horizon Walker", 3): {
@@ -1030,245 +1030,6 @@ SUBCLASS_FEATURES_DETAILS = {
     ("Fighter", "Champion", 18): {
         "name": "Survivor (Champion)",
         "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left.",
-    },
-}
-
-SUBCLASS_FEATURES_DETAILS_2024 = {
-    ("Fighter", "Champion", 3): {
-        "name": "Improved Critical & Remarkable Athlete (Champion)",
-        "description": "Critical hit on a roll of 19 or 20. In addition, thanks to athletic prowess, you have Advantage on Initiative rolls and Strength (Athletics) checks; running jump distance increases by STR modifier in feet.",
-    },
-    ("Fighter", "Champion", 7): {
-        "name": "Additional Fighting Style (Champion)",
-        "description": "Choose a second option from the Fighting Style class feature.",
-    },
-    ("Fighter", "Champion", 10): {
-        "name": "Heroic Warrior (Champion)",
-        "description": "Whenever you start your turn in combat with 0 Temporary Hit Points, you can give yourself Heroic Inspiration.",
-    },
-    ("Fighter", "Champion", 15): {
-        "name": "Superior Critical (Champion)",
-        "description": "Your weapon attacks score a critical hit on a roll of 18-20.",
-    },
-    ("Fighter", "Champion", 18): {
-        "name": "Survivor (Champion)",
-        "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left, and have Advantage on Death Saving Throws.",
-    },
-    ("Fighter", "Battle Master", 3): {
-        "name": "Combat Superiority & Student of War (Battle Master)",
-        "description": "Gain 3 maneuvers and 4 Superiority Dice (d8), plus proficiency in one Artisan's Tool and one skill available to Fighters.",
-    },
-    ("Fighter", "Eldritch Knight", 3): {
-        "name": "Spellcasting & War Bond (Eldritch Knight)",
-        "description": "Augment martial prowess with Wizard spells (INT) and bond with up to two weapons so you cannot be disarmed and can summon them as a Bonus Action.",
-    },
-    ("Fighter", "Psi Warrior", 3): {
-        "name": "Psionic Power (Psi Warrior)",
-        "description": "Gain a pool of Psionic Energy Dice (d6) to fuel Protective Field, Psionic Strike, and Telekinetic Movement.",
-    },
-    ("Barbarian", "Path of the Berserker", 3): {
-        "name": "Frenzy (Path of the Berserker)",
-        "description": "While Raging, hitting with a Strength-based attack while using Reckless Attack deals extra damage on your first hit each turn.",
-    },
-    ("Barbarian", "Path of the Wild Heart", 3): {
-        "name": "Animal Speaker & Rage of the Wilds (Path of the Wild Heart)",
-        "description": "Learn Beast Sense and Speak with Animals as rituals, and choose Bear, Eagle, or Wolf prowess whenever you enter a Rage.",
-    },
-    ("Barbarian", "Path of the World Tree", 3): {
-        "name": "Vitality of the Tree (Path of the World Tree)",
-        "description": "Gain Temporary Hit Points equal to your Barbarian level upon entering Rage and grant Temporary HP to nearby allies at the start of each turn.",
-    },
-    ("Barbarian", "Path of the Zealot", 3): {
-        "name": "Divine Fury & Warrior of the Gods (Path of the Zealot)",
-        "description": "Deal extra Radiant or Necrotic damage on your first hit each turn while Raging, and gain a pool of d12 healing dice usable as a Bonus Action.",
-    },
-    ("Bard", "College of Dance", 3): {
-        "name": "Dazzling Footwork (College of Dance)",
-        "description": "Calculate unarmored AC as 10 + DEX + CHA modifiers and make an Unarmed Strike using your Bardic Inspiration die when expending Bardic Inspiration.",
-    },
-    ("Bard", "College of Glamour", 3): {
-        "name": "Beguiling Magic & Mantle of Inspiration (College of Glamour)",
-        "description": "Always have Charm Person and Mirror Image prepared, and spend Bardic Inspiration as a Bonus Action to grant allies Temporary HP and reaction movement.",
-    },
-    ("Bard", "College of Lore", 3): {
-        "name": "Bonus Proficiencies & Cutting Words (College of Lore)",
-        "description": "Gain proficiency in three skills of your choice, and spend Bardic Inspiration as a Reaction to subtract from an enemy's attack roll, ability check, or damage.",
-    },
-    ("Bard", "College of Valor", 3): {
-        "name": "Combat Inspiration & Martial Training (College of Valor)",
-        "description": "Gain proficiency with Medium Armor, Shields, and Martial Weapons, use weapons as Spellcasting Focuses, and empower allies' damage or AC with Bardic Inspiration.",
-    },
-    ("Sorcerer", "Draconic Sorcery", 3): {
-        "name": "Draconic Resilience & Draconic Spells (Draconic Sorcery)",
-        "description": "Your HP maximum increases by 3 (and by 1 whenever you gain another Sorcerer level), your unarmored AC equals 10 + DEX + CHA modifiers, and you always have your Draconic Spells prepared.",
-    },
-    ("Sorcerer", "Aberrant Sorcery", 3): {
-        "name": "Psionic Spells & Telepathic Speech (Aberrant Sorcery)",
-        "description": "Always have Aberrant psionic spells prepared, and link minds as a Bonus Action to communicate telepathically within 30 feet.",
-    },
-    ("Sorcerer", "Clockwork Sorcery", 3): {
-        "name": "Clockwork Spells & Restore Balance (Clockwork Sorcery)",
-        "description": "Always have Clockwork spells prepared, and use your Reaction to cancel Advantage or Disadvantage on a d20 Test within 60 feet.",
-    },
-    ("Sorcerer", "Wild Magic Sorcery", 3): {
-        "name": "Wild Magic Surge & Tides of Chaos (Wild Magic Sorcery)",
-        "description": "Trigger Wild Magic Surge effects after leveled Sorcerer spells and claim Advantage on one d20 Test via Tides of Chaos.",
-    },
-    ("Sorcerer", "Wild Magic", 3): {
-        "name": "Wild Magic Surge & Tides of Chaos (Wild Magic)",
-        "description": "Trigger Wild Magic Surge effects after leveled Sorcerer spells and claim Advantage on one d20 Test via Tides of Chaos.",
-    },
-    ("Rogue", "Thief", 3): {
-        "name": "Fast Hands & Second-Story Work (Thief)",
-        "description": "Use your Cunning Action Bonus Action to make Sleight of Hand checks, use Thieves' Tools, or take the Utilize/Magic action with an item, and gain a Climb Speed equal to your Speed.",
-    },
-    ("Rogue", "Arcane Trickster", 3): {
-        "name": "Spellcasting & Mage Hand Legerdemain (Arcane Trickster)",
-        "description": "Cast Wizard spells (INT) and summon an invisible Mage Hand capable of stowing, retrieving, picking locks, and disarming traps remotely.",
-    },
-    ("Rogue", "Assassin", 3): {
-        "name": "Assassinate & Assassin's Tools (Assassin)",
-        "description": "Gain Advantage on Initiative and first-round attacks against creatures that haven't acted (with extra Rogue-level damage on Sneak Attack), plus Disguise and Poisoner's Kit proficiency.",
-    },
-    ("Rogue", "Soulknife", 3): {
-        "name": "Psionic Power & Psychic Blades (Soulknife)",
-        "description": "Gain Psionic Energy Dice (d6) for Psi-Bolstered Knack and Psychic Whispers, and manifest melee or thrown Psychic Blades dealing Psychic damage.",
-    },
-    ("Cleric", "Life Domain", 3): {
-        "name": "Disciple of Life & Preserve Life (Life Domain)",
-        "description": "Healing spells you cast with a spell slot restore an additional 2 + spell slot level HP on the turn cast, and you can use Channel Divinity to distribute 5x Cleric level healing.",
-    },
-    ("Cleric", "Light Domain", 3): {
-        "name": "Light Domain Spells & Radiance of the Dawn (Light Domain)",
-        "description": "Always have Light Domain spells prepared, gain the Light cantrip, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation.",
-    },
-    ("Cleric", "Trickery Domain", 3): {
-        "name": "Blessing of the Trickster & Invoke Duplicity (Trickery Domain)",
-        "description": "Always have Trickery Domain spells prepared, grant Advantage on Stealth checks, and create an illusory duplicate with Channel Divinity to cast from its space.",
-    },
-    ("Cleric", "War Domain", 3): {
-        "name": "Guided Strike & War Priest (War Domain)",
-        "description": "Always have War Domain spells prepared, make Bonus Action weapon attacks WIS mod times per rest, and spend Channel Divinity for +10 to a missed attack roll.",
-    },
-    ("Druid", "Circle of the Land", 3): {
-        "name": "Circle of the Land Spells & Land's Aid (Circle of the Land)",
-        "description": "Attune to an Arid, Polar, Temperate, or Tropical land for prepared spells, and expend Wild Shape to deal Necrotic damage and restore HP in a 10-foot sphere.",
-    },
-    ("Druid", "Circle of the Moon", 3): {
-        "name": "Circle Forms & Moon Spells (Circle of the Moon)",
-        "description": "Assume higher-CR Beast shapes (up to Druid level / 3) with AC equal to 13 + WIS modifier and Temporary HP equal to 3x Druid level.",
-    },
-    ("Druid", "Circle of the Sea", 3): {
-        "name": "Circle of the Sea Spells & Wrath of the Sea (Circle of the Sea)",
-        "description": "Always have Sea spells prepared, and expend Wild Shape as a Bonus Action to create a 5-foot Emanation dealing Cold damage and pushing targets.",
-    },
-    ("Druid", "Circle of the Stars", 3): {
-        "name": "Star Map & Starry Form (Circle of the Stars)",
-        "description": "Gain Guidance, Guiding Bolt, and a Star Map focus, and expend Wild Shape as a Bonus Action to assume Archer, Chalice, or Dragon Starry Form.",
-    },
-    ("Monk", "Warrior of Mercy", 3): {
-        "name": "Hand of Healing, Hand of Harm & Implements of Mercy (Warrior of Mercy)",
-        "description": "Spend Focus Points to heal with Unarmed Strikes or deal extra Necrotic damage, and gain proficiency in Insight, Medicine, and Herbalism Kit.",
-    },
-    ("Monk", "Warrior of Shadow", 3): {
-        "name": "Shadow Arts (Warrior of Shadow)",
-        "description": "Gain Darkvision (or extend its range), learn Minor Illusion, and spend 1 Focus Point to cast Darkness that you can see through.",
-    },
-    ("Monk", "Warrior of the Elements", 3): {
-        "name": "Elemental Attunement & Manipulate Elements (Warrior of the Elements)",
-        "description": "Learn Elementalism and spend 1 Focus Point for 15-foot reach Unarmed Strikes dealing Acid, Cold, Fire, Lightning, or Thunder damage with forced movement.",
-    },
-    ("Monk", "Warrior of the Open Hand", 3): {
-        "name": "Open Hand Technique (Warrior of the Open Hand)",
-        "description": "Whenever you hit with Flurry of Blows, impose Addle (preventing Opportunity Attacks), Push (15 ft on failed STR save), or Topple (Prone on failed DEX save).",
-    },
-    ("Paladin", "Oath of Devotion", 3): {
-        "name": "Sacred Weapon & Devotion Spells (Oath of Devotion)",
-        "description": "Keep Devotion spells prepared and expend Channel Divinity as part of an attack to add your CHA modifier to weapon attack rolls and emit bright light.",
-    },
-    ("Paladin", "Oath of Glory", 3): {
-        "name": "Inspiring Smite & Peerless Athlete (Oath of Glory)",
-        "description": "Keep Glory spells prepared and spend Channel Divinity for athletic prowess or to grant Temporary HP after casting Divine Smite.",
-    },
-    ("Paladin", "Oath of the Ancients", 3): {
-        "name": "Nature's Wrath & Ancients Spells (Oath of the Ancients)",
-        "description": "Keep Ancients spells prepared and expend Channel Divinity as a Magic action to conjure spectral vines that restrain nearby creatures.",
-    },
-    ("Paladin", "Oath of Vengeance", 3): {
-        "name": "Vow of Enmity & Vengeance Spells (Oath of Vengeance)",
-        "description": "Keep Vengeance spells prepared and expend Channel Divinity when hitting an enemy to gain Advantage on attacks against it for 1 minute.",
-    },
-    ("Ranger", "Beast Master", 3): {
-        "name": "Primal Companion (Beast Master)",
-        "description": "Bond with a Beast of the Land, Sea, or Sky that acts on your turn and strikes when you command it with a Bonus Action or Attack sacrifice.",
-    },
-    ("Ranger", "Fey Wanderer", 3): {
-        "name": "Dreadful Strikes & Otherworldly Glamour (Fey Wanderer)",
-        "description": "Deal an extra 1d4 Psychic damage once per turn per target on weapon hits, add your WIS modifier to Charisma checks, and prepare Fey Wanderer spells.",
-    },
-    ("Ranger", "Gloom Stalker", 3): {
-        "name": "Dread Ambusher & Umbral Sight (Gloom Stalker)",
-        "description": "Add your WIS modifier to Initiative, gain Darkvision (and invisibility to Darkvision in darkness), keep Gloom Stalker spells prepared, and empower Dread Ambusher strikes.",
-    },
-    ("Ranger", "Hunter", 3): {
-        "name": "Hunter's Lore & Hunter's Prey (Hunter)",
-        "description": "Learn a Hunter's Mark target's immunities, resistances, and vulnerabilities, and choose Colossus Slayer or Horde Breaker.",
-    },
-    ("Warlock", "Archfey Patron", 3): {
-        "name": "Archfey Spells & Steps of the Fey (Archfey Patron)",
-        "description": "Always have Archfey spells prepared and cast Misty Step CHA modifier times per Long Rest with fey teleportation effects.",
-    },
-    ("Warlock", "Celestial Patron", 3): {
-        "name": "Celestial Spells & Healing Light (Celestial Patron)",
-        "description": "Gain Sacred Flame and Light, keep Celestial spells prepared, and spend d6s from a Healing Light pool as a Bonus Action.",
-    },
-    ("Warlock", "Fiend Patron", 3): {
-        "name": "Dark One's Blessing & Fiend Spells (Fiend Patron)",
-        "description": "Always have Fiend spells prepared and gain Temporary HP equal to CHA modifier + Warlock level when a nearby enemy falls to 0 HP.",
-    },
-    ("Warlock", "Great Old One Patron", 3): {
-        "name": "Awakened Mind & Psychic Spells (Great Old One Patron)",
-        "description": "Always have Great Old One spells prepared, communicate telepathically, omit Verbal/Somatic components on Illusion/Enchantment spells, and swap spell damage to Psychic.",
-    },
-    ("Wizard", "School of Evocation", 3): {
-        "name": "Evocation Savant & Potent Cantrip (School of Evocation)",
-        "description": "Gain two Evocation spells in your spellbook, and when you miss with your cantrip attack roll or a target succeeds on its saving throw against your damaging cantrip, it still takes half damage.",
-    },
-    ("Wizard", "Evoker", 3): {
-        "name": "Evocation Savant & Potent Cantrip (Evoker)",
-        "description": "Gain two Evocation spells in your spellbook, and when you miss with your cantrip attack roll or a target succeeds on its saving throw against your damaging cantrip, it still takes half damage.",
-    },
-    ("Wizard", "Abjurer", 3): {
-        "name": "Abjuration Savant & Arcane Ward (Abjurer)",
-        "description": "Gain two Abjuration spells in your spellbook and weave a magical Arcane Ward that absorbs damage whenever you cast Abjuration spells.",
-    },
-    ("Wizard", "Diviner", 3): {
-        "name": "Divination Savant & Portent (Diviner)",
-        "description": "Gain two Divination spells in your spellbook and roll two d20 Portent dice after a Long Rest to replace d20 Tests made by you or visible creatures.",
-    },
-    ("Wizard", "Illusionist", 3): {
-        "name": "Illusion Savant & Improved Illusions (Illusionist)",
-        "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, enhance Minor Illusion, and cast Summon Beast/Fey as illusions.",
-    },
-    ("Artificer", "Alchemist", 3): {
-        "name": "Experimental Elixir & Tool Proficiency (Alchemist)",
-        "description": "Gain Alchemist's Supplies proficiency and brew Experimental Elixirs after a Long Rest or by expending spell slots.",
-    },
-    ("Artificer", "Armorer", 3): {
-        "name": "Arcane Armor & Tools of the Trade (Armorer)",
-        "description": "Gain Heavy Armor and Smith's Tools proficiency and transform armor into Guardian or Infiltrator Arcane Armor.",
-    },
-    ("Artificer", "Artillerist", 3): {
-        "name": "Eldritch Cannon & Artillerist Spells (Artillerist)",
-        "description": "Gain Woodcarver's Tools proficiency, prepare Artillerist spells, and summon a Magical Eldritch Cannon (Flamethrower, Force Ballista, or Protector).",
-    },
-    ("Artificer", "Battle Smith", 3): {
-        "name": "Battle Ready & Steel Defender (Battle Smith)",
-        "description": "Use INT for magic weapon attacks, gain Smith's Tools proficiency, keep Battle Smith spells prepared, and command a Steel Defender companion.",
-    },
-    ("Artificer", "Cartographer", 3): {
-        "name": "Tools of the Trade & Adventurer's Atlas (Cartographer)",
-        "description": "Gain Calligrapher's Supplies and Cartographer's Tools proficiency (halving Spell Scroll scribing time and cost), keep Cartographer spells prepared, and link allies with Adventurer's Atlas maps.",
     },
 }
 
@@ -1997,7 +1758,7 @@ def resolve_level_up_automatic_features(
     rules_repo = RulesRepository()
     static_features = rules_repo.get_features_at_level(char_class, target_level, edition)
     if not subclass_to_use:
-        return static_features
+        return [{"source": f.get("source") or "Class", **f} for f in static_features]
 
     _SUBCLASS_PLACEHOLDERS = (
         "archetype feature",
@@ -2033,7 +1794,7 @@ def resolve_level_up_automatic_features(
                     SUBCLASS_FEATURES_DETAILS, char_class, subclass_to_use, target_level
                 )
             if sub_detail:
-                resolved_features.append(dict(sub_detail))
+                resolved_features.append({**sub_detail, "source": "Subclass"})
             else:
                 resolved_features.append(
                     {
@@ -2042,11 +1803,107 @@ def resolve_level_up_automatic_features(
                             "description",
                             f"Special feature granted by the {subclass_to_use} subclass at Level {target_level}.",
                         ),
+                        "source": "Subclass",
                     }
                 )
         else:
-            resolved_features.append(dict(feat))
+            resolved_features.append({"source": feat.get("source") or "Class", **feat})
     return resolved_features
+
+
+def _extract_level_up_hp_deltas(
+    char_data: dict,
+    user_choices: dict,
+    feat_lookup: dict[str, dict[str, Any]],
+    owned_non_repeatable: set[str],
+    target_total_level: int,
+    edition: str,
+) -> tuple[int, int]:
+    """Compute (con_mod_delta, added_feat_hp_per_level) from pending level-up ASI/feat choices."""
+    from backend.services.stats_service import get_modifier
+
+    is_2024 = "2024" in str(edition)
+    stat_cap = 30 if (is_2024 and target_total_level >= 19) else 20
+    stats = char_data.get("stats") or {}
+    old_con = int(stats.get("CON", 10) or 10)
+    con_bump = 0
+    added_feat_hp_per_level = 0
+    seen_new_feats: set[str] = set()
+
+    for choice_key, choice_val in (user_choices or {}).items():
+        if (
+            not choice_val
+            or "_stat1_" in choice_key
+            or "_stat2_" in choice_key
+            or choice_key
+            in ("level_up_class", "hp_method", "custom_hp_increase", "hp_bonus_included")
+        ):
+            continue
+        base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
+        if base_type in (
+            "subclass",
+            "spell",
+            "spell_secret_1",
+            "spell_secret_2",
+            "expertise_1",
+            "expertise_2",
+        ):
+            continue
+        if (
+            base_type != "feat"
+            and "feat" not in choice_key.lower()
+            and choice_val
+            not in (
+                "+2 to one Stat",
+                "+1 to two Stats",
+            )
+        ):
+            continue
+
+        stat1_key, stat2_key = stat_choice_keys_for(choice_key)
+        stat1 = str((user_choices or {}).get(stat1_key) or "").strip().upper()
+        stat2 = str((user_choices or {}).get(stat2_key) or "").strip().upper()
+
+        val_str = str(choice_val).strip()
+        if val_str == "+2 to one Stat":
+            if stat1 == "CON":
+                con_bump += 2
+        elif val_str == "+1 to two Stats":
+            if stat1 == "CON":
+                con_bump += 1
+            if stat2 == "CON" and stat2 != stat1:
+                con_bump += 1
+        else:
+            resolved = resolve_known_feat(val_str, feat_lookup, source="Feat")
+            if not resolved:
+                continue
+            canon_name, feat_data = resolved
+            canon_low = canon_name.lower()
+            if not is_feat_repeatable(feat_data, canon_low) and canon_low in owned_non_repeatable:
+                continue
+
+            con_bonus = int((feat_data.get("stat_bonus") or {}).get("CON") or 0)
+            if con_bonus > 0:
+                con_bump += con_bonus
+
+            if feat_data.get("has_stat_choice") and stat1 == "CON":
+                allowed_opts = {
+                    str(opt).strip().upper()[:3]
+                    for opt in (feat_data.get("stat_choice_options") or [])
+                    if str(opt).strip()
+                }
+                if not allowed_opts or "CON" in allowed_opts:
+                    con_bump += 1
+
+            per_lvl = int(feat_data.get("hp_bonus_per_level") or 0)
+            if per_lvl > 0:
+                if is_feat_repeatable(feat_data, canon_low) or canon_low not in seen_new_feats:
+                    seen_new_feats.add(canon_low)
+                    added_feat_hp_per_level += per_lvl
+
+    new_con = min(stat_cap, old_con + con_bump)
+    con_mod_delta = get_modifier(new_con) - get_modifier(old_con)
+    return con_mod_delta, added_feat_hp_per_level
 
 
 def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
@@ -2125,9 +1982,11 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     hp_method = str(user_choices.get("hp_method") or "").strip().lower()
     custom_hp = user_choices.get("custom_hp_increase")
+    rolled_custom_hp = False
     if custom_hp is not None and hp_method != "average":
         try:
             hp_increase = max(1, min(max_legal_hp_gain, int(custom_hp)))
+            rolled_custom_hp = True
         except (ValueError, TypeError):
             pass
 
@@ -2140,6 +1999,36 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         and target_level >= 3
     ):
         retroactive_hp_bonus = class_current_level
+
+    feat_lookup = build_feat_lookup(edition)
+    owned_non_repeatable = get_owned_non_repeatable_feats(
+        char_data, edition=edition, feat_lookup=feat_lookup
+    )
+    con_mod_delta, added_feat_hp_per_level = _extract_level_up_hp_deltas(
+        char_data=char_data,
+        user_choices=user_choices,
+        feat_lookup=feat_lookup,
+        owned_non_repeatable=owned_non_repeatable,
+        target_total_level=target_total_level,
+        edition=edition,
+    )
+    hp_bonus_per_level += added_feat_hp_per_level
+    per_level_choice_delta = con_mod_delta + added_feat_hp_per_level
+    if rolled_custom_hp:
+        preview_new_total_hp = (
+            char_data.get("hp_max", 0)
+            + hp_increase
+            + retroactive_hp_bonus
+            + per_level_choice_delta * target_total_level
+        )
+    else:
+        hp_increase = max(1, hp_increase + per_level_choice_delta)
+        preview_new_total_hp = (
+            char_data.get("hp_max", 0)
+            + hp_increase
+            + retroactive_hp_bonus
+            + per_level_choice_delta * current_total_level
+        )
 
     updated_pb = math.ceil(target_total_level / 4) + 1
 
@@ -2176,10 +2065,38 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     if is_asi_level:
         char_race = char_data.get("race", "").lower()
         allowed_feats = []
+        feat_metadata: dict[str, dict[str, Any]] = {}
         for f in rules_repo.get_all_feats(edition):
-            reqs = f.get("prerequisites", {}).get("other", [])
+            f_name = str(f.get("name") or "").strip()
+            f_low = f_name.lower()
+            if not f_name or f_low == "ability score improvement":
+                continue
+            if not is_feat_repeatable(f, f_low) and f_low in owned_non_repeatable:
+                continue
+            prereqs = f.get("prerequisites") or {}
+            try:
+                min_req_level = int(prereqs.get("min_level") or 0)
+            except (TypeError, ValueError):
+                min_req_level = 0
+            if min_req_level > target_total_level:
+                continue
+            reqs = prereqs.get("other", [])
             if not reqs or any(r.lower() in char_race for r in reqs):
-                allowed_feats.append(f["name"])
+                allowed_feats.append(f_name)
+                stat_opts = [
+                    str(opt).strip().upper()[:3]
+                    for opt in (f.get("stat_choice_options") or [])
+                    if str(opt).strip()
+                ]
+                stat_bonus = {
+                    str(k).upper()[:3]: int(v) for k, v in (f.get("stat_bonus") or {}).items() if v
+                }
+                feat_metadata[f_name] = {
+                    "has_stat_choice": bool(f.get("has_stat_choice")),
+                    "stat_choice_options": stat_opts,
+                    "stat_bonus": stat_bonus,
+                    "hp_bonus_per_level": int(f.get("hp_bonus_per_level") or 0),
+                }
 
         choices.append(
             {
@@ -2187,6 +2104,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 "label": "Choose a Feat or Ability Score Improvement",
                 "options": ["+2 to one Stat", "+1 to two Stats"] + allowed_feats,
                 "ai_recommendation": "A standard ASI/Feat level. Pick what suits your build best.",
+                "feat_metadata": feat_metadata,
             }
         )
 
@@ -2441,7 +2359,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "automatic_changes": static_features,
         "hp_increase": hp_increase,
         "hp_bonus_per_level": hp_bonus_per_level,
-        "new_total_hp": char_data.get("hp_max", 0) + hp_increase + retroactive_hp_bonus,
+        "new_total_hp": preview_new_total_hp,
         "choices_required": choices,
         "updated_proficiency_bonus": updated_pb,
         "updated_spell_slots": updated_spell_slots,
