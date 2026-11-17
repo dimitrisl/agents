@@ -109,10 +109,10 @@
                 *ngFor="let member of partyMembers; trackBy: trackPartyMember"
                 class="flex min-h-11 items-center gap-3 px-4 py-2"
               >
-                @if (member.portrait) {
+                @if (portraits.has(member.portrait)) {
                   <img
                     [src]="member.portrait"
-                    (error)="member.portrait = ''"
+                    (error)="portraits.mark(member.portrait)"
                     alt=""
                     class="h-8 w-8 shrink-0 rounded-full border border-hairline object-cover"
                   />

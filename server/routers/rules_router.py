@@ -34,10 +34,10 @@ from server.rate_limiter import limiter
 def parse_edition(
     edition: str = Query(EDITION_2014, description="D&D Edition (2014 or 2024)"),
 ) -> str:
-    norm = (edition or "").strip()
-    if norm in ("2014", EDITION_2014, "2014 Edition", "2014 Legacy"):
+    norm = (edition or "").strip().lower()
+    if norm in ("2014", EDITION_2014.lower(), "2014 edition", "2014 legacy"):
         return EDITION_2014
-    if norm in ("2024", EDITION_2024, "2024 Edition", "2024 Revision", "5.5e"):
+    if norm in ("2024", EDITION_2024.lower(), "2024 edition", "2024 revision", "5.5e"):
         return EDITION_2024
     raise HTTPException(
         status_code=400, detail=f"Unknown edition: {edition}. Use '2014' or '2024'."

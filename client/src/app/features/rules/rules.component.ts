@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { BrokenPortraitTracker } from '../../core/utils/portrait';
 import { environment } from '../../../environments/environment';
 import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
 import { finalize } from 'rxjs';
@@ -42,6 +43,7 @@ import {
   styleUrl: './rules.component.css',
 })
 export class RulesComponent {
+  readonly portraits = new BrokenPortraitTracker();
   activeTab: 'oracle' | 'compare' | 'validate' = 'oracle';
 
   readonly rulesTabs: ForgeTab[] = [

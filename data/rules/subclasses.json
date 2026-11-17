@@ -27,6 +27,6 @@
     "Monk": ["Warrior of Mercy", "Warrior of Shadow", "Warrior of the Elements", "Warrior of the Open Hand"],
     "Rogue": ["Arcane Trickster", "Assassin", "Soulknife", "Thief"],
     "Barbarian": ["Path of the Berserker", "Path of the Wild Heart", "Path of the World Tree", "Path of the Zealot"],
-    "Artificer": ["Alchemist", "Armorer", "Artillerist", "Battle Smith"]
+    "Artificer": ["Alchemist", "Armorer", "Artillerist", "Battle Smith", "Cartographer"]
   }
 }

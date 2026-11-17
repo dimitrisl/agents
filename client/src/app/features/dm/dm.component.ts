@@ -48,6 +48,7 @@ import {
   ForgeConfirmService,
 } from '../../shared/ui';
 import { VTTState } from '../../core/models/vtt.model';
+import { BrokenPortraitTracker, sanitizePortraitUrl } from '../../core/utils/portrait';
 import { CampaignHeaderComponent } from './campaign-header/campaign-header.component';
 import { NotesPanelComponent } from './panels/notes-panel/notes-panel.component';
 import { PartyPanelComponent } from './panels/party-panel/party-panel.component';
@@ -132,6 +133,7 @@ export type DmTab = DmLiveTab | DmPrepTab;
   styleUrl: './dm.component.css',
 })
 export class DmComponent implements OnInit, OnDestroy {
+  readonly portraits = new BrokenPortraitTracker();
   dmMode: DmMasterMode = 'live';
   activeTab: DmTab = 'initiative';
   lastLiveTab: DmLiveTab = 'initiative';
@@ -583,6 +585,7 @@ export class DmComponent implements OnInit, OnDestroy {
     this.openedSub?.unsubscribe();
     this.encounterSub?.unsubscribe();
     this.encounterSyncSubject.complete();
+    this.cancelEncounterSync$.complete();
 
     // Flush any pending state changes
     const pendingCharIds = Array.from(this.pendingPartyState.keys());
@@ -612,8 +615,10 @@ export class DmComponent implements OnInit, OnDestroy {
   }
 
   private findPartyTarget(value: string): PartyMember | undefined {
-    return this.partyMembers.find(
-      (m) => (m.char_id && m.char_id === value) || m.name === value
+    return (
+      this.partyMembers.find((m) => Boolean(m.char_id && m.char_id === value)) ||
+      this.partyMembers.find((m) => !m.char_id && m.name === value) ||
+      this.partyMembers.find((m) => m.name === value)
     );
   }
 
@@ -1020,7 +1025,7 @@ export class DmComponent implements OnInit, OnDestroy {
             inspiration: !!char.inspiration,
             exhaustion_level: char.exhaustion_level ?? 0,
             stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-            portrait: char.char_portrait,
+            portrait: sanitizePortraitUrl(char.char_portrait),
             owner_username: char.owner_username,
             isOnline: this.onlineCharacters.has(char.char_name || '')
           }));
@@ -1305,8 +1310,19 @@ export class DmComponent implements OnInit, OnDestroy {
   // tabs used to hold their own numbers and drift apart in the middle of a
   // fight, with the DM left to guess which one was true.
 
+  /** Matches two hero/member records by `char_id` whenever either has one, isolating custom DM rows (`!char_id`) by name alone. */
+  private isSameHeroIdentity(
+    a: { char_id?: string | null; name: string },
+    b: { char_id?: string | null; name: string }
+  ): boolean {
+    if (a.char_id || b.char_id) {
+      return Boolean(a.char_id && a.char_id === b.char_id);
+    }
+    return a.name === b.name;
+  }
+
   private isSameMember(a: PartyMember, b: PartyMember): boolean {
-    return a === b || (a.char_id && b.char_id ? a.char_id === b.char_id : a.name === b.name);
+    return a === b || this.isSameHeroIdentity(a, b);
   }
 
   adjustHp(member: PartyMember, delta: number) {
@@ -1352,17 +1368,23 @@ export class DmComponent implements OnInit, OnDestroy {
     this.pushPartyState(updatedMember, { conditions: nextConditions });
   }
 
+  /** Matches a PartyMember to an InitiativeCombatant while isolating custom DM members from char_id-backed heroes. */
+  private isMemberCombatantMatch(
+    member: Pick<PartyMember, 'char_id' | 'name'>,
+    combatant: Pick<InitiativeCombatant, 'char_id' | 'name'>
+  ): boolean {
+    return this.isSameHeroIdentity(member, combatant);
+  }
+
   /** The party member behind an initiative row, when the row is a hero. */
   public memberFor(combatant: InitiativeCombatant): PartyMember | null {
     if (!combatant.is_player) return null;
-    return this.partyMembers.find((m) =>
-      combatant.char_id ? m.char_id === combatant.char_id : m.name === combatant.name
-    ) || null;
+    return this.partyMembers.find((m) => this.isMemberCombatantMatch(m, combatant)) || null;
   }
 
   private combatantsFor(member: PartyMember): InitiativeCombatant[] {
     return this.combatants.filter(
-      (c) => c.is_player && (c.char_id ? c.char_id === member.char_id : c.name === member.name)
+      (c) => c.is_player && this.isMemberCombatantMatch(member, c)
     );
   }
 
@@ -1390,9 +1412,7 @@ export class DmComponent implements OnInit, OnDestroy {
     let changed = false;
     const nextCombatants = this.combatants.map((c) => {
       if (!c.is_player) return c;
-      const member = this.partyMembers.find((m) =>
-        c.char_id && m.char_id ? c.char_id === m.char_id : c.name === m.name
-      );
+      const member = this.partyMembers.find((m) => this.isMemberCombatantMatch(m, c));
       if (!member) return c;
       if (c.max_hp !== member.hp_max) {
         changed = true;
@@ -1566,7 +1586,7 @@ export class DmComponent implements OnInit, OnDestroy {
 
   importPartyToInitiative(silent = false) {
     const additions = this.partyMembers
-      .filter((p) => !this.combatants.some((c) => c.name === p.name))
+      .filter((p) => !this.combatants.some((c) => c.is_player && this.isMemberCombatantMatch(p, c)))
       .map((p) => {
         const dexVal = p.stats?.['DEX'] || 10;
         const dexMod = Math.floor((dexVal - 10) / 2);
@@ -1579,7 +1599,7 @@ export class DmComponent implements OnInit, OnDestroy {
           ac: p.ac,
           dex: dexVal,
           is_player: true,
-          portrait: p.portrait,
+          portrait: sanitizePortraitUrl(p.portrait),
           conditions: p.conditions.map((name) => ({ name, expiresAtRound: null })),
         });
       });
@@ -2483,7 +2503,7 @@ export class DmComponent implements OnInit, OnDestroy {
     if (!confirmed) return;
 
     if (!member.char_id) {
-      this.partyMembers = this.partyMembers.filter((m) => m !== member && m.name !== member.name);
+      this.partyMembers = this.partyMembers.filter((m) => !this.isSameMember(m, member));
       this.campaignParties[this.campaignName] = [...this.partyMembers];
       this.saveCustomPartyMembers(this.campaignName, this.partyMembers);
       this.rollToast.showMessage('👋 MEMBER REMOVED', `${member.name} has been removed from the roster.`);

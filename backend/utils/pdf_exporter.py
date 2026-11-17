@@ -402,6 +402,9 @@ def create_image_overlay(image_url: str) -> io.BytesIO:
         img_data = None
         parsed = urlparse(image_url)
 
+        if parsed.scheme == "data":
+            # Client-side SVG/data URI placeholders are not filesystem paths or remote assets.
+            return None
         if parsed.scheme in ("http", "https"):
             # Prevent SSRF by only allowing external image hosts without following redirects
             allowed_hosts = [

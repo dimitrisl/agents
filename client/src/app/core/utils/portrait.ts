@@ -33,16 +33,48 @@ export function buildDefaultPortraitSvg(name?: string | null, charClass?: string
 }
 
 /**
+ * Returns true when a portrait URL points to a real raster asset rather than deprecated placeholders or inline fallback SVGs.
+ */
+export function isSupportedPortraitUrl(url?: string | null): url is string {
+  return Boolean(
+    url &&
+      !url.includes('anvil.png') &&
+      !url.includes('image.pollinations.ai') &&
+      !url.startsWith('data:image/svg+xml')
+  );
+}
+
+/**
+ * Strips deprecated placeholder URLs (pollinations / anvil.png), returning undefined when absent.
+ */
+export function sanitizePortraitUrl(url?: string | null): string | undefined {
+  return isSupportedPortraitUrl(url) ? url : undefined;
+}
+
+/**
  * Returns the character's portrait URL when valid, or an offline-safe default SVG fallback.
  */
 export function resolvePortraitUrl(char: { char_portrait?: string | null; char_name?: string | null; char_class?: string | null } | null | undefined): string {
   const existing = char?.char_portrait;
-  if (
-    existing &&
-    !existing.includes('anvil.png') &&
-    !existing.includes('image.pollinations.ai')
-  ) {
+  if (isSupportedPortraitUrl(existing)) {
     return existing;
   }
   return buildDefaultPortraitSvg(char?.char_name, char?.char_class);
+}
+
+/**
+ * Tracks portrait URLs that failed to load in DOM `<img>` tags without mutating `@Input()` or signal objects.
+ */
+export class BrokenPortraitTracker {
+  private readonly broken = new Set<string>();
+
+  has(url?: string | null): url is string {
+    return isSupportedPortraitUrl(url) && !this.broken.has(url);
+  }
+
+  mark(url?: string | null): void {
+    if (url) {
+      this.broken.add(url);
+    }
+  }
 }

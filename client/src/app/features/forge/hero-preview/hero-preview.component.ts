@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema } from '../../../core/models/character.model';
-import { resolvePortraitUrl } from '../../../core/utils/portrait';
+import { BrokenPortraitTracker, buildDefaultPortraitSvg } from '../../../core/utils/portrait';
 import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
@@ -29,6 +29,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HeroPreviewComponent {
+  readonly portraits = new BrokenPortraitTracker();
   Math = Math;
 
   @Input({ required: true }) hero!: CharacterSchema;
@@ -43,6 +44,9 @@ export class HeroPreviewComponent {
   @Output() regeneratePortrait = new EventEmitter<void>();
 
   get portraitUrl(): string {
-    return resolvePortraitUrl(this.hero);
+    const url = this.hero?.char_portrait;
+    return this.portraits.has(url)
+      ? url
+      : buildDefaultPortraitSvg(this.hero?.char_name, this.hero?.char_class);
   }
 }

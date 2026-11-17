@@ -26,4 +26,24 @@ describe('HeroPreviewComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('falls back to default SVG without mutating hero.char_portrait when image fails to load', () => {
+    const heroWithBrokenPortrait: any = {
+      char_name: 'Aria',
+      char_class: 'Fighter',
+      stats: {},
+      char_portrait: '/api/v1/portraits/missing.png',
+    };
+    fixture.componentRef.setInput('hero', heroWithBrokenPortrait);
+    fixture.detectChanges();
+
+    const img = fixture.nativeElement.querySelector('img') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe('/api/v1/portraits/missing.png');
+
+    img.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+
+    expect(img.getAttribute('src')?.startsWith('data:image/svg+xml;utf8,')).toBe(true);
+    expect(heroWithBrokenPortrait.char_portrait).toBe('/api/v1/portraits/missing.png');
+  });
 });

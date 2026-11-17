@@ -90,4 +90,19 @@ describe('ForgeSwitcherComponent', () => {
     expect(component.open).toBe(false);
     expect(document.activeElement).toBe(trigger());
   }));
+
+  it('replaces broken option images with initial badge without mutating option inputs', fakeAsync(() => {
+    const imgBefore = trigger().querySelector('img') as HTMLImageElement;
+    expect(imgBefore).toBeTruthy();
+    imgBefore.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+
+    expect(trigger().querySelector('img')).toBeNull();
+    expect(trigger().textContent).toContain('E');
+    expect(OPTIONS[0].imageUrl).toBe('/p/edrann.png');
+
+    openList();
+    flush();
+    expect(options()[0].querySelector('img')).toBeNull();
+  }));
 });

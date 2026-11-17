@@ -32,11 +32,12 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
 ### 2. Owner-Scoped Mutations (IDOR Prevention)
 - Updates and deletions to characters in `character_router.py` enforce `{"char_id": char_id, "owner_id": current_user["id"]}`.
 - Character creation and PDF imports generate a fresh `uuid4` if an existing `char_id` belongs to another user.
+- `POST /api/v1/forge/portrait` enforces owner-scoped lookups for persisted characters and, for unsaved Forge previews, accepts only prompt-descriptive fields with a generated ephemeral `preview_*` identifier (ignoring client-supplied `char_id` and `char_portrait` to prevent portrait overwrites); saving the hero via `POST /api/v1/characters` promotes the `preview_*.png` file onto `<char_id>_<ts>.png`, while stale unreferenced `preview_*.png` files are pruned off the event loop only after consulting `db["characters"].distinct("char_portrait")`.
 - A user cannot move another user's hero into a campaign during `/campaigns/join`.
 
 ### 3. File System & Path Traversal Guards (`backend/utils/path_safety.py`)
-- All file reads, uploads, and image writes must pass through `safe_path(filepath, scope="portraits"|"uploads")`.
-- Validates that the resolved absolute path resides strictly within the designated directory using `os.path.commonpath`. Any attempts to use `../` or absolute root paths raise an immediate `HTTP 400 Bad Request`.
+- All file reads, uploads, legacy `data/portraits/` checks in [`image_utils.py`](../../../backend/utils/image_utils.py), and image writes must pass through `safe_path(filepath, scope="portraits"|"uploads")`.
+- Validates that the resolved absolute path resides strictly within the designated directory using `os.path.commonpath`. Any attempts to use `../` or absolute root paths raise an immediate `HTTP 400 Bad Request` (or block traversal in utility helpers).
 
 ### 4. Audio File Upload Security (`backend/utils/audio_validator.py`)
 - **Metadata & Extension Verification:** Validates allowed extensions (`.mp3`, `.wav`, `.m4a`, `.ogg`, `.webm`, `.flac`, `.aac`) and cross-validates against compatible MIME types (including RFC standards and browser variants).

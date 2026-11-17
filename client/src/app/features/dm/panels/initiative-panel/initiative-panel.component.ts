@@ -25,6 +25,7 @@ import type {
   InitiativeCombatant,
 } from '../../../../core/models/initiative.model';
 import type { BestiaryMonster } from '../../../../core/models/bestiary.model';
+import { BrokenPortraitTracker } from '../../../../core/utils/portrait';
 
 /** The three dots the tracker draws for each half of a death-save tally. */
 const DEATH_SAVE_SLOTS = [1, 2, 3];
@@ -46,6 +47,7 @@ const DEATH_SAVE_SLOTS = [1, 2, 3];
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class InitiativePanelComponent implements OnDestroy {
+  readonly portraits = new BrokenPortraitTracker();
   @Input() combatants: InitiativeCombatant[] = [];
   @Input() activeCombatantId: string | null = null;
   @Input() round = 0;

@@ -13,6 +13,7 @@ import { EncounterMonster } from '../../core/models/dm-tools.model';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { VTTState } from '../../core/models/vtt.model';
 import { BestiaryMonster } from '../../core/models/bestiary.model';
+import { ForgeConfirmService } from '../../shared/ui';
 
 /**
  * The turn engine is exercised on the component instance directly — the fixture
@@ -1749,5 +1750,126 @@ describe('DmComponent — Quick-Add & Bestiary Integration', () => {
 
     expect(restored.combatants[0].ac).toBe(18);
     expect(restored.combatants[0].hp).toBe(5);
+  });
+
+  it('isolates custom DM members from player combatants with identical names during member/combatant matching', () => {
+    const http = TestBed.inject(HttpTestingController);
+    const encStorage = TestBed.inject(EncounterStorageService);
+    encStorage.save('Curse of Strahd', {
+      round: 1,
+      activeCombatantId: 'player-thorin',
+      combatants: [
+        combatant('player-thorin', 15, {
+          char_id: 'real-thorin-id',
+          name: 'Thorin',
+          is_player: true,
+          hp: 25,
+          max_hp: 25,
+          ac: 16,
+        }),
+      ],
+    });
+
+    const restored = makeComponent();
+    restored.campaignName = 'Curse of Strahd';
+    restored.onCampaignSelect();
+
+    // Custom DM member saved without char_id sharing the name "Thorin" must not clobber the player combatant
+    http.expectOne((r) => r.url.includes('/party')).flush([]);
+    restored.partyMembers = [
+      {
+        name: 'Thorin',
+        char_class: 'Npc',
+        level: 1,
+        hp_current: 5,
+        hp_max: 5,
+        ac: 10,
+        passive_perception: 10,
+        conditions: [],
+      },
+    ];
+    (restored as any).syncPartyMembersOntoCombatants();
+
+    expect(restored.memberFor(restored.combatants[0])).toBeNull();
+    expect(restored.combatants[0].max_hp).toBe(25);
+    expect(restored.combatants[0].ac).toBe(16);
+  });
+
+  it('sanitizes legacy image.pollinations.ai portraits when loading party members and filters them in templates', () => {
+    const http = TestBed.inject(HttpTestingController);
+    component.campaignName = 'Curse of Strahd';
+    component.onCampaignSelect();
+
+    http.expectOne((r) => r.url.includes('/party')).flush([
+      {
+        char_id: 'c1',
+        char_name: 'LegacyHero',
+        hp_current: 12,
+        hp_max: 12,
+        armor_class: 14,
+        char_portrait: 'https://image.pollinations.ai/prompt/legacy',
+      },
+      {
+        char_id: 'c2',
+        char_name: 'UploadedHero',
+        hp_current: 18,
+        hp_max: 18,
+        armor_class: 16,
+        char_portrait: '/api/v1/portraits/hero2.png',
+      },
+    ]);
+
+    expect(component.partyMembers[0].portrait).toBeUndefined();
+    expect(component.partyMembers[1].portrait).toBe('/api/v1/portraits/hero2.png');
+    expect(component.portraits.has('https://image.pollinations.ai/prompt/legacy')).toBe(false);
+    expect(component.portraits.has('data:image/svg+xml;utf8,<svg></svg>')).toBe(false);
+    expect(component.portraits.has('/api/v1/portraits/hero2.png')).toBe(true);
+    component.portraits.mark('/api/v1/portraits/hero2.png');
+    expect(component.portraits.has('/api/v1/portraits/hero2.png')).toBe(false);
+  });
+
+  it('isolates custom DM party members from char_id-backed heroes sharing a name across removePartyMember, findPartyTarget, setPartyHp and toggleCondition', async () => {
+    component.campaignName = 'Neverwinter';
+    const confirmSvc = TestBed.inject(ForgeConfirmService);
+    jest.spyOn(confirmSvc, 'ask').mockResolvedValue(true);
+
+    const customThorin: PartyMember = {
+      name: 'Thorin',
+      char_class: 'Npc',
+      level: 2,
+      hp_current: 15,
+      hp_max: 15,
+      ac: 12,
+      passive_perception: 10,
+      conditions: [],
+    };
+    const playerThorin: PartyMember = {
+      char_id: 'real-thorin-id',
+      name: 'Thorin',
+      char_class: 'Fighter',
+      level: 5,
+      hp_current: 44,
+      hp_max: 44,
+      ac: 18,
+      passive_perception: 12,
+      conditions: [],
+    };
+    component.partyMembers = [customThorin, playerThorin];
+
+    component.setPartyHp(playerThorin, 30);
+    component.toggleCondition(playerThorin, 'Poisoned');
+
+    expect(component.partyMembers[0].hp_current).toBe(15);
+    expect(component.partyMembers[0].conditions).toEqual([]);
+    expect(component.partyMembers[1].hp_current).toBe(30);
+    expect(component.partyMembers[1].conditions).toEqual(['Poisoned']);
+
+    // findPartyTarget differentiates custom "Thorin" vs char_id "real-thorin-id"
+    expect((component as any).findPartyTarget('Thorin')).toBe(component.partyMembers[0]);
+    expect((component as any).findPartyTarget('real-thorin-id')).toBe(component.partyMembers[1]);
+
+    // Removing custom Thorin leaves real player Thorin intact in partyMembers
+    await component.removePartyMember(customThorin);
+    expect(component.partyMembers.map((m) => m.char_id)).toEqual(['real-thorin-id']);
   });
 });

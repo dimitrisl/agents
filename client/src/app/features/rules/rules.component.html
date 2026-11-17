@@ -69,39 +69,38 @@
               Audit Target
             </p>
 
-            <div
-              *ngIf="charState.activeCharacter() as char; else noHero"
-              class="flex min-h-11 items-center gap-3 px-4 py-3"
-            >
-              <img
-                *ngIf="char.char_portrait"
-                [src]="char.char_portrait"
-                alt=""
-                class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
-              />
-              <span
-                *ngIf="!char.char_portrait"
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-title"
-                aria-hidden="true"
-              >
-                ⚔
-              </span>
-              <div class="min-w-0">
-                <p class="truncate text-body font-semibold text-ink">
-                  {{ char.char_name }}
-                </p>
-                <p class="truncate text-label text-muted">
-                  Level {{ char.char_level }} {{ char.char_class }}
-                </p>
+            @if (charState.activeCharacter(); as char) {
+              <div class="flex min-h-11 items-center gap-3 px-4 py-3">
+                @if (portraits.has(char.char_portrait)) {
+                  <img
+                    [src]="char.char_portrait"
+                    (error)="portraits.mark(char.char_portrait)"
+                    alt=""
+                    class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
+                  />
+                } @else {
+                  <span
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-title"
+                    aria-hidden="true"
+                  >
+                    ⚔
+                  </span>
+                }
+                <div class="min-w-0">
+                  <p class="truncate text-body font-semibold text-ink">
+                    {{ char.char_name }}
+                  </p>
+                  <p class="truncate text-label text-muted">
+                    Level {{ char.char_level }} {{ char.char_class }}
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <ng-template #noHero>
+            } @else {
               <p class="px-4 py-3 text-body text-muted">
                 No active hero. Select one in the Player Dashboard to run a
                 build audit.
               </p>
-            </ng-template>
+            }
           </div>
         </div>
       </forge-card>

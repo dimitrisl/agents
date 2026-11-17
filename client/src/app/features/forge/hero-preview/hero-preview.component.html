@@ -11,6 +11,7 @@
           <div class="flex flex-col gap-4 p-4">
             <img
               [src]="portraitUrl"
+              (error)="portraits.mark(hero.char_portrait)"
               alt="Portrait of {{ hero.char_name }}"
               class="aspect-square w-full rounded-xl border border-hairline object-cover"
             />

@@ -6,6 +6,7 @@ import type { PartyMember } from '../../../../core/models/party.model';
 import type { MonsterAction } from '../../../../core/models/bestiary.model';
 import { DiceService } from '../../../../core/services/dice.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
+import { BrokenPortraitTracker } from '../../../../core/utils/portrait';
 
 const DND_DAMAGE_TYPES = [
   'acid',
@@ -33,6 +34,7 @@ const DAMAGE_TYPE_REGEX = new RegExp('\\b(' + DND_DAMAGE_TYPES.join('|') + ')(?:
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatblockModalComponent {
+  readonly portraits = new BrokenPortraitTracker();
   @Input() open = false;
   @Input() combatant: InitiativeCombatant | null = null;
   @Input() partyMember: PartyMember | null = null;

@@ -1062,25 +1062,213 @@ SUBCLASS_FEATURES_DETAILS_2024 = {
         "name": "Spellcasting & War Bond (Eldritch Knight)",
         "description": "Augment martial prowess with Wizard spells (INT) and bond with up to two weapons so you cannot be disarmed and can summon them as a Bonus Action.",
     },
+    ("Fighter", "Psi Warrior", 3): {
+        "name": "Psionic Power (Psi Warrior)",
+        "description": "Gain a pool of Psionic Energy Dice (d6) to fuel Protective Field, Psionic Strike, and Telekinetic Movement.",
+    },
+    ("Barbarian", "Path of the Berserker", 3): {
+        "name": "Frenzy (Path of the Berserker)",
+        "description": "While Raging, hitting with a Strength-based attack while using Reckless Attack deals extra damage on your first hit each turn.",
+    },
+    ("Barbarian", "Path of the Wild Heart", 3): {
+        "name": "Animal Speaker & Rage of the Wilds (Path of the Wild Heart)",
+        "description": "Learn Beast Sense and Speak with Animals as rituals, and choose Bear, Eagle, or Wolf prowess whenever you enter a Rage.",
+    },
+    ("Barbarian", "Path of the World Tree", 3): {
+        "name": "Vitality of the Tree (Path of the World Tree)",
+        "description": "Gain Temporary Hit Points equal to your Barbarian level upon entering Rage and grant Temporary HP to nearby allies at the start of each turn.",
+    },
+    ("Barbarian", "Path of the Zealot", 3): {
+        "name": "Divine Fury & Warrior of the Gods (Path of the Zealot)",
+        "description": "Deal extra Radiant or Necrotic damage on your first hit each turn while Raging, and gain a pool of d12 healing dice usable as a Bonus Action.",
+    },
+    ("Bard", "College of Dance", 3): {
+        "name": "Dazzling Footwork (College of Dance)",
+        "description": "Calculate unarmored AC as 10 + DEX + CHA modifiers and make an Unarmed Strike using your Bardic Inspiration die when expending Bardic Inspiration.",
+    },
+    ("Bard", "College of Glamour", 3): {
+        "name": "Beguiling Magic & Mantle of Inspiration (College of Glamour)",
+        "description": "Always have Charm Person and Mirror Image prepared, and spend Bardic Inspiration as a Bonus Action to grant allies Temporary HP and reaction movement.",
+    },
+    ("Bard", "College of Lore", 3): {
+        "name": "Bonus Proficiencies & Cutting Words (College of Lore)",
+        "description": "Gain proficiency in three skills of your choice, and spend Bardic Inspiration as a Reaction to subtract from an enemy's attack roll, ability check, or damage.",
+    },
+    ("Bard", "College of Valor", 3): {
+        "name": "Combat Inspiration & Martial Training (College of Valor)",
+        "description": "Gain proficiency with Medium Armor, Shields, and Martial Weapons, use weapons as Spellcasting Focuses, and empower allies' damage or AC with Bardic Inspiration.",
+    },
     ("Sorcerer", "Draconic Sorcery", 3): {
         "name": "Draconic Resilience & Draconic Spells (Draconic Sorcery)",
         "description": "Your HP maximum increases by 3 (and by 1 whenever you gain another Sorcerer level), your unarmored AC equals 10 + DEX + CHA modifiers, and you always have your Draconic Spells prepared.",
+    },
+    ("Sorcerer", "Aberrant Sorcery", 3): {
+        "name": "Psionic Spells & Telepathic Speech (Aberrant Sorcery)",
+        "description": "Always have Aberrant psionic spells prepared, and link minds as a Bonus Action to communicate telepathically within 30 feet.",
+    },
+    ("Sorcerer", "Clockwork Sorcery", 3): {
+        "name": "Clockwork Spells & Restore Balance (Clockwork Sorcery)",
+        "description": "Always have Clockwork spells prepared, and use your Reaction to cancel Advantage or Disadvantage on a d20 Test within 60 feet.",
+    },
+    ("Sorcerer", "Wild Magic Sorcery", 3): {
+        "name": "Wild Magic Surge & Tides of Chaos (Wild Magic Sorcery)",
+        "description": "Trigger Wild Magic Surge effects after leveled Sorcerer spells and claim Advantage on one d20 Test via Tides of Chaos.",
+    },
+    ("Sorcerer", "Wild Magic", 3): {
+        "name": "Wild Magic Surge & Tides of Chaos (Wild Magic)",
+        "description": "Trigger Wild Magic Surge effects after leveled Sorcerer spells and claim Advantage on one d20 Test via Tides of Chaos.",
     },
     ("Rogue", "Thief", 3): {
         "name": "Fast Hands & Second-Story Work (Thief)",
         "description": "Use your Cunning Action Bonus Action to make Sleight of Hand checks, use Thieves' Tools, or take the Utilize/Magic action with an item, and gain a Climb Speed equal to your Speed.",
     },
+    ("Rogue", "Arcane Trickster", 3): {
+        "name": "Spellcasting & Mage Hand Legerdemain (Arcane Trickster)",
+        "description": "Cast Wizard spells (INT) and summon an invisible Mage Hand capable of stowing, retrieving, picking locks, and disarming traps remotely.",
+    },
+    ("Rogue", "Assassin", 3): {
+        "name": "Assassinate & Assassin's Tools (Assassin)",
+        "description": "Gain Advantage on Initiative and first-round attacks against creatures that haven't acted (with extra Rogue-level damage on Sneak Attack), plus Disguise and Poisoner's Kit proficiency.",
+    },
+    ("Rogue", "Soulknife", 3): {
+        "name": "Psionic Power & Psychic Blades (Soulknife)",
+        "description": "Gain Psionic Energy Dice (d6) for Psi-Bolstered Knack and Psychic Whispers, and manifest melee or thrown Psychic Blades dealing Psychic damage.",
+    },
     ("Cleric", "Life Domain", 3): {
         "name": "Disciple of Life & Preserve Life (Life Domain)",
         "description": "Healing spells you cast with a spell slot restore an additional 2 + spell slot level HP on the turn cast, and you can use Channel Divinity to distribute 5x Cleric level healing.",
     },
+    ("Cleric", "Light Domain", 3): {
+        "name": "Light Domain Spells & Radiance of the Dawn (Light Domain)",
+        "description": "Always have Light Domain spells prepared, gain the Light cantrip, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation.",
+    },
+    ("Cleric", "Trickery Domain", 3): {
+        "name": "Blessing of the Trickster & Invoke Duplicity (Trickery Domain)",
+        "description": "Always have Trickery Domain spells prepared, grant Advantage on Stealth checks, and create an illusory duplicate with Channel Divinity to cast from its space.",
+    },
+    ("Cleric", "War Domain", 3): {
+        "name": "Guided Strike & War Priest (War Domain)",
+        "description": "Always have War Domain spells prepared, make Bonus Action weapon attacks WIS mod times per rest, and spend Channel Divinity for +10 to a missed attack roll.",
+    },
+    ("Druid", "Circle of the Land", 3): {
+        "name": "Circle of the Land Spells & Land's Aid (Circle of the Land)",
+        "description": "Attune to an Arid, Polar, Temperate, or Tropical land for prepared spells, and expend Wild Shape to deal Necrotic damage and restore HP in a 10-foot sphere.",
+    },
+    ("Druid", "Circle of the Moon", 3): {
+        "name": "Circle Forms & Moon Spells (Circle of the Moon)",
+        "description": "Assume higher-CR Beast shapes (up to Druid level / 3) with AC equal to 13 + WIS modifier and Temporary HP equal to 3x Druid level.",
+    },
+    ("Druid", "Circle of the Sea", 3): {
+        "name": "Circle of the Sea Spells & Wrath of the Sea (Circle of the Sea)",
+        "description": "Always have Sea spells prepared, and expend Wild Shape as a Bonus Action to create a 5-foot Emanation dealing Cold damage and pushing targets.",
+    },
+    ("Druid", "Circle of the Stars", 3): {
+        "name": "Star Map & Starry Form (Circle of the Stars)",
+        "description": "Gain Guidance, Guiding Bolt, and a Star Map focus, and expend Wild Shape as a Bonus Action to assume Archer, Chalice, or Dragon Starry Form.",
+    },
+    ("Monk", "Warrior of Mercy", 3): {
+        "name": "Hand of Healing, Hand of Harm & Implements of Mercy (Warrior of Mercy)",
+        "description": "Spend Focus Points to heal with Unarmed Strikes or deal extra Necrotic damage, and gain proficiency in Insight, Medicine, and Herbalism Kit.",
+    },
+    ("Monk", "Warrior of Shadow", 3): {
+        "name": "Shadow Arts (Warrior of Shadow)",
+        "description": "Gain Darkvision (or extend its range), learn Minor Illusion, and spend 1 Focus Point to cast Darkness that you can see through.",
+    },
+    ("Monk", "Warrior of the Elements", 3): {
+        "name": "Elemental Attunement & Manipulate Elements (Warrior of the Elements)",
+        "description": "Learn Elementalism and spend 1 Focus Point for 15-foot reach Unarmed Strikes dealing Acid, Cold, Fire, Lightning, or Thunder damage with forced movement.",
+    },
+    ("Monk", "Warrior of the Open Hand", 3): {
+        "name": "Open Hand Technique (Warrior of the Open Hand)",
+        "description": "Whenever you hit with Flurry of Blows, impose Addle (preventing Opportunity Attacks), Push (15 ft on failed STR save), or Topple (Prone on failed DEX save).",
+    },
+    ("Paladin", "Oath of Devotion", 3): {
+        "name": "Sacred Weapon & Devotion Spells (Oath of Devotion)",
+        "description": "Keep Devotion spells prepared and expend Channel Divinity as part of an attack to add your CHA modifier to weapon attack rolls and emit bright light.",
+    },
+    ("Paladin", "Oath of Glory", 3): {
+        "name": "Inspiring Smite & Peerless Athlete (Oath of Glory)",
+        "description": "Keep Glory spells prepared and spend Channel Divinity for athletic prowess or to grant Temporary HP after casting Divine Smite.",
+    },
+    ("Paladin", "Oath of the Ancients", 3): {
+        "name": "Nature's Wrath & Ancients Spells (Oath of the Ancients)",
+        "description": "Keep Ancients spells prepared and expend Channel Divinity as a Magic action to conjure spectral vines that restrain nearby creatures.",
+    },
+    ("Paladin", "Oath of Vengeance", 3): {
+        "name": "Vow of Enmity & Vengeance Spells (Oath of Vengeance)",
+        "description": "Keep Vengeance spells prepared and expend Channel Divinity when hitting an enemy to gain Advantage on attacks against it for 1 minute.",
+    },
+    ("Ranger", "Beast Master", 3): {
+        "name": "Primal Companion (Beast Master)",
+        "description": "Bond with a Beast of the Land, Sea, or Sky that acts on your turn and strikes when you command it with a Bonus Action or Attack sacrifice.",
+    },
+    ("Ranger", "Fey Wanderer", 3): {
+        "name": "Dreadful Strikes & Otherworldly Glamour (Fey Wanderer)",
+        "description": "Deal an extra 1d4 Psychic damage once per turn per target on weapon hits, add your WIS modifier to Charisma checks, and prepare Fey Wanderer spells.",
+    },
+    ("Ranger", "Gloom Stalker", 3): {
+        "name": "Dread Ambusher & Umbral Sight (Gloom Stalker)",
+        "description": "Add your WIS modifier to Initiative, gain Darkvision (and invisibility to Darkvision in darkness), keep Gloom Stalker spells prepared, and empower Dread Ambusher strikes.",
+    },
+    ("Ranger", "Hunter", 3): {
+        "name": "Hunter's Lore & Hunter's Prey (Hunter)",
+        "description": "Learn a Hunter's Mark target's immunities, resistances, and vulnerabilities, and choose Colossus Slayer or Horde Breaker.",
+    },
+    ("Warlock", "Archfey Patron", 3): {
+        "name": "Archfey Spells & Steps of the Fey (Archfey Patron)",
+        "description": "Always have Archfey spells prepared and cast Misty Step CHA modifier times per Long Rest with fey teleportation effects.",
+    },
+    ("Warlock", "Celestial Patron", 3): {
+        "name": "Celestial Spells & Healing Light (Celestial Patron)",
+        "description": "Gain Sacred Flame and Light, keep Celestial spells prepared, and spend d6s from a Healing Light pool as a Bonus Action.",
+    },
+    ("Warlock", "Fiend Patron", 3): {
+        "name": "Dark One's Blessing & Fiend Spells (Fiend Patron)",
+        "description": "Always have Fiend spells prepared and gain Temporary HP equal to CHA modifier + Warlock level when a nearby enemy falls to 0 HP.",
+    },
+    ("Warlock", "Great Old One Patron", 3): {
+        "name": "Awakened Mind & Psychic Spells (Great Old One Patron)",
+        "description": "Always have Great Old One spells prepared, communicate telepathically, omit Verbal/Somatic components on Illusion/Enchantment spells, and swap spell damage to Psychic.",
+    },
     ("Wizard", "School of Evocation", 3): {
         "name": "Evocation Savant & Potent Cantrip (School of Evocation)",
-        "description": "Gain two Evocation spells in your spellbook, and creatures that succeed on a saving throw against your damaging cantrips or pass your cantrip attack roll still take half damage.",
+        "description": "Gain two Evocation spells in your spellbook, and when you miss with your cantrip attack roll or a target succeeds on its saving throw against your damaging cantrip, it still takes half damage.",
     },
     ("Wizard", "Evoker", 3): {
         "name": "Evocation Savant & Potent Cantrip (Evoker)",
-        "description": "Gain two Evocation spells in your spellbook, and creatures that succeed on a saving throw against your damaging cantrips or pass your cantrip attack roll still take half damage.",
+        "description": "Gain two Evocation spells in your spellbook, and when you miss with your cantrip attack roll or a target succeeds on its saving throw against your damaging cantrip, it still takes half damage.",
+    },
+    ("Wizard", "Abjurer", 3): {
+        "name": "Abjuration Savant & Arcane Ward (Abjurer)",
+        "description": "Gain two Abjuration spells in your spellbook and weave a magical Arcane Ward that absorbs damage whenever you cast Abjuration spells.",
+    },
+    ("Wizard", "Diviner", 3): {
+        "name": "Divination Savant & Portent (Diviner)",
+        "description": "Gain two Divination spells in your spellbook and roll two d20 Portent dice after a Long Rest to replace d20 Tests made by you or visible creatures.",
+    },
+    ("Wizard", "Illusionist", 3): {
+        "name": "Illusion Savant & Improved Illusions (Illusionist)",
+        "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, enhance Minor Illusion, and cast Summon Beast/Fey as illusions.",
+    },
+    ("Artificer", "Alchemist", 3): {
+        "name": "Experimental Elixir & Tool Proficiency (Alchemist)",
+        "description": "Gain Alchemist's Supplies proficiency and brew Experimental Elixirs after a Long Rest or by expending spell slots.",
+    },
+    ("Artificer", "Armorer", 3): {
+        "name": "Arcane Armor & Tools of the Trade (Armorer)",
+        "description": "Gain Heavy Armor and Smith's Tools proficiency and transform armor into Guardian or Infiltrator Arcane Armor.",
+    },
+    ("Artificer", "Artillerist", 3): {
+        "name": "Eldritch Cannon & Artillerist Spells (Artillerist)",
+        "description": "Gain Woodcarver's Tools proficiency, prepare Artillerist spells, and summon a Magical Eldritch Cannon (Flamethrower, Force Ballista, or Protector).",
+    },
+    ("Artificer", "Battle Smith", 3): {
+        "name": "Battle Ready & Steel Defender (Battle Smith)",
+        "description": "Use INT for magic weapon attacks, gain Smith's Tools proficiency, keep Battle Smith spells prepared, and command a Steel Defender companion.",
+    },
+    ("Artificer", "Cartographer", 3): {
+        "name": "Tools of the Trade & Adventurer's Atlas (Cartographer)",
+        "description": "Gain Calligrapher's Supplies and Cartographer's Tools proficiency (halving Spell Scroll scribing time and cost), keep Cartographer spells prepared, and link allies with Adventurer's Atlas maps.",
     },
 }
 
@@ -1779,6 +1967,23 @@ def generate_level_up_build_recommendations(
         return fallback_result()
 
 
+def _lookup_subclass_detail(
+    details_map: dict, char_class: str, subclass_to_use: str, target_level: int
+) -> dict | None:
+    """Resolve subclass detail preferring exact name match before longest substring match."""
+    cls_lower = char_class.lower()
+    sub_lower = subclass_to_use.lower().strip()
+    for (c, sc, lvl), detail in details_map.items():
+        if c.lower() == cls_lower and lvl == target_level and sc.lower() == sub_lower:
+            return detail
+    for (c, sc, lvl), detail in sorted(
+        details_map.items(), key=lambda item: len(item[0][1]), reverse=True
+    ):
+        if c.lower() == cls_lower and lvl == target_level and sc.lower() in sub_lower:
+            return detail
+    return None
+
+
 def resolve_level_up_automatic_features(
     char_class: str,
     target_level: int,
@@ -1799,6 +2004,7 @@ def resolve_level_up_automatic_features(
         "tradition feature",
         "subclass feature",
         "domain feature",
+        "path feature",
         "martial archetype",
         "roguish archetype",
         "sorcerous origin",
@@ -1818,25 +2024,14 @@ def resolve_level_up_automatic_features(
     for feat in static_features:
         flwr = feat.get("name", "").lower().strip()
         if flwr.endswith(" subclass") or any(ph in flwr for ph in _SUBCLASS_PLACEHOLDERS):
-            sub_detail = None
             details_map = SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
-            for (c, sc, lvl), detail in details_map.items():
-                if (
-                    c.lower() == char_class.lower()
-                    and sc.lower() in subclass_to_use.lower()
-                    and lvl == target_level
-                ):
-                    sub_detail = detail
-                    break
+            sub_detail = _lookup_subclass_detail(
+                details_map, char_class, subclass_to_use, target_level
+            )
             if not sub_detail and is_2024:
-                for (c, sc, lvl), detail in SUBCLASS_FEATURES_DETAILS.items():
-                    if (
-                        c.lower() == char_class.lower()
-                        and sc.lower() in subclass_to_use.lower()
-                        and lvl == target_level
-                    ):
-                        sub_detail = detail
-                        break
+                sub_detail = _lookup_subclass_detail(
+                    SUBCLASS_FEATURES_DETAILS, char_class, subclass_to_use, target_level
+                )
             if sub_detail:
                 resolved_features.append(dict(sub_detail))
             else:

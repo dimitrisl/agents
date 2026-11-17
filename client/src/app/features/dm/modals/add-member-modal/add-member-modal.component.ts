@@ -9,6 +9,7 @@ import {
   ForgeTab,
   ForgeTabsComponent,
 } from '../../../../shared/ui';
+import { BrokenPortraitTracker, buildDefaultPortraitSvg } from '../../../../core/utils/portrait';
 
 type AddMemberTab = 'existing' | 'custom' | 'invite';
 
@@ -28,6 +29,12 @@ type AddMemberTab = 'existing' | 'custom' | 'invite';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AddMemberModalComponent {
+  readonly portraits = new BrokenPortraitTracker();
+  portraitUrl(hero: { char_portrait?: string | null; char_name?: string | null; char_class?: string | null }): string {
+    return this.portraits.has(hero?.char_portrait)
+      ? hero.char_portrait!
+      : buildDefaultPortraitSvg(hero?.char_name, hero?.char_class);
+  }
   readonly addMemberTabs: ForgeTab[] = [
     { id: 'existing', label: '📜 Vault Heroes' },
     { id: 'custom', label: '📝 Paper / Custom Hero' },
