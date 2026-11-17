@@ -158,6 +158,9 @@ export class EncounterStorageService {
       conditions,
     };
 
+    if (typeof input['char_id'] === 'string' && input['char_id']) {
+      combatant.char_id = input['char_id'];
+    }
     if (typeof input['portrait'] === 'string') combatant.portrait = input['portrait'];
     if (typeof input['statblock'] === 'string') combatant.statblock = input['statblock'];
     if (deathSaves) combatant.deathSaves = deathSaves;

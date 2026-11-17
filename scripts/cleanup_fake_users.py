@@ -2,6 +2,7 @@
 """Cleanup Fake QA & Visual Playtest Users, Campaigns, and Characters from MongoDB."""
 
 import asyncio
+import os
 import re
 
 from server.db_async import get_database
@@ -142,6 +143,57 @@ async def run_cleanup(dry_run: bool = True, include_unknown: bool = False):
         {"campaign_name": {"$in": fake_campaign_names}}
     ).to_list(5000)
     print(f"9. Found {len(fake_encounters)} fake encounters.")
+
+    fake_entities = await db.campaign_entities.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    print(f"10. Found {len(fake_entities)} fake campaign entities.")
+
+    fake_session_logs = await db.session_logs.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    print(f"11. Found {len(fake_session_logs)} fake session logs.")
+
+    fake_skeletons = await db.campaign_skeletons.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    print(f"12. Found {len(fake_skeletons)} fake campaign skeletons.")
+
+    fake_homebrew = await db.homebrew_content.find(
+        {
+            "$or": [
+                {"campaign_name": {"$in": fake_campaign_names}},
+                {"campaign_id": {"$in": fake_campaign_names}},
+            ]
+        }
+    ).to_list(5000)
+    print(f"13. Found {len(fake_homebrew)} fake homebrew entries.")
+
+    from backend.utils.path_safety import safe_path
+
+    fake_assets = await db.campaign_assets.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    disk_asset_count = 0
+    for asset in fake_assets:
+        fname = asset.get("filename")
+        if not isinstance(fname, str) or not fname.strip():
+            continue
+        try:
+            candidate = safe_path(os.path.join("data", "uploads", fname), scope="uploads")
+            if os.path.isfile(candidate):
+                disk_asset_count += 1
+        except (ValueError, OSError):
+            pass
+    print(
+        f"14. Found {len(fake_assets)} fake campaign assets "
+        f"({disk_asset_count} file(s) on disk under data/uploads/)."
+    )
+
+    fake_scene_history = await db.campaign_scene_history.find(
+        {"campaign_name": {"$in": fake_campaign_names}}
+    ).to_list(5000)
+    print(f"15. Found {len(fake_scene_history)} fake scene history records.")
 
     if dry_run:
         print("\n" + "=" * 60)

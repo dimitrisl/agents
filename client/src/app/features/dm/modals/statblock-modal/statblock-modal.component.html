@@ -9,7 +9,14 @@
     <!-- Party Member View -->
     <ng-container *ngIf="partyMember; else monsterView">
       <div class="flex items-center gap-3">
-        <img *ngIf="partyMember.portrait" [src]="partyMember.portrait" alt="" class="h-16 w-16 rounded-full object-cover border border-hairline" />
+        @if (portraits.has(partyMember.portrait)) {
+          <img
+            [src]="partyMember.portrait"
+            (error)="portraits.mark(partyMember.portrait)"
+            alt=""
+            class="h-16 w-16 rounded-full object-cover border border-hairline"
+          />
+        }
         <div>
           <p class="text-body text-muted">{{ partyMember.char_class }} Level {{ partyMember.level }}</p>
           <p class="text-body text-muted">

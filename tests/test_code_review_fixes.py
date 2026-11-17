@@ -51,6 +51,9 @@ class _AsyncColl:
     async def count_documents(self, query=None):
         return self._coll.count_documents(query or {})
 
+    async def distinct(self, field, *args, **kwargs):
+        return self._coll.distinct(field, *args, **kwargs)
+
     def find(self, query=None, *args, **kwargs):
         cursor = self._coll.find(query or {}, *args, **kwargs)
 
@@ -1082,8 +1085,40 @@ def test_fighter_eldritch_knight_inference_respects_multiclass_and_classes_subcl
     ).model_dump()
     s_ek = sync_character_stats(ek)
     assert s_ek.get("subclass") == "Eldritch Knight"
+    assert s_ek["classes"][0]["subclass"] == "Eldritch Knight"
     assert s_ek.get("spell_ability") == "INT"
     assert s_ek["spell_slots"]["level_1"]["max"] == 2
+
+    # 5) 2024 Edition Fighter L3 with spells also writes Eldritch Knight back to classes[0]
+    ek_2024 = CharacterSchema(
+        char_id="ek_2024_3",
+        char_name="Eldritch2024",
+        char_class="Fighter",
+        char_level=3,
+        classes=[{"class_name": "Fighter", "level": 3, "subclass": None}],
+        race="Human",
+        background="Sage",
+        dnd_edition=EDITION_2024,
+        stats={"STR": 16, "DEX": 10, "CON": 14, "INT": 14, "WIS": 10, "CHA": 8},
+        spells={"cantrips": ["Fire Bolt"], "level_1": ["Shield"]},
+    ).model_dump()
+    s_ek_2024 = sync_character_stats(ek_2024)
+    assert s_ek_2024.get("subclass") == "Eldritch Knight"
+    assert s_ek_2024["classes"][0]["subclass"] == "Eldritch Knight"
+
+    # 6) Malformed non-dict entries in classes fall back cleanly without IndexError
+    malformed = {
+        "char_id": "bad_cls_1",
+        "char_name": "Malformed",
+        "char_class": "Fighter",
+        "char_level": 2,
+        "classes": ["not_a_dict"],
+        "dnd_edition": EDITION_2014,
+        "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8},
+    }
+    s_malformed = sync_character_stats(malformed)
+    assert s_malformed["classes"][0]["class_name"] == "Fighter"
+    assert s_malformed["classes"][0]["level"] == 2
 
 
 @pytest.mark.parametrize(
@@ -1176,8 +1211,56 @@ def test_2024_draconic_sorcerer_roll_before_subclass_applies_l3_bonus():
         # 14 + (6+2+1) + 2 retroactive L1-L2 Draconic = 25
         assert body["hp_max"] == 25
         assert body["hp_current"] == 25
+        assert not any(
+            "hp_bonus_included" in (f.get("description") or "").lower()
+            for f in body.get("features_traits", [])
+        )
+
+        # 2014 Fighter Level 1 -> 2 roll level-up also never persists hp_bonus_included as a trait
+        f_doc = {
+            "char_id": "fighter_roll_2014",
+            "owner_id": "u1",
+            "char_name": "Torin",
+            "char_class": "Fighter",
+            "char_level": 1,
+            "classes": [{"class_name": "Fighter", "level": 1, "subclass": None}],
+            "race": "Human",
+            "background": "Soldier",
+            "dnd_edition": EDITION_2014,
+            "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8},
+            "hp_max": 12,
+            "hp_current": 12,
+            "feat_hp_bonus": 0,
+            "features_traits": [
+                {"name": "0", "description": "Selected for hp_bonus_included"},
+            ],
+            "version": 0,
+        }
+        db._db["characters"].insert_one(dict(f_doc))
+        f_analysis = analyze_level_up(f_doc, user_choices={"level_up_class": "Fighter"})
+        resp_2014 = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "fighter_roll_2014",
+                "analysis": f_analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "hp_method": "roll",
+                    "hp_bonus_included": "0",
+                    "custom_hp_increase": "9",
+                },
+            },
+        )
+        assert resp_2014.status_code == 200
+        f_body = resp_2014.json()
+        assert f_body["hp_max"] == 21
+        assert not any(
+            "hp_bonus_included" in (f.get("description") or "").lower()
+            for f in f_body.get("features_traits", [])
+        )
     finally:
         app.dependency_overrides = orig
+        limiter.reset()
 
 
 def test_add_party_member_broadcasts_party_member_joined_ws_event():
@@ -1248,6 +1331,8 @@ def test_cleanup_fake_users_cascades_all_campaign_collections_and_preserves_real
         "homebrew_content",
         "campaign_whispers",
         "campaign_scenes",
+        "campaign_assets",
+        "campaign_scene_history",
     ):
         db._db[coll].insert_many(
             [
@@ -1272,6 +1357,352 @@ def test_cleanup_fake_users_cascades_all_campaign_collections_and_preserves_real
         "homebrew_content",
         "campaign_whispers",
         "campaign_scenes",
+        "campaign_assets",
+        "campaign_scene_history",
     ):
         assert db._db[coll].count_documents({"campaign_name": "Shadowfell Keep 1"}) == 0
         assert db._db[coll].count_documents({"campaign_name": "Real Campaign"}) == 1
+
+
+def test_forge_preview_portrait_promoted_on_create_and_referenced_previews_never_pruned():
+    import os
+    import time
+
+    from backend.utils.image_utils import PORTRAIT_DIR, prune_unreferenced_preview_portraits
+
+    os.makedirs(PORTRAIT_DIR, exist_ok=True)
+    preview_fname = "preview_a1b2c3d4e5f6_1700000000.png"
+    referenced_preview = "preview_111122223333_1700000001.png"
+    orphan_preview = "preview_999988887777_1700000002.png"
+    promoted_path = None
+    created_files = [
+        os.path.join(PORTRAIT_DIR, preview_fname),
+        os.path.join(PORTRAIT_DIR, referenced_preview),
+        os.path.join(PORTRAIT_DIR, orphan_preview),
+    ]
+    for p in created_files:
+        with open(p, "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+        os.utime(p, (time.time() - 90000, time.time() - 90000))
+
+    db = _AsyncDB("preview_promote_db")
+    db._db["characters"].insert_one(
+        {
+            "char_id": "legacy_preview_owner",
+            "owner_id": "u_other",
+            "char_name": "Legacy",
+            "char_portrait": f"/api/v1/portraits/{referenced_preview}",
+        }
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "player"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/characters",
+            json={
+                "char_id": "saved_hero_1",
+                "char_name": "PromotedHero",
+                "char_class": "Fighter",
+                "race": "Human",
+                "background": "Soldier",
+                "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8},
+                "char_portrait": f"/api/v1/portraits/{preview_fname}",
+            },
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["char_portrait"].startswith("/api/v1/portraits/saved_hero_1_")
+        promoted_fname = os.path.basename(body["char_portrait"])
+        promoted_path = os.path.join(PORTRAIT_DIR, promoted_fname)
+        assert os.path.isfile(promoted_path)
+        assert not os.path.exists(os.path.join(PORTRAIT_DIR, preview_fname))
+
+        # Aged preview_ referenced in DB must survive pruning; aged unreferenced preview_ is deleted
+        referenced = db._db["characters"].distinct("char_portrait")
+        removed = prune_unreferenced_preview_portraits(referenced, max_age_seconds=86400)
+        assert removed >= 1
+        assert os.path.isfile(os.path.join(PORTRAIT_DIR, referenced_preview))
+        assert not os.path.exists(os.path.join(PORTRAIT_DIR, orphan_preview))
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+        for p in created_files + ([promoted_path] if promoted_path else []):
+            if p and os.path.exists(p):
+                os.remove(p)
+
+
+def test_level_up_analysis_http_preserves_hp_bonus_per_level_2014_and_2024():
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "player"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+
+        # 2024 Draconic Sorcery Level 2 -> 3 returns hp_bonus_per_level = 1 over HTTP
+        sorc_2024 = {
+            "char_id": "sorc_http_2024",
+            "char_name": "Ember",
+            "char_class": "Sorcerer",
+            "char_level": 2,
+            "classes": [{"class_name": "Sorcerer", "level": 2, "subclass": None}],
+            "race": "Human",
+            "background": "Sage",
+            "dnd_edition": EDITION_2024,
+            "hp_max": 14,
+            "hp_current": 14,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 17},
+        }
+        resp_2024 = client.post(
+            "/api/v1/forge/level-up-analysis",
+            json={"character": sorc_2024, "user_choices": {"subclass_0": "Draconic Sorcery"}},
+        )
+        assert resp_2024.status_code == 200
+        body_2024 = resp_2024.json()
+        assert body_2024["hp_bonus_per_level"] == 1
+        assert body_2024["hp_increase"] == 7  # 4 + 2 CON + 1 Draconic
+
+        # 2014 Tough Fighter Level 1 -> 2 returns hp_bonus_per_level = 2 over HTTP
+        tough_2014 = {
+            "char_id": "tough_http_2014",
+            "char_name": "Garrick",
+            "char_class": "Fighter",
+            "char_level": 1,
+            "classes": [{"class_name": "Fighter", "level": 1, "subclass": None}],
+            "race": "Human",
+            "background": "Soldier",
+            "dnd_edition": EDITION_2014,
+            "hp_max": 14,
+            "hp_current": 14,
+            "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 8},
+            "features_traits": [{"name": "Tough", "description": "+2 HP per level"}],
+        }
+        resp_2014 = client.post(
+            "/api/v1/forge/level-up-analysis",
+            json={"character": tough_2014, "user_choices": {}},
+        )
+        assert resp_2014.status_code == 200
+        body_2014 = resp_2014.json()
+        assert body_2014["hp_bonus_per_level"] == 2
+        assert body_2014["hp_increase"] == 10  # 6 + 2 CON + 2 Tough
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_pdf_exporter_skips_data_uri_portraits_without_path_traversal_warning(caplog):
+    from backend.utils.pdf_exporter import create_image_overlay
+
+    with caplog.at_level("WARNING"):
+        res = create_image_overlay(
+            "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E"
+        )
+    assert res is None
+    assert "Blocked path traversal attempt" not in caplog.text
+
+
+def test_forge_portrait_supports_unsaved_preview_and_blocks_other_owners_char_id():
+    from unittest.mock import AsyncMock
+
+    db = _AsyncDB("forge_portrait_unsaved_db")
+    db._db["characters"].insert_one(
+        {
+            "char_id": "victim_char",
+            "owner_id": "victim_user",
+            "char_name": "SecretHero",
+            "char_class": "Rogue",
+        }
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "actor_1", "username": "actor"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        with patch(
+            "server.routers.forge_router.generate_portrait_url",
+            new_callable=AsyncMock,
+            return_value="/api/v1/portraits/temp_hero.png",
+        ):
+            # Unsaved Forge preview succeeds with version=0 while pinning ephemeral char_id and ignoring char_portrait
+            resp_ok = client.post(
+                "/api/v1/forge/portrait",
+                json={
+                    "char_id": "temp",
+                    "force": False,
+                    "character_data": {
+                        "char_id": "victim_char",
+                        "char_portrait": "data/portraits/../../server/config.py",
+                        "char_name": "Preview",
+                        "char_class": "Fighter",
+                        "race": "Elf",
+                    },
+                },
+            )
+            assert resp_ok.status_code == 200
+            assert resp_ok.json() == {
+                "success": True,
+                "portrait_url": "/api/v1/portraits/temp_hero.png",
+                "version": 0,
+            }
+
+        # Verify arguments passed to generate_portrait_url never trust victim char_id or char_portrait
+        with patch(
+            "server.routers.forge_router.generate_portrait_url",
+            new_callable=AsyncMock,
+            return_value="/api/v1/portraits/preview_safe.png",
+        ) as mock_gen:
+            resp_preview = client.post(
+                "/api/v1/forge/portrait",
+                json={
+                    "char_id": "temp",
+                    "force": False,
+                    "character_data": {
+                        "char_id": "victim_char",
+                        "char_portrait": "data/portraits/../../server/config.py",
+                        "char_class": "Bard",
+                        "race": "Goblin",
+                    },
+                },
+            )
+            assert resp_preview.status_code == 200
+            called_dict = mock_gen.await_args.args[0]
+            assert called_dict["char_id"].startswith("preview_")
+            assert called_dict["char_id"] != "victim_char"
+            assert "char_portrait" not in called_dict
+
+            # Cannot piggyback character_data on another user's persisted char_id
+            resp_idor = client.post(
+                "/api/v1/forge/portrait",
+                json={
+                    "char_id": "victim_char",
+                    "force": True,
+                    "character_data": {"char_class": "Bard", "race": "Human"},
+                },
+            )
+            assert resp_idor.status_code == 404
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_generate_portrait_url_blocks_legacy_path_traversal_probe():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from backend.utils.image_utils import generate_portrait_url
+
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.stream = MagicMock(side_effect=RuntimeError("network disabled in test"))
+
+    with patch("backend.utils.image_utils.httpx.AsyncClient", return_value=mock_client):
+        res = asyncio.run(
+            generate_portrait_url(
+                {
+                    "char_id": "preview_probe",
+                    "race": "Human",
+                    "char_class": "Fighter",
+                    "char_portrait": "data/portraits/../../server/config.py",
+                },
+                force=False,
+            )
+        )
+    assert res is None
+
+
+def test_barbarian_2014_path_feature_and_all_2024_level3_subclasses_resolve():
+    import json
+
+    from backend.core.constants import SUBCLASSES_2024
+    from backend.services.forge_service import resolve_level_up_automatic_features
+
+    for lvl in (6, 10, 14):
+        feats = resolve_level_up_automatic_features(
+            char_class="Barbarian",
+            target_level=lvl,
+            subclass_to_use="Path of the Berserker",
+            edition=EDITION_2014,
+        )
+        names = [f.get("name") for f in feats]
+        assert "Path feature" not in names
+        assert "Path of the Berserker Subclass Feature" in names
+
+    # Exhaustively verify every 2024 subclass in BOTH SUBCLASSES_2024 and data/rules/subclasses.json
+    with open("data/rules/subclasses.json") as f:
+        json_2024 = json.load(f)["2024 Edition"]
+
+    for source_map in (SUBCLASSES_2024, json_2024):
+        for cls_name, sub_list in source_map.items():
+            for sub_name in sub_list:
+                feats = resolve_level_up_automatic_features(
+                    char_class=cls_name,
+                    target_level=3,
+                    subclass_to_use=sub_name,
+                    edition=EDITION_2024,
+                )
+                assert any(
+                    sub_name.lower() in (f.get("name") or "").lower()
+                    and not (f.get("name") or "").endswith(" Subclass Feature")
+                    for f in feats
+                ), f"Expected dedicated 2024 L3 entry for {cls_name} ({sub_name}), got {feats}"
+                if cls_name == "Wizard" and sub_name == "Evoker":
+                    evoker_desc = " ".join(f.get("description", "") for f in feats)
+                    assert "miss with your cantrip attack roll" in evoker_desc
+                    assert "pass your cantrip attack roll" not in evoker_desc
+
+
+def test_parse_edition_is_case_insensitive_over_http():
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u1", "username": "player"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        for query_ed in ("5.5E", "2024 edition", "2014 legacy"):
+            resp = client.get(f"/api/v1/rules/classes?edition={query_ed}")
+            assert resp.status_code == 200, f"Failed for {query_ed}: {resp.text}"
+            assert "Fighter" in resp.json()
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_cleanup_fake_users_dry_run_reports_all_cascade_collections(capsys):
+    import asyncio
+
+    from scripts.cleanup_fake_users import run_cleanup
+
+    db = _AsyncDB("cleanup_dryrun_db")
+    db._db["users"].insert_one(
+        {"id": "qa_u1", "username": "qa_g1_dm_1", "email": "dm@phyrexian.test"}
+    )
+    db._db["campaigns"].insert_one({"campaign_name": "Shadowfell Keep 1", "owner_id": "qa_u1"})
+    for coll in (
+        "campaign_entities",
+        "session_logs",
+        "campaign_skeletons",
+        "homebrew_content",
+        "campaign_assets",
+        "campaign_scene_history",
+    ):
+        db._db[coll].insert_one({"campaign_name": "Shadowfell Keep 1", "filename": "missing.webp"})
+
+    with patch("scripts.cleanup_fake_users.get_database", return_value=db):
+        asyncio.run(run_cleanup(dry_run=True, include_unknown=False))
+
+    out = capsys.readouterr().out
+    for expected_label in (
+        "10. Found 1 fake campaign entities.",
+        "11. Found 1 fake session logs.",
+        "12. Found 1 fake campaign skeletons.",
+        "13. Found 1 fake homebrew entries.",
+        "14. Found 1 fake campaign assets",
+        "15. Found 1 fake scene history records.",
+    ):
+        assert expected_label in out
+    assert db._db["campaigns"].count_documents({"campaign_name": "Shadowfell Keep 1"}) == 1

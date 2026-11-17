@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -23,7 +24,7 @@ from backend.services.forge_service import (
     generate_level_up_build_recommendations,
     generate_playstyle_guide,
 )
-from backend.utils.image_utils import generate_portrait_url
+from backend.utils.image_utils import generate_portrait_url, prune_unreferenced_preview_portraits
 from server.config import settings
 from server.db_async import get_database
 from server.dependencies.auth import get_current_user
@@ -224,15 +225,38 @@ async def generate_ai_portrait(
     doc = await db["characters"].find_one(
         {"char_id": payload.char_id, "owner_id": current_user["id"]}
     )
-    if not doc:
+    if doc:
+        char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
+    elif isinstance(payload.character_data, dict):
+        existing_any = await db["characters"].find_one(
+            {"char_id": payload.char_id}, {"owner_id": 1}
+        )
+        if existing_any and existing_any.get("owner_id") != current_user["id"]:
+            raise HTTPException(status_code=404, detail="Character not found")
+        raw = payload.character_data
+        # Only prompt-descriptive fields are accepted for an unsaved Forge preview;
+        # char_id is pinned to an isolated ephemeral id and char_portrait is ignored.
+        char_dict = {
+            key: str(raw[key])[:500]
+            for key in (
+                "race",
+                "char_class",
+                "background",
+                "backstory",
+                "alignment",
+                "gender",
+            )
+            if raw.get(key) is not None
+        }
+        char_dict["char_id"] = f"preview_{uuid.uuid4().hex[:12]}"
+    else:
         raise HTTPException(status_code=404, detail="Character not found")
 
-    char_dict = CharacterSchema.model_validate(doc, strict=False).model_dump()
     portrait_url = await generate_portrait_url(
         char_dict, force=payload.force, custom_prompt=payload.prompt
     )
 
-    new_version = int(doc.get("version", 0) or 0)
+    new_version = int(doc.get("version", 0) or 0) if doc else 0
     if doc and portrait_url:
         new_version += 1
         char_dict["char_portrait"] = portrait_url
@@ -240,6 +264,13 @@ async def generate_ai_portrait(
             {"char_id": payload.char_id, "owner_id": current_user["id"]},
             {"$set": {"char_portrait": portrait_url, "version": new_version}},
         )
+    elif not doc and portrait_url:
+        # Clean up stale unreferenced Forge preview files off the event loop, preserving DB-referenced portraits
+        referenced_portraits = []
+        distinct_fn = getattr(db["characters"], "distinct", None)
+        if callable(distinct_fn):
+            referenced_portraits = await distinct_fn("char_portrait")
+        await run_in_threadpool(prune_unreferenced_preview_portraits, referenced_portraits)
 
     return {
         "success": bool(portrait_url),
@@ -430,7 +461,7 @@ async def apply_level_up(
         for choice_key, choice_val in payload.user_choices.items():
             if (
                 not choice_val
-                or choice_key == "custom_hp_increase"
+                or choice_key in ("custom_hp_increase", "hp_bonus_included")
                 or "_stat1_" in choice_key
                 or "_stat2_" in choice_key
             ):

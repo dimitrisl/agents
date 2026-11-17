@@ -1068,7 +1068,16 @@ def sync_character_stats(
     if "saving_throw_values" not in char_data or char_data["saving_throw_values"] is None:
         char_data["saving_throw_values"] = {}
 
-    classes = char_data.get("classes", [])
+    raw_classes = char_data.get("classes", [])
+    classes = (
+        [
+            c.model_dump() if hasattr(c, "model_dump") else dict(c)
+            for c in raw_classes
+            if isinstance(c, dict) or hasattr(c, "model_dump")
+        ]
+        if isinstance(raw_classes, list)
+        else []
+    )
     if not classes:
         # Pydantic models dump lists of ClassEntry to dicts, but just in case
         resolved_class = char_data.get("char_class") or char_data.get("class_name") or "Fighter"
@@ -1079,13 +1088,7 @@ def sync_character_stats(
                 "subclass": char_data.get("subclass"),
             }
         ]
-    else:
-        # Convert pydantic ClassEntry to dict if it's not already
-        classes = [
-            c.model_dump() if hasattr(c, "model_dump") else dict(c)
-            for c in classes
-            if isinstance(c, dict) or hasattr(c, "model_dump")
-        ]
+    char_data["classes"] = classes
 
     level = sum(c.get("level", 1) for c in classes)
     char_data["char_level"] = level
@@ -1227,6 +1230,7 @@ def sync_character_stats(
             name_lower in ("roll", "average", "manual")
             or "selected for level_up_class" in desc_lower
             or "selected for hp_method" in desc_lower
+            or "selected for hp_bonus_included" in desc_lower
         ):
             continue
 

@@ -890,7 +890,7 @@ class TestF10ToF15Boundaries:
         html_content = DM_COMPONENT_HTML.read_text(encoding="utf-8")
         assert "member.portrait" in html_content
         assert "(member.name || '?').charAt(0)" in html_content
-        assert "(error)=\"member.portrait = ''\"" in html_content
+        assert '(error)="portraits.mark(member.portrait)"' in html_content
 
     def test_f13_b05_token_move_preserves_initiative_order(self):
         """TC-B13-05: WebSocket sendVttMove sends vtt_token_move payload without altering combatants list."""

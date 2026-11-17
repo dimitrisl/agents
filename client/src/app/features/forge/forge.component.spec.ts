@@ -283,4 +283,85 @@ describe('ForgeComponent', () => {
       expect(component.importError).toBe('Not a dnd5e actor');
     });
   });
+
+  describe('Portrait handling', () => {
+    it('strips image.pollinations.ai URLs instead of persisting data URI SVGs to char_portrait', () => {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+      component.manualName = 'Kael';
+      component.manualClass = 'Fighter';
+      component.createManualCharacter();
+
+      const enrichReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/enrich-manual`);
+      enrichReq.flush({
+        char_id: 'unsaved-1',
+        char_name: 'Kael',
+        char_class: 'Fighter',
+        char_level: 1,
+        char_portrait: 'https://image.pollinations.ai/prompt/fighter',
+      });
+
+      expect(component.tempForgedChar?.char_portrait).toBeUndefined();
+    });
+
+    it('sends character_data for unsaved tempForgedChar when regenerating portrait and updates reference', () => {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+      const initialHero: any = {
+        char_id: 'unsaved-2',
+        char_name: 'Lyra',
+        char_class: 'Wizard',
+        race: 'Elf',
+      };
+      component.tempForgedChar = initialHero;
+
+      component.regeneratePortrait();
+
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/forge/portrait`);
+      expect(req.request.body.char_id).toBe('unsaved-2');
+      expect(req.request.body.character_data).toEqual(initialHero);
+      req.flush({ success: true, portrait_url: '/api/v1/portraits/lyra.png', version: 0 });
+
+      expect(component.tempForgedChar?.char_portrait).toBe('/api/v1/portraits/lyra.png');
+      expect(component.tempForgedChar).not.toBe(initialHero);
+    });
+
+    it('sanitizes legacy pollinations and SVG portraits from cached drafts on restore and save', () => {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+      localStorage.setItem(
+        'phyrexian_forge_temp_hero',
+        JSON.stringify({
+          char_id: 'cached-1',
+          char_name: 'CachedHero',
+          char_class: 'Rogue',
+          stats: { STR: 10, DEX: 16, CON: 12, INT: 10, WIS: 10, CHA: 10 },
+          char_portrait: 'data:image/svg+xml;utf8,%3Csvg%3E%3C/svg%3E',
+        })
+      );
+
+      component.restoreTempHero();
+      expect(component.tempForgedChar?.char_portrait).toBeUndefined();
+
+      component.tempForgedChar!.char_portrait = 'https://image.pollinations.ai/prompt/legacy';
+      const saveSpy = jest.spyOn(component.charState, 'saveCharacter');
+      component.acceptAndEquipHero();
+
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ char_id: 'cached-1', char_portrait: undefined })
+      );
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/characters`);
+      expect(req.request.body.char_portrait).toBeUndefined();
+      req.flush({ ...req.request.body, version: 1 });
+      httpMock.match((r) => r.method === 'GET' && r.url.endsWith('/characters')).forEach((r) =>
+        r.flush({ characters: [], unreadable: [] })
+      );
+    });
+  });
 });

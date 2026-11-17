@@ -536,6 +536,7 @@ class LevelUpChoice(BaseModel):
 class LevelUpAnalysisSchema(BaseModel):
     automatic_changes: List[FeatureTrait] = Field(default_factory=list)
     hp_increase: int
+    hp_bonus_per_level: int = 0
     new_total_hp: int
     choices_required: List[LevelUpChoice] = Field(default_factory=list)
     updated_proficiency_bonus: Optional[int] = None

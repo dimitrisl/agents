@@ -1,8 +1,11 @@
 import hashlib
 import logging
 import os
+import shutil
+import time
 import urllib.parse
 import uuid
+from typing import Iterable
 
 import httpx
 
@@ -33,17 +36,27 @@ async def generate_portrait_url(
     # If the character already has a local portrait that exists, just return it.
     existing_portrait = char_data.get("char_portrait")
     base_url_path = f"{settings.API_V1_STR}/portraits/"
+    from backend.utils.path_safety import safe_path
 
     if not force and existing_portrait and existing_portrait.startswith(base_url_path):
         filename = os.path.basename(existing_portrait)
-        local_path = os.path.join(PORTRAIT_DIR, filename)
-        if os.path.exists(local_path):
-            return existing_portrait
+        try:
+            local_path = safe_path(os.path.join(PORTRAIT_DIR, filename), scope="portraits")
+            if os.path.exists(local_path):
+                return f"{base_url_path}{os.path.basename(local_path)}"
+        except ValueError:
+            logger.warning("Blocked invalid local portrait path: %r", existing_portrait)
     elif not force and existing_portrait and existing_portrait.startswith("data/portraits/"):
-        # Legacy support
-        if os.path.exists(existing_portrait):
-            filename = os.path.basename(existing_portrait)
-            return f"{base_url_path}{filename}"
+        # Legacy support (confined strictly to PORTRAIT_DIR)
+        try:
+            local_path = safe_path(existing_portrait, scope="portraits")
+            if os.path.exists(local_path):
+                filename = os.path.basename(local_path)
+                return f"{base_url_path}{filename}"
+        except ValueError:
+            logger.warning(
+                "Blocked traversal attempt in legacy portrait path: %r", existing_portrait
+            )
 
     race = char_data.get("race", "Human")
     char_class = char_data.get("char_class", "Warrior")
@@ -123,8 +136,6 @@ async def generate_portrait_url(
             return None
 
         # Save locally
-        import time
-
         from backend.utils.path_safety import safe_path
 
         timestamp = int(time.time())
@@ -140,6 +151,75 @@ async def generate_portrait_url(
     except Exception as e:
         logger.error(f"Failed to generate and download portrait: {e}")
         return None
+
+
+def promote_preview_portrait(
+    portrait_url: str | None, char_id: str
+) -> tuple[str | None, str | None]:
+    """Promotes a Forge `preview_*.png` portrait onto a character-owned filename.
+
+    Returns `(updated_portrait_url, old_preview_filename_to_check)` when promoted,
+    or `(portrait_url, None)` if no local preview file applies.
+    """
+    prefix = f"{settings.API_V1_STR}/portraits/preview_"
+    if not isinstance(portrait_url, str) or not portrait_url.startswith(prefix) or not char_id:
+        return portrait_url, None
+
+    from backend.utils.path_safety import safe_path
+
+    src_filename = os.path.basename(portrait_url)
+    if not (src_filename.startswith("preview_") and src_filename.endswith(".png")):
+        return portrait_url, None
+
+    try:
+        src_path = safe_path(os.path.join(PORTRAIT_DIR, src_filename), scope="portraits")
+        if not os.path.isfile(src_path):
+            return portrait_url, None
+
+        safe_char_id = _secure_filename(char_id)
+        if not safe_char_id or safe_char_id.startswith("preview_"):
+            return portrait_url, None
+
+        dest_filename = f"{safe_char_id}_{int(time.time())}.png"
+        dest_path = safe_path(os.path.join(PORTRAIT_DIR, dest_filename), scope="portraits")
+        shutil.copy2(src_path, dest_path)
+        return f"{settings.API_V1_STR}/portraits/{dest_filename}", src_filename
+    except (OSError, ValueError) as e:
+        logger.warning("Failed promoting preview portrait %r: %s", portrait_url, e)
+        return portrait_url, None
+
+
+def prune_unreferenced_preview_portraits(
+    referenced_urls: Iterable[str | None] = (),
+    now: int | None = None,
+    max_age_seconds: int = 86400,
+) -> int:
+    """Removes stale Forge preview_*.png files not referenced by any character in MongoDB."""
+    from backend.utils.path_safety import safe_path
+
+    referenced_names = {
+        os.path.basename(str(url))
+        for url in referenced_urls
+        if isinstance(url, str) and url.strip()
+    }
+    cutoff = (now if now is not None else int(time.time())) - max_age_seconds
+    removed = 0
+    try:
+        for entry in os.listdir(PORTRAIT_DIR):
+            if not (entry.startswith("preview_") and entry.endswith(".png")):
+                continue
+            if entry in referenced_names:
+                continue
+            try:
+                candidate = safe_path(os.path.join(PORTRAIT_DIR, entry), scope="portraits")
+                if os.path.isfile(candidate) and os.path.getmtime(candidate) < cutoff:
+                    os.remove(candidate)
+                    removed += 1
+            except (OSError, ValueError):
+                pass
+    except OSError:
+        pass
+    return removed
 
 
 def _secure_filename(filename: str) -> str:

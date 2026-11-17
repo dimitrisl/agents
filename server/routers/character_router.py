@@ -38,6 +38,7 @@ from backend.services.rules_service import parse_character_from_text
 from backend.utils.image_utils import (
     PORTRAIT_DIR,
     _secure_filename,
+    promote_preview_portrait,
     stream_validated_image_upload,
 )
 from backend.utils.import_utils import FoundryImportError, import_vtt_character
@@ -171,6 +172,13 @@ async def create_character(
                 detail="Cannot overwrite a character owned by another user.",
             )
 
+    old_preview_filename: str | None = None
+    if char_dict.get("char_portrait"):
+        promoted_url, old_preview_filename = await run_in_threadpool(
+            promote_preview_portrait, char_dict.get("char_portrait"), char_dict["char_id"]
+        )
+        char_dict["char_portrait"] = promoted_url
+
     homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
 
     # Ensure stats & derived properties are synchronized
@@ -181,6 +189,30 @@ async def create_character(
         char_dict["hp_current"] = char_dict.get("hp_max", 10)
 
     await _save_owned_character(db, char_dict, current_user["id"])
+
+    if old_preview_filename:
+        try:
+            ref_count = await db["characters"].count_documents(
+                {
+                    "$or": [
+                        {"char_portrait": old_preview_filename},
+                        {
+                            "char_portrait": {
+                                "$regex": rf"(^|[/\\]){re.escape(old_preview_filename)}$"
+                            }
+                        },
+                    ]
+                }
+            )
+            if ref_count == 0:
+                old_preview_path = safe_path(
+                    os.path.join(PORTRAIT_DIR, old_preview_filename), scope="portraits"
+                )
+                if os.path.isfile(old_preview_path):
+                    await run_in_threadpool(os.remove, old_preview_path)
+        except Exception as e:
+            logger.warning("Could not prune promoted preview %s: %s", old_preview_filename, e)
+
     return CharacterSchema.model_validate(char_dict, strict=False)
 
 

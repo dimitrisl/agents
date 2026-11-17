@@ -226,4 +226,19 @@ describe('EncounterStorageService', () => {
 
     expect(service.load(CAMPAIGN)).toBeNull();
   });
+
+  it('preserves combatant char_id across save/load round-trips for homonym isolation', () => {
+    const encounter = state({
+      activeCombatantId: 'row-1',
+      combatants: [
+        combatant({ id: 'row-1', char_id: 'thorin-alice', name: 'Thorin', is_player: true }),
+        combatant({ id: 'row-2', char_id: 'thorin-bob', name: 'Thorin', is_player: true }),
+      ],
+    });
+
+    service.save(CAMPAIGN, encounter);
+    const loaded = service.load(CAMPAIGN);
+
+    expect(loaded?.combatants.map((c) => c.char_id)).toEqual(['thorin-alice', 'thorin-bob']);
+  });
 });

@@ -212,7 +212,7 @@ SUBCLASSES_2024 = {
         "Aberrant Sorcery",
         "Clockwork Sorcery",
         "Draconic Sorcery",
-        "Wild Magic",
+        "Wild Magic Sorcery",
     ],
     "Warlock": [
         "Archfey Patron",

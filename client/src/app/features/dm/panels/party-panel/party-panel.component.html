@@ -53,11 +53,11 @@
         class="flex min-w-0 flex-col overflow-hidden rounded-xl bg-panel"
       >
         <header class="flex flex-wrap items-center justify-between gap-3 bg-tile px-4 py-3">
-          <div class="flex items-center gap-3 min-w-[180px] flex-1">
-            @if (member.portrait && !member.portrait.includes('image.pollinations.ai')) {
+          <div class="flex items-center gap-3 min-w-44 flex-1">
+            @if (portraits.has(member.portrait)) {
               <img
                 [src]="member.portrait"
-                (error)="member.portrait = ''"
+                (error)="portraits.mark(member.portrait)"
                 alt=""
                 class="h-10 w-10 shrink-0 rounded-full border border-hairline object-cover"
               />
@@ -78,7 +78,7 @@
                 <span class="font-bold truncate">{{ member.name }}</span>
               </h3>
               <p class="truncate text-micro font-semibold uppercase text-muted">
-                Level {{ member.level }} {{ member.char_class }}<ng-container *ngIf="member.owner_username"> · ({{ member.owner_username }})</ng-container>
+                Level {{ member.level }} {{ member.char_class }}@if (member.owner_username) { · ({{ member.owner_username }})}
               </p>
             </div>
           </div>

@@ -55,6 +55,7 @@ export class ForgeSwitcherComponent {
 
   open = false;
   panelWidth = 0;
+  private readonly brokenImageUrls = new Set<string>();
 
   readonly positions: ConnectedPosition[] = [
     { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 6 },
@@ -86,6 +87,17 @@ export class ForgeSwitcherComponent {
 
   initialOf(option: ForgeSwitcherOption): string {
     return option.badge || (option.title || '?').trim().charAt(0).toUpperCase();
+  }
+
+  hasImage(option?: ForgeSwitcherOption | null): boolean {
+    const url = option?.imageUrl;
+    return Boolean(url && !this.brokenImageUrls.has(url));
+  }
+
+  markImageBroken(url?: string | null): void {
+    if (url) {
+      this.brokenImageUrls.add(url);
+    }
   }
 
   toggle(): void {

@@ -10,8 +10,13 @@
   [attr.aria-label]="'Active ' + noun + ': ' + (selected?.title || 'none') + '. Change ' + noun"
   (click)="toggle()"
 >
-  @if (selected?.imageUrl) {
-    <img [src]="selected!.imageUrl" alt="" class="h-8 w-8 shrink-0 rounded-full border border-gold/40 object-cover" />
+  @if (hasImage(selected)) {
+    <img
+      [src]="selected!.imageUrl"
+      (error)="markImageBroken(selected!.imageUrl)"
+      alt=""
+      class="h-8 w-8 shrink-0 rounded-full border border-gold/40 object-cover"
+    />
   } @else {
     <span
       class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-label font-semibold text-muted"
@@ -65,8 +70,13 @@
           [cdkOptionTypeaheadLabel]="option.title"
           class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2.5 py-1.5 text-ink transition-colors hover:bg-tile aria-selected:bg-accent/10 [&.cdk-option-active]:bg-tile [&.cdk-option-active]:ring-1 [&.cdk-option-active]:ring-inset [&.cdk-option-active]:ring-accent/50"
         >
-          @if (option.imageUrl) {
-            <img [src]="option.imageUrl" alt="" class="h-8 w-8 shrink-0 rounded-full border border-gold/40 object-cover" />
+          @if (hasImage(option)) {
+            <img
+              [src]="option.imageUrl"
+              (error)="markImageBroken(option.imageUrl)"
+              alt=""
+              class="h-8 w-8 shrink-0 rounded-full border border-gold/40 object-cover"
+            />
           } @else {
             <span
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-tile text-label font-semibold text-muted"

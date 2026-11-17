@@ -8,6 +8,7 @@ import {
   ForgeInputDirective,
 } from '../../../../shared/ui';
 import type { PartyMember } from '../../../../core/models/party.model';
+import { BrokenPortraitTracker } from '../../../../core/utils/portrait';
 
 @Component({
   selector: 'app-party-panel',
@@ -24,6 +25,7 @@ import type { PartyMember } from '../../../../core/models/party.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PartyPanelComponent {
+  readonly portraits = new BrokenPortraitTracker();
   readonly stats = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
 
   @Input({ required: true }) campaignName!: string;

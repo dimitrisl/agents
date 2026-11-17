@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import type { CharacterSchema } from '../../../core/models/character.model';
+import { sanitizePortraitUrl } from '../../../core/utils/portrait';
 import { ForgeSwitcherComponent, ForgeSwitcherOption } from '../../../shared/ui';
 
 /** Active-hero picker for the dashboard header: heroes mapped onto <forge-switcher>. */
@@ -39,7 +40,6 @@ export class HeroSwitcherComponent {
 
   /** A hero's own uploaded/generated portrait; null when they only have the default art. */
   private portraitOf(char: CharacterSchema): string | null {
-    const url = char.char_portrait;
-    return url && !url.includes('anvil.png') ? url : null;
+    return sanitizePortraitUrl(char.char_portrait) ?? null;
   }
 }

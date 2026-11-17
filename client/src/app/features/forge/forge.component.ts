@@ -9,7 +9,7 @@ import { CharacterStateService } from '../../core/services/character-state.servi
 import { DiceService } from '../../core/services/dice.service';
 import { WakeLockService } from '../../core/services/wake-lock.service';
 import { CharacterSchema } from '../../core/models/character.model';
-import { buildDefaultPortraitSvg } from '../../core/utils/portrait';
+import { sanitizePortraitUrl } from '../../core/utils/portrait';
 import { environment } from '../../../environments/environment';
 import {
   ForgeBadgeComponent,
@@ -192,7 +192,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     'Paladin': ['Oath of Devotion', 'Oath of Glory', 'Oath of the Ancients', 'Oath of Vengeance'],
     'Ranger': ['Beast Master', 'Fey Wanderer', 'Gloom Stalker', 'Hunter'],
     'Rogue': ['Arcane Trickster', 'Assassin', 'Soulknife', 'Thief'],
-    'Sorcerer': ['Aberrant Sorcery', 'Clockwork Sorcery', 'Draconic Sorcery', 'Wild Magic'],
+    'Sorcerer': ['Aberrant Sorcery', 'Clockwork Sorcery', 'Draconic Sorcery', 'Wild Magic Sorcery'],
     'Warlock': ['Archfey Patron', 'Celestial Patron', 'Fiend Patron', 'Great Old One Patron'],
     'Wizard': ['Abjurer', 'Diviner', 'Evoker', 'Illusionist']
   };
@@ -345,6 +345,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object' && parsed.stats && typeof parsed.stats === 'object') {
+          parsed.char_portrait = sanitizePortraitUrl(parsed.char_portrait);
           this.tempForgedChar = parsed;
         }
       }
@@ -755,12 +756,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
       edition: this.charState.dndEdition()
     }).subscribe({
       next: (char) => {
-        if (!char.char_portrait || char.char_portrait.includes('image.pollinations.ai')) {
-          char.char_portrait = buildDefaultPortraitSvg(
-            char.char_name || this.aiName || 'Hero',
-            char.char_class || this.aiClass || 'Warrior'
-          );
-        }
+        char.char_portrait = sanitizePortraitUrl(char.char_portrait);
 
         this.finishForgingProgress(char);
       },
@@ -795,12 +791,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
       chosen_spells: this.manualSpells.length > 0 ? this.manualSpells : null,
     }).subscribe({
       next: (char) => {
-        if (!char.char_portrait || char.char_portrait.includes('image.pollinations.ai')) {
-          char.char_portrait = buildDefaultPortraitSvg(
-            char.char_name || this.manualName || 'Hero',
-            char.char_class || this.manualClass || 'Warrior'
-          );
-        }
+        char.char_portrait = sanitizePortraitUrl(char.char_portrait);
 
         this.finishForgingProgress(char);
       },
@@ -812,20 +803,26 @@ export class ForgeComponent implements OnInit, OnDestroy {
 
   regeneratePortrait() {
     if (!this.tempForgedChar) return;
-    if (!this.tempForgedChar.char_portrait || this.tempForgedChar.char_portrait.includes('image.pollinations.ai')) {
-      this.tempForgedChar.char_portrait = buildDefaultPortraitSvg(
-        this.tempForgedChar.char_name || 'Hero',
-        this.tempForgedChar.char_class || 'Warrior'
-      );
+    const sanitizedExisting = sanitizePortraitUrl(this.tempForgedChar.char_portrait);
+    if (this.tempForgedChar.char_portrait !== sanitizedExisting) {
+      this.tempForgedChar = {
+        ...this.tempForgedChar,
+        char_portrait: sanitizedExisting,
+      };
     }
 
     this.http.post<any>(`${environment.apiBaseUrl}/forge/portrait`, {
       char_id: this.tempForgedChar.char_id || 'temp',
-      force: true
+      force: true,
+      character_data: this.tempForgedChar,
     }).subscribe({
       next: (res) => {
-        if (res && res.portrait_url && this.tempForgedChar) {
-          this.tempForgedChar.char_portrait = res.portrait_url;
+        const nextUrl = sanitizePortraitUrl(res?.portrait_url);
+        if (nextUrl && this.tempForgedChar) {
+          this.tempForgedChar = {
+            ...this.tempForgedChar,
+            char_portrait: nextUrl,
+          };
           this.saveTempHero(this.tempForgedChar);
         }
       },
@@ -837,7 +834,10 @@ export class ForgeComponent implements OnInit, OnDestroy {
     if (!this.tempForgedChar) return;
     this.loading = true;
     this.saveError = null;
-    const heroToSave = { ...this.tempForgedChar };
+    const heroToSave = {
+      ...this.tempForgedChar,
+      char_portrait: sanitizePortraitUrl(this.tempForgedChar.char_portrait),
+    };
 
     this.charState.saveCharacter(heroToSave)
       .pipe(takeUntilDestroyed(this.destroyRef))
