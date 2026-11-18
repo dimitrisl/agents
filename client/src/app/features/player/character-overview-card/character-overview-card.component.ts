@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
 import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
-import { hasInitiativeAdvantage } from '../../../core/rules';
+import { formatClassSummary, formatSubclassSummary, hasInitiativeAdvantage } from '../../../core/rules';
 import {
   ForgeBadgeComponent,
   ForgeIconComponent,
@@ -71,6 +71,14 @@ export class CharacterOverviewCardComponent implements OnChanges {
   get subclassUnlockLevel(): number {
     const is2024 = (this.char?.dnd_edition || this.edition || '').includes('2024');
     return getSubclassUnlockLevel(this.char?.char_class || '', is2024);
+  }
+
+  get classSummary(): string {
+    return formatClassSummary(this.char, 'long');
+  }
+
+  get subclassSummary(): string {
+    return formatSubclassSummary(this.char);
   }
 
   get canEditSubclass(): boolean {

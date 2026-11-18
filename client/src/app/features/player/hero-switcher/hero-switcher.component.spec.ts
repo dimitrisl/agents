@@ -43,4 +43,26 @@ describe('HeroSwitcherComponent', () => {
     switcher.valueChange.emit('b');
     expect(picked).toEqual(['b']);
   });
+
+  it('formats multiclass heroes cleanly without losing single-class format', () => {
+    const fixture = TestBed.createComponent(HeroSwitcherComponent);
+    fixture.componentRef.setInput('characters', [
+      ...HEROES,
+      {
+        char_id: 'c',
+        char_name: 'Lyra',
+        char_level: 8,
+        char_class: 'Paladin',
+        classes: [
+          { class_name: 'Paladin', level: 5 },
+          { class_name: 'Sorcerer', level: 3 },
+        ],
+      },
+    ]);
+    fixture.componentRef.setInput('activeCharacterId', 'c');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.options[2].subtitle).toBe('Paladin 5 / Sorcerer 3');
+    expect(fixture.componentInstance.options[0].subtitle).toBe('Lvl 11 Rogue');
+  });
 });

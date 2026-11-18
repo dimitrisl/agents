@@ -217,4 +217,52 @@ describe('SpellsPanelComponent', () => {
     component.toggleAllFeatures();
     expect(component.isFeatureExpanded(0)).toBe(false);
   });
+
+  it('displays Warlock Pact Magic summary and per-level short rest indicator for Sorcerer 5 / Warlock 3', () => {
+    component.char = {
+      ...mockChar,
+      char_class: 'Sorcerer',
+      char_level: 8,
+      classes: [
+        { class_name: 'Sorcerer', level: 5 },
+        { class_name: 'Warlock', level: 3 },
+      ],
+      spell_slots: {
+        level_1: { max: 4, used: 0 },
+        level_2: { max: 5, used: 1, pact_max: 2, pact_used: 1 },
+        level_3: { max: 2, used: 0 },
+        pact: { max: 2, used: 1, level: 2 },
+      },
+    };
+    component.getSpellSlotUsed = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.used ?? 0;
+    component.getSpellSlotMax = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.max ?? 0;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(component.pactPool).toEqual({ max: 2, used: 1, remaining: 1, level: 2 });
+    expect(component.pactCountAtLevel(2)).toBe(2);
+    expect(component.pactRemainingAtLevel(2)).toBe(1);
+    expect(component.pactCountAtLevel(1)).toBe(0);
+    expect(text).toContain('1/2 Pact (Lvl 2 · Short Rest)');
+    expect(text).toContain('1/2 Pact');
+  });
+
+  it('detects Pact Magic slots for a single-class Warlock without an explicit pact key', () => {
+    component.char = {
+      ...mockChar,
+      char_class: 'Warlock',
+      char_level: 3,
+      classes: [{ class_name: 'Warlock', level: 3 }],
+      spell_slots: {
+        level_2: { max: 2, used: 0 },
+      },
+    };
+    component.getSpellSlotUsed = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.used ?? 0;
+    component.getSpellSlotMax = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.max ?? 0;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(component.pactPool).toEqual({ max: 2, used: 0, remaining: 2, level: 2 });
+    expect(text).toContain('2/2 Pact (Lvl 2 · Short Rest)');
+  });
 });

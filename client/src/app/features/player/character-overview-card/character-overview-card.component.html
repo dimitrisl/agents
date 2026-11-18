@@ -28,8 +28,8 @@
         <forge-badge tone="accent" size="sm">{{ edition }}</forge-badge>
 
         <div *ngIf="!editMode" class="mt-2 space-y-1 text-body text-muted">
-          <p>{{ char.race }} <span *ngIf="char.subclass">({{ char.subclass }})</span></p>
-          <p>{{ char.char_class }} • Level {{ char.char_level }}</p>
+          <p>{{ char.race }} <span *ngIf="subclassSummary">({{ subclassSummary }})</span></p>
+          <p>{{ classSummary }}</p>
           <p>{{ char.background }}</p>
         </div>
 
@@ -129,6 +129,7 @@
       (armorClassChange)="char.armor_class = $event"
       [proficiencyBonus]="char.proficiency_bonus"
       [speed]="char.speed"
+      [heavyArmorSpeedPenalty]="char.heavy_armor_speed_penalty ?? 0"
       (speedChange)="char.speed = $event"
       [passivePerception]="passivePerception"
       [initiativeModifier]="char.initiative_modifier"
@@ -150,7 +151,9 @@
         <span class="text-micro font-semibold uppercase text-muted">Hit Dice</span>
         <span class="text-body font-semibold tabular-nums text-ink">
           {{ availableHitDice }}<span class="text-muted"> / {{ char.char_level }}</span>
-          <span class="ml-1 rounded-md border border-hairline px-1.5 py-0.5 text-micro text-muted">d{{ classHitDieSize }}</span>
+          <span class="ml-1 rounded-md border border-hairline px-1.5 py-0.5 text-micro text-muted">{{
+            (char.classes?.length ?? 0) > 1 && char.hit_dice ? char.hit_dice : 'd' + classHitDieSize
+          }}</span>
         </span>
       </div>
     </div>

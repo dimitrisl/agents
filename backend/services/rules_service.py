@@ -318,8 +318,34 @@ def inject_mandatory_character_grants(
 
     # 2. Mandatory Static Class & Subclass Features
     if char_class and level >= 1:
+        from backend.services.forge_service import (
+            is_subclass_placeholder_name,
+            resolve_level_up_automatic_features,
+        )
+
+        effective_subclass = (
+            subclass
+            if subclass and subclass.lower() not in ("none", "n/a") and not (is_2024 and level < 3)
+            else None
+        )
+        if effective_subclass:
+            features_list[:] = [
+                f for f in features_list if not is_subclass_placeholder_name(f.get("name", ""))
+            ]
+            existing_names.clear()
+            existing_names.update(
+                str(f.get("name") or "").strip().lower()
+                for f in features_list
+                if isinstance(f, dict)
+            )
+
         for lvl in range(1, level + 1):
-            for feat in repo.get_features_at_level(char_class, lvl, edition_str):
+            for feat in resolve_level_up_automatic_features(
+                char_class=char_class,
+                target_level=lvl,
+                subclass_to_use=effective_subclass,
+                edition=edition_str,
+            ):
                 if isinstance(feat, dict):
                     _add_feature(
                         str(feat.get("name") or ""),
@@ -574,7 +600,10 @@ def inject_mandatory_character_grants(
 def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None = None) -> dict:
     """Validates character build against edition rules deterministically, applies corrections, and resynchronizes mechanics."""
     from backend.services.stats_service import sync_character_stats
-    from backend.services.validation_service import deterministic_validate_build
+    from backend.services.validation_service import (
+        deterministic_validate_build,
+        get_heavy_armor_strength_penalty,
+    )
 
     # 1. Deterministic Validation & Corrections
     corrected_char, issues = deterministic_validate_build(char_data)
@@ -614,6 +643,9 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
     synced_char = sync_character_stats(
         corrected_char, class_data, homebrew_content=homebrew_content
     )
+    _, armor_str_notice = get_heavy_armor_strength_penalty(synced_char)
+    if armor_str_notice and armor_str_notice not in validation["suggestions"]:
+        validation["suggestions"].append(armor_str_notice)
 
     try:
         validated = CharacterSchema.model_validate(synced_char, strict=False)

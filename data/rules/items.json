@@ -4,6 +4,7 @@
         "type": "Heavy Armor",
         "ac_base": 18,
         "dex_limit": 0,
+        "min_str": 15,
         "description": "Heavy interlocking plates of metal."
     },
     {
@@ -11,6 +12,7 @@
         "type": "Heavy Armor",
         "ac_base": 16,
         "dex_limit": 0,
+        "min_str": 13,
         "description": "Interlocking metal rings."
     },
     {

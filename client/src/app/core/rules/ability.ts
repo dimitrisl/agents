@@ -93,3 +93,41 @@ export function savingThrowModifier(
     exhaustionD20Penalty(char)
   );
 }
+
+/**
+ * Formats a character's class breakdown uniformly for headers and cards.
+ * Returns e.g. "Paladin 5 / Sorcerer 3" when multiclassed, or the single-class
+ * label in either "long" ("Paladin • Level 5") or "compact" ("Paladin Lv 5") style.
+ */
+export function formatClassSummary(
+  char: Pick<CharacterSchema, 'char_class' | 'char_level' | 'classes'> | null | undefined,
+  variant: 'long' | 'compact' = 'long'
+): string {
+  const classes = char?.classes || [];
+  if (classes.length > 1) {
+    return classes
+      .map((c) => `${c.class_name || 'Class'} ${c.level ?? 1}`)
+      .join(' / ');
+  }
+  const className = classes[0]?.class_name || char?.char_class || 'Adventurer';
+  const level = classes[0]?.level ?? char?.char_level ?? 1;
+  return variant === 'compact'
+    ? `${className} Lv ${level}`
+    : `${className} • Level ${level}`;
+}
+
+/**
+ * Formats subclass label(s), joining multiple multiclass subclasses with " / "
+ * and falling back to top-level `char.subclass` for single-class heroes.
+ */
+export function formatSubclassSummary(
+  char: Pick<CharacterSchema, 'subclass' | 'classes'> | null | undefined
+): string {
+  const fromClasses = (char?.classes || [])
+    .map((c) => (c.subclass || '').trim())
+    .filter(Boolean);
+  if (fromClasses.length > 0) {
+    return fromClasses.join(' / ');
+  }
+  return (char?.subclass || '').trim();
+}

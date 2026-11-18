@@ -8,8 +8,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from backend.services.dice_service import rebuild_damage_formula
 from backend.services.validation_service import (
     build_feat_lookup,
+    calculate_feature_flat_hp_bonus,
     calculate_feature_hp_bonus_per_level,
+    calculate_feature_speed_bonus,
     get_character_armor_proficiencies,
+    get_heavy_armor_strength_penalty,
     get_max_attunement_slots,
     is_feat_repeatable,
     resolve_known_feat,
@@ -124,6 +127,7 @@ _DERIVED_CHARACTER_KEYS = (
     "athletics_advantage",
     "speed",
     "base_speed",
+    "heavy_armor_speed_penalty",
     "passive_perception",
     "global_attack_bonus",
     "global_damage_bonus",
@@ -1520,7 +1524,17 @@ def sync_character_stats(
     exhaustion_level = max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
     exhaustion_penalty = (2 * exhaustion_level) if is_2024_sheet else 0
     char_data["exhaustion_level"] = exhaustion_level
-    raw_speed = max(0, base_speed + equip_speed_bonus)
+    items_lookup = {
+        str(i.get("name") or "").strip().lower(): i
+        for i in all_items
+        if isinstance(i, dict) and i.get("name")
+    }
+    feat_speed_bonus = calculate_feature_speed_bonus(
+        char_data.get("features_traits", []), edition=edition, homebrew_content=homebrew_content
+    )
+    armor_speed_penalty, _ = get_heavy_armor_strength_penalty(char_data, items_lookup=items_lookup)
+    char_data["heavy_armor_speed_penalty"] = armor_speed_penalty
+    raw_speed = max(0, base_speed + equip_speed_bonus + feat_speed_bonus - armor_speed_penalty)
     if is_2024_sheet:
         char_data["speed"] = (
             0 if exhaustion_level >= 6 else max(0, raw_speed - (5 * exhaustion_level))
@@ -1646,6 +1660,11 @@ def sync_character_stats(
         homebrew_content=homebrew_content,
         count_draconic=False,
     )
+    flat_feat_hp = calculate_feature_flat_hp_bonus(
+        features,
+        edition=edition,
+        homebrew_content=homebrew_content,
+    )
 
     existing_hp = char_data.get("hp_max")
     stored_base_hp_max = char_data.get("base_hp_max")
@@ -1675,7 +1694,7 @@ def sync_character_stats(
     if draconic_sorcerer_levels == 0 and has_draconic_feat and not has_sorcerer_class:
         draconic_sorcerer_levels = level
 
-    feat_hp_bonus = hp_bonus_per_level * level + draconic_sorcerer_levels
+    feat_hp_bonus = hp_bonus_per_level * level + draconic_sorcerer_levels + flat_feat_hp
     prev_feat_hp = char_data.get("feat_hp_bonus", 0)
     prev_equip_hp = char_data.get("equip_hp_bonus", 0)
 

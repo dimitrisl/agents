@@ -248,7 +248,11 @@ export class LevelUpModalComponent {
     return this.abilityStatOptions.filter((s) => s.code !== firstStat);
   }
 
-  private get pendingHpChoiceDeltas(): { conModDelta: number; addedFeatHpPerLvl: number } {
+  private get pendingHpChoiceDeltas(): {
+    conModDelta: number;
+    addedFeatHpPerLvl: number;
+    addedFlatHp: number;
+  } {
     const choices = this.levelUpAnalysis?.choices_required ?? [];
     const baseCon = Number(this.character?.stats?.CON ?? 10);
     const is2024 = String(this.character?.dnd_edition ?? '').includes('2024');
@@ -256,6 +260,7 @@ export class LevelUpModalComponent {
 
     let conBump = 0;
     let addedFeatHpPerLvl = 0;
+    let addedFlatHp = 0;
 
     choices.forEach((choice, i) => {
       if (choice.type !== 'feat') return;
@@ -280,19 +285,20 @@ export class LevelUpModalComponent {
             }
           }
           addedFeatHpPerLvl += Number(meta.hp_bonus_per_level ?? 0);
+          addedFlatHp += Number(meta.flat_hp_bonus ?? 0);
         }
       }
     });
 
     const newCon = Math.min(statCap, baseCon + conBump);
     const conModDelta = abilityModifier(newCon) - this.conModifier;
-    return { conModDelta, addedFeatHpPerLvl };
+    return { conModDelta, addedFeatHpPerLvl, addedFlatHp };
   }
 
   get previewPendingHpAdjustment(): number {
     if (!this.levelUpAnalysis) return 0;
-    const { conModDelta, addedFeatHpPerLvl } = this.pendingHpChoiceDeltas;
-    return (conModDelta + addedFeatHpPerLvl) * Math.max(1, this.nextLevel);
+    const { conModDelta, addedFeatHpPerLvl, addedFlatHp } = this.pendingHpChoiceDeltas;
+    return (conModDelta + addedFeatHpPerLvl) * Math.max(1, this.nextLevel) + addedFlatHp;
   }
 
   get previewNewTotalHp(): number {

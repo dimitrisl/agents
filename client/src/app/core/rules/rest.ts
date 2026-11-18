@@ -22,8 +22,13 @@ import { currentHp } from './hit-points';
  * short rest.
  */
 export function hitDieSize(
-  char: Pick<CharacterSchema, 'hit_dice' | 'char_class'> | null | undefined
+  char: Pick<CharacterSchema, 'hit_dice' | 'char_class' | 'classes'> | null | undefined
 ): number {
+  const isMulticlass =
+    (char?.classes?.length ?? 0) > 1 || (char?.hit_dice || '').includes(',');
+  if (isMulticlass) {
+    return hitDieSidesFor(char?.char_class);
+  }
   const parsed = /d(\d+)/i.exec(char?.hit_dice || '');
   return parsed ? parseInt(parsed[1], 10) : hitDieSidesFor(char?.char_class);
 }
@@ -55,12 +60,13 @@ export function availableHitDieOptions(
   if (!char) return [];
 
   if (char.classes && char.classes.length > 0) {
+    const isMulticlass = char.classes.length > 1;
     return char.classes.map((cls) => {
       const isMain = (cls.class_name || '').toLowerCase() === (char.char_class || '').toLowerCase();
       return {
         className: cls.class_name || 'Class',
         level: cls.level || 1,
-        dieSize: isMain ? hitDieSize(char) : hitDieSidesFor(cls.class_name),
+        dieSize: !isMulticlass && isMain ? hitDieSize(char) : hitDieSidesFor(cls.class_name),
       };
     });
   }

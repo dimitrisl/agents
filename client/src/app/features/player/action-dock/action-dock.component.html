@@ -45,9 +45,13 @@
         (click)="levelUp.emit()"
         [disabled]="!canLevelUp"
         [loading]="isLevelUpLoading"
-        title="Level Up Analysis"
+        [title]="canLevelUp ? 'Level Up Analysis' : 'Maximum Level (20) reached'"
       >
-        ✦ Level Up
+        @if (canLevelUp) {
+          ✦ Level Up
+        } @else {
+          ★ Max Level (20)
+        }
       </button>
     </section>
 

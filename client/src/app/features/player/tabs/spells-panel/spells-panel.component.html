@@ -232,7 +232,16 @@
 
   <!-- SPELL SLOTS SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="spell-slots-heading">
-    <h3 id="spell-slots-heading" class="font-display text-title text-ink">Spell Slots</h3>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h3 id="spell-slots-heading" class="font-display text-title text-ink">Spell Slots</h3>
+      <span
+        *ngIf="pactPool as pact"
+        class="inline-flex items-center gap-1 rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 text-micro font-semibold text-gold"
+        title="Warlock Pact Magic slots recharge on a Short Rest"
+      >
+        ⚡ {{ pact.remaining }}/{{ pact.max }} Pact (Lvl {{ pact.level }} · Short Rest)
+      </span>
+    </div>
 
     <div
       *ngIf="activeSpellLevels.length > 0; else noSpellSlots"
@@ -244,11 +253,18 @@
       >
         <div class="flex items-center justify-between gap-2">
           <p class="text-micro font-semibold uppercase text-muted">Level {{ level }}</p>
-          <span
-            *ngIf="createdSlotCount(level) > 0"
-            class="text-micro font-semibold text-accent"
-            title="Made with sorcery points — vanishes on a long rest"
-          >+{{ createdSlotCount(level) }} created</span>
+          <div class="flex items-center gap-1.5">
+            <span
+              *ngIf="pactCountAtLevel(level) > 0"
+              class="text-micro font-semibold text-gold"
+              title="Includes Warlock Pact Magic slots — recharge on a Short Rest"
+            >⚡ {{ pactRemainingAtLevel(level) }}/{{ pactCountAtLevel(level) }} Pact</span>
+            <span
+              *ngIf="createdSlotCount(level) > 0"
+              class="text-micro font-semibold text-accent"
+              title="Made with sorcery points — vanishes on a long rest"
+            >+{{ createdSlotCount(level) }} created</span>
+          </div>
         </div>
 
         <div class="mt-2 flex items-center justify-between gap-2">

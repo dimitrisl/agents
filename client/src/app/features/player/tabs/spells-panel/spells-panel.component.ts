@@ -17,6 +17,7 @@ import {
   createdSlots,
   pointsFromSlot,
   sorceryPointsPool,
+  warlockPactDetails,
 } from '../../../../core/rules';
 import {
   ForgeBadgeComponent,
@@ -177,6 +178,51 @@ export class SpellsPanelComponent {
 
   createdSlotCount(level: number): number {
     return createdSlots(this.char, level);
+  }
+
+  get pactPool(): { max: number; used: number; remaining: number; level: number } | null {
+    const pactEntry = this.char?.spell_slots?.['pact'];
+    if (pactEntry && (pactEntry.max ?? 0) > 0) {
+      const max = pactEntry.max;
+      const used = pactEntry.used ?? 0;
+      return {
+        max,
+        used,
+        remaining: Math.max(0, max - used),
+        level: pactEntry.level ?? 1,
+      };
+    }
+    const details = warlockPactDetails(this.char);
+    if (!details) return null;
+    const slotEntry = this.char?.spell_slots?.[`level_${details.pactSlotLevel}`];
+    const max = slotEntry?.pact_max ?? slotEntry?.max ?? details.pactSlotCount;
+    const used = slotEntry?.pact_used ?? slotEntry?.used ?? 0;
+    return {
+      max,
+      used,
+      remaining: Math.max(0, max - used),
+      level: details.pactSlotLevel,
+    };
+  }
+
+  pactCountAtLevel(level: number): number {
+    const slotEntry = this.char?.spell_slots?.[`level_${level}`];
+    if (slotEntry?.pact_max !== undefined) {
+      return Math.max(0, slotEntry.pact_max);
+    }
+    const pool = this.pactPool;
+    return pool && pool.level === level ? Math.max(0, pool.max) : 0;
+  }
+
+  pactRemainingAtLevel(level: number): number {
+    const count = this.pactCountAtLevel(level);
+    if (count <= 0) return 0;
+    const slotEntry = this.char?.spell_slots?.[`level_${level}`];
+    if (slotEntry?.pact_max !== undefined) {
+      return Math.max(0, count - (slotEntry.pact_used ?? 0));
+    }
+    const pool = this.pactPool;
+    return pool && pool.level === level ? pool.remaining : 0;
   }
 
   // --- Metamagic (Sorcerer) ---

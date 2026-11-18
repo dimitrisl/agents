@@ -2327,3 +2327,260 @@ def test_2014_half_feats_stat_validation_and_case_insensitive_spell_dedup():
     finally:
         app.dependency_overrides = orig
         limiter.reset()
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_heavy_armor_strength_penalty_and_exemptions_both_editions(edition):
+    """Low STR heavy armor applies -10 ft speed penalty unless immune (2014 Dwarf / Boots / Gauntlets) and logs audit notice."""
+    from backend.services.rules_service import autofix_character_build
+
+    base_stats = {"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10}
+    hero_plate = {
+        "char_name": "Sir Heavy",
+        "race": "Human",
+        "char_class": "Fighter",
+        "char_level": 5,
+        "background": "Soldier",
+        "dnd_edition": edition,
+        "base_speed": 30,
+        "stats": dict(base_stats),
+        "saving_throws": ["STR", "CON"],
+        "skill_proficiencies": ["Athletics", "Perception"],
+        "equipment": [{"name": "Plate Armor", "type": "Armor", "equipped": True, "quantity": 1}],
+        "weapons": [],
+        "features_traits": [
+            {"name": "Defense", "source": "Class", "description": "Fighting style."}
+        ],
+    }
+    penalized = sync_character_stats(copy.deepcopy(hero_plate))
+    assert penalized["heavy_armor_speed_penalty"] == 10
+    assert penalized["speed"] == 20
+
+    # Audit surfaces informative suggestion about Plate Armor STR 15 requirement
+    audit = autofix_character_build(copy.deepcopy(hero_plate))
+    suggestions = " ".join(audit["validation_result"].get("suggestions", []))
+    assert "Plate Armor" in suggestions
+    assert "15" in suggestions
+
+    # Chain Mail has min_str 13: STR 12 -> -10 ft; STR 13 -> 0 penalty
+    hero_chain = copy.deepcopy(hero_plate)
+    hero_chain["equipment"] = [
+        {"name": "Chain Mail", "type": "Armor", "equipped": True, "quantity": 1}
+    ]
+    assert (
+        sync_character_stats({**hero_chain, "stats": {**base_stats, "STR": 12}})[
+            "heavy_armor_speed_penalty"
+        ]
+        == 10
+    )
+    assert (
+        sync_character_stats({**hero_chain, "stats": {**base_stats, "STR": 13}})[
+            "heavy_armor_speed_penalty"
+        ]
+        == 0
+    )
+
+    # Gauntlets of Ogre Power raise STR to 19 -> clears Plate Armor penalty
+    with_gauntlets = copy.deepcopy(hero_plate)
+    with_gauntlets["equipment"].append(
+        {
+            "name": "Gauntlets of Ogre Power",
+            "type": "Wondrous Item",
+            "equipped": True,
+            "quantity": 1,
+        }
+    )
+    gauntlets_synced = sync_character_stats(with_gauntlets)
+    assert gauntlets_synced["stats"]["STR"] == 19
+    assert gauntlets_synced["heavy_armor_speed_penalty"] == 0
+    assert gauntlets_synced["speed"] == 30
+
+    # Boots of Striding and Springing exempt low-STR wearer from Heavy Armor penalty
+    with_boots = copy.deepcopy(hero_plate)
+    with_boots["equipment"].append(
+        {
+            "name": "Boots of Striding and Springing",
+            "type": "Wondrous Item",
+            "equipped": True,
+            "quantity": 1,
+        }
+    )
+    boots_synced = sync_character_stats(with_boots)
+    assert boots_synced["heavy_armor_speed_penalty"] == 0
+    assert boots_synced["speed"] == 30
+
+    # Dwarf exemption applies in 2014 (base speed 25 -> stays 25), NOT 2024 (base speed 30 -> 20)
+    dwarf_hero = {
+        **copy.deepcopy(hero_plate),
+        "race": "Dwarf",
+        "base_speed": 25 if edition == EDITION_2014 else 30,
+    }
+    dwarf_synced = sync_character_stats(dwarf_hero)
+    if edition == EDITION_2014:
+        assert dwarf_synced["heavy_armor_speed_penalty"] == 0
+        assert dwarf_synced["speed"] == 25
+    else:
+        assert dwarf_synced["heavy_armor_speed_penalty"] == 10
+        assert dwarf_synced["speed"] == 20
+
+
+def test_2024_epic_boons_unlocked_at_l19_and_edition_isolated():
+    """All 12 Epic Boons unlock at L19 in 2024 with stat cap 30, +40 HP Fortitude, +30 ft Speed; absent in 2014 and L16."""
+    from backend.services.forge_service import analyze_level_up
+
+    feats_2024 = {f["name"] for f in RulesRepository().get_all_feats(EDITION_2024)}
+    expected_boons = {
+        "Boon of Combat Prowess",
+        "Boon of Dimensional Travel",
+        "Boon of Energy Resistance",
+        "Boon of Fate",
+        "Boon of Fortitude",
+        "Boon of Irresistible Offense",
+        "Boon of Recovery",
+        "Boon of Skill",
+        "Boon of Speed",
+        "Boon of Spell Recall",
+        "Boon of the Night Spirit",
+        "Boon of Truesight",
+    }
+    assert expected_boons.issubset(feats_2024)
+
+    def _fighter(level: int, edition: str) -> dict:
+        return {
+            "char_id": f"boon-hero-{level}-{edition[:4]}",
+            "owner_id": "u_qa",
+            "char_name": "Astra",
+            "race": "Human",
+            "char_class": "Fighter",
+            "subclass": "Champion",
+            "char_level": level,
+            "classes": [{"class_name": "Fighter", "level": level, "subclass": "Champion"}],
+            "background": "Soldier",
+            "dnd_edition": edition,
+            "stats": {"STR": 20, "DEX": 14, "CON": 20, "INT": 10, "WIS": 12, "CHA": 10},
+            "base_stats": {"STR": 20, "DEX": 14, "CON": 20, "INT": 10, "WIS": 12, "CHA": 10},
+            "hp_max": 180,
+            "hp_current": 180,
+            "saving_throws": ["STR", "CON"],
+            "skill_proficiencies": ["Athletics", "Perception"],
+            "features_traits": [],
+            "equipment": [],
+        }
+
+    # L15 -> L16 (2024 ASI level) must NOT offer Epic Boons yet
+    l16_analysis = analyze_level_up(_fighter(15, EDITION_2024))
+    l16_feat_opts = next(c for c in l16_analysis["choices_required"] if c["type"] == "feat")[
+        "options"
+    ]
+    assert "Boon of Fortitude" not in l16_feat_opts
+
+    # L18 -> L19 (2014 Edition) must NOT offer 2024 Epic Boons
+    l19_2014_analysis = analyze_level_up(_fighter(18, EDITION_2014))
+    l19_2014_opts = next(c for c in l19_2014_analysis["choices_required"] if c["type"] == "feat")[
+        "options"
+    ]
+    assert "Boon of Fortitude" not in l19_2014_opts
+
+    # L18 -> L19 (2024 Edition) MUST offer all 12 Epic Boons with metadata
+    hero_l18 = _fighter(18, EDITION_2024)
+    l19_analysis = analyze_level_up(hero_l18)
+    l19_feat_choice = next(c for c in l19_analysis["choices_required"] if c["type"] == "feat")
+    assert expected_boons.issubset(set(l19_feat_choice["options"]))
+    assert l19_feat_choice["feat_metadata"]["Boon of Fortitude"]["flat_hp_bonus"] == 40
+
+    # Live preview & apply Boon of Fortitude (+1 CON to 21, +40 flat HP)
+    preview = analyze_level_up(
+        copy.deepcopy(hero_l18),
+        user_choices={
+            "level_up_class": "Fighter",
+            "feat_0": "Boon of Fortitude",
+            "feat_stat1_0": "CON",
+        },
+    )
+    assert (
+        preview["new_total_hp"] >= hero_l18["hp_max"] + 51
+    )  # 6 (d10 avg) + 5 (CON) + 40 (Fortitude)
+
+    db = _AsyncDB("epic_boons_db")
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        db._db["characters"].replace_one(
+            {"char_id": hero_l18["char_id"]}, copy.deepcopy(hero_l18), upsert=True
+        )
+        resp = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": hero_l18["char_id"],
+                "analysis": preview,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "feat_0": "Boon of Fortitude",
+                    "feat_stat1_0": "CON",
+                },
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        updated = resp.json()
+        assert updated["char_level"] == 19
+        assert updated["stats"]["CON"] == 21  # Exceeds 20 via Epic Boon cap 30
+        assert updated["hp_max"] >= hero_l18["hp_max"] + 51
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+    # Boon of Speed grants +30 ft walking speed via sync_character_stats
+    speed_hero = _fighter(19, EDITION_2024)
+    speed_hero["base_speed"] = 30
+    speed_hero["features_traits"] = [
+        {"name": "Boon of Speed", "source": "Feat", "description": "Speed +30 ft."}
+    ]
+    assert sync_character_stats(speed_hero)["speed"] == 60
+
+
+@pytest.mark.parametrize(
+    "edition,char_class,subclass,expected_feature",
+    [
+        (EDITION_2014, "Fighter", "Champion", "Improved Critical"),
+        (EDITION_2024, "Sorcerer", "Draconic Sorcery", "Draconic Resilience"),
+    ],
+)
+def test_forge_character_manual_resolves_concrete_subclass_features(
+    edition, char_class, subclass, expected_feature
+):
+    """Creating a high-level character via forge_character_manual resolves concrete subclass feature names rather than placeholders."""
+    from backend.services.forge_service import forge_character_manual
+
+    mock_ai = {
+        "char_name": "Manual Subclass Hero",
+        "backstory": "Veteran adventurer.",
+        "features_traits": [],
+        "equipment": [],
+        "weapons": [],
+    }
+    with patch("backend.services.forge_service.generate_ai_json", return_value=mock_ai):
+        char = forge_character_manual(
+            target_level=15,
+            race="Human",
+            char_class=char_class,
+            background="Soldier",
+            subclass=subclass,
+            alignment="Neutral Good",
+            gender="Non-binary",
+            name="Manual Subclass Hero",
+            base_stats={"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 16},
+            skill_proficiencies=["Athletics", "Perception"],
+            saving_throws=["STR", "CON"],
+            spell_ability="CHA" if char_class == "Sorcerer" else None,
+            concept="High level test",
+            edition=edition,
+            auto_spells=False,
+            auto_feats=False,
+        )
+
+    names = [f["name"] for f in char.get("features_traits", [])]
+    assert any(expected_feature in n for n in names)
+    assert all("Subclass Feature" not in n and f"{char_class} Subclass" not in n for n in names)

@@ -201,6 +201,131 @@ def calculate_feature_hp_bonus_per_level(
     return hp_bonus_per_level, has_draconic_hp
 
 
+def _sum_unique_feat_numeric(
+    features: list[Dict[str, Any]] | None,
+    field_name: str,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+) -> int:
+    """Sum a numeric feat bonus field (e.g. flat_hp_bonus, speed_bonus), deduping non-repeatable feats."""
+    if not features:
+        return 0
+    feat_lookup = build_feat_lookup(edition, homebrew_content=homebrew_content)
+    total = 0
+    seen_feats: set[str] = set()
+    for f in features:
+        if not isinstance(f, dict):
+            continue
+        resolved = resolve_known_feat(f.get("name"), feat_lookup, source=f.get("source"))
+        if not resolved:
+            continue
+        canon_name, feat_data = resolved
+        val = int((feat_data or {}).get(field_name) or 0)
+        if val <= 0:
+            continue
+        canon_low = canon_name.lower()
+        if not is_feat_repeatable(feat_data, canon_low):
+            if canon_low in seen_feats:
+                continue
+            seen_feats.add(canon_low)
+        total += val
+    return total
+
+
+def calculate_feature_flat_hp_bonus(
+    features: list[Dict[str, Any]] | None,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+) -> int:
+    """Sum flat HP bonuses granted by feats such as Boon of Fortitude (+40 HP)."""
+    return _sum_unique_feat_numeric(
+        features, "flat_hp_bonus", edition=edition, homebrew_content=homebrew_content
+    )
+
+
+def calculate_feature_speed_bonus(
+    features: list[Dict[str, Any]] | None,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+) -> int:
+    """Sum Walking Speed bonuses granted by feats such as Boon of Speed (+30 ft)."""
+    return _sum_unique_feat_numeric(
+        features, "speed_bonus", edition=edition, homebrew_content=homebrew_content
+    )
+
+
+def get_heavy_armor_strength_penalty(
+    char_data: Dict[str, Any],
+    items_lookup: Dict[str, Dict[str, Any]] | None = None,
+) -> tuple[int, str | None]:
+    """Return (speed_penalty_ft, audit_notice) when wearing Heavy Armor below its STR requirement."""
+    if not isinstance(char_data, dict):
+        return 0, None
+
+    edition = str(char_data.get("dnd_edition") or char_data.get("ruleset_version") or "")
+    is_2024 = "2024" in edition
+    race = str(char_data.get("race") or "").strip().lower()
+    if "dwarf" in race and not is_2024:
+        return 0, None
+
+    equipment = char_data.get("equipment") or []
+    has_striding_boots = any(
+        isinstance(eq, dict)
+        and eq.get("equipped")
+        and "boots of striding" in str(eq.get("name") or "").lower()
+        for eq in equipment
+    )
+    if has_striding_boots:
+        return 0, None
+
+    if items_lookup is None:
+        all_items = RulesRepository().get_all_items()
+        items_lookup = {
+            str(i.get("name") or "").strip().lower(): i
+            for i in all_items
+            if isinstance(i, dict) and i.get("name")
+        }
+
+    stats = char_data.get("stats") or {}
+    if hasattr(stats, "model_dump"):
+        stats = stats.model_dump()
+    try:
+        str_score = int(
+            (stats.get("STR") if isinstance(stats, dict) else getattr(stats, "STR", 10)) or 10
+        )
+    except (TypeError, ValueError):
+        str_score = 10
+
+    max_penalty = 0
+    trigger_notice: str | None = None
+    for equip in equipment:
+        if not isinstance(equip, dict) or not equip.get("equipped"):
+            continue
+        raw_name = str(equip.get("name") or "").strip()
+        low = raw_name.lower()
+        if not low:
+            continue
+        item_db = items_lookup.get(low)
+        min_str = 0
+        if item_db and "heavy armor" in str(item_db.get("type") or "").lower():
+            min_str = int(item_db.get("min_str") or 0)
+        if min_str == 0:
+            if "plate" in low or "splint" in low:
+                min_str = 15
+            elif "chain mail" in low:
+                min_str = 13
+
+        if min_str > 0 and str_score < min_str:
+            max_penalty = 10
+            trigger_notice = (
+                f"Wearing {raw_name} with STR {str_score} (requires STR {min_str}) "
+                "reduces Walking Speed by 10 ft."
+            )
+            break
+
+    return max_penalty, trigger_notice
+
+
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
     """Extracts all armor proficiencies granted by class, multiclass entries, subclass, and features."""
     proficiencies = set()

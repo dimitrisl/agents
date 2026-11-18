@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import type { CharacterSchema } from '../../../core/models/character.model';
+import { formatClassSummary } from '../../../core/rules';
 import { sanitizePortraitUrl } from '../../../core/utils/portrait';
 import { ForgeSwitcherComponent, ForgeSwitcherOption } from '../../../shared/ui';
 
@@ -33,7 +34,10 @@ export class HeroSwitcherComponent {
     return this.characters.map((char) => ({
       id: char.char_id!,
       title: char.char_name,
-      subtitle: `Lvl ${char.char_level} ${char.char_class}`,
+      subtitle:
+        char.classes && char.classes.length > 1
+          ? formatClassSummary(char)
+          : `Lvl ${char.char_level} ${char.char_class}`,
       imageUrl: char.char_id === this.activeCharacterId && this.portraitUrl ? this.portraitUrl : this.portraitOf(char),
     }));
   }

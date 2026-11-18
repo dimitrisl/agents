@@ -60,6 +60,7 @@ import {
   diceForCast,
   exhaustionD20Penalty,
   findSkill,
+  formatClassSummary,
   formatModifier,
   hasSpellSlotLevel,
   HitDieOption,
@@ -890,9 +891,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return warlockPactDetails(this.charState.activeCharacter());
   }
 
+  classSummary(
+    char: CharacterSchema | null | undefined,
+    variant: 'long' | 'compact' = 'compact'
+  ): string {
+    return formatClassSummary(char, variant);
+  }
+
   openShortRestModal() {
     this.shortRestDiceToSpend = this.getAvailableHitDice() > 0 ? 1 : 0;
-    this.shortRestDieSize = this.getClassHitDieSize();
+    this.shortRestDieSize = this.getHitDieOptions()[0]?.dieSize ?? this.getClassHitDieSize();
     this.shortRestManualHp = null;
     this.showShortRestModal.set(true);
   }

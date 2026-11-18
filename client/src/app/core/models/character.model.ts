@@ -182,6 +182,7 @@ export interface CharacterSchema {
   class_resources?: ClassResource[];
   base_stats?: StatBlock;
   base_speed?: number;
+  heavy_armor_speed_penalty?: number;
   base_hp_max?: number;
   equip_hp_bonus?: number;
   feat_hp_bonus?: number;
@@ -197,6 +198,7 @@ export interface LevelUpFeatMetadata {
   stat_choice_options: string[];
   stat_bonus: Record<string, number>;
   hp_bonus_per_level: number;
+  flat_hp_bonus?: number;
 }
 
 export interface LevelUpChoice {
