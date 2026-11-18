@@ -13,7 +13,9 @@ import {
   currentHp,
   exhaustionD20Penalty,
   findSkill,
+  formatClassSummary,
   formatModifier,
+  formatSubclassSummary,
   hasJackOfAllTrades,
   hasRemarkableAthlete,
   hasInitiativeAdvantage,
@@ -1045,7 +1047,6 @@ describe('Code Review Regression Fixes (Rules)', () => {
   });
 
   it('formats single-class and multiclass summaries cleanly', () => {
-    const { formatClassSummary, formatSubclassSummary } = require('./ability');
     const single = hero({ char_class: 'Paladin', char_level: 5, subclass: 'Oath of Devotion' });
     expect(formatClassSummary(single, 'long')).toBe('Paladin • Level 5');
     expect(formatClassSummary(single, 'compact')).toBe('Paladin Lv 5');

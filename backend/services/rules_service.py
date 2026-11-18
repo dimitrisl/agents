@@ -316,19 +316,38 @@ def inject_mandatory_character_grants(
             elif "proficiency in one skill of your choice" in desc_low:
                 has_skill_versatility_one = True
 
-    # 2. Mandatory Static Class & Subclass Features
-    if char_class and level >= 1:
+    # 2. Mandatory Static Class & Subclass Features (per-class level for multiclass safety)
+    raw_classes = char_data.get("classes")
+    class_entries: list[tuple[str, int, str]] = []
+    if isinstance(raw_classes, list):
+        for entry in raw_classes:
+            if not isinstance(entry, dict):
+                continue
+            cname = str(entry.get("class_name") or "").strip()
+            if not cname:
+                continue
+            try:
+                clvl = max(1, min(20, int(entry.get("level") or 1)))
+            except (TypeError, ValueError):
+                clvl = 1
+            csub = str(
+                entry.get("subclass") or (subclass if cname.lower() == class_lower else "") or ""
+            ).strip()
+            class_entries.append((cname, clvl, csub))
+    if not class_entries and char_class and level >= 1:
+        class_entries = [(char_class, max(1, min(20, level)), subclass)]
+
+    if class_entries:
         from backend.services.forge_service import (
             is_subclass_placeholder_name,
             resolve_level_up_automatic_features,
         )
 
-        effective_subclass = (
-            subclass
-            if subclass and subclass.lower() not in ("none", "n/a") and not (is_2024 and level < 3)
-            else None
+        any_active_subclass = any(
+            csub and csub.lower() not in ("none", "n/a") and not (is_2024 and clvl < 3)
+            for _, clvl, csub in class_entries
         )
-        if effective_subclass:
+        if any_active_subclass:
             features_list[:] = [
                 f for f in features_list if not is_subclass_placeholder_name(f.get("name", ""))
             ]
@@ -339,42 +358,48 @@ def inject_mandatory_character_grants(
                 if isinstance(f, dict)
             )
 
-        for lvl in range(1, level + 1):
-            for feat in resolve_level_up_automatic_features(
-                char_class=char_class,
-                target_level=lvl,
-                subclass_to_use=effective_subclass,
-                edition=edition_str,
-            ):
-                if isinstance(feat, dict):
-                    _add_feature(
-                        str(feat.get("name") or ""),
-                        str(feat.get("description") or ""),
-                        str(feat.get("source") or "Class"),
-                    )
+        for cname, clvl, csub in class_entries:
+            effective_sub = (
+                csub
+                if csub and csub.lower() not in ("none", "n/a") and not (is_2024 and clvl < 3)
+                else None
+            )
+            for lvl in range(1, clvl + 1):
+                for feat in resolve_level_up_automatic_features(
+                    char_class=cname,
+                    target_level=lvl,
+                    subclass_to_use=effective_sub,
+                    edition=edition_str,
+                ):
+                    if isinstance(feat, dict):
+                        _add_feature(
+                            str(feat.get("name") or ""),
+                            str(feat.get("description") or ""),
+                            str(feat.get("source") or "Class"),
+                        )
 
-    if subclass and subclass.lower() != "none" and not (is_2024 and level < 3):
-        sub_mech = repo.get_subclass_mechanics(char_class, edition_str).get("subclasses", {})
-        matched_sub = next(
-            (v for k, v in sub_mech.items() if k.strip().lower() == subclass.strip().lower()),
-            None,
-        )
-        if isinstance(matched_sub, dict):
-            for entry in (matched_sub.get("scaling") or {}).values():
-                if not isinstance(entry, dict):
-                    continue
-                valid_steps = [
-                    st
-                    for st in (entry.get("steps") or [])
-                    if isinstance(st, dict) and int(st.get("level", 99)) <= level
-                ]
-                if valid_steps:
-                    best_step = max(valid_steps, key=lambda s: int(s.get("level", 0)))
-                    s_name = str(entry.get("name") or "").strip()
-                    hint = str(entry.get("hint") or "").strip()
-                    notation = str(best_step.get("notation") or "").strip()
-                    s_desc = f"{hint} ({notation})".strip(" ()") if notation else hint
-                    _add_feature(s_name, s_desc, "Subclass")
+            if effective_sub:
+                sub_mech = repo.get_subclass_mechanics(cname, edition_str).get("subclasses", {})
+                matched_sub = next(
+                    (v for k, v in sub_mech.items() if k.strip().lower() == effective_sub.lower()),
+                    None,
+                )
+                if isinstance(matched_sub, dict):
+                    for entry in (matched_sub.get("scaling") or {}).values():
+                        if not isinstance(entry, dict):
+                            continue
+                        valid_steps = [
+                            st
+                            for st in (entry.get("steps") or [])
+                            if isinstance(st, dict) and int(st.get("level", 99)) <= clvl
+                        ]
+                        if valid_steps:
+                            best_step = max(valid_steps, key=lambda s: int(s.get("level", 0)))
+                            s_name = str(entry.get("name") or "").strip()
+                            hint = str(entry.get("hint") or "").strip()
+                            notation = str(best_step.get("notation") or "").strip()
+                            s_desc = f"{hint} ({notation})".strip(" ()") if notation else hint
+                            _add_feature(s_name, s_desc, "Subclass")
 
     # 3. Mandatory Background Features, Tools & Skills
     bg_mandatory_skills: list[str] = []
@@ -601,8 +626,8 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
     """Validates character build against edition rules deterministically, applies corrections, and resynchronizes mechanics."""
     from backend.services.stats_service import sync_character_stats
     from backend.services.validation_service import (
+        collect_build_suggestions,
         deterministic_validate_build,
-        get_heavy_armor_strength_penalty,
     )
 
     # 1. Deterministic Validation & Corrections
@@ -643,9 +668,9 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
     synced_char = sync_character_stats(
         corrected_char, class_data, homebrew_content=homebrew_content
     )
-    _, armor_str_notice = get_heavy_armor_strength_penalty(synced_char)
-    if armor_str_notice and armor_str_notice not in validation["suggestions"]:
-        validation["suggestions"].append(armor_str_notice)
+    for suggestion in collect_build_suggestions(synced_char):
+        if suggestion not in validation["suggestions"]:
+            validation["suggestions"].append(suggestion)
 
     try:
         validated = CharacterSchema.model_validate(synced_char, strict=False)
@@ -741,6 +766,7 @@ def parse_character_from_text(
         if isinstance(raw_classes, list)
         else []
     )
+    baked_feat_hp = 0
     if valid_classes:
         min_legal_hp = 0
         max_legal_hp = 0
@@ -761,6 +787,7 @@ def parse_character_from_text(
                 1, 1 + cls_vitals["con_mod"] + cls_vitals["hp_bonus_per_level"]
             )
             max_legal_hp += cls_lvl * cls_vitals["max_hp_gain"]
+            baked_feat_hp += cls_lvl * cls_vitals["hp_bonus_per_level"]
             total_cls_levels += cls_lvl
         if total_cls_levels > 0:
             parsed_level = total_cls_levels
@@ -777,6 +804,18 @@ def parse_character_from_text(
             1, 1 + parsed_vitals["con_mod"] + parsed_vitals["hp_bonus_per_level"]
         )
         max_legal_hp = parsed_level * parsed_vitals["max_hp_gain"]
+        baked_feat_hp += parsed_level * parsed_vitals["hp_bonus_per_level"]
+
+    from backend.services.validation_service import calculate_feature_flat_hp_bonus
+
+    flat_feat_hp = calculate_feature_flat_hp_bonus(
+        final_raw.get("features_traits", []),
+        edition=edition,
+        homebrew_content=homebrew_content,
+    )
+    min_legal_hp += flat_feat_hp
+    max_legal_hp += flat_feat_hp
+    baked_feat_hp += flat_feat_hp
 
     raw_hp = final_raw.get("hp_max")
     hp_max_rejected = False
@@ -786,6 +825,9 @@ def parse_character_from_text(
             if hp_int < min_legal_hp or hp_int > max_legal_hp:
                 final_raw.pop("hp_max", None)
                 hp_max_rejected = True
+            elif baked_feat_hp > 0:
+                # Preserve feat HP already included on imported PDF so sync doesn't double-add it
+                final_raw["feat_hp_bonus"] = baked_feat_hp
         except (TypeError, ValueError):
             final_raw.pop("hp_max", None)
             hp_max_rejected = True

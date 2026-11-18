@@ -254,6 +254,13 @@ def calculate_feature_speed_bonus(
     )
 
 
+def _strip_armor_modifiers(raw_name: str) -> str:
+    """Normalize '+1/+2/+3' enhancements and parenthetical tags for catalog lookups."""
+    cleaned = re.sub(r"(?:\s*,\s*|\s+)\+[1-3]\b", "", str(raw_name or "").lower())
+    cleaned = re.sub(r"\s*\([^)]*\)", "", cleaned)
+    return " ".join(cleaned.split())
+
+
 def get_heavy_armor_strength_penalty(
     char_data: Dict[str, Any],
     items_lookup: Dict[str, Dict[str, Any]] | None = None,
@@ -266,6 +273,25 @@ def get_heavy_armor_strength_penalty(
     is_2024 = "2024" in edition
     race = str(char_data.get("race") or "").strip().lower()
     if "dwarf" in race and not is_2024:
+        return 0, None
+
+    features = char_data.get("features_traits") or []
+    classes = char_data.get("classes") or []
+    has_arcane_armor = (
+        any(
+            isinstance(f, dict)
+            and any(
+                kw in str(f.get("name") or "").lower() for kw in ("arcane armor", "power armor")
+            )
+            for f in features
+        )
+        or "armorer" in str(char_data.get("subclass") or "").lower()
+        or any(
+            isinstance(c, dict) and "armorer" in str(c.get("subclass") or "").lower()
+            for c in classes
+        )
+    )
+    if has_arcane_armor:
         return 0, None
 
     equipment = char_data.get("equipment") or []
@@ -303,17 +329,26 @@ def get_heavy_armor_strength_penalty(
             continue
         raw_name = str(equip.get("name") or "").strip()
         low = raw_name.lower()
-        if not low:
+        if not low or "mithral" in low:
             continue
-        item_db = items_lookup.get(low)
-        min_str = 0
-        if item_db and "heavy armor" in str(item_db.get("type") or "").lower():
+
+        base_low = _strip_armor_modifiers(low)
+        item_db = items_lookup.get(low) or items_lookup.get(base_low)
+        if item_db is not None:
+            item_type = str(item_db.get("type") or "").lower()
+            if "heavy armor" not in item_type:
+                continue
             min_str = int(item_db.get("min_str") or 0)
-        if min_str == 0:
-            if "plate" in low or "splint" in low:
-                min_str = 15
-            elif "chain mail" in low:
-                min_str = 13
+        else:
+            min_str = 0
+            if "breast" not in base_low and "half" not in base_low:
+                if re.search(
+                    r"\b(?:full\s+)?plate(?:\s+armor)?\b|\bsplint(?:\s+armor)?\b",
+                    base_low,
+                ):
+                    min_str = 15
+                elif re.search(r"\bchain\s*mail\b", base_low):
+                    min_str = 13
 
         if min_str > 0 and str_score < min_str:
             max_penalty = 10
@@ -324,6 +359,15 @@ def get_heavy_armor_strength_penalty(
             break
 
     return max_penalty, trigger_notice
+
+
+def collect_build_suggestions(char_data: Dict[str, Any]) -> list[str]:
+    """Collect informational rules notices/recommendations (non-blocking)."""
+    suggestions: list[str] = []
+    _, armor_str_notice = get_heavy_armor_strength_penalty(char_data)
+    if armor_str_notice and armor_str_notice not in suggestions:
+        suggestions.append(armor_str_notice)
+    return suggestions
 
 
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:

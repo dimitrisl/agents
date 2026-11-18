@@ -34,7 +34,7 @@
           {{ speed }}<span class="ml-0.5 text-label font-semibold text-muted">ft</span>
         </p>
         @if (heavyArmorSpeedPenalty > 0) {
-          <p class="mt-1 max-w-full truncate text-micro text-gold">-{{ heavyArmorSpeedPenalty }}ft STR</p>
+          <p class="mt-1 max-w-full truncate text-micro font-semibold text-red">-{{ heavyArmorSpeedPenalty }}ft STR</p>
         }
       } @else {
         <div class="mt-1 flex items-center justify-center gap-1">

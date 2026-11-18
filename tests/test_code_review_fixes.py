@@ -2584,3 +2584,183 @@ def test_forge_character_manual_resolves_concrete_subclass_features(
     names = [f["name"] for f in char.get("features_traits", [])]
     assert any(expected_feature in n for n in names)
     assert all("Subclass Feature" not in n and f"{char_class} Subclass" not in n for n in names)
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_medium_armor_mithral_and_armorer_never_penalized_and_validate_surfaces_suggestions(
+    edition,
+):
+    """Medium armor (Breastplate, Half Plate, Half Plate +1), Mithral armor, Ring Mail, and Armorer Artificer have zero STR penalty; /rules/validate returns audit suggestions."""
+    base_hero = {
+        "char_name": "Medium Wearer",
+        "race": "Human",
+        "char_class": "Fighter",
+        "char_level": 5,
+        "background": "Soldier",
+        "dnd_edition": edition,
+        "base_speed": 30,
+        "stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10},
+        "saving_throws": ["STR", "CON"],
+        "skill_proficiencies": ["Athletics", "Perception"],
+        "weapons": [],
+        "features_traits": [],
+    }
+
+    for armor_name in (
+        "Breastplate",
+        "Half Plate",
+        "Half Plate +1",
+        "Mithral Plate Armor",
+        "Ring Mail",
+    ):
+        synced = sync_character_stats(
+            {
+                **copy.deepcopy(base_hero),
+                "equipment": [
+                    {"name": armor_name, "type": "Armor", "equipped": True, "quantity": 1}
+                ],
+            }
+        )
+        assert synced["heavy_armor_speed_penalty"] == 0, f"{armor_name} falsely penalized"
+        assert synced["speed"] == 30, f"{armor_name} reduced speed"
+
+    # Splint Armor and Plate Armor +1 trigger -10 ft at STR 10
+    for heavy_name in ("Splint Armor", "Plate Armor +1"):
+        synced_heavy = sync_character_stats(
+            {
+                **copy.deepcopy(base_hero),
+                "equipment": [
+                    {"name": heavy_name, "type": "Armor", "equipped": True, "quantity": 1}
+                ],
+            }
+        )
+        assert synced_heavy["heavy_armor_speed_penalty"] == 10
+        assert synced_heavy["speed"] == 20
+
+    # Armorer Artificer waives Heavy Armor STR requirement
+    armorer = sync_character_stats(
+        {
+            **copy.deepcopy(base_hero),
+            "char_class": "Artificer",
+            "subclass": "Armorer",
+            "classes": [{"class_name": "Artificer", "level": 5, "subclass": "Armorer"}],
+            "equipment": [
+                {"name": "Plate Armor", "type": "Armor", "equipped": True, "quantity": 1}
+            ],
+            "features_traits": [
+                {"name": "Arcane Armor", "source": "Subclass", "description": "No STR req."}
+            ],
+        }
+    )
+    assert armorer["heavy_armor_speed_penalty"] == 0
+    assert armorer["speed"] == 30
+
+    # POST /api/v1/rules/validate returns Heavy Armor STR notice in suggestions
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/rules/validate",
+            json={
+                "character": {
+                    **copy.deepcopy(base_hero),
+                    "equipment": [
+                        {"name": "Plate Armor", "type": "Armor", "equipped": True, "quantity": 1}
+                    ],
+                }
+            },
+        )
+        assert resp.status_code == 200
+        suggestions = " ".join(resp.json()["validation_result"].get("suggestions", []))
+        assert "Plate Armor" in suggestions
+        assert "15" in suggestions
+    finally:
+        app.dependency_overrides = orig
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_warlock_third_caster_and_multiclass_inject_grants(edition):
+    """Eldritch Knight / Warlock tracks separate pact slots; inject_mandatory_character_grants respects per-class levels."""
+    from backend.services.rules_service import inject_mandatory_character_grants
+
+    ek_lock = sync_character_stats(
+        {
+            "char_name": "Hexknight",
+            "race": "Human",
+            "char_class": "Fighter",
+            "subclass": "Eldritch Knight",
+            "char_level": 10,
+            "classes": [
+                {"class_name": "Fighter", "level": 7, "subclass": "Eldritch Knight"},
+                {"class_name": "Warlock", "level": 3, "subclass": "Fiend Patron"},
+            ],
+            "dnd_edition": edition,
+            "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 14, "WIS": 10, "CHA": 16},
+            "features_traits": [],
+            "equipment": [],
+        }
+    )
+    assert ek_lock["spell_slots"]["pact"] == {"max": 2, "used": 0, "level": 2}
+    assert ek_lock["spell_slots"]["level_2"]["pact_max"] == 2
+
+    # Paladin 5 / Sorcerer 3 (total level 8) must NOT receive Paladin Level 6/7/8 features (e.g. Aura of Protection)
+    sorc_sub = "Draconic Sorcery" if "2024" in edition else "Draconic Bloodline"
+    mc = inject_mandatory_character_grants(
+        {
+            "char_name": "Valkor",
+            "race": "Human",
+            "background": "Soldier",
+            "char_class": "Paladin",
+            "subclass": "Oath of Devotion",
+            "char_level": 8,
+            "classes": [
+                {"class_name": "Paladin", "level": 5, "subclass": "Oath of Devotion"},
+                {"class_name": "Sorcerer", "level": 3, "subclass": sorc_sub},
+            ],
+            "dnd_edition": edition,
+            "features_traits": [],
+        },
+        edition=edition,
+        is_forge=False,
+    )
+    feat_names = {f["name"].lower() for f in mc["features_traits"]}
+    assert "extra attack" in feat_names
+    assert "font of magic" in feat_names
+    assert "aura of protection" not in feat_names
+    expected_sorc_sub = "draconic resilience" if "2024" in edition else "draconic bloodline"
+    assert any(expected_sorc_sub in n for n in feat_names)
+
+
+def test_parse_character_from_text_preserves_boon_of_fortitude_hp():
+    """Imported Level 19 2024 sheets with Boon of Fortitude (+40 HP) keep valid HP without stripping or double-adding."""
+    from backend.services.rules_service import parse_character_from_text
+
+    # Fighter 19, CON 20 (+5) -> max legal die HP = 19 * (10+5) = 285, plus +40 Boon of Fortitude = 325
+    step1 = {
+        "char_name": "Apex Bastion",
+        "char_class": "Fighter",
+        "subclass": "Champion",
+        "char_level": 19,
+        "classes": [{"class_name": "Fighter", "level": 19, "subclass": "Champion"}],
+        "race": "Human",
+        "background": "Soldier",
+        "hp_max": 300,
+        "hp_current": 300,
+        "stats": {"STR": 20, "DEX": 14, "CON": 20, "INT": 10, "WIS": 12, "CHA": 10},
+        "skill_proficiencies": ["Athletics", "Perception"],
+        "saving_throws": ["STR", "CON"],
+        "features_traits": [
+            {
+                "name": "Boon of Fortitude",
+                "source": "Feat",
+                "description": "Hit Point Maximum increases by 40.",
+            }
+        ],
+    }
+    step2 = {"weapons": [], "equipment": [], "spells": {}}
+    with patch("backend.services.rules_service.generate_ai_json", side_effect=[step1, step2]):
+        parsed = parse_character_from_text("Sheet text", edition=EDITION_2024)
+
+    assert parsed["hp_max"] == 300
+    assert parsed["feat_hp_bonus"] == 40

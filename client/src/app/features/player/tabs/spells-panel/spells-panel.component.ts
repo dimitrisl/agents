@@ -195,8 +195,13 @@ export class SpellsPanelComponent {
     const details = warlockPactDetails(this.char);
     if (!details) return null;
     const slotEntry = this.char?.spell_slots?.[`level_${details.pactSlotLevel}`];
-    const max = slotEntry?.pact_max ?? slotEntry?.max ?? details.pactSlotCount;
-    const used = slotEntry?.pact_used ?? slotEntry?.used ?? 0;
+    const max =
+      slotEntry?.pact_max !== undefined
+        ? slotEntry.pact_max
+        : slotEntry?.max !== undefined
+          ? Math.min(slotEntry.max, details.pactSlotCount)
+          : details.pactSlotCount;
+    const used = Math.min(max, slotEntry?.pact_used ?? slotEntry?.used ?? 0);
     return {
       max,
       used,

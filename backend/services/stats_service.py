@@ -2132,7 +2132,16 @@ def sync_character_stats(
     )
     has_other_caster = any(
         (c.get("class_name") or "").lower() != "warlock"
-        and (c.get("caster_type") or "").lower() in ("full", "half", "third")
+        and (
+            (c.get("caster_type") or "").lower() in ("full", "half", "third")
+            or (
+                int(c.get("level", 1) or 1) >= 3
+                and (
+                    "eldritch knight" in (c.get("subclass") or "").lower()
+                    or "arcane trickster" in (c.get("subclass") or "").lower()
+                )
+            )
+        )
         for c in classes
     )
     if warlock_mc_level > 0 and has_other_caster:

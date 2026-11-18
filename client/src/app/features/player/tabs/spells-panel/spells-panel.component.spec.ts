@@ -265,4 +265,29 @@ describe('SpellsPanelComponent', () => {
     expect(component.pactPool).toEqual({ max: 2, used: 0, remaining: 2, level: 2 });
     expect(text).toContain('2/2 Pact (Lvl 2 · Short Rest)');
   });
+
+  it('caps Warlock Pact Magic display to Warlock pactSlotCount on third-caster multiclass sheets without pact keys', () => {
+    component.char = {
+      ...mockChar,
+      char_class: 'Fighter',
+      char_level: 10,
+      classes: [
+        { class_name: 'Fighter', level: 7, subclass: 'Eldritch Knight' },
+        { class_name: 'Warlock', level: 3 },
+      ],
+      spell_slots: {
+        level_1: { max: 4, used: 0 },
+        level_2: { max: 4, used: 1 },
+      },
+    };
+    component.getSpellSlotUsed = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.used ?? 0;
+    component.getSpellSlotMax = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.max ?? 0;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(component.pactPool).toEqual({ max: 2, used: 1, remaining: 1, level: 2 });
+    expect(component.pactCountAtLevel(2)).toBe(2);
+    expect(text).toContain('1/2 Pact (Lvl 2 · Short Rest)');
+    expect(text).not.toContain('4/4 Pact');
+  });
 });
