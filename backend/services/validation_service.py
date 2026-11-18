@@ -254,11 +254,39 @@ def calculate_feature_speed_bonus(
     )
 
 
+_NON_HEAVY_EQUIP_TYPES = (
+    "medium armor",
+    "light armor",
+    "shield",
+    "wondrous item",
+    "weapon",
+    "ring",
+    "potion",
+    "scroll",
+    "adventuring gear",
+)
+
+
 def _strip_armor_modifiers(raw_name: str) -> str:
-    """Normalize '+1/+2/+3' enhancements and parenthetical tags for catalog lookups."""
+    """Normalize '+1/+2/+3' enhancements and punctuation for catalog and keyword matching."""
     cleaned = re.sub(r"(?:\s*,\s*|\s+)\+[1-3]\b", "", str(raw_name or "").lower())
-    cleaned = re.sub(r"\s*\([^)]*\)", "", cleaned)
+    cleaned = re.sub(r"[(),]", " ", cleaned)
     return " ".join(cleaned.split())
+
+
+def build_armor_items_lookup(
+    homebrew_content: list[dict[str, Any]] | None = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Build a lowercase armor/item catalog lookup merged with optional homebrew definitions."""
+    lookup: Dict[str, Dict[str, Any]] = {
+        str(i.get("name") or "").strip().lower(): i
+        for i in RulesRepository().get_all_items()
+        if isinstance(i, dict) and i.get("name")
+    }
+    for hb in homebrew_content or []:
+        if isinstance(hb, dict) and hb.get("name"):
+            lookup[str(hb["name"]).strip().lower()] = hb
+    return lookup
 
 
 def get_heavy_armor_strength_penalty(
@@ -334,11 +362,19 @@ def get_heavy_armor_strength_penalty(
 
         base_low = _strip_armor_modifiers(low)
         item_db = items_lookup.get(low) or items_lookup.get(base_low)
+        equip_type = str(equip.get("type") or "").strip().lower()
         if item_db is not None:
             item_type = str(item_db.get("type") or "").lower()
             if "heavy armor" not in item_type:
                 continue
             min_str = int(item_db.get("min_str") or 0)
+        elif equip_type and any(t in equip_type for t in _NON_HEAVY_EQUIP_TYPES):
+            continue
+        elif "heavy armor" in equip_type and equip.get("min_str") is not None:
+            try:
+                min_str = int(equip.get("min_str") or 0)
+            except (TypeError, ValueError):
+                min_str = 0
         else:
             min_str = 0
             if "breast" not in base_low and "half" not in base_low:
@@ -361,10 +397,13 @@ def get_heavy_armor_strength_penalty(
     return max_penalty, trigger_notice
 
 
-def collect_build_suggestions(char_data: Dict[str, Any]) -> list[str]:
+def collect_build_suggestions(
+    char_data: Dict[str, Any],
+    items_lookup: Dict[str, Dict[str, Any]] | None = None,
+) -> list[str]:
     """Collect informational rules notices/recommendations (non-blocking)."""
     suggestions: list[str] = []
-    _, armor_str_notice = get_heavy_armor_strength_penalty(char_data)
+    _, armor_str_notice = get_heavy_armor_strength_penalty(char_data, items_lookup=items_lookup)
     if armor_str_notice and armor_str_notice not in suggestions:
         suggestions.append(armor_str_notice)
     return suggestions

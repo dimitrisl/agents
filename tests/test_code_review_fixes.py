@@ -2764,3 +2764,123 @@ def test_parse_character_from_text_preserves_boon_of_fortitude_hp():
 
     assert parsed["hp_max"] == 300
     assert parsed["feat_hp_bonus"] == 40
+
+
+def test_custom_armor_type_parenthetical_homebrew_and_top_level_ek_fallback():
+    """Verify explicit Medium Armor custom type, parenthetical Plate, homebrew heavy min_str, unsynced validate Gauntlets, and top-level EK fallback."""
+    from backend.services.rules_service import autofix_character_build
+
+    base = {
+        "char_name": "Edge Hero",
+        "race": "Human",
+        "char_class": "Fighter",
+        "char_level": 5,
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "base_speed": 30,
+        "stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 10},
+        "saving_throws": ["STR", "CON"],
+        "skill_proficiencies": ["Athletics", "Perception"],
+        "weapons": [],
+        "features_traits": [],
+    }
+
+    # Explicit non-heavy custom armor ("Elven Plate" typed as Medium Armor) must NOT be penalized
+    elven_plate = sync_character_stats(
+        {
+            **copy.deepcopy(base),
+            "equipment": [
+                {"name": "Elven Plate", "type": "Medium Armor", "equipped": True, "quantity": 1}
+            ],
+        }
+    )
+    assert elven_plate["heavy_armor_speed_penalty"] == 0
+    assert elven_plate["speed"] == 30
+
+    # Parenthetical heavy armor naming ("Armor, +1 (Plate)") MUST be caught
+    paren_plate = sync_character_stats(
+        {
+            **copy.deepcopy(base),
+            "equipment": [
+                {
+                    "name": "Armor, +1 (Plate)",
+                    "type": "Heavy Armor",
+                    "equipped": True,
+                    "quantity": 1,
+                }
+            ],
+        }
+    )
+    assert paren_plate["heavy_armor_speed_penalty"] == 10
+    assert paren_plate["speed"] == 20
+
+    # Homebrew Heavy Armor with min_str=17 surfaces in autofix_character_build suggestions
+    hb = [{"name": "Adamantine Dreadplate", "type": "Heavy Armor", "ac_base": 19, "min_str": 17}]
+    hb_hero = {
+        **copy.deepcopy(base),
+        "stats": {"STR": 15, "DEX": 10, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10},
+        "equipment": [
+            {
+                "name": "Adamantine Dreadplate",
+                "type": "Heavy Armor",
+                "min_str": 17,
+                "equipped": True,
+            }
+        ],
+    }
+    hb_audit = autofix_character_build(hb_hero, homebrew_content=hb)
+    assert any("17" in s for s in hb_audit["validation_result"].get("suggestions", []))
+
+    # Unsynced POST /api/v1/rules/validate wearing Plate + Gauntlets of Ogre Power clears STR notice cleanly
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/rules/validate",
+            json={
+                "character": {
+                    **copy.deepcopy(base),
+                    "equipment": [
+                        {
+                            "name": "Plate Armor",
+                            "type": "Heavy Armor",
+                            "equipped": True,
+                            "quantity": 1,
+                        },
+                        {
+                            "name": "Gauntlets of Ogre Power",
+                            "type": "Wondrous Item",
+                            "equipped": True,
+                            "quantity": 1,
+                        },
+                    ],
+                }
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["validation_result"]["suggestions"] == []
+    finally:
+        app.dependency_overrides = orig
+
+    # Fighter 7 / Warlock 3 with top-level subclass="Eldritch Knight" (classes[0] omitting subclass) tracks both slots & pact
+    ek_top = sync_character_stats(
+        {
+            "char_name": "TopSub Knight",
+            "race": "Human",
+            "char_class": "Fighter",
+            "subclass": "Eldritch Knight",
+            "char_level": 10,
+            "classes": [
+                {"class_name": "Fighter", "level": 7},
+                {"class_name": "Warlock", "level": 3, "subclass": "Fiend Patron"},
+            ],
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 14, "WIS": 10, "CHA": 16},
+            "features_traits": [],
+            "equipment": [],
+        }
+    )
+    assert ek_top["spell_slots"]["level_1"]["max"] == 4
+    assert ek_top["spell_slots"]["pact"] == {"max": 2, "used": 0, "level": 2}
+    assert ek_top["spell_slots"]["level_2"]["pact_max"] == 2

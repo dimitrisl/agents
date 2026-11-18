@@ -251,7 +251,7 @@
         *ngFor="let level of activeSpellLevels; trackBy: trackByLevel"
         class="rounded-xl bg-tile p-3"
       >
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-micro font-semibold uppercase text-muted">Level {{ level }}</p>
           <div class="flex items-center gap-1.5">
             <span
@@ -364,7 +364,7 @@
 
       <!-- METAMAGIC -->
       <div class="flex flex-col gap-1.5 border-t border-hairline pt-3" *ngIf="metamagicLimit > 0 || knownMetamagicOptions.length > 0">
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-micro font-semibold uppercase text-muted">
             Metamagic · {{ knownMetamagicOptions.length }} / {{ metamagicLimit }} known
           </p>

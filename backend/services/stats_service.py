@@ -760,7 +760,9 @@ def calculate_max_spell_slots(
 
     for cls in classes:
         cname = (cls.get("class_name") or "").lower()
-        sub = (cls.get("subclass") or "").lower()
+        sub = (
+            cls.get("subclass") or (subclass if cname == (char_class or "").lower() else "") or ""
+        ).lower()
         lvl = cls.get("level", 1)
         ctype = _infer_ctype(cname, sub, cls.get("caster_type"))
 
@@ -2104,6 +2106,12 @@ def sync_character_stats(
 
     for cls in classes:
         cname = cls.get("class_name")
+        if (
+            not cls.get("subclass")
+            and subclass
+            and (cname or "").lower() == (char_class or "").lower()
+        ):
+            cls["subclass"] = subclass
         cls_data = repo.get_class_progression(cname, edition)
         if cls_data and "caster_type" in cls_data:
             cls["caster_type"] = cls_data.get("caster_type")

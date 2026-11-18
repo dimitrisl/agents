@@ -626,6 +626,7 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
     """Validates character build against edition rules deterministically, applies corrections, and resynchronizes mechanics."""
     from backend.services.stats_service import sync_character_stats
     from backend.services.validation_service import (
+        build_armor_items_lookup,
         collect_build_suggestions,
         deterministic_validate_build,
     )
@@ -668,7 +669,8 @@ def autofix_character_build(char_data: dict, homebrew_content: list[dict] | None
     synced_char = sync_character_stats(
         corrected_char, class_data, homebrew_content=homebrew_content
     )
-    for suggestion in collect_build_suggestions(synced_char):
+    items_lookup = build_armor_items_lookup(homebrew_content) if homebrew_content else None
+    for suggestion in collect_build_suggestions(synced_char, items_lookup=items_lookup):
         if suggestion not in validation["suggestions"]:
             validation["suggestions"].append(suggestion)
 

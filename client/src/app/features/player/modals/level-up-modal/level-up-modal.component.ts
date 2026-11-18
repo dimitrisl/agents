@@ -14,7 +14,7 @@ import {
   CharacterSchema,
 } from '../../../../core/models/character.model';
 import { DiceService } from '../../../../core/services/dice.service';
-import { abilityModifier } from '../../../../core/rules';
+import { abilityModifier, is2024Edition } from '../../../../core/rules';
 import { hitDieSidesFor } from '../../../../core/data/class-combat.data';
 import { environment } from '../../../../../environments/environment';
 
@@ -255,7 +255,7 @@ export class LevelUpModalComponent {
   } {
     const choices = this.levelUpAnalysis?.choices_required ?? [];
     const baseCon = Number(this.character?.stats?.CON ?? 10);
-    const is2024 = String(this.character?.dnd_edition ?? '').includes('2024');
+    const is2024 = is2024Edition(this.character);
     const statCap = is2024 && this.nextLevel >= 19 ? 30 : 20;
 
     let conBump = 0;
