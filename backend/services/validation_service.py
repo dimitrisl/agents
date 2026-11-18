@@ -201,6 +201,214 @@ def calculate_feature_hp_bonus_per_level(
     return hp_bonus_per_level, has_draconic_hp
 
 
+def _sum_unique_feat_numeric(
+    features: list[Dict[str, Any]] | None,
+    field_name: str,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+) -> int:
+    """Sum a numeric feat bonus field (e.g. flat_hp_bonus, speed_bonus), deduping non-repeatable feats."""
+    if not features:
+        return 0
+    feat_lookup = build_feat_lookup(edition, homebrew_content=homebrew_content)
+    total = 0
+    seen_feats: set[str] = set()
+    for f in features:
+        if not isinstance(f, dict):
+            continue
+        resolved = resolve_known_feat(f.get("name"), feat_lookup, source=f.get("source"))
+        if not resolved:
+            continue
+        canon_name, feat_data = resolved
+        val = int((feat_data or {}).get(field_name) or 0)
+        if val <= 0:
+            continue
+        canon_low = canon_name.lower()
+        if not is_feat_repeatable(feat_data, canon_low):
+            if canon_low in seen_feats:
+                continue
+            seen_feats.add(canon_low)
+        total += val
+    return total
+
+
+def calculate_feature_flat_hp_bonus(
+    features: list[Dict[str, Any]] | None,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+) -> int:
+    """Sum flat HP bonuses granted by feats such as Boon of Fortitude (+40 HP)."""
+    return _sum_unique_feat_numeric(
+        features, "flat_hp_bonus", edition=edition, homebrew_content=homebrew_content
+    )
+
+
+def calculate_feature_speed_bonus(
+    features: list[Dict[str, Any]] | None,
+    edition: str = "2014 Edition",
+    homebrew_content: list[dict] | None = None,
+) -> int:
+    """Sum Walking Speed bonuses granted by feats such as Boon of Speed (+30 ft)."""
+    return _sum_unique_feat_numeric(
+        features, "speed_bonus", edition=edition, homebrew_content=homebrew_content
+    )
+
+
+_NON_HEAVY_EQUIP_TYPES = (
+    "medium armor",
+    "light armor",
+    "shield",
+    "wondrous item",
+    "weapon",
+    "ring",
+    "potion",
+    "scroll",
+    "adventuring gear",
+)
+
+
+def _strip_armor_modifiers(raw_name: str) -> str:
+    """Normalize '+1/+2/+3' enhancements and punctuation for catalog and keyword matching."""
+    cleaned = re.sub(r"(?:\s*,\s*|\s+)\+[1-3]\b", "", str(raw_name or "").lower())
+    cleaned = re.sub(r"[(),]", " ", cleaned)
+    return " ".join(cleaned.split())
+
+
+def build_armor_items_lookup(
+    homebrew_content: list[dict[str, Any]] | None = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Build a lowercase armor/item catalog lookup merged with optional homebrew definitions."""
+    lookup: Dict[str, Dict[str, Any]] = {
+        str(i.get("name") or "").strip().lower(): i
+        for i in RulesRepository().get_all_items()
+        if isinstance(i, dict) and i.get("name")
+    }
+    for hb in homebrew_content or []:
+        if isinstance(hb, dict) and hb.get("name"):
+            lookup[str(hb["name"]).strip().lower()] = hb
+    return lookup
+
+
+def get_heavy_armor_strength_penalty(
+    char_data: Dict[str, Any],
+    items_lookup: Dict[str, Dict[str, Any]] | None = None,
+) -> tuple[int, str | None]:
+    """Return (speed_penalty_ft, audit_notice) when wearing Heavy Armor below its STR requirement."""
+    if not isinstance(char_data, dict):
+        return 0, None
+
+    edition = str(char_data.get("dnd_edition") or char_data.get("ruleset_version") or "")
+    is_2024 = "2024" in edition
+    race = str(char_data.get("race") or "").strip().lower()
+    if "dwarf" in race and not is_2024:
+        return 0, None
+
+    features = char_data.get("features_traits") or []
+    classes = char_data.get("classes") or []
+    has_arcane_armor = (
+        any(
+            isinstance(f, dict)
+            and any(
+                kw in str(f.get("name") or "").lower() for kw in ("arcane armor", "power armor")
+            )
+            for f in features
+        )
+        or "armorer" in str(char_data.get("subclass") or "").lower()
+        or any(
+            isinstance(c, dict) and "armorer" in str(c.get("subclass") or "").lower()
+            for c in classes
+        )
+    )
+    if has_arcane_armor:
+        return 0, None
+
+    equipment = char_data.get("equipment") or []
+    has_striding_boots = any(
+        isinstance(eq, dict)
+        and eq.get("equipped")
+        and "boots of striding" in str(eq.get("name") or "").lower()
+        for eq in equipment
+    )
+    if has_striding_boots:
+        return 0, None
+
+    if items_lookup is None:
+        all_items = RulesRepository().get_all_items()
+        items_lookup = {
+            str(i.get("name") or "").strip().lower(): i
+            for i in all_items
+            if isinstance(i, dict) and i.get("name")
+        }
+
+    stats = char_data.get("stats") or {}
+    if hasattr(stats, "model_dump"):
+        stats = stats.model_dump()
+    try:
+        str_score = int(
+            (stats.get("STR") if isinstance(stats, dict) else getattr(stats, "STR", 10)) or 10
+        )
+    except (TypeError, ValueError):
+        str_score = 10
+
+    max_penalty = 0
+    trigger_notice: str | None = None
+    for equip in equipment:
+        if not isinstance(equip, dict) or not equip.get("equipped"):
+            continue
+        raw_name = str(equip.get("name") or "").strip()
+        low = raw_name.lower()
+        if not low or "mithral" in low:
+            continue
+
+        base_low = _strip_armor_modifiers(low)
+        item_db = items_lookup.get(low) or items_lookup.get(base_low)
+        equip_type = str(equip.get("type") or "").strip().lower()
+        if item_db is not None:
+            item_type = str(item_db.get("type") or "").lower()
+            if "heavy armor" not in item_type:
+                continue
+            min_str = int(item_db.get("min_str") or 0)
+        elif equip_type and any(t in equip_type for t in _NON_HEAVY_EQUIP_TYPES):
+            continue
+        elif "heavy armor" in equip_type and equip.get("min_str") is not None:
+            try:
+                min_str = int(equip.get("min_str") or 0)
+            except (TypeError, ValueError):
+                min_str = 0
+        else:
+            min_str = 0
+            if "breast" not in base_low and "half" not in base_low:
+                if re.search(
+                    r"\b(?:full\s+)?plate(?:\s+armor)?\b|\bsplint(?:\s+armor)?\b",
+                    base_low,
+                ):
+                    min_str = 15
+                elif re.search(r"\bchain\s*mail\b", base_low):
+                    min_str = 13
+
+        if min_str > 0 and str_score < min_str:
+            max_penalty = 10
+            trigger_notice = (
+                f"Wearing {raw_name} with STR {str_score} (requires STR {min_str}) "
+                "reduces Walking Speed by 10 ft."
+            )
+            break
+
+    return max_penalty, trigger_notice
+
+
+def collect_build_suggestions(
+    char_data: Dict[str, Any],
+    items_lookup: Dict[str, Dict[str, Any]] | None = None,
+) -> list[str]:
+    """Collect informational rules notices/recommendations (non-blocking)."""
+    suggestions: list[str] = []
+    _, armor_str_notice = get_heavy_armor_strength_penalty(char_data, items_lookup=items_lookup)
+    if armor_str_notice and armor_str_notice not in suggestions:
+        suggestions.append(armor_str_notice)
+    return suggestions
+
+
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
     """Extracts all armor proficiencies granted by class, multiclass entries, subclass, and features."""
     proficiencies = set()

@@ -13,7 +13,9 @@ import {
   currentHp,
   exhaustionD20Penalty,
   findSkill,
+  formatClassSummary,
   formatModifier,
+  formatSubclassSummary,
   hasJackOfAllTrades,
   hasRemarkableAthlete,
   hasInitiativeAdvantage,
@@ -1042,5 +1044,25 @@ describe('Code Review Regression Fixes (Rules)', () => {
       skills: { Perception: 11 },
     });
     expect(skillModifier(customHero, skill('Perception', 'WIS'))).toBe(11);
+  });
+
+  it('formats single-class and multiclass summaries cleanly', () => {
+    const single = hero({ char_class: 'Paladin', char_level: 5, subclass: 'Oath of Devotion' });
+    expect(formatClassSummary(single, 'long')).toBe('Paladin • Level 5');
+    expect(formatClassSummary(single, 'compact')).toBe('Paladin Lv 5');
+    expect(formatSubclassSummary(single)).toBe('Oath of Devotion');
+
+    const multi = hero({
+      char_class: 'Paladin',
+      char_level: 8,
+      subclass: 'Oath of Devotion',
+      classes: [
+        { class_name: 'Paladin', level: 5, subclass: 'Oath of Devotion' },
+        { class_name: 'Sorcerer', level: 3, subclass: 'Draconic Sorcery' },
+      ],
+    });
+    expect(formatClassSummary(multi, 'long')).toBe('Paladin 5 / Sorcerer 3');
+    expect(formatClassSummary(multi, 'compact')).toBe('Paladin 5 / Sorcerer 3');
+    expect(formatSubclassSummary(multi)).toBe('Oath of Devotion / Draconic Sorcery');
   });
 });

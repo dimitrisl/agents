@@ -23,12 +23,19 @@
       <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ formatSigned(proficiencyBonus) }}</p>
     </div>
 
-    <div class="col-span-2 flex flex-col items-center px-2 py-3 text-center">
+    <div
+      class="col-span-2 flex flex-col items-center px-2 py-3 text-center"
+      [class.cursor-help]="heavyArmorSpeedPenalty > 0"
+      [title]="heavyArmorSpeedPenalty > 0 ? ('Includes -' + heavyArmorSpeedPenalty + ' ft Heavy Armor Strength penalty') : ''"
+    >
       <p class="text-micro font-semibold uppercase text-muted">Speed</p>
       @if (!editMode) {
         <p class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">
           {{ speed }}<span class="ml-0.5 text-label font-semibold text-muted">ft</span>
         </p>
+        @if (heavyArmorSpeedPenalty > 0) {
+          <p class="mt-1 max-w-full truncate text-micro font-semibold text-red">-{{ heavyArmorSpeedPenalty }}ft STR</p>
+        }
       } @else {
         <div class="mt-1 flex items-center justify-center gap-1">
           <input forgeInput type="number" class="mx-auto max-w-16 text-center" [ngModel]="speed" (ngModelChange)="speedChange.emit($event)" aria-label="Speed" />

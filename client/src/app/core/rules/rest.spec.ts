@@ -247,4 +247,42 @@ describe('rest rules', () => {
       expect(recharged.find((r) => r.name === 'Action Surge')?.current).toBe(1); // regular short rest recharge
     });
   });
+
+  describe('multiclass hit die resolution', () => {
+    it('resolves Sorcerer 5 / Warlock 3 primary die as d6 despite descending "3d8, 5d6" string', () => {
+      const sorclock = hero({
+        char_class: 'Sorcerer',
+        char_level: 8,
+        hit_dice: '3d8, 5d6',
+        classes: [
+          { class_name: 'Sorcerer', level: 5 },
+          { class_name: 'Warlock', level: 3 },
+        ],
+      });
+
+      expect(hitDieSize(sorclock)).toBe(6);
+      expect(availableHitDieOptions(sorclock)).toEqual([
+        { className: 'Sorcerer', level: 5, dieSize: 6 },
+        { className: 'Warlock', level: 3, dieSize: 8 },
+      ]);
+    });
+
+    it('resolves Paladin 5 / Sorcerer 3 pools as d10 and d6 accurately', () => {
+      const palasorc = hero({
+        char_class: 'Paladin',
+        char_level: 8,
+        hit_dice: '5d10, 3d6',
+        classes: [
+          { class_name: 'Paladin', level: 5 },
+          { class_name: 'Sorcerer', level: 3 },
+        ],
+      });
+
+      expect(hitDieSize(palasorc)).toBe(10);
+      expect(availableHitDieOptions(palasorc)).toEqual([
+        { className: 'Paladin', level: 5, dieSize: 10 },
+        { className: 'Sorcerer', level: 3, dieSize: 6 },
+      ]);
+    });
+  });
 });

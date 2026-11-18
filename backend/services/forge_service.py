@@ -732,18 +732,26 @@ def forge_character_manual(
     if "custom" in str(result.get("background", "")).lower():
         pass
 
-    # Add missing static class features (Bug 7)
+    # Add missing static class & subclass features (Bug 7 + L15+ concrete subclass resolution)
     from backend.repositories.rules_repository import RulesRepository
 
     repo = RulesRepository()
     all_static_features = []
     for lvl in range(1, target_level + 1):
-        all_static_features.extend(repo.get_features_at_level(char_class, lvl, edition))
+        all_static_features.extend(
+            resolve_level_up_automatic_features(
+                char_class=char_class,
+                target_level=lvl,
+                subclass_to_use=subclass,
+                edition=edition,
+            )
+        )
 
     existing_feat_names = {f.get("name", "").lower() for f in result.get("features_traits", [])}
     for feat in all_static_features:
         if feat.get("name", "").lower() not in existing_feat_names:
             result.setdefault("features_traits", []).append(feat)
+            existing_feat_names.add(feat.get("name", "").lower())
 
     if chosen_spells is not None:
         all_rules_spells = {s["name"].lower(): s for s in repo.get_all_spells(edition)}
@@ -1745,6 +1753,34 @@ def _lookup_subclass_detail(
     return None
 
 
+_SUBCLASS_PLACEHOLDERS = (
+    "archetype feature",
+    "tradition feature",
+    "subclass feature",
+    "domain feature",
+    "path feature",
+    "martial archetype",
+    "roguish archetype",
+    "sorcerous origin",
+    "divine domain",
+    "arcane tradition",
+    "primal path",
+    "bard college",
+    "druid circle",
+    "monastic tradition",
+    "sacred oath",
+    "ranger archetype",
+    "otherworldly patron",
+    "artificer specialist",
+)
+
+
+def is_subclass_placeholder_name(feature_name: str) -> bool:
+    """Return True when a class table feature name is a generic subclass placeholder."""
+    flwr = str(feature_name or "").lower().strip()
+    return flwr.endswith(" subclass") or any(ph in flwr for ph in _SUBCLASS_PLACEHOLDERS)
+
+
 def resolve_level_up_automatic_features(
     char_class: str,
     target_level: int,
@@ -1760,31 +1796,9 @@ def resolve_level_up_automatic_features(
     if not subclass_to_use:
         return [{"source": f.get("source") or "Class", **f} for f in static_features]
 
-    _SUBCLASS_PLACEHOLDERS = (
-        "archetype feature",
-        "tradition feature",
-        "subclass feature",
-        "domain feature",
-        "path feature",
-        "martial archetype",
-        "roguish archetype",
-        "sorcerous origin",
-        "divine domain",
-        "arcane tradition",
-        "primal path",
-        "bard college",
-        "druid circle",
-        "monastic tradition",
-        "sacred oath",
-        "ranger archetype",
-        "otherworldly patron",
-        "artificer specialist",
-    )
-
     resolved_features = []
     for feat in static_features:
-        flwr = feat.get("name", "").lower().strip()
-        if flwr.endswith(" subclass") or any(ph in flwr for ph in _SUBCLASS_PLACEHOLDERS):
+        if is_subclass_placeholder_name(feat.get("name", "")):
             details_map = SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
             sub_detail = _lookup_subclass_detail(
                 details_map, char_class, subclass_to_use, target_level
@@ -1818,8 +1832,8 @@ def _extract_level_up_hp_deltas(
     owned_non_repeatable: set[str],
     target_total_level: int,
     edition: str,
-) -> tuple[int, int]:
-    """Compute (con_mod_delta, added_feat_hp_per_level) from pending level-up ASI/feat choices."""
+) -> tuple[int, int, int]:
+    """Compute (con_mod_delta, added_feat_hp_per_level, added_flat_hp) from pending level-up ASI/feat choices."""
     from backend.services.stats_service import get_modifier
 
     is_2024 = "2024" in str(edition)
@@ -1828,6 +1842,7 @@ def _extract_level_up_hp_deltas(
     old_con = int(stats.get("CON", 10) or 10)
     con_bump = 0
     added_feat_hp_per_level = 0
+    added_flat_hp = 0
     seen_new_feats: set[str] = set()
 
     for choice_key, choice_val in (user_choices or {}).items():
@@ -1896,14 +1911,16 @@ def _extract_level_up_hp_deltas(
                     con_bump += 1
 
             per_lvl = int(feat_data.get("hp_bonus_per_level") or 0)
-            if per_lvl > 0:
+            flat_hp = int(feat_data.get("flat_hp_bonus") or 0)
+            if per_lvl > 0 or flat_hp > 0:
                 if is_feat_repeatable(feat_data, canon_low) or canon_low not in seen_new_feats:
                     seen_new_feats.add(canon_low)
                     added_feat_hp_per_level += per_lvl
+                    added_flat_hp += flat_hp
 
     new_con = min(stat_cap, old_con + con_bump)
     con_mod_delta = get_modifier(new_con) - get_modifier(old_con)
-    return con_mod_delta, added_feat_hp_per_level
+    return con_mod_delta, added_feat_hp_per_level, added_flat_hp
 
 
 def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
@@ -2004,7 +2021,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     owned_non_repeatable = get_owned_non_repeatable_feats(
         char_data, edition=edition, feat_lookup=feat_lookup
     )
-    con_mod_delta, added_feat_hp_per_level = _extract_level_up_hp_deltas(
+    con_mod_delta, added_feat_hp_per_level, added_flat_hp = _extract_level_up_hp_deltas(
         char_data=char_data,
         user_choices=user_choices,
         feat_lookup=feat_lookup,
@@ -2019,6 +2036,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             char_data.get("hp_max", 0)
             + hp_increase
             + retroactive_hp_bonus
+            + added_flat_hp
             + per_level_choice_delta * target_total_level
         )
     else:
@@ -2027,6 +2045,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             char_data.get("hp_max", 0)
             + hp_increase
             + retroactive_hp_bonus
+            + added_flat_hp
             + per_level_choice_delta * current_total_level
         )
 
@@ -2096,6 +2115,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "stat_choice_options": stat_opts,
                     "stat_bonus": stat_bonus,
                     "hp_bonus_per_level": int(f.get("hp_bonus_per_level") or 0),
+                    "flat_hp_bonus": int(f.get("flat_hp_bonus") or 0),
                 }
 
         choices.append(

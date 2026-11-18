@@ -232,7 +232,16 @@
 
   <!-- SPELL SLOTS SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="spell-slots-heading">
-    <h3 id="spell-slots-heading" class="font-display text-title text-ink">Spell Slots</h3>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h3 id="spell-slots-heading" class="font-display text-title text-ink">Spell Slots</h3>
+      <span
+        *ngIf="pactPool as pact"
+        class="inline-flex items-center gap-1 rounded-md border border-cobalt/40 bg-cobalt/10 px-2 py-0.5 text-micro font-semibold text-cobalt"
+        title="Warlock Pact Magic slots recharge on a Short Rest"
+      >
+        ⚡ {{ pact.remaining }}/{{ pact.max }} Pact (Lvl {{ pact.level }} · Short Rest)
+      </span>
+    </div>
 
     <div
       *ngIf="activeSpellLevels.length > 0; else noSpellSlots"
@@ -242,13 +251,20 @@
         *ngFor="let level of activeSpellLevels; trackBy: trackByLevel"
         class="rounded-xl bg-tile p-3"
       >
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-micro font-semibold uppercase text-muted">Level {{ level }}</p>
-          <span
-            *ngIf="createdSlotCount(level) > 0"
-            class="text-micro font-semibold text-accent"
-            title="Made with sorcery points — vanishes on a long rest"
-          >+{{ createdSlotCount(level) }} created</span>
+          <div class="flex items-center gap-1.5">
+            <span
+              *ngIf="pactCountAtLevel(level) > 0"
+              class="text-micro font-semibold text-cobalt"
+              title="Includes Warlock Pact Magic slots — recharge on a Short Rest"
+            >⚡ {{ pactRemainingAtLevel(level) }}/{{ pactCountAtLevel(level) }} Pact</span>
+            <span
+              *ngIf="createdSlotCount(level) > 0"
+              class="text-micro font-semibold text-accent"
+              title="Made with sorcery points — vanishes on a long rest"
+            >+{{ createdSlotCount(level) }} created</span>
+          </div>
         </div>
 
         <div class="mt-2 flex items-center justify-between gap-2">
@@ -348,7 +364,7 @@
 
       <!-- METAMAGIC -->
       <div class="flex flex-col gap-1.5 border-t border-hairline pt-3" *ngIf="metamagicLimit > 0 || knownMetamagicOptions.length > 0">
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-micro font-semibold uppercase text-muted">
             Metamagic · {{ knownMetamagicOptions.length }} / {{ metamagicLimit }} known
           </p>

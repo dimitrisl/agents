@@ -251,7 +251,7 @@
         <div class="min-w-0">
           <h2 class="font-display font-bold text-sm text-ink truncate leading-tight">{{ char.char_name }}</h2>
           <div class="flex items-center gap-2 text-micro text-muted">
-            <span>{{ char.char_class }} Lv {{ char.char_level }}</span>
+            <span class="min-w-0 truncate">{{ classSummary(char, 'compact') }}</span>
             <span *ngIf="char.concentrating_on" class="text-gold font-bold flex items-center gap-0.5 truncate max-w-25">
               🧠 {{ char.concentrating_on }}
             </span>

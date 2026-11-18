@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CharacterStateService } from '../../core/services/character-state.service';
+import { formatClassSummary } from '../../core/rules';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { BrokenPortraitTracker } from '../../core/utils/portrait';
 import { environment } from '../../../environments/environment';
@@ -95,7 +96,11 @@ export class RulesComponent {
   get auditTargetLabel(): string {
     const char = this.charState.activeCharacter();
     if (!char) return 'No hero selected';
-    return `${char.char_name} · Level ${char.char_level} ${char.char_class}`;
+    return `${char.char_name} · ${formatClassSummary(char, 'long')}`;
+  }
+
+  classSummaryFor(char: any): string {
+    return formatClassSummary(char, 'long');
   }
 
   searchOracle() {

@@ -1,3 +1,4 @@
+import copy
 import functools
 from typing import Any, Dict, List, Optional
 
@@ -25,7 +26,11 @@ from backend.services.rules_service import (
     compare_rules,
     query_rules,
 )
-from backend.services.validation_service import deterministic_validate_build
+from backend.services.stats_service import sync_character_stats
+from backend.services.validation_service import (
+    collect_build_suggestions,
+    deterministic_validate_build,
+)
 from server.config import settings
 from server.dependencies.auth import get_current_user
 from server.rate_limiter import limiter
@@ -88,11 +93,13 @@ async def validate_rules(
 ):
     corrected, issues = deterministic_validate_build(payload.character)
     is_valid = len(issues) == 0
+    synced_preview = sync_character_stats(copy.deepcopy(corrected))
+    suggestions = collect_build_suggestions(synced_preview)
     return {
         "validation_result": {
             "is_valid": is_valid,
             "issues": issues,
-            "suggestions": [],
+            "suggestions": suggestions,
             "corrections": corrected,
         }
     }

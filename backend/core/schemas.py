@@ -345,6 +345,7 @@ class CharacterSchema(BaseModel):
     hit_dice_used: int = 0
     speed: int = 30
     base_speed: Optional[int] = None
+    heavy_armor_speed_penalty: Optional[int] = 0
     base_hp_max: Optional[int] = None
     proficiency_bonus: int = 2
     base_stats: Optional[StatBlock] = None
@@ -531,6 +532,7 @@ class LevelUpFeatMetadata(BaseModel):
     stat_choice_options: List[str] = Field(default_factory=list)
     stat_bonus: Dict[str, int] = Field(default_factory=dict)
     hp_bonus_per_level: int = 0
+    flat_hp_bonus: int = 0
 
 
 class LevelUpChoice(BaseModel):

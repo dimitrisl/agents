@@ -382,4 +382,59 @@ describe('LevelUpModalComponent', () => {
     expect(component.hasIncompleteStatChoices).toBe(false);
     expect(getApplyButton()?.disabled).toBe(false);
   });
+
+  it('previews +40 flat HP and stat cap 30 for Boon of Fortitude at level 19 (2024)', () => {
+    component.character = {
+      ...mockCharacter,
+      char_level: 18,
+      dnd_edition: '2024 Revision (5.5e)',
+      stats: { STR: 20, DEX: 12, CON: 19, INT: 10, WIS: 12, CHA: 8 },
+      classes: [{ class_name: 'Fighter', level: 18 }],
+    };
+    fixture.componentRef.setInput('nextLevel', 19);
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      new_total_level: 19,
+      class_upgraded: 'Fighter',
+      new_class_level: 19,
+      hp_increase: 10,
+      new_total_hp: 190,
+      automatic_features: [],
+      choices_required: [
+        {
+          type: 'feat',
+          label: 'Epic Boon Feat',
+          options: ['Boon of Fortitude'],
+          feat_metadata: {
+            'Boon of Fortitude': {
+              has_stat_choice: true,
+              stat_choice_options: ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'],
+              stat_bonus: {},
+              hp_bonus_per_level: 0,
+              flat_hp_bonus: 40,
+            },
+          },
+        },
+      ],
+      updated_proficiency_bonus: 6,
+      updated_spell_slots: {},
+    });
+    fixture.componentRef.setInput('open', true);
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      feat_0: 'Boon of Fortitude',
+      feat_stat1_0: 'CON',
+    });
+    fixture.detectChanges();
+
+    // CON 19 -> 20 gives +1 CON mod across 19 levels (+19) plus +40 flat HP = +59
+    expect(component.previewPendingHpAdjustment).toBe(59);
+
+    // Also verify stat cap 30 when CON is 20 -> 21 (mod remains +5, flat HP +40)
+    component.character = {
+      ...component.character,
+      stats: { STR: 20, DEX: 12, CON: 20, INT: 10, WIS: 12, CHA: 8 },
+    };
+    fixture.detectChanges();
+    expect(component.previewPendingHpAdjustment).toBe(40);
+  });
 });

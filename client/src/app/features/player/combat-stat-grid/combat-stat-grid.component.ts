@@ -17,6 +17,7 @@ export class CombatStatGridComponent {
   @Input() acBreakdown?: AcBreakdown | null;
   @Input() proficiencyBonus = 0;
   @Input() speed = 0;
+  @Input() heavyArmorSpeedPenalty = 0;
   @Input() passivePerception = 10;
   @Input() initiativeModifier?: number;
   @Input() initiativeAdvantage = false;

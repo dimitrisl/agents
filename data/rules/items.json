@@ -4,6 +4,7 @@
         "type": "Heavy Armor",
         "ac_base": 18,
         "dex_limit": 0,
+        "min_str": 15,
         "description": "Heavy interlocking plates of metal."
     },
     {
@@ -11,7 +12,24 @@
         "type": "Heavy Armor",
         "ac_base": 16,
         "dex_limit": 0,
+        "min_str": 13,
         "description": "Interlocking metal rings."
+    },
+    {
+        "name": "Splint Armor",
+        "type": "Heavy Armor",
+        "ac_base": 17,
+        "dex_limit": 0,
+        "min_str": 15,
+        "description": "Vertical strips of metal riveted to a backing of leather."
+    },
+    {
+        "name": "Ring Mail",
+        "type": "Heavy Armor",
+        "ac_base": 14,
+        "dex_limit": 0,
+        "min_str": 0,
+        "description": "Leather armor with heavy rings sewn into it."
     },
     {
         "name": "Scale Mail",
