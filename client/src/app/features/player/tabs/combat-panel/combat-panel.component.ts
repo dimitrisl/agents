@@ -457,6 +457,12 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     // mid-keystroke; only commit once the field holds a complete dice expression.
     val = (val || '').trim().toLowerCase();
     if (!/^\d+d\d+$/.test(val)) return;
+    if (weapon.is_custom) {
+      const dmgType = weapon.damage_type || this.weaponDamageType(weapon);
+      weapon.damage_dice = `${val} ${dmgType}`.trim();
+      this.syncWeaponCalculations(weapon, false);
+      return;
+    }
     const bd = this.getWeaponBreakdown(weapon);
     const type = weapon.damage_type || bd.damage.damageType;
     const bonus = bd.damage.totalBonus;
@@ -472,6 +478,14 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
 
   onManualAttackBonusChange(weapon: Weapon): void {
     const parsed = this.dice.parseNotation(weapon.attack_bonus || '');
+    if (weapon.is_custom) {
+      if (parsed) {
+        weapon.attack_bonus = this.dice.signed(parsed.modifier);
+      }
+      this.stampWeaponTracking(weapon);
+      this.save.emit();
+      return;
+    }
     if (parsed) {
       const target = parsed.modifier;
       const base = calculateWeaponBreakdown({ ...weapon, misc_attack_bonus: 0 }, this.char);
@@ -481,7 +495,17 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   onManualDamageDiceChange(weapon: Weapon): void {
-    const parsed = this.dice.parseNotation(weapon.damage_dice || '');
+    const raw = weapon.damage_dice || '';
+    const parsed = this.dice.parseNotation(raw);
+    if (weapon.is_custom) {
+      if (parsed && parsed.numDice > 0) {
+        const dmgType = weapon.damage_type || this.weaponDamageType(weapon);
+        weapon.damage_bonus = this.dice.signed(parsed.modifier);
+        weapon.damage_dice = `${parsed.numDice}d${parsed.sides} ${dmgType}`.trim();
+      }
+      this.syncWeaponCalculations(weapon, false);
+      return;
+    }
     if (parsed) {
       const targetBonus = parsed.modifier;
       const base = calculateWeaponBreakdown({ ...weapon, misc_damage_bonus: 0 }, this.char);
@@ -490,7 +514,65 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     this.syncWeaponCalculations(weapon, false);
   }
 
+  private stampWeaponTracking(weapon: Weapon): void {
+    weapon.exhaustion_attack_penalty_applied = exhaustionD20Penalty(this.char);
+    weapon.dm_attack_bonus_applied = this.char?.dm_modifiers?.attack_bonus ?? 0;
+    weapon.dm_damage_bonus_applied = this.char?.dm_modifiers?.damage_bonus ?? 0;
+    weapon.magic_bonus_suppressed_applied = this.char?.magic_items_suppressed
+      ? extractMagicBonus(weapon)
+      : 0;
+  }
+
+  private customAttackBonusWithoutEffects(weapon: Weapon): number {
+    const baseAtk = parseInt(String(weapon.attack_bonus ?? '0').replace(/\s+/g, ''), 10) || 0;
+    const dmAtk = this.char?.dm_modifiers?.attack_bonus ?? 0;
+    const prevDmAtk = weapon.dm_attack_bonus_applied ?? 0;
+    const exh = exhaustionD20Penalty(this.char);
+    const prevExh = weapon.exhaustion_attack_penalty_applied ?? 0;
+    const targetSupMagic = this.char?.magic_items_suppressed ? extractMagicBonus(weapon) : 0;
+    const prevSupMagic = weapon.magic_bonus_suppressed_applied ?? 0;
+    return baseAtk + (dmAtk - prevDmAtk) - (exh - prevExh) - (targetSupMagic - prevSupMagic);
+  }
+
+  private customDamageBonus(weapon: Weapon): number {
+    const source = weapon.damage_dice || weapon.damage || '1d4';
+    const parsed = this.dice.parseNotation(source);
+    const dmgBonusParsed = this.dice.parseNotation(weapon.damage_bonus || '');
+    // `damage_bonus` is updated authoritatively by backend DM/Athas math; prefer it over stale inline dice bonuses.
+    const baseBonus =
+      weapon.damage_bonus !== undefined && weapon.damage_bonus !== '' && dmgBonusParsed
+        ? dmgBonusParsed.modifier
+        : (parsed?.modifier ?? 0);
+    const dmDmg = this.char?.dm_modifiers?.damage_bonus ?? 0;
+    const prevDmDmg = weapon.dm_damage_bonus_applied ?? 0;
+    const targetSupMagic = this.char?.magic_items_suppressed ? extractMagicBonus(weapon) : 0;
+    const prevSupMagic = weapon.magic_bonus_suppressed_applied ?? 0;
+    return baseBonus + (dmDmg - prevDmDmg) - (targetSupMagic - prevSupMagic);
+  }
+
   syncWeaponCalculations(weapon: Weapon, showToast = true): void {
+    if (weapon.is_custom) {
+      const atkTotal = this.customAttackBonusWithoutEffects(weapon);
+      const dmgTotal = this.customDamageBonus(weapon);
+      const baseDice = this.getWeaponBaseDice(weapon);
+      const dmgType = weapon.damage_type || this.weaponDamageType(weapon);
+      weapon.attack_bonus = this.dice.signed(atkTotal);
+      weapon.damage_bonus = this.dice.signed(dmgTotal);
+      weapon.damage_dice = `${baseDice} ${dmgType}`.trim();
+      const dmgBonusFmt =
+        dmgTotal !== 0 ? (dmgTotal > 0 ? ` + ${dmgTotal}` : ` - ${Math.abs(dmgTotal)}`) : '';
+      weapon.damage = `${baseDice}${dmgBonusFmt} ${dmgType}`.trim();
+      this.stampWeaponTracking(weapon);
+      this.save.emit();
+      if (showToast) {
+        this.rollToast.showMessage(
+          '⚡ WEAPON SYNCHRONIZED',
+          `${weapon.name}: To Hit is ${weapon.attack_bonus}, Damage is ${this.weaponNotation(weapon)}`
+        );
+      }
+      return;
+    }
+
     const bd = this.getWeaponBreakdown(weapon);
     weapon.attack_bonus = this.dice.signed(bd.attack.total);
     weapon.damage_dice = `${bd.damage.notation} ${bd.damage.damageType}`.trim();
@@ -498,12 +580,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     if (!this.char?.magic_items_suppressed) {
       weapon.magic_bonus = bd.attack.magicBonus;
     }
-    weapon.exhaustion_attack_penalty_applied = exhaustionD20Penalty(this.char);
-    weapon.dm_attack_bonus_applied = this.char?.dm_modifiers?.attack_bonus ?? 0;
-    weapon.dm_damage_bonus_applied = this.char?.dm_modifiers?.damage_bonus ?? 0;
-    weapon.magic_bonus_suppressed_applied = this.char?.magic_items_suppressed
-      ? extractMagicBonus(weapon)
-      : 0;
+    this.stampWeaponTracking(weapon);
     this.save.emit();
     if (showToast) {
       this.rollToast.showMessage(
@@ -525,15 +602,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       const source = weapon.damage_dice || weapon.damage || '1d4';
       const parsed = this.dice.parseNotation(source);
       if (!parsed || parsed.numDice === 0) return source;
-      const baseBonus =
-        parsed.modifier !== 0
-          ? parsed.modifier
-          : (this.dice.parseNotation(weapon.damage_bonus || '')?.modifier ?? 0);
-      const dmDmg = this.char?.dm_modifiers?.damage_bonus ?? 0;
-      const prevDmDmg = weapon.dm_damage_bonus_applied ?? 0;
-      const targetSupMagic = this.char?.magic_items_suppressed ? extractMagicBonus(weapon) : 0;
-      const prevSupMagic = weapon.magic_bonus_suppressed_applied ?? 0;
-      const total = baseBonus + (dmDmg - prevDmDmg) - (targetSupMagic - prevSupMagic);
+      const total = this.customDamageBonus(weapon);
       return `${parsed.numDice}d${parsed.sides}${total !== 0 ? this.dice.signed(total) : ''}`;
     }
     if (this.char?.magic_items_suppressed || (this.char?.dm_modifiers?.damage_bonus ?? 0) !== 0) {
@@ -677,6 +746,9 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
 
   private attackBonus(weapon: Weapon): number {
     const situational = this.activeEffects(weapon).reduce((sum, e) => sum + (e.attack_bonus || 0), 0);
+    if (weapon.is_custom) {
+      return this.customAttackBonusWithoutEffects(weapon) + situational;
+    }
     return this.getWeaponBreakdown(weapon).attack.total + situational;
   }
 

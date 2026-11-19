@@ -509,14 +509,35 @@ describe('CombatPanelComponent', () => {
       weapons: [customSword],
     } as any;
 
-    // Prior to sync: custom +8 bonus + DM (+3) - suppressed Magic (1) = +10 -> 2d6+10
+    // Prior to sync: custom +10 attack + DM (+2) - Exh (2) - supMagic (1) = +9; custom +8 dmg + DM (+3) - supMagic (1) = +10
+    expect(component.displayedAttackBonus(customSword)).toBe('+9');
     expect(component.damagePreview(customSword)).toBe('2d6+10');
 
-    // Sync writes breakdown totals and stamps all 4 differential tracking fields so backend won't double-count
+    // Sync writes custom totals without erasing them or baking +10 into damage_dice, and stamps all 4 tracking fields
     component.syncWeaponCalculations(customSword, false);
+    expect(customSword.attack_bonus).toBe('+9');
+    expect(customSword.damage_bonus).toBe('+10');
+    expect(customSword.damage_dice).toBe('2d6 slashing');
+    expect(customSword.damage).toBe('2d6 + 10 slashing');
     expect(customSword.dm_attack_bonus_applied).toBe(2);
     expect(customSword.dm_damage_bonus_applied).toBe(3);
     expect(customSword.magic_bonus_suppressed_applied).toBe(1);
     expect(customSword.exhaustion_attack_penalty_applied).toBe(2);
+
+    // Authoritative backend damage_bonus (+12) takes precedence even if damage_dice carries stale inline (+8)
+    const staleDiceWeapon: any = {
+      name: 'Flame Tongue +1',
+      is_custom: true,
+      damage_dice: '2d6+8 slashing',
+      damage_bonus: '+12',
+      attack_bonus: '+11',
+      magic_bonus: 1,
+      dm_attack_bonus_applied: 2,
+      dm_damage_bonus_applied: 3,
+      magic_bonus_suppressed_applied: 1,
+      exhaustion_attack_penalty_applied: 2,
+    };
+    expect(component.damagePreview(staleDiceWeapon)).toBe('2d6+12');
+    expect(component.displayedAttackBonus(staleDiceWeapon)).toBe('+11');
   });
 });

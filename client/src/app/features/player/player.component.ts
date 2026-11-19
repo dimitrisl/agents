@@ -1526,6 +1526,35 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
+    if (
+      normalizedType === 'attack' ||
+      normalizedType === 'attack_roll' ||
+      normalizedType === 'weapon_attack' ||
+      normalizedType === 'spell_attack'
+    ) {
+      if (normalizedType === 'spell_attack' && char.spell_attack_bonus !== undefined && char.spell_attack_bonus !== null) {
+        const parsedSpell = parseInt(String(char.spell_attack_bonus).replace('+', '').trim(), 10);
+        if (!Number.isNaN(parsedSpell)) {
+          return {
+            title: '✨ SPELL ATTACK ROLL',
+            label: `${stat} attack roll`,
+            modifier: parsedSpell,
+          };
+        }
+      }
+      const statUpper = (stat || '').trim().toUpperCase();
+      const matchedStatKey = Object.keys(char.stats).find((k) => k.toUpperCase() === statUpper);
+      const statScore = matchedStatKey ? (char.stats as unknown as Record<string, number>)[matchedStatKey] : undefined;
+      const statMod = statScore !== undefined ? abilityModifier(statScore) : 0;
+      const dmAtkBonus = char.dm_modifiers?.attack_bonus ?? 0;
+      const exhPenalty = is2024Edition(char) ? effectiveExhaustionLevel(char) * 2 : 0;
+      return {
+        title: `⚔️ ${stat.toUpperCase()} ATTACK ROLL`,
+        label: `${stat} attack roll`,
+        modifier: statMod + dmAtkBonus - exhPenalty,
+      };
+    }
+
     if (normalizedType === 'initiative' || stat.toLowerCase() === 'initiative') {
       return {
         title: '⚔️ INITIATIVE ROLL',
@@ -1585,8 +1614,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     const char = this.charState.activeCharacter();
     const norm = rollType.toLowerCase().replace(/[\s-]+/g, '_');
-    const isSave = norm === 'save' || norm === 'saving_throw' || norm === 'savingthrow';
-    const isAttack = norm === 'attack' || norm === 'weapon_attack' || norm === 'spell_attack';
+    const isSave =
+      norm === 'save' ||
+      norm === 'saving_throw' ||
+      norm === 'savingthrow' ||
+      norm === 'death' ||
+      norm === 'death_save' ||
+      stat.toLowerCase() === 'death' ||
+      norm === 'concentration' ||
+      stat.toLowerCase() === 'concentration';
+    const isAttack =
+      norm === 'attack' ||
+      norm === 'attack_roll' ||
+      norm === 'weapon_attack' ||
+      norm === 'spell_attack';
     const isInit = norm === 'initiative' || stat.toLowerCase() === 'initiative';
     const isAthletics = norm.includes('skill') && stat.toLowerCase() === 'athletics';
     const autoAdv = (isInit && hasInitiativeAdvantage(char)) || (isAthletics && hasAthleticsAdvantage(char));
@@ -3071,7 +3112,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
     if (!char.weapons) char.weapons = [];
-    char.weapons.push({ name: 'New Weapon', attack_bonus: '+5', damage_dice: '1d8+3' });
+    char.weapons.push({
+      name: 'New Weapon',
+      attack_bonus: '+5',
+      damage_dice: '1d8',
+      damage_bonus: '+3',
+      is_custom: true,
+    });
     this.saveCurrentChar();
   }
 

@@ -310,8 +310,8 @@ async def update_character(
         partial(process_character_update, char_dict, homebrew_content=homebrew_items)
     )
 
-    client_version = char_dict.get("version", 0)
-    if existing.get("version", 0) > client_version:
+    client_version = int(char_dict.get("version") or 0)
+    if int(existing.get("version") or 0) > client_version:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Conflict: Character was modified elsewhere. Please refresh.",
@@ -320,7 +320,7 @@ async def update_character(
     char_dict["version"] = client_version + 1
 
     result = await db["characters"].update_one(
-        {"char_id": char_id, "owner_id": current_user["id"], "version": client_version},
+        _version_cas_filter(char_id, current_user["id"], existing.get("version")),
         {"$set": char_dict},
     )
     if result.modified_count == 0 and result.matched_count == 0:

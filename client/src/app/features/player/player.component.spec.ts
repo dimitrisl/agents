@@ -1663,6 +1663,31 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     comp.dismissRollPrompt();
     http.expectOne((r) => r.url.includes('/roll-request/req-conc/miss')).flush({ success: true });
 
+    // attack_roll prompt uses STR + dm_modifiers.attack_bonus - 2024 Exhaustion penalty (never ability_checks_bonus)
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 2,
+      dm_modifiers: { attack_bonus: 3, ability_checks_bonus: -5 },
+      stats: { STR: 16, DEX: 14, CON: 16, INT: 10, WIS: 12, CHA: 8 },
+    });
+    messages$.next({
+      type: 'roll_request',
+      payload: request({ id: 'req-atk', roll_type: 'attack_roll', stat: 'STR' }),
+    } as WsMessage);
+    // STR (+3) + DM Atk (+3) - 2024 Exh L2 (-4) = +2
+    expect(comp.activeRollPromptModifier).toBe(2);
+    comp.dismissRollPrompt();
+    http.expectOne((r) => r.url.includes('/roll-request/req-atk/miss')).flush({ success: true });
+
+    // addWeapon() initializes separated base damage_dice + damage_bonus with is_custom=true
+    comp.addWeapon();
+    const added = charState.activeCharacter()!.weapons!.slice(-1)[0];
+    expect(added.damage_dice).toBe('1d8');
+    expect(added.damage_bonus).toBe('+3');
+    expect(added.is_custom).toBe(true);
+    http.match((r) => r.method === 'PUT').forEach((r) => r.flush(charState.activeCharacter()));
+
     // Minor #2 & Minor #6: Exhaustion L6 deceased blocks onConsumePotion, setTempHp & adjustTempHp
     charState.activeCharacter.set({
       ...charState.activeCharacter()!,

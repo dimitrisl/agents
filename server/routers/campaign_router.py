@@ -293,6 +293,9 @@ async def _find_campaign_character(
     return await db["characters"].find_one({"char_name": char_name, "active_campaign": name})
 
 
+_ATTACK_TYPES = {"attack", "attack_roll", "weapon_attack", "spell_attack"}
+
+
 def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
     """
     What the hero would add to this roll. Mirrors `resolveRollTarget()` in the
@@ -370,13 +373,18 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
             return int(char["initiative_modifier"])
         return get_modifier(stats.get("DEX", 10)) - exh_penalty + dm_check_bonus + dm_init_bonus
 
-    if normalized in {"attack", "weapon_attack", "spell_attack"}:
+    if normalized in _ATTACK_TYPES:
         if normalized == "spell_attack" and char.get("spell_attack_bonus") is not None:
             try:
                 return int(str(char["spell_attack_bonus"]).replace("+", "").strip())
             except ValueError:
                 pass
-        return dm_atk_bonus - exh_penalty
+        stat_mod = 0
+        for k, v in stats.items():
+            if k.upper() == stat_upper:
+                stat_mod = get_modifier(v)
+                break
+        return stat_mod + dm_atk_bonus - exh_penalty
 
     if stat_upper in stats:
         return get_modifier(stats[stat_upper]) - exh_penalty + dm_check_bonus
@@ -408,8 +416,7 @@ def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str
 
         is_save_or_attack = (
             normalized in _SAVE_TYPES
-            or normalized
-            in {"death", "death_save", "concentration", "attack", "weapon_attack", "spell_attack"}
+            or normalized in ({"death", "death_save", "concentration"} | _ATTACK_TYPES)
             or stat_clean in {"death", "concentration"}
         )
         if not is_2024 and eff_exh >= 1:

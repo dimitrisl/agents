@@ -1372,5 +1372,41 @@ def test_round2_review_regressions_ws_levelup_version_none_cas_and_boots_suppres
             and msg.get("payload", {}).get("action") == "level_up"
             for _, msg in ws_calls
         )
+
+        # Round 3 regressions:
+        # 1) rebuild_damage_formula strips stale inline numeric bonuses without corrupting damage_type or extra dice
+        from backend.services.dice_service import rebuild_damage_formula
+
+        assert rebuild_damage_formula("2d6+8 slashing", "+10") == "2d6 + 10 slashing"
+        assert rebuild_damage_formula("1d8+3", "+5") == "1d8 + 5"
+        assert rebuild_damage_formula("2d6 + 1d4 slashing", "+4") == "2d6 + 4 1d4 slashing"
+
+        # 2) 'attack_roll' handles stat + dm_modifiers.attack_bonus (not ability_checks_bonus) & 2014 L3+ Disadvantage
+        atk_char_2014 = {
+            "dnd_edition": EDITION_2014,
+            "stats": {"STR": 16, "DEX": 10},
+            "exhaustion_level": 2,
+            "exhaustion_bypass": False,
+            "dm_modifiers": {"attack_bonus": 2, "ability_checks_bonus": -5},
+        }
+        assert _sheet_modifier(atk_char_2014, "attack_roll", "STR") == 5
+        l2_roll = _roll_in_secret(atk_char_2014, "attack_roll", "STR")
+        assert l2_roll["modifier"] == 5
+        assert l2_roll["mode"] == "normal"  # 2014 Attacks get Disadvantage only at L3+!
+
+        atk_char_2014["exhaustion_level"] = 3
+        l3_roll = _roll_in_secret(atk_char_2014, "attack_roll", "STR")
+        assert l3_roll["mode"] == "disadvantage"
+
+        atk_char_2024 = {**atk_char_2014, "dnd_edition": EDITION_2024, "exhaustion_level": 2}
+        assert _sheet_modifier(atk_char_2024, "attack_roll", "STR") == 1  # STR +3 + DM +2 - Exh 4
+
+        # 3) PUT /{char_id} succeeds cleanly when stored DB doc has explicit version: None
+        current_sheet = client.get(f"/api/v1/characters/{cid}", headers=p_h).json()
+        current_sheet["version"] = 0
+        db["characters"]._col.update_one({"char_id": cid}, {"$set": {"version": None}})
+        put_null_ver = client.put(f"/api/v1/characters/{cid}", json=current_sheet, headers=p_h)
+        assert put_null_ver.status_code == 200
+        assert put_null_ver.json()["version"] == 1
     finally:
         app.dependency_overrides.clear()

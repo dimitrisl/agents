@@ -621,22 +621,13 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterSyncSubject.complete();
     this.cancelEncounterSync$.complete();
 
-    // Flush any pending state changes
-    const pendingCharIds = Array.from(this.pendingPartyState.keys());
-    for (const charId of pendingCharIds) {
-      this.flushPartyState(charId);
-    }
+    this.flushAllPendingPartyState(this.campaignName);
 
     // Unsubscribing only stops this page from listening; the socket itself stays
     // up, and the service holds exactly one. Left open, the server goes on
     // routing every whisper and secret roll to a `role=dm` channel nobody is
     // reading — including the ones it would otherwise have kept private.
     this.wsService.disconnect();
-
-    for (const sub of this.partyStateSubjects.values()) {
-      sub.complete();
-    }
-    this.partyStateSubjects.clear();
   }
 
   // --- Live table inbox ---
@@ -949,6 +940,7 @@ export class DmComponent implements OnInit, OnDestroy {
   private clearWorkspace() {
     this.encounterGeneration += 1;
     this.cancelPendingEncounterSync();
+    this.flushAllPendingPartyState(null);
     this.activeWorkspace = null;
     this.campaignName = '';
     this.campaignNotes = '';
@@ -983,6 +975,7 @@ export class DmComponent implements OnInit, OnDestroy {
     if (previousCampaign && pendingNotes !== null && pendingNotes !== undefined) {
       this.saveCampaignNotes(previousCampaign, pendingNotes);
     }
+    this.flushAllPendingPartyState(previousCampaign);
 
     this.encounterGeneration += 1;
     this.cancelPendingEncounterSync();
@@ -2084,16 +2077,22 @@ export class DmComponent implements OnInit, OnDestroy {
         switchMap(() => {
           const mergedChanges = this.pendingPartyState.get(charId);
           this.pendingPartyState.delete(charId);
-          if (!mergedChanges || !this.campaignName) return EMPTY;
+          if (!mergedChanges || campaignName !== this.campaignName) return EMPTY;
 
-          return this.http.patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
+          return this.http.patch(`${campaignUrl(campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
             tap((res: any) => {
-              if (res && res.char_id && !this.pendingPartyState.has(charId)) {
+              if (
+                campaignName === this.campaignName &&
+                res &&
+                res.char_id &&
+                !this.pendingPartyState.has(charId)
+              ) {
                 this.applyPartyUpdate(res);
               }
             }),
             catchError((err) => {
               if (this.handleAuthFailure(err)) return EMPTY;
+              if (campaignName !== this.campaignName) return EMPTY;
               const errorMember = this.partyMembers.find((m) => m.char_id === charId);
               this.rollToast.showMessage(
                 '⚠️ NOT SAVED',
@@ -2109,17 +2108,32 @@ export class DmComponent implements OnInit, OnDestroy {
     subject.next();
   }
 
-  private flushPartyState(charId: string) {
-    // Left for ngOnDestroy to do immediate flush if needed
+  private flushAllPendingPartyState(targetCampaign: string | null): void {
+    const pendingCharIds = Array.from(this.pendingPartyState.keys());
+    if (targetCampaign) {
+      for (const charId of pendingCharIds) {
+        this.flushPartyState(charId, targetCampaign);
+      }
+    } else {
+      this.pendingPartyState.clear();
+    }
+    for (const sub of this.partyStateSubjects.values()) {
+      sub.complete();
+    }
+    this.partyStateSubjects.clear();
+  }
+
+  private flushPartyState(charId: string, targetCampaign = this.campaignName) {
     const changes = this.pendingPartyState.get(charId);
     this.pendingPartyState.delete(charId);
-    if (!changes || !this.campaignName) return;
+    if (!changes || !targetCampaign) return;
 
     this.http
-      .patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, changes)
+      .patch(`${campaignUrl(targetCampaign, 'party')}/${encodeURIComponent(charId)}/state`, changes)
       .subscribe({
         error: (err) => {
           if (this.handleAuthFailure(err)) return;
+          if (targetCampaign !== this.campaignName) return;
           const member = this.partyMembers.find((m) => m.char_id === charId);
           this.rollToast.showMessage(
             '⚠️ NOT SAVED',

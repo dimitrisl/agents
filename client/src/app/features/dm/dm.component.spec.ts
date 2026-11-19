@@ -2009,4 +2009,35 @@ describe('DmComponent — Exhaustion, Unlocks, Athas, Modifiers & 2014 Secret/Qu
     component.quickDmStatRoll(component.partyMembers[0], 'STR');
     expect(rollSpy).toHaveBeenCalledWith(6, 'normal');
   });
+
+  it('flushes pending debounced party state to previous campaign on campaign switch without hitting new campaign', () => {
+    jest.useFakeTimers();
+    try {
+      component.activeWorkspace = 'Dark Sun Athas';
+      component.campaignName = 'Dark Sun Athas';
+      component.userCampaigns = [
+        { campaign_name: 'Dark Sun Athas', dnd_edition: '2014 Edition', notes: '' } as any,
+        { campaign_name: 'Curse of Strahd', dnd_edition: '2014 Edition', notes: '' } as any,
+      ];
+
+      component.adjustExhaustion(component.partyMembers[0], 1);
+      component.campaignName = 'Curse of Strahd';
+      component.onCampaignSelect();
+
+      // Pending PATCH must be flushed explicitly to 'Dark Sun Athas', NEVER 'Curse of Strahd'
+      const flushedPatch = http.expectOne(
+        (r) => r.method === 'PATCH' && r.url.includes('/campaigns/Dark%20Sun%20Athas/party/pal_1/state')
+      );
+      expect(flushedPatch.request.body).toEqual({ exhaustion_level: 2 });
+      flushedPatch.flush({ char_id: 'pal_1', exhaustion_level: 2, version: 4 });
+
+      jest.advanceTimersByTime(500);
+      http.expectNone(
+        (r) => r.method === 'PATCH' && r.url.includes('/campaigns/Curse%20of%20Strahd/')
+      );
+      http.match(() => true).forEach((r) => r.flush({ party: [], notes: '', encounters: [] }));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
