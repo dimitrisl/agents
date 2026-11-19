@@ -15,6 +15,7 @@ import {
   ForgeInputDirective,
   ForgeModalComponent,
   ForgeTextareaDirective,
+  ForgeToggleComponent,
 } from '../../../../shared/ui';
 import type { DmModifiers } from '../../../../core/models/character.model';
 import type { PartyMember } from '../../../../core/models/party.model';
@@ -52,6 +53,7 @@ const DEFAULT_MODIFIERS = (): Required<DmModifiers> => ({
     ForgeInputDirective,
     ForgeModalComponent,
     ForgeTextareaDirective,
+    ForgeToggleComponent,
   ],
   templateUrl: './dm-modifiers-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

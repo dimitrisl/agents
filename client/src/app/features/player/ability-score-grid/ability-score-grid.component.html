@@ -42,7 +42,7 @@
             <span class="flex items-center gap-1">
               Check
               @if (hasCheckDisadvantage) {
-                <span class="rounded bg-crimson/20 px-1 text-[9px] font-bold uppercase text-crimson">DIS</span>
+                <forge-badge tone="danger" size="sm">DIS</forge-badge>
               }
             </span>
             <span class="tabular-nums">{{ checkModifier(entry.key) }}</span>
@@ -67,7 +67,7 @@
               }
               Save
               @if (hasSaveDisadvantage) {
-                <span class="rounded bg-crimson/20 px-1 text-[9px] font-bold uppercase text-crimson">DIS</span>
+                <forge-badge tone="danger" size="sm">DIS</forge-badge>
               }
             </span>
             <span class="tabular-nums">{{ saveModifier(entry.key) }}</span>

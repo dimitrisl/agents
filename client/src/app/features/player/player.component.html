@@ -279,14 +279,14 @@
         </span>
 
         @if (isHeroDeceased(char)) {
-          <span class="px-2 py-1 rounded-lg bg-crimson/20 border border-crimson/50 text-xs font-bold text-crimson" title="Deceased at Exhaustion 6">
+          <forge-badge tone="danger" size="sm" title="Deceased at Exhaustion 6">
             💀 EXH 6
-          </span>
+          </forge-badge>
         }
         @if (char.magic_items_suppressed) {
-          <span class="px-2 py-1 rounded-lg bg-gold/15 border border-gold/40 text-xs font-bold text-gold" title="Magic items suppressed (Athas / Antimagic)">
+          <forge-badge tone="gold" size="sm" title="Magic items suppressed (Athas / Antimagic)">
             🏜️
-          </span>
+          </forge-badge>
         }
 
         <!-- Wake Lock Button (#170) -->
@@ -438,6 +438,7 @@
             <app-skills-panel
               [allSkills]="allSkills"
               [editMode]="editMode()"
+              [hasCheckDisadvantage]="hasCheckDisadvantage(char)"
               [isProficient]="isProficient"
               [isExpertise]="isExpertise"
               [getSkillModString]="getSkillModString"
@@ -706,6 +707,7 @@
                 *ngIf="sheetSubTab() === 'skills'"
                 [allSkills]="allSkills"
                 [editMode]="editMode()"
+                [hasCheckDisadvantage]="hasCheckDisadvantage(char)"
                 [isProficient]="isProficient"
                 [isExpertise]="isExpertise"
                 [getSkillModString]="getSkillModString"

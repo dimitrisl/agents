@@ -1438,6 +1438,7 @@ export class DmComponent implements OnInit, OnDestroy {
         action_type: actionType,
         unlocked,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
           this.rollToast.showMessage(

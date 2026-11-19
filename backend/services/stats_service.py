@@ -903,6 +903,76 @@ def get_base_weapon(name: str, all_weapons: list) -> dict:
     return weapon_data
 
 
+def restore_base_hp_max(
+    existing_hp: Optional[int],
+    stored_base_hp_max: Optional[int],
+    prev_dm_hp: int,
+) -> Tuple[Optional[int], bool]:
+    """
+    Restore pre-halving / pre-clamp `hp_max` from `base_hp_max`.
+    Returns `(effective_hp, restored_from_pre_dm_clamp)` where the boolean indicates
+    that `effective_hp` already excludes negative DM modifiers (`dm_hp_bonus_applied`).
+    """
+    if not stored_base_hp_max:
+        return existing_hp, False
+    stored_int = int(stored_base_hp_max)
+    is_stored_unclamped_clamp = prev_dm_hp < 0 and (stored_int + prev_dm_hp) < 1
+    if is_stored_unclamped_clamp and existing_hp == 1:
+        return stored_int, True
+    if not is_stored_unclamped_clamp and existing_hp == max(1, stored_int // 2):
+        return stored_int, False
+    return existing_hp, False
+
+
+def apply_character_weapon_modifiers(
+    weapon: Dict[str, Any],
+    char_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Apply character DM attack/damage modifiers and 2024 Exhaustion penalty onto a weapon
+    idempotently, tracking differential deltas on `is_custom` weapons.
+    """
+    exhaustion_bypass, _, dm_mods = _parse_dm_controls(char_data)
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or ""
+    is_2024_sheet = "2024" in str(edition or "")
+    exhaustion_level = max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
+    effective_exh = 0 if exhaustion_bypass else exhaustion_level
+    exhaustion_penalty = (2 * effective_exh) if is_2024_sheet else 0
+    dm_atk_bonus = int(dm_mods.get("attack_bonus", 0) or 0)
+    dm_dmg_bonus = int(dm_mods.get("damage_bonus", 0) or 0)
+
+    prev_exh = int(weapon.get("exhaustion_attack_penalty_applied") or 0)
+    prev_dm_atk = int(weapon.get("dm_attack_bonus_applied") or 0)
+    prev_dm_dmg = int(weapon.get("dm_damage_bonus_applied") or 0)
+    is_custom_weapon = bool(weapon.get("is_custom", False))
+    effective_penalty = (exhaustion_penalty - prev_exh) if is_custom_weapon else exhaustion_penalty
+    effective_dm_atk = (dm_atk_bonus - prev_dm_atk) if is_custom_weapon else dm_atk_bonus
+    effective_dm_dmg = (dm_dmg_bonus - prev_dm_dmg) if is_custom_weapon else dm_dmg_bonus
+
+    net_atk_delta = effective_dm_atk - effective_penalty
+    if net_atk_delta != 0:
+        try:
+            atk_val = int(str(weapon.get("attack_bonus", "+0")).replace("+", "").strip())
+            atk_val += net_atk_delta
+            weapon["attack_bonus"] = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
+        except (ValueError, TypeError):
+            pass
+    if effective_dm_dmg != 0:
+        try:
+            dmg_b = int(str(weapon.get("damage_bonus", "+0")).replace("+", "").strip())
+            dmg_b += effective_dm_dmg
+            weapon["damage_bonus"] = f"+{dmg_b}" if dmg_b >= 0 else str(dmg_b)
+            weapon["damage"] = rebuild_damage_formula(
+                weapon.get("damage_dice"), weapon.get("damage_bonus")
+            )
+        except (ValueError, TypeError):
+            pass
+    weapon["exhaustion_attack_penalty_applied"] = exhaustion_penalty
+    weapon["dm_attack_bonus_applied"] = dm_atk_bonus
+    weapon["dm_damage_bonus_applied"] = dm_dmg_bonus
+    return weapon
+
+
 def calculate_weapon_stats(
     weapon: Dict[str, Any],
     stats: Dict[str, int],
@@ -1610,7 +1680,6 @@ def sync_character_stats(
     char_data["dm_modifiers"] = dm_mods
 
     dm_atk_bonus = int(dm_mods.get("attack_bonus", 0) or 0)
-    dm_dmg_bonus = int(dm_mods.get("damage_bonus", 0) or 0)
     dm_ac_bonus = int(dm_mods.get("ac_bonus", 0) or 0)
     dm_speed_bonus = int(dm_mods.get("speed_bonus", 0) or 0)
     dm_init_bonus = int(dm_mods.get("initiative_bonus", 0) or 0)
@@ -1766,10 +1835,9 @@ def sync_character_stats(
     existing_hp = char_data.get("hp_max")
     stored_base_hp_max = char_data.get("base_hp_max")
     prev_dm_hp = int(char_data.get("dm_hp_bonus_applied", 0) or 0)
-    if stored_base_hp_max and (
-        existing_hp == max(1, int(stored_base_hp_max) // 2) or (prev_dm_hp < 0 and existing_hp == 1)
-    ):
-        existing_hp = int(stored_base_hp_max)
+    existing_hp, restored_from_unclamped_clamp = restore_base_hp_max(
+        existing_hp, stored_base_hp_max, prev_dm_hp
+    )
     current_con_mod = get_modifier(con_score)
     con_mod_applied = char_data.get("con_mod_applied")
     if con_mod_applied is None:
@@ -1797,9 +1865,10 @@ def sync_character_stats(
     prev_equip_hp = char_data.get("equip_hp_bonus", 0)
     dm_hp_bonus = int(dm_mods.get("hp_max_bonus", 0) or 0)
 
+    dm_offset_to_strip = 0 if restored_from_unclamped_clamp else prev_dm_hp
     con_delta = 0
     if existing_hp is not None and existing_hp > 0:
-        base_existing_hp = max(1, existing_hp - prev_feat_hp - prev_equip_hp - prev_dm_hp)
+        base_existing_hp = max(1, existing_hp - prev_feat_hp - prev_equip_hp - dm_offset_to_strip)
         if con_mod_applied is not None and con_mod_applied != current_con_mod:
             con_delta = current_con_mod - con_mod_applied
             base_existing_hp += con_delta * level
@@ -1830,10 +1899,14 @@ def sync_character_stats(
         char_data["hp_current"] = max(0, min(char_data["hp_max"], char_data["hp_current"]))
 
     effective_exh = 0 if exhaustion_bypass else exhaustion_level
-    if unclamped_hp_max < 1 and not (not is_2024_sheet and effective_exh >= 4):
-        char_data["base_hp_max"] = max(1, base_hp + feat_hp_bonus + equip_hp_bonus)
+    is_halved_by_exh = not is_2024_sheet and effective_exh >= 4
+    pre_dm_hp_max = max(1, base_hp + feat_hp_bonus + equip_hp_bonus)
 
-    if not is_2024_sheet and effective_exh >= 4:
+    if unclamped_hp_max < 1:
+        char_data["base_hp_max"] = pre_dm_hp_max
+        if is_halved_by_exh and char_data.get("hp_current") is not None:
+            char_data["hp_current"] = max(0, min(1, char_data["hp_current"]))
+    elif is_halved_by_exh:
         full_hp_max = char_data["hp_max"]
         char_data["base_hp_max"] = full_hp_max
         halved_hp = max(1, full_hp_max // 2)
@@ -2089,35 +2162,7 @@ def sync_character_stats(
             updated_weapons.append(new_w)
 
     for w in updated_weapons:
-        prev_exh = int(w.get("exhaustion_attack_penalty_applied") or 0)
-        prev_dm_atk = int(w.get("dm_attack_bonus_applied") or 0)
-        prev_dm_dmg = int(w.get("dm_damage_bonus_applied") or 0)
-        is_custom_weapon = bool(w.get("is_custom", False))
-        effective_penalty = (
-            (exhaustion_penalty - prev_exh) if is_custom_weapon else exhaustion_penalty
-        )
-        effective_dm_atk = (dm_atk_bonus - prev_dm_atk) if is_custom_weapon else dm_atk_bonus
-        effective_dm_dmg = (dm_dmg_bonus - prev_dm_dmg) if is_custom_weapon else dm_dmg_bonus
-
-        net_atk_delta = effective_dm_atk - effective_penalty
-        if net_atk_delta != 0:
-            try:
-                atk_val = int(str(w.get("attack_bonus", "+0")).replace("+", "").strip())
-                atk_val += net_atk_delta
-                w["attack_bonus"] = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
-            except (ValueError, TypeError):
-                pass
-        if effective_dm_dmg != 0:
-            try:
-                dmg_b = int(str(w.get("damage_bonus", "+0")).replace("+", "").strip())
-                dmg_b += effective_dm_dmg
-                w["damage_bonus"] = f"+{dmg_b}" if dmg_b >= 0 else str(dmg_b)
-                w["damage"] = rebuild_damage_formula(w.get("damage_dice"), w.get("damage_bonus"))
-            except (ValueError, TypeError):
-                pass
-        w["exhaustion_attack_penalty_applied"] = exhaustion_penalty
-        w["dm_attack_bonus_applied"] = dm_atk_bonus
-        w["dm_damage_bonus_applied"] = dm_dmg_bonus
+        apply_character_weapon_modifiers(w, char_data)
 
     char_data["weapons"] = updated_weapons
 

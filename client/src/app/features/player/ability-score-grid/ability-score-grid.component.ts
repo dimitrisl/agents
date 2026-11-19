@@ -9,12 +9,12 @@ import {
   isSaveProficient,
   savingThrowModifier,
 } from '../../../core/rules';
-import { ForgeInputDirective } from '../../../shared/ui';
+import { ForgeBadgeComponent, ForgeInputDirective } from '../../../shared/ui';
 
 @Component({
   selector: 'app-ability-score-grid',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeInputDirective],
+  imports: [CommonModule, FormsModule, ForgeBadgeComponent, ForgeInputDirective],
   templateUrl: './ability-score-grid.component.html',
 })
 export class AbilityScoreGridComponent {

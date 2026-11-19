@@ -101,6 +101,9 @@
               </div>
 
               <div class="flex shrink-0 items-center gap-1.5">
+                @if (hasCheckDisadvantage) {
+                  <forge-badge tone="danger" size="sm" title="Disadvantage from Exhaustion (2014)">DIS</forge-badge>
+                }
                 <forge-badge tone="accent" size="md">{{ getSkillModString(skill) }}</forge-badge>
                 <button forgeButton variant="secondary" size="sm" type="button" (click)="rollSkill.emit(skill)">
                   🎲 Roll

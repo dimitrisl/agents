@@ -25,7 +25,9 @@
           [readonly]="!!editChar.active_campaign"
           [attr.aria-describedby]="editChar.active_campaign ? 'edit-level-lock-hint' : null"
         />
-        <p *ngIf="editChar.active_campaign" id="edit-level-lock-hint" class="mt-1 text-micro uppercase text-muted">🔒 Managed by DM Level Up Unlock</p>
+        @if (editChar.active_campaign) {
+          <p id="edit-level-lock-hint" class="mt-1 text-micro uppercase text-muted">🔒 Managed by DM Level Up Unlock</p>
+        }
       </div>
     </div>
 

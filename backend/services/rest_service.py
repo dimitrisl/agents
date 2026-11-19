@@ -186,6 +186,8 @@ def apply_short_rest(
     hp_before = max(0, int(synced.get("hp_current") or 0))
     healed = 0 if spent == 0 else max(0, int(hp_healed or 0))
     synced["hp_current"] = min(hp_max, hp_before + healed)
+    if hp_before == 0 and synced["hp_current"] > 0:
+        synced["death_saves"] = {"successes": 0, "failures": 0}
     return synced
 
 

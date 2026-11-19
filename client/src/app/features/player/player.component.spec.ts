@@ -1455,6 +1455,7 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     });
     const http = TestBed.inject(HttpTestingController);
     const charState = TestBed.inject(CharacterStateService);
+    charState.dndEdition.set(charOverrides.dnd_edition || '2014 Edition');
     charState.activeCharacter.set({
       ...HERO,
       dnd_edition: '2014 Edition',
@@ -1468,7 +1469,13 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     const fixture = TestBed.createComponent(PlayerComponent);
     fixture.detectChanges();
     TestBed.flushEffects();
-    http.match((r) => r.method === 'GET').forEach((r) => r.flush({ whispers: [], roll_requests: [], roll_logs: [] }));
+    http.match((r) => r.method === 'GET').forEach((r) => {
+      if (r.request.url.endsWith('/characters')) {
+        r.flush({ characters: [charState.activeCharacter()] });
+      } else {
+        r.flush({ whispers: [], roll_requests: [], roll_logs: [] });
+      }
+    });
     return { fixture, comp: fixture.componentInstance, http, charState, messages$ };
   };
 
@@ -1587,6 +1594,86 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     expect(charState.activeCharacter()!.hp_current).toBe(0);
 
     http.match(() => true).forEach((r) => r.flush(r.request.body));
+    fixture.destroy();
+  });
+
+  it('syncs multi-tab player party_update locks/rest/level_up state, supports death_save/concentration roll targets, and blocks L6 potion consumption', () => {
+    const { comp, http, charState, messages$, fixture } = setupPlayer({
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 2, // -4 penalty in 2024
+      dm_short_rest_unlocked: true,
+      dm_level_up_unlocked: true,
+      dm_modifiers: { saving_throws_bonus: 1 },
+      stats: { STR: 10, DEX: 14, CON: 16, INT: 10, WIS: 12, CHA: 8 },
+      saving_throws: ['CON'],
+      proficiency_bonus: 3,
+      hp_current: 20,
+      hp_max: 44,
+      version: 2,
+    });
+
+    // Adequate #3: Multi-tab `source: 'player'` level_up consumes lock & triggers reload
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        source: 'player',
+        action: 'level_up',
+        level: 6,
+        hp_max: 52,
+        hp_current: 52,
+        dm_level_up_unlocked: false,
+        dm_short_rest_unlocked: false,
+        spell_slots: { level_1: { max: 4, used: 0 } },
+        version: 3,
+      },
+    } as any);
+    const updated = charState.activeCharacter()!;
+    expect(updated.char_level).toBe(6);
+    expect(updated.hp_max).toBe(52);
+    expect(updated.dm_level_up_unlocked).toBe(false);
+    expect(updated.dm_short_rest_unlocked).toBe(false);
+    const reloadReqs = http.match((r) => r.method === 'GET' && r.url.endsWith('/characters'));
+    expect(reloadReqs.length).toBe(1);
+    reloadReqs[0].flush({ characters: [updated] });
+
+    // Minor #1: DM roll requests for death_save & concentration match backend modifiers
+    messages$.next({
+      type: 'roll_request',
+      payload: request({ id: 'req-death', roll_type: 'death_save', stat: 'Death' }),
+    } as WsMessage);
+    // 2024 L2 (-4) + DM save (+1) = -3
+    expect(comp.activeRollPromptModifier).toBe(-3);
+    comp.dismissRollPrompt();
+    http.expectOne((r) => r.url.includes('/roll-request/req-death/miss')).flush({ success: true });
+
+    messages$.next({
+      type: 'roll_request',
+      payload: request({ id: 'req-conc', roll_type: 'concentration', stat: 'Concentration' }),
+    } as WsMessage);
+    // CON +3 + Prof +3 - 4 (Exh 2) + 1 (DM Save) = +3
+    expect(comp.activeRollPromptModifier).toBe(3);
+    comp.dismissRollPrompt();
+    http.expectOne((r) => r.url.includes('/roll-request/req-conc/miss')).flush({ success: true });
+
+    // Minor #2: Exhaustion L6 deceased blocks onConsumePotion
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      exhaustion_level: 6,
+      exhaustion_bypass: false,
+      hp_current: 0,
+      equipment: [{ name: 'Potion of Healing', quantity: 2 }],
+    });
+    comp.onConsumePotion({
+      item: charState.activeCharacter()!.equipment![0],
+      dice: '2d4',
+      bonus: 2,
+      name: 'Potion of Healing',
+    });
+    expect(charState.activeCharacter()!.hp_current).toBe(0);
+    expect(charState.activeCharacter()!.equipment![0].quantity).toBe(2);
+    http.expectNone(() => true);
+
     fixture.destroy();
   });
 });

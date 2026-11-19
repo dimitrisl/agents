@@ -1,3 +1,4 @@
+import copy
 import io
 import json
 import logging
@@ -280,14 +281,9 @@ async def update_character(
     char_dict["char_id"] = char_id
     char_dict["owner_id"] = current_user["id"]
 
-    # #233: Prevent active_campaign spoofing by non-members
-    requested_camp = char_dict.get("active_campaign")
-    if requested_camp and requested_camp != existing.get("active_campaign"):
-        membership = await db["campaign_members"].find_one(
-            {"campaign_id": requested_camp, "user_id": current_user["id"]}
-        )
-        if not membership:
-            char_dict["active_campaign"] = existing.get("active_campaign")
+    # Campaign membership cannot be forged, attached, or detached via PUT /{char_id};
+    # join/add/remove/delete campaign endpoints own `active_campaign`.
+    char_dict["active_campaign"] = existing.get("active_campaign")
 
     # Enforce DM-only campaign authority: inside an active campaign, players cannot spoof
     # exhaustion, bypass, magic suppression, custom DM modifiers, unlocks, or level changes.
@@ -303,8 +299,7 @@ async def update_character(
         char_dict["dm_level_up_unlocked"] = bool(existing.get("dm_level_up_unlocked", False))
         char_dict["dm_hp_bonus_applied"] = int(existing.get("dm_hp_bonus_applied", 0) or 0)
         char_dict["char_level"] = int(existing.get("char_level", 1) or 1)
-        if existing.get("classes"):
-            char_dict["classes"] = existing["classes"]
+        char_dict["classes"] = copy.deepcopy(existing.get("classes") or [])
 
     homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
 

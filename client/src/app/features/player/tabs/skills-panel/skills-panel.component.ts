@@ -28,6 +28,7 @@ import type { SkillDefinition } from '../../player.component';
 export class SkillsPanelComponent {
   @Input() allSkills: SkillDefinition[] = [];
   @Input() editMode = false;
+  @Input() hasCheckDisadvantage = false;
   @Input() isProficient!: (skillName: string) => boolean;
   @Input() isExpertise: (skillName: string) => boolean = () => false;
   @Input() getSkillModString!: (skill: SkillDefinition) => string;

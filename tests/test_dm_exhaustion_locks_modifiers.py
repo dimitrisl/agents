@@ -933,3 +933,266 @@ def test_secret_roll_2014_disadvantage_adv_cancel_bypass_and_dm_modifiers():
         assert res_2024["mode"] == "normal"
         # INT save: +4 mod + 3 prof - 6 exhaustion = +1
         assert res_2024["modifier"] == 1
+
+
+# ==============================================================================
+# CODE REVIEW REGRESSION TESTS (MAJOR #1-#3, ADEQUATE #1-#2, MINOR #5)
+# ==============================================================================
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_negative_dm_hp_clamp_and_combined_exhaustion_l4_restore_cleanly(edition):
+    base = sync_character_stats(_make_wizard(edition))
+    assert base["hp_max"] == 32
+
+    # Extreme negative DM HP bonus clamps to 1 without losing pre-DM base_hp_max (even combined with 2014 L4)
+    clamped = sync_character_stats(
+        {
+            **copy.deepcopy(base),
+            "exhaustion_level": 4,
+            "dm_modifiers": {"hp_max_bonus": -100},
+        }
+    )
+    assert clamped["hp_max"] == 1
+    assert clamped["base_hp_max"] == 32
+
+    # Reducing negative modifier to partial penalty (-10) restores exact 22 (or 11 if 2014 L4)
+    partial_unclamp = sync_character_stats(
+        {
+            **copy.deepcopy(clamped),
+            "exhaustion_level": 0,
+            "dm_modifiers": {"hp_max_bonus": -10},
+        }
+    )
+    assert partial_unclamp["hp_max"] == 22
+    assert partial_unclamp["base_hp_max"] is None
+
+    # Re-clamping cleanly to -100 then clearing back to 0 must restore exact 32 (never 101!)
+    reclamped = sync_character_stats(
+        {
+            **copy.deepcopy(partial_unclamp),
+            "dm_modifiers": {"hp_max_bonus": -100},
+        }
+    )
+    assert reclamped["hp_max"] == 1
+    assert reclamped["base_hp_max"] == 32
+
+    cleared = sync_character_stats(
+        {
+            **copy.deepcopy(reclamped),
+            "dm_modifiers": {"hp_max_bonus": 0},
+        }
+    )
+    assert cleared["hp_max"] == 32
+    assert cleared["base_hp_max"] is None
+
+
+def test_review_fixes_levelup_halved_hp_put_bypasses_patch_cas_and_loot_suppression():
+    from backend.services.rest_service import apply_short_rest
+
+    client, db, auth_headers = _setup_test_client("test_review_regressions_db")
+    try:
+        dm_h = auth_headers("dm_rev", "dm_rev@athas.org")
+        p_h = auth_headers("p_rev", "p_rev@athas.org")
+
+        assert (
+            client.post(
+                "/api/v1/campaigns/",
+                json={"campaign_name": "Rev Campaign", "dnd_edition": EDITION_2014},
+                headers=dm_h,
+            ).status_code
+            == 200
+        )
+        code = client.post("/api/v1/campaigns/Rev Campaign/invite-code", headers=dm_h).json()[
+            "invite_code"
+        ]
+
+        # Create a 2014 Fighter + a separate solo hero owned by p_rev (already a campaign member)
+        hero = client.post(
+            "/api/v1/characters",
+            json={
+                "char_name": "Brak SingleClass",
+                "char_class": "Fighter",
+                "char_level": 4,
+                "classes": [],
+                "race": "Human",
+                "background": "Soldier",
+                "dnd_edition": EDITION_2014,
+                "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+                "hp_max": 36,
+                "hp_current": 36,
+            },
+            headers=p_h,
+        ).json()
+        cid = hero["char_id"]
+
+        solo_hero = client.post(
+            "/api/v1/characters",
+            json={
+                "char_name": "Solo Intruder",
+                "char_class": "Rogue",
+                "char_level": 2,
+                "classes": [{"class_name": "Rogue", "level": 2}],
+                "race": "Human",
+                "background": "Criminal",
+                "dnd_edition": EDITION_2014,
+                "stats": {"STR": 10, "DEX": 16, "CON": 12, "INT": 10, "WIS": 10, "CHA": 10},
+                "hp_max": 16,
+                "hp_current": 16,
+            },
+            headers=p_h,
+        ).json()
+        solo_cid = solo_hero["char_id"]
+
+        assert (
+            client.post(
+                "/api/v1/campaigns/join",
+                json={"invite_code": code, "character_id": cid},
+                headers=p_h,
+            ).status_code
+            == 200
+        )
+
+        # Major #3.1: Single-class campaign hero spoofing `classes: [{"level": 20}]` via PUT stays at L4
+        latest = client.get(f"/api/v1/characters/{cid}", headers=p_h).json()
+        spoof_classes = client.put(
+            f"/api/v1/characters/{cid}",
+            json={**latest, "classes": [{"class_name": "Fighter", "level": 20}]},
+            headers=p_h,
+        )
+        assert spoof_classes.status_code == 200
+        assert spoof_classes.json()["char_level"] == 4
+
+        # Major #3.3: Campaign hero trying to clear `active_campaign: None` via PUT remains bound to campaign
+        spoof_detach = client.put(
+            f"/api/v1/characters/{cid}",
+            json={**spoof_classes.json(), "active_campaign": None, "exhaustion_level": 0},
+            headers=p_h,
+        )
+        assert spoof_detach.status_code == 200
+        assert spoof_detach.json()["active_campaign"] == "Rev Campaign"
+
+        # Major #3.2: Member trying to self-attach solo hero via PUT with spoofed DM modifiers stays solo
+        spoof_attach = client.put(
+            f"/api/v1/characters/{solo_cid}",
+            json={
+                **solo_hero,
+                "active_campaign": "Rev Campaign",
+                "dm_level_up_unlocked": True,
+                "dm_modifiers": {"ac_bonus": 50},
+            },
+            headers=p_h,
+        )
+        assert spoof_attach.status_code == 200
+        assert spoof_attach.json()["active_campaign"] is None
+
+        # Major #2: Level up while at 2014 Exhaustion L4 (base_hp_max=36, hp_max=18) preserves full unhalved HP
+        client.patch(
+            f"/api/v1/campaigns/Rev Campaign/party/{cid}/state",
+            json={"exhaustion_level": 4, "dm_level_up_unlocked": True},
+            headers=dm_h,
+        )
+        halved_doc = client.get(f"/api/v1/characters/{cid}", headers=p_h).json()
+        assert halved_doc["base_hp_max"] == 36
+        assert halved_doc["hp_max"] == 18
+
+        lvl_res = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": cid,
+                "analysis": {
+                    "hp_increase": 8,
+                    "new_total_hp": 44,
+                    "automatic_changes": [],
+                    "choices_required": [],
+                },
+                "user_choices": {"level_up_class": "Fighter", "hp_method": "fixed"},
+            },
+            headers=p_h,
+        )
+        assert lvl_res.status_code == 200
+        assert lvl_res.json()["base_hp_max"] == 44
+        assert lvl_res.json()["hp_max"] == 22
+
+        # Lifting Exhaustion L4 -> L3 restores exact 44 HP Max!
+        rec_res = client.patch(
+            f"/api/v1/campaigns/Rev Campaign/party/{cid}/state",
+            json={"exhaustion_level": 3},
+            headers=dm_h,
+        )
+        assert rec_res.status_code == 200
+        assert rec_res.json()["hp_max"] == 44
+
+        # Adequate #1: Combined dm_modifiers.hp_max_bonus (+10) + hp_current (52) clamps against NEW 54 hp_max
+        boost_heal = client.patch(
+            f"/api/v1/campaigns/Rev Campaign/party/{cid}/state",
+            json={"dm_modifiers": {"hp_max_bonus": 10}, "hp_current": 52},
+            headers=dm_h,
+        )
+        assert boost_heal.status_code == 200
+        assert boost_heal.json()["hp_max"] == 54
+        assert boost_heal.json()["hp_current"] == 52
+
+        # Adequate #1: Non-sync DM HP heal on un-waived Exhaustion 6 deceased hero stays 0 HP!
+        client.patch(
+            f"/api/v1/campaigns/Rev Campaign/party/{cid}/state",
+            json={"exhaustion_level": 6, "dm_modifiers": {"hp_max_bonus": 0}},
+            headers=dm_h,
+        )
+        dead_heal = client.patch(
+            f"/api/v1/campaigns/Rev Campaign/party/{cid}/state",
+            json={"hp_current": 25},
+            headers=dm_h,
+        )
+        assert dead_heal.status_code == 200
+        assert dead_heal.json()["hp_current"] == 0
+
+        # Adequate #2: distribute_loot suppresses +2 magic weapon and applies DM modifiers under Athas!
+        client.patch(
+            f"/api/v1/campaigns/Rev Campaign/party/{cid}/state",
+            json={
+                "exhaustion_level": 0,
+                "magic_items_suppressed": True,
+                "dm_modifiers": {"attack_bonus": 1, "damage_bonus": 2},
+            },
+            headers=dm_h,
+        )
+        loot_res = client.post(
+            "/api/v1/campaigns/Rev Campaign/loot/distribute",
+            json={
+                "character_ids": [cid],
+                "currency": {"gp": 0},
+                "items": [
+                    {
+                        "name": "Greataxe +2",
+                        "type": "weapon",
+                        "damage_dice": "1d12 slashing",
+                        "magic_bonus": 2,
+                    }
+                ],
+            },
+            headers=dm_h,
+        )
+        assert loot_res.status_code == 200
+        char_after_loot = client.get(f"/api/v1/characters/{cid}", headers=p_h).json()
+        awarded_axe = next(w for w in char_after_loot["weapons"] if w["name"] == "Greataxe +2")
+        # STR 16 (+3) + Prof (+3 at L5) + Magic 0 (suppressed) + DM Atk (+1) = +7; Dmg +3 + 0 + 2 = +5
+        assert awarded_axe["magic_bonus"] == 2
+        assert awarded_axe["attack_bonus"] == "+7"
+        assert awarded_axe["damage_bonus"] == "+5"
+
+        # Minor #5: apply_short_rest resets death_saves when healing from 0 HP -> > 0 HP
+        rested_from_zero = apply_short_rest(
+            {
+                **char_after_loot,
+                "hp_current": 0,
+                "hit_dice_used": 0,
+                "death_saves": {"successes": 2, "failures": 2},
+            },
+            dice_to_spend=1,
+            hp_healed=6,
+        )
+        assert rested_from_zero["hp_current"] == 6
+        assert rested_from_zero["death_saves"] == {"successes": 0, "failures": 0}
+    finally:
+        app.dependency_overrides.clear()

@@ -38,6 +38,9 @@ export interface Weapon {
   damage_type?: string;
   conditional_effects?: WeaponEffect[];
   exhaustion_attack_penalty_applied?: number;
+  dm_attack_bonus_applied?: number;
+  dm_damage_bonus_applied?: number;
+  magic_bonus_suppressed_applied?: number;
 }
 
 export interface CurrencyBlock {

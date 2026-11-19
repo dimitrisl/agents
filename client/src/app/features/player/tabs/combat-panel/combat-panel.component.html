@@ -79,10 +79,10 @@
           {{ char.exhaustion_level ?? 0 }}/6
         </span>
         @if (isExhaustionManagedByDm) {
-          <span class="text-[10px] font-semibold uppercase text-muted">DM</span>
+          <span class="text-micro font-semibold uppercase text-muted">DM</span>
         }
         @if (char.exhaustion_bypass && (char.exhaustion_level ?? 0) > 0) {
-          <span class="rounded bg-panel px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted">Waived</span>
+          <forge-badge tone="muted" size="sm">Waived</forge-badge>
         }
         @if (!isExhaustionManagedByDm) {
           <button

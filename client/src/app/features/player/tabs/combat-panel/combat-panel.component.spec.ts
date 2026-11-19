@@ -487,4 +487,36 @@ describe('CombatPanelComponent', () => {
     expect(component.displayedAttackBonus(component.char.weapons![0])).toBe('+9');
     expect(component.damagePreview(component.char.weapons![0])).toBe('1d8+6');
   });
+
+  it('stamps DM/suppression tracking fields on syncWeaponCalculations and preserves is_custom damage in weaponNotation', () => {
+    const customSword: any = {
+      name: 'Flame Tongue +1',
+      is_custom: true,
+      damage_dice: '2d6 slashing',
+      damage_bonus: '+8',
+      attack_bonus: '+10',
+      magic_bonus: 1,
+      dm_attack_bonus_applied: 0,
+      dm_damage_bonus_applied: 0,
+      magic_bonus_suppressed_applied: 0,
+    };
+    component.char = {
+      ...component.char,
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 1,
+      magic_items_suppressed: true,
+      dm_modifiers: { attack_bonus: 2, damage_bonus: 3 },
+      weapons: [customSword],
+    } as any;
+
+    // Prior to sync: custom +8 bonus + DM (+3) - suppressed Magic (1) = +10 -> 2d6+10
+    expect(component.damagePreview(customSword)).toBe('2d6+10');
+
+    // Sync writes breakdown totals and stamps all 4 differential tracking fields so backend won't double-count
+    component.syncWeaponCalculations(customSword, false);
+    expect(customSword.dm_attack_bonus_applied).toBe(2);
+    expect(customSword.dm_damage_bonus_applied).toBe(3);
+    expect(customSword.magic_bonus_suppressed_applied).toBe(1);
+    expect(customSword.exhaustion_attack_penalty_applied).toBe(2);
+  });
 });

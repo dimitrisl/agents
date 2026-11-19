@@ -118,14 +118,15 @@
   </div>
 
   <!-- Deceased at Exhaustion 6 -->
-  <div
-    *ngIf="isDeceasedByExhaustion"
-    class="mt-4 rounded-xl border border-crimson/50 bg-crimson/15 px-3 py-2.5 text-center"
-    role="status"
-  >
-    <p class="text-xs font-bold uppercase tracking-wider text-crimson">💀 Deceased · Exhaustion Level 6</p>
-    <p class="mt-0.5 text-micro text-muted">Recovery requires DM intervention (reduce Exhaustion or enable Bypass).</p>
-  </div>
+  @if (isDeceasedByExhaustion) {
+    <div
+      class="mt-4 rounded-xl border border-crimson/50 bg-crimson/15 px-3 py-2.5 text-center"
+      role="status"
+    >
+      <p class="text-label font-bold uppercase tracking-wider text-crimson">💀 Deceased · Exhaustion Level 6</p>
+      <p class="mt-0.5 text-micro text-muted">Recovery requires DM intervention (reduce Exhaustion or enable Bypass).</p>
+    </div>
+  }
 
   <!-- Death Saves UI -->
   <div *ngIf="current === 0 && !isDeceasedByExhaustion" class="mt-4 flex flex-col items-center">

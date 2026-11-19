@@ -105,6 +105,7 @@ import {
   spendMetamagic,
 } from '../../core/rules';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeIconComponent,
   ForgeSpinnerComponent,
@@ -163,6 +164,7 @@ interface RollTarget {
     CharacterImportPanelComponent,
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
   ForgeIconComponent,
   ForgeSpinnerComponent,
@@ -679,6 +681,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return isDeceasedByExhaustion(char);
   }
 
+  hasCheckDisadvantage(char: CharacterSchema | null | undefined): boolean {
+    return hasExhaustionDisadvantage(char, 'check');
+  }
+
   private applyExhaustionDelta(char: CharacterSchema, nextLevel: number): CharacterSchema {
     const prevLevel = Math.max(0, Math.min(6, Math.floor(Number(char.exhaustion_level) || 0)));
     const clampedNext = Math.max(0, Math.min(6, Math.floor(Number(nextLevel) || 0)));
@@ -774,14 +780,43 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (typeof payload.version === 'number' && payload.version > this.knownVersion(char)) {
         const synced: CharacterSchema = { ...char, version: payload.version };
         if (typeof payload.hp_current === 'number') synced.hp_current = payload.hp_current;
+        if (typeof payload.hp_max === 'number') synced.hp_max = payload.hp_max;
         if (typeof payload.hp_temp === 'number') synced.hp_temp = payload.hp_temp;
+        if (typeof payload.level === 'number') synced.char_level = payload.level;
+        if (typeof payload.speed === 'number') synced.speed = payload.speed;
         if (Array.isArray(payload.conditions)) synced.conditions = [...payload.conditions];
+        if (payload.concentrating_on !== undefined) {
+          synced.concentrating_on = payload.concentrating_on ?? undefined;
+        }
+        if (payload.death_saves && typeof payload.death_saves === 'object') {
+          synced.death_saves = { ...payload.death_saves };
+        }
+        if (typeof payload.inspiration === 'boolean') synced.inspiration = payload.inspiration;
+        if (typeof payload.dm_short_rest_unlocked === 'boolean') {
+          synced.dm_short_rest_unlocked = payload.dm_short_rest_unlocked;
+        }
+        if (typeof payload.dm_long_rest_unlocked === 'boolean') {
+          synced.dm_long_rest_unlocked = payload.dm_long_rest_unlocked;
+        }
+        if (typeof payload.dm_level_up_unlocked === 'boolean') {
+          synced.dm_level_up_unlocked = payload.dm_level_up_unlocked;
+        }
+        if (typeof payload.hit_dice_used === 'number') synced.hit_dice_used = payload.hit_dice_used;
+        if (payload.spell_slots && typeof payload.spell_slots === 'object') {
+          synced.spell_slots = JSON.parse(JSON.stringify(payload.spell_slots));
+        }
+        if (Array.isArray(payload.class_resources)) {
+          synced.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
+        }
         if (typeof payload.exhaustion_level === 'number') {
           Object.assign(synced, this.applyExhaustionDelta(synced, payload.exhaustion_level));
         }
         this.rememberVersion(synced);
         this.charState.activeCharacter.set(synced);
         this.charState.upsertCharacter(synced);
+        if (payload.action === 'level_up') {
+          this.charState.loadCharacters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+        }
       }
       return;
     }
@@ -1453,6 +1488,28 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char || !char.stats) return null;
 
     const normalizedType = rollType.toLowerCase().replace(/[\s-]+/g, '_');
+
+    if (
+      normalizedType === 'death' ||
+      normalizedType === 'death_save' ||
+      stat.toLowerCase() === 'death'
+    ) {
+      const dmSaveBonus = char.dm_modifiers?.saving_throws_bonus ?? 0;
+      const mod = dmSaveBonus - (is2024Edition(char) ? effectiveExhaustionLevel(char) * 2 : 0);
+      return {
+        title: '💀 DEATH SAVING THROW',
+        label: 'death saving throw',
+        modifier: mod,
+      };
+    }
+
+    if (normalizedType === 'concentration' || stat.toLowerCase() === 'concentration') {
+      return {
+        title: '🧠 CONCENTRATION SAVE',
+        label: 'concentration save',
+        modifier: savingThrowModifier(char, 'CON'),
+      };
+    }
 
     if (normalizedType === 'save' || normalizedType === 'saving_throw' || normalizedType === 'savingthrow') {
       return {
@@ -2886,7 +2943,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   onConsumePotion(event: { item: EquipmentItem; dice: string; bonus: number; name: string }) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) {
+      if (char) {
+        this.rollToast.showMessage('💀 DECEASED', 'Cannot consume healing potions while at Exhaustion Level 6.');
+      }
+      return;
+    }
     this.haptics.lightTap();
     const [numText, sidesText] = event.dice.split('d');
     const numDice = parseInt(numText, 10) || 2;

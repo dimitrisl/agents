@@ -6,7 +6,7 @@
   (closed)="closed.emit()"
 >
   @if (member) {
-    <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-4">
       <!-- Exhaustion + World Switches -->
       <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div class="flex flex-col gap-2 rounded-xl border border-hairline bg-tile p-3">
@@ -46,41 +46,39 @@
           }
         </div>
 
-        <label
-          class="flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 transition-colors"
+        <div
+          class="flex flex-col justify-between gap-2 rounded-xl border p-3 transition-colors"
           [ngClass]="exhaustionBypass ? 'border-accent/60 bg-accent/10' : 'border-hairline bg-tile'"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="text-label font-semibold text-ink">🛡️ Waive Exhaustion</span>
-            <input
-              type="checkbox"
-              class="h-4 w-4 accent-accent"
-              [(ngModel)]="exhaustionBypass"
-              aria-label="Bypass exhaustion consequences"
+            <forge-toggle
+              [checked]="exhaustionBypass"
+              (checkedChange)="exhaustionBypass = $event"
+              ariaLabel="Bypass exhaustion consequences"
             />
           </div>
           <span class="text-micro text-muted">
             Keeps level visible but waives D20/Speed penalties, Disadvantage, and L6 Death.
           </span>
-        </label>
+        </div>
 
-        <label
-          class="flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 transition-colors"
+        <div
+          class="flex flex-col justify-between gap-2 rounded-xl border p-3 transition-colors"
           [ngClass]="magicItemsSuppressed ? 'border-gold/60 bg-gold/10' : 'border-hairline bg-tile'"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="text-label font-semibold text-ink">🏜️ Suppress Magic Items</span>
-            <input
-              type="checkbox"
-              class="h-4 w-4 accent-accent"
-              [(ngModel)]="magicItemsSuppressed"
-              aria-label="Suppress magic item bonuses"
+            <forge-toggle
+              [checked]="magicItemsSuppressed"
+              (checkedChange)="magicItemsSuppressed = $event"
+              ariaLabel="Suppress magic item bonuses"
             />
           </div>
           <span class="text-micro text-muted">
             Athas / Antimagic: suspends +1/+2/+3 weapons, magic armor bonuses, and stat/AC items non-destructively.
           </span>
-        </label>
+        </div>
       </section>
 
       <!-- Custom Numeric Modifiers -->

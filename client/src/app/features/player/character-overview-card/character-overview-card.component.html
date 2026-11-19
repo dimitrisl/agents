@@ -51,7 +51,9 @@
             <div>
               <label class="mb-1 block text-micro font-semibold uppercase text-muted">Level</label>
               <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" aria-label="Level" [readonly]="!!char.active_campaign" [attr.aria-describedby]="char.active_campaign ? 'overview-level-lock-hint' : null" />
-              <p *ngIf="char.active_campaign" id="overview-level-lock-hint" class="text-micro uppercase text-muted">🔒 Managed by DM Level Up Unlock</p>
+              @if (char.active_campaign) {
+                <p id="overview-level-lock-hint" class="text-micro uppercase text-muted">🔒 Managed by DM Level Up Unlock</p>
+              }
             </div>
             <div>
               <label class="mb-1 block text-micro font-semibold uppercase text-muted">Background</label>

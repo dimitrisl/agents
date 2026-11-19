@@ -499,6 +499,11 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       weapon.magic_bonus = bd.attack.magicBonus;
     }
     weapon.exhaustion_attack_penalty_applied = exhaustionD20Penalty(this.char);
+    weapon.dm_attack_bonus_applied = this.char?.dm_modifiers?.attack_bonus ?? 0;
+    weapon.dm_damage_bonus_applied = this.char?.dm_modifiers?.damage_bonus ?? 0;
+    weapon.magic_bonus_suppressed_applied = this.char?.magic_items_suppressed
+      ? extractMagicBonus(weapon)
+      : 0;
     this.save.emit();
     if (showToast) {
       this.rollToast.showMessage(
@@ -516,6 +521,21 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
 
   /** `1d8+4` — the weapon's dice normalised, with the bonus folded in exactly once. */
   weaponNotation(weapon: Weapon): string {
+    if (weapon.is_custom) {
+      const source = weapon.damage_dice || weapon.damage || '1d4';
+      const parsed = this.dice.parseNotation(source);
+      if (!parsed || parsed.numDice === 0) return source;
+      const baseBonus =
+        parsed.modifier !== 0
+          ? parsed.modifier
+          : (this.dice.parseNotation(weapon.damage_bonus || '')?.modifier ?? 0);
+      const dmDmg = this.char?.dm_modifiers?.damage_bonus ?? 0;
+      const prevDmDmg = weapon.dm_damage_bonus_applied ?? 0;
+      const targetSupMagic = this.char?.magic_items_suppressed ? extractMagicBonus(weapon) : 0;
+      const prevSupMagic = weapon.magic_bonus_suppressed_applied ?? 0;
+      const total = baseBonus + (dmDmg - prevDmDmg) - (targetSupMagic - prevSupMagic);
+      return `${parsed.numDice}d${parsed.sides}${total !== 0 ? this.dice.signed(total) : ''}`;
+    }
     if (this.char?.magic_items_suppressed || (this.char?.dm_modifiers?.damage_bonus ?? 0) !== 0) {
       return this.getWeaponBreakdown(weapon).damage.notation;
     }

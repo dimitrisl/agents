@@ -7,10 +7,12 @@ import os
 import re
 import secrets
 import uuid
+from functools import partial
 from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ReturnDocument
@@ -48,7 +50,9 @@ from backend.services.rest_service import (
 from backend.services.session_service import SessionService
 from backend.services.stats_service import (
     _parse_dm_controls,
+    apply_character_weapon_modifiers,
     calculate_skills,
+    calculate_weapon_stats,
     get_modifier,
     has_jack_of_all_trades,
     has_remarkable_athlete,
@@ -749,15 +753,9 @@ async def update_party_member_state(
     updated_doc: Optional[Dict[str, Any]] = None
     current_char = char
 
-    if not needs_stat_sync:
+    for _attempt in range(3):
         updates: Dict[str, Any] = {}
-        if payload.hp_current is not None:
-            hp_max_now = int(current_char.get("hp_max") or 0)
-            old_hp = int(current_char.get("hp_current", 0) or 0)
-            new_hp = max(0, min(hp_max_now, int(payload.hp_current)))
-            updates["hp_current"] = new_hp
-            if old_hp == 0 and new_hp > 0:
-                updates["death_saves"] = {"successes": 0, "failures": 0}
+
         if payload.conditions is not None:
             seen = set()
             cleaned = []
@@ -767,6 +765,15 @@ async def update_party_member_state(
                     seen.add(label.lower())
                     cleaned.append(label)
             updates["conditions"] = cleaned
+
+        if payload.exhaustion_level is not None:
+            updates["exhaustion_level"] = max(0, min(6, int(payload.exhaustion_level)))
+        if payload.exhaustion_bypass is not None:
+            updates["exhaustion_bypass"] = bool(payload.exhaustion_bypass)
+        if payload.magic_items_suppressed is not None:
+            updates["magic_items_suppressed"] = bool(payload.magic_items_suppressed)
+        if payload.dm_modifiers is not None:
+            updates["dm_modifiers"] = payload.dm_modifiers.model_dump()
         if payload.dm_short_rest_unlocked is not None:
             updates["dm_short_rest_unlocked"] = bool(payload.dm_short_rest_unlocked)
         if payload.dm_long_rest_unlocked is not None:
@@ -776,129 +783,94 @@ async def update_party_member_state(
         if payload.inspiration is not None:
             updates["inspiration"] = bool(payload.inspiration)
 
-        await db["characters"].update_one(
-            {"char_id": char_id, "active_campaign": name},
-            {"$set": updates, "$inc": {"version": 1}},
-        )
-        updated_doc = {
-            **current_char,
-            **updates,
-            "version": int(current_char.get("version", 0) or 0) + 1,
-        }
-    else:
-        for _attempt in range(3):
-            updates = {}
-
-            if payload.conditions is not None:
-                seen = set()
-                cleaned = []
-                for condition in payload.conditions:
-                    label = condition.strip()
-                    if label and label.lower() not in seen:
-                        seen.add(label.lower())
-                        cleaned.append(label)
-                updates["conditions"] = cleaned
-
-            if payload.exhaustion_level is not None:
-                updates["exhaustion_level"] = max(0, min(6, int(payload.exhaustion_level)))
-            if payload.exhaustion_bypass is not None:
-                updates["exhaustion_bypass"] = bool(payload.exhaustion_bypass)
-            if payload.magic_items_suppressed is not None:
-                updates["magic_items_suppressed"] = bool(payload.magic_items_suppressed)
-            if payload.dm_modifiers is not None:
-                updates["dm_modifiers"] = payload.dm_modifiers.model_dump()
-            if payload.dm_short_rest_unlocked is not None:
-                updates["dm_short_rest_unlocked"] = bool(payload.dm_short_rest_unlocked)
-            if payload.dm_long_rest_unlocked is not None:
-                updates["dm_long_rest_unlocked"] = bool(payload.dm_long_rest_unlocked)
-            if payload.dm_level_up_unlocked is not None:
-                updates["dm_level_up_unlocked"] = bool(payload.dm_level_up_unlocked)
-            if payload.inspiration is not None:
-                updates["inspiration"] = bool(payload.inspiration)
-
-            if payload.hp_current is not None:
-                hp_max_now = int(current_char.get("hp_max") or 0)
-                old_hp = int(current_char.get("hp_current", 0) or 0)
-                new_hp = max(0, min(hp_max_now, int(payload.hp_current)))
-                updates["hp_current"] = new_hp
-                if old_hp == 0 and new_hp > 0:
-                    updates["death_saves"] = {"successes": 0, "failures": 0}
-
-            if repo is not None:
-                working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
-                working.update(updates)
-                edition = (
-                    working.get("dnd_edition")
-                    or working.get("ruleset_version")
-                    or (camp or {}).get("dnd_edition")
-                    or "2014 Edition"
-                )
-                if not working.get("dnd_edition"):
-                    working["dnd_edition"] = edition
-                class_data = repo.get_class_progression(working.get("char_class"), edition)
-                synced = sync_character_stats(working, class_data, homebrew_content=homebrew_items)
-                for sync_key in (
-                    "hp_max",
-                    "hp_current",
-                    "base_hp_max",
-                    "dm_hp_bonus_applied",
-                    "equip_hp_bonus",
-                    "equip_stat_bonuses",
-                    "con_mod_applied",
-                    "stats",
-                    "base_stats",
-                    "armor_class",
-                    "ac_breakdown",
-                    "speed",
-                    "base_speed",
-                    "heavy_armor_speed_penalty",
-                    "passive_perception",
-                    "skills",
-                    "saving_throw_values",
-                    "initiative_modifier",
-                    "initiative_bonus",
-                    "initiative_advantage",
-                    "athletics_advantage",
-                    "spell_attack_bonus",
-                    "spell_save_dc",
-                    "global_attack_bonus",
-                    "global_damage_bonus",
-                    "weapons",
-                    "concentrating_on",
-                    "exhaustion_level",
-                    "exhaustion_bypass",
-                    "magic_items_suppressed",
-                    "dm_modifiers",
-                ):
-                    if sync_key in synced:
-                        updates[sync_key] = synced[sync_key]
-
-            query_filter = _cas_char_filter(current_char, name)
-            if _supports_async_find_one_and_update(db["characters"]):
-                updated_doc = await db["characters"].find_one_and_update(
-                    query_filter,
-                    {"$set": updates, "$inc": {"version": 1}},
-                    return_document=ReturnDocument.AFTER,
-                )
-            else:
-                await db["characters"].update_one(
-                    query_filter, {"$set": updates, "$inc": {"version": 1}}
-                )
-                updated_doc = {
-                    **current_char,
-                    **updates,
-                    "version": int(current_char.get("version", 0) or 0) + 1,
-                }
-
-            if updated_doc is not None:
-                break
-
-            refetched = await db["characters"].find_one(
-                {"char_id": char_id, "active_campaign": name}
+        if needs_stat_sync and repo is not None:
+            working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
+            working.update(updates)
+            edition = (
+                working.get("dnd_edition")
+                or working.get("ruleset_version")
+                or (camp or {}).get("dnd_edition")
+                or "2014 Edition"
             )
-            if not refetched:
-                break
-            current_char = refetched
+            if not working.get("dnd_edition"):
+                working["dnd_edition"] = edition
+            class_data = repo.get_class_progression(working.get("char_class"), edition)
+            synced = await run_in_threadpool(
+                partial(sync_character_stats, working, class_data, homebrew_content=homebrew_items)
+            )
+            for sync_key in (
+                "hp_max",
+                "hp_current",
+                "base_hp_max",
+                "dm_hp_bonus_applied",
+                "equip_hp_bonus",
+                "equip_stat_bonuses",
+                "con_mod_applied",
+                "stats",
+                "base_stats",
+                "armor_class",
+                "ac_breakdown",
+                "speed",
+                "base_speed",
+                "heavy_armor_speed_penalty",
+                "passive_perception",
+                "skills",
+                "saving_throw_values",
+                "initiative_modifier",
+                "initiative_bonus",
+                "initiative_advantage",
+                "athletics_advantage",
+                "spell_attack_bonus",
+                "spell_save_dc",
+                "global_attack_bonus",
+                "global_damage_bonus",
+                "weapons",
+                "concentrating_on",
+                "exhaustion_level",
+                "exhaustion_bypass",
+                "magic_items_suppressed",
+                "dm_modifiers",
+            ):
+                if sync_key in synced:
+                    updates[sync_key] = synced[sync_key]
+
+        effective_char = {**current_char, **updates}
+        if is_deceased_by_exhaustion(effective_char):
+            updates["hp_current"] = 0
+            updates["speed"] = 0
+            updates["concentrating_on"] = None
+        elif payload.hp_current is not None:
+            hp_max_now = int(updates.get("hp_max", current_char.get("hp_max")) or 0)
+            old_hp = int(current_char.get("hp_current", 0) or 0)
+            new_hp = max(0, min(hp_max_now, int(payload.hp_current)))
+            updates["hp_current"] = new_hp
+            if old_hp == 0 and new_hp > 0:
+                updates["death_saves"] = {"successes": 0, "failures": 0}
+
+        query_filter = _cas_char_filter(current_char, name)
+        if _supports_async_find_one_and_update(db["characters"]):
+            updated_doc = await db["characters"].find_one_and_update(
+                query_filter,
+                {"$set": updates, "$inc": {"version": 1}},
+                return_document=ReturnDocument.AFTER,
+            )
+        else:
+            await db["characters"].update_one(
+                query_filter, {"$set": updates, "$inc": {"version": 1}}
+            )
+            updated_doc = {
+                **current_char,
+                **updates,
+                "version": int(current_char.get("version", 0) or 0) + 1,
+            }
+
+        if updated_doc is not None:
+            break
+
+        refetched = await db["characters"].find_one({"char_id": char_id, "active_campaign": name})
+        if not refetched:
+            break
+        current_char = refetched
 
     if not updated_doc:
         raise HTTPException(
@@ -983,7 +955,11 @@ async def unlock_party_action(
                 if not working.get("dnd_edition"):
                     working["dnd_edition"] = edition
                 class_data = repo.get_class_progression(working.get("char_class"), edition)
-                synced = sync_character_stats(working, class_data, homebrew_content=homebrew_items)
+                synced = await run_in_threadpool(
+                    partial(
+                        sync_character_stats, working, class_data, homebrew_content=homebrew_items
+                    )
+                )
                 for sync_key in (
                     "hp_max",
                     "hp_current",
@@ -1111,7 +1087,9 @@ async def long_rest_party(
             if edition and not working.get("dnd_edition"):
                 working["dnd_edition"] = edition
 
-            synced_rested = apply_long_rest(working, homebrew_content=homebrew_items)
+            synced_rested = await run_in_threadpool(
+                partial(apply_long_rest, working, homebrew_content=homebrew_items)
+            )
             updates = {
                 k: v
                 for k, v in synced_rested.items()
@@ -3180,7 +3158,6 @@ async def distribute_loot(
     from pydantic import ValidationError
 
     from backend.core.schemas import EquipmentItem, FeatureTrait, SpellSchema, Weapon
-    from backend.services.stats_service import calculate_weapon_stats
 
     camp = await db["campaigns"].find_one({"campaign_name": name})
     if not camp:
@@ -3365,8 +3342,14 @@ async def distribute_loot(
             char_prof = char.get("proficiency_bonus") or 2
             for w_base in char_weapons_base:
                 w_calc = calculate_weapon_stats(
-                    dict(w_base), char_stats, char_prof, homebrew_content=awarded_items
+                    dict(w_base),
+                    char_stats,
+                    char_prof,
+                    homebrew_content=awarded_items,
+                    features_traits=char.get("features_traits", []),
+                    suppress_magic_items=bool(char.get("magic_items_suppressed", False)),
                 )
+                apply_character_weapon_modifiers(w_calc, char)
                 char_weapons_to_push.append(Weapon.model_validate(w_calc).model_dump())
 
         # Ensure arrays are initialized if missing or corrupted
