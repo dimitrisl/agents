@@ -42,6 +42,15 @@ export function extractMagicBonus(weapon: Weapon): number {
   return match ? parseInt(match[1], 10) : 0;
 }
 
+/** Normalizes weapon.properties whether stored as string or string[]. */
+function weaponPropertiesText(weapon: Weapon): string {
+  const raw = weapon.properties as unknown;
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item || '')).join(' ').toLowerCase();
+  }
+  return String(raw || '').toLowerCase();
+}
+
 /** Determines which ability modifier applies (DEX, STR, etc.). */
 export function resolveWeaponStat(weapon: Weapon, char?: CharacterSchema | null): string {
   if (weapon.ability_modifier) {
@@ -51,7 +60,7 @@ export function resolveWeaponStat(weapon: Weapon, char?: CharacterSchema | null)
     }
   }
 
-  const props = (weapon.properties || '').toLowerCase();
+  const props = weaponPropertiesText(weapon);
   const range = (weapon.range || '').toLowerCase();
   const name = (weapon.name || '').toLowerCase();
 
@@ -84,7 +93,7 @@ export function getArcheryBonus(weapon: Weapon, char?: CharacterSchema | null): 
 
   const range = (weapon.range || '').toLowerCase();
   const name = (weapon.name || '').toLowerCase();
-  const props = (weapon.properties || '').toLowerCase();
+  const props = weaponPropertiesText(weapon);
   const isRanged = range.includes('/') || props.includes('ammunition') || /bow|crossbow|sling|dart|blowgun/.test(name);
 
   return isRanged ? 2 : 0;
@@ -100,7 +109,7 @@ export function getDuelingBonus(weapon: Weapon, char?: CharacterSchema | null): 
 
   if (!hasDueling) return 0;
 
-  const props = (weapon.properties || '').toLowerCase();
+  const props = weaponPropertiesText(weapon);
   const isTwoHanded = props.includes('two-handed');
   const range = (weapon.range || '').toLowerCase();
   const isRanged = range.includes('/') && !props.includes('thrown');
@@ -122,28 +131,32 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   const isProficient = weapon.proficient !== false;
   const profBonus = isProficient ? pb : 0;
 
-  // 3. Magic Bonus
-  const magicBonus = extractMagicBonus(weapon);
+  // 3. Magic Bonus (non-destructively suppressed when DM activates Athas / Antimagic)
+  const magicBonus = char?.magic_items_suppressed ? 0 : extractMagicBonus(weapon);
 
   // 4. Fighting Styles
   const archery = getArcheryBonus(weapon, char);
   const dueling = getDuelingBonus(weapon, char);
 
-  // 5. Misc & Global Equipment Bonuses
+  // 5. Misc, Gear & DM Modifiers
   const miscAttack = weapon.misc_attack_bonus ?? 0;
   const miscDamage = weapon.misc_damage_bonus ?? 0;
-  const globalAttack = char?.global_attack_bonus ?? 0;
-  const globalDamage = char?.global_damage_bonus ?? 0;
+  const globalAttack = char?.magic_items_suppressed ? 0 : (char?.global_attack_bonus ?? 0);
+  const globalDamage = char?.magic_items_suppressed ? 0 : (char?.global_damage_bonus ?? 0);
+  const dmAttack = char?.dm_modifiers?.attack_bonus ?? 0;
+  const dmDamage = char?.dm_modifiers?.damage_bonus ?? 0;
   const exhPenalty = exhaustionD20Penalty(char);
 
   // Attack Breakdown
-  const totalAttack = statMod + profBonus + magicBonus + archery + miscAttack + globalAttack - exhPenalty;
+  const totalAttack = statMod + profBonus + magicBonus + archery + miscAttack + globalAttack + dmAttack - exhPenalty;
   const attackParts: string[] = [];
   if (statName !== 'NONE') attackParts.push(`${statName} (${statMod >= 0 ? '+' + statMod : statMod})`);
   if (profBonus > 0) attackParts.push(`Prof (+${profBonus})`);
   if (magicBonus > 0) attackParts.push(`Magic (+${magicBonus})`);
+  if (char?.magic_items_suppressed && extractMagicBonus(weapon) > 0) attackParts.push('Magic Suppressed');
   if (archery > 0) attackParts.push(`Archery (+${archery})`);
   if (globalAttack !== 0) attackParts.push(`Gear (${globalAttack > 0 ? '+' + globalAttack : globalAttack})`);
+  if (dmAttack !== 0) attackParts.push(`DM (${dmAttack > 0 ? '+' + dmAttack : dmAttack})`);
   if (miscAttack !== 0) attackParts.push(`Misc (${miscAttack > 0 ? '+' + miscAttack : miscAttack})`);
   if (exhPenalty > 0) attackParts.push(`Exh (-${exhPenalty})`);
 
@@ -160,12 +173,13 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   const typeMatch = /\d\s*([a-zA-Z][a-zA-Z ]*)$/.exec(rawDice);
   const damageType = weapon.damage_type || (typeMatch ? typeMatch[1].trim() : '');
 
-  const totalDamageBonus = statMod + magicBonus + dueling + miscDamage + globalDamage;
+  const totalDamageBonus = statMod + magicBonus + dueling + miscDamage + globalDamage + dmDamage;
   const damageParts: string[] = [baseDice];
   if (statName !== 'NONE' && statMod !== 0) damageParts.push(`${statMod >= 0 ? '+' + statMod : statMod} (${statName})`);
   if (magicBonus > 0) damageParts.push(`+${magicBonus} (Magic)`);
   if (dueling > 0) damageParts.push(`+${dueling} (Dueling)`);
   if (globalDamage !== 0) damageParts.push(`${globalDamage > 0 ? '+' + globalDamage : globalDamage} (Gear)`);
+  if (dmDamage !== 0) damageParts.push(`${dmDamage > 0 ? '+' + dmDamage : dmDamage} (DM)`);
   if (miscDamage !== 0) damageParts.push(`${miscDamage > 0 ? '+' + miscDamage : miscDamage} (Misc)`);
 
   const bonusString = totalDamageBonus !== 0 ? (totalDamageBonus > 0 ? `+${totalDamageBonus}` : `${totalDamageBonus}`) : '';

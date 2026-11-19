@@ -278,6 +278,17 @@
           🛡️ {{ char.armor_class }}
         </span>
 
+        @if (isHeroDeceased(char)) {
+          <forge-badge tone="danger" size="sm" title="Deceased at Exhaustion 6">
+            💀 EXH 6
+          </forge-badge>
+        }
+        @if (char.magic_items_suppressed) {
+          <forge-badge tone="accent" size="sm" title="Magic items suppressed (Athas / Antimagic)">
+            🏜️
+          </forge-badge>
+        }
+
         <!-- Wake Lock Button (#170) -->
         <button
           type="button"
@@ -355,6 +366,11 @@
 
         <app-action-dock
           [canLevelUp]="char.char_level < 20"
+          [isInCampaign]="!!char.active_campaign"
+          [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
+          [longRestUnlocked]="!!char.dm_long_rest_unlocked"
+          [levelUpUnlocked]="!!char.dm_level_up_unlocked"
+          [isDeceasedByExhaustion]="isHeroDeceased(char)"
           [isGeneratingStrategy]="isGeneratingStrategy()"
           [isLevelUpLoading]="levelUpLoading()"
           (shortRest)="openShortRestModal()"
@@ -394,6 +410,11 @@
 
         <app-action-dock
           [canLevelUp]="char.char_level < 20"
+          [isInCampaign]="!!char.active_campaign"
+          [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
+          [longRestUnlocked]="!!char.dm_long_rest_unlocked"
+          [levelUpUnlocked]="!!char.dm_level_up_unlocked"
+          [isDeceasedByExhaustion]="isHeroDeceased(char)"
           [isGeneratingStrategy]="isGeneratingStrategy()"
           [isLevelUpLoading]="levelUpLoading()"
           (shortRest)="openShortRestModal()"
@@ -417,6 +438,7 @@
             <app-skills-panel
               [allSkills]="allSkills"
               [editMode]="editMode()"
+              [hasCheckDisadvantage]="hasCheckDisadvantage(char)"
               [isProficient]="isProficient"
               [isExpertise]="isExpertise"
               [getSkillModString]="getSkillModString"
@@ -685,6 +707,7 @@
                 *ngIf="sheetSubTab() === 'skills'"
                 [allSkills]="allSkills"
                 [editMode]="editMode()"
+                [hasCheckDisadvantage]="hasCheckDisadvantage(char)"
                 [isProficient]="isProficient"
                 [isExpertise]="isExpertise"
                 [getSkillModString]="getSkillModString"
@@ -741,6 +764,11 @@
 
             <app-action-dock
               [canLevelUp]="char.char_level < 20"
+              [isInCampaign]="!!char.active_campaign"
+              [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
+              [longRestUnlocked]="!!char.dm_long_rest_unlocked"
+              [levelUpUnlocked]="!!char.dm_level_up_unlocked"
+              [isDeceasedByExhaustion]="isHeroDeceased(char)"
               [isGeneratingStrategy]="isGeneratingStrategy()"
               [isLevelUpLoading]="levelUpLoading()"
               (shortRest)="openShortRestModal()"

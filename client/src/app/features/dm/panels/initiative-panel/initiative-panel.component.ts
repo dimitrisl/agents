@@ -25,6 +25,7 @@ import type {
   InitiativeCombatant,
 } from '../../../../core/models/initiative.model';
 import type { BestiaryMonster } from '../../../../core/models/bestiary.model';
+import type { PartyMember } from '../../../../core/models/party.model';
 import { BrokenPortraitTracker } from '../../../../core/utils/portrait';
 
 /** The three dots the tracker draws for each half of a death-save tally. */
@@ -53,6 +54,16 @@ export class InitiativePanelComponent implements OnDestroy {
   @Input() round = 0;
   @Input() dangerIndicator = '';
   @Input() availableConditions: string[] = [];
+  @Input() partyMembers: PartyMember[] = [];
+
+  memberForCombatant(combatant: InitiativeCombatant): PartyMember | null {
+    if (!combatant.is_player) return null;
+    if (combatant.char_id) {
+      const byId = this.partyMembers.find((m) => m.char_id === combatant.char_id);
+      if (byId) return byId;
+    }
+    return this.partyMembers.find((m) => !m.char_id && m.name === combatant.name) || null;
+  }
 
   dangerTone(): 'danger' | 'accent' | 'muted' {
     const val = (this.dangerIndicator || '').toLowerCase();

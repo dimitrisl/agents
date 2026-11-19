@@ -2,7 +2,7 @@ import { Injectable, computed, effect, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, shareReplay, tap } from 'rxjs';
 import { CharacterSchema } from '../models/character.model';
-import { abilityModifier, proficiencyBonus } from '../rules';
+import { abilityModifier, passivePerceptionOf, proficiencyBonus } from '../rules';
 import { environment } from '../../../environments/environment';
 
 /** The hero the player last had open, restored after a page refresh. */
@@ -46,7 +46,7 @@ export class CharacterStateService {
   });
 
   readonly passivePerception = computed(() => {
-    return this.activeCharacter()?.passive_perception ?? 10;
+    return passivePerceptionOf(this.activeCharacter());
   });
 
   // The vault is fetched once per session; mutations patch the local list from
@@ -259,6 +259,30 @@ export class CharacterStateService {
 
   updateCharacter(id: string, char: CharacterSchema): Observable<CharacterSchema> {
     return this.http.put<CharacterSchema>(`${this.API_URL}/${id}`, char).pipe(
+      tap((updated) => {
+        this.activeCharacter.set(updated);
+        this.upsertCharacter(updated);
+      })
+    );
+  }
+
+  applyShortRest(
+    id: string,
+    payload: { dice_to_spend: number; die_size?: number; hp_healed: number; expected_version?: number }
+  ): Observable<CharacterSchema> {
+    return this.http.post<CharacterSchema>(`${this.API_URL}/${id}/short-rest`, payload).pipe(
+      tap((updated) => {
+        this.activeCharacter.set(updated);
+        this.upsertCharacter(updated);
+      })
+    );
+  }
+
+  applyLongRest(
+    id: string,
+    payload: { expected_version?: number } = {}
+  ): Observable<CharacterSchema> {
+    return this.http.post<CharacterSchema>(`${this.API_URL}/${id}/long-rest`, payload).pipe(
       tap((updated) => {
         this.activeCharacter.set(updated);
         this.upsertCharacter(updated);

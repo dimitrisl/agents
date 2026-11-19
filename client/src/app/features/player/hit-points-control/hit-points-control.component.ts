@@ -15,6 +15,7 @@ export class HitPointsControlComponent {
   @Input() max = 0;
   @Input() temp = 0;
   @Input() deathSaves: { successes: number; failures: number } | undefined;
+  @Input() isDeceasedByExhaustion = false;
 
   @Output() hpChange = new EventEmitter<number>();
   @Output() tempChange = new EventEmitter<number>();
@@ -82,6 +83,7 @@ export class HitPointsControlComponent {
   }
 
   executeHeal() {
+    if (this.isDeceasedByExhaustion) return;
     const amt = parseInt(this.numpadValue(), 10) || 0;
     if (amt > 0) {
       this.applyHeal.emit(amt);
@@ -90,12 +92,14 @@ export class HitPointsControlComponent {
   }
 
   executeSetTemp() {
+    if (this.isDeceasedByExhaustion) return;
     const amt = parseInt(this.numpadValue(), 10) || 0;
     this.setTempHp.emit(amt);
     this.closeQuickPad();
   }
 
   applyHpChange(multiplier: number) {
+    if (multiplier > 0 && this.isDeceasedByExhaustion) return;
     const amount = this.modifierAmount || 1;
     if (multiplier < 0) {
       this.applyDamage.emit(amount);
@@ -106,18 +110,21 @@ export class HitPointsControlComponent {
   }
 
   applyTempHpChange(multiplier: number) {
+    if (multiplier > 0 && this.isDeceasedByExhaustion) return;
     const amount = this.modifierAmount || 1;
     this.tempChange.emit(amount * multiplier);
     this.modifierAmount = null;
   }
 
   toggleDeathSave(type: 'successes' | 'failures', index: number) {
+    if (this.isDeceasedByExhaustion) return;
     const currentCount = this.deathSaves ? this.deathSaves[type] : 0;
     const newValue = currentCount === index ? index - 1 : index;
     this.deathSaveChange.emit({ type, value: newValue });
   }
 
   triggerRollDeathSave() {
+    if (this.isDeceasedByExhaustion) return;
     this.rollDeathSave.emit();
   }
 }

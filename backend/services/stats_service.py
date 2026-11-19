@@ -23,6 +23,22 @@ logger = logging.getLogger("DnDAssistant.StatsService")
 _ITEM_TYPES = ("item", "armor", "shield", "weapon")
 
 
+def _parse_dm_controls(char_data: Dict[str, Any]) -> Tuple[bool, bool, Dict[str, Any]]:
+    """Extracts exhaustion_bypass, magic_items_suppressed, and validated DM modifiers."""
+    from pydantic import ValidationError
+
+    from backend.core.schemas import DmModifiersSchema
+
+    bypass = bool(char_data.get("exhaustion_bypass", False))
+    suppress_magic = bool(char_data.get("magic_items_suppressed", False))
+    raw_mods = char_data.get("dm_modifiers")
+    try:
+        mods = DmModifiersSchema.model_validate(raw_mods or {}).model_dump()
+    except (ValidationError, TypeError, ValueError):
+        mods = DmModifiersSchema().model_dump()
+    return bypass, suppress_magic, mods
+
+
 def _merge_homebrew_items(
     base_items: List[Dict[str, Any]], homebrew_content: List[Dict[str, Any]] | None
 ) -> List[Dict[str, Any]]:
@@ -136,6 +152,7 @@ _DERIVED_CHARACTER_KEYS = (
     "feat_hp_bonus",
     "con_mod_applied",
     "base_hp_max",
+    "pre_dm_hp_max",
     "class_resources",
     "base_stats",
 )
@@ -255,6 +272,8 @@ def calculate_ac(
     edition: str = None,
     max_attunement: int = None,
     char_class: str = None,
+    dm_ac_bonus: int = 0,
+    suppress_magic_items: bool = False,
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
@@ -392,16 +411,22 @@ def calculate_ac(
                 continue
             shield_bonus_applied = True
             shield_name = raw_item_name or "Shield"
-            s_val = (
-                val if val != 0 else (item_data.get("ac_bonus", 2) if item_data else 2) + name_magic
-            )
+            base_shield = item_data.get("ac_bonus", 2) if item_data else 2
+            if suppress_magic_items:
+                # Non-magical physical shields still grant their base +2 AC on Athas / Antimagic.
+                s_val = min(val, base_shield) if val > 0 else base_shield
+            else:
+                s_val = val if val != 0 else base_shield + name_magic
             shield_bonus = s_val
             bonus_ac += s_val
             continue
 
         if item_data:
             if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
-                item_base = val if val >= 10 else item_data.get("ac_base", 10)
+                if suppress_magic_items and "ac_base" in item_data:
+                    item_base = item_data.get("ac_base", 10)
+                else:
+                    item_base = val if val >= 10 else item_data.get("ac_base", 10)
                 if item_base >= base_ac:
                     base_ac = item_base
                     armor_name = item_data.get("name", raw_item_name)
@@ -411,21 +436,29 @@ def calculate_ac(
                 if "dex_limit" in item_data:
                     max_dex = min(max_dex, item_data["dex_limit"])
 
-                if val != 0 and val < 10:
-                    bonus_ac += val
-                    other_bonuses.append((f"{raw_item_name} bonus", val))
-                elif val == 0 and name_magic:
-                    bonus_ac += name_magic
-                    other_bonuses.append((f"Magic armor +{name_magic}", name_magic))
+                if not suppress_magic_items:
+                    if val != 0 and val < 10:
+                        bonus_ac += val
+                        other_bonuses.append((f"{raw_item_name} bonus", val))
+                    elif val == 0 and name_magic:
+                        bonus_ac += name_magic
+                        other_bonuses.append((f"Magic armor +{name_magic}", name_magic))
             else:
-                item_bonus = val if val != 0 else item_data.get("ac_bonus", 0)
+                item_bonus = (
+                    0
+                    if suppress_magic_items
+                    else (val if val != 0 else item_data.get("ac_bonus", 0))
+                )
                 if item_bonus != 0:
                     bonus_ac += item_bonus
                     other_bonuses.append((raw_item_name, item_bonus))
         else:
             if val >= 10:
-                if val >= base_ac:
-                    base_ac = val
+                effective_base = (
+                    max(10, val - name_magic) if (suppress_magic_items and name_magic) else val
+                )
+                if effective_base >= base_ac:
+                    base_ac = effective_base
                     armor_name = raw_item_name
                     base_source = f"{armor_name} ({base_ac})"
                 if (
@@ -441,7 +474,7 @@ def calculate_ac(
                     armor_type = "Heavy Armor"
                 else:
                     armor_type = "Light Armor"
-            elif val != 0:
+            elif val != 0 and not suppress_magic_items:
                 bonus_ac += val
                 other_bonuses.append((raw_item_name, val))
 
@@ -466,8 +499,12 @@ def calculate_ac(
                 bonus_ac += 1
                 break
 
+    if dm_ac_bonus:
+        bonus_ac += dm_ac_bonus
+        other_bonuses.append(("DM Modifier", dm_ac_bonus))
+
     applied_dex = 0 if max_dex == 0 else min(dex_mod, max_dex)
-    total_ac = base_ac + applied_dex + bonus_ac
+    total_ac = max(1, base_ac + applied_dex + bonus_ac)
 
     if not return_breakdown:
         return total_ac
@@ -489,7 +526,7 @@ def calculate_ac(
         formula_parts.append(f"Defense Style (+{defense_bonus})")
 
     for ob_name, ob_val in other_bonuses:
-        formula_parts.append(f"{ob_name} (+{ob_val})")
+        formula_parts.append(f"{ob_name} ({ob_val:+d})")
 
     formula_text = " + ".join(formula_parts) + f" = {total_ac}"
 
@@ -518,8 +555,11 @@ def calculate_passive_perception(
     expertise: List[str] = None,
     half_prof: bool = False,
     bonus_modifier: int = 0,
+    exhaustion_penalty: int = 0,
+    disadvantage_penalty: int = 0,
+    dm_bonus: int = 0,
 ) -> int:
-    """Calculates Passive Perception, accounting for proficiency, expertise, and flat feat/item bonuses."""
+    """Calculates Passive Perception, accounting for proficiency, expertise, exhaustion, and flat bonuses."""
     wis_mod = get_modifier(wis_score)
     bonus = 0
     if "Perception" in (expertise or []):
@@ -528,7 +568,9 @@ def calculate_passive_perception(
         bonus = proficiency_bonus
     elif half_prof:
         bonus = proficiency_bonus // 2
-    return 10 + wis_mod + bonus + bonus_modifier
+    return (
+        10 + wis_mod + bonus + bonus_modifier - exhaustion_penalty - disadvantage_penalty + dm_bonus
+    )
 
 
 def has_jack_of_all_trades(char_data: Dict[str, Any]) -> bool:
@@ -862,16 +904,97 @@ def get_base_weapon(name: str, all_weapons: list) -> dict:
     return weapon_data
 
 
+def restore_base_hp_max(
+    existing_hp: Optional[int],
+    stored_base_hp_max: Optional[int],
+    stored_pre_dm_hp_max: Optional[int] = None,
+) -> Tuple[Optional[int], bool]:
+    """
+    Restore pre-DM / pre-halving `hp_max` from dedicated `pre_dm_hp_max` or `base_hp_max`.
+    Returns `(effective_hp, restored_from_pre_dm_clamp)` where the boolean indicates
+    that `effective_hp` already excludes negative DM modifiers (`dm_hp_bonus_applied`).
+    """
+    if stored_pre_dm_hp_max and int(stored_pre_dm_hp_max) > 0:
+        if existing_hp == 1:
+            return int(stored_pre_dm_hp_max), True
+    if not stored_base_hp_max:
+        return existing_hp, False
+    stored_int = int(stored_base_hp_max)
+    if stored_int > 0 and existing_hp == max(1, stored_int // 2):
+        return stored_int, False
+    return existing_hp, False
+
+
+def apply_character_weapon_modifiers(
+    weapon: Dict[str, Any],
+    char_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Apply character DM attack/damage modifiers and 2024 Exhaustion penalty onto a weapon
+    idempotently, tracking differential deltas on `is_custom` weapons.
+    """
+    exhaustion_bypass, _, dm_mods = _parse_dm_controls(char_data)
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or ""
+    is_2024_sheet = "2024" in str(edition or "")
+    exhaustion_level = max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
+    effective_exh = 0 if exhaustion_bypass else exhaustion_level
+    exhaustion_penalty = (2 * effective_exh) if is_2024_sheet else 0
+    dm_atk_bonus = int(dm_mods.get("attack_bonus", 0) or 0)
+    dm_dmg_bonus = int(dm_mods.get("damage_bonus", 0) or 0)
+
+    prev_exh = int(weapon.get("exhaustion_attack_penalty_applied") or 0)
+    prev_dm_atk = int(weapon.get("dm_attack_bonus_applied") or 0)
+    prev_dm_dmg = int(weapon.get("dm_damage_bonus_applied") or 0)
+    is_custom_weapon = bool(weapon.get("is_custom", False))
+    effective_penalty = (exhaustion_penalty - prev_exh) if is_custom_weapon else exhaustion_penalty
+    effective_dm_atk = (dm_atk_bonus - prev_dm_atk) if is_custom_weapon else dm_atk_bonus
+    effective_dm_dmg = (dm_dmg_bonus - prev_dm_dmg) if is_custom_weapon else dm_dmg_bonus
+
+    net_atk_delta = effective_dm_atk - effective_penalty
+    if net_atk_delta != 0:
+        try:
+            atk_val = int(str(weapon.get("attack_bonus", "+0")).replace("+", "").strip())
+            atk_val += net_atk_delta
+            weapon["attack_bonus"] = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
+        except (ValueError, TypeError):
+            pass
+    if effective_dm_dmg != 0:
+        try:
+            dmg_b = int(str(weapon.get("damage_bonus", "+0")).replace("+", "").strip())
+            dmg_b += effective_dm_dmg
+            weapon["damage_bonus"] = f"+{dmg_b}" if dmg_b >= 0 else str(dmg_b)
+            weapon["damage"] = rebuild_damage_formula(
+                weapon.get("damage_dice"), weapon.get("damage_bonus")
+            )
+        except (ValueError, TypeError):
+            pass
+    weapon["exhaustion_attack_penalty_applied"] = exhaustion_penalty
+    weapon["dm_attack_bonus_applied"] = dm_atk_bonus
+    weapon["dm_damage_bonus_applied"] = dm_dmg_bonus
+    return weapon
+
+
 def calculate_weapon_stats(
     weapon: Dict[str, Any],
     stats: Dict[str, int],
     proficiency_bonus: int,
     homebrew_content: List[Dict[str, Any]] = None,
     features_traits: List[Any] = None,
+    suppress_magic_items: bool = False,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
     import re
+
+    magic_bonus_raw = weapon.get("magic_bonus")
+    if magic_bonus_raw is not None and str(magic_bonus_raw).strip() != "":
+        try:
+            raw_magic_bonus = int(magic_bonus_raw)
+        except (ValueError, TypeError):
+            raw_magic_bonus = 0
+    else:
+        name_match = re.search(r"\+([1-9])\b", weapon.get("name", ""))
+        raw_magic_bonus = int(name_match.group(1)) if name_match else 0
 
     is_custom_flag = weapon.get("is_custom", False)
     if is_custom_flag is True or str(is_custom_flag).lower() == "true":
@@ -890,6 +1013,29 @@ def calculate_weapon_stats(
                         weapon["damage_bonus"] = bonus_match.group(1).replace(" ", "")
                     else:
                         weapon["damage_bonus"] = "+0"
+
+        target_sup_magic = raw_magic_bonus if suppress_magic_items else 0
+        prev_sup_magic = int(weapon.get("magic_bonus_suppressed_applied", 0) or 0)
+        delta_sup_magic = target_sup_magic - prev_sup_magic
+        if delta_sup_magic != 0:
+            try:
+                cur_atk = int(
+                    str(weapon.get("attack_bonus", "+0")).replace("+", "").replace(" ", "") or 0
+                )
+            except ValueError:
+                cur_atk = 0
+            cur_atk -= delta_sup_magic
+            weapon["attack_bonus"] = f"+{cur_atk}" if cur_atk >= 0 else str(cur_atk)
+
+            try:
+                cur_dmg = int(
+                    str(weapon.get("damage_bonus", "+0")).replace("+", "").replace(" ", "") or 0
+                )
+            except ValueError:
+                cur_dmg = 0
+            cur_dmg -= delta_sup_magic
+            weapon["damage_bonus"] = f"+{cur_dmg}" if cur_dmg >= 0 else str(cur_dmg)
+            weapon["magic_bonus_suppressed_applied"] = target_sup_magic
 
         weapon["damage"] = rebuild_damage_formula(
             weapon.get("damage_dice"), weapon.get("damage_bonus")
@@ -935,16 +1081,8 @@ def calculate_weapon_stats(
         else:
             mod = str_mod
 
-    # Extract magic bonus from weapon or weapon name (e.g. "Longbow +1")
-    magic_bonus_raw = weapon.get("magic_bonus")
-    if magic_bonus_raw is not None and str(magic_bonus_raw).strip() != "":
-        try:
-            magic_bonus = int(magic_bonus_raw)
-        except (ValueError, TypeError):
-            magic_bonus = 0
-    else:
-        name_match = re.search(r"\+([1-9])\b", weapon.get("name", ""))
-        magic_bonus = int(name_match.group(1)) if name_match else 0
+    # Magic bonus from weapon or weapon name (suppressed non-destructively when Athas/Antimagic active)
+    magic_bonus = 0 if suppress_magic_items else raw_magic_bonus
 
     # Fighting styles & proficiency
     has_archery = False
@@ -1018,6 +1156,7 @@ def sync_character_stats(
 
     char_data = copy.deepcopy(char_data)
     repo = RulesRepository()
+    exhaustion_bypass, magic_items_suppressed, dm_mods = _parse_dm_controls(char_data)
 
     is_initial_sync = char_data.get("base_stats") is None
     has_explicit_stats = "stats" in char_data and char_data["stats"] is not None
@@ -1459,7 +1598,7 @@ def sync_character_stats(
     equip_save_bonuses = {}
     attuned_equip_count = 0
 
-    for equip in char_data["equipment"]:
+    for equip in [] if magic_items_suppressed else char_data["equipment"]:
         if not equip.get("equipped", False):
             continue
         if equip.get("attuned", False):
@@ -1467,6 +1606,7 @@ def sync_character_stats(
             if attuned_equip_count > max_attuned:
                 continue
 
+        item_has_explicit_save = False
         for i in [1, 2]:
             raw_mod = equip.get(f"mod{i}")
             if not raw_mod:
@@ -1492,6 +1632,7 @@ def sync_character_stats(
                 equip_dmg_bonus += bonus_val
             elif attr_key in ["SAVES", "SAVE"]:
                 equip_save_bonus += bonus_val
+                item_has_explicit_save = True
             elif attr_key.endswith("_SAVE"):
                 stat_save = attr_key.split("_")[0]
                 if stat_save in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
@@ -1506,6 +1647,14 @@ def sync_character_stats(
         if item_data and "stat_bonus" in item_data:
             for stat, val in item_data["stat_bonus"].items():
                 stats[stat] = stats.get(stat, 10) + val
+        if not item_has_explicit_save:
+            raw_save = (
+                item_data.get("save_bonus")
+                if item_data and item_data.get("save_bonus")
+                else equip.get("save_bonus")
+            )
+            if raw_save:
+                equip_save_bonus += int(raw_save or 0)
 
     char_data["equip_stat_bonuses"] = {
         k: stats.get(k, 10) - base_stats.get(k, 10)
@@ -1524,8 +1673,22 @@ def sync_character_stats(
 
     is_2024_sheet = bool(is_2024 or "2024" in str(char_data.get("ruleset_version") or ""))
     exhaustion_level = max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
-    exhaustion_penalty = (2 * exhaustion_level) if is_2024_sheet else 0
+    effective_exh = 0 if exhaustion_bypass else exhaustion_level
+    exhaustion_penalty = (2 * effective_exh) if is_2024_sheet else 0
     char_data["exhaustion_level"] = exhaustion_level
+    char_data["exhaustion_bypass"] = exhaustion_bypass
+    char_data["magic_items_suppressed"] = magic_items_suppressed
+    char_data["dm_modifiers"] = dm_mods
+
+    dm_atk_bonus = int(dm_mods.get("attack_bonus", 0) or 0)
+    dm_ac_bonus = int(dm_mods.get("ac_bonus", 0) or 0)
+    dm_speed_bonus = int(dm_mods.get("speed_bonus", 0) or 0)
+    dm_init_bonus = int(dm_mods.get("initiative_bonus", 0) or 0)
+    dm_save_bonus = int(dm_mods.get("saving_throws_bonus", 0) or 0)
+    dm_check_bonus = int(dm_mods.get("ability_checks_bonus", 0) or 0)
+    dm_spell_dc_bonus = int(dm_mods.get("spell_save_dc_bonus", 0) or 0)
+    dm_passive_bonus = int(dm_mods.get("passive_perception_bonus", 0) or 0)
+
     items_lookup = {
         str(i.get("name") or "").strip().lower(): i
         for i in all_items
@@ -1536,20 +1699,22 @@ def sync_character_stats(
     )
     armor_speed_penalty, _ = get_heavy_armor_strength_penalty(char_data, items_lookup=items_lookup)
     char_data["heavy_armor_speed_penalty"] = armor_speed_penalty
-    raw_speed = max(0, base_speed + equip_speed_bonus + feat_speed_bonus - armor_speed_penalty)
-    if is_2024_sheet:
-        char_data["speed"] = (
-            0 if exhaustion_level >= 6 else max(0, raw_speed - (5 * exhaustion_level))
-        )
-    elif exhaustion_level >= 5:
+    raw_speed = max(
+        0, base_speed + equip_speed_bonus + feat_speed_bonus - armor_speed_penalty + dm_speed_bonus
+    )
+    if effective_exh >= 6:
         char_data["speed"] = 0
-    elif exhaustion_level >= 2:
+    elif is_2024_sheet:
+        char_data["speed"] = max(0, raw_speed - (5 * effective_exh))
+    elif effective_exh >= 5:
+        char_data["speed"] = 0
+    elif effective_exh >= 2:
         char_data["speed"] = raw_speed // 2
     else:
         char_data["speed"] = raw_speed
     char_data["global_attack_bonus"] = equip_atk_bonus
     char_data["global_damage_bonus"] = equip_dmg_bonus
-    char_data["initiative_bonus"] = equip_init_bonus
+    char_data["initiative_bonus"] = equip_init_bonus + dm_init_bonus
 
     con_score = stats.get("CON", 10)
     dex_score = stats.get("DEX", 10)
@@ -1670,14 +1835,15 @@ def sync_character_stats(
 
     existing_hp = char_data.get("hp_max")
     stored_base_hp_max = char_data.get("base_hp_max")
-    if stored_base_hp_max and existing_hp == max(1, int(stored_base_hp_max) // 2):
-        existing_hp = int(stored_base_hp_max)
+    stored_pre_dm_hp_max = char_data.get("pre_dm_hp_max")
+    prev_dm_hp = int(char_data.get("dm_hp_bonus_applied", 0) or 0)
+    existing_hp, restored_from_unclamped_clamp = restore_base_hp_max(
+        existing_hp, stored_base_hp_max, stored_pre_dm_hp_max
+    )
     current_con_mod = get_modifier(con_score)
     con_mod_applied = char_data.get("con_mod_applied")
     if con_mod_applied is None:
-        base_con = (
-            base_stats_raw.get("CON", con_score) if isinstance(base_stats_raw, dict) else con_score
-        )
+        base_con = base_stats.get("CON", con_score)
         con_mod_applied = get_modifier(base_con)
 
     # Subclass Draconic Sorcery / Draconic Bloodline grants +1 HP per Sorcerer level
@@ -1699,10 +1865,12 @@ def sync_character_stats(
     feat_hp_bonus = hp_bonus_per_level * level + draconic_sorcerer_levels + flat_feat_hp
     prev_feat_hp = char_data.get("feat_hp_bonus", 0)
     prev_equip_hp = char_data.get("equip_hp_bonus", 0)
+    dm_hp_bonus = int(dm_mods.get("hp_max_bonus", 0) or 0)
 
+    dm_offset_to_strip = 0 if restored_from_unclamped_clamp else prev_dm_hp
     con_delta = 0
     if existing_hp is not None and existing_hp > 0:
-        base_existing_hp = existing_hp - prev_feat_hp - prev_equip_hp
+        base_existing_hp = max(1, existing_hp - prev_feat_hp - prev_equip_hp - dm_offset_to_strip)
         if con_mod_applied is not None and con_mod_applied != current_con_mod:
             con_delta = current_con_mod - con_mod_applied
             base_existing_hp += con_delta * level
@@ -1716,9 +1884,11 @@ def sync_character_stats(
     base_hp = calculate_hp(
         hit_die_size, level, con_score, existing_hp=base_existing_hp, hit_dice_list=hit_dice_list
     )
-    char_data["hp_max"] = base_hp + feat_hp_bonus + equip_hp_bonus
+    unclamped_hp_max = base_hp + feat_hp_bonus + equip_hp_bonus + dm_hp_bonus
+    char_data["hp_max"] = max(1, unclamped_hp_max)
     char_data["feat_hp_bonus"] = feat_hp_bonus
     char_data["equip_hp_bonus"] = equip_hp_bonus
+    char_data["dm_hp_bonus_applied"] = dm_hp_bonus
     char_data["con_mod_applied"] = current_con_mod
 
     feat_hp_delta = feat_hp_bonus - prev_feat_hp if existing_hp is not None else 0
@@ -1727,15 +1897,28 @@ def sync_character_stats(
         char_data["hp_current"] = max(
             0, min(char_data["hp_max"], char_data["hp_current"] + total_hp_delta)
         )
+    elif char_data.get("hp_current") is not None:
+        char_data["hp_current"] = max(0, min(char_data["hp_max"], char_data["hp_current"]))
 
-    if not is_2024_sheet and exhaustion_level >= 4:
+    effective_exh = 0 if exhaustion_bypass else exhaustion_level
+    is_halved_by_exh = not is_2024_sheet and effective_exh >= 4
+    pre_dm_hp_max = max(1, base_hp + feat_hp_bonus + equip_hp_bonus)
+
+    if unclamped_hp_max < 1:
+        char_data["pre_dm_hp_max"] = pre_dm_hp_max
+        char_data["base_hp_max"] = None
+        if is_halved_by_exh and char_data.get("hp_current") is not None:
+            char_data["hp_current"] = max(0, min(1, char_data["hp_current"]))
+    elif is_halved_by_exh:
         full_hp_max = char_data["hp_max"]
+        char_data["pre_dm_hp_max"] = None
         char_data["base_hp_max"] = full_hp_max
         halved_hp = max(1, full_hp_max // 2)
         char_data["hp_max"] = halved_hp
         if char_data.get("hp_current") is not None:
             char_data["hp_current"] = max(0, min(halved_hp, char_data["hp_current"]))
     else:
+        char_data["pre_dm_hp_max"] = None
         char_data["base_hp_max"] = None
 
     char_data["armor_class"], char_data["ac_breakdown"] = calculate_ac(
@@ -1751,6 +1934,8 @@ def sync_character_stats(
         edition=edition,
         max_attunement=max_attuned,
         char_class=char_class,
+        dm_ac_bonus=dm_ac_bonus,
+        suppress_magic_items=magic_items_suppressed,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus on initial import/forge
@@ -1794,6 +1979,7 @@ def sync_character_stats(
             break
     passive_bonus += int(char_data.get("passive_perception_bonus") or 0)
 
+    disadv_passive_penalty = 5 if (not is_2024_sheet and effective_exh >= 1) else 0
     char_data["passive_perception"] = calculate_passive_perception(
         wis_score,
         prof_bonus,
@@ -1801,6 +1987,9 @@ def sync_character_stats(
         char_data.get("skill_expertise", []),
         half_prof=jack,
         bonus_modifier=passive_bonus,
+        exhaustion_penalty=exhaustion_penalty,
+        disadvantage_penalty=disadv_passive_penalty,
+        dm_bonus=dm_check_bonus + dm_passive_bonus,
     )
 
     # 2014 RAW: Remarkable Athlete grants +ceil(PB/2) to physical checks.
@@ -1824,11 +2013,12 @@ def sync_character_stats(
                 char_data["saving_throw_values"][s] = (
                     char_data["saving_throw_values"].get(s, 0) + bonus_to_add
                 )
-    if exhaustion_penalty > 0:
+    if exhaustion_penalty > 0 or dm_check_bonus != 0:
         for sk in char_data["skills"]:
-            char_data["skills"][sk] -= exhaustion_penalty
+            char_data["skills"][sk] += dm_check_bonus - exhaustion_penalty
+    if exhaustion_penalty > 0 or dm_save_bonus != 0:
         for st in char_data["saving_throw_values"]:
-            char_data["saving_throw_values"][st] -= exhaustion_penalty
+            char_data["saving_throw_values"][st] += dm_save_bonus - exhaustion_penalty
 
     init_bonus = 0
     has_init_prof = bool(char_data.get("initiative_proficiency", False))
@@ -1871,6 +2061,7 @@ def sync_character_stats(
         get_modifier(dex_score)
         + init_bonus
         + char_data.get("initiative_bonus", 0)
+        + dm_check_bonus
         - exhaustion_penalty
     )
 
@@ -1890,11 +2081,12 @@ def sync_character_stats(
             if f.get("athletics_advantage"):
                 has_ath_adv = True
 
-    for eq in char_data.get("equipment", []) or []:
-        if isinstance(eq, dict) and eq.get("equipped", False):
-            eq_name = (eq.get("name") or "").lower()
-            if "weapon of warning" in eq_name:
-                has_init_adv = True
+    if not magic_items_suppressed:
+        for eq in char_data.get("equipment", []) or []:
+            if isinstance(eq, dict) and eq.get("equipped", False):
+                eq_name = (eq.get("name") or "").lower()
+                if "weapon of warning" in eq_name:
+                    has_init_adv = True
 
     char_data["initiative_advantage"] = has_init_adv
     char_data["athletics_advantage"] = has_ath_adv
@@ -1941,6 +2133,7 @@ def sync_character_stats(
                 prof_bonus,
                 homebrew_content,
                 features_traits=char_data.get("features_traits", []),
+                suppress_magic_items=magic_items_suppressed,
             )
         )
 
@@ -1969,23 +2162,12 @@ def sync_character_stats(
                 prof_bonus,
                 homebrew_content,
                 features_traits=char_data.get("features_traits", []),
+                suppress_magic_items=magic_items_suppressed,
             )
             updated_weapons.append(new_w)
 
     for w in updated_weapons:
-        prev_exh = int(w.get("exhaustion_attack_penalty_applied") or 0)
-        is_custom_weapon = bool(w.get("is_custom", False))
-        effective_penalty = (
-            (exhaustion_penalty - prev_exh) if is_custom_weapon else exhaustion_penalty
-        )
-        if effective_penalty != 0:
-            try:
-                atk_val = int(str(w.get("attack_bonus", "+0")).replace("+", "").strip())
-                atk_val -= effective_penalty
-                w["attack_bonus"] = f"+{atk_val}" if atk_val >= 0 else str(atk_val)
-            except (ValueError, TypeError):
-                pass
-        w["exhaustion_attack_penalty_applied"] = exhaustion_penalty
+        apply_character_weapon_modifiers(w, char_data)
 
     char_data["weapons"] = updated_weapons
 
@@ -2083,10 +2265,10 @@ def sync_character_stats(
     if spell_ability and spell_ability != "None":
         char_data["spell_ability"] = spell_ability
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
-        char_data["spell_save_dc"] = spell_stats["spell_save_dc"]
+        char_data["spell_save_dc"] = spell_stats["spell_save_dc"] + dm_spell_dc_bonus
         try:
             s_atk = int(str(spell_stats["spell_attack_bonus"]).replace("+", "").strip())
-            s_atk -= exhaustion_penalty
+            s_atk = s_atk - exhaustion_penalty + dm_atk_bonus
             char_data["spell_attack_bonus"] = f"+{s_atk}" if s_atk >= 0 else str(s_atk)
         except (ValueError, TypeError):
             char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]
@@ -2422,5 +2604,11 @@ def sync_character_stats(
     char_data["class_resources"] = sync_class_resources(
         current_resources, classes, char_data.get("stats") or {}, edition
     )
+
+    if effective_exh >= 6:
+        # Both 2014 & 2024 RAW: Exhaustion Level 6 = Death unless bypassed by the DM.
+        char_data["speed"] = 0
+        char_data["hp_current"] = 0
+        char_data["concentrating_on"] = None
 
     return char_data

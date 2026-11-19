@@ -6,7 +6,7 @@
  * for the same hero is a view of this record, never a second copy — see the
  * "one hero, one state" section of `dm.component.ts`.
  */
-import type { AcBreakdown } from './character.model';
+import type { AcBreakdown, DmModifiers } from './character.model';
 
 export interface PartyMember {
   /** Absent for a member the DM typed in by hand: there is no sheet to write to. */
@@ -14,17 +14,28 @@ export interface PartyMember {
   name: string;
   char_class: string;
   level: number;
+  dnd_edition?: string;
+  ruleset_version?: string;
   hp_current: number;
   hp_max: number;
   hp_temp?: number;
   ac: number;
   ac_breakdown?: AcBreakdown;
+  speed?: number;
   passive_perception: number;
   conditions: string[];
   concentrating_on?: string | null;
   death_saves?: { successes: number; failures: number };
   inspiration?: boolean;
   exhaustion_level?: number;
+  exhaustion_bypass?: boolean;
+  magic_items_suppressed?: boolean;
+  dm_modifiers?: DmModifiers;
+  dm_short_rest_unlocked?: boolean;
+  dm_long_rest_unlocked?: boolean;
+  dm_level_up_unlocked?: boolean;
+  initiative_modifier?: number;
+  initiative_advantage?: boolean;
   stats?: { [key: string]: number };
   portrait?: string;
   owner_username?: string;

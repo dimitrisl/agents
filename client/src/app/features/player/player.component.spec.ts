@@ -327,6 +327,7 @@ describe('PlayerComponent — DM roll requests', () => {
       const charState = TestBed.inject(CharacterStateService);
       charState.activeCharacter.set({
         ...HERO,
+        active_campaign: undefined,
         char_class: 'Warlock',
         char_level: 3,
         hit_dice_used: 3,
@@ -1166,11 +1167,30 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     expect(afterRest.class_resources?.[0]?.current).toBe(3);
     expect(afterRest.version).toBe(3);
 
-    // 2) Player updates exhaustion locally from 2 -> 0: speed restores 20 -> 30 immutably
+    // 2) Inside a campaign, player cannot modify exhaustion directly; DM party_update restores 20 -> 30 immutably
     fixture.componentInstance.onUpdateHeroStatus({ exhaustion_level: 0 });
+    expect(charState.activeCharacter()!.exhaustion_level).toBe(2);
+    expect(charState.activeCharacter()!.speed).toBe(20);
+
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        exhaustion_level: 0,
+        speed: 30,
+        version: 4,
+      },
+    } as any);
     expect(afterRest.speed).toBe(20);
     expect(charState.activeCharacter()!.exhaustion_level).toBe(0);
     expect(charState.activeCharacter()!.speed).toBe(30);
+
+    // 3) Solo (outside campaign) player updates exhaustion locally 0 -> 1: speed drops 30 -> 25 immutably
+    const beforeSolo = charState.activeCharacter()!;
+    charState.activeCharacter.set({ ...beforeSolo, active_campaign: undefined });
+    fixture.componentInstance.onUpdateHeroStatus({ exhaustion_level: 1 });
+    expect(charState.activeCharacter()!.exhaustion_level).toBe(1);
+    expect(charState.activeCharacter()!.speed).toBe(25);
 
     http.match(() => true).forEach((req) => req.flush({}));
     fixture.destroy();
@@ -1271,6 +1291,7 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
       char_class: 'Sorcerer',
       char_level: 2,
       dnd_edition: '2024 Revision (5.5e)',
+      dm_level_up_unlocked: true,
     } as CharacterSchema);
 
     const fixture = TestBed.createComponent(PlayerComponent);
@@ -1353,6 +1374,7 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
       char_class: 'Fighter',
       char_level: 2,
       dnd_edition: '2024 Revision (5.5e)',
+      dm_level_up_unlocked: true,
     } as CharacterSchema);
 
     const fixture = TestBed.createComponent(PlayerComponent);
@@ -1404,6 +1426,290 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     });
 
     http.verify();
+    fixture.destroy();
+  });
+});
+
+describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas Sync', () => {
+  const setupPlayer = (charOverrides: Partial<CharacterSchema> = {}) => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.dndEdition.set(charOverrides.dnd_edition || '2014 Edition');
+    charState.activeCharacter.set({
+      ...HERO,
+      dnd_edition: '2014 Edition',
+      hp_max: 44,
+      hp_current: 20,
+      speed: 30,
+      base_speed: 30,
+      version: 2,
+      ...charOverrides,
+    });
+    const fixture = TestBed.createComponent(PlayerComponent);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+    http.match((r) => r.method === 'GET').forEach((r) => {
+      if (r.request.url.endsWith('/characters')) {
+        r.flush({ characters: [charState.activeCharacter()] });
+      } else {
+        r.flush({ whispers: [], roll_requests: [], roll_logs: [] });
+      }
+    });
+    return { fixture, comp: fixture.componentInstance, http, charState, messages$ };
+  };
+
+  it('blocks locked campaign rests & level-up, allows 1-shot DM unlocks via server rest endpoints, and auto-relocks', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      dm_short_rest_unlocked: false,
+      dm_long_rest_unlocked: false,
+      dm_level_up_unlocked: false,
+    });
+
+    // All three locked in campaign
+    comp.openShortRestModal();
+    expect(comp.showShortRestModal()).toBe(false);
+    comp.triggerLongRest();
+    comp.onLevelUp();
+    http.expectNone(() => true);
+
+    // DM unlocks short rest & long rest -> calls dedicated backend routes and updates signal
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      dm_short_rest_unlocked: true,
+      dm_long_rest_unlocked: true,
+    });
+
+    comp.openShortRestModal();
+    expect(comp.showShortRestModal()).toBe(true);
+    comp.shortRestDiceToSpend = 1;
+    comp.executeShortRest();
+    const srReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith(`/characters/${HERO.char_id}/short-rest`));
+    srReq.flush({ ...charState.activeCharacter()!, hp_current: 28, dm_short_rest_unlocked: false, version: 3 });
+    expect(charState.activeCharacter()!.dm_short_rest_unlocked).toBe(false);
+    expect(charState.activeCharacter()!.hp_current).toBe(28);
+
+    comp.triggerLongRest();
+    const lrReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith(`/characters/${HERO.char_id}/long-rest`));
+    lrReq.flush({ ...charState.activeCharacter()!, hp_current: 44, dm_long_rest_unlocked: false, version: 4 });
+    expect(charState.activeCharacter()!.dm_long_rest_unlocked).toBe(false);
+    expect(charState.activeCharacter()!.hp_current).toBe(44);
+
+    fixture.destroy();
+  });
+
+  it('blocks Exhaustion 6 deceased characters from healing, resting, and leveling, and rehydrates full Athas/modifier party_update payloads', () => {
+    const { comp, http, charState, messages$, fixture } = setupPlayer({
+      exhaustion_level: 6,
+      exhaustion_bypass: false,
+      hp_current: 0,
+      dm_long_rest_unlocked: true,
+      dm_level_up_unlocked: true,
+    });
+
+    comp.applyHeal(10);
+    comp.adjustHp(5);
+    comp.triggerLongRest();
+    comp.onLevelUp();
+    http.expectNone(() => true);
+    expect(charState.activeCharacter()!.hp_current).toBe(0);
+
+    // DM sends party_update waiving exhaustion, suppressing magic items (Athas), and adding signed modifiers
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        exhaustion_level: 6,
+        exhaustion_bypass: true,
+        magic_items_suppressed: true,
+        dm_modifiers: { ac_bonus: -2, attack_bonus: -1, note: 'Athas Heat' },
+        ac: 13,
+        hp_current: 1,
+        hp_max: 44,
+        speed: 30,
+        inspiration: true,
+        version: 5,
+      },
+    } as any);
+
+    const updated = charState.activeCharacter()!;
+    expect(updated.exhaustion_bypass).toBe(true);
+    expect(updated.magic_items_suppressed).toBe(true);
+    expect(updated.dm_modifiers?.ac_bonus).toBe(-2);
+    expect(updated.armor_class).toBe(13);
+    expect(updated.inspiration).toBe(true);
+
+    // Waived hero CAN now heal!
+    comp.applyHeal(9);
+    expect(charState.activeCharacter()!.hp_current).toBe(10);
+    http.match(() => true).forEach((r) => r.flush({ ...updated, hp_current: 10, version: 6 }));
+
+    fixture.destroy();
+  });
+
+  it('lets Solo heroes freely adjust 2014 exhaustion with L2 speed halve, L4 HP halve, and L6 death', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      active_campaign: undefined,
+      dnd_edition: '2014 Edition',
+      hp_max: 44,
+      hp_current: 44,
+      speed: 30,
+      base_speed: 30,
+      exhaustion_level: 0,
+    });
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 2 });
+    expect(charState.activeCharacter()!.speed).toBe(15);
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 4 });
+    expect(charState.activeCharacter()!.hp_max).toBe(22);
+    expect(charState.activeCharacter()!.base_hp_max).toBe(44);
+    expect(charState.activeCharacter()!.hp_current).toBe(22);
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 3 });
+    expect(charState.activeCharacter()!.hp_max).toBe(44);
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 6 });
+    expect(charState.activeCharacter()!.speed).toBe(0);
+    expect(charState.activeCharacter()!.hp_current).toBe(0);
+
+    http.match(() => true).forEach((r) => r.flush(r.request.body));
+    fixture.destroy();
+  });
+
+  it('syncs multi-tab player party_update locks/rest/level_up state, supports death_save/concentration roll targets, and blocks L6 potion consumption', () => {
+    const { comp, http, charState, messages$, fixture } = setupPlayer({
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 2, // -4 penalty in 2024
+      dm_short_rest_unlocked: true,
+      dm_level_up_unlocked: true,
+      dm_modifiers: { saving_throws_bonus: 1 },
+      stats: { STR: 10, DEX: 14, CON: 16, INT: 10, WIS: 12, CHA: 8 },
+      saving_throws: ['CON'],
+      proficiency_bonus: 3,
+      hp_current: 20,
+      hp_max: 44,
+      version: 2,
+    });
+
+    // Adequate #3: Multi-tab `source: 'player'` level_up consumes lock & triggers reload
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        source: 'player',
+        action: 'level_up',
+        level: 6,
+        hp_max: 52,
+        hp_current: 52,
+        dm_level_up_unlocked: false,
+        dm_short_rest_unlocked: false,
+        spell_slots: { level_1: { max: 4, used: 0 } },
+        passive_perception: 13,
+        skills: { Perception: 3 },
+        magic_items_suppressed: true,
+        dm_modifiers: { saving_throws_bonus: 1, initiative_bonus: 2 },
+        version: 3,
+      },
+    } as any);
+    const updated = charState.activeCharacter()!;
+    expect(updated.char_level).toBe(6);
+    expect(updated.hp_max).toBe(52);
+    expect(updated.dm_level_up_unlocked).toBe(false);
+    expect(updated.dm_short_rest_unlocked).toBe(false);
+    expect(updated.passive_perception).toBe(13);
+    expect(updated.magic_items_suppressed).toBe(true);
+    expect(updated.dm_modifiers?.initiative_bonus).toBe(2);
+    const reloadReqs = http.match((r) => r.method === 'GET' && r.url.endsWith('/characters'));
+    expect(reloadReqs.length).toBe(1);
+    reloadReqs[0].flush({ characters: [updated] });
+
+    // Minor #1: DM roll requests for death_save & concentration match backend modifiers
+    messages$.next({
+      type: 'roll_request',
+      payload: request({ id: 'req-death', roll_type: 'death_save', stat: 'Death' }),
+    } as WsMessage);
+    // 2024 L2 (-4) + DM save (+1) = -3
+    expect(comp.activeRollPromptModifier).toBe(-3);
+    comp.dismissRollPrompt();
+    http.expectOne((r) => r.url.includes('/roll-request/req-death/miss')).flush({ success: true });
+
+    messages$.next({
+      type: 'roll_request',
+      payload: request({ id: 'req-conc', roll_type: 'concentration', stat: 'Concentration' }),
+    } as WsMessage);
+    // CON +3 + Prof +3 - 4 (Exh 2) + 1 (DM Save) = +3
+    expect(comp.activeRollPromptModifier).toBe(3);
+    comp.dismissRollPrompt();
+    http.expectOne((r) => r.url.includes('/roll-request/req-conc/miss')).flush({ success: true });
+
+    // attack_roll prompt uses STR + dm_modifiers.attack_bonus - 2024 Exhaustion penalty (never ability_checks_bonus)
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 2,
+      dm_modifiers: { attack_bonus: 3, ability_checks_bonus: -5 },
+      stats: { STR: 16, DEX: 14, CON: 16, INT: 10, WIS: 12, CHA: 8 },
+    });
+    messages$.next({
+      type: 'roll_request',
+      payload: request({ id: 'req-atk', roll_type: 'attack_roll', stat: 'STR' }),
+    } as WsMessage);
+    // STR (+3) + DM Atk (+3) - 2024 Exh L2 (-4) = +2
+    expect(comp.activeRollPromptModifier).toBe(2);
+    comp.dismissRollPrompt();
+    http.expectOne((r) => r.url.includes('/roll-request/req-atk/miss')).flush({ success: true });
+
+    // addWeapon() initializes separated base damage_dice + damage_bonus with is_custom=true
+    comp.addWeapon();
+    const added = charState.activeCharacter()!.weapons!.slice(-1)[0];
+    expect(added.damage_dice).toBe('1d8');
+    expect(added.damage_bonus).toBe('+3');
+    expect(added.is_custom).toBe(true);
+    http.match((r) => r.method === 'PUT').forEach((r) => r.flush(charState.activeCharacter()));
+
+    // Minor #2 & Minor #6: Exhaustion L6 deceased blocks onConsumePotion, setTempHp & adjustTempHp
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      exhaustion_level: 6,
+      exhaustion_bypass: false,
+      hp_current: 0,
+      hp_temp: 0,
+      equipment: [{ name: 'Potion of Healing', quantity: 2 }],
+    });
+    comp.onConsumePotion({
+      item: charState.activeCharacter()!.equipment![0],
+      dice: '2d4',
+      bonus: 2,
+      name: 'Potion of Healing',
+    });
+    comp.setTempHp(10);
+    comp.adjustTempHp(5);
+    expect(charState.activeCharacter()!.hp_current).toBe(0);
+    expect(charState.activeCharacter()!.hp_temp).toBe(0);
+    expect(charState.activeCharacter()!.equipment![0].quantity).toBe(2);
+    http.expectNone(() => true);
+
     fixture.destroy();
   });
 });

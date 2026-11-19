@@ -10,22 +10,38 @@
         <button
           forgeButton
           variant="secondary"
+          [tone]="isInCampaign && shortRestUnlocked && !isDeceasedByExhaustion ? 'accent' : undefined"
           size="sm"
           type="button"
+          [disabled]="!canShortRest"
           (click)="shortRest.emit()"
-          title="Short Rest"
+          [title]="isDeceasedByExhaustion ? 'Deceased at Exhaustion 6' : (isInCampaign ? (shortRestUnlocked ? 'Short Rest unlocked by DM (1 use)' : 'Short Rest locked by DM') : 'Short Rest')"
         >
-          ⛺ Short Rest
+          @if (isInCampaign && !shortRestUnlocked) {
+            🔒 Short Rest
+          } @else if (isInCampaign && shortRestUnlocked) {
+            🔓 Short Rest
+          } @else {
+            ⛺ Short Rest
+          }
         </button>
         <button
           forgeButton
           variant="secondary"
+          [tone]="isInCampaign && longRestUnlocked && !isDeceasedByExhaustion ? 'accent' : undefined"
           size="sm"
           type="button"
+          [disabled]="!canLongRest"
           (click)="longRest.emit()"
-          title="Long Rest"
+          [title]="isDeceasedByExhaustion ? 'Deceased at Exhaustion 6' : (isInCampaign ? (longRestUnlocked ? 'Long Rest unlocked by DM (1 use)' : 'Long Rest locked by DM') : 'Long Rest')"
         >
-          ◐ Long Rest
+          @if (isInCampaign && !longRestUnlocked) {
+            🔒 Long Rest
+          } @else if (isInCampaign && longRestUnlocked) {
+            🔓 Long Rest
+          } @else {
+            ◐ Long Rest
+          }
         </button>
       </div>
     </section>
@@ -43,14 +59,18 @@
         size="sm"
         type="button"
         (click)="levelUp.emit()"
-        [disabled]="!canLevelUp"
+        [disabled]="!canTriggerLevelUp"
         [loading]="isLevelUpLoading"
-        [title]="canLevelUp ? 'Level Up Analysis' : 'Maximum Level (20) reached'"
+        [title]="!canLevelUp ? 'Maximum Level (20) reached' : (isDeceasedByExhaustion ? 'Deceased at Exhaustion 6' : (isInCampaign ? (levelUpUnlocked ? 'Level Up unlocked by DM (1 use)' : 'Level Up locked by DM') : 'Level Up Analysis'))"
       >
-        @if (canLevelUp) {
-          ✦ Level Up
-        } @else {
+        @if (!canLevelUp) {
           ★ Max Level (20)
+        } @else if (isInCampaign && !levelUpUnlocked) {
+          🔒 Level Up
+        } @else if (isInCampaign && levelUpUnlocked) {
+          🔓 Level Up
+        } @else {
+          ✦ Level Up
         }
       </button>
     </section>

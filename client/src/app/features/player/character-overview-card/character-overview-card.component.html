@@ -50,7 +50,10 @@
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="mb-1 block text-micro font-semibold uppercase text-muted">Level</label>
-              <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" aria-label="Level" />
+              <input forgeInput type="number" [(ngModel)]="char.char_level" placeholder="Level" aria-label="Level" [readonly]="!!char.active_campaign" [attr.aria-describedby]="char.active_campaign ? 'overview-level-lock-hint' : null" />
+              @if (char.active_campaign) {
+                <p id="overview-level-lock-hint" class="text-micro uppercase text-muted">🔒 Managed by DM Level Up Unlock</p>
+              }
             </div>
             <div>
               <label class="mb-1 block text-micro font-semibold uppercase text-muted">Background</label>
@@ -66,6 +69,7 @@
       [max]="char.hp_max"
       [temp]="char.hp_temp ?? 0"
       [deathSaves]="char.death_saves"
+      [isDeceasedByExhaustion]="deceasedByExhaustion"
       (hpChange)="hpChange.emit($event)"
       (tempChange)="tempChange.emit($event)"
       (deathSaveChange)="deathSaveChange.emit($event)"
@@ -102,6 +106,32 @@
             >
               <forge-icon name="close" size="xs" />
             </button>
+          </forge-badge>
+        }
+
+        @if (deceasedByExhaustion) {
+          <forge-badge tone="danger" class="h-7" title="Dead per Exhaustion Level 6 (managed by DM)">
+            💀 Deceased (Exh 6)
+          </forge-badge>
+        } @else if ((char.exhaustion_level ?? 0) > 0) {
+          <forge-badge
+            [tone]="char.exhaustion_bypass ? 'muted' : 'danger'"
+            class="h-7"
+            [title]="exhaustionTooltip"
+          >
+            🥱 Exhaustion {{ char.exhaustion_level }}{{ char.exhaustion_bypass ? ' (Waived)' : '' }}
+          </forge-badge>
+        }
+
+        @if (char.magic_items_suppressed) {
+          <forge-badge tone="accent" class="h-7" title="Magic item bonuses suppressed by DM (Athas / Antimagic)">
+            🏜️ Magic Suppressed
+          </forge-badge>
+        }
+
+        @if (dmModifiersParts.length > 0 || (char.dm_modifiers?.note || '').trim()) {
+          <forge-badge tone="accent" class="h-7" [title]="dmModifiersTooltip">
+            ⚙️ DM: {{ dmModifiersParts.length > 0 ? dmModifiersParts.join(' · ') : char.dm_modifiers?.note }}
           </forge-badge>
         }
 

@@ -323,6 +323,18 @@
                       </div>
                     }
                     <span class="min-w-0 truncate font-semibold text-ink">{{ combatant.name }}</span>
+                    @if (memberForCombatant(combatant); as pm) {
+                      @if ((pm.exhaustion_level ?? 0) >= 6 && !pm.exhaustion_bypass) {
+                        <forge-badge tone="danger" size="sm">💀 EXH 6</forge-badge>
+                      } @else if ((pm.exhaustion_level ?? 0) > 0) {
+                        <forge-badge [tone]="pm.exhaustion_bypass ? 'muted' : 'danger'" size="sm">
+                          EXH {{ pm.exhaustion_level }}{{ pm.exhaustion_bypass ? '✓' : '' }}
+                        </forge-badge>
+                      }
+                      @if (pm.magic_items_suppressed) {
+                        <forge-badge tone="accent" size="sm" title="Magic items suppressed">🏜️</forge-badge>
+                      }
+                    }
                   </div>
 
                   @if (activeConditions(combatant).length > 0) {

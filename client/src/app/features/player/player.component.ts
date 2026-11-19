@@ -51,33 +51,40 @@ import {
 import {
   ALL_SKILLS,
   SkillDefinition,
+  abilityCheckModifier,
   abilityModifier,
   abilityModifierOf,
   adjustedHp,
   availableHitDice,
   availableHitDieOptions,
   conModifier,
+  describeDmModifiers,
   diceForCast,
+  effectiveExhaustionLevel,
   exhaustionD20Penalty,
   findSkill,
   formatClassSummary,
   formatModifier,
+  hasExhaustionDisadvantage,
   hasSpellSlotLevel,
   HitDieOption,
   hitDieSize,
   is2024Edition,
+  isDeceasedByExhaustion,
   isProficientIn,
   hasExpertiseIn,
   hasInitiativeAdvantage,
   hasAthleticsAdvantage,
   isIncapacitated,
   levelUp,
+  passivePerceptionOf,
   planShortRest,
   proficiencyBonus,
   rechargeShortRestResources,
   SpellCastProfile,
   regainSpellSlot,
   resolveLongRest,
+  resolveRollMode,
   resolveShortRest,
   restoreAllSpellSlots,
   restorePactSpellSlots,
@@ -98,6 +105,7 @@ import {
   spendMetamagic,
 } from '../../core/rules';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeIconComponent,
   ForgeSpinnerComponent,
@@ -156,6 +164,7 @@ interface RollTarget {
     CharacterImportPanelComponent,
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
   ForgeIconComponent,
   ForgeSpinnerComponent,
@@ -668,18 +677,55 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
    * written server-side, so this only catches the open page up — saving from
    * here would race the DM with a stale copy of the hero.
    */
+  isHeroDeceased(char: CharacterSchema | null | undefined): boolean {
+    return isDeceasedByExhaustion(char);
+  }
+
+  hasCheckDisadvantage(char: CharacterSchema | null | undefined): boolean {
+    return hasExhaustionDisadvantage(char, 'check');
+  }
+
   private applyExhaustionDelta(char: CharacterSchema, nextLevel: number): CharacterSchema {
     const prevLevel = Math.max(0, Math.min(6, Math.floor(Number(char.exhaustion_level) || 0)));
     const clampedNext = Math.max(0, Math.min(6, Math.floor(Number(nextLevel) || 0)));
     if (prevLevel === clampedNext) return char;
 
+    const prevEff = char.exhaustion_bypass ? 0 : prevLevel;
+    const nextEff = char.exhaustion_bypass ? 0 : clampedNext;
     let next: CharacterSchema = { ...char, exhaustion_level: clampedNext };
+
+    if (prevEff === nextEff) {
+      return next;
+    }
+
+    const armorPenalty = next.heavy_armor_speed_penalty ?? 0;
+    const dmSpeed = next.dm_modifiers?.speed_bonus ?? 0;
+    const inferRawSpeed = () => {
+      if (typeof next.base_speed === 'number') {
+        return Math.max(0, next.base_speed - armorPenalty + dmSpeed);
+      }
+      if (is2024Edition(next)) {
+        return prevEff >= 6 ? 30 : Math.max(0, (next.speed ?? 30) + prevEff * 5);
+      }
+      return prevEff >= 5 ? 30 : prevEff >= 2 ? (next.speed ?? 15) * 2 : (next.speed ?? 30);
+    };
+    const rawSpeed = inferRawSpeed();
+
     if (is2024Edition(next)) {
-      const d20Delta = (clampedNext - prevLevel) * 2;
-      const baseSpd = next.base_speed ?? ((next.speed ?? 30) + prevLevel * 5);
-      next.speed = clampedNext >= 6 ? 0 : Math.max(0, baseSpd - clampedNext * 5);
+      const d20Delta = (nextEff - prevEff) * 2;
+      next.speed = nextEff >= 6 ? 0 : Math.max(0, rawSpeed - nextEff * 5);
       if (typeof next.initiative_modifier === 'number') {
         next.initiative_modifier -= d20Delta;
+      }
+      if (typeof next.passive_perception === 'number') {
+        next.passive_perception -= d20Delta;
+      }
+      if (next.spell_attack_bonus !== undefined && next.spell_attack_bonus !== null) {
+        const parsedAtk = parseInt(String(next.spell_attack_bonus).replace('+', ''), 10);
+        if (!Number.isNaN(parsedAtk)) {
+          const nextAtk = parsedAtk - d20Delta;
+          next.spell_attack_bonus = nextAtk >= 0 ? `+${nextAtk}` : `${nextAtk}`;
+        }
       }
       if (next.saving_throw_values) {
         const updatedSaves: Record<string, number> = {};
@@ -696,56 +742,164 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         next.skills = updatedSkills;
       }
     } else {
-      const baseSpd =
-        next.base_speed ??
-        (prevLevel >= 5 ? 30 : prevLevel >= 2 ? (next.speed ?? 15) * 2 : (next.speed ?? 30));
-      next.speed = clampedNext >= 5 ? 0 : clampedNext >= 2 ? Math.floor(baseSpd / 2) : baseSpd;
+      next.speed = nextEff >= 5 ? 0 : nextEff >= 2 ? Math.floor(rawSpeed / 2) : rawSpeed;
+      if (typeof next.passive_perception === 'number') {
+        if (prevEff === 0 && nextEff >= 1) {
+          next.passive_perception -= 5;
+        } else if (prevEff >= 1 && nextEff === 0) {
+          next.passive_perception += 5;
+        }
+      }
+      if (prevEff < 4 && nextEff >= 4) {
+        const fullHp = next.hp_max;
+        next.base_hp_max = fullHp;
+        const halved = Math.max(1, Math.floor(fullHp / 2));
+        next.hp_max = halved;
+        if (typeof next.hp_current === 'number') {
+          next.hp_current = Math.min(halved, next.hp_current);
+        }
+      } else if (prevEff >= 4 && nextEff < 4 && next.base_hp_max) {
+        next.hp_max = next.base_hp_max;
+        next.base_hp_max = undefined;
+      }
     }
+
+    if (nextEff >= 6) {
+      next.speed = 0;
+      next.hp_current = 0;
+      next.concentrating_on = undefined;
+    }
+
     return next;
+  }
+
+  private mergePartyUpdateFields(target: CharacterSchema, payload: any, allowDirectExhaustion: boolean): void {
+    if (typeof payload.exhaustion_bypass === 'boolean') {
+      target.exhaustion_bypass = payload.exhaustion_bypass;
+    }
+    if (typeof payload.magic_items_suppressed === 'boolean') {
+      target.magic_items_suppressed = payload.magic_items_suppressed;
+    }
+    if (payload.dm_modifiers !== undefined) {
+      target.dm_modifiers = payload.dm_modifiers ? { ...payload.dm_modifiers } : undefined;
+    }
+    if (typeof payload.dm_short_rest_unlocked === 'boolean') {
+      target.dm_short_rest_unlocked = payload.dm_short_rest_unlocked;
+    }
+    if (typeof payload.dm_long_rest_unlocked === 'boolean') {
+      target.dm_long_rest_unlocked = payload.dm_long_rest_unlocked;
+    }
+    if (typeof payload.dm_level_up_unlocked === 'boolean') {
+      target.dm_level_up_unlocked = payload.dm_level_up_unlocked;
+    }
+    if (allowDirectExhaustion && typeof payload.exhaustion_level === 'number') {
+      target.exhaustion_level = payload.exhaustion_level;
+    }
+    if (typeof payload.hp_max === 'number' && payload.hp_max > 0) target.hp_max = payload.hp_max;
+    if (typeof payload.hp_current === 'number') target.hp_current = payload.hp_current;
+    if (typeof payload.hp_temp === 'number') target.hp_temp = payload.hp_temp;
+    if (typeof payload.ac === 'number' && payload.ac > 0) target.armor_class = payload.ac;
+    if (payload.ac_breakdown !== undefined) target.ac_breakdown = payload.ac_breakdown;
+    if (typeof payload.level === 'number') target.char_level = payload.level;
+    if (typeof payload.speed === 'number') target.speed = payload.speed;
+    if (typeof payload.base_speed === 'number') target.base_speed = payload.base_speed;
+    if (typeof payload.heavy_armor_speed_penalty === 'number') {
+      target.heavy_armor_speed_penalty = payload.heavy_armor_speed_penalty;
+    }
+    if (payload.base_hp_max !== undefined) target.base_hp_max = payload.base_hp_max ?? undefined;
+    if (payload.pre_dm_hp_max !== undefined) {
+      target.pre_dm_hp_max = payload.pre_dm_hp_max ?? undefined;
+    }
+    if (typeof payload.passive_perception === 'number') {
+      target.passive_perception = payload.passive_perception;
+    }
+    if (payload.skills && typeof payload.skills === 'object') target.skills = { ...payload.skills };
+    if (payload.saving_throw_values && typeof payload.saving_throw_values === 'object') {
+      target.saving_throw_values = { ...payload.saving_throw_values };
+    }
+    if (typeof payload.initiative_modifier === 'number') {
+      target.initiative_modifier = payload.initiative_modifier;
+    }
+    if (typeof payload.initiative_bonus === 'number') {
+      target.initiative_bonus = payload.initiative_bonus;
+    }
+    if (typeof payload.initiative_advantage === 'boolean') {
+      target.initiative_advantage = payload.initiative_advantage;
+    }
+    if (typeof payload.spell_save_dc === 'number') target.spell_save_dc = payload.spell_save_dc;
+    if (payload.spell_attack_bonus !== undefined && payload.spell_attack_bonus !== null) {
+      target.spell_attack_bonus = String(payload.spell_attack_bonus);
+    }
+    if (typeof payload.global_attack_bonus === 'number') {
+      target.global_attack_bonus = payload.global_attack_bonus;
+    }
+    if (typeof payload.global_damage_bonus === 'number') {
+      target.global_damage_bonus = payload.global_damage_bonus;
+    }
+    if (payload.equip_stat_bonuses && typeof payload.equip_stat_bonuses === 'object') {
+      target.equip_stat_bonuses = { ...payload.equip_stat_bonuses };
+    }
+    if (typeof payload.equip_hp_bonus === 'number') target.equip_hp_bonus = payload.equip_hp_bonus;
+    if (payload.stats && typeof payload.stats === 'object') target.stats = { ...payload.stats };
+    if (payload.base_stats && typeof payload.base_stats === 'object') {
+      target.base_stats = { ...payload.base_stats };
+    }
+    if (Array.isArray(payload.weapons)) target.weapons = payload.weapons.map((w: any) => ({ ...w }));
+    if (Array.isArray(payload.conditions)) target.conditions = [...payload.conditions];
+    if (payload.concentrating_on !== undefined) {
+      target.concentrating_on = payload.concentrating_on ?? undefined;
+    }
+    if (payload.death_saves && typeof payload.death_saves === 'object') {
+      target.death_saves = { ...payload.death_saves };
+    }
+    if (typeof payload.inspiration === 'boolean') target.inspiration = payload.inspiration;
+    if (typeof payload.hit_dice_used === 'number') target.hit_dice_used = payload.hit_dice_used;
+    if (payload.spell_slots && typeof payload.spell_slots === 'object') {
+      target.spell_slots = JSON.parse(JSON.stringify(payload.spell_slots));
+    }
+    if (Array.isArray(payload.class_resources)) {
+      target.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
+    }
+    if (typeof payload.version === 'number') target.version = payload.version;
   }
 
   private applyDmPartyUpdate(payload: any, char: CharacterSchema) {
     if (!payload || payload.char_id !== char.char_id) return;
 
+    const hasServerDerived = payload.skills !== undefined || payload.saving_throw_values !== undefined;
+
     if (payload.source === 'player') {
       if (typeof payload.version === 'number' && payload.version > this.knownVersion(char)) {
-        const synced: CharacterSchema = { ...char, version: payload.version };
-        if (typeof payload.hp_current === 'number') synced.hp_current = payload.hp_current;
-        if (typeof payload.hp_temp === 'number') synced.hp_temp = payload.hp_temp;
-        if (Array.isArray(payload.conditions)) synced.conditions = [...payload.conditions];
-        if (typeof payload.exhaustion_level === 'number') {
-          Object.assign(synced, this.applyExhaustionDelta(synced, payload.exhaustion_level));
+        let synced: CharacterSchema = { ...char };
+        if (typeof payload.exhaustion_level === 'number' && !hasServerDerived) {
+          synced = this.applyExhaustionDelta(synced, payload.exhaustion_level);
         }
+        this.mergePartyUpdateFields(synced, payload, hasServerDerived || typeof payload.exhaustion_level !== 'number');
         this.rememberVersion(synced);
         this.charState.activeCharacter.set(synced);
         this.charState.upsertCharacter(synced);
+        if (payload.action === 'level_up') {
+          this.charState.loadCharacters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+        }
       }
       return;
     }
 
     const previousHp = char.hp_current ?? char.hp_max;
+    const prevShortUnlocked = !!char.dm_short_rest_unlocked;
+    const prevLongUnlocked = !!char.dm_long_rest_unlocked;
+    const prevLevelUpUnlocked = !!char.dm_level_up_unlocked;
+    const prevMagicSuppressed = !!char.magic_items_suppressed;
+    const prevDeceased = isDeceasedByExhaustion(char);
+
     let updated: CharacterSchema = { ...char };
-    if (typeof payload.exhaustion_level === 'number') {
+    if (typeof payload.exhaustion_level === 'number' && !hasServerDerived) {
+      if (typeof payload.exhaustion_bypass === 'boolean') {
+        updated.exhaustion_bypass = payload.exhaustion_bypass;
+      }
       updated = this.applyExhaustionDelta(updated, payload.exhaustion_level);
     }
-    if (typeof payload.hp_max === 'number' && payload.hp_max > 0) updated.hp_max = payload.hp_max;
-    if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
-    if (typeof payload.hp_temp === 'number') updated.hp_temp = payload.hp_temp;
-    if (typeof payload.speed === 'number') updated.speed = payload.speed;
-    if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
-    if (payload.concentrating_on !== undefined) updated.concentrating_on = payload.concentrating_on ?? undefined;
-    if (payload.death_saves !== undefined && payload.death_saves !== null) {
-      updated.death_saves = { ...payload.death_saves };
-    }
-    if (typeof payload.inspiration === 'boolean') updated.inspiration = payload.inspiration;
-    if (typeof payload.hit_dice_used === 'number') updated.hit_dice_used = payload.hit_dice_used;
-    if (payload.spell_slots && typeof payload.spell_slots === 'object') {
-      updated.spell_slots = { ...payload.spell_slots };
-    }
-    if (Array.isArray(payload.class_resources)) {
-      updated.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
-    }
-    if (typeof payload.version === 'number') updated.version = payload.version;
+    this.mergePartyUpdateFields(updated, payload, hasServerDerived);
 
     // When healed from 0 HP, automatically reset death saves to 0
     if (previousHp === 0 && (updated.hp_current ?? 0) > 0) {
@@ -753,11 +907,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     const hp = updated.hp_current ?? updated.hp_max;
+    const nextDeceased = isDeceasedByExhaustion(updated);
+
     if (payload.action === 'long_rest') {
       this.showConcentrationPrompt.set(false);
       this.rollToast.showMessage(
         '🌙 DM GRANTED LONG REST',
         `${updated.char_name} recovered HP (${hp}/${updated.hp_max}), spell slots, and resources.`
+      );
+    } else if (!prevDeceased && nextDeceased) {
+      this.showConcentrationPrompt.set(false);
+      this.rollToast.showMessage(
+        '💀 EXHAUSTION LEVEL 6 — DECEASED',
+        `${updated.char_name} reached Exhaustion Level 6 (HP 0, Speed 0).`
       );
     } else if (hp !== previousHp) {
       const delta = hp - previousHp;
@@ -777,6 +939,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.showConcentrationPrompt.set(true);
         }
       }
+    }
+
+    if (!prevShortUnlocked && updated.dm_short_rest_unlocked) {
+      this.rollToast.showMessage('🔓 SHORT REST UNLOCKED', 'The DM granted your party a Short Rest.');
+    }
+    if (!prevLongUnlocked && updated.dm_long_rest_unlocked) {
+      this.rollToast.showMessage('🔓 LONG REST UNLOCKED', 'The DM granted your party a Long Rest.');
+    }
+    if (!prevLevelUpUnlocked && updated.dm_level_up_unlocked) {
+      this.rollToast.showMessage('🔓 LEVEL UP UNLOCKED', 'The DM unlocked Level Up for your hero!');
+    }
+    if (prevMagicSuppressed !== !!updated.magic_items_suppressed) {
+      this.rollToast.showMessage(
+        updated.magic_items_suppressed ? '🏜️ MAGIC ITEMS SUPPRESSED' : '✨ MAGIC ITEMS RESTORED',
+        updated.magic_items_suppressed
+          ? 'The DM suppressed magic item properties (Athas / Antimagic).'
+          : 'Your magic item bonuses are active again.'
+      );
     }
 
     this.rememberVersion(updated);
@@ -899,6 +1079,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   openShortRestModal() {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    if (isDeceasedByExhaustion(char)) {
+      this.rollToast.showMessage('💀 DECEASED', 'A character at Exhaustion Level 6 cannot Short Rest without DM intervention.');
+      return;
+    }
+    if (char.active_campaign && !char.dm_short_rest_unlocked) {
+      this.rollToast.showMessage('🔒 SHORT REST LOCKED', 'Wait for the DM to unlock Short Rest for your party.');
+      return;
+    }
     this.shortRestDiceToSpend = this.getAvailableHitDice() > 0 ? 1 : 0;
     this.shortRestDieSize = this.getHitDieOptions()[0]?.dieSize ?? this.getClassHitDieSize();
     this.shortRestManualHp = null;
@@ -908,6 +1098,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   executeShortRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
+    if (isDeceasedByExhaustion(char)) {
+      this.rollToast.showMessage('💀 DECEASED', 'A character at Exhaustion Level 6 cannot Short Rest without DM intervention.');
+      return;
+    }
+    if (char.active_campaign && !char.dm_short_rest_unlocked) {
+      this.rollToast.showMessage('🔒 SHORT REST LOCKED', 'Wait for the DM to unlock Short Rest for your party.');
+      return;
+    }
 
     const plan = planShortRest(char, this.shortRestDiceToSpend, this.shortRestDieSize);
     if (!plan) return;
@@ -924,6 +1122,57 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       healedAmount = roll ? roll.total : 0;
     }
     const rest = resolveShortRest(char, plan, healedAmount);
+
+    const announceShortRest = () => {
+      if (roll && diceSpent > 0) {
+        this.rollToast.showRoll({
+          title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
+          expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+          raw: roll.raw,
+          rolls: roll.rolls,
+          sides: dieSize,
+          modifier: conBonus,
+          total: rest.rolled,
+          rollType: 'healing',
+          message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
+        });
+      } else if (rest.restoresPactSlots) {
+        this.rollToast.showMessage(
+          '⛺ SHORT REST COMPLETED',
+          `Warlock Pact Magic spell slots restored for ${char.char_name}.`
+        );
+      } else {
+        this.rollToast.showMessage(
+          '⛺ SHORT REST COMPLETED',
+          `Short Rest completed for ${char.char_name}.`
+        );
+      }
+    };
+
+    if (char.active_campaign && char.char_id) {
+      this.charState
+        .applyShortRest(char.char_id, {
+          dice_to_spend: diceSpent,
+          die_size: dieSize,
+          hp_healed: Math.max(0, Math.round(healedAmount)),
+          expected_version: char.version,
+        })
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (syncedChar) => {
+            this.rememberVersion(syncedChar);
+            this.showShortRestModal.set(false);
+            announceShortRest();
+          },
+          error: (err) => {
+            this.rollToast.showMessage(
+              '⚠️ SHORT REST REFUSED',
+              err?.error?.detail || 'The server rejected this Short Rest.'
+            );
+          },
+        });
+      return;
+    }
 
     char.hp_current = rest.hpAfter;
     char.hit_dice_used = rest.hitDiceUsed;
@@ -945,34 +1194,43 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     this.saveCurrentChar();
     this.showShortRestModal.set(false);
-
-    if (roll && diceSpent > 0) {
-      this.rollToast.showRoll({
-        title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
-        // Every hit die is worth showing here, so this spells them out rather than
-        // using the service's summed form.
-        expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
-        raw: roll.raw,
-        rolls: roll.rolls,
-        sides: dieSize,
-        modifier: conBonus,
-        // The roll display shows what the dice came to; the message shows what the
-        // hero actually got, which is less whenever the rest hits `hp_max`.
-        total: rest.rolled,
-        rollType: 'healing',
-        message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
-      });
-    } else if (rest.restoresPactSlots) {
-      this.rollToast.showMessage(
-        '⛺ SHORT REST COMPLETED',
-        `Warlock Pact Magic spell slots restored for ${char.char_name}.`
-      );
-    }
+    announceShortRest();
   }
 
   triggerLongRest() {
     const char = this.charState.activeCharacter();
     if (!char) return;
+    if (isDeceasedByExhaustion(char)) {
+      this.rollToast.showMessage('💀 DECEASED', 'A character at Exhaustion Level 6 cannot Long Rest without DM intervention.');
+      return;
+    }
+    if (char.active_campaign) {
+      if (!char.dm_long_rest_unlocked) {
+        this.rollToast.showMessage('🔒 LONG REST LOCKED', 'Wait for the DM to unlock Long Rest (or trigger Party Long Rest).');
+        return;
+      }
+      if (char.char_id) {
+        this.charState
+          .applyLongRest(char.char_id, { expected_version: char.version })
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
+            next: (syncedChar) => {
+              this.rememberVersion(syncedChar);
+              this.rollToast.showMessage(
+                '🌙 LONG REST COMPLETED',
+                `Full HP (${syncedChar.hp_current}/${syncedChar.hp_max}), spell slots, and Hit Dice restored for ${syncedChar.char_name}.`
+              );
+            },
+            error: (err) => {
+              this.rollToast.showMessage(
+                '⚠️ LONG REST REFUSED',
+                err?.error?.detail || 'The server rejected this Long Rest.'
+              );
+            },
+          });
+      }
+      return;
+    }
 
     const rest = resolveLongRest(char);
     let updated: CharacterSchema = this.applyExhaustionDelta(char, rest.exhaustionLevel);
@@ -1181,8 +1439,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   rollSkillCheck(skill: SkillDefinition) {
     const char = this.charState.activeCharacter();
     const autoAdv = skill.name.toLowerCase() === 'athletics' && hasAthleticsAdvantage(char);
-    const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
-    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK`, this.getSkillModifier(skill), mode, {
+    const resolved = resolveRollMode(
+      this.rollMode,
+      hasExhaustionDisadvantage(char, 'check'),
+      autoAdv
+    );
+    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK${note}`, this.getSkillModifier(skill), resolved.mode, {
       rollType: 'skill',
     });
   }
@@ -1191,7 +1454,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    return this.showD20Roll(`🎲 ${stat} CHECK`, abilityModifierOf(char, stat) - exhaustionD20Penalty(char), this.rollMode, {
+    const resolved = resolveRollMode(this.rollMode, hasExhaustionDisadvantage(char, 'check'));
+    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    return this.showD20Roll(`🎲 ${stat} CHECK${note}`, abilityCheckModifier(char, stat), resolved.mode, {
       rollType: 'ability',
     });
   }
@@ -1200,7 +1465,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    return this.showD20Roll(`🛡️ ${stat} SAVING THROW`, savingThrowModifier(char, stat), this.rollMode, {
+    const resolved = resolveRollMode(this.rollMode, hasExhaustionDisadvantage(char, 'save'));
+    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    return this.showD20Roll(`🛡️ ${stat} SAVING THROW${note}`, savingThrowModifier(char, stat), resolved.mode, {
       rollType: 'save',
     });
   }
@@ -1215,6 +1482,28 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!char || !char.stats) return null;
 
     const normalizedType = rollType.toLowerCase().replace(/[\s-]+/g, '_');
+
+    if (
+      normalizedType === 'death' ||
+      normalizedType === 'death_save' ||
+      stat.toLowerCase() === 'death'
+    ) {
+      const dmSaveBonus = char.dm_modifiers?.saving_throws_bonus ?? 0;
+      const mod = dmSaveBonus - (is2024Edition(char) ? effectiveExhaustionLevel(char) * 2 : 0);
+      return {
+        title: '💀 DEATH SAVING THROW',
+        label: 'death saving throw',
+        modifier: mod,
+      };
+    }
+
+    if (normalizedType === 'concentration' || stat.toLowerCase() === 'concentration') {
+      return {
+        title: '🧠 CONCENTRATION SAVE',
+        label: 'concentration save',
+        modifier: savingThrowModifier(char, 'CON'),
+      };
+    }
 
     if (normalizedType === 'save' || normalizedType === 'saving_throw' || normalizedType === 'savingthrow') {
       return {
@@ -1237,28 +1526,61 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
+    if (
+      normalizedType === 'attack' ||
+      normalizedType === 'attack_roll' ||
+      normalizedType === 'weapon_attack' ||
+      normalizedType === 'spell_attack'
+    ) {
+      if (normalizedType === 'spell_attack' && char.spell_attack_bonus !== undefined && char.spell_attack_bonus !== null) {
+        const parsedSpell = parseInt(String(char.spell_attack_bonus).replace('+', '').trim(), 10);
+        if (!Number.isNaN(parsedSpell)) {
+          return {
+            title: '✨ SPELL ATTACK ROLL',
+            label: `${stat} attack roll`,
+            modifier: parsedSpell,
+          };
+        }
+      }
+      const statUpper = (stat || '').trim().toUpperCase();
+      const matchedStatKey = Object.keys(char.stats).find((k) => k.toUpperCase() === statUpper);
+      const statScore = matchedStatKey ? (char.stats as unknown as Record<string, number>)[matchedStatKey] : undefined;
+      const statMod = statScore !== undefined ? abilityModifier(statScore) : 0;
+      const dmAtkBonus = char.dm_modifiers?.attack_bonus ?? 0;
+      const exhPenalty = is2024Edition(char) ? effectiveExhaustionLevel(char) * 2 : 0;
+      return {
+        title: `⚔️ ${stat.toUpperCase()} ATTACK ROLL`,
+        label: `${stat} attack roll`,
+        modifier: statMod + dmAtkBonus - exhPenalty,
+      };
+    }
+
     if (normalizedType === 'initiative' || stat.toLowerCase() === 'initiative') {
       return {
         title: '⚔️ INITIATIVE ROLL',
         label: 'initiative roll',
-        modifier: char.initiative_modifier ?? (abilityModifierOf(char, 'DEX') - exhaustionD20Penalty(char)),
+        modifier: char.initiative_modifier ?? abilityCheckModifier(char, 'DEX'),
       };
     }
 
     return {
       title: `🎲 ${stat} CHECK`,
       label: `${stat} check`,
-      modifier: abilityModifierOf(char, stat) - exhaustionD20Penalty(char),
+      modifier: abilityCheckModifier(char, stat),
     };
   }
 
   rollInitiative() {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
-    const mod = char.initiative_modifier ?? (abilityModifierOf(char, 'DEX') - exhaustionD20Penalty(char));
-    const autoAdv = hasInitiativeAdvantage(char);
-    const mode: RollMode = autoAdv && this.rollMode === 'normal' ? 'advantage' : this.rollMode;
-    const roll = this.showD20Roll('⚔️ INITIATIVE ROLL', mod, mode, { skipBroadcast: true });
+    const mod = char.initiative_modifier ?? abilityCheckModifier(char, 'DEX');
+    const resolved = resolveRollMode(
+      this.rollMode,
+      hasExhaustionDisadvantage(char, 'initiative'),
+      hasInitiativeAdvantage(char)
+    );
+    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    const roll = this.showD20Roll(`⚔️ INITIATIVE ROLL${note}`, mod, resolved.mode, { skipBroadcast: true });
     if (char.active_campaign) {
       this.wsService.sendMessage({
         type: 'roll_result',
@@ -1291,19 +1613,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!target) return undefined;
 
     const char = this.charState.activeCharacter();
-    let effectiveMode = mode;
-    if (mode === 'normal') {
-      const isInit = rollType.toLowerCase() === 'initiative' || stat.toLowerCase() === 'initiative';
-      const isAthletics =
-        (rollType.toLowerCase().includes('skill')) && stat.toLowerCase() === 'athletics';
-      if (isInit && hasInitiativeAdvantage(char)) {
-        effectiveMode = 'advantage';
-      } else if (isAthletics && hasAthleticsAdvantage(char)) {
-        effectiveMode = 'advantage';
-      }
-    }
+    const norm = rollType.toLowerCase().replace(/[\s-]+/g, '_');
+    const isSave =
+      norm === 'save' ||
+      norm === 'saving_throw' ||
+      norm === 'savingthrow' ||
+      norm === 'death' ||
+      norm === 'death_save' ||
+      stat.toLowerCase() === 'death' ||
+      norm === 'concentration' ||
+      stat.toLowerCase() === 'concentration';
+    const isAttack =
+      norm === 'attack' ||
+      norm === 'attack_roll' ||
+      norm === 'weapon_attack' ||
+      norm === 'spell_attack';
+    const isInit = norm === 'initiative' || stat.toLowerCase() === 'initiative';
+    const isAthletics = norm.includes('skill') && stat.toLowerCase() === 'athletics';
+    const autoAdv = (isInit && hasInitiativeAdvantage(char)) || (isAthletics && hasAthleticsAdvantage(char));
+    const kind = isSave ? 'save' : isAttack ? 'attack' : isInit ? 'initiative' : 'check';
+    const resolved = resolveRollMode(mode, hasExhaustionDisadvantage(char, kind), autoAdv);
+    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
 
-    return this.showD20Roll(target.title, target.modifier + situationalBonus, effectiveMode, {
+    return this.showD20Roll(`${target.title}${note}`, target.modifier + situationalBonus, resolved.mode, {
       skipBroadcast: true,
     });
   }
@@ -2040,12 +2372,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   onUpdateHeroStatus(patch: { inspiration?: boolean; exhaustion_level?: number }): void {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    let updated: CharacterSchema = { ...char, ...patch };
-    if (patch.exhaustion_level !== undefined) {
-      updated = this.applyExhaustionDelta(char, patch.exhaustion_level);
-      if (patch.inspiration !== undefined) {
-        updated.inspiration = patch.inspiration;
-      }
+    let updated: CharacterSchema = { ...char };
+    if (patch.inspiration !== undefined) {
+      updated.inspiration = patch.inspiration;
+    }
+    if (patch.exhaustion_level !== undefined && !char.active_campaign?.trim()) {
+      updated = this.applyExhaustionDelta(updated, patch.exhaustion_level);
     }
     this.charState.activeCharacter.set(updated);
     this.queueCharSave();
@@ -2366,7 +2698,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   applyHeal(amount: number) {
     const char = this.charState.activeCharacter();
-    if (!char || amount <= 0) return;
+    if (!char || amount <= 0 || isDeceasedByExhaustion(char)) return;
     this.haptics.lightTap();
 
     const currentHp = char.hp_current ?? char.hp_max;
@@ -2386,7 +2718,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   setTempHp(amount: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) return;
     this.haptics.lightTap();
     const updated = { ...char, hp_temp: Math.max(0, amount) };
     this.charState.activeCharacter.set(updated);
@@ -2398,11 +2730,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   rollDeathSave() {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) return;
     const exhPenalty = exhaustionD20Penalty(char);
-    const roll = this.dice.roll({ numDice: 1, sides: 20, modifier: -exhPenalty });
+    const dmSaveBonus = char.dm_modifiers?.saving_throws_bonus ?? 0;
+    const deathMod = dmSaveBonus - exhPenalty;
+    const resolved = resolveRollMode(
+      this.rollMode,
+      hasExhaustionDisadvantage(char, 'save')
+    );
+    const roll = this.dice.rollD20(deathMod, resolved.mode);
     const currentSaves = { ...(char.death_saves || { successes: 0, failures: 0 }) };
     let newHp = char.hp_current;
+    const modeTag = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : this.dice.modeLabel(roll.mode);
 
     if (roll.raw === 20) {
       this.haptics.critSuccess();
@@ -2413,16 +2752,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     } else if (roll.raw === 1) {
       this.haptics.critFail();
       currentSaves.failures = Math.min(3, currentSaves.failures + 2);
-      this.rollToast.showMessage('💀 CRITICAL FAILURE!', 'Natural 1: You take 2 Death Save Failures!');
+      this.rollToast.showMessage('💀 CRITICAL FAILURE!', `Natural 1${modeTag}: You take 2 Death Save Failures!`);
     } else if (roll.total >= 10) {
       this.haptics.lightTap();
       currentSaves.successes = Math.min(3, currentSaves.successes + 1);
-      const rollDetail = exhPenalty > 0 ? `${roll.total} (${roll.expression})` : `${roll.raw}`;
+      const rollDetail = deathMod !== 0 || roll.rolls.length > 1 ? `${roll.total} (${roll.expression}${modeTag})` : `${roll.raw}`;
       this.rollToast.showMessage('✨ DEATH SAVE SUCCESS!', `Rolled ${rollDetail} (Successes: ${currentSaves.successes}/3)`);
     } else {
       this.haptics.critFail();
       currentSaves.failures = Math.min(3, currentSaves.failures + 1);
-      const rollDetail = exhPenalty > 0 ? `${roll.total} (${roll.expression})` : `${roll.raw}`;
+      const rollDetail = deathMod !== 0 || roll.rolls.length > 1 ? `${roll.total} (${roll.expression}${modeTag})` : `${roll.raw}`;
       this.rollToast.showMessage('❌ DEATH SAVE FAILURE!', `Rolled ${rollDetail} (Failures: ${currentSaves.failures}/3)`);
     }
 
@@ -2452,16 +2791,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
     const saveMod = char.stats ? savingThrowModifier(char, 'CON') : conModifier(char);
-    const roll = this.dice.rollD20(saveMod, this.rollMode);
+    const resolved = resolveRollMode(this.rollMode, hasExhaustionDisadvantage(char, 'save'));
+    const roll = this.dice.rollD20(saveMod, resolved.mode);
     const dc = this.concentrationDc();
+    const cancelNote = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
 
     if (roll.total >= dc) {
       this.haptics.critSuccess();
-      this.rollToast.showMessage('🧠 CONCENTRATION MAINTAINED', `Rolled ${roll.total} vs DC ${dc} — concentration held!`);
+      this.rollToast.showMessage('🧠 CONCENTRATION MAINTAINED', `Rolled ${roll.total} vs DC ${dc}${cancelNote} — concentration held!`);
       this.showConcentrationPrompt.set(false);
     } else {
       this.haptics.critFail();
-      this.rollToast.showMessage('💥 CONCENTRATION BROKEN', `Rolled ${roll.total} vs DC ${dc} — concentration dropped.`);
+      this.rollToast.showMessage('💥 CONCENTRATION BROKEN', `Rolled ${roll.total} vs DC ${dc}${cancelNote} — concentration dropped.`);
       this.dropConcentration();
     }
 
@@ -2596,9 +2937,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     let crit = false;
     if (profile.spellAttack) {
       const attackBonus = parseInt((char.spell_attack_bonus || '+0').replace('+', ''), 10) || 0;
-      const attack = this.dice.rollD20(attackBonus, this.rollMode);
+      const resolvedAtk = resolveRollMode(
+        this.rollMode,
+        hasExhaustionDisadvantage(char, 'attack')
+      );
+      const attack = this.dice.rollD20(attackBonus, resolvedAtk.mode);
       crit = attack.raw === 20;
-      titleExtra = ` · TO HIT ${attack.total}${crit ? ' (NAT 20!)' : attack.raw === 1 ? ' (NAT 1)' : ''}`;
+      const cancelNote = resolvedAtk.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : this.dice.modeLabel(attack.mode);
+      titleExtra = ` · TO HIT ${attack.total}${cancelNote}${crit ? ' (NAT 20!)' : attack.raw === 1 ? ' (NAT 1)' : ''}`;
     } else if (profile.save && !profile.save.halfOnSuccess) {
       titleExtra = ` · ${saveText} SAVE`;
     }
@@ -2632,7 +2978,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   onConsumePotion(event: { item: EquipmentItem; dice: string; bonus: number; name: string }) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) {
+      if (char) {
+        this.rollToast.showMessage('💀 DECEASED', 'Cannot consume healing potions while at Exhaustion Level 6.');
+      }
+      return;
+    }
     this.haptics.lightTap();
     const [numText, sidesText] = event.dice.split('d');
     const numDice = parseInt(numText, 10) || 2;
@@ -2721,6 +3072,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   adjustHp(delta: number) {
     const char = this.charState.activeCharacter();
     if (!char) return;
+    if (delta > 0 && isDeceasedByExhaustion(char)) return;
     const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
     if (this.isInVault(updated)) {
@@ -2731,7 +3083,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   adjustTempHp(delta: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) return;
     const newTemp = Math.max(0, (char.hp_temp || 0) + delta);
     const updated = { ...char, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);
@@ -2760,7 +3112,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
     if (!char.weapons) char.weapons = [];
-    char.weapons.push({ name: 'New Weapon', attack_bonus: '+5', damage_dice: '1d8+3' });
+    char.weapons.push({
+      name: 'New Weapon',
+      attack_bonus: '+5',
+      damage_dice: '1d8',
+      damage_bonus: '+3',
+      is_custom: true,
+    });
     this.saveCurrentChar();
   }
 
@@ -2898,6 +3256,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   onLevelUp() {
     const char = this.charState.activeCharacter();
     if (!char || this.levelUpLoading()) return;
+    if (isDeceasedByExhaustion(char)) {
+      this.rollToast.showMessage('💀 DECEASED', 'A character at Exhaustion Level 6 cannot level up.');
+      return;
+    }
+    if (char.active_campaign && !char.dm_level_up_unlocked) {
+      this.rollToast.showMessage('🔒 LEVEL UP LOCKED', 'Wait for the DM to unlock Level Up for your hero.');
+      return;
+    }
     const initialClass =
       char.classes && char.classes.length > 0
         ? char.classes[0].class_name
@@ -2978,7 +3344,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           this.levelUpUserChoices = {};
           this.rollToast.showMessage(`⚡ LEVEL UP: ${syncedChar.char_name}`, `Successfully leveled up to ${syncedChar.char_level}!`);
         },
-        error: () => this.rollToast.showMessage('⚠️ LEVEL UP FAILED', 'Failed to save leveled up character.')
+        error: (err) => this.rollToast.showMessage('⚠️ LEVEL UP FAILED', err?.error?.detail || 'Failed to save leveled up character.')
       });
   }
 

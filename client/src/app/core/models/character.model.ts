@@ -38,6 +38,9 @@ export interface Weapon {
   damage_type?: string;
   conditional_effects?: WeaponEffect[];
   exhaustion_attack_penalty_applied?: number;
+  dm_attack_bonus_applied?: number;
+  dm_damage_bonus_applied?: number;
+  magic_bonus_suppressed_applied?: number;
 }
 
 export interface CurrencyBlock {
@@ -114,6 +117,20 @@ export interface AcBreakdown {
   formula_text: string;
 }
 
+export interface DmModifiers {
+  attack_bonus?: number;
+  damage_bonus?: number;
+  ac_bonus?: number;
+  speed_bonus?: number;
+  hp_max_bonus?: number;
+  initiative_bonus?: number;
+  saving_throws_bonus?: number;
+  ability_checks_bonus?: number;
+  spell_save_dc_bonus?: number;
+  passive_perception_bonus?: number;
+  note?: string;
+}
+
 export interface CharacterSchema {
   char_id?: string;
   owner_id?: string;
@@ -178,12 +195,20 @@ export interface CharacterSchema {
   active_campaign?: string;
   inspiration?: boolean;
   exhaustion_level?: number;
+  exhaustion_bypass?: boolean;
+  magic_items_suppressed?: boolean;
+  dm_modifiers?: DmModifiers;
+  dm_short_rest_unlocked?: boolean;
+  dm_long_rest_unlocked?: boolean;
+  dm_level_up_unlocked?: boolean;
+  dm_hp_bonus_applied?: number;
   currency?: CurrencyBlock;
   class_resources?: ClassResource[];
   base_stats?: StatBlock;
   base_speed?: number;
   heavy_armor_speed_penalty?: number;
   base_hp_max?: number;
+  pre_dm_hp_max?: number;
   equip_hp_bonus?: number;
   feat_hp_bonus?: number;
   con_mod_applied?: number;

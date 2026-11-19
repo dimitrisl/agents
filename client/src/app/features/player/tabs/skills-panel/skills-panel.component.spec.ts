@@ -57,4 +57,11 @@ describe('SkillsPanelComponent', () => {
     expect(component.proficientCount('DEX')).toBe(1);
     expect(component.proficientCount('STR')).toBe(0);
   });
+
+  it('renders DIS badges beside skill modifiers when hasCheckDisadvantage is true', () => {
+    expect(fixture.nativeElement.textContent).not.toContain('DIS');
+    fixture.componentRef.setInput('hasCheckDisadvantage', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('DIS');
+  });
 });

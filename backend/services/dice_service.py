@@ -21,7 +21,14 @@ def rebuild_damage_formula(damage_dice: str, damage_bonus: str) -> str:
         return f"{damage_dice}{connector}{damage_bonus}".strip()
 
     dice_part = dice_match.group(1)
-    type_str = damage_dice[dice_match.end() :].replace("+", "").replace("-", "").strip()
+    # Strip any inline numeric bonus baked before the damage type without eating extra dice (e.g. +1d4).
+    rest = re.sub(
+        r"^\s*(?:[+-]\s*\d+(?!\s*d\d)\s*)+",
+        "",
+        damage_dice[dice_match.end() :],
+        flags=re.I,
+    )
+    type_str = rest.replace("+", "").replace("-", "").strip()
 
     clean_bonus = damage_bonus.replace(" ", "")
     is_simple_bonus = re.match(r"^[+-]?\d+$", clean_bonus)

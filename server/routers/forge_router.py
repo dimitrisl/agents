@@ -24,6 +24,8 @@ from backend.services.forge_service import (
     generate_level_up_build_recommendations,
     generate_playstyle_guide,
 )
+from backend.services.rest_service import is_deceased_by_exhaustion
+from backend.services.stats_service import restore_base_hp_max
 from backend.services.validation_service import (
     build_feat_lookup,
     get_owned_non_repeatable_feats,
@@ -298,6 +300,23 @@ async def apply_level_up(
     if not char_doc:
         raise HTTPException(status_code=404, detail="Character not found or access denied")
 
+    if str(char_doc.get("active_campaign") or "").strip() and not bool(
+        char_doc.get("dm_level_up_unlocked", False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Level Up is currently locked by the DM.",
+        )
+
+    if is_deceased_by_exhaustion(char_doc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dead characters (Exhaustion Level 6) cannot level up unless waived by the DM.",
+        )
+
+    # Consume 1-shot DM Level Up unlock atomically on successful completion.
+    char_doc["dm_level_up_unlocked"] = False
+
     # Increment level based on multiclass choice
     user_choices = payload.user_choices or {}
     target_class = user_choices.get("level_up_class", char_doc.get("char_class", "Fighter"))
@@ -390,6 +409,18 @@ async def apply_level_up(
             pass
 
     old_hp_max = int(char_doc.get("hp_max") or 0)
+    restored_hp, restored_from_pre_dm = restore_base_hp_max(
+        old_hp_max, char_doc.get("base_hp_max"), char_doc.get("pre_dm_hp_max")
+    )
+    if restored_from_pre_dm and restored_hp is not None:
+        old_hp_max = restored_hp
+        char_doc["pre_dm_hp_max"] = None
+        char_doc["base_hp_max"] = None
+        char_doc["dm_hp_bonus_applied"] = 0
+    elif restored_hp is not None and restored_hp != old_hp_max:
+        old_hp_max = restored_hp
+        char_doc["base_hp_max"] = None
+        char_doc["pre_dm_hp_max"] = None
     if old_hp_max <= 0:
         old_hp_max = calculate_hp(
             vitals["hit_die"],
@@ -680,7 +711,8 @@ async def apply_level_up(
     }
 
     synced_char = sync_character_stats(char_doc, homebrew_content=homebrew_items)
-    synced_char["hp_current"] = synced_char.get("hp_max", char_doc.get("hp_max", 10))
+    if not is_deceased_by_exhaustion(synced_char):
+        synced_char["hp_current"] = synced_char.get("hp_max", char_doc.get("hp_max", 10))
 
     # Grant newly gained resource capacity delta on level-up even when pool was partially spent
     for r in synced_char.get("class_resources") or []:
@@ -771,21 +803,15 @@ async def apply_level_up(
             if enc_res.matched_count > 0:
                 break
 
+        from backend.services.campaign_service import build_party_update_payload
+
         await manager.broadcast(
             active_camp,
             {
                 "type": "party_update",
-                "payload": {
-                    "char_id": payload.character_id,
-                    "char_name": synced_char.get("char_name", "Unknown"),
-                    "hp_current": synced_char.get("hp_current") or 0,
-                    "hp_max": synced_char.get("hp_max") or 0,
-                    "ac": synced_char.get("armor_class", 10),
-                    "level": synced_char.get("char_level", 1),
-                    "conditions": synced_char.get("conditions", []),
-                    "version": synced_char["version"],
-                    "source": "player",
-                },
+                "payload": build_party_update_payload(
+                    synced_char, source="player", action="level_up"
+                ),
             },
         )
 

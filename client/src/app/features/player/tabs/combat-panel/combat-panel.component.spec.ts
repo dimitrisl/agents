@@ -450,4 +450,94 @@ describe('CombatPanelComponent', () => {
     // 8 + PB (3) + CHA (+5) = 16
     expect(component.getToppleDc(chaMaul)).toBe(16);
   });
+
+  it('non-destructively suppresses magic_bonus during syncWeaponCalculations when magic_items_suppressed is true', () => {
+    component.char = {
+      ...component.char,
+      active_campaign: 'Athas',
+      proficiency_bonus: 3,
+      stats: { STR: 18, DEX: 12, CON: 14, INT: 10, WIS: 12, CHA: 10 },
+      magic_items_suppressed: true,
+      weapons: [
+        {
+          name: 'Longsword +2',
+          damage: '1d8',
+          magic_bonus: 2,
+          attack_bonus: '+9',
+          damage_bonus: '+6',
+          properties: [],
+        },
+      ],
+    } as any;
+
+    const weapon = component.char.weapons![0];
+    // STR +4 + Prof +3 (Magic +2 suppressed!) = +7 attack, +4 damage
+    expect(component.displayedAttackBonus(weapon)).toBe('+7');
+    expect(component.damagePreview(weapon)).toBe('1d8+4');
+
+    component.syncWeaponCalculations(weapon, false);
+    // Underlying magic_bonus field must NOT be destroyed in the weapon object
+    expect(weapon.magic_bonus).toBe(2);
+    expect(weapon.attack_bonus).toBe('+7');
+    expect(weapon.damage_bonus).toBe('+4');
+
+    // Lifting suppression restores +9 attack / 1d8+6 damage seamlessly
+    component.char = { ...component.char, magic_items_suppressed: false };
+    component.syncWeaponCalculations(weapon, false);
+    expect(component.displayedAttackBonus(component.char.weapons![0])).toBe('+9');
+    expect(component.damagePreview(component.char.weapons![0])).toBe('1d8+6');
+  });
+
+  it('stamps DM/suppression tracking fields on syncWeaponCalculations and preserves is_custom damage in weaponNotation', () => {
+    const customSword: any = {
+      name: 'Flame Tongue +1',
+      is_custom: true,
+      damage_dice: '2d6 slashing',
+      damage_bonus: '+8',
+      attack_bonus: '+10',
+      magic_bonus: 1,
+      dm_attack_bonus_applied: 0,
+      dm_damage_bonus_applied: 0,
+      magic_bonus_suppressed_applied: 0,
+    };
+    component.char = {
+      ...component.char,
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 1,
+      magic_items_suppressed: true,
+      dm_modifiers: { attack_bonus: 2, damage_bonus: 3 },
+      weapons: [customSword],
+    } as any;
+
+    // Prior to sync: custom +10 attack + DM (+2) - Exh (2) - supMagic (1) = +9; custom +8 dmg + DM (+3) - supMagic (1) = +10
+    expect(component.displayedAttackBonus(customSword)).toBe('+9');
+    expect(component.damagePreview(customSword)).toBe('2d6+10');
+
+    // Sync writes custom totals without erasing them or baking +10 into damage_dice, and stamps all 4 tracking fields
+    component.syncWeaponCalculations(customSword, false);
+    expect(customSword.attack_bonus).toBe('+9');
+    expect(customSword.damage_bonus).toBe('+10');
+    expect(customSword.damage_dice).toBe('2d6 slashing');
+    expect(customSword.damage).toBe('2d6 + 10 slashing');
+    expect(customSword.dm_attack_bonus_applied).toBe(2);
+    expect(customSword.dm_damage_bonus_applied).toBe(3);
+    expect(customSword.magic_bonus_suppressed_applied).toBe(1);
+    expect(customSword.exhaustion_attack_penalty_applied).toBe(2);
+
+    // Authoritative backend damage_bonus (+12) takes precedence even if damage_dice carries stale inline (+8)
+    const staleDiceWeapon: any = {
+      name: 'Flame Tongue +1',
+      is_custom: true,
+      damage_dice: '2d6+8 slashing',
+      damage_bonus: '+12',
+      attack_bonus: '+11',
+      magic_bonus: 1,
+      dm_attack_bonus_applied: 2,
+      dm_damage_bonus_applied: 3,
+      magic_bonus_suppressed_applied: 1,
+      exhaustion_attack_penalty_applied: 2,
+    };
+    expect(component.damagePreview(staleDiceWeapon)).toBe('2d6+12');
+    expect(component.displayedAttackBonus(staleDiceWeapon)).toBe('+11');
+  });
 });

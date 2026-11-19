@@ -34,7 +34,14 @@ import {
   CombatantCondition,
   InitiativeCombatant,
 } from '../../core/models/initiative.model';
+import type { CharacterSchema, DmModifiers } from '../../core/models/character.model';
 import { PartyMember } from '../../core/models/party.model';
+import {
+  abilityCheckModifier,
+  abilityModifier,
+  hasExhaustionDisadvantage,
+  resolveRollMode,
+} from '../../core/rules';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { environment } from '../../../environments/environment';
 import {
@@ -63,6 +70,10 @@ import { StatblockModalComponent } from './modals/statblock-modal/statblock-moda
 import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campaign-modal.component';
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
 import { LootDistributeModalComponent } from './modals/loot-distribute-modal/loot-distribute-modal.component';
+import {
+  DmModifiersModalComponent,
+  DmModifiersSaveEvent,
+} from './modals/dm-modifiers-modal/dm-modifiers-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
 
 import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
@@ -73,6 +84,14 @@ type LoadStatus = 'loading' | 'ready' | 'error';
 interface PartyStateChanges {
   hp_current?: number;
   conditions?: string[];
+  exhaustion_level?: number;
+  exhaustion_bypass?: boolean;
+  magic_items_suppressed?: boolean;
+  dm_modifiers?: DmModifiers;
+  dm_short_rest_unlocked?: boolean;
+  dm_long_rest_unlocked?: boolean;
+  dm_level_up_unlocked?: boolean;
+  inspiration?: boolean;
 }
 
 interface PartyStatePayload extends PartyStateChanges {
@@ -80,11 +99,23 @@ interface PartyStatePayload extends PartyStateChanges {
   hp_max?: number;
   hp_temp?: number;
   ac?: number;
+  ac_breakdown?: any;
+  speed?: number;
+  passive_perception?: number;
+  stats?: { [key: string]: number };
+  initiative_modifier?: number;
+  initiative_advantage?: boolean;
   level?: number;
   concentrating_on?: string | null;
   death_saves?: { successes: number; failures: number };
   inspiration?: boolean;
   exhaustion_level?: number;
+  exhaustion_bypass?: boolean;
+  magic_items_suppressed?: boolean;
+  dm_modifiers?: DmModifiers;
+  dm_short_rest_unlocked?: boolean;
+  dm_long_rest_unlocked?: boolean;
+  dm_level_up_unlocked?: boolean;
   version?: number;
   source?: string;
 }
@@ -126,6 +157,7 @@ export type DmTab = DmLiveTab | DmPrepTab;
     NewCampaignModalComponent,
     AddMemberModalComponent,
     LootDistributeModalComponent,
+    DmModifiersModalComponent,
     DmInboxComponent,
     VttGridComponent,
   ],
@@ -207,6 +239,8 @@ export class DmComponent implements OnInit, OnDestroy {
   selectedStatblockCombatant: InitiativeCombatant | null = null;
   encounterDangerIndicator = '';
   showLootModal = false;
+  showModifiersModal = false;
+  selectedModifierMember: PartyMember | null = null;
   homebrewItems: HomebrewItem[] = [];
 
   whisperRecipient = 'All';
@@ -587,22 +621,13 @@ export class DmComponent implements OnInit, OnDestroy {
     this.encounterSyncSubject.complete();
     this.cancelEncounterSync$.complete();
 
-    // Flush any pending state changes
-    const pendingCharIds = Array.from(this.pendingPartyState.keys());
-    for (const charId of pendingCharIds) {
-      this.flushPartyState(charId);
-    }
+    this.flushAllPendingPartyState(this.campaignName);
 
     // Unsubscribing only stops this page from listening; the socket itself stays
     // up, and the service holds exactly one. Left open, the server goes on
     // routing every whisper and secret roll to a `role=dm` channel nobody is
     // reading — including the ones it would otherwise have kept private.
     this.wsService.disconnect();
-
-    for (const sub of this.partyStateSubjects.values()) {
-      sub.complete();
-    }
-    this.partyStateSubjects.clear();
   }
 
   // --- Live table inbox ---
@@ -915,6 +940,7 @@ export class DmComponent implements OnInit, OnDestroy {
   private clearWorkspace() {
     this.encounterGeneration += 1;
     this.cancelPendingEncounterSync();
+    this.flushAllPendingPartyState(null);
     this.activeWorkspace = null;
     this.campaignName = '';
     this.campaignNotes = '';
@@ -949,6 +975,7 @@ export class DmComponent implements OnInit, OnDestroy {
     if (previousCampaign && pendingNotes !== null && pendingNotes !== undefined) {
       this.saveCampaignNotes(previousCampaign, pendingNotes);
     }
+    this.flushAllPendingPartyState(previousCampaign);
 
     this.encounterGeneration += 1;
     this.cancelPendingEncounterSync();
@@ -1011,11 +1038,14 @@ export class DmComponent implements OnInit, OnDestroy {
             name: char.char_name || 'Unknown',
             char_class: char.char_class || 'Unknown',
             level: char.char_level || 1,
+            dnd_edition: char.dnd_edition,
+            ruleset_version: char.ruleset_version,
             hp_current: char.hp_current ?? char.hp_max ?? 10,
             hp_max: char.hp_max ?? 10,
             hp_temp: char.hp_temp ?? 0,
             ac: char.armor_class ?? 10,
             ac_breakdown: char.ac_breakdown,
+            speed: char.speed,
             passive_perception: char.passive_perception ?? 10,
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
@@ -1024,6 +1054,14 @@ export class DmComponent implements OnInit, OnDestroy {
             death_saves: char.death_saves,
             inspiration: !!char.inspiration,
             exhaustion_level: char.exhaustion_level ?? 0,
+            exhaustion_bypass: !!char.exhaustion_bypass,
+            magic_items_suppressed: !!char.magic_items_suppressed,
+            dm_modifiers: char.dm_modifiers,
+            dm_short_rest_unlocked: !!char.dm_short_rest_unlocked,
+            dm_long_rest_unlocked: !!char.dm_long_rest_unlocked,
+            dm_level_up_unlocked: !!char.dm_level_up_unlocked,
+            initiative_modifier: char.initiative_modifier,
+            initiative_advantage: !!char.initiative_advantage,
             stats: char.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
             portrait: sanitizePortraitUrl(char.char_portrait),
             owner_username: char.owner_username,
@@ -1325,6 +1363,93 @@ export class DmComponent implements OnInit, OnDestroy {
     return a === b || this.isSameHeroIdentity(a, b);
   }
 
+  adjustExhaustion(member: PartyMember, delta: number): void {
+    const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
+    const prev = currentMember.exhaustion_level ?? 0;
+    const next = Math.max(0, Math.min(6, prev + delta));
+    if (next === prev || !currentMember.char_id) return;
+
+    const updatedMember: PartyMember = { ...currentMember, exhaustion_level: next };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.pushPartyState(updatedMember, { exhaustion_level: next });
+  }
+
+  toggleMemberAction(
+    member: PartyMember,
+    field:
+      | 'dm_short_rest_unlocked'
+      | 'dm_long_rest_unlocked'
+      | 'dm_level_up_unlocked'
+      | 'magic_items_suppressed'
+      | 'exhaustion_bypass'
+      | 'inspiration',
+    value: boolean
+  ): void {
+    const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
+    if (!currentMember.char_id) return;
+    const updatedMember: PartyMember = { ...currentMember, [field]: value };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.pushPartyState(updatedMember, { [field]: value } as PartyStateChanges);
+  }
+
+  openDmModifiersModal(member: PartyMember): void {
+    this.selectedModifierMember = member;
+    this.showModifiersModal = true;
+  }
+
+  saveDmModifiers(event: DmModifiersSaveEvent): void {
+    const currentMember =
+      this.partyMembers.find((m) => this.isSameMember(m, event.member)) || event.member;
+    if (!currentMember.char_id || !this.campaignName) return;
+
+    const patch: PartyStateChanges = {
+      exhaustion_level: event.exhaustion_level,
+      exhaustion_bypass: event.exhaustion_bypass,
+      magic_items_suppressed: event.magic_items_suppressed,
+      dm_modifiers: event.dm_modifiers,
+    };
+    const updatedMember: PartyMember = {
+      ...currentMember,
+      ...patch,
+    };
+    this.partyMembers = this.partyMembers.map((m) =>
+      this.isSameMember(m, currentMember) ? updatedMember : m
+    );
+    this.showModifiersModal = false;
+    this.pushPartyState(updatedMember, patch);
+    this.rollToast.showMessage('⚙️ DM ADJUSTMENTS SAVED', `Updated modifiers for ${currentMember.name}.`);
+  }
+
+  unlockPartyAction(actionType: 'short_rest' | 'long_rest' | 'level_up' | 'suppress_magic_items', unlocked: boolean): void {
+    if (!this.campaignName) return;
+    this.http
+      .post<any>(campaignUrl(this.campaignName, 'party/action-unlock'), {
+        action_type: actionType,
+        unlocked,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.rollToast.showMessage(
+            actionType === 'suppress_magic_items'
+              ? (unlocked ? '🏜️ MAGIC ITEMS SUPPRESSED' : '✨ MAGIC ITEMS RESTORED')
+              : (unlocked ? '🔓 PARTY UNLOCKED' : '🔒 PARTY LOCKED'),
+            res?.message || 'Updated party state.'
+          );
+          this.loadParty();
+        },
+        error: (err) => {
+          if (!this.handleAuthFailure(err)) {
+            this.rollToast.showMessage('❌ ERROR', err?.error?.detail || 'Failed to update party state.');
+          }
+        },
+      });
+  }
+
   adjustHp(member: PartyMember, delta: number) {
     this.setPartyHp(member, member.hp_current + delta);
   }
@@ -1495,13 +1620,45 @@ export class DmComponent implements OnInit, OnDestroy {
     }
   }
 
+  private memberAsRuleSheet(member: PartyMember): CharacterSchema {
+    const campEd = this.activeEdition || '2014 Edition';
+    return {
+      char_name: member.name,
+      char_class: member.char_class,
+      char_level: member.level,
+      armor_class: member.ac,
+      hp_max: member.hp_max,
+      speed: member.speed ?? 30,
+      proficiency_bonus: 2,
+      race: '',
+      background: '',
+      dnd_edition: member.dnd_edition || member.ruleset_version || campEd,
+      ruleset_version: member.ruleset_version,
+      exhaustion_level: member.exhaustion_level ?? 0,
+      exhaustion_bypass: member.exhaustion_bypass,
+      magic_items_suppressed: member.magic_items_suppressed,
+      dm_modifiers: member.dm_modifiers,
+      initiative_modifier: member.initiative_modifier,
+      initiative_advantage: member.initiative_advantage,
+      stats: {
+        STR: member.stats?.['STR'] ?? 10,
+        DEX: member.stats?.['DEX'] ?? 10,
+        CON: member.stats?.['CON'] ?? 10,
+        INT: member.stats?.['INT'] ?? 10,
+        WIS: member.stats?.['WIS'] ?? 10,
+        CHA: member.stats?.['CHA'] ?? 10,
+      },
+    };
+  }
+
   quickDmStatRoll(member: PartyMember, stat: string) {
-    const val = member.stats?.[stat] || 10;
-    const mod = Math.floor((val - 10) / 2);
-    const roll = this.dice.rollD20(mod);
+    const sheet = this.memberAsRuleSheet(member);
+    const mod = abilityCheckModifier(sheet, stat);
+    const resolved = resolveRollMode('normal', hasExhaustionDisadvantage(sheet, 'check'));
+    const roll = this.dice.rollD20(mod, resolved.mode);
 
     this.rollToast.showRoll({
-      title: `🎲 DM CHECK: ${member.name.toUpperCase()} (${stat})`,
+      title: `🎲 DM CHECK: ${member.name.toUpperCase()} (${stat})${this.dice.modeLabel(roll.mode)}`,
       expression: roll.expression,
       raw: roll.raw,
       rolls: roll.rolls,
@@ -1665,6 +1822,17 @@ export class DmComponent implements OnInit, OnDestroy {
 
   rollAllInitiative() {
     const rolled = this.combatants.map((c) => {
+      const member = c.is_player ? this.memberFor(c) : null;
+      if (member) {
+        const sheet = this.memberAsRuleSheet(member);
+        const mod = member.initiative_modifier ?? abilityCheckModifier(sheet, 'DEX');
+        const resolved = resolveRollMode(
+          'normal',
+          hasExhaustionDisadvantage(sheet, 'initiative'),
+          !!member.initiative_advantage
+        );
+        return { ...c, initiative: this.dice.rollD20(mod, resolved.mode).total };
+      }
       const dexMod = Math.floor((c.dex - 10) / 2);
       return { ...c, initiative: this.dice.rollD20(dexMod).total };
     });
@@ -1909,11 +2077,22 @@ export class DmComponent implements OnInit, OnDestroy {
         switchMap(() => {
           const mergedChanges = this.pendingPartyState.get(charId);
           this.pendingPartyState.delete(charId);
-          if (!mergedChanges || !this.campaignName) return EMPTY;
+          if (!mergedChanges || campaignName !== this.campaignName) return EMPTY;
 
-          return this.http.patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
+          return this.http.patch(`${campaignUrl(campaignName, 'party')}/${encodeURIComponent(charId)}/state`, mergedChanges).pipe(
+            tap((res: any) => {
+              if (
+                campaignName === this.campaignName &&
+                res &&
+                res.char_id &&
+                !this.pendingPartyState.has(charId)
+              ) {
+                this.applyPartyUpdate(res);
+              }
+            }),
             catchError((err) => {
               if (this.handleAuthFailure(err)) return EMPTY;
+              if (campaignName !== this.campaignName) return EMPTY;
               const errorMember = this.partyMembers.find((m) => m.char_id === charId);
               this.rollToast.showMessage(
                 '⚠️ NOT SAVED',
@@ -1929,17 +2108,32 @@ export class DmComponent implements OnInit, OnDestroy {
     subject.next();
   }
 
-  private flushPartyState(charId: string) {
-    // Left for ngOnDestroy to do immediate flush if needed
+  private flushAllPendingPartyState(targetCampaign: string | null): void {
+    const pendingCharIds = Array.from(this.pendingPartyState.keys());
+    if (targetCampaign) {
+      for (const charId of pendingCharIds) {
+        this.flushPartyState(charId, targetCampaign);
+      }
+    } else {
+      this.pendingPartyState.clear();
+    }
+    for (const sub of this.partyStateSubjects.values()) {
+      sub.complete();
+    }
+    this.partyStateSubjects.clear();
+  }
+
+  private flushPartyState(charId: string, targetCampaign = this.campaignName) {
     const changes = this.pendingPartyState.get(charId);
     this.pendingPartyState.delete(charId);
-    if (!changes || !this.campaignName) return;
+    if (!changes || !targetCampaign) return;
 
     this.http
-      .patch(`${campaignUrl(this.campaignName, 'party')}/${encodeURIComponent(charId)}/state`, changes)
+      .patch(`${campaignUrl(targetCampaign, 'party')}/${encodeURIComponent(charId)}/state`, changes)
       .subscribe({
         error: (err) => {
           if (this.handleAuthFailure(err)) return;
+          if (targetCampaign !== this.campaignName) return;
           const member = this.partyMembers.find((m) => m.char_id === charId);
           this.rollToast.showMessage(
             '⚠️ NOT SAVED',
@@ -1971,6 +2165,22 @@ export class DmComponent implements OnInit, OnDestroy {
       hp_max: nextHpMax,
       hp_temp: typeof payload.hp_temp === 'number' ? payload.hp_temp : member.hp_temp,
       ac: nextAc,
+      ac_breakdown:
+        payload.ac_breakdown !== undefined ? payload.ac_breakdown : member.ac_breakdown,
+      speed: typeof payload.speed === 'number' ? payload.speed : member.speed,
+      passive_perception:
+        typeof payload.passive_perception === 'number'
+          ? payload.passive_perception
+          : member.passive_perception,
+      stats: payload.stats ? { ...payload.stats } : member.stats,
+      initiative_modifier:
+        typeof payload.initiative_modifier === 'number'
+          ? payload.initiative_modifier
+          : member.initiative_modifier,
+      initiative_advantage:
+        typeof payload.initiative_advantage === 'boolean'
+          ? payload.initiative_advantage
+          : member.initiative_advantage,
       level: nextLevel,
       conditions: nextConditions,
       concentrating_on:
@@ -1983,6 +2193,28 @@ export class DmComponent implements OnInit, OnDestroy {
         typeof payload.exhaustion_level === 'number'
           ? payload.exhaustion_level
           : member.exhaustion_level,
+      exhaustion_bypass:
+        typeof payload.exhaustion_bypass === 'boolean'
+          ? payload.exhaustion_bypass
+          : member.exhaustion_bypass,
+      magic_items_suppressed:
+        typeof payload.magic_items_suppressed === 'boolean'
+          ? payload.magic_items_suppressed
+          : member.magic_items_suppressed,
+      dm_modifiers:
+        payload.dm_modifiers !== undefined ? payload.dm_modifiers : member.dm_modifiers,
+      dm_short_rest_unlocked:
+        typeof payload.dm_short_rest_unlocked === 'boolean'
+          ? payload.dm_short_rest_unlocked
+          : member.dm_short_rest_unlocked,
+      dm_long_rest_unlocked:
+        typeof payload.dm_long_rest_unlocked === 'boolean'
+          ? payload.dm_long_rest_unlocked
+          : member.dm_long_rest_unlocked,
+      dm_level_up_unlocked:
+        typeof payload.dm_level_up_unlocked === 'boolean'
+          ? payload.dm_level_up_unlocked
+          : member.dm_level_up_unlocked,
     };
     this.partyMembers = this.partyMembers.map((m) =>
       m.char_id === payload.char_id ? updated : m

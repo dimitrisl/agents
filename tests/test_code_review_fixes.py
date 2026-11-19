@@ -915,6 +915,7 @@ def test_level_up_apply_encounter_sync_isolates_homonyms_and_preserves_monsters(
         "hp_max": 20,
         "hp_current": 14,
         "active_campaign": "Homonym Keep",
+        "dm_level_up_unlocked": True,
         "version": 1,
     }
     analysis = analyze_level_up(char_doc, user_choices={"level_up_class": "Fighter"})

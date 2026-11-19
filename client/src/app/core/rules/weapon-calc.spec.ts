@@ -30,6 +30,7 @@ describe('Weapon Bonus Calculations and Breakdown', () => {
   it('resolves correct stat modifier for ranged, finesse, and explicit weapons', () => {
     expect(resolveWeaponStat({ name: 'Longbow', attack_bonus: '+0' }, uladBhor)).toBe('DEX');
     expect(resolveWeaponStat({ name: 'Shortsword', attack_bonus: '+0', properties: 'finesse' }, uladBhor)).toBe('DEX');
+    expect(resolveWeaponStat({ name: 'Rapier', attack_bonus: '+0', properties: ['Finesse'] as any }, uladBhor)).toBe('DEX');
     expect(resolveWeaponStat({ name: 'Greatsword', attack_bonus: '+0' }, uladBhor)).toBe('STR');
     expect(resolveWeaponStat({ name: 'Eldritch Blade', attack_bonus: '+0', ability_modifier: 'CHA' }, uladBhor)).toBe('CHA');
   });
@@ -78,5 +79,43 @@ describe('Weapon Bonus Calculations and Breakdown', () => {
     expect(breakdown.attack.total).toBe(10);
     // 1d4 + 5 (DEX) + 2 (Misc) = 1d4+7
     expect(breakdown.damage.totalBonus).toBe(7);
+  });
+
+  it('non-destructively suppresses magic_bonus and global gear bonuses under Athas, and applies DM/exhaustion offsets', () => {
+    const athasHero: CharacterSchema = {
+      ...uladBhor,
+      dnd_edition: '2024 Revision (5.5e)',
+      magic_items_suppressed: true,
+      global_attack_bonus: 2,
+      global_damage_bonus: 1,
+      exhaustion_level: 1, // -2 in 2024
+      dm_modifiers: {
+        attack_bonus: -1,
+        damage_bonus: 3,
+      },
+    };
+    const longbow: Weapon = {
+      name: 'Longbow +1',
+      attack_bonus: '+12',
+      damage_dice: '1d8 piercing',
+      magic_bonus: 1,
+    };
+
+    const suppressed = calculateWeaponBreakdown(longbow, athasHero);
+    // Atk: DEX (+5) + Prof (+4) + Magic (0, suppressed!) + Archery (+2) + Global (0) + DM (-1) - Exh (2) = +8
+    expect(suppressed.attack.magicBonus).toBe(0);
+    expect(suppressed.attack.total).toBe(8);
+    expect(suppressed.attack.formulaText).toContain('Magic Suppressed');
+    expect(suppressed.attack.formulaText).toContain('DM (-1)');
+    expect(suppressed.attack.formulaText).toContain('Exh (-2)');
+    // Dmg: 1d8 + DEX (+5) + Magic (0) + DM (+3) = 1d8+8
+    expect(suppressed.damage.magicBonus).toBe(0);
+    expect(suppressed.damage.totalBonus).toBe(8);
+
+    // Lifting suppression restores full +1 magic + global bonuses cleanly
+    const restored = calculateWeaponBreakdown(longbow, { ...athasHero, magic_items_suppressed: false });
+    expect(restored.attack.magicBonus).toBe(1);
+    expect(restored.attack.total).toBe(11); // +5 + 4 + 1 + 2 + 2 - 1 - 2 = 11
+    expect(restored.damage.totalBonus).toBe(10); // 5 + 1 + 1 + 3 = 10
   });
 });

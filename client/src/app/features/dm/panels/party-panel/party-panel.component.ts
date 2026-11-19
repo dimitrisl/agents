@@ -8,6 +8,7 @@ import {
   ForgeInputDirective,
 } from '../../../../shared/ui';
 import type { PartyMember } from '../../../../core/models/party.model';
+import { describeDmModifiers } from '../../../../core/rules';
 import { BrokenPortraitTracker } from '../../../../core/utils/portrait';
 
 @Component({
@@ -35,12 +36,48 @@ export class PartyPanelComponent {
   @Output() addMember = new EventEmitter<void>();
   @Output() distributeLoot = new EventEmitter<void>();
   @Output() longRest = new EventEmitter<void>();
+  @Output() partyActionUnlock = new EventEmitter<{
+    actionType: 'short_rest' | 'long_rest' | 'level_up' | 'suppress_magic_items';
+    unlocked: boolean;
+  }>();
+  @Output() memberActionToggle = new EventEmitter<{
+    member: PartyMember;
+    field: 'dm_short_rest_unlocked' | 'dm_long_rest_unlocked' | 'dm_level_up_unlocked' | 'magic_items_suppressed' | 'exhaustion_bypass' | 'inspiration';
+    value: boolean;
+  }>();
+  @Output() adjustExhaustion = new EventEmitter<{ member: PartyMember; delta: number }>();
+  @Output() openModifiers = new EventEmitter<PartyMember>();
   @Output() adjustHp = new EventEmitter<{ member: PartyMember; delta: number }>();
   @Output() setHp = new EventEmitter<{ member: PartyMember; hp: number }>();
   @Output() quickStatRoll = new EventEmitter<{ member: PartyMember; stat: string }>();
   @Output() toggleCondition = new EventEmitter<{ member: PartyMember; condition: string }>();
   @Output() privateRollRequest = new EventEmitter<PartyMember>();
   @Output() removeMember = new EventEmitter<PartyMember>();
+
+  get allMagicSuppressed(): boolean {
+    const serverMembers = this.partyMembers.filter((m) => !!m.char_id);
+    return serverMembers.length > 0 && serverMembers.every((m) => !!m.magic_items_suppressed);
+  }
+
+  get anyShortRestUnlocked(): boolean {
+    return this.partyMembers.some((m) => !!m.char_id && !!m.dm_short_rest_unlocked);
+  }
+
+  get anyLongRestUnlocked(): boolean {
+    return this.partyMembers.some((m) => !!m.char_id && !!m.dm_long_rest_unlocked);
+  }
+
+  get anyLevelUpUnlocked(): boolean {
+    return this.partyMembers.some((m) => !!m.char_id && m.level < 20 && !!m.dm_level_up_unlocked);
+  }
+
+  dmModifierSummary(member: PartyMember): string[] {
+    return describeDmModifiers(member.dm_modifiers);
+  }
+
+  isDeceasedByExhaustion(member: PartyMember): boolean {
+    return (member.exhaustion_level ?? 0) >= 6 && !member.exhaustion_bypass;
+  }
 
   conditionTone(member: PartyMember, condition: string): 'danger' | 'muted' {
     return member.conditions.includes(condition) ? 'danger' : 'muted';

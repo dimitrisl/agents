@@ -59,4 +59,56 @@ describe('AbilityScoreGridComponent', () => {
     expect(checks).toEqual(['DEX']);
     expect(saves).toEqual(['DEX']);
   });
+
+  it('shows check modifier with 2024 exhaustion/DM bonus and renders DIS badges for 2014 exhaustion with bypass support', () => {
+    const component = fixture.componentInstance;
+    fixture.componentRef.setInput('char', {
+      ...component.char,
+      dnd_edition: '2024 Revision (5.5e)',
+      exhaustion_level: 2,
+      dm_modifiers: { ability_checks_bonus: 2, saving_throws_bonus: 1 },
+    } as any);
+    fixture.detectChanges();
+
+    // DEX mod +5 - 4 (Exh) + 2 (DM Check) = +3 on Check button
+    const [dexCheck, dexSave] = Array.from(cards()[1].querySelectorAll('button')) as HTMLButtonElement[];
+    expect(dexCheck.textContent).toContain('+3');
+    expect(dexSave.textContent).toContain('+6'); // +5 + 4 - 4 + 1
+    expect(dexCheck.textContent).not.toContain('DIS');
+
+    // Switch to 2014 Edition Level 1 -> DIS on Check ONLY
+    fixture.componentRef.setInput('char', {
+      ...component.char,
+      dnd_edition: '2014 Edition',
+      exhaustion_level: 1,
+      exhaustion_bypass: false,
+    } as any);
+    fixture.detectChanges();
+    const [l1Check, l1Save] = Array.from(cards()[1].querySelectorAll('button')) as HTMLButtonElement[];
+    expect(l1Check.textContent).toContain('DIS');
+    expect(l1Save.textContent).not.toContain('DIS');
+
+    // Level 3 in 2014 -> DIS on BOTH Check & Save; bypass clears DIS
+    fixture.componentRef.setInput('char', {
+      ...component.char,
+      dnd_edition: '2014 Edition',
+      exhaustion_level: 3,
+      exhaustion_bypass: false,
+    } as any);
+    fixture.detectChanges();
+    const [l3Check, l3Save] = Array.from(cards()[1].querySelectorAll('button')) as HTMLButtonElement[];
+    expect(l3Check.textContent).toContain('DIS');
+    expect(l3Save.textContent).toContain('DIS');
+
+    fixture.componentRef.setInput('char', {
+      ...component.char,
+      dnd_edition: '2014 Edition',
+      exhaustion_level: 3,
+      exhaustion_bypass: true,
+    } as any);
+    fixture.detectChanges();
+    const [bypassCheck, bypassSave] = Array.from(cards()[1].querySelectorAll('button')) as HTMLButtonElement[];
+    expect(bypassCheck.textContent).not.toContain('DIS');
+    expect(bypassSave.textContent).not.toContain('DIS');
+  });
 });

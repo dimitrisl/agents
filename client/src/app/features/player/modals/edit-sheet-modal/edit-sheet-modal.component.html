@@ -15,7 +15,19 @@
       </div>
       <div>
         <label for="edit-char-level" class="mb-1 block text-label font-semibold text-muted">Level:</label>
-        <input id="edit-char-level" forgeInput type="number" [(ngModel)]="editChar.char_level" min="1" max="20" />
+        <input
+          id="edit-char-level"
+          forgeInput
+          type="number"
+          [(ngModel)]="editChar.char_level"
+          min="1"
+          max="20"
+          [readonly]="!!editChar.active_campaign"
+          [attr.aria-describedby]="editChar.active_campaign ? 'edit-level-lock-hint' : null"
+        />
+        @if (editChar.active_campaign) {
+          <p id="edit-level-lock-hint" class="mt-1 text-micro uppercase text-muted">🔒 Managed by DM Level Up Unlock</p>
+        }
       </div>
     </div>
 
