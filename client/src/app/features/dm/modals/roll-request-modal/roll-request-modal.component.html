@@ -26,6 +26,7 @@
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <label
         class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
+        [class.sm:col-span-2]="rollType === 'initiative'"
       >
         Roll Type:
         <select
@@ -40,24 +41,26 @@
           <option value="initiative">Initiative</option>
         </select>
       </label>
-      <label
-        class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
-      >
-        <ng-container *ngIf="rollType === 'skill_check'; else statLabel">Skill:</ng-container>
-        <ng-template #statLabel>Stat:</ng-template>
-        <select
-          forgeSelect
-          [ngModel]="rollStat"
-          (ngModelChange)="rollStatChange.emit($event)"
+      @if (rollType !== 'initiative') {
+        <label
+          class="flex flex-col gap-2 text-label font-semibold uppercase tracking-wide text-muted"
         >
-          <ng-container *ngIf="rollType === 'skill_check'; else statOptions">
-            <option *ngFor="let skill of skills" [value]="skill">{{ skill }}</option>
-          </ng-container>
-          <ng-template #statOptions>
-            <option *ngFor="let stat of stats" [value]="stat">{{ stat }}</option>
-          </ng-template>
-        </select>
-      </label>
+          <ng-container *ngIf="rollType === 'skill_check'; else statLabel">Skill:</ng-container>
+          <ng-template #statLabel>Stat:</ng-template>
+          <select
+            forgeSelect
+            [ngModel]="rollStat"
+            (ngModelChange)="rollStatChange.emit($event)"
+          >
+            <ng-container *ngIf="rollType === 'skill_check'; else statOptions">
+              <option *ngFor="let skill of skills" [value]="skill">{{ skill }}</option>
+            </ng-container>
+            <ng-template #statOptions>
+              <option *ngFor="let stat of stats" [value]="stat">{{ stat }}</option>
+            </ng-template>
+          </select>
+        </label>
+      }
     </div>
 
     <label
@@ -69,7 +72,7 @@
         type="text"
         [ngModel]="rollReason"
         (ngModelChange)="rollReasonChange.emit($event)"
-        placeholder="e.g. Dragon Breath Fire Save"
+        [placeholder]="rollType === 'initiative' ? 'e.g. Combat begins — roll Initiative!' : 'e.g. Dragon Breath Fire Save'"
       />
     </label>
 

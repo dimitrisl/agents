@@ -162,6 +162,9 @@ export class DmInboxComponent implements OnChanges, AfterViewChecked {
     }
     if (type === 'attack_roll') return `${stat} attack roll`;
     if (type === 'skill' || type === 'skill_check') return `${stat} check`;
+    if (type === 'initiative' || (stat || '').toLowerCase() === 'initiative') {
+      return 'Initiative roll';
+    }
     return `${stat} ability check`;
   }
 

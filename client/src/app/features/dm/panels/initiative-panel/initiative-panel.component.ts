@@ -95,6 +95,7 @@ export class InitiativePanelComponent implements OnDestroy {
   @Output() importParty = new EventEmitter<void>();
   @Output() rollAll = new EventEmitter<void>();
   @Output() rollMonstersOnly = new EventEmitter<void>();
+  @Output() requestInitiative = new EventEmitter<void>();
   @Output() initiativeChange = new EventEmitter<{ combatant: InitiativeCombatant; initiative: number }>();
   @Output() acChange = new EventEmitter<{ combatant: InitiativeCombatant; ac: number }>();
   @Output() advanceTurn = new EventEmitter<void>();
