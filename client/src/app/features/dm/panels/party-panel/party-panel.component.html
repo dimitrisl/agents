@@ -356,6 +356,7 @@
                 size="sm"
                 type="button"
                 title="Athas / Antimagic: suppress magic item bonuses for this hero"
+                [attr.aria-label]="'Toggle Athas magic suppression for ' + member.name"
                 [attr.aria-pressed]="!!member.magic_items_suppressed"
                 (click)="memberActionToggle.emit({ member, field: 'magic_items_suppressed', value: !member.magic_items_suppressed })"
               >

@@ -371,6 +371,7 @@ class CharacterSchema(BaseModel):
     base_speed: Optional[int] = None
     heavy_armor_speed_penalty: Optional[int] = 0
     base_hp_max: Optional[int] = None
+    pre_dm_hp_max: Optional[int] = None
     proficiency_bonus: int = 2
     base_stats: Optional[StatBlock] = None
     stats: StatBlock

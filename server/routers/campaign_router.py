@@ -676,6 +676,42 @@ def _supports_async_find_one_and_update(coll: Any) -> bool:
     return True
 
 
+_SYNCED_CHAR_FIELDS = (
+    "hp_max",
+    "hp_current",
+    "base_hp_max",
+    "pre_dm_hp_max",
+    "dm_hp_bonus_applied",
+    "equip_hp_bonus",
+    "equip_stat_bonuses",
+    "con_mod_applied",
+    "stats",
+    "base_stats",
+    "armor_class",
+    "ac_breakdown",
+    "speed",
+    "base_speed",
+    "heavy_armor_speed_penalty",
+    "passive_perception",
+    "skills",
+    "saving_throw_values",
+    "initiative_modifier",
+    "initiative_bonus",
+    "initiative_advantage",
+    "athletics_advantage",
+    "spell_attack_bonus",
+    "spell_save_dc",
+    "global_attack_bonus",
+    "global_damage_bonus",
+    "weapons",
+    "concentrating_on",
+    "exhaustion_level",
+    "exhaustion_bypass",
+    "magic_items_suppressed",
+    "dm_modifiers",
+)
+
+
 def _cas_char_filter(char_doc: dict, name: str) -> Dict[str, Any]:
     raw_version = char_doc.get("version")
     flt: Dict[str, Any] = {"char_id": char_doc.get("char_id"), "active_campaign": name}
@@ -685,6 +721,34 @@ def _cas_char_filter(char_doc: dict, name: str) -> Dict[str, Any]:
         else:
             flt["version"] = raw_version
     return flt
+
+
+async def _cas_apply_char_update(
+    collection: Any,
+    current_char: dict,
+    name: str,
+    updates: Dict[str, Any],
+) -> Optional[dict]:
+    """Applies a CAS character update while avoiding `$inc` on an explicit `version: None`."""
+    query_filter = _cas_char_filter(current_char, name)
+    if "version" in current_char and current_char.get("version") is None:
+        mongo_update: Dict[str, Any] = {"$set": {**updates, "version": 1}}
+    else:
+        mongo_update = {"$set": updates, "$inc": {"version": 1}}
+
+    if _supports_async_find_one_and_update(collection):
+        return await collection.find_one_and_update(
+            query_filter,
+            mongo_update,
+            return_document=ReturnDocument.AFTER,
+        )
+
+    await collection.update_one(query_filter, mongo_update)
+    return {
+        **current_char,
+        **updates,
+        "version": int(current_char.get("version") or 0) + 1,
+    }
 
 
 @router.patch("/{name}/party/{char_id}/state", response_model=PartyMemberStateResponse)
@@ -798,39 +862,7 @@ async def update_party_member_state(
             synced = await run_in_threadpool(
                 partial(sync_character_stats, working, class_data, homebrew_content=homebrew_items)
             )
-            for sync_key in (
-                "hp_max",
-                "hp_current",
-                "base_hp_max",
-                "dm_hp_bonus_applied",
-                "equip_hp_bonus",
-                "equip_stat_bonuses",
-                "con_mod_applied",
-                "stats",
-                "base_stats",
-                "armor_class",
-                "ac_breakdown",
-                "speed",
-                "base_speed",
-                "heavy_armor_speed_penalty",
-                "passive_perception",
-                "skills",
-                "saving_throw_values",
-                "initiative_modifier",
-                "initiative_bonus",
-                "initiative_advantage",
-                "athletics_advantage",
-                "spell_attack_bonus",
-                "spell_save_dc",
-                "global_attack_bonus",
-                "global_damage_bonus",
-                "weapons",
-                "concentrating_on",
-                "exhaustion_level",
-                "exhaustion_bypass",
-                "magic_items_suppressed",
-                "dm_modifiers",
-            ):
+            for sync_key in _SYNCED_CHAR_FIELDS:
                 if sync_key in synced:
                     updates[sync_key] = synced[sync_key]
 
@@ -847,22 +879,7 @@ async def update_party_member_state(
             if old_hp == 0 and new_hp > 0:
                 updates["death_saves"] = {"successes": 0, "failures": 0}
 
-        query_filter = _cas_char_filter(current_char, name)
-        if _supports_async_find_one_and_update(db["characters"]):
-            updated_doc = await db["characters"].find_one_and_update(
-                query_filter,
-                {"$set": updates, "$inc": {"version": 1}},
-                return_document=ReturnDocument.AFTER,
-            )
-        else:
-            await db["characters"].update_one(
-                query_filter, {"$set": updates, "$inc": {"version": 1}}
-            )
-            updated_doc = {
-                **current_char,
-                **updates,
-                "version": int(current_char.get("version", 0) or 0) + 1,
-            }
+        updated_doc = await _cas_apply_char_update(db["characters"], current_char, name, updates)
 
         if updated_doc is not None:
             break
@@ -960,51 +977,13 @@ async def unlock_party_action(
                         sync_character_stats, working, class_data, homebrew_content=homebrew_items
                     )
                 )
-                for sync_key in (
-                    "hp_max",
-                    "hp_current",
-                    "base_hp_max",
-                    "equip_hp_bonus",
-                    "equip_stat_bonuses",
-                    "con_mod_applied",
-                    "stats",
-                    "base_stats",
-                    "armor_class",
-                    "ac_breakdown",
-                    "speed",
-                    "heavy_armor_speed_penalty",
-                    "passive_perception",
-                    "skills",
-                    "saving_throw_values",
-                    "initiative_modifier",
-                    "initiative_bonus",
-                    "initiative_advantage",
-                    "spell_attack_bonus",
-                    "spell_save_dc",
-                    "global_attack_bonus",
-                    "global_damage_bonus",
-                    "weapons",
-                    "magic_items_suppressed",
-                ):
+                for sync_key in _SYNCED_CHAR_FIELDS:
                     if sync_key in synced:
                         updates[sync_key] = synced[sync_key]
 
-            qfilter = _cas_char_filter(current_char, name)
-            if _supports_async_find_one_and_update(db["characters"]):
-                updated_doc = await db["characters"].find_one_and_update(
-                    qfilter,
-                    {"$set": updates, "$inc": {"version": 1}},
-                    return_document=ReturnDocument.AFTER,
-                )
-            else:
-                await db["characters"].update_one(
-                    qfilter, {"$set": updates, "$inc": {"version": 1}}
-                )
-                updated_doc = {
-                    **current_char,
-                    **updates,
-                    "version": int(current_char.get("version", 0) or 0) + 1,
-                }
+            updated_doc = await _cas_apply_char_update(
+                db["characters"], current_char, name, updates
+            )
             if updated_doc is not None:
                 break
             refetched = await db["characters"].find_one({"char_id": cid, "active_campaign": name})
@@ -1096,23 +1075,9 @@ async def long_rest_party(
                 if k not in ("_id", "char_id", "owner_id", "version")
             }
 
-            query_filter = _cas_char_filter(current_char, name)
-            if _supports_async_find_one_and_update(db["characters"]):
-                updated_doc = await db["characters"].find_one_and_update(
-                    query_filter,
-                    {"$set": updates, "$inc": {"version": 1}},
-                    return_document=ReturnDocument.AFTER,
-                )
-            else:
-                await db["characters"].update_one(
-                    query_filter,
-                    {"$set": updates, "$inc": {"version": 1}},
-                )
-                updated_doc = {
-                    **current_char,
-                    **updates,
-                    "version": int(current_char.get("version", 0) or 0) + 1,
-                }
+            updated_doc = await _cas_apply_char_update(
+                db["characters"], current_char, name, updates
+            )
 
             if updated_doc is not None:
                 break

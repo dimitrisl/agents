@@ -90,6 +90,8 @@
       iconOnly
       type="button"
       aria-label="Add 1 temporary hit point"
+      [disabled]="isDeceasedByExhaustion"
+      [title]="isDeceasedByExhaustion ? 'Deceased at Exhaustion 6 (managed by DM)' : 'Add 1 temporary hit point'"
       (click)="applyTempHpChange(1)"
     >
       <forge-icon name="plus" size="sm" />

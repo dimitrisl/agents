@@ -152,6 +152,7 @@ _DERIVED_CHARACTER_KEYS = (
     "feat_hp_bonus",
     "con_mod_applied",
     "base_hp_max",
+    "pre_dm_hp_max",
     "class_resources",
     "base_stats",
 )
@@ -906,20 +907,20 @@ def get_base_weapon(name: str, all_weapons: list) -> dict:
 def restore_base_hp_max(
     existing_hp: Optional[int],
     stored_base_hp_max: Optional[int],
-    prev_dm_hp: int,
+    stored_pre_dm_hp_max: Optional[int] = None,
 ) -> Tuple[Optional[int], bool]:
     """
-    Restore pre-halving / pre-clamp `hp_max` from `base_hp_max`.
+    Restore pre-DM / pre-halving `hp_max` from dedicated `pre_dm_hp_max` or `base_hp_max`.
     Returns `(effective_hp, restored_from_pre_dm_clamp)` where the boolean indicates
     that `effective_hp` already excludes negative DM modifiers (`dm_hp_bonus_applied`).
     """
+    if stored_pre_dm_hp_max and int(stored_pre_dm_hp_max) > 0:
+        if existing_hp == 1:
+            return int(stored_pre_dm_hp_max), True
     if not stored_base_hp_max:
         return existing_hp, False
     stored_int = int(stored_base_hp_max)
-    is_stored_unclamped_clamp = prev_dm_hp < 0 and (stored_int + prev_dm_hp) < 1
-    if is_stored_unclamped_clamp and existing_hp == 1:
-        return stored_int, True
-    if not is_stored_unclamped_clamp and existing_hp == max(1, stored_int // 2):
+    if stored_int > 0 and existing_hp == max(1, stored_int // 2):
         return stored_int, False
     return existing_hp, False
 
@@ -1834,9 +1835,10 @@ def sync_character_stats(
 
     existing_hp = char_data.get("hp_max")
     stored_base_hp_max = char_data.get("base_hp_max")
+    stored_pre_dm_hp_max = char_data.get("pre_dm_hp_max")
     prev_dm_hp = int(char_data.get("dm_hp_bonus_applied", 0) or 0)
     existing_hp, restored_from_unclamped_clamp = restore_base_hp_max(
-        existing_hp, stored_base_hp_max, prev_dm_hp
+        existing_hp, stored_base_hp_max, stored_pre_dm_hp_max
     )
     current_con_mod = get_modifier(con_score)
     con_mod_applied = char_data.get("con_mod_applied")
@@ -1903,17 +1905,20 @@ def sync_character_stats(
     pre_dm_hp_max = max(1, base_hp + feat_hp_bonus + equip_hp_bonus)
 
     if unclamped_hp_max < 1:
-        char_data["base_hp_max"] = pre_dm_hp_max
+        char_data["pre_dm_hp_max"] = pre_dm_hp_max
+        char_data["base_hp_max"] = None
         if is_halved_by_exh and char_data.get("hp_current") is not None:
             char_data["hp_current"] = max(0, min(1, char_data["hp_current"]))
     elif is_halved_by_exh:
         full_hp_max = char_data["hp_max"]
+        char_data["pre_dm_hp_max"] = None
         char_data["base_hp_max"] = full_hp_max
         halved_hp = max(1, full_hp_max // 2)
         char_data["hp_max"] = halved_hp
         if char_data.get("hp_current") is not None:
             char_data["hp_current"] = max(0, min(halved_hp, char_data["hp_current"]))
     else:
+        char_data["pre_dm_hp_max"] = None
         char_data["base_hp_max"] = None
 
     char_data["armor_class"], char_data["ac_breakdown"] = calculate_ac(

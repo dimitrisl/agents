@@ -1625,6 +1625,10 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
         dm_level_up_unlocked: false,
         dm_short_rest_unlocked: false,
         spell_slots: { level_1: { max: 4, used: 0 } },
+        passive_perception: 13,
+        skills: { Perception: 3 },
+        magic_items_suppressed: true,
+        dm_modifiers: { saving_throws_bonus: 1, initiative_bonus: 2 },
         version: 3,
       },
     } as any);
@@ -1633,6 +1637,9 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     expect(updated.hp_max).toBe(52);
     expect(updated.dm_level_up_unlocked).toBe(false);
     expect(updated.dm_short_rest_unlocked).toBe(false);
+    expect(updated.passive_perception).toBe(13);
+    expect(updated.magic_items_suppressed).toBe(true);
+    expect(updated.dm_modifiers?.initiative_bonus).toBe(2);
     const reloadReqs = http.match((r) => r.method === 'GET' && r.url.endsWith('/characters'));
     expect(reloadReqs.length).toBe(1);
     reloadReqs[0].flush({ characters: [updated] });
@@ -1656,12 +1663,13 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     comp.dismissRollPrompt();
     http.expectOne((r) => r.url.includes('/roll-request/req-conc/miss')).flush({ success: true });
 
-    // Minor #2: Exhaustion L6 deceased blocks onConsumePotion
+    // Minor #2 & Minor #6: Exhaustion L6 deceased blocks onConsumePotion, setTempHp & adjustTempHp
     charState.activeCharacter.set({
       ...charState.activeCharacter()!,
       exhaustion_level: 6,
       exhaustion_bypass: false,
       hp_current: 0,
+      hp_temp: 0,
       equipment: [{ name: 'Potion of Healing', quantity: 2 }],
     });
     comp.onConsumePotion({
@@ -1670,7 +1678,10 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
       bonus: 2,
       name: 'Potion of Healing',
     });
+    comp.setTempHp(10);
+    comp.adjustTempHp(5);
     expect(charState.activeCharacter()!.hp_current).toBe(0);
+    expect(charState.activeCharacter()!.hp_temp).toBe(0);
     expect(charState.activeCharacter()!.equipment![0].quantity).toBe(2);
     http.expectNone(() => true);
 

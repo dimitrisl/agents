@@ -409,15 +409,18 @@ async def apply_level_up(
             pass
 
     old_hp_max = int(char_doc.get("hp_max") or 0)
-    prev_dm_hp = int(char_doc.get("dm_hp_bonus_applied", 0) or 0)
     restored_hp, restored_from_pre_dm = restore_base_hp_max(
-        old_hp_max, char_doc.get("base_hp_max"), prev_dm_hp
+        old_hp_max, char_doc.get("base_hp_max"), char_doc.get("pre_dm_hp_max")
     )
-    if restored_hp and restored_hp != old_hp_max:
+    if restored_from_pre_dm and restored_hp is not None:
+        old_hp_max = restored_hp
+        char_doc["pre_dm_hp_max"] = None
+        char_doc["base_hp_max"] = None
+        char_doc["dm_hp_bonus_applied"] = 0
+    elif restored_hp is not None and restored_hp != old_hp_max:
         old_hp_max = restored_hp
         char_doc["base_hp_max"] = None
-        if restored_from_pre_dm:
-            char_doc["dm_hp_bonus_applied"] = 0
+        char_doc["pre_dm_hp_max"] = None
     if old_hp_max <= 0:
         old_hp_max = calculate_hp(
             vitals["hit_die"],
@@ -806,7 +809,9 @@ async def apply_level_up(
             active_camp,
             {
                 "type": "party_update",
-                "payload": build_party_update_payload(synced_char, source="player"),
+                "payload": build_party_update_payload(
+                    synced_char, source="player", action="level_up"
+                ),
             },
         )
 

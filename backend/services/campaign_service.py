@@ -136,6 +136,7 @@ def build_party_update_payload(
         "heavy_armor_speed_penalty": int(char_doc.get("heavy_armor_speed_penalty") or 0),
         "base_speed": char_doc.get("base_speed"),
         "base_hp_max": char_doc.get("base_hp_max"),
+        "pre_dm_hp_max": char_doc.get("pre_dm_hp_max"),
         "passive_perception": char_doc.get("passive_perception"),
         "skills": char_doc.get("skills"),
         "saving_throw_values": char_doc.get("saving_throw_values"),

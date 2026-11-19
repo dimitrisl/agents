@@ -773,44 +773,108 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return next;
   }
 
+  private mergePartyUpdateFields(target: CharacterSchema, payload: any, allowDirectExhaustion: boolean): void {
+    if (typeof payload.exhaustion_bypass === 'boolean') {
+      target.exhaustion_bypass = payload.exhaustion_bypass;
+    }
+    if (typeof payload.magic_items_suppressed === 'boolean') {
+      target.magic_items_suppressed = payload.magic_items_suppressed;
+    }
+    if (payload.dm_modifiers !== undefined) {
+      target.dm_modifiers = payload.dm_modifiers ? { ...payload.dm_modifiers } : undefined;
+    }
+    if (typeof payload.dm_short_rest_unlocked === 'boolean') {
+      target.dm_short_rest_unlocked = payload.dm_short_rest_unlocked;
+    }
+    if (typeof payload.dm_long_rest_unlocked === 'boolean') {
+      target.dm_long_rest_unlocked = payload.dm_long_rest_unlocked;
+    }
+    if (typeof payload.dm_level_up_unlocked === 'boolean') {
+      target.dm_level_up_unlocked = payload.dm_level_up_unlocked;
+    }
+    if (allowDirectExhaustion && typeof payload.exhaustion_level === 'number') {
+      target.exhaustion_level = payload.exhaustion_level;
+    }
+    if (typeof payload.hp_max === 'number' && payload.hp_max > 0) target.hp_max = payload.hp_max;
+    if (typeof payload.hp_current === 'number') target.hp_current = payload.hp_current;
+    if (typeof payload.hp_temp === 'number') target.hp_temp = payload.hp_temp;
+    if (typeof payload.ac === 'number' && payload.ac > 0) target.armor_class = payload.ac;
+    if (payload.ac_breakdown !== undefined) target.ac_breakdown = payload.ac_breakdown;
+    if (typeof payload.level === 'number') target.char_level = payload.level;
+    if (typeof payload.speed === 'number') target.speed = payload.speed;
+    if (typeof payload.base_speed === 'number') target.base_speed = payload.base_speed;
+    if (typeof payload.heavy_armor_speed_penalty === 'number') {
+      target.heavy_armor_speed_penalty = payload.heavy_armor_speed_penalty;
+    }
+    if (payload.base_hp_max !== undefined) target.base_hp_max = payload.base_hp_max ?? undefined;
+    if (payload.pre_dm_hp_max !== undefined) {
+      target.pre_dm_hp_max = payload.pre_dm_hp_max ?? undefined;
+    }
+    if (typeof payload.passive_perception === 'number') {
+      target.passive_perception = payload.passive_perception;
+    }
+    if (payload.skills && typeof payload.skills === 'object') target.skills = { ...payload.skills };
+    if (payload.saving_throw_values && typeof payload.saving_throw_values === 'object') {
+      target.saving_throw_values = { ...payload.saving_throw_values };
+    }
+    if (typeof payload.initiative_modifier === 'number') {
+      target.initiative_modifier = payload.initiative_modifier;
+    }
+    if (typeof payload.initiative_bonus === 'number') {
+      target.initiative_bonus = payload.initiative_bonus;
+    }
+    if (typeof payload.initiative_advantage === 'boolean') {
+      target.initiative_advantage = payload.initiative_advantage;
+    }
+    if (typeof payload.spell_save_dc === 'number') target.spell_save_dc = payload.spell_save_dc;
+    if (payload.spell_attack_bonus !== undefined && payload.spell_attack_bonus !== null) {
+      target.spell_attack_bonus = String(payload.spell_attack_bonus);
+    }
+    if (typeof payload.global_attack_bonus === 'number') {
+      target.global_attack_bonus = payload.global_attack_bonus;
+    }
+    if (typeof payload.global_damage_bonus === 'number') {
+      target.global_damage_bonus = payload.global_damage_bonus;
+    }
+    if (payload.equip_stat_bonuses && typeof payload.equip_stat_bonuses === 'object') {
+      target.equip_stat_bonuses = { ...payload.equip_stat_bonuses };
+    }
+    if (typeof payload.equip_hp_bonus === 'number') target.equip_hp_bonus = payload.equip_hp_bonus;
+    if (payload.stats && typeof payload.stats === 'object') target.stats = { ...payload.stats };
+    if (payload.base_stats && typeof payload.base_stats === 'object') {
+      target.base_stats = { ...payload.base_stats };
+    }
+    if (Array.isArray(payload.weapons)) target.weapons = payload.weapons.map((w: any) => ({ ...w }));
+    if (Array.isArray(payload.conditions)) target.conditions = [...payload.conditions];
+    if (payload.concentrating_on !== undefined) {
+      target.concentrating_on = payload.concentrating_on ?? undefined;
+    }
+    if (payload.death_saves && typeof payload.death_saves === 'object') {
+      target.death_saves = { ...payload.death_saves };
+    }
+    if (typeof payload.inspiration === 'boolean') target.inspiration = payload.inspiration;
+    if (typeof payload.hit_dice_used === 'number') target.hit_dice_used = payload.hit_dice_used;
+    if (payload.spell_slots && typeof payload.spell_slots === 'object') {
+      target.spell_slots = JSON.parse(JSON.stringify(payload.spell_slots));
+    }
+    if (Array.isArray(payload.class_resources)) {
+      target.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
+    }
+    if (typeof payload.version === 'number') target.version = payload.version;
+  }
+
   private applyDmPartyUpdate(payload: any, char: CharacterSchema) {
     if (!payload || payload.char_id !== char.char_id) return;
 
+    const hasServerDerived = payload.skills !== undefined || payload.saving_throw_values !== undefined;
+
     if (payload.source === 'player') {
       if (typeof payload.version === 'number' && payload.version > this.knownVersion(char)) {
-        const synced: CharacterSchema = { ...char, version: payload.version };
-        if (typeof payload.hp_current === 'number') synced.hp_current = payload.hp_current;
-        if (typeof payload.hp_max === 'number') synced.hp_max = payload.hp_max;
-        if (typeof payload.hp_temp === 'number') synced.hp_temp = payload.hp_temp;
-        if (typeof payload.level === 'number') synced.char_level = payload.level;
-        if (typeof payload.speed === 'number') synced.speed = payload.speed;
-        if (Array.isArray(payload.conditions)) synced.conditions = [...payload.conditions];
-        if (payload.concentrating_on !== undefined) {
-          synced.concentrating_on = payload.concentrating_on ?? undefined;
+        let synced: CharacterSchema = { ...char };
+        if (typeof payload.exhaustion_level === 'number' && !hasServerDerived) {
+          synced = this.applyExhaustionDelta(synced, payload.exhaustion_level);
         }
-        if (payload.death_saves && typeof payload.death_saves === 'object') {
-          synced.death_saves = { ...payload.death_saves };
-        }
-        if (typeof payload.inspiration === 'boolean') synced.inspiration = payload.inspiration;
-        if (typeof payload.dm_short_rest_unlocked === 'boolean') {
-          synced.dm_short_rest_unlocked = payload.dm_short_rest_unlocked;
-        }
-        if (typeof payload.dm_long_rest_unlocked === 'boolean') {
-          synced.dm_long_rest_unlocked = payload.dm_long_rest_unlocked;
-        }
-        if (typeof payload.dm_level_up_unlocked === 'boolean') {
-          synced.dm_level_up_unlocked = payload.dm_level_up_unlocked;
-        }
-        if (typeof payload.hit_dice_used === 'number') synced.hit_dice_used = payload.hit_dice_used;
-        if (payload.spell_slots && typeof payload.spell_slots === 'object') {
-          synced.spell_slots = JSON.parse(JSON.stringify(payload.spell_slots));
-        }
-        if (Array.isArray(payload.class_resources)) {
-          synced.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
-        }
-        if (typeof payload.exhaustion_level === 'number') {
-          Object.assign(synced, this.applyExhaustionDelta(synced, payload.exhaustion_level));
-        }
+        this.mergePartyUpdateFields(synced, payload, hasServerDerived || typeof payload.exhaustion_level !== 'number');
         this.rememberVersion(synced);
         this.charState.activeCharacter.set(synced);
         this.charState.upsertCharacter(synced);
@@ -829,83 +893,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const prevDeceased = isDeceasedByExhaustion(char);
 
     let updated: CharacterSchema = { ...char };
-    const hasServerDerived = payload.skills !== undefined || payload.saving_throw_values !== undefined;
-
-    if (typeof payload.exhaustion_bypass === 'boolean') updated.exhaustion_bypass = payload.exhaustion_bypass;
-    if (typeof payload.magic_items_suppressed === 'boolean') {
-      updated.magic_items_suppressed = payload.magic_items_suppressed;
-    }
-    if (payload.dm_modifiers !== undefined) {
-      updated.dm_modifiers = payload.dm_modifiers ? { ...payload.dm_modifiers } : undefined;
-    }
-    if (typeof payload.dm_short_rest_unlocked === 'boolean') {
-      updated.dm_short_rest_unlocked = payload.dm_short_rest_unlocked;
-    }
-    if (typeof payload.dm_long_rest_unlocked === 'boolean') {
-      updated.dm_long_rest_unlocked = payload.dm_long_rest_unlocked;
-    }
-    if (typeof payload.dm_level_up_unlocked === 'boolean') {
-      updated.dm_level_up_unlocked = payload.dm_level_up_unlocked;
-    }
-
-    if (typeof payload.exhaustion_level === 'number') {
-      if (hasServerDerived) {
-        updated.exhaustion_level = payload.exhaustion_level;
-      } else {
-        updated = this.applyExhaustionDelta(updated, payload.exhaustion_level);
+    if (typeof payload.exhaustion_level === 'number' && !hasServerDerived) {
+      if (typeof payload.exhaustion_bypass === 'boolean') {
+        updated.exhaustion_bypass = payload.exhaustion_bypass;
       }
+      updated = this.applyExhaustionDelta(updated, payload.exhaustion_level);
     }
-
-    if (typeof payload.hp_max === 'number' && payload.hp_max > 0) updated.hp_max = payload.hp_max;
-    if (typeof payload.hp_current === 'number') updated.hp_current = payload.hp_current;
-    if (typeof payload.hp_temp === 'number') updated.hp_temp = payload.hp_temp;
-    if (typeof payload.ac === 'number' && payload.ac > 0) updated.armor_class = payload.ac;
-    if (payload.ac_breakdown !== undefined) updated.ac_breakdown = payload.ac_breakdown;
-    if (typeof payload.speed === 'number') updated.speed = payload.speed;
-    if (typeof payload.base_speed === 'number') updated.base_speed = payload.base_speed;
-    if (typeof payload.heavy_armor_speed_penalty === 'number') {
-      updated.heavy_armor_speed_penalty = payload.heavy_armor_speed_penalty;
-    }
-    if (payload.base_hp_max !== undefined) updated.base_hp_max = payload.base_hp_max ?? undefined;
-    if (typeof payload.passive_perception === 'number') updated.passive_perception = payload.passive_perception;
-    if (payload.skills && typeof payload.skills === 'object') updated.skills = { ...payload.skills };
-    if (payload.saving_throw_values && typeof payload.saving_throw_values === 'object') {
-      updated.saving_throw_values = { ...payload.saving_throw_values };
-    }
-    if (typeof payload.initiative_modifier === 'number') updated.initiative_modifier = payload.initiative_modifier;
-    if (typeof payload.initiative_bonus === 'number') updated.initiative_bonus = payload.initiative_bonus;
-    if (typeof payload.initiative_advantage === 'boolean') {
-      updated.initiative_advantage = payload.initiative_advantage;
-    }
-    if (typeof payload.spell_save_dc === 'number') updated.spell_save_dc = payload.spell_save_dc;
-    if (payload.spell_attack_bonus !== undefined && payload.spell_attack_bonus !== null) {
-      updated.spell_attack_bonus = String(payload.spell_attack_bonus);
-    }
-    if (typeof payload.global_attack_bonus === 'number') updated.global_attack_bonus = payload.global_attack_bonus;
-    if (typeof payload.global_damage_bonus === 'number') updated.global_damage_bonus = payload.global_damage_bonus;
-    if (payload.equip_stat_bonuses && typeof payload.equip_stat_bonuses === 'object') {
-      updated.equip_stat_bonuses = { ...payload.equip_stat_bonuses };
-    }
-    if (typeof payload.equip_hp_bonus === 'number') updated.equip_hp_bonus = payload.equip_hp_bonus;
-    if (payload.stats && typeof payload.stats === 'object') updated.stats = { ...payload.stats };
-    if (payload.base_stats && typeof payload.base_stats === 'object') {
-      updated.base_stats = { ...payload.base_stats };
-    }
-    if (Array.isArray(payload.weapons)) updated.weapons = payload.weapons.map((w: any) => ({ ...w }));
-    if (Array.isArray(payload.conditions)) updated.conditions = [...payload.conditions];
-    if (payload.concentrating_on !== undefined) updated.concentrating_on = payload.concentrating_on ?? undefined;
-    if (payload.death_saves !== undefined && payload.death_saves !== null) {
-      updated.death_saves = { ...payload.death_saves };
-    }
-    if (typeof payload.inspiration === 'boolean') updated.inspiration = payload.inspiration;
-    if (typeof payload.hit_dice_used === 'number') updated.hit_dice_used = payload.hit_dice_used;
-    if (payload.spell_slots && typeof payload.spell_slots === 'object') {
-      updated.spell_slots = { ...payload.spell_slots };
-    }
-    if (Array.isArray(payload.class_resources)) {
-      updated.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
-    }
-    if (typeof payload.version === 'number') updated.version = payload.version;
+    this.mergePartyUpdateFields(updated, payload, hasServerDerived);
 
     // When healed from 0 HP, automatically reset death saves to 0
     if (previousHp === 0 && (updated.hp_current ?? 0) > 0) {
@@ -2683,7 +2677,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   setTempHp(amount: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) return;
     this.haptics.lightTap();
     const updated = { ...char, hp_temp: Math.max(0, amount) };
     this.charState.activeCharacter.set(updated);
@@ -3048,7 +3042,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   adjustTempHp(delta: number) {
     const char = this.charState.activeCharacter();
-    if (!char) return;
+    if (!char || isDeceasedByExhaustion(char)) return;
     const newTemp = Math.max(0, (char.hp_temp || 0) + delta);
     const updated = { ...char, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);

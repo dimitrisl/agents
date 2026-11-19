@@ -298,6 +298,8 @@ async def update_character(
         char_dict["dm_long_rest_unlocked"] = bool(existing.get("dm_long_rest_unlocked", False))
         char_dict["dm_level_up_unlocked"] = bool(existing.get("dm_level_up_unlocked", False))
         char_dict["dm_hp_bonus_applied"] = int(existing.get("dm_hp_bonus_applied", 0) or 0)
+        char_dict["base_hp_max"] = existing.get("base_hp_max")
+        char_dict["pre_dm_hp_max"] = existing.get("pre_dm_hp_max")
         char_dict["char_level"] = int(existing.get("char_level", 1) or 1)
         char_dict["classes"] = copy.deepcopy(existing.get("classes") or [])
 

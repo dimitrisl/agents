@@ -208,6 +208,7 @@ export interface CharacterSchema {
   base_speed?: number;
   heavy_armor_speed_penalty?: number;
   base_hp_max?: number;
+  pre_dm_hp_max?: number;
   equip_hp_bonus?: number;
   feat_hp_bonus?: number;
   con_mod_applied?: number;

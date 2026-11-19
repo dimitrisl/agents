@@ -945,7 +945,7 @@ def test_negative_dm_hp_clamp_and_combined_exhaustion_l4_restore_cleanly(edition
     base = sync_character_stats(_make_wizard(edition))
     assert base["hp_max"] == 32
 
-    # Extreme negative DM HP bonus clamps to 1 without losing pre-DM base_hp_max (even combined with 2014 L4)
+    # Extreme negative DM HP bonus clamps to 1 in dedicated pre_dm_hp_max without overloading base_hp_max
     clamped = sync_character_stats(
         {
             **copy.deepcopy(base),
@@ -954,9 +954,10 @@ def test_negative_dm_hp_clamp_and_combined_exhaustion_l4_restore_cleanly(edition
         }
     )
     assert clamped["hp_max"] == 1
-    assert clamped["base_hp_max"] == 32
+    assert clamped["pre_dm_hp_max"] == 32
+    assert clamped["base_hp_max"] is None
 
-    # Reducing negative modifier to partial penalty (-10) restores exact 22 (or 11 if 2014 L4)
+    # Reducing negative modifier to partial penalty (-10) restores exact 22 (never losing HP)
     partial_unclamp = sync_character_stats(
         {
             **copy.deepcopy(clamped),
@@ -965,6 +966,7 @@ def test_negative_dm_hp_clamp_and_combined_exhaustion_l4_restore_cleanly(edition
         }
     )
     assert partial_unclamp["hp_max"] == 22
+    assert partial_unclamp["pre_dm_hp_max"] is None
     assert partial_unclamp["base_hp_max"] is None
 
     # Re-clamping cleanly to -100 then clearing back to 0 must restore exact 32 (never 101!)
@@ -975,7 +977,7 @@ def test_negative_dm_hp_clamp_and_combined_exhaustion_l4_restore_cleanly(edition
         }
     )
     assert reclamped["hp_max"] == 1
-    assert reclamped["base_hp_max"] == 32
+    assert reclamped["pre_dm_hp_max"] == 32
 
     cleared = sync_character_stats(
         {
@@ -984,7 +986,48 @@ def test_negative_dm_hp_clamp_and_combined_exhaustion_l4_restore_cleanly(edition
         }
     )
     assert cleared["hp_max"] == 32
+    assert cleared["pre_dm_hp_max"] is None
     assert cleared["base_hp_max"] is None
+
+    if edition == EDITION_2014:
+        # Case A: 2014 Exh L4 + negative DM HP (-25) leaving pre-halving 19 -> halved 9 (repeated syncs stay 9, never 4)
+        base_44 = sync_character_stats(
+            {**_make_wizard(EDITION_2014), "hp_max": 44, "hp_current": 44}
+        )
+        assert base_44["hp_max"] == 44
+        halved_neg = sync_character_stats(
+            {
+                **copy.deepcopy(base_44),
+                "exhaustion_level": 4,
+                "dm_modifiers": {"hp_max_bonus": -25},
+            }
+        )
+        assert halved_neg["pre_dm_hp_max"] is None
+        assert halved_neg["base_hp_max"] == 19
+        assert halved_neg["hp_max"] == 9
+        resynced = sync_character_stats(copy.deepcopy(halved_neg))
+        assert resynced["hp_max"] == 9
+        assert resynced["base_hp_max"] == 19
+        recovered_hp = sync_character_stats(
+            {**copy.deepcopy(resynced), "exhaustion_level": 0, "dm_modifiers": {"hp_max_bonus": 0}}
+        )
+        assert recovered_hp["hp_max"] == 44
+
+        # Case B: Exact boundary (pre_dm=32, dm_hp=-31 => unclamped=1, Exh L4 => halved=1) restores 32 cleanly
+        boundary = sync_character_stats(
+            {
+                **copy.deepcopy(base),
+                "exhaustion_level": 4,
+                "dm_modifiers": {"hp_max_bonus": -31},
+            }
+        )
+        assert boundary["pre_dm_hp_max"] is None
+        assert boundary["base_hp_max"] == 1
+        assert boundary["hp_max"] == 1
+        boundary_restored = sync_character_stats(
+            {**copy.deepcopy(boundary), "exhaustion_level": 0, "dm_modifiers": {"hp_max_bonus": 0}}
+        )
+        assert boundary_restored["hp_max"] == 32
 
 
 def test_review_fixes_levelup_halved_hp_put_bypasses_patch_cas_and_loot_suppression():
@@ -1194,5 +1237,140 @@ def test_review_fixes_levelup_halved_hp_put_bypasses_patch_cas_and_loot_suppress
         )
         assert rested_from_zero["hp_current"] == 6
         assert rested_from_zero["death_saves"] == {"successes": 0, "failures": 0}
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_round2_review_regressions_ws_levelup_version_none_cas_and_boots_suppression():
+    from unittest.mock import AsyncMock
+
+    client, db, auth_headers = _setup_test_client("test_review_round2_db")
+    try:
+        dm_h = auth_headers("dm_r2", "dm_r2@athas.org")
+        p_h = auth_headers("p_r2", "p_r2@athas.org")
+
+        assert (
+            client.post(
+                "/api/v1/campaigns/",
+                json={"campaign_name": "R2 Realm", "dnd_edition": EDITION_2014},
+                headers=dm_h,
+            ).status_code
+            == 200
+        )
+        code = client.post("/api/v1/campaigns/R2 Realm/invite-code", headers=dm_h).json()[
+            "invite_code"
+        ]
+
+        # Low-STR Fighter wearing Plate Armor + Boots of Striding and Springing + Belt of Hill Giant Strength
+        create_res = client.post(
+            "/api/v1/characters",
+            json={
+                "char_name": "Kaelen Strider",
+                "char_class": "Fighter",
+                "char_level": 5,
+                "classes": [{"class_name": "Fighter", "level": 5}],
+                "race": "Human",
+                "background": "Soldier",
+                "dnd_edition": EDITION_2014,
+                "stats": {"STR": 10, "DEX": 10, "CON": 14, "INT": 10, "WIS": 10, "CHA": 10},
+                "hp_max": 44,
+                "hp_current": 44,
+                "speed": 30,
+                "equipment": [
+                    {"name": "Plate Armor", "type": "Heavy Armor", "equipped": True},
+                    {
+                        "name": "Boots of Striding and Springing",
+                        "type": "Wondrous Item",
+                        "equipped": True,
+                    },
+                ],
+            },
+            headers=p_h,
+        )
+        assert create_res.status_code == 201
+        cid = create_res.json()["char_id"]
+        assert create_res.json()["heavy_armor_speed_penalty"] == 0
+        assert create_res.json()["speed"] == 30
+
+        assert (
+            client.post(
+                "/api/v1/campaigns/join",
+                json={"invite_code": code, "character_id": cid},
+                headers=p_h,
+            ).status_code
+            == 200
+        )
+
+        # Simulate legacy character document with explicit version: None in DB; all 3 CAS endpoints must handle it!
+        db["characters"]._col.update_one(
+            {"char_id": cid}, {"$set": {"version": None, "concentrating_on": "Bless"}}
+        )
+        p1 = client.patch(
+            f"/api/v1/campaigns/R2 Realm/party/{cid}/state",
+            json={"dm_level_up_unlocked": True, "dm_modifiers": {"hp_max_bonus": 4}},
+            headers=dm_h,
+        )
+        assert p1.status_code == 200
+        assert p1.json()["version"] == 1
+        assert p1.json()["hp_max"] == 48
+
+        # Party action-unlock (suppress_magic_items=True) with version: None & full _SYNCED_CHAR_FIELDS
+        db["characters"]._col.update_one({"char_id": cid}, {"$set": {"version": None}})
+        u1 = client.post(
+            "/api/v1/campaigns/R2 Realm/party/action-unlock",
+            json={"action_type": "suppress_magic_items", "unlocked": True},
+            headers=dm_h,
+        )
+        assert u1.status_code == 200
+        sup_doc = client.get(f"/api/v1/characters/{cid}", headers=p_h).json()
+        assert sup_doc["version"] == 1
+        assert sup_doc["magic_items_suppressed"] is True
+        # Boots of Striding & Springing are now suppressed -> Plate Armor STR penalty (10 ft) applies!
+        assert sup_doc["heavy_armor_speed_penalty"] == 10
+        assert sup_doc["base_speed"] == 30
+        assert sup_doc["speed"] == 20
+        assert sup_doc["dm_hp_bonus_applied"] == 4
+        assert sup_doc["concentrating_on"] == "Bless"
+
+        # long_rest_party with version: None
+        db["characters"]._col.update_one({"char_id": cid}, {"$set": {"version": None}})
+        lr = client.post(
+            "/api/v1/campaigns/R2 Realm/party/long-rest",
+            headers=dm_h,
+        )
+        assert lr.status_code == 200
+        assert db["characters"]._col.find_one({"char_id": cid})["version"] == 1
+
+        # apply_level_up emits WS party_update with source="player" AND action="level_up"
+        ws_calls = []
+
+        async def _capture_broadcast(camp_name, msg):
+            ws_calls.append((camp_name, msg))
+
+        with patch(
+            "server.routers.websocket_router.manager.broadcast",
+            new=AsyncMock(side_effect=_capture_broadcast),
+        ):
+            lvl_res = client.post(
+                "/api/v1/forge/level-up-apply",
+                json={
+                    "character_id": cid,
+                    "analysis": {
+                        "hp_increase": 8,
+                        "new_total_hp": 52,
+                        "automatic_changes": [],
+                        "choices_required": [],
+                    },
+                    "user_choices": {"level_up_class": "Fighter", "hp_method": "fixed"},
+                },
+                headers=p_h,
+            )
+            assert lvl_res.status_code == 200
+        assert any(
+            msg.get("type") == "party_update"
+            and msg.get("payload", {}).get("source") == "player"
+            and msg.get("payload", {}).get("action") == "level_up"
+            for _, msg in ws_calls
+        )
     finally:
         app.dependency_overrides.clear()

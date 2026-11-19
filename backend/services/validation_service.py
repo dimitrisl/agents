@@ -322,8 +322,10 @@ def get_heavy_armor_strength_penalty(
     if has_arcane_armor:
         return 0, None
 
+    magic_suppressed = bool(char_data.get("magic_items_suppressed", False))
     equipment = char_data.get("equipment") or []
-    has_striding_boots = any(
+    # Boots of Striding and Springing are a Wondrous magic item; suppressed under Athas/Antimagic.
+    has_striding_boots = (not magic_suppressed) and any(
         isinstance(eq, dict)
         and eq.get("equipped")
         and "boots of striding" in str(eq.get("name") or "").lower()
@@ -357,6 +359,7 @@ def get_heavy_armor_strength_penalty(
             continue
         raw_name = str(equip.get("name") or "").strip()
         low = raw_name.lower()
+        # Mithral is a non-magical lightweight metal alloy per 5e Sage Advice.
         if not low or "mithral" in low:
             continue
 
