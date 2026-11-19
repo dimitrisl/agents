@@ -2,9 +2,10 @@
   <div class="flex items-center justify-between">
     <p
       id="hit-points-heading"
-      class="text-micro font-semibold uppercase text-muted"
+      class="text-micro font-semibold uppercase"
+      [ngClass]="isDeceasedByExhaustion ? 'text-crimson font-bold' : 'text-muted'"
     >
-      {{ current === 0 ? '⚠️ Unconscious' : 'Hit Points' }}
+      {{ isDeceasedByExhaustion ? '💀 Deceased (Exhaustion 6)' : (current === 0 ? '⚠️ Unconscious' : 'Hit Points') }}
     </p>
     <button
       type="button"
@@ -52,6 +53,8 @@
       type="button"
       class="w-full max-w-24 justify-self-start"
       aria-label="Increase hit points"
+      [disabled]="isDeceasedByExhaustion"
+      [title]="isDeceasedByExhaustion ? 'Deceased at Exhaustion 6 (managed by DM)' : 'Increase hit points'"
       (click)="applyHpChange(1)"
     >
       <forge-icon name="plus" size="xs" />
@@ -114,8 +117,18 @@
     ></div>
   </div>
 
+  <!-- Deceased at Exhaustion 6 -->
+  <div
+    *ngIf="isDeceasedByExhaustion"
+    class="mt-4 rounded-xl border border-crimson/50 bg-crimson/15 px-3 py-2.5 text-center"
+    role="status"
+  >
+    <p class="text-xs font-bold uppercase tracking-wider text-crimson">💀 Deceased · Exhaustion Level 6</p>
+    <p class="mt-0.5 text-micro text-muted">Recovery requires DM intervention (reduce Exhaustion or enable Bypass).</p>
+  </div>
+
   <!-- Death Saves UI -->
-  <div *ngIf="current === 0" class="mt-4 flex flex-col items-center">
+  <div *ngIf="current === 0 && !isDeceasedByExhaustion" class="mt-4 flex flex-col items-center">
     <div class="w-full flex items-center justify-between mb-2">
       <p class="text-micro font-bold text-crimson uppercase tracking-wider">Death Saves</p>
       <button
@@ -257,16 +270,18 @@
         </button>
         <button
           type="button"
+          [disabled]="isDeceasedByExhaustion"
           (click)="executeHeal()"
-          class="h-12 min-h-12 rounded-xl bg-emerald/20 hover:bg-emerald/30 border border-emerald/40 text-emerald font-bold text-sm transition-colors flex flex-col items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-emerald/20 hover:bg-emerald/30 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald/40 text-emerald font-bold text-sm transition-colors flex flex-col items-center justify-center"
         >
           <span>💚 Heal</span>
           <span class="text-micro opacity-80">+{{ numpadValue() }}</span>
         </button>
         <button
           type="button"
+          [disabled]="isDeceasedByExhaustion"
           (click)="executeSetTemp()"
-          class="h-12 min-h-12 rounded-xl bg-gold/20 hover:bg-gold/30 border border-gold/40 text-gold font-bold text-sm transition-colors flex flex-col items-center justify-center"
+          class="h-12 min-h-12 rounded-xl bg-gold/20 hover:bg-gold/30 disabled:opacity-40 disabled:cursor-not-allowed border border-gold/40 text-gold font-bold text-sm transition-colors flex flex-col items-center justify-center"
         >
           <span>🛡️ Set Temp</span>
           <span class="text-micro opacity-80">{{ numpadValue() }}</span>

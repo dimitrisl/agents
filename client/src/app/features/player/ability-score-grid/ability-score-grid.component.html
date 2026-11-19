@@ -35,11 +35,17 @@
           <button
             type="button"
             class="flex min-h-7 items-center justify-between rounded-md bg-panel px-2 text-micro font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
-            [attr.aria-label]="'Roll ' + entry.key + ' check, ' + getModifierString(char.stats[entry.key])"
+            [attr.aria-label]="'Roll ' + entry.key + ' check, ' + checkModifier(entry.key) + (hasCheckDisadvantage ? ' with disadvantage' : '')"
+            [title]="hasCheckDisadvantage ? 'Disadvantage from Exhaustion (2014)' : 'Ability check'"
             (click)="abilityCheck.emit(entry.key)"
           >
-            <span>Check</span>
-            <span class="tabular-nums">{{ getModifierString(char.stats[entry.key]) }}</span>
+            <span class="flex items-center gap-1">
+              Check
+              @if (hasCheckDisadvantage) {
+                <span class="rounded bg-crimson/20 px-1 text-[9px] font-bold uppercase text-crimson">DIS</span>
+              }
+            </span>
+            <span class="tabular-nums">{{ checkModifier(entry.key) }}</span>
           </button>
           <button
             type="button"
@@ -50,9 +56,9 @@
                 : 'bg-panel text-muted hover:bg-surface-hover hover:text-ink'
             "
             [attr.aria-label]="
-              'Roll ' + entry.key + ' saving throw, ' + saveModifier(entry.key) + (isProficient(entry.key) ? ' (proficient)' : '')
+              'Roll ' + entry.key + ' saving throw, ' + saveModifier(entry.key) + (isProficient(entry.key) ? ' (proficient)' : '') + (hasSaveDisadvantage ? ' with disadvantage' : '')
             "
-            [title]="isProficient(entry.key) ? 'Proficient saving throw' : 'Saving throw'"
+            [title]="hasSaveDisadvantage ? 'Disadvantage from Exhaustion (2014)' : (isProficient(entry.key) ? 'Proficient saving throw' : 'Saving throw')"
             (click)="savingThrow.emit(entry.key)"
           >
             <span class="flex items-center gap-1">
@@ -60,6 +66,9 @@
                 <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true"></span>
               }
               Save
+              @if (hasSaveDisadvantage) {
+                <span class="rounded bg-crimson/20 px-1 text-[9px] font-bold uppercase text-crimson">DIS</span>
+              }
             </span>
             <span class="tabular-nums">{{ saveModifier(entry.key) }}</span>
           </button>

@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
@@ -20,6 +20,7 @@ from backend.core.schemas import (
     CampaignEntitySchema,
     CampaignRollResponse,
     CampaignSkeletonSchema,
+    DmModifiersSchema,
     EncounterStateSchema,
     EncounterSyncResponseSchema,
     InviteCodeResponse,
@@ -34,10 +35,19 @@ from backend.core.schemas import (
     VTTTokenSchema,
     WhisperReportCreateRequest,
 )
+from backend.repositories.rules_repository import RulesRepository
+from backend.services.campaign_service import build_party_update_payload
 from backend.services.dice_service import roll_dice
 from backend.services.encounter_service import calculate_danger_indicator
+from backend.services.rest_service import (
+    apply_long_rest,
+    dm_control_reset_fields,
+    is_deceased_by_exhaustion,
+    reset_campaign_dm_controls,
+)
 from backend.services.session_service import SessionService
 from backend.services.stats_service import (
+    _parse_dm_controls,
     calculate_skills,
     get_modifier,
     has_jack_of_all_trades,
@@ -130,22 +140,42 @@ class RollRequestResultSchema(BaseModel):
 
 class PartyMemberStateRequest(BaseModel):
     """
-    A partial update: only the fields the DM actually changed are sent, so a
-    hit-point edit never overwrites conditions set a moment earlier from the
-    other tab.
+    Partial state update sent by the DM from DM Workspace: vitals, conditions,
+    exhaustion/bypass, magic item suppression (Athas), custom DM modifiers, unlocks,
+    and Heroic Inspiration.
     """
 
     hp_current: Optional[int] = None
     conditions: Optional[List[str]] = None
+    exhaustion_level: Optional[int] = Field(default=None, ge=0, le=6)
+    exhaustion_bypass: Optional[bool] = None
+    magic_items_suppressed: Optional[bool] = None
+    dm_modifiers: Optional[DmModifiersSchema] = None
+    dm_short_rest_unlocked: Optional[bool] = None
+    dm_long_rest_unlocked: Optional[bool] = None
+    dm_level_up_unlocked: Optional[bool] = None
+    inspiration: Optional[bool] = None
 
 
 class PartyMemberStateResponse(SuccessResponseSchema):
+    model_config = ConfigDict(extra="allow")
+
     char_id: str
     char_name: str
     hp_current: int
     hp_max: int
     conditions: List[str]
     version: Optional[int] = None
+
+
+class PartyActionUnlockRequest(BaseModel):
+    action_type: Literal["short_rest", "long_rest", "level_up", "suppress_magic_items"]
+    unlocked: bool = True
+    char_id: Optional[str] = None
+
+
+class PartyActionUnlockResponse(SuccessResponseSchema):
+    updated_count: int = 0
 
 
 class WhisperResponse(SuccessResponseSchema):
@@ -273,8 +303,28 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
     stat_upper = stat_clean.upper()
     edition = char.get("ruleset_version") or char.get("dnd_edition")
     is_2024 = "2024" in str(edition or "")
-    exh_level = max(0, min(6, int(char.get("exhaustion_level", 0) or 0)))
+    exh_bypass, _, dm_mods = _parse_dm_controls(char)
+    exh_level = 0 if exh_bypass else max(0, min(6, int(char.get("exhaustion_level", 0) or 0)))
     exh_penalty = (2 * exh_level) if is_2024 else 0
+    dm_check_bonus = int(dm_mods.get("ability_checks_bonus", 0) or 0)
+    dm_save_bonus = int(dm_mods.get("saving_throws_bonus", 0) or 0)
+    dm_init_bonus = int(dm_mods.get("initiative_bonus", 0) or 0)
+    dm_atk_bonus = int(dm_mods.get("attack_bonus", 0) or 0)
+
+    if normalized in {"death", "death_save"} or stat_clean.lower() == "death":
+        return -exh_penalty + dm_save_bonus
+
+    if normalized == "concentration" or stat_clean.lower() == "concentration":
+        save_values = char.get("saving_throw_values") or {}
+        if "CON" in save_values:
+            return int(save_values["CON"])
+        saving_throws = [s.upper() for s in (char.get("saving_throws") or [])]
+        return (
+            get_modifier(stats.get("CON", 10))
+            + (prof_bonus if "CON" in saving_throws else 0)
+            - exh_penalty
+            + dm_save_bonus
+        )
 
     if normalized in _SAVE_TYPES:
         save_values = char.get("saving_throw_values") or {}
@@ -286,7 +336,9 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
         stat_val = stats.get(stat_upper)
         if stat_val is None:
             stat_val = next((v for k, v in stats.items() if k.upper() == stat_upper), 10)
-        return get_modifier(stat_val) + (prof_bonus if proficient else 0) - exh_penalty
+        return (
+            get_modifier(stat_val) + (prof_bonus if proficient else 0) - exh_penalty + dm_save_bonus
+        )
 
     if normalized in _SKILL_TYPES:
         char_skills = char.get("skills") or {}
@@ -307,35 +359,74 @@ def _sheet_modifier(char: dict, roll_type: str, stat: str) -> int:
         )
         for sk_name, sk_val in skills.items():
             if sk_name.lower() == stat_clean.lower():
-                return int(sk_val) - exh_penalty
+                return int(sk_val) - exh_penalty + dm_check_bonus
 
     if normalized == "initiative" or stat_clean.lower() == "initiative":
         if "initiative_modifier" in char and char["initiative_modifier"] is not None:
             return int(char["initiative_modifier"])
-        return get_modifier(stats.get("DEX", 10)) - exh_penalty
+        return get_modifier(stats.get("DEX", 10)) - exh_penalty + dm_check_bonus + dm_init_bonus
+
+    if normalized in {"attack", "weapon_attack", "spell_attack"}:
+        if normalized == "spell_attack" and char.get("spell_attack_bonus") is not None:
+            try:
+                return int(str(char["spell_attack_bonus"]).replace("+", "").strip())
+            except ValueError:
+                pass
+        return dm_atk_bonus - exh_penalty
 
     if stat_upper in stats:
-        return get_modifier(stats[stat_upper]) - exh_penalty
+        return get_modifier(stats[stat_upper]) - exh_penalty + dm_check_bonus
 
     for k, v in stats.items():
         if k.upper() == stat_upper:
-            return get_modifier(v) - exh_penalty
+            return get_modifier(v) - exh_penalty + dm_check_bonus
 
-    return get_modifier(stats.get(stat, 10)) - exh_penalty
+    return get_modifier(stats.get(stat, 10)) - exh_penalty + dm_check_bonus
 
 
 def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str, Any]:
     """
-    The DM rolls on the hero's behalf and the hero is never told. This is what a
-    secret roll means at a real table: the player must not learn that they failed
-    the Perception check, and being asked to roll it is already telling them.
-
-    A hero with no sheet on file still gets a roll — a flat d20 — rather than
-    blocking the DM mid-scene.
+    The DM rolls on the hero's behalf and the hero is never told. Applies sheet
+    modifier plus automatic 2014 Exhaustion Disadvantage (L1+ checks, L3+ saves/attacks)
+    and Adv/Dis cancellation, while respecting `exhaustion_bypass`.
     """
     modifier = _sheet_modifier(char, roll_type, stat) if char else 0
-    outcome = roll_dice(f"1d20{modifier:+d}")
+    has_adv = False
+    has_dis = False
+
+    if char:
+        edition = char.get("ruleset_version") or char.get("dnd_edition")
+        is_2024 = "2024" in str(edition or "")
+        exh_bypass = bool(char.get("exhaustion_bypass", False))
+        eff_exh = 0 if exh_bypass else max(0, min(6, int(char.get("exhaustion_level", 0) or 0)))
+        normalized = re.sub(r"[\s-]+", "_", (roll_type or "").lower())
+        stat_clean = (stat or "").strip().lower()
+
+        is_save_or_attack = (
+            normalized in _SAVE_TYPES
+            or normalized
+            in {"death", "death_save", "concentration", "attack", "weapon_attack", "spell_attack"}
+            or stat_clean in {"death", "concentration"}
+        )
+        if not is_2024 and eff_exh >= 1:
+            has_dis = (eff_exh >= 3) if is_save_or_attack else True
+
+        is_init = normalized == "initiative" or stat_clean == "initiative"
+        is_athletics = normalized in _SKILL_TYPES and stat_clean == "athletics"
+        if is_init:
+            has_adv = bool(char.get("initiative_advantage", False)) or (
+                is_2024 and has_remarkable_athlete(char, edition=edition)
+            )
+        elif is_athletics:
+            has_adv = bool(char.get("athletics_advantage", False)) or (
+                is_2024 and has_remarkable_athlete(char, edition=edition)
+            )
+
+    outcome = roll_dice(f"1d20{modifier:+d}", advantage=has_adv, disadvantage=has_dis)
     raw = outcome["raw_result"]
+    effective_mode = (
+        "normal" if (has_adv == has_dis) else ("advantage" if has_adv else "disadvantage")
+    )
 
     return {
         "total": outcome["total"],
@@ -344,7 +435,7 @@ def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str
         "raw": raw,
         "rolls": outcome["rolls"],
         "modifier": modifier,
-        "mode": "normal",
+        "mode": effective_mode,
         "situational_bonus": 0,
     }
 
@@ -558,6 +649,40 @@ async def get_campaign_party(
     return party_members
 
 
+async def _load_campaign_homebrew(db: Any, campaign_name: str) -> List[Dict[str, Any]]:
+    try:
+        coll = db["homebrew_content"]
+        cursor = coll.find({"campaign_id": campaign_name})
+        if hasattr(cursor, "to_list"):
+            docs = await cursor.to_list(length=500)
+            return [d for d in docs if isinstance(d, dict)]
+    except Exception:
+        pass
+    return []
+
+
+def _supports_async_find_one_and_update(coll: Any) -> bool:
+    from unittest.mock import MagicMock
+
+    fn = getattr(coll, "find_one_and_update", None)
+    if fn is None:
+        return False
+    if isinstance(coll, MagicMock) and isinstance(fn, MagicMock):
+        return inspect.iscoroutinefunction(fn)
+    return True
+
+
+def _cas_char_filter(char_doc: dict, name: str) -> Dict[str, Any]:
+    raw_version = char_doc.get("version")
+    flt: Dict[str, Any] = {"char_id": char_doc.get("char_id"), "active_campaign": name}
+    if "version" in char_doc:
+        if raw_version is None:
+            flt["$or"] = [{"version": None}, {"version": {"$exists": False}}]
+        else:
+            flt["version"] = raw_version
+    return flt
+
+
 @router.patch("/{name}/party/{char_id}/state", response_model=PartyMemberStateResponse)
 async def update_party_member_state(
     name: str,
@@ -568,11 +693,9 @@ async def update_party_member_state(
     member: dict = Depends(require_campaign_role("dm")),
 ):
     """
-    Persists the hit points and conditions the DM is tracking at the table.
-
-    Until now these lived only in the DM's browser: the player saw nothing, the
-    database learned nothing, and a refresh threw the session's damage away. The
-    character document already carried both fields — nobody was writing them.
+    Persists DM-controlled party state: HP, conditions, exhaustion level/bypass,
+    Athas/Antimagic suppression, custom DM modifiers, 1-shot unlocks, and inspiration.
+    Re-runs `sync_character_stats()` whenever mechanical fields change.
     """
     char = await db["characters"].find_one({"char_id": char_id})
     if not char:
@@ -586,60 +709,361 @@ async def update_party_member_state(
             detail="That character is not part of this campaign.",
         )
 
-    updates: Dict[str, Any] = {}
-
-    if payload.hp_current is not None:
-        hp_max = char.get("hp_max") or 0
-        # A hero cannot be dropped below dead or healed past their own maximum.
-        old_hp = char.get("hp_current", 0) or 0
-        new_hp = max(0, min(hp_max, payload.hp_current))
-        updates["hp_current"] = new_hp
-        if old_hp == 0 and new_hp > 0:
-            updates["death_saves"] = {"successes": 0, "failures": 0}
-
-    if payload.conditions is not None:
-        # Deduplicated, order preserved: the tracker sends what is on screen and
-        # the same condition twice is a client bug, not a stacking rule.
-        seen = set()
-        cleaned = []
-        for condition in payload.conditions:
-            label = condition.strip()
-            if label and label.lower() not in seen:
-                seen.add(label.lower())
-                cleaned.append(label)
-        updates["conditions"] = cleaned
-
-    if not updates:
+    has_any = any(
+        val is not None
+        for val in (
+            payload.hp_current,
+            payload.conditions,
+            payload.exhaustion_level,
+            payload.exhaustion_bypass,
+            payload.magic_items_suppressed,
+            payload.dm_modifiers,
+            payload.dm_short_rest_unlocked,
+            payload.dm_long_rest_unlocked,
+            payload.dm_level_up_unlocked,
+            payload.inspiration,
+        )
+    )
+    if not has_any:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nothing to update.")
 
-    # Only the touched fields are written. A blind $set of the whole document
-    # would race with the character sheet the player has open.
-    new_version = int(char.get("version", 0) or 0) + 1
-    await db["characters"].update_one(
-        {"char_id": char_id, "active_campaign": name}, {"$set": updates, "$inc": {"version": 1}}
+    needs_stat_sync = any(
+        val is not None
+        for val in (
+            payload.exhaustion_level,
+            payload.exhaustion_bypass,
+            payload.magic_items_suppressed,
+            payload.dm_modifiers,
+        )
     )
+    homebrew_items = await _load_campaign_homebrew(db, name) if needs_stat_sync else None
 
-    state = {
-        "char_id": char_id,
-        "char_name": char.get("char_name", "Unknown"),
-        "hp_current": updates.get("hp_current", char.get("hp_current") or 0),
-        "hp_max": char.get("hp_max") or 0,
-        "hp_temp": char.get("hp_temp", 0) or 0,
-        "conditions": updates.get("conditions", char.get("conditions", [])),
-        "concentrating_on": char.get("concentrating_on"),
-        "death_saves": updates.get("death_saves", char.get("death_saves")),
-        "inspiration": bool(char.get("inspiration", False)),
-        "exhaustion_level": int(char.get("exhaustion_level", 0) or 0),
-        "version": new_version,
-        "source": "dm",
-    }
+    camp = None
+    if needs_stat_sync:
+        try:
+            camp = await db["campaigns"].find_one({"campaign_name": name})
+        except Exception:
+            camp = None
+    repo = RulesRepository() if needs_stat_sync else None
+
+    updated_doc: Optional[Dict[str, Any]] = None
+    current_char = char
+
+    if not needs_stat_sync:
+        updates: Dict[str, Any] = {}
+        if payload.hp_current is not None:
+            hp_max_now = int(current_char.get("hp_max") or 0)
+            old_hp = int(current_char.get("hp_current", 0) or 0)
+            new_hp = max(0, min(hp_max_now, int(payload.hp_current)))
+            updates["hp_current"] = new_hp
+            if old_hp == 0 and new_hp > 0:
+                updates["death_saves"] = {"successes": 0, "failures": 0}
+        if payload.conditions is not None:
+            seen = set()
+            cleaned = []
+            for condition in payload.conditions:
+                label = condition.strip()
+                if label and label.lower() not in seen:
+                    seen.add(label.lower())
+                    cleaned.append(label)
+            updates["conditions"] = cleaned
+        if payload.dm_short_rest_unlocked is not None:
+            updates["dm_short_rest_unlocked"] = bool(payload.dm_short_rest_unlocked)
+        if payload.dm_long_rest_unlocked is not None:
+            updates["dm_long_rest_unlocked"] = bool(payload.dm_long_rest_unlocked)
+        if payload.dm_level_up_unlocked is not None:
+            updates["dm_level_up_unlocked"] = bool(payload.dm_level_up_unlocked)
+        if payload.inspiration is not None:
+            updates["inspiration"] = bool(payload.inspiration)
+
+        await db["characters"].update_one(
+            {"char_id": char_id, "active_campaign": name},
+            {"$set": updates, "$inc": {"version": 1}},
+        )
+        updated_doc = {
+            **current_char,
+            **updates,
+            "version": int(current_char.get("version", 0) or 0) + 1,
+        }
+    else:
+        for _attempt in range(3):
+            updates = {}
+
+            if payload.conditions is not None:
+                seen = set()
+                cleaned = []
+                for condition in payload.conditions:
+                    label = condition.strip()
+                    if label and label.lower() not in seen:
+                        seen.add(label.lower())
+                        cleaned.append(label)
+                updates["conditions"] = cleaned
+
+            if payload.exhaustion_level is not None:
+                updates["exhaustion_level"] = max(0, min(6, int(payload.exhaustion_level)))
+            if payload.exhaustion_bypass is not None:
+                updates["exhaustion_bypass"] = bool(payload.exhaustion_bypass)
+            if payload.magic_items_suppressed is not None:
+                updates["magic_items_suppressed"] = bool(payload.magic_items_suppressed)
+            if payload.dm_modifiers is not None:
+                updates["dm_modifiers"] = payload.dm_modifiers.model_dump()
+            if payload.dm_short_rest_unlocked is not None:
+                updates["dm_short_rest_unlocked"] = bool(payload.dm_short_rest_unlocked)
+            if payload.dm_long_rest_unlocked is not None:
+                updates["dm_long_rest_unlocked"] = bool(payload.dm_long_rest_unlocked)
+            if payload.dm_level_up_unlocked is not None:
+                updates["dm_level_up_unlocked"] = bool(payload.dm_level_up_unlocked)
+            if payload.inspiration is not None:
+                updates["inspiration"] = bool(payload.inspiration)
+
+            if payload.hp_current is not None:
+                hp_max_now = int(current_char.get("hp_max") or 0)
+                old_hp = int(current_char.get("hp_current", 0) or 0)
+                new_hp = max(0, min(hp_max_now, int(payload.hp_current)))
+                updates["hp_current"] = new_hp
+                if old_hp == 0 and new_hp > 0:
+                    updates["death_saves"] = {"successes": 0, "failures": 0}
+
+            if repo is not None:
+                working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
+                working.update(updates)
+                edition = (
+                    working.get("dnd_edition")
+                    or working.get("ruleset_version")
+                    or (camp or {}).get("dnd_edition")
+                    or "2014 Edition"
+                )
+                if not working.get("dnd_edition"):
+                    working["dnd_edition"] = edition
+                class_data = repo.get_class_progression(working.get("char_class"), edition)
+                synced = sync_character_stats(working, class_data, homebrew_content=homebrew_items)
+                for sync_key in (
+                    "hp_max",
+                    "hp_current",
+                    "base_hp_max",
+                    "dm_hp_bonus_applied",
+                    "equip_hp_bonus",
+                    "equip_stat_bonuses",
+                    "con_mod_applied",
+                    "stats",
+                    "base_stats",
+                    "armor_class",
+                    "ac_breakdown",
+                    "speed",
+                    "base_speed",
+                    "heavy_armor_speed_penalty",
+                    "passive_perception",
+                    "skills",
+                    "saving_throw_values",
+                    "initiative_modifier",
+                    "initiative_bonus",
+                    "initiative_advantage",
+                    "athletics_advantage",
+                    "spell_attack_bonus",
+                    "spell_save_dc",
+                    "global_attack_bonus",
+                    "global_damage_bonus",
+                    "weapons",
+                    "concentrating_on",
+                    "exhaustion_level",
+                    "exhaustion_bypass",
+                    "magic_items_suppressed",
+                    "dm_modifiers",
+                ):
+                    if sync_key in synced:
+                        updates[sync_key] = synced[sync_key]
+
+            query_filter = _cas_char_filter(current_char, name)
+            if _supports_async_find_one_and_update(db["characters"]):
+                updated_doc = await db["characters"].find_one_and_update(
+                    query_filter,
+                    {"$set": updates, "$inc": {"version": 1}},
+                    return_document=ReturnDocument.AFTER,
+                )
+            else:
+                await db["characters"].update_one(
+                    query_filter, {"$set": updates, "$inc": {"version": 1}}
+                )
+                updated_doc = {
+                    **current_char,
+                    **updates,
+                    "version": int(current_char.get("version", 0) or 0) + 1,
+                }
+
+            if updated_doc is not None:
+                break
+
+            refetched = await db["characters"].find_one(
+                {"char_id": char_id, "active_campaign": name}
+            )
+            if not refetched:
+                break
+            current_char = refetched
+
+    if not updated_doc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently. Please refresh.",
+        )
+
+    state = build_party_update_payload(updated_doc, source="dm")
 
     from server.routers.websocket_router import manager
 
-    # Untargeted on purpose: every hero at the table can see who is bloodied.
     await manager.broadcast(name, {"type": "party_update", "payload": state})
 
     return {"success": True, "message": f"Updated {state['char_name']}.", **state}
+
+
+@router.post("/{name}/party/action-unlock", response_model=PartyActionUnlockResponse)
+async def unlock_party_action(
+    name: str,
+    payload: PartyActionUnlockRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    member: dict = Depends(require_campaign_role("dm")),
+):
+    """DM toggle for 1-shot Short Rest / Long Rest / Level Up unlocks or Athas Magic Item Suppression."""
+    camp = await db["campaigns"].find_one({"campaign_name": name})
+    if not camp:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    field_map = {
+        "short_rest": "dm_short_rest_unlocked",
+        "long_rest": "dm_long_rest_unlocked",
+        "level_up": "dm_level_up_unlocked",
+        "suppress_magic_items": "magic_items_suppressed",
+    }
+    target_field = field_map[payload.action_type]
+
+    if payload.char_id:
+        single = await db["characters"].find_one({"char_id": payload.char_id})
+        if not single:
+            raise HTTPException(status_code=404, detail="Character not found")
+        if single.get("active_campaign") != name:
+            raise HTTPException(
+                status_code=403, detail="That character is not part of this campaign."
+            )
+        targets = [single]
+    else:
+        cursor = db["characters"].find({"active_campaign": name})
+        targets = [c async for c in cursor]
+
+    from server.routers.websocket_router import manager
+
+    needs_sync = payload.action_type == "suppress_magic_items"
+    homebrew_items = await _load_campaign_homebrew(db, name) if needs_sync else None
+    repo = RulesRepository() if needs_sync else None
+
+    updated_count = 0
+    for char_doc in targets:
+        cid = char_doc.get("char_id")
+        if not cid:
+            continue
+        if (
+            payload.action_type == "level_up"
+            and payload.unlocked
+            and int(char_doc.get("char_level") or 1) >= 20
+        ):
+            continue
+
+        updated_doc: Optional[Dict[str, Any]] = None
+        current_char = char_doc
+        for _attempt in range(3):
+            updates: Dict[str, Any] = {target_field: bool(payload.unlocked)}
+            if needs_sync and repo is not None:
+                working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
+                working.update(updates)
+                edition = (
+                    working.get("dnd_edition")
+                    or working.get("ruleset_version")
+                    or camp.get("dnd_edition")
+                    or "2014 Edition"
+                )
+                if not working.get("dnd_edition"):
+                    working["dnd_edition"] = edition
+                class_data = repo.get_class_progression(working.get("char_class"), edition)
+                synced = sync_character_stats(working, class_data, homebrew_content=homebrew_items)
+                for sync_key in (
+                    "hp_max",
+                    "hp_current",
+                    "base_hp_max",
+                    "equip_hp_bonus",
+                    "equip_stat_bonuses",
+                    "con_mod_applied",
+                    "stats",
+                    "base_stats",
+                    "armor_class",
+                    "ac_breakdown",
+                    "speed",
+                    "heavy_armor_speed_penalty",
+                    "passive_perception",
+                    "skills",
+                    "saving_throw_values",
+                    "initiative_modifier",
+                    "initiative_bonus",
+                    "initiative_advantage",
+                    "spell_attack_bonus",
+                    "spell_save_dc",
+                    "global_attack_bonus",
+                    "global_damage_bonus",
+                    "weapons",
+                    "magic_items_suppressed",
+                ):
+                    if sync_key in synced:
+                        updates[sync_key] = synced[sync_key]
+
+            qfilter = _cas_char_filter(current_char, name)
+            if _supports_async_find_one_and_update(db["characters"]):
+                updated_doc = await db["characters"].find_one_and_update(
+                    qfilter,
+                    {"$set": updates, "$inc": {"version": 1}},
+                    return_document=ReturnDocument.AFTER,
+                )
+            else:
+                await db["characters"].update_one(
+                    qfilter, {"$set": updates, "$inc": {"version": 1}}
+                )
+                updated_doc = {
+                    **current_char,
+                    **updates,
+                    "version": int(current_char.get("version", 0) or 0) + 1,
+                }
+            if updated_doc is not None:
+                break
+            refetched = await db["characters"].find_one({"char_id": cid, "active_campaign": name})
+            if not refetched:
+                break
+            current_char = refetched
+
+        if updated_doc:
+            updated_count += 1
+            await manager.broadcast(
+                name,
+                {
+                    "type": "party_update",
+                    "payload": build_party_update_payload(
+                        updated_doc, source="dm", action="action_unlock"
+                    ),
+                },
+            )
+
+    action_labels = {
+        "short_rest": "Short Rest",
+        "long_rest": "Long Rest",
+        "level_up": "Level Up",
+        "suppress_magic_items": "Magic Item Suppression",
+    }
+    state_label = (
+        ("enabled" if payload.unlocked else "disabled")
+        if payload.action_type == "suppress_magic_items"
+        else ("unlocked" if payload.unlocked else "locked")
+    )
+    return {
+        "success": True,
+        "message": f"{action_labels[payload.action_type]} {state_label} for {updated_count} party member(s).",
+        "updated_count": updated_count,
+    }
 
 
 @router.post("/{name}/party/long-rest", response_model=SuccessResponseSchema)
@@ -656,97 +1080,46 @@ async def long_rest_party(
 
     from server.routers.websocket_router import manager
 
+    homebrew_items = await _load_campaign_homebrew(db, name)
     rested_count = 0
+    skipped_dead = 0
     cursor = db["characters"].find({"active_campaign": name})
     async for char in cursor:
         char_id = char.get("char_id")
         if not char_id:
             continue
 
+        if is_deceased_by_exhaustion(char):
+            skipped_dead += 1
+            continue
+
         updated_doc = None
         current_char = char
-        for attempt in range(2):
+        for _attempt in range(2):
+            if is_deceased_by_exhaustion(current_char):
+                skipped_dead += 1
+                updated_doc = None
+                break
+
             edition = (
                 current_char.get("dnd_edition")
                 or current_char.get("ruleset_version")
                 or camp.get("dnd_edition")
                 or ""
             )
-            is_2024_rest = "2024" in str(edition)
-            old_exh = int(current_char.get("exhaustion_level", 0) or 0)
-            new_exh = max(0, old_exh - 1)
+            working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
+            if edition and not working.get("dnd_edition"):
+                working["dnd_edition"] = edition
 
-            old_hd_used = max(0, int(current_char.get("hit_dice_used") or 0))
-            if is_2024_rest:
-                new_hd_used = 0
-            else:
-                total_hd = max(1, int(current_char.get("char_level") or 1))
-                recovered_hd = max(1, total_hd // 2)
-                new_hd_used = max(0, old_hd_used - recovered_hd)
-
-            raw_slots = current_char.get("spell_slots") or {}
-            reset_slots: Dict[str, Any] = {}
-            if isinstance(raw_slots, dict):
-                for k, slot_val in raw_slots.items():
-                    if isinstance(slot_val, dict):
-                        next_slot = {**slot_val, "used": 0}
-                        if "pact_used" in next_slot:
-                            next_slot["pact_used"] = 0
-                        reset_slots[k] = next_slot
-                    else:
-                        reset_slots[k] = slot_val
-
-            raw_resources = current_char.get("class_resources") or []
-            recharged_resources: List[Dict[str, Any]] = []
-            for res in raw_resources:
-                if isinstance(res, dict):
-                    res_max = res.get("max", res.get("current", 0))
-                    recharged_resources.append({**res, "current": res_max})
-
-            updates: Dict[str, Any] = {
-                "hp_temp": 0,
-                "hit_dice_used": new_hd_used,
-                "concentrating_on": None,
-                "death_saves": {"successes": 0, "failures": 0},
-                "exhaustion_level": new_exh,
-                "spell_slots": reset_slots,
-                "class_resources": recharged_resources,
+            synced_rested = apply_long_rest(working, homebrew_content=homebrew_items)
+            updates = {
+                k: v
+                for k, v in synced_rested.items()
+                if k not in ("_id", "char_id", "owner_id", "version")
             }
 
-            if current_char.get("stats"):
-                working = copy.deepcopy({k: v for k, v in current_char.items() if k != "_id"})
-                working.update(updates)
-                if edition and not working.get("dnd_edition"):
-                    working["dnd_edition"] = edition
-                synced = sync_character_stats(working)
-                for sync_key in (
-                    "hp_max",
-                    "base_hp_max",
-                    "speed",
-                    "base_speed",
-                    "skills",
-                    "saving_throw_values",
-                    "initiative_modifier",
-                    "weapons",
-                    "spell_attack_bonus",
-                    "spell_save_dc",
-                ):
-                    if sync_key in synced:
-                        updates[sync_key] = synced[sync_key]
-            else:
-                if (not is_2024_rest) and new_exh < 4 and current_char.get("base_hp_max"):
-                    updates["hp_max"] = current_char["base_hp_max"]
-                else:
-                    updates["hp_max"] = current_char.get("hp_max") or 0
-
-            hp_max = updates.get("hp_max") or current_char.get("hp_max") or 0
-            updates["hp_current"] = hp_max
-
-            query_filter: Dict[str, Any] = {"char_id": char_id, "active_campaign": name}
-            if "version" in current_char:
-                query_filter["version"] = current_char["version"]
-
-            if hasattr(db["characters"], "find_one_and_update"):
+            query_filter = _cas_char_filter(current_char, name)
+            if _supports_async_find_one_and_update(db["characters"]):
                 updated_doc = await db["characters"].find_one_and_update(
                     query_filter,
                     {"$set": updates, "$inc": {"version": 1}},
@@ -776,41 +1149,19 @@ async def long_rest_party(
         if not updated_doc:
             continue
 
-        new_version = int(updated_doc.get("version", int(current_char.get("version", 0) or 0) + 1))
         await manager.broadcast(
             name,
             {
                 "type": "party_update",
-                "payload": {
-                    "char_id": char_id,
-                    "char_name": updated_doc.get(
-                        "char_name", current_char.get("char_name", "Unknown")
-                    ),
-                    "hp_current": updated_doc.get("hp_current", updates["hp_current"]),
-                    "hp_max": updated_doc.get("hp_max", updates["hp_max"]),
-                    "hp_temp": 0,
-                    "speed": updated_doc.get("speed", current_char.get("speed")),
-                    "conditions": updated_doc.get("conditions", []),
-                    "concentrating_on": None,
-                    "death_saves": {"successes": 0, "failures": 0},
-                    "inspiration": bool(updated_doc.get("inspiration", False)),
-                    "exhaustion_level": updated_doc.get(
-                        "exhaustion_level", updates["exhaustion_level"]
-                    ),
-                    "hit_dice_used": updated_doc.get("hit_dice_used", updates["hit_dice_used"]),
-                    "spell_slots": updated_doc.get("spell_slots", updates["spell_slots"]),
-                    "class_resources": updated_doc.get(
-                        "class_resources", updates["class_resources"]
-                    ),
-                    "version": new_version,
-                    "source": "dm",
-                    "action": "long_rest",
-                },
+                "payload": build_party_update_payload(updated_doc, source="dm", action="long_rest"),
             },
         )
         rested_count += 1
 
-    return {"success": True, "message": f"Completed Long Rest for {rested_count} party member(s)."}
+    msg = f"Completed Long Rest for {rested_count} party member(s)."
+    if skipped_dead > 0:
+        msg += f" Skipped {skipped_dead} deceased hero(es) at Exhaustion 6."
+    return {"success": True, "message": msg}
 
 
 async def _extract_character_id(
@@ -960,9 +1311,23 @@ async def join_campaign_by_code(
         {"campaign_name": camp["campaign_name"]}, {"$addToSet": {"party": party_filename}}
     )
 
+    join_updates = {**dm_control_reset_fields(), "active_campaign": camp["campaign_name"]}
+    if (
+        char
+        and char.get("stats")
+        and (
+            char.get("exhaustion_bypass")
+            or char.get("magic_items_suppressed")
+            or any(v for k, v in (char.get("dm_modifiers") or {}).items() if k != "note" and v)
+        )
+    ):
+        resynced = reset_campaign_dm_controls(char)
+        resynced.pop("_id", None)
+        join_updates = {**resynced, **join_updates}
+
     await db["characters"].update_one(
         {"char_id": char_id, "owner_id": current_user["id"]},
-        {"$set": {"active_campaign": camp["campaign_name"]}},
+        {"$set": join_updates},
     )
 
     from server.routers.websocket_router import manager
@@ -1015,9 +1380,19 @@ async def add_party_member(
         {"campaign_name": name}, {"$addToSet": {"party": party_filename}}
     )
 
+    add_updates = {**dm_control_reset_fields(), "active_campaign": name}
+    if char.get("stats") and (
+        char.get("exhaustion_bypass")
+        or char.get("magic_items_suppressed")
+        or any(v for k, v in (char.get("dm_modifiers") or {}).items() if k != "note" and v)
+    ):
+        resynced = reset_campaign_dm_controls(char)
+        resynced.pop("_id", None)
+        add_updates = {**resynced, **add_updates}
+
     await db["characters"].update_one(
         {"char_id": char_id, "owner_id": current_user["id"]},
-        {"$set": {"active_campaign": name}},
+        {"$set": add_updates},
     )
 
     # Note: Since the DM is adding their own character, they are already a member (role='dm').
@@ -2123,9 +2498,17 @@ async def remove_party_member(
     # 1. Remove from campaign's party array
     await db["campaigns"].update_one({"campaign_name": name}, {"$pull": {"party": actual_filename}})
 
-    # 2. Remove active_campaign from character (only if it still points at this campaign)
+    # 2. Remove active_campaign and clear DM campaign controls + re-sync solo stats
+    detach_set = dm_control_reset_fields()
+    if char.get("stats"):
+        resynced = reset_campaign_dm_controls(char)
+        resynced.pop("_id", None)
+        resynced.pop("active_campaign", None)
+        detach_set = resynced
+
     await db["characters"].update_one(
-        {"char_id": char_id, "active_campaign": name}, {"$unset": {"active_campaign": ""}}
+        {"char_id": char_id, "active_campaign": name},
+        {"$unset": {"active_campaign": ""}, "$set": detach_set},
     )
 
     # 3. Reconcile campaign_members record

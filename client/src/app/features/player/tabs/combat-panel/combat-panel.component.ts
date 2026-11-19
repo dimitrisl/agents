@@ -37,7 +37,13 @@ import {
   resolveWeaponStat,
   WeaponBreakdown,
 } from '../../../../core/rules/weapon-calc';
-import { abilityModifier, exhaustionD20Penalty } from '../../../../core/rules';
+import {
+  abilityModifier,
+  describeDmModifiers,
+  exhaustionD20Penalty,
+  hasExhaustionDisadvantage,
+  resolveRollMode,
+} from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
 
@@ -228,8 +234,16 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     this.updateHeroStatus.emit({ inspiration: !this.char.inspiration });
   }
 
+  get isExhaustionManagedByDm(): boolean {
+    return !!this.char?.active_campaign?.trim();
+  }
+
+  get dmModifiersParts(): string[] {
+    return describeDmModifiers(this.char?.dm_modifiers);
+  }
+
   adjustExhaustion(delta: number): void {
-    if (!this.char) return;
+    if (!this.char || this.isExhaustionManagedByDm) return;
     const current = this.char.exhaustion_level ?? 0;
     const next = Math.max(0, Math.min(6, current + delta));
     if (next !== current) {
@@ -481,7 +495,9 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     weapon.attack_bonus = this.dice.signed(bd.attack.total);
     weapon.damage_dice = `${bd.damage.notation} ${bd.damage.damageType}`.trim();
     weapon.damage_bonus = this.dice.signed(bd.damage.totalBonus);
-    weapon.magic_bonus = bd.attack.magicBonus;
+    if (!this.char?.magic_items_suppressed) {
+      weapon.magic_bonus = bd.attack.magicBonus;
+    }
     weapon.exhaustion_attack_penalty_applied = exhaustionD20Penalty(this.char);
     this.save.emit();
     if (showToast) {
@@ -493,14 +509,17 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   weaponProperties(weapon: Weapon): string[] {
-    return (weapon.properties || '')
-      .split(',')
-      .map((property) => property.trim())
-      .filter(Boolean);
+    const raw = weapon.properties as unknown;
+    const list = Array.isArray(raw) ? raw.map((item) => String(item || '')) : String(raw || '').split(',');
+    return list.map((property) => property.trim()).filter(Boolean);
   }
 
   /** `1d8+4` — the weapon's dice normalised, with the bonus folded in exactly once. */
   weaponNotation(weapon: Weapon): string {
+    if (this.char?.magic_items_suppressed || (this.char?.dm_modifiers?.damage_bonus ?? 0) !== 0) {
+      return this.getWeaponBreakdown(weapon).damage.notation;
+    }
+
     const source = weapon.damage_dice || weapon.damage || '1d4';
     const parsed = this.dice.parseNotation(source);
     if (!parsed || parsed.numDice === 0) return source;
@@ -532,12 +551,17 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   rollAttack(weapon: Weapon): void {
-    const roll = this.dice.rollD20(this.attackBonus(weapon), this.rollMode);
+    const resolved = resolveRollMode(
+      this.rollMode,
+      hasExhaustionDisadvantage(this.char, 'attack')
+    );
+    const roll = this.dice.rollD20(this.attackBonus(weapon), resolved.mode);
     const isCrit = roll.raw >= this.profile.critThreshold;
     const critNote = isCrit && !roll.isNat20 ? ' — CRITICAL' : '';
+    const cancelNote = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
 
     this.rollToast.showRoll({
-      title: `⚔️ ${weapon.name.toUpperCase()} ATTACK${this.dice.modeLabel(roll.mode)}${critNote}`,
+      title: `⚔️ ${weapon.name.toUpperCase()} ATTACK${this.dice.modeLabel(roll.mode)}${cancelNote}${critNote}`,
       expression: roll.expression,
       raw: roll.raw,
       rolls: roll.rolls,
@@ -665,7 +689,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       const name = (wpn.name || '').toLowerCase();
       return (
         (wpn.mastery || '').toLowerCase().trim() === 'topple' ||
-        (wpn.properties || '').toLowerCase().includes('topple') ||
+        this.weaponProperties(wpn).some((p) => p.toLowerCase().includes('topple')) ||
         TOPPLE_WEAPON_NAMES.some((tw) => name.includes(tw))
       );
     });

@@ -327,6 +327,7 @@ describe('PlayerComponent — DM roll requests', () => {
       const charState = TestBed.inject(CharacterStateService);
       charState.activeCharacter.set({
         ...HERO,
+        active_campaign: undefined,
         char_class: 'Warlock',
         char_level: 3,
         hit_dice_used: 3,
@@ -1166,11 +1167,30 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     expect(afterRest.class_resources?.[0]?.current).toBe(3);
     expect(afterRest.version).toBe(3);
 
-    // 2) Player updates exhaustion locally from 2 -> 0: speed restores 20 -> 30 immutably
+    // 2) Inside a campaign, player cannot modify exhaustion directly; DM party_update restores 20 -> 30 immutably
     fixture.componentInstance.onUpdateHeroStatus({ exhaustion_level: 0 });
+    expect(charState.activeCharacter()!.exhaustion_level).toBe(2);
+    expect(charState.activeCharacter()!.speed).toBe(20);
+
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        exhaustion_level: 0,
+        speed: 30,
+        version: 4,
+      },
+    } as any);
     expect(afterRest.speed).toBe(20);
     expect(charState.activeCharacter()!.exhaustion_level).toBe(0);
     expect(charState.activeCharacter()!.speed).toBe(30);
+
+    // 3) Solo (outside campaign) player updates exhaustion locally 0 -> 1: speed drops 30 -> 25 immutably
+    const beforeSolo = charState.activeCharacter()!;
+    charState.activeCharacter.set({ ...beforeSolo, active_campaign: undefined });
+    fixture.componentInstance.onUpdateHeroStatus({ exhaustion_level: 1 });
+    expect(charState.activeCharacter()!.exhaustion_level).toBe(1);
+    expect(charState.activeCharacter()!.speed).toBe(25);
 
     http.match(() => true).forEach((req) => req.flush({}));
     fixture.destroy();
@@ -1271,6 +1291,7 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
       char_class: 'Sorcerer',
       char_level: 2,
       dnd_edition: '2024 Revision (5.5e)',
+      dm_level_up_unlocked: true,
     } as CharacterSchema);
 
     const fixture = TestBed.createComponent(PlayerComponent);
@@ -1353,6 +1374,7 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
       char_class: 'Fighter',
       char_level: 2,
       dnd_edition: '2024 Revision (5.5e)',
+      dm_level_up_unlocked: true,
     } as CharacterSchema);
 
     const fixture = TestBed.createComponent(PlayerComponent);
@@ -1404,6 +1426,167 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     });
 
     http.verify();
+    fixture.destroy();
+  });
+});
+
+describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas Sync', () => {
+  const setupPlayer = (charOverrides: Partial<CharacterSchema> = {}) => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      dnd_edition: '2014 Edition',
+      hp_max: 44,
+      hp_current: 20,
+      speed: 30,
+      base_speed: 30,
+      version: 2,
+      ...charOverrides,
+    });
+    const fixture = TestBed.createComponent(PlayerComponent);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+    http.match((r) => r.method === 'GET').forEach((r) => r.flush({ whispers: [], roll_requests: [], roll_logs: [] }));
+    return { fixture, comp: fixture.componentInstance, http, charState, messages$ };
+  };
+
+  it('blocks locked campaign rests & level-up, allows 1-shot DM unlocks via server rest endpoints, and auto-relocks', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      dm_short_rest_unlocked: false,
+      dm_long_rest_unlocked: false,
+      dm_level_up_unlocked: false,
+    });
+
+    // All three locked in campaign
+    comp.openShortRestModal();
+    expect(comp.showShortRestModal()).toBe(false);
+    comp.triggerLongRest();
+    comp.onLevelUp();
+    http.expectNone(() => true);
+
+    // DM unlocks short rest & long rest -> calls dedicated backend routes and updates signal
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      dm_short_rest_unlocked: true,
+      dm_long_rest_unlocked: true,
+    });
+
+    comp.openShortRestModal();
+    expect(comp.showShortRestModal()).toBe(true);
+    comp.shortRestDiceToSpend = 1;
+    comp.executeShortRest();
+    const srReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith(`/characters/${HERO.char_id}/short-rest`));
+    srReq.flush({ ...charState.activeCharacter()!, hp_current: 28, dm_short_rest_unlocked: false, version: 3 });
+    expect(charState.activeCharacter()!.dm_short_rest_unlocked).toBe(false);
+    expect(charState.activeCharacter()!.hp_current).toBe(28);
+
+    comp.triggerLongRest();
+    const lrReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith(`/characters/${HERO.char_id}/long-rest`));
+    lrReq.flush({ ...charState.activeCharacter()!, hp_current: 44, dm_long_rest_unlocked: false, version: 4 });
+    expect(charState.activeCharacter()!.dm_long_rest_unlocked).toBe(false);
+    expect(charState.activeCharacter()!.hp_current).toBe(44);
+
+    fixture.destroy();
+  });
+
+  it('blocks Exhaustion 6 deceased characters from healing, resting, and leveling, and rehydrates full Athas/modifier party_update payloads', () => {
+    const { comp, http, charState, messages$, fixture } = setupPlayer({
+      exhaustion_level: 6,
+      exhaustion_bypass: false,
+      hp_current: 0,
+      dm_long_rest_unlocked: true,
+      dm_level_up_unlocked: true,
+    });
+
+    comp.applyHeal(10);
+    comp.adjustHp(5);
+    comp.triggerLongRest();
+    comp.onLevelUp();
+    http.expectNone(() => true);
+    expect(charState.activeCharacter()!.hp_current).toBe(0);
+
+    // DM sends party_update waiving exhaustion, suppressing magic items (Athas), and adding signed modifiers
+    messages$.next({
+      type: 'party_update',
+      payload: {
+        char_id: HERO.char_id,
+        exhaustion_level: 6,
+        exhaustion_bypass: true,
+        magic_items_suppressed: true,
+        dm_modifiers: { ac_bonus: -2, attack_bonus: -1, note: 'Athas Heat' },
+        ac: 13,
+        hp_current: 1,
+        hp_max: 44,
+        speed: 30,
+        inspiration: true,
+        version: 5,
+      },
+    } as any);
+
+    const updated = charState.activeCharacter()!;
+    expect(updated.exhaustion_bypass).toBe(true);
+    expect(updated.magic_items_suppressed).toBe(true);
+    expect(updated.dm_modifiers?.ac_bonus).toBe(-2);
+    expect(updated.armor_class).toBe(13);
+    expect(updated.inspiration).toBe(true);
+
+    // Waived hero CAN now heal!
+    comp.applyHeal(9);
+    expect(charState.activeCharacter()!.hp_current).toBe(10);
+    http.match(() => true).forEach((r) => r.flush({ ...updated, hp_current: 10, version: 6 }));
+
+    fixture.destroy();
+  });
+
+  it('lets Solo heroes freely adjust 2014 exhaustion with L2 speed halve, L4 HP halve, and L6 death', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      active_campaign: undefined,
+      dnd_edition: '2014 Edition',
+      hp_max: 44,
+      hp_current: 44,
+      speed: 30,
+      base_speed: 30,
+      exhaustion_level: 0,
+    });
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 2 });
+    expect(charState.activeCharacter()!.speed).toBe(15);
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 4 });
+    expect(charState.activeCharacter()!.hp_max).toBe(22);
+    expect(charState.activeCharacter()!.base_hp_max).toBe(44);
+    expect(charState.activeCharacter()!.hp_current).toBe(22);
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 3 });
+    expect(charState.activeCharacter()!.hp_max).toBe(44);
+
+    comp.onUpdateHeroStatus({ exhaustion_level: 6 });
+    expect(charState.activeCharacter()!.speed).toBe(0);
+    expect(charState.activeCharacter()!.hp_current).toBe(0);
+
+    http.match(() => true).forEach((r) => r.flush(r.request.body));
     fixture.destroy();
   });
 });

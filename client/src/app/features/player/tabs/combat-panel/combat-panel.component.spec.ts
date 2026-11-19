@@ -450,4 +450,41 @@ describe('CombatPanelComponent', () => {
     // 8 + PB (3) + CHA (+5) = 16
     expect(component.getToppleDc(chaMaul)).toBe(16);
   });
+
+  it('non-destructively suppresses magic_bonus during syncWeaponCalculations when magic_items_suppressed is true', () => {
+    component.char = {
+      ...component.char,
+      active_campaign: 'Athas',
+      proficiency_bonus: 3,
+      stats: { STR: 18, DEX: 12, CON: 14, INT: 10, WIS: 12, CHA: 10 },
+      magic_items_suppressed: true,
+      weapons: [
+        {
+          name: 'Longsword +2',
+          damage: '1d8',
+          magic_bonus: 2,
+          attack_bonus: '+9',
+          damage_bonus: '+6',
+          properties: [],
+        },
+      ],
+    } as any;
+
+    const weapon = component.char.weapons![0];
+    // STR +4 + Prof +3 (Magic +2 suppressed!) = +7 attack, +4 damage
+    expect(component.displayedAttackBonus(weapon)).toBe('+7');
+    expect(component.damagePreview(weapon)).toBe('1d8+4');
+
+    component.syncWeaponCalculations(weapon, false);
+    // Underlying magic_bonus field must NOT be destroyed in the weapon object
+    expect(weapon.magic_bonus).toBe(2);
+    expect(weapon.attack_bonus).toBe('+7');
+    expect(weapon.damage_bonus).toBe('+4');
+
+    // Lifting suppression restores +9 attack / 1d8+6 damage seamlessly
+    component.char = { ...component.char, magic_items_suppressed: false };
+    component.syncWeaponCalculations(weapon, false);
+    expect(component.displayedAttackBonus(component.char.weapons![0])).toBe('+9');
+    expect(component.damagePreview(component.char.weapons![0])).toBe('1d8+6');
+  });
 });

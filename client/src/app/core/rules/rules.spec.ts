@@ -2,6 +2,7 @@ import { CharacterSchema } from '../models/character.model';
 import {
   ALL_SKILLS,
   SkillDefinition,
+  abilityCheckModifier,
   abilityModifier,
   abilityModifierOf,
   abilityScore,
@@ -11,27 +12,33 @@ import {
   clampHp,
   conModifier,
   currentHp,
+  describeDmModifiers,
+  effectiveExhaustionLevel,
   exhaustionD20Penalty,
   findSkill,
   formatClassSummary,
   formatModifier,
   formatSubclassSummary,
+  hasExhaustionDisadvantage,
   hasJackOfAllTrades,
   hasRemarkableAthlete,
   hasInitiativeAdvantage,
   hasAthleticsAdvantage,
   is2024Edition,
+  isDeceasedByExhaustion,
   isIncapacitated,
   hasSpellSlotLevel,
   hitDieSize,
   isProficientIn,
   isSaveProficient,
   levelUp,
+  passivePerceptionOf,
   planShortRest,
   proficiencyBonus,
   proficiencyBonusForLevel,
   regainSpellSlot,
   resolveLongRest,
+  resolveRollMode,
   resolveShortRest,
   restoreAllSpellSlots,
   savingThrowModifier,
@@ -1064,5 +1071,87 @@ describe('Code Review Regression Fixes (Rules)', () => {
     expect(formatClassSummary(multi, 'long')).toBe('Paladin 5 / Sorcerer 3');
     expect(formatClassSummary(multi, 'compact')).toBe('Paladin 5 / Sorcerer 3');
     expect(formatSubclassSummary(multi)).toBe('Oath of Devotion / Draconic Sorcery');
+  });
+});
+
+describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perception', () => {
+  it('computes effectiveExhaustionLevel, isDeceasedByExhaustion, and exhaustionD20Penalty with bypass', () => {
+    const h2024 = hero({ dnd_edition: '2024 Revision (5.5e)', exhaustion_level: 3 });
+    expect(effectiveExhaustionLevel(h2024)).toBe(3);
+    expect(isDeceasedByExhaustion(h2024)).toBe(false);
+    expect(exhaustionD20Penalty(h2024)).toBe(6);
+
+    const deadHero = hero({ dnd_edition: '2014 Edition', exhaustion_level: 6 });
+    expect(isDeceasedByExhaustion(deadHero)).toBe(true);
+    expect(exhaustionD20Penalty(deadHero)).toBe(0); // 2014 uses Disadvantage instead of flat penalty
+
+    const waived = hero({ dnd_edition: '2024 Revision (5.5e)', exhaustion_level: 6, exhaustion_bypass: true });
+    expect(effectiveExhaustionLevel(waived)).toBe(0);
+    expect(isDeceasedByExhaustion(waived)).toBe(false);
+    expect(exhaustionD20Penalty(waived)).toBe(0);
+  });
+
+  it('enforces 2014 Exhaustion Disadvantage thresholds and adv/dis cancellation', () => {
+    const h2014L1 = hero({ dnd_edition: '2014 Edition', exhaustion_level: 1 });
+    expect(hasExhaustionDisadvantage(h2014L1, 'check')).toBe(true);
+    expect(hasExhaustionDisadvantage(h2014L1, 'initiative')).toBe(true);
+    expect(hasExhaustionDisadvantage(h2014L1, 'save')).toBe(false);
+    expect(hasExhaustionDisadvantage(h2014L1, 'attack')).toBe(false);
+
+    const h2014L3 = hero({ dnd_edition: '2014 Edition', exhaustion_level: 3 });
+    expect(hasExhaustionDisadvantage(h2014L3, 'save')).toBe(true);
+    expect(hasExhaustionDisadvantage(h2014L3, 'attack')).toBe(true);
+
+    const h2014Waived = hero({ dnd_edition: '2014 Edition', exhaustion_level: 5, exhaustion_bypass: true });
+    expect(hasExhaustionDisadvantage(h2014Waived, 'check')).toBe(false);
+    expect(hasExhaustionDisadvantage(h2014Waived, 'save')).toBe(false);
+
+    const h2024L5 = hero({ dnd_edition: '2024 Revision (5.5e)', exhaustion_level: 5 });
+    expect(hasExhaustionDisadvantage(h2024L5, 'check')).toBe(false);
+    expect(hasExhaustionDisadvantage(h2024L5, 'save')).toBe(false);
+
+    expect(resolveRollMode('advantage', true)).toEqual({ mode: 'normal', cancelled: true });
+    expect(resolveRollMode('normal', true, true)).toEqual({ mode: 'normal', cancelled: true });
+    expect(resolveRollMode('normal', true, false)).toEqual({ mode: 'disadvantage', cancelled: false });
+    expect(resolveRollMode('disadvantage', false, false)).toEqual({ mode: 'disadvantage', cancelled: false });
+  });
+
+  it('calculates abilityCheckModifier, passivePerceptionOf, and describeDmModifiers accurately', () => {
+    const modHero = hero({
+      dnd_edition: '2024 Revision (5.5e)',
+      stats: { STR: 10, DEX: 18, CON: 14, INT: 12, WIS: 16, CHA: 8 },
+      proficiency_bonus: 3,
+      skill_proficiencies: ['Perception'],
+      exhaustion_level: 2, // -4 in 2024
+      dm_modifiers: {
+        ability_checks_bonus: 2,
+        passive_perception_bonus: -1,
+        speed_bonus: -5,
+        attack_bonus: 1,
+        note: 'Swamp miasma',
+      },
+    });
+    // DEX +4 - 4 (Exh) + 2 (DM check) = +2
+    expect(abilityCheckModifier(modHero, 'DEX')).toBe(2);
+    // Passive Perception: 10 + (3 WIS + 3 prof - 4 exh + 2 DM check) - 1 DM passive = 13
+    expect(passivePerceptionOf(modHero)).toBe(13);
+
+    const h2014L1 = hero({
+      dnd_edition: '2014 Edition',
+      stats: { STR: 10, DEX: 18, CON: 14, INT: 12, WIS: 16, CHA: 8 },
+      proficiency_bonus: 3,
+      skill_proficiencies: ['Perception'],
+      features_traits: [{ name: 'Observant', description: '+5 passive' }],
+      exhaustion_level: 1, // -5 passive in 2014 due to Perception Disadvantage
+    });
+    // 10 + (3 + 3) + 5 (Observant) - 5 (2014 Disadvantage) = 16
+    expect(passivePerceptionOf(h2014L1)).toBe(16);
+
+    expect(describeDmModifiers(modHero.dm_modifiers)).toEqual([
+      '+1 Atk',
+      '-5ft Spd',
+      '+2 Checks',
+      '-1 Passive Perc',
+    ]);
   });
 });

@@ -52,38 +52,64 @@
         {{ char.inspiration ? '✨ Inspired' : '☆ Inspiration' }}
       </button>
 
-      <div class="flex items-center gap-1.5 rounded-full border border-hairline bg-tile px-2.5 py-1">
+      <div
+        class="flex items-center gap-1.5 rounded-full border border-hairline bg-tile px-2.5 py-1"
+        [title]="isExhaustionManagedByDm ? 'Exhaustion is managed by the DM inside campaigns' : 'Exhaustion level'"
+      >
         <span class="text-micro font-semibold uppercase text-muted">Exhaustion</span>
-        <button
-          forgeButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          [disabled]="(char.exhaustion_level ?? 0) <= 0"
-          aria-label="Decrease exhaustion level"
-          (click)="adjustExhaustion(-1)"
-        >
-          −
-        </button>
+        @if (!isExhaustionManagedByDm) {
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            [disabled]="(char.exhaustion_level ?? 0) <= 0"
+            aria-label="Decrease exhaustion level"
+            (click)="adjustExhaustion(-1)"
+          >
+            −
+          </button>
+        }
         <span
           class="min-w-4 text-center text-label font-bold"
-          [class.text-crimson]="(char.exhaustion_level ?? 0) > 0"
+          [class.text-crimson]="(char.exhaustion_level ?? 0) > 0 && !char.exhaustion_bypass"
+          [class.text-muted]="(char.exhaustion_level ?? 0) > 0 && !!char.exhaustion_bypass"
           [class.text-ink]="(char.exhaustion_level ?? 0) === 0"
         >
-          {{ char.exhaustion_level ?? 0 }}
+          {{ char.exhaustion_level ?? 0 }}/6
         </span>
-        <button
-          forgeButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          [disabled]="(char.exhaustion_level ?? 0) >= 6"
-          aria-label="Increase exhaustion level"
-          (click)="adjustExhaustion(1)"
-        >
-          +
-        </button>
+        @if (isExhaustionManagedByDm) {
+          <span class="text-[10px] font-semibold uppercase text-muted">DM</span>
+        }
+        @if (char.exhaustion_bypass && (char.exhaustion_level ?? 0) > 0) {
+          <span class="rounded bg-panel px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted">Waived</span>
+        }
+        @if (!isExhaustionManagedByDm) {
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            [disabled]="(char.exhaustion_level ?? 0) >= 6"
+            aria-label="Increase exhaustion level"
+            (click)="adjustExhaustion(1)"
+          >
+            +
+          </button>
+        }
       </div>
+
+      @if (char.magic_items_suppressed) {
+        <forge-badge tone="gold" size="sm" title="Magic item bonuses suppressed by DM">
+          🏜️ Magic Suppressed
+        </forge-badge>
+      }
+
+      @if (dmModifiersParts.length > 0) {
+        <forge-badge tone="accent" size="sm" [title]="char.dm_modifiers?.note || 'DM custom modifiers'">
+          ⚙️ DM: {{ dmModifiersParts.join(' · ') }}
+        </forge-badge>
+      }
     </div>
   </div>
 

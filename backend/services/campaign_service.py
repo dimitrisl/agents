@@ -31,11 +31,31 @@ async def delete_campaign_cascade(
     if now is None:
         now = datetime.datetime.now(datetime.timezone.utc)
 
-    # 1. Unset active_campaign for all characters currently in this campaign
+    from backend.services.rest_service import dm_control_reset_fields, reset_campaign_dm_controls
+
+    # 1. Unset active_campaign and clear DM campaign controls for all characters in this campaign
+    try:
+        cursor = db["characters"].find({"active_campaign": campaign_name})
+        if hasattr(cursor, "to_list"):
+            affected = await cursor.to_list(length=500)
+            for doc in affected:
+                if isinstance(doc, dict) and doc.get("char_id"):
+                    reset_doc = reset_campaign_dm_controls(doc)
+                    reset_doc.pop("_id", None)
+                    reset_doc.pop("active_campaign", None)
+                    await _maybe_await(
+                        db["characters"].update_one(
+                            {"char_id": doc["char_id"]},
+                            {"$unset": {"active_campaign": ""}, "$set": reset_doc},
+                        )
+                    )
+    except Exception as e:
+        logger.debug("Skipping per-hero re-sync in delete_campaign_cascade: %s", e)
+
     await _maybe_await(
         db["characters"].update_many(
             {"active_campaign": campaign_name},
-            {"$unset": {"active_campaign": ""}},
+            {"$unset": {"active_campaign": ""}, "$set": dm_control_reset_fields()},
         )
     )
 
@@ -94,3 +114,60 @@ async def delete_campaign_cascade(
             logger.warning("Error broadcasting campaign_deleted for %s: %s", campaign_name, e)
 
     return {"success": True}
+
+
+def build_party_update_payload(
+    char_doc: Dict[str, Any],
+    *,
+    source: str = "dm",
+    action: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Builds a consistent WebSocket `party_update` payload across DM and Player mutations."""
+    payload: Dict[str, Any] = {
+        "char_id": char_doc.get("char_id"),
+        "char_name": char_doc.get("char_name", "Unknown"),
+        "hp_current": int(char_doc.get("hp_current") or 0),
+        "hp_max": int(char_doc.get("hp_max") or 0),
+        "hp_temp": int(char_doc.get("hp_temp") or 0),
+        "ac": int(char_doc.get("armor_class", 10) or 10),
+        "ac_breakdown": char_doc.get("ac_breakdown"),
+        "level": int(char_doc.get("char_level", 1) or 1),
+        "speed": int(char_doc.get("speed", 30) or 0),
+        "heavy_armor_speed_penalty": int(char_doc.get("heavy_armor_speed_penalty") or 0),
+        "base_speed": char_doc.get("base_speed"),
+        "base_hp_max": char_doc.get("base_hp_max"),
+        "passive_perception": char_doc.get("passive_perception"),
+        "skills": char_doc.get("skills"),
+        "saving_throw_values": char_doc.get("saving_throw_values"),
+        "initiative_modifier": char_doc.get("initiative_modifier"),
+        "initiative_bonus": char_doc.get("initiative_bonus"),
+        "initiative_advantage": char_doc.get("initiative_advantage"),
+        "spell_save_dc": char_doc.get("spell_save_dc"),
+        "spell_attack_bonus": char_doc.get("spell_attack_bonus"),
+        "global_attack_bonus": char_doc.get("global_attack_bonus"),
+        "global_damage_bonus": char_doc.get("global_damage_bonus"),
+        "equip_stat_bonuses": char_doc.get("equip_stat_bonuses"),
+        "equip_hp_bonus": char_doc.get("equip_hp_bonus"),
+        "stats": char_doc.get("stats"),
+        "base_stats": char_doc.get("base_stats"),
+        "weapons": char_doc.get("weapons"),
+        "conditions": char_doc.get("conditions", []),
+        "concentrating_on": char_doc.get("concentrating_on"),
+        "death_saves": char_doc.get("death_saves"),
+        "inspiration": bool(char_doc.get("inspiration", False)),
+        "exhaustion_level": int(char_doc.get("exhaustion_level", 0) or 0),
+        "exhaustion_bypass": bool(char_doc.get("exhaustion_bypass", False)),
+        "magic_items_suppressed": bool(char_doc.get("magic_items_suppressed", False)),
+        "dm_modifiers": char_doc.get("dm_modifiers"),
+        "dm_short_rest_unlocked": bool(char_doc.get("dm_short_rest_unlocked", False)),
+        "dm_long_rest_unlocked": bool(char_doc.get("dm_long_rest_unlocked", False)),
+        "dm_level_up_unlocked": bool(char_doc.get("dm_level_up_unlocked", False)),
+        "hit_dice_used": char_doc.get("hit_dice_used"),
+        "spell_slots": char_doc.get("spell_slots"),
+        "class_resources": char_doc.get("class_resources"),
+        "version": char_doc.get("version"),
+        "source": source,
+    }
+    if action:
+        payload["action"] = action
+    return payload

@@ -278,6 +278,17 @@
           🛡️ {{ char.armor_class }}
         </span>
 
+        @if (isHeroDeceased(char)) {
+          <span class="px-2 py-1 rounded-lg bg-crimson/20 border border-crimson/50 text-xs font-bold text-crimson" title="Deceased at Exhaustion 6">
+            💀 EXH 6
+          </span>
+        }
+        @if (char.magic_items_suppressed) {
+          <span class="px-2 py-1 rounded-lg bg-gold/15 border border-gold/40 text-xs font-bold text-gold" title="Magic items suppressed (Athas / Antimagic)">
+            🏜️
+          </span>
+        }
+
         <!-- Wake Lock Button (#170) -->
         <button
           type="button"
@@ -355,6 +366,11 @@
 
         <app-action-dock
           [canLevelUp]="char.char_level < 20"
+          [isInCampaign]="!!char.active_campaign"
+          [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
+          [longRestUnlocked]="!!char.dm_long_rest_unlocked"
+          [levelUpUnlocked]="!!char.dm_level_up_unlocked"
+          [isDeceasedByExhaustion]="isHeroDeceased(char)"
           [isGeneratingStrategy]="isGeneratingStrategy()"
           [isLevelUpLoading]="levelUpLoading()"
           (shortRest)="openShortRestModal()"
@@ -394,6 +410,11 @@
 
         <app-action-dock
           [canLevelUp]="char.char_level < 20"
+          [isInCampaign]="!!char.active_campaign"
+          [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
+          [longRestUnlocked]="!!char.dm_long_rest_unlocked"
+          [levelUpUnlocked]="!!char.dm_level_up_unlocked"
+          [isDeceasedByExhaustion]="isHeroDeceased(char)"
           [isGeneratingStrategy]="isGeneratingStrategy()"
           [isLevelUpLoading]="levelUpLoading()"
           (shortRest)="openShortRestModal()"
@@ -741,6 +762,11 @@
 
             <app-action-dock
               [canLevelUp]="char.char_level < 20"
+              [isInCampaign]="!!char.active_campaign"
+              [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
+              [longRestUnlocked]="!!char.dm_long_rest_unlocked"
+              [levelUpUnlocked]="!!char.dm_level_up_unlocked"
+              [isDeceasedByExhaustion]="isHeroDeceased(char)"
               [isGeneratingStrategy]="isGeneratingStrategy()"
               [isLevelUpLoading]="levelUpLoading()"
               (shortRest)="openShortRestModal()"

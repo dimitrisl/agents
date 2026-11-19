@@ -273,6 +273,7 @@
             [round]="round"
             [dangerIndicator]="encounterDangerIndicator"
             [availableConditions]="availableConditions"
+            [partyMembers]="partyMembers"
             [quickAddResults]="quickAddResults"
             [isSearching]="isSearchingBestiary"
             [(newCombatantName)]="newCombatantName"
@@ -336,6 +337,10 @@
             [partyMembers]="partyMembers"
             [availableConditions]="availableConditions"
             (addMember)="openAddMemberModal()"
+            (partyActionUnlock)="unlockPartyAction($event.actionType, $event.unlocked)"
+            (memberActionToggle)="toggleMemberAction($event.member, $event.field, $event.value)"
+            (adjustExhaustion)="adjustExhaustion($event.member, $event.delta)"
+            (openModifiers)="openDmModifiersModal($event)"
             (adjustHp)="adjustHp($event.member, $event.delta)"
             (setHp)="setPartyHp($event.member, $event.hp)"
             (quickStatRoll)="quickDmStatRoll($event.member, $event.stat)"
@@ -500,4 +505,12 @@
     (closed)="showLootModal = false"
     (distributed)="loadParty()"
   ></app-loot-distribute-modal>
+
+  <app-dm-modifiers-modal
+    [open]="showModifiersModal"
+    [member]="selectedModifierMember"
+    (openChange)="showModifiersModal = $event"
+    (closed)="showModifiersModal = false"
+    (saveModifiers)="saveDmModifiers($event)"
+  ></app-dm-modifiers-modal>
 </forge-page>

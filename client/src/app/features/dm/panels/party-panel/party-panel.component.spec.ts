@@ -87,4 +87,27 @@ describe('PartyPanelComponent', () => {
       expect(emitted?.hp).toBe(35);
     });
   });
+
+  describe('DM control outputs (exhaustion, unlocks, Athas suppression, inspiration, modifiers)', () => {
+    it('emits partyActionUnlock, memberActionToggle, adjustExhaustion, and openModifiers', () => {
+      const partyUnlockSpy = jest.spyOn(component.partyActionUnlock, 'emit');
+      const memberToggleSpy = jest.spyOn(component.memberActionToggle, 'emit');
+      const exhSpy = jest.spyOn(component.adjustExhaustion, 'emit');
+      const modsSpy = jest.spyOn(component.openModifiers, 'emit');
+
+      component.partyActionUnlock.emit({ actionType: 'suppress_magic_items', unlocked: true });
+      component.memberActionToggle.emit({ member: mockMember, field: 'inspiration', value: true });
+      component.adjustExhaustion.emit({ member: mockMember, delta: 1 });
+      component.openModifiers.emit(mockMember);
+
+      expect(partyUnlockSpy).toHaveBeenCalledWith({ actionType: 'suppress_magic_items', unlocked: true });
+      expect(memberToggleSpy).toHaveBeenCalledWith({
+        member: mockMember,
+        field: 'inspiration',
+        value: true,
+      });
+      expect(exhSpy).toHaveBeenCalledWith({ member: mockMember, delta: 1 });
+      expect(modsSpy).toHaveBeenCalledWith(mockMember);
+    });
+  });
 });

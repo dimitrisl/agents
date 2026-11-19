@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
 from backend.core.schemas import CharacterSchema, PortraitResponse, SuccessResponseSchema
+from backend.services.campaign_service import build_party_update_payload
 from backend.services.character_import_service import (
     CharacterImportService,
     DndBeyondImportError,
@@ -34,6 +35,12 @@ from backend.services.character_import_service import (
 )
 from backend.services.forge_service import process_character_update
 from backend.services.homebrew_service import HomebrewService
+from backend.services.rest_service import (
+    apply_long_rest,
+    apply_short_rest,
+    dm_control_reset_fields,
+    is_deceased_by_exhaustion,
+)
 from backend.services.rules_service import parse_character_from_text
 from backend.utils.image_utils import (
     PORTRAIT_DIR,
@@ -152,6 +159,9 @@ async def create_character(
         if not membership:
             char_dict["active_campaign"] = None
 
+    # New characters always start with clean DM-control defaults.
+    char_dict.update(dm_control_reset_fields())
+
     # #221: Omitted hp_max must be calculated by stats_service rather than stuck at schema default 10
     hp_max_explicit = (
         "hp_max" in char_in.model_fields_set and char_in.hp_max is not None and char_in.hp_max > 0
@@ -229,6 +239,32 @@ async def get_character(
     return CharacterSchema.model_validate(doc, strict=False)
 
 
+class ShortRestRequest(BaseModel):
+    dice_to_spend: int = Field(default=0, ge=0, le=20)
+    die_size: Optional[int] = Field(default=None, ge=4, le=12)
+    hp_healed: int = Field(default=0, ge=0, le=2000)
+    expected_version: Optional[int] = None
+
+
+class LongRestRequest(BaseModel):
+    expected_version: Optional[int] = None
+
+
+def _has_active_campaign(char_doc: dict) -> bool:
+    return bool(str(char_doc.get("active_campaign") or "").strip())
+
+
+def _version_cas_filter(char_id: str, owner_id: str, raw_version: object) -> dict:
+    version_num = int(raw_version or 0)
+    if raw_version in (None, 0):
+        return {
+            "char_id": char_id,
+            "owner_id": owner_id,
+            "$or": [{"version": 0}, {"version": None}, {"version": {"$exists": False}}],
+        }
+    return {"char_id": char_id, "owner_id": owner_id, "version": version_num}
+
+
 @router.put("/{char_id}", response_model=CharacterSchema)
 async def update_character(
     char_id: str,
@@ -252,6 +288,23 @@ async def update_character(
         )
         if not membership:
             char_dict["active_campaign"] = existing.get("active_campaign")
+
+    # Enforce DM-only campaign authority: inside an active campaign, players cannot spoof
+    # exhaustion, bypass, magic suppression, custom DM modifiers, unlocks, or level changes.
+    if _has_active_campaign(existing):
+        char_dict["exhaustion_level"] = int(existing.get("exhaustion_level", 0) or 0)
+        char_dict["exhaustion_bypass"] = bool(existing.get("exhaustion_bypass", False))
+        char_dict["magic_items_suppressed"] = bool(existing.get("magic_items_suppressed", False))
+        char_dict["dm_modifiers"] = (
+            existing.get("dm_modifiers") or dm_control_reset_fields()["dm_modifiers"]
+        )
+        char_dict["dm_short_rest_unlocked"] = bool(existing.get("dm_short_rest_unlocked", False))
+        char_dict["dm_long_rest_unlocked"] = bool(existing.get("dm_long_rest_unlocked", False))
+        char_dict["dm_level_up_unlocked"] = bool(existing.get("dm_level_up_unlocked", False))
+        char_dict["dm_hp_bonus_applied"] = int(existing.get("dm_hp_bonus_applied", 0) or 0)
+        char_dict["char_level"] = int(existing.get("char_level", 1) or 1)
+        if existing.get("classes"):
+            char_dict["classes"] = existing["classes"]
 
     homebrew_items = await _get_homebrew_for_character(db, char_dict.get("active_campaign"))
 
@@ -288,26 +341,147 @@ async def update_character(
             active_camp,
             {
                 "type": "party_update",
-                "payload": {
-                    "char_id": char_id,
-                    "char_name": char_dict.get("char_name", "Unknown"),
-                    "hp_current": char_dict.get("hp_current") or 0,
-                    "hp_max": char_dict.get("hp_max") or 0,
-                    "hp_temp": char_dict.get("hp_temp", 0) or 0,
-                    "ac": char_dict.get("armor_class", 10),
-                    "level": char_dict.get("char_level", 1),
-                    "conditions": char_dict.get("conditions", []),
-                    "concentrating_on": char_dict.get("concentrating_on"),
-                    "death_saves": char_dict.get("death_saves"),
-                    "inspiration": bool(char_dict.get("inspiration", False)),
-                    "exhaustion_level": int(char_dict.get("exhaustion_level", 0) or 0),
-                    "version": char_dict["version"],
-                    "source": "player",
-                },
+                "payload": build_party_update_payload(char_dict, source="player"),
             },
         )
 
     return CharacterSchema.model_validate(char_dict, strict=False)
+
+
+@router.post("/{char_id}/short-rest", response_model=CharacterSchema)
+async def player_short_rest(
+    char_id: str,
+    payload: ShortRestRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    existing = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+
+    active_camp = str(existing.get("active_campaign") or "").strip()
+    if active_camp and not bool(existing.get("dm_short_rest_unlocked", False)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Short Rest is currently locked by the DM.",
+        )
+
+    raw_version = existing.get("version")
+    current_version = int(raw_version or 0)
+    if payload.expected_version is not None and payload.expected_version != current_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified elsewhere. Please refresh.",
+        )
+
+    homebrew_items = await _get_homebrew_for_character(db, active_camp or None)
+    try:
+        updated_doc = await run_in_threadpool(
+            partial(
+                apply_short_rest,
+                existing,
+                dice_to_spend=payload.dice_to_spend,
+                hp_healed=payload.hp_healed,
+                homebrew_content=homebrew_items,
+            )
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
+
+    updated_doc.pop("_id", None)
+    updated_doc["version"] = current_version + 1
+    res = await db["characters"].update_one(
+        _version_cas_filter(char_id, current_user["id"], raw_version),
+        {"$set": updated_doc},
+    )
+    if res.modified_count == 0 and res.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently during Short Rest.",
+        )
+
+    if active_camp:
+        from server.routers.websocket_router import manager
+
+        await manager.broadcast(
+            active_camp,
+            {
+                "type": "party_update",
+                "payload": build_party_update_payload(
+                    updated_doc, source="player", action="short_rest"
+                ),
+            },
+        )
+
+    return CharacterSchema.model_validate(updated_doc, strict=False)
+
+
+@router.post("/{char_id}/long-rest", response_model=CharacterSchema)
+async def player_long_rest(
+    char_id: str,
+    payload: Optional[LongRestRequest] = None,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    existing = await db["characters"].find_one({"char_id": char_id, "owner_id": current_user["id"]})
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+
+    active_camp = str(existing.get("active_campaign") or "").strip()
+    if active_camp and not bool(existing.get("dm_long_rest_unlocked", False)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Long Rest is currently locked by the DM.",
+        )
+
+    if is_deceased_by_exhaustion(existing):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dead characters (Exhaustion Level 6) cannot benefit from a Long Rest unless waived by the DM.",
+        )
+
+    raw_version = existing.get("version")
+    current_version = int(raw_version or 0)
+    if (
+        payload
+        and payload.expected_version is not None
+        and payload.expected_version != current_version
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified elsewhere. Please refresh.",
+        )
+
+    homebrew_items = await _get_homebrew_for_character(db, active_camp or None)
+    updated_doc = await run_in_threadpool(
+        partial(apply_long_rest, existing, homebrew_content=homebrew_items)
+    )
+    updated_doc.pop("_id", None)
+    updated_doc["version"] = current_version + 1
+    res = await db["characters"].update_one(
+        _version_cas_filter(char_id, current_user["id"], raw_version),
+        {"$set": updated_doc},
+    )
+    if res.modified_count == 0 and res.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Character was modified concurrently during Long Rest.",
+        )
+
+    if active_camp:
+        from server.routers.websocket_router import manager
+
+        await manager.broadcast(
+            active_camp,
+            {
+                "type": "party_update",
+                "payload": build_party_update_payload(
+                    updated_doc, source="player", action="long_rest"
+                ),
+            },
+        )
+
+    return CharacterSchema.model_validate(updated_doc, strict=False)
 
 
 @router.post("/{char_id}/portrait-upload", response_model=PortraitResponse)

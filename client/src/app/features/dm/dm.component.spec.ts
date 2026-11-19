@@ -5,6 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { Subject } from 'rxjs';
 import { DmComponent } from './dm.component';
 import { RollToastService } from '../../core/services/roll-toast.service';
+import { DiceService } from '../../core/services/dice.service';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
 import { InitiativeCombatant } from '../../core/models/initiative.model';
@@ -1871,5 +1872,141 @@ describe('DmComponent — Quick-Add & Bestiary Integration', () => {
     // Removing custom Thorin leaves real player Thorin intact in partyMembers
     await component.removePartyMember(customThorin);
     expect(component.partyMembers.map((m) => m.char_id)).toEqual(['real-thorin-id']);
+  });
+});
+
+describe('DmComponent — Exhaustion, Unlocks, Athas, Modifiers & 2014 Secret/Quick Checks', () => {
+  let component: DmComponent;
+  let fixture: ComponentFixture<DmComponent>;
+  let http: HttpTestingController;
+  let dice: DiceService;
+  let toast: RollToastService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [DmComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$: new Subject<WsMessage>(),
+            opened$: new Subject<string>(),
+            connect: () => undefined,
+            disconnect: () => undefined,
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+    fixture = TestBed.createComponent(DmComponent);
+    component = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    dice = TestBed.inject(DiceService);
+    toast = TestBed.inject(RollToastService);
+    component.campaignName = 'Dark Sun Athas';
+    component.campaignEdition = '2014 Edition';
+    component.partyMembers = [
+      {
+        char_id: 'pal_1',
+        name: 'Theron',
+        char_class: 'Paladin',
+        level: 5,
+        hp_current: 44,
+        hp_max: 44,
+        ac: 20,
+        passive_perception: 13,
+        stats: { STR: 18, DEX: 12, CON: 14, INT: 10, WIS: 12, CHA: 16 },
+        dnd_edition: '2014 Edition',
+        conditions: [],
+        exhaustion_level: 1,
+        exhaustion_bypass: false,
+      },
+    ];
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+  });
+
+  it('pushes exhaustion, member toggles, DM modifiers, and campaign party/action-unlock requests and syncs response', () => {
+    jest.useFakeTimers();
+    try {
+      const member = component.partyMembers[0];
+
+      component.adjustExhaustion(member, 1);
+      jest.advanceTimersByTime(450);
+      const exhReq = http.expectOne((r) => r.method === 'PATCH' && r.url.endsWith('/party/pal_1/state'));
+      expect(exhReq.request.body).toEqual({ exhaustion_level: 2 });
+      exhReq.flush({ char_id: 'pal_1', exhaustion_level: 2, speed: 15, hp_current: 44, hp_max: 44, version: 4 });
+      expect(component.partyMembers[0].exhaustion_level).toBe(2);
+      expect(component.partyMembers[0].speed).toBe(15);
+
+      component.toggleMemberAction(component.partyMembers[0], 'inspiration', true);
+      jest.advanceTimersByTime(450);
+      const inspReq = http.expectOne((r) => r.method === 'PATCH' && r.url.endsWith('/party/pal_1/state'));
+      expect(inspReq.request.body).toEqual({ inspiration: true });
+      inspReq.flush({ char_id: 'pal_1', inspiration: true, version: 5 });
+      expect(component.partyMembers[0].inspiration).toBe(true);
+
+      component.saveDmModifiers({
+        member: component.partyMembers[0],
+        exhaustion_level: 2,
+        exhaustion_bypass: true,
+        magic_items_suppressed: true,
+        dm_modifiers: {
+          attack_bonus: -1,
+          damage_bonus: 0,
+          ac_bonus: -2,
+          speed_bonus: 0,
+          hp_max_bonus: 0,
+          initiative_bonus: 0,
+          saving_throws_bonus: 0,
+          ability_checks_bonus: 2,
+          spell_save_dc_bonus: 0,
+          passive_perception_bonus: 0,
+          note: 'Athas curse',
+        },
+      });
+      jest.advanceTimersByTime(450);
+      const modReq = http.expectOne((r) => r.method === 'PATCH' && r.url.endsWith('/party/pal_1/state'));
+      expect(modReq.request.body.magic_items_suppressed).toBe(true);
+      expect(modReq.request.body.exhaustion_bypass).toBe(true);
+      modReq.flush({
+        char_id: 'pal_1',
+        exhaustion_level: 2,
+        exhaustion_bypass: true,
+        magic_items_suppressed: true,
+        ac: 18,
+        dm_modifiers: modReq.request.body.dm_modifiers,
+        version: 6,
+      });
+      expect(component.partyMembers[0].magic_items_suppressed).toBe(true);
+      expect(component.partyMembers[0].ac).toBe(18);
+
+      component.unlockPartyAction('suppress_magic_items', true);
+      const partyReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('/party/action-unlock'));
+      expect(partyReq.request.body).toEqual({ action_type: 'suppress_magic_items', unlocked: true });
+      partyReq.flush({ success: true, updated_count: 1 });
+      http.match(() => true).forEach((r) => r.flush({ party: [] }));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('applies 2014 Disadvantage and DM modifiers in quickDmStatRoll (and waives when bypassed)', () => {
+    const rollSpy = jest.spyOn(dice, 'rollD20');
+    const toastSpy = jest.spyOn(toast, 'showRoll');
+
+    component.partyMembers[0].dm_modifiers = { ability_checks_bonus: 2 };
+    component.quickDmStatRoll(component.partyMembers[0], 'STR');
+    // STR 18 (+4) + DM check (+2) = +6, and 2014 L1 exhaustion => disadvantage!
+    expect(rollSpy).toHaveBeenCalledWith(6, 'disadvantage');
+    expect(toastSpy).toHaveBeenCalled();
+
+    component.partyMembers[0].exhaustion_bypass = true;
+    component.quickDmStatRoll(component.partyMembers[0], 'STR');
+    expect(rollSpy).toHaveBeenCalledWith(6, 'normal');
   });
 });

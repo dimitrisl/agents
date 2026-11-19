@@ -29,12 +29,59 @@
           tone="accent"
           size="sm"
           type="button"
+          title="Instant Party Long Rest (restores HP, slots, resources, and reduces Exhaustion by 1)"
           (click)="longRest.emit()"
         >
-          ⛺ Long Rest
+          ⛺ Instant Long Rest
         </button>
       </div>
     </div>
+
+    @if (partyMembers.length > 0) {
+      <div class="flex flex-wrap items-center gap-2 rounded-xl border border-hairline bg-tile px-3 py-2">
+        <span class="mr-1 text-micro font-semibold uppercase text-muted">DM Party Unlocks & World:</span>
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [title]="anyShortRestUnlocked ? 'Re-lock Short Rest for party' : 'Allow party players 1 Short Rest'"
+          (click)="partyActionUnlock.emit({ actionType: 'short_rest', unlocked: !anyShortRestUnlocked })"
+        >
+          {{ anyShortRestUnlocked ? '🔒 Lock Short Rest' : '🔓 Unlock Short Rest' }}
+        </button>
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [title]="anyLongRestUnlocked ? 'Re-lock Long Rest for party' : 'Allow party players 1 Long Rest'"
+          (click)="partyActionUnlock.emit({ actionType: 'long_rest', unlocked: !anyLongRestUnlocked })"
+        >
+          {{ anyLongRestUnlocked ? '🔒 Lock Long Rest' : '🔓 Unlock Long Rest' }}
+        </button>
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          [title]="anyLevelUpUnlocked ? 'Re-lock Level Up for party' : 'Allow party players 1 Level Up'"
+          (click)="partyActionUnlock.emit({ actionType: 'level_up', unlocked: !anyLevelUpUnlocked })"
+        >
+          {{ anyLevelUpUnlocked ? '🔒 Lock Level Up' : '🔓 Unlock Level Up' }}
+        </button>
+        <button
+          forgeButton
+          [variant]="allMagicSuppressed ? 'secondary' : 'ghost'"
+          size="sm"
+          type="button"
+          [title]="allMagicSuppressed ? 'Restore magic item bonuses for entire party' : 'Athas / Antimagic: suppress all magic item bonuses for entire party'"
+          (click)="partyActionUnlock.emit({ actionType: 'suppress_magic_items', unlocked: !allMagicSuppressed })"
+        >
+          {{ allMagicSuppressed ? '✨ Restore Party Magic' : '🏜️ Suppress Magic (Athas)' }}
+        </button>
+      </div>
+    }
 
     <forge-empty-state
       *ngIf="partyMembers.length === 0"
@@ -119,18 +166,49 @@
                 }
               </span>
             </div>
-            @if (member.inspiration || (member.exhaustion_level ?? 0) > 0 || member.concentrating_on || (member.hp_current <= 0 && member.death_saves)) {
+            @if (
+              member.inspiration ||
+              (member.exhaustion_level ?? 0) > 0 ||
+              member.magic_items_suppressed ||
+              dmModifierSummary(member).length > 0 ||
+              member.dm_short_rest_unlocked ||
+              member.dm_long_rest_unlocked ||
+              member.dm_level_up_unlocked ||
+              member.concentrating_on ||
+              (member.hp_current <= 0 && member.death_saves)
+            ) {
               <div class="mt-1.5 flex flex-wrap gap-1.5">
                 @if (member.inspiration) {
                   <forge-badge tone="accent" size="sm">✨ Inspired</forge-badge>
                 }
-                @if ((member.exhaustion_level ?? 0) > 0) {
-                  <forge-badge tone="danger" size="sm">🥱 Exhaustion {{ member.exhaustion_level }}</forge-badge>
+                @if (isDeceasedByExhaustion(member)) {
+                  <forge-badge tone="danger" size="sm">💀 DEAD (EXH 6)</forge-badge>
+                } @else if ((member.exhaustion_level ?? 0) > 0) {
+                  <forge-badge [tone]="member.exhaustion_bypass ? 'muted' : 'danger'" size="sm">
+                    🥱 Exhaustion {{ member.exhaustion_level }}{{ member.exhaustion_bypass ? ' (Waived)' : '' }}
+                  </forge-badge>
+                }
+                @if (member.magic_items_suppressed) {
+                  <forge-badge tone="accent" size="sm">🏜️ No Magic</forge-badge>
+                }
+                @if (dmModifierSummary(member).length > 0) {
+                  <forge-badge tone="accent" size="sm" [title]="member.dm_modifiers?.note || 'DM custom modifiers'">
+                    ⚖️ {{ dmModifierSummary(member).join(' · ') }}
+                  </forge-badge>
+                }
+                @if (member.dm_short_rest_unlocked) {
+                  <forge-badge tone="accent" size="sm">🔓 SR</forge-badge>
+                }
+                @if (member.dm_long_rest_unlocked) {
+                  <forge-badge tone="accent" size="sm">🔓 LR</forge-badge>
+                }
+                @if (member.dm_level_up_unlocked) {
+                  <forge-badge tone="accent" size="sm">🔓 LU</forge-badge>
                 }
                 @if (member.concentrating_on) {
                   <forge-badge tone="accent" size="sm">🧠 {{ member.concentrating_on }}</forge-badge>
                 }
-                @if (member.hp_current <= 0 && member.death_saves) {
+                @if (member.hp_current <= 0 && member.death_saves && !isDeceasedByExhaustion(member)) {
                   <forge-badge tone="danger" size="sm">
                     💀 Saves: {{ member.death_saves.successes }}✓ / {{ member.death_saves.failures }}✗
                   </forge-badge>
@@ -209,6 +287,129 @@
               </p>
             </div>
           </div>
+
+          <!-- DM Controls: Exhaustion Stepper, Waive/No-Magic/Insp, 1-Shot Unlocks & Custom Modifiers -->
+          @if (member.char_id) {
+            <div class="flex flex-wrap items-center gap-2 rounded-xl bg-tile px-3 py-2">
+              <div class="flex items-center gap-1">
+                <span class="mr-1 text-micro font-semibold uppercase text-muted">Exh</span>
+                <button
+                  forgeButton
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  type="button"
+                  [disabled]="(member.exhaustion_level ?? 0) <= 0"
+                  [attr.aria-label]="'Decrease exhaustion for ' + member.name"
+                  (click)="adjustExhaustion.emit({ member, delta: -1 })"
+                >
+                  −
+                </button>
+                <span
+                  class="min-w-6 text-center text-label font-bold tabular-nums"
+                  [ngClass]="isDeceasedByExhaustion(member) ? 'text-red' : ((member.exhaustion_level ?? 0) > 0 ? 'text-accent' : 'text-ink')"
+                >
+                  {{ member.exhaustion_level ?? 0 }}
+                </span>
+                <button
+                  forgeButton
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  type="button"
+                  [disabled]="(member.exhaustion_level ?? 0) >= 6"
+                  [attr.aria-label]="'Increase exhaustion for ' + member.name"
+                  (click)="adjustExhaustion.emit({ member, delta: 1 })"
+                >
+                  +
+                </button>
+              </div>
+
+              @if ((member.exhaustion_level ?? 0) > 0) {
+                <button
+                  forgeButton
+                  [variant]="member.exhaustion_bypass ? 'primary' : 'ghost'"
+                  size="sm"
+                  type="button"
+                  title="Waive exhaustion penalties and L6 death while keeping visible level"
+                  (click)="memberActionToggle.emit({ member, field: 'exhaustion_bypass', value: !member.exhaustion_bypass })"
+                >
+                  {{ member.exhaustion_bypass ? '🛡️ Waived' : 'Waive Exh' }}
+                </button>
+              }
+
+              <button
+                forgeButton
+                [variant]="member.inspiration ? 'secondary' : 'ghost'"
+                size="sm"
+                type="button"
+                title="Grant or revoke Heroic Inspiration"
+                [attr.aria-pressed]="!!member.inspiration"
+                (click)="memberActionToggle.emit({ member, field: 'inspiration', value: !member.inspiration })"
+              >
+                {{ member.inspiration ? '✨ Insp ON' : '☆ Insp' }}
+              </button>
+
+              <button
+                forgeButton
+                [variant]="member.magic_items_suppressed ? 'secondary' : 'ghost'"
+                size="sm"
+                type="button"
+                title="Athas / Antimagic: suppress magic item bonuses for this hero"
+                [attr.aria-pressed]="!!member.magic_items_suppressed"
+                (click)="memberActionToggle.emit({ member, field: 'magic_items_suppressed', value: !member.magic_items_suppressed })"
+              >
+                🏜️
+              </button>
+
+              <button
+                forgeButton
+                [variant]="member.dm_short_rest_unlocked ? 'secondary' : 'ghost'"
+                size="sm"
+                type="button"
+                title="Unlock 1 Short Rest for this hero"
+                (click)="memberActionToggle.emit({ member, field: 'dm_short_rest_unlocked', value: !member.dm_short_rest_unlocked })"
+              >
+                {{ member.dm_short_rest_unlocked ? '🔓 SR' : '🔒 SR' }}
+              </button>
+
+              <button
+                forgeButton
+                [variant]="member.dm_long_rest_unlocked ? 'secondary' : 'ghost'"
+                size="sm"
+                type="button"
+                title="Unlock 1 Long Rest for this hero"
+                (click)="memberActionToggle.emit({ member, field: 'dm_long_rest_unlocked', value: !member.dm_long_rest_unlocked })"
+              >
+                {{ member.dm_long_rest_unlocked ? '🔓 LR' : '🔒 LR' }}
+              </button>
+
+              @if (member.level < 20) {
+                <button
+                  forgeButton
+                  [variant]="member.dm_level_up_unlocked ? 'secondary' : 'ghost'"
+                  size="sm"
+                  type="button"
+                  title="Unlock 1 Level Up for this hero"
+                  (click)="memberActionToggle.emit({ member, field: 'dm_level_up_unlocked', value: !member.dm_level_up_unlocked })"
+                >
+                  {{ member.dm_level_up_unlocked ? '🔓 LU' : '🔒 LU' }}
+                </button>
+              }
+
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                class="ml-auto"
+                [attr.aria-label]="'Custom modifiers for ' + member.name"
+                (click)="openModifiers.emit(member)"
+              >
+                ⚙️ Modifiers
+              </button>
+            </div>
+          }
 
           <div class="min-w-0">
             <p class="mb-2 text-micro font-semibold uppercase text-muted">DM Quick Check</p>

@@ -61,11 +61,80 @@ export function is2024Edition(char: CharacterSchema | null | undefined): boolean
   );
 }
 
-/** 2024 PHB Exhaustion gives -2 per level to all D20 Tests (checks, saves, attacks). */
+/** Effective exhaustion level (0 when DM Bypass is enabled). */
+export function effectiveExhaustionLevel(
+  char: Pick<CharacterSchema, 'exhaustion_level' | 'exhaustion_bypass'> | null | undefined
+): number {
+  if (!char || char.exhaustion_bypass) return 0;
+  return Math.max(0, Math.min(6, Math.floor(Number(char.exhaustion_level) || 0)));
+}
+
+/** True when a hero is killed by Exhaustion Level 6 (and NOT waived by DM Bypass). */
+export function isDeceasedByExhaustion(
+  char: Pick<CharacterSchema, 'exhaustion_level' | 'exhaustion_bypass'> | null | undefined
+): boolean {
+  return effectiveExhaustionLevel(char) >= 6;
+}
+
+/** 2024 PHB Exhaustion gives -2 per level to all D20 Tests (checks, saves, attacks) unless bypassed. */
 export function exhaustionD20Penalty(char: CharacterSchema | null | undefined): number {
   if (!char || !is2024Edition(char)) return 0;
-  const level = Math.max(0, Math.min(6, Math.floor(Number(char.exhaustion_level) || 0)));
-  return level * 2;
+  return effectiveExhaustionLevel(char) * 2;
+}
+
+export type ExhaustionRollKind = 'check' | 'save' | 'attack' | 'initiative';
+
+/** True under 2014 PHB rules when Exhaustion forces Disadvantage on this roll kind. */
+export function hasExhaustionDisadvantage(
+  char: CharacterSchema | null | undefined,
+  kind: ExhaustionRollKind
+): boolean {
+  if (!char || is2024Edition(char)) return false;
+  const eff = effectiveExhaustionLevel(char);
+  if (eff <= 0) return false;
+  if (kind === 'save' || kind === 'attack') {
+    return eff >= 3;
+  }
+  // 2014 L1 Exhaustion imposes Disadvantage on Ability Checks (including Skills & Initiative).
+  return eff >= 1;
+}
+
+export type RollModeResolution = {
+  mode: 'normal' | 'advantage' | 'disadvantage';
+  cancelled: boolean;
+};
+
+/**
+ * Resolves final d20 mode per 5e Advantage/Disadvantage cancellation rules:
+ * any source of Advantage + any source of Disadvantage cancel to Normal.
+ */
+export function resolveRollMode(
+  requestedMode: 'normal' | 'advantage' | 'disadvantage',
+  hasAutoDisadvantage: boolean,
+  hasAutoAdvantage = false
+): RollModeResolution {
+  const hasAdv = requestedMode === 'advantage' || hasAutoAdvantage;
+  const hasDis = requestedMode === 'disadvantage' || hasAutoDisadvantage;
+  if (hasAdv && hasDis) {
+    return { mode: 'normal', cancelled: true };
+  }
+  if (hasAdv) {
+    return { mode: 'advantage', cancelled: false };
+  }
+  if (hasDis) {
+    return { mode: 'disadvantage', cancelled: false };
+  }
+  return { mode: 'normal', cancelled: false };
+}
+
+/** Ability Check modifier including 2024 Exhaustion penalty and DM ability-check modifier. */
+export function abilityCheckModifier(
+  char: CharacterSchema | null | undefined,
+  ability: string
+): number {
+  if (!char?.stats) return 0;
+  const dmCheck = char.dm_modifiers?.ability_checks_bonus ?? 0;
+  return abilityModifierOf(char, ability) - exhaustionD20Penalty(char) + dmCheck;
 }
 
 export function isSaveProficient(
@@ -75,7 +144,7 @@ export function isSaveProficient(
   return char?.saving_throws?.includes(ability) || false;
 }
 
-/** Ability modifier, plus proficiency when the class is trained in that save. */
+/** Ability modifier, plus proficiency when trained, minus exhaustion, plus DM saves bonus. */
 export function savingThrowModifier(
   char: CharacterSchema | null | undefined,
   ability: string
@@ -87,11 +156,41 @@ export function savingThrowModifier(
     return char.saving_throw_values[ability];
   }
 
+  const dmSave = char.dm_modifiers?.saving_throws_bonus ?? 0;
   return (
     abilityModifierOf(char, ability) +
     (isSaveProficient(char, ability) ? proficiencyBonus(char) : 0) -
-    exhaustionD20Penalty(char)
+    exhaustionD20Penalty(char) +
+    dmSave
   );
+}
+
+/** Human-readable list of active DM custom modifiers (excluding empty note). */
+export function describeDmModifiers(
+  mods: CharacterSchema['dm_modifiers'] | null | undefined
+): string[] {
+  if (!mods) return [];
+  const entries: [keyof NonNullable<CharacterSchema['dm_modifiers']>, string][] = [
+    ['attack_bonus', 'Atk'],
+    ['damage_bonus', 'Dmg'],
+    ['ac_bonus', 'AC'],
+    ['speed_bonus', 'Spd'],
+    ['hp_max_bonus', 'Max HP'],
+    ['initiative_bonus', 'Init'],
+    ['saving_throws_bonus', 'Saves'],
+    ['ability_checks_bonus', 'Checks'],
+    ['spell_save_dc_bonus', 'Spell DC'],
+    ['passive_perception_bonus', 'Passive Perc'],
+  ];
+  const parts: string[] = [];
+  for (const [key, label] of entries) {
+    const val = Number(mods[key] ?? 0);
+    if (val) {
+      const suffix = key === 'speed_bonus' ? 'ft' : '';
+      parts.push(`${val > 0 ? '+' + val : val}${suffix} ${label}`);
+    }
+  }
+  return parts;
 }
 
 /**

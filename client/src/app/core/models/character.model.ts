@@ -114,6 +114,20 @@ export interface AcBreakdown {
   formula_text: string;
 }
 
+export interface DmModifiers {
+  attack_bonus?: number;
+  damage_bonus?: number;
+  ac_bonus?: number;
+  speed_bonus?: number;
+  hp_max_bonus?: number;
+  initiative_bonus?: number;
+  saving_throws_bonus?: number;
+  ability_checks_bonus?: number;
+  spell_save_dc_bonus?: number;
+  passive_perception_bonus?: number;
+  note?: string;
+}
+
 export interface CharacterSchema {
   char_id?: string;
   owner_id?: string;
@@ -178,6 +192,13 @@ export interface CharacterSchema {
   active_campaign?: string;
   inspiration?: boolean;
   exhaustion_level?: number;
+  exhaustion_bypass?: boolean;
+  magic_items_suppressed?: boolean;
+  dm_modifiers?: DmModifiers;
+  dm_short_rest_unlocked?: boolean;
+  dm_long_rest_unlocked?: boolean;
+  dm_level_up_unlocked?: boolean;
+  dm_hp_bonus_applied?: number;
   currency?: CurrencyBlock;
   class_resources?: ClassResource[];
   base_stats?: StatBlock;

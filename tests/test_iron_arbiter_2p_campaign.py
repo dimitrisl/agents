@@ -348,6 +348,30 @@ def test_iron_arbiter_full_4_session_2_player_campaign_playtest():
             f"/api/v1/characters/{p1_id}", json=p1_before_lvl, headers=p1_headers
         ).json()
 
+        # Player cannot level up inside campaign until DM explicitly unlocks Level Up
+        locked_lvl_res = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": p1_id,
+                "analysis": {
+                    "hp_increase": 6,
+                    "new_total_hp": 22,
+                    "automatic_changes": [],
+                    "choices_required": [],
+                },
+                "user_choices": {"level_up_class": "Sorcerer"},
+            },
+            headers=p1_headers,
+        )
+        assert locked_lvl_res.status_code == 403
+
+        unlock_res = client.post(
+            "/api/v1/campaigns/Shadows of Mirrodin/party/action-unlock",
+            json={"action_type": "level_up", "unlocked": True, "char_id": p1_id},
+            headers=dm_headers,
+        )
+        assert unlock_res.status_code == 200
+
         lvl_up_res = client.post(
             "/api/v1/forge/level-up-apply",
             json={

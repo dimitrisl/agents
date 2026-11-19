@@ -3,7 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
 import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
-import { formatClassSummary, formatSubclassSummary, hasInitiativeAdvantage } from '../../../core/rules';
+import {
+  describeDmModifiers,
+  exhaustionD20Penalty,
+  formatClassSummary,
+  formatSubclassSummary,
+  hasInitiativeAdvantage,
+  is2024Edition,
+  isDeceasedByExhaustion,
+} from '../../../core/rules';
 import {
   ForgeBadgeComponent,
   ForgeIconComponent,
@@ -45,6 +53,42 @@ export class CharacterOverviewCardComponent implements OnChanges {
 
   get initiativeAdvantage(): boolean {
     return hasInitiativeAdvantage(this.char);
+  }
+
+  get deceasedByExhaustion(): boolean {
+    return isDeceasedByExhaustion(this.char);
+  }
+
+  get dmModifiersParts(): string[] {
+    return describeDmModifiers(this.char?.dm_modifiers);
+  }
+
+  get dmModifiersTooltip(): string {
+    const parts = this.dmModifiersParts;
+    const note = (this.char?.dm_modifiers?.note || '').trim();
+    const body = parts.length ? parts.join(', ') : '';
+    if (body && note) return `${body} — DM Note: ${note}`;
+    if (note) return `DM Note: ${note}`;
+    return body || 'DM Custom Modifiers active';
+  }
+
+  get exhaustionTooltip(): string {
+    const lvl = this.char?.exhaustion_level ?? 0;
+    if (this.char?.exhaustion_bypass) {
+      return `Exhaustion ${lvl}/6 (Consequences waived by DM Bypass)`;
+    }
+    if (is2024Edition(this.char)) {
+      const d20 = exhaustionD20Penalty(this.char);
+      return `Exhaustion ${lvl}/6: -${d20} to D20 Tests, -${lvl * 5} ft Speed`;
+    }
+    const effects: string[] = [];
+    if (lvl >= 1) effects.push('Disadvantage on Ability Checks (-5 Passive Perception)');
+    if (lvl >= 2) effects.push('Speed halved');
+    if (lvl >= 3) effects.push('Disadvantage on Attacks & Saving Throws');
+    if (lvl >= 4) effects.push('HP Maximum halved');
+    if (lvl >= 5) effects.push('Speed reduced to 0');
+    if (lvl >= 6) effects.push('Death');
+    return `Exhaustion ${lvl}/6: ${effects.join(' · ')}`;
   }
 
   @Output() portrait = new EventEmitter<void>();

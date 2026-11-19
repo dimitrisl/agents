@@ -1,0 +1,142 @@
+<forge-modal
+  [title]="'⚖️ DM Rules & Modifiers · ' + (member?.name || 'Hero')"
+  [open]="open"
+  maxWidth="720px"
+  (openChange)="openChange.emit($event)"
+  (closed)="closed.emit()"
+>
+  @if (member) {
+    <div class="flex flex-col gap-5">
+      <!-- Exhaustion + World Switches -->
+      <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="flex flex-col gap-2 rounded-xl border border-hairline bg-tile p-3">
+          <span class="text-micro font-semibold uppercase text-muted">Exhaustion Level</span>
+          <div class="flex items-center justify-between gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [disabled]="exhaustionLevel <= 0"
+              aria-label="Decrease modal exhaustion"
+              (click)="adjustExhaustion(-1)"
+            >
+              −
+            </button>
+            <span
+              class="text-title font-bold tabular-nums"
+              [ngClass]="exhaustionLevel >= 6 && !exhaustionBypass ? 'text-red' : (exhaustionLevel > 0 ? 'text-accent' : 'text-ink')"
+            >
+              {{ exhaustionLevel }} / 6
+            </span>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [disabled]="exhaustionLevel >= 6"
+              aria-label="Increase modal exhaustion"
+              (click)="adjustExhaustion(1)"
+            >
+              +
+            </button>
+          </div>
+          @if (exhaustionLevel >= 6 && !exhaustionBypass) {
+            <forge-badge tone="danger" size="sm">💀 L6 = Death</forge-badge>
+          }
+        </div>
+
+        <label
+          class="flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 transition-colors"
+          [ngClass]="exhaustionBypass ? 'border-accent/60 bg-accent/10' : 'border-hairline bg-tile'"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-label font-semibold text-ink">🛡️ Waive Exhaustion</span>
+            <input
+              type="checkbox"
+              class="h-4 w-4 accent-accent"
+              [(ngModel)]="exhaustionBypass"
+              aria-label="Bypass exhaustion consequences"
+            />
+          </div>
+          <span class="text-micro text-muted">
+            Keeps level visible but waives D20/Speed penalties, Disadvantage, and L6 Death.
+          </span>
+        </label>
+
+        <label
+          class="flex cursor-pointer flex-col justify-between gap-2 rounded-xl border p-3 transition-colors"
+          [ngClass]="magicItemsSuppressed ? 'border-gold/60 bg-gold/10' : 'border-hairline bg-tile'"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-label font-semibold text-ink">🏜️ Suppress Magic Items</span>
+            <input
+              type="checkbox"
+              class="h-4 w-4 accent-accent"
+              [(ngModel)]="magicItemsSuppressed"
+              aria-label="Suppress magic item bonuses"
+            />
+          </div>
+          <span class="text-micro text-muted">
+            Athas / Antimagic: suspends +1/+2/+3 weapons, magic armor bonuses, and stat/AC items non-destructively.
+          </span>
+        </label>
+      </section>
+
+      <!-- Custom Numeric Modifiers -->
+      <section class="min-w-0">
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <h3 class="text-micro font-semibold uppercase text-muted">
+            Custom Bonuses & Penalties (+ or −)
+          </h3>
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            (click)="resetModifiers()"
+          >
+            ↺ Reset All
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          @for (field of numericFields; track field.key) {
+            <label class="flex flex-col gap-1 rounded-xl bg-tile px-3 py-2">
+              <span class="text-label font-semibold text-ink">{{ field.label }}</span>
+              <span class="text-micro text-muted">{{ field.hint }}</span>
+              <input
+                forgeInput
+                type="number"
+                class="mt-1"
+                [attr.aria-label]="field.label"
+                [(ngModel)]="modifiers[field.key]"
+              />
+            </label>
+          }
+        </div>
+      </section>
+
+      <!-- DM Note -->
+      <label class="flex flex-col gap-1.5">
+        <span class="text-label font-semibold text-muted">DM Note / Reason (shown to player)</span>
+        <textarea
+          forgeTextarea
+          rows="2"
+          placeholder="e.g. Defiler blight -2 Saves, Athas obsidian sword, or Lesser Restoration waiver"
+          [(ngModel)]="modifiers.note"
+        ></textarea>
+      </label>
+
+      <!-- Actions -->
+      <div class="flex flex-wrap justify-end gap-2 border-t border-hairline pt-3">
+        <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">
+          Cancel
+        </button>
+        <button forgeButton variant="primary" type="button" (click)="submit()">
+          💾 Apply DM Adjustments
+        </button>
+      </div>
+    </div>
+  }
+</forge-modal>

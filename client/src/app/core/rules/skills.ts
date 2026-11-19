@@ -2,6 +2,7 @@ import { CharacterSchema } from '../models/character.model';
 import {
   abilityModifier,
   abilityScore,
+  effectiveExhaustionLevel,
   exhaustionD20Penalty,
   formatModifier,
   is2024Edition,
@@ -143,7 +144,27 @@ export function skillModifier(
     }
   }
 
-  return abilityModifier(abilityScore(char, skill.ability)) + bonus - exhaustionD20Penalty(char);
+  const dmCheckBonus = char.dm_modifiers?.ability_checks_bonus ?? 0;
+  return abilityModifier(abilityScore(char, skill.ability)) + bonus - exhaustionD20Penalty(char) + dmCheckBonus;
+}
+
+/**
+ * Passive Perception matching backend `stats_service.calculate_passive_perception`:
+ * `10 + WIS mod + skill prof/expertise - 2024 exh - (5 if 2014 L1+ exh) + Observant + DM bonuses`.
+ */
+export function passivePerceptionOf(char: CharacterSchema | null | undefined): number {
+  if (!char) return 10;
+  if (typeof char.passive_perception === 'number') {
+    return char.passive_perception;
+  }
+  const perceptionSkill = { name: 'Perception', ability: 'WIS' as const };
+  const basePerc = skillModifier(char, perceptionSkill);
+  const hasObservant = (char.features_traits || []).some((f) =>
+    (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('observant')
+  );
+  const disadv2014 = !is2024Edition(char) && effectiveExhaustionLevel(char) >= 1 ? 5 : 0;
+  const dmPassive = char.dm_modifiers?.passive_perception_bonus ?? 0;
+  return 10 + basePerc + (hasObservant ? 5 : 0) - disadv2014 + dmPassive;
 }
 
 export function skillModifierString(

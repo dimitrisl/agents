@@ -76,4 +76,25 @@ describe('HitPointsControlComponent', () => {
     component.triggerRollDeathSave();
     expect(rollSpy).toHaveBeenCalled();
   });
+
+  it('shows Exhaustion 6 deceased notice and blocks heal/temp/death-save inputs when isDeceasedByExhaustion is true', () => {
+    fixture.componentRef.setInput('current', 0);
+    fixture.componentRef.setInput('max', 30);
+    fixture.componentRef.setInput('isDeceasedByExhaustion', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Deceased (Exhaustion 6)');
+    const healSpy = jest.spyOn(component.applyHeal, 'emit');
+    const tempSpy = jest.spyOn(component.setTempHp, 'emit');
+    const rollSpy = jest.spyOn(component.rollDeathSave, 'emit');
+
+    component.appendDigit('9');
+    component.executeHeal();
+    component.executeSetTemp();
+    component.triggerRollDeathSave();
+
+    expect(healSpy).not.toHaveBeenCalled();
+    expect(tempSpy).not.toHaveBeenCalled();
+    expect(rollSpy).not.toHaveBeenCalled();
+  });
 });

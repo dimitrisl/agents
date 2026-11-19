@@ -298,6 +298,25 @@ async def apply_level_up(
     if not char_doc:
         raise HTTPException(status_code=404, detail="Character not found or access denied")
 
+    from backend.services.rest_service import is_deceased_by_exhaustion
+
+    if str(char_doc.get("active_campaign") or "").strip() and not bool(
+        char_doc.get("dm_level_up_unlocked", False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Level Up is currently locked by the DM.",
+        )
+
+    if is_deceased_by_exhaustion(char_doc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dead characters (Exhaustion Level 6) cannot level up unless waived by the DM.",
+        )
+
+    # Consume 1-shot DM Level Up unlock atomically on successful completion.
+    char_doc["dm_level_up_unlocked"] = False
+
     # Increment level based on multiclass choice
     user_choices = payload.user_choices or {}
     target_class = user_choices.get("level_up_class", char_doc.get("char_class", "Fighter"))
@@ -771,21 +790,13 @@ async def apply_level_up(
             if enc_res.matched_count > 0:
                 break
 
+        from backend.services.campaign_service import build_party_update_payload
+
         await manager.broadcast(
             active_camp,
             {
                 "type": "party_update",
-                "payload": {
-                    "char_id": payload.character_id,
-                    "char_name": synced_char.get("char_name", "Unknown"),
-                    "hp_current": synced_char.get("hp_current") or 0,
-                    "hp_max": synced_char.get("hp_max") or 0,
-                    "ac": synced_char.get("armor_class", 10),
-                    "level": synced_char.get("char_level", 1),
-                    "conditions": synced_char.get("conditions", []),
-                    "version": synced_char["version"],
-                    "source": "player",
-                },
+                "payload": build_party_update_payload(synced_char, source="player"),
             },
         )
 

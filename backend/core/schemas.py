@@ -24,6 +24,27 @@ class StatBlock(BaseModel):
             raise ValueError("invalid stat.")
 
 
+class DmModifiersSchema(BaseModel):
+    """DM-controlled flat bonuses/penalties applied per character in campaigns."""
+
+    attack_bonus: int = Field(default=0, ge=-100, le=100)
+    damage_bonus: int = Field(default=0, ge=-100, le=100)
+    ac_bonus: int = Field(default=0, ge=-100, le=100)
+    speed_bonus: int = Field(default=0, ge=-300, le=300)
+    hp_max_bonus: int = Field(default=0, ge=-500, le=500)
+    initiative_bonus: int = Field(default=0, ge=-100, le=100)
+    saving_throws_bonus: int = Field(default=0, ge=-100, le=100)
+    ability_checks_bonus: int = Field(default=0, ge=-100, le=100)
+    spell_save_dc_bonus: int = Field(default=0, ge=-100, le=100)
+    passive_perception_bonus: int = Field(default=0, ge=-100, le=100)
+    note: str = Field(default="", max_length=500)
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def coerce_note_str(cls, v):
+        return "" if v is None else str(v)
+
+
 class WeaponEffect(BaseModel):
     """A situational bonus on a weapon, e.g. "vs Undead" +1d6 radiant.
 
@@ -73,6 +94,9 @@ class Weapon(BaseModel):
     damage_type: Optional[str] = ""
     conditional_effects: List[WeaponEffect] = Field(default_factory=list)
     exhaustion_attack_penalty_applied: int = 0
+    dm_attack_bonus_applied: int = 0
+    dm_damage_bonus_applied: int = 0
+    magic_bonus_suppressed_applied: int = 0
 
     @field_validator("properties", "range", mode="before")
     @classmethod
@@ -393,6 +417,13 @@ class CharacterSchema(BaseModel):
     active_campaign: Optional[str] = None
     inspiration: bool = False
     exhaustion_level: int = Field(default=0, ge=0, le=6)
+    exhaustion_bypass: bool = False
+    magic_items_suppressed: bool = False
+    dm_modifiers: DmModifiersSchema = Field(default_factory=DmModifiersSchema)
+    dm_short_rest_unlocked: bool = False
+    dm_long_rest_unlocked: bool = False
+    dm_level_up_unlocked: bool = False
+    dm_hp_bonus_applied: Optional[int] = 0
     currency: CurrencySchema = Field(default_factory=CurrencySchema)
     class_resources: List[ClassResourceSchema] = Field(default_factory=list)
 
