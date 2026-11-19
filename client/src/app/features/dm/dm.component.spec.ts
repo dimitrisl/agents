@@ -1112,6 +1112,77 @@ afterEach(() => {
         },
       });
     });
+
+    it('normalizes initiative roll requests without a stat and updates matching combatants via WebSocket', () => {
+      const toast = TestBed.inject(RollToastService);
+      const toastSpy = jest.spyOn(toast, 'showMessage');
+      component.ngOnInit();
+      http.match(() => true).forEach((r) => r.flush([]));
+      component.campaignName = 'Neverwinter';
+      component.partyMembers = [
+        { ...hero('Thorin', 5), char_id: 'thorin-alice', stats: { STR: 16, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 } },
+        { ...hero('Thorin', 5), char_id: 'thorin-bob', stats: { STR: 10, DEX: 18, CON: 12, INT: 10, WIS: 10, CHA: 14 } },
+      ];
+      component.manualRoll = 12;
+
+      component.openInitiativeRollModal();
+      expect(component.showRollModal).toBe(true);
+      expect(component.rollTargetMember).toBe('ALL');
+      expect(component.rollType).toBe('initiative');
+      expect(component.rollStat).toBe('Initiative');
+      expect(component.rollReason).toBe('Combat begins — roll Initiative!');
+      expect(component.manualRoll).toBeNull();
+
+      // Even if a caller mutated rollStat beforehand, sendRollRequest enforces stat: 'Initiative'
+      // and seeds missing party heroes into combatants so returned rolls are never dropped.
+      component.rollStat = 'STR';
+      component.sendRollRequest();
+
+      expect(component.combatants.length).toBe(2);
+      const req = http.expectOne((r) => r.url.includes('/campaigns/Neverwinter/roll-request'));
+      expect(req.request.body.char_name).toBe('ALL');
+      expect(req.request.body.roll_type).toBe('initiative');
+      expect(req.request.body.stat).toBe('Initiative');
+      req.flush({ success: true });
+      expect(toastSpy).toHaveBeenCalledWith('🎲 ROLL REQUEST SENT', 'Issued Initiative to all party members.');
+
+      (ws.messages$ as Subject<WsMessage>).next({
+        type: 'roll_result',
+        payload: {
+          id: 'rr-bob',
+          char_name: 'Thorin',
+          target_char_id: 'thorin-bob',
+          roll_type: 'initiative',
+          stat: 'Initiative',
+          status: 'resolved',
+          result: { total: 22, expression: '1d20 (18) +4', raw: 18, rolls: [18], modifier: 4, mode: 'normal' },
+        },
+      });
+
+      expect(component.combatants[0].char_id).toBe('thorin-bob');
+      expect(component.combatants[0].initiative).toBe(22);
+      expect(component.combatants[1].char_id).toBe('thorin-alice');
+      expect(component.combatants[1].initiative).toBe(12); // untouched 10 + DEX(+2)
+      expect(toastSpy).toHaveBeenCalledWith('🎲 ROLL RESULT: Thorin', 'Initiative = 22');
+    });
+
+    it('openInitiativeRollModal targets the sole hero directly in a 1-player party and switches back cleanly', () => {
+      component.partyMembers = [hero('Valerius', 4)];
+
+      component.openInitiativeRollModal();
+      expect(component.rollTargetMember).toBe('Valerius');
+      expect(component.rollStat).toBe('Initiative');
+
+      component.onRollTypeChange('saving_throw');
+      expect(component.rollStat).toBe('DEX');
+      expect(component.rollReason).toBe('Dragon Breath Fire Save');
+
+      // Custom DM reason is preserved when toggling rollType
+      component.rollReason = 'Ambush from ceiling!';
+      component.onRollTypeChange('initiative');
+      expect(component.rollReason).toBe('Ambush from ceiling!');
+      expect(component.rollStat).toBe('Initiative');
+    });
   });
 });
 

@@ -138,4 +138,26 @@ describe('DmInboxComponent', () => {
     expect(text).toContain('Lyra');
     expect(text).toContain('🔒 Whisper DM');
   });
+
+  it('formats initiative roll requests without a spurious ability stat', () => {
+    expect(
+      component.rollAsk({
+        id: 'rr-init-1',
+        char_name: 'Elena',
+        roll_type: 'initiative',
+        stat: 'Initiative',
+        status: 'pending',
+      })
+    ).toBe('Initiative roll');
+
+    expect(
+      component.rollAsk({
+        id: 'rr-init-legacy',
+        char_name: 'Elena',
+        roll_type: 'initiative',
+        stat: 'DEX',
+        status: 'pending',
+      })
+    ).toBe('Initiative roll');
+  });
 });

@@ -18,6 +18,17 @@
         <button forgeButton variant="secondary" size="sm" type="button" (click)="rollMonstersOnly.emit()">
           🎲 Roll Monsters Only
         </button>
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="partyMembers.length === 0"
+          title="Ask party members to roll Initiative (digital or physical dice)"
+          (click)="requestInitiative.emit()"
+        >
+          🎲 Request Initiative
+        </button>
       </div>
     </div>
 

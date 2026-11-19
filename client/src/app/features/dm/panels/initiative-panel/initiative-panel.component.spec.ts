@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import { InitiativePanelComponent } from './initiative-panel.component';
 import { InitiativeCombatant } from '../../../../core/models/initiative.model';
 import { BestiaryMonster } from '../../../../core/models/bestiary.model';
@@ -148,6 +149,41 @@ describe('InitiativePanelComponent', () => {
       component.isDropdownOpen = true;
       component.onEscape();
       expect(component.isDropdownOpen).toBe(false);
+    });
+
+    it('disables Request Initiative when party is empty and emits requestInitiative on click', async () => {
+      await TestBed.configureTestingModule({
+        imports: [InitiativePanelComponent],
+      }).compileComponents();
+
+      const fixture = TestBed.createComponent(InitiativePanelComponent);
+      fixture.detectChanges();
+
+      const findBtn = (): HTMLButtonElement =>
+        Array.from(fixture.nativeElement.querySelectorAll('button')).find((b) =>
+          (b.textContent || '').includes('Request Initiative')
+        ) as HTMLButtonElement;
+
+      expect(findBtn().disabled).toBe(true);
+
+      const spy = jest.spyOn(fixture.componentInstance.requestInitiative, 'emit');
+      fixture.componentRef.setInput('partyMembers', [
+        {
+          char_id: 'c1',
+          name: 'Elena',
+          char_class: 'Fighter',
+          level: 3,
+          hp_current: 28,
+          hp_max: 28,
+          ac: 18,
+          conditions: [],
+        },
+      ]);
+      fixture.detectChanges();
+
+      expect(findBtn().disabled).toBe(false);
+      findBtn().click();
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 });

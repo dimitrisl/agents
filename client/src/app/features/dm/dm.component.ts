@@ -256,19 +256,32 @@ export class DmComponent implements OnInit, OnDestroy {
   inboxReplyMessage = '';
   isSendingInboxReply = false;
 
+  private readonly defaultSaveReason = 'Dragon Breath Fire Save';
+  private readonly defaultInitiativeReason = 'Combat begins — roll Initiative!';
+
   rollTargetMember = '';
   rollType = 'saving_throw';
   rollStat = 'DEX';
-  rollReason = 'Dragon Breath Fire Save';
+  rollReason = this.defaultSaveReason;
   isSecretRoll = false;
   manualRoll: number | null = null;
 
   onRollTypeChange(newType: string) {
     this.rollType = newType;
+    const isDefaultReason =
+      !this.rollReason.trim() ||
+      this.rollReason === this.defaultSaveReason ||
+      this.rollReason === this.defaultInitiativeReason;
+
     if (newType === 'skill_check') {
       this.rollStat = 'Perception'; // Default skill
+      if (isDefaultReason) this.rollReason = this.defaultSaveReason;
+    } else if (newType === 'initiative') {
+      this.rollStat = 'Initiative';
+      if (isDefaultReason) this.rollReason = this.defaultInitiativeReason;
     } else {
       this.rollStat = 'DEX'; // Default stat
+      if (isDefaultReason) this.rollReason = this.defaultSaveReason;
     }
   }
 
@@ -517,7 +530,7 @@ export class DmComponent implements OnInit, OnDestroy {
           this.upsertRollRequest(payload, true);
           this.rollToast.showMessage(
             `⌛ NO ANSWER: ${payload.char_name}`,
-            `${payload.roll_type} (${payload.stat}) went unanswered.`
+            `${this.formatRollSummary(payload.roll_type, payload.stat)} went unanswered.`
           );
           return;
         }
@@ -528,12 +541,15 @@ export class DmComponent implements OnInit, OnDestroy {
         this.upsertRollRequest(payload, true);
 
         if (payload.roll_type === 'initiative' || payload.stat?.toLowerCase() === 'initiative') {
-          const match = this.combatants.find(
-            (c) => c.name.toLowerCase() === (payload.char_name || '').toLowerCase()
+          const match = this.combatants.find((c) =>
+            payload.target_char_id
+              ? c.char_id === payload.target_char_id
+              : c.name.toLowerCase() === (payload.char_name || '').toLowerCase()
           );
           if (match) {
-            match.initiative = result.total;
-            this.combatants = this.sortCombatants(this.combatants);
+            this.combatants = this.sortCombatants(
+              this.combatants.map((c) => (c.id === match.id ? { ...c, initiative: result.total } : c))
+            );
             this.persistEncounter();
           }
         }
@@ -544,7 +560,7 @@ export class DmComponent implements OnInit, OnDestroy {
         const secret = payload.rolled_by === 'dm';
         this.rollToast.showMessage(
           `${secret ? '🔒 SECRET ROLL' : '🎲 ROLL RESULT'}: ${payload.char_name}`,
-          `${payload.roll_type} (${payload.stat}) = ${result.total}${mode}` +
+          `${this.formatRollSummary(payload.roll_type, payload.stat)} = ${result.total}${mode}` +
             (secret ? ' — the player was not asked.' : '')
         );
       } else if (msg.type === 'party_member_joined') {
@@ -1670,10 +1686,31 @@ export class DmComponent implements OnInit, OnDestroy {
     });
   }
 
+  private formatRollSummary(rollType: string, stat?: string): string {
+    const normalizedType = (rollType || '').toLowerCase().replace(/[\s-]+/g, '_');
+    const cleanStat = (stat || '').trim();
+    if (normalizedType === 'initiative' || cleanStat.toLowerCase() === 'initiative') {
+      return 'Initiative';
+    }
+    return cleanStat ? `${rollType} (${cleanStat})` : rollType;
+  }
+
   openSingleRollModal(m: PartyMember) {
     this.rollTargetMember = m.char_id || m.name;
     // A value typed into a previous, cancelled modal must never leak into this request.
     this.manualRoll = null;
+    this.showRollModal = true;
+  }
+
+  /** Opens the Request a Roll modal preconfigured for party/hero Initiative right from Combat & Initiative. */
+  openInitiativeRollModal(): void {
+    if (this.partyMembers.length === 0) return;
+    this.rollTargetMember =
+      this.partyMembers.length > 1
+        ? 'ALL'
+        : (this.partyMembers[0].char_id || this.partyMembers[0].name);
+    this.manualRoll = null;
+    this.onRollTypeChange('initiative');
     this.showRollModal = true;
   }
 
@@ -1702,13 +1739,21 @@ export class DmComponent implements OnInit, OnDestroy {
         ? `${targetName.toLowerCase()}_${target.char_id}.json`
         : `${targetName.toLowerCase()}.json`;
     const targetLabel = isAllParty ? 'all party members' : targetName;
+    const effectiveStat = this.rollType === 'initiative' ? 'Initiative' : this.rollStat;
+
+    // Ensure requested party members are already in the Initiative Tracker before
+    // any WS `roll_result` (including instant secret/manual rolls) arrives.
+    if (this.rollType === 'initiative') {
+      const targetsToSeed = isAllParty ? this.partyMembers : (target ? [target] : []);
+      this.ensurePartyMembersInCombat(targetsToSeed);
+    }
 
     const rollToUse = manualVal !== undefined ? manualVal : this.manualRoll;
     const payload: any = {
       char_filename: charFilename,
       char_name: targetName,
       roll_type: this.rollType,
-      stat: this.rollStat,
+      stat: effectiveStat,
       reason: this.rollReason,
       is_secret: this.isSecretRoll
     };
@@ -1724,7 +1769,10 @@ export class DmComponent implements OnInit, OnDestroy {
     this.http.post(campaignUrl(this.campaignName, 'roll-request'), payload).subscribe({
       next: () => {
         if (this.isSecretRoll) return;
-        this.rollToast.showMessage('🎲 ROLL REQUEST SENT', `Issued ${this.rollType} (${this.rollStat}) to ${targetLabel}.`);
+        this.rollToast.showMessage(
+          '🎲 ROLL REQUEST SENT',
+          `Issued ${this.formatRollSummary(this.rollType, effectiveStat)} to ${targetLabel}.`
+        );
       },
       error: () =>
         this.rollToast.showMessage('⚠️ REQUEST NOT SENT', `Could not reach ${targetLabel}.`)
@@ -1741,28 +1789,35 @@ export class DmComponent implements OnInit, OnDestroy {
     this.importPartyToInitiative(true);
   }
 
-  importPartyToInitiative(silent = false) {
-    const additions = this.partyMembers
-      .filter((p) => !this.combatants.some((c) => c.is_player && this.isMemberCombatantMatch(p, c)))
-      .map((p) => {
-        const dexVal = p.stats?.['DEX'] || 10;
-        const dexMod = Math.floor((dexVal - 10) / 2);
-        return this.buildCombatant({
-          char_id: p.char_id,
-          name: p.name,
-          initiative: 10 + dexMod,
-          hp: p.hp_current,
-          max_hp: p.hp_max,
-          ac: p.ac,
-          dex: dexVal,
-          is_player: true,
-          portrait: sanitizePortraitUrl(p.portrait),
-          conditions: p.conditions.map((name) => ({ name, expiresAtRound: null })),
-        });
-      });
+  private buildCombatantFromMember(p: PartyMember): InitiativeCombatant {
+    const dexVal = p.stats?.['DEX'] || 10;
+    const dexMod = Math.floor((dexVal - 10) / 2);
+    return this.buildCombatant({
+      char_id: p.char_id,
+      name: p.name,
+      initiative: 10 + dexMod,
+      hp: p.hp_current,
+      max_hp: p.hp_max,
+      ac: p.ac,
+      dex: dexVal,
+      is_player: true,
+      portrait: sanitizePortraitUrl(p.portrait),
+      conditions: p.conditions.map((name) => ({ name, expiresAtRound: null })),
+    });
+  }
 
+  private ensurePartyMembersInCombat(targets: PartyMember[], alwaysPersist = false): void {
+    const additions = targets
+      .filter((p) => !this.combatants.some((c) => c.is_player && this.isMemberCombatantMatch(p, c)))
+      .map((p) => this.buildCombatantFromMember(p));
+
+    if (additions.length === 0 && !alwaysPersist) return;
     this.combatants = this.sortCombatants([...this.combatants, ...additions]);
     this.persistEncounter();
+  }
+
+  importPartyToInitiative(silent = false) {
+    this.ensurePartyMembersInCombat(this.partyMembers, true);
 
     if (!silent) {
       this.rollToast.showMessage('👥 PARTY IMPORTED', 'Imported active party members into Initiative Tracker.');
