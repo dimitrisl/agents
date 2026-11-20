@@ -386,6 +386,10 @@ class CharacterSchema(BaseModel):
     skills: Dict[str, int] = Field(default_factory=dict)
     skill_proficiencies: List[str] = Field(default_factory=list)
     skill_expertise: List[str] = Field(default_factory=list)
+    weapon_proficiencies: List[str] = Field(default_factory=list)
+    senses: List[str] = Field(default_factory=list)
+    damage_resistances: List[str] = Field(default_factory=list)
+    save_advantages: List[str] = Field(default_factory=list)
     weapon_masteries: List[str] = Field(default_factory=list)
     weapons: List[Weapon] = Field(default_factory=list)
     version: int = 0

@@ -2,8 +2,103 @@
     "class_name": "Bard",
     "edition": "2014 Edition",
     "subclasses": {
+        "College of Lore": {
+            "name": "College of Lore",
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiencies & Cutting Words",
+                    "description": "Gain proficiency in any 3 skills; spend Bardic Inspiration as a Reaction to subtract your Inspiration die from an enemy's attack, ability check, or damage roll."
+                },
+                "6": {
+                    "name": "Additional Magical Secrets",
+                    "description": "Learn two spells of your choice from any class list (included in your Bard Spells Known)."
+                },
+                "14": {
+                    "name": "Peerless Skill",
+                    "description": "Add a Bardic Inspiration die to your own ability check."
+                }
+            }
+        },
+        "College of Valor": {
+            "name": "College of Valor",
+            "armor_proficiencies": [
+                "Medium armor",
+                "Shields"
+            ],
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "features": {
+                "3": {
+                    "name": "Combat Inspiration & Bonus Proficiencies",
+                    "description": "Gain Medium Armor, Shields, and Martial Weapons proficiency; allies can add Bardic Inspiration to weapon damage or AC as a Reaction."
+                },
+                "6": {
+                    "name": "Extra Attack (College of Valor)",
+                    "description": "Attack twice, rather than once, whenever you take the Attack action on your turn."
+                },
+                "14": {
+                    "name": "Battle Magic",
+                    "description": "When you use your Action to cast a Bard spell, make one weapon attack as a Bonus Action."
+                }
+            }
+        },
+        "College of Glamour": {
+            "name": "College of Glamour",
+            "features": {
+                "3": {
+                    "name": "Mantle of Inspiration & Enthralling Performance",
+                    "description": "Expend Bardic Inspiration as a Bonus Action to grant allies Temporary HP and reaction movement; charm listeners after 1 minute of performance."
+                },
+                "6": {
+                    "name": "Mantle of Majesty",
+                    "description": "Bonus Action for 1 min: cast Command each turn as a Bonus Action without expending a slot (1/Long Rest)."
+                },
+                "14": {
+                    "name": "Unbreakable Majesty",
+                    "description": "Bonus Action causes attackers within view to make a CHA save or be unable to target you with attacks for the turn (1/Short Rest)."
+                }
+            }
+        },
+        "College of Swords": {
+            "name": "College of Swords",
+            "armor_proficiencies": [
+                "Medium armor"
+            ],
+            "weapon_proficiencies": [
+                "Scimitar"
+            ],
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiencies, Fighting Style & Blade Flourish",
+                    "description": "Gain Medium Armor & Scimitar proficiency, choose Dueling or Two-Weapon Fighting, and expend Bardic Inspiration on Defensive, Slashing, or Mobile Flourishes."
+                },
+                "6": {
+                    "name": "Extra Attack (College of Swords)",
+                    "description": "Attack twice, rather than once, whenever you take the Attack action on your turn."
+                },
+                "14": {
+                    "name": "Master's Flourish",
+                    "description": "Whenever you use a Blade Flourish, you can roll a d6 instead of expending a Bardic Inspiration die."
+                }
+            }
+        },
         "College of Whispers": {
             "name": "College of Whispers",
+            "features": {
+                "3": {
+                    "name": "Psychic Blades & Words of Terror",
+                    "description": "Expend Bardic Inspiration on weapon hit for +2d6 Psychic damage (scales at L5/10/15); frighten a target after 1 minute of private conversation."
+                },
+                "6": {
+                    "name": "Mantle of Whispers",
+                    "description": "Reaction when a humanoid dies within 30 ft to capture its shadow and magically disguise yourself as them (1/Short Rest)."
+                },
+                "14": {
+                    "name": "Shadow Lore",
+                    "description": "Whisper magical threats to magically charm a creature into obeying your commands for 8 hours (1/Long Rest)."
+                }
+            },
             "scaling": {
                 "psychic_blades": {
                     "name": "Psychic Blades",
@@ -28,6 +123,57 @@
                             "notation": "8d6"
                         }
                     ]
+                }
+            }
+        },
+        "College of Eloquence": {
+            "name": "College of Eloquence",
+            "features": {
+                "3": {
+                    "name": "Silver Tongue & Unsettling Words",
+                    "description": "Treat d20 rolls of 9 or lower as 10 on Persuasion and Deception checks; Bonus Action subtracts Bardic Inspiration from a target's next saving throw."
+                },
+                "6": {
+                    "name": "Unfailing Inspiration & Universal Speech",
+                    "description": "Allies keep their Bardic Inspiration die if their roll still fails; speak so any creature understands you for 1 hour (1/Long Rest or slot)."
+                },
+                "14": {
+                    "name": "Infectious Inspiration",
+                    "description": "When an ally succeeds using your Bardic Inspiration, Reaction grants another ally Inspiration free (CHA mod/Long Rest)."
+                }
+            }
+        },
+        "College of Creation": {
+            "name": "College of Creation",
+            "features": {
+                "3": {
+                    "name": "Mote of Potential & Performance of Creation",
+                    "description": "Your Bardic Inspiration adds secondary attack/check/save bonuses; conjure nonmagical objects worth up to 20 x Bard level gp (1/Long Rest or slot)."
+                },
+                "6": {
+                    "name": "Animating Performance",
+                    "description": "Animate a Large or smaller nonmagical item as a Dancing Item under your command (1/Long Rest or 3rd+ spell slot)."
+                },
+                "14": {
+                    "name": "Creative Crescendo",
+                    "description": "Create multiple objects simultaneously with Performance of Creation with no gp value limit."
+                }
+            }
+        },
+        "College of Spirits": {
+            "name": "College of Spirits",
+            "features": {
+                "3": {
+                    "name": "Guiding Whispers & Tales from Beyond",
+                    "description": "Learn Guidance with 60 ft range; use a Spiritual Focus and expend Bardic Inspiration to roll random Spirits' Tales effects."
+                },
+                "6": {
+                    "name": "Spiritual Focus Empowerment & Spirit Session",
+                    "description": "Add +1d6 healing or damage to Bard spells via Spiritual Focus; conduct a ritual to temporarily know a Divination/Necromancy spell from any class."
+                },
+                "14": {
+                    "name": "Mystical Connection",
+                    "description": "Roll twice on the Spirits' Tales table and choose which tale takes effect."
                 }
             }
         }

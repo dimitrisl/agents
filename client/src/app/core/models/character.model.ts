@@ -157,6 +157,10 @@ export interface CharacterSchema {
   proficiency_bonus: number;
   stats: StatBlock;
   saving_throws?: string[];
+  weapon_proficiencies?: string[];
+  senses?: string[];
+  damage_resistances?: string[];
+  save_advantages?: string[];
   skills?: Record<string, number>;
   skill_proficiencies?: string[];
   skill_expertise?: string[];

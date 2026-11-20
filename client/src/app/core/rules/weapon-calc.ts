@@ -117,6 +117,24 @@ export function getDuelingBonus(weapon: Weapon, char?: CharacterSchema | null): 
   return !isTwoHanded && !isRanged ? 2 : 0;
 }
 
+/** Checks for Agonizing Blast (+CHA damage on Eldritch Blast when CHA isn't already the weapon stat). */
+export function getAgonizingBlastBonus(
+  weapon: Weapon,
+  char?: CharacterSchema | null,
+  statName?: string
+): number {
+  if (!char?.features_traits) return 0;
+  const wName = (weapon.name || '').toLowerCase();
+  if (!wName.includes('eldritch blast')) return 0;
+  const resolved = statName ?? resolveWeaponStat(weapon, char);
+  if (resolved === 'CHA') return 0;
+  const hasAgonizing = char.features_traits.some((f) => {
+    const name = (typeof f === 'string' ? f : f.name || '').toLowerCase();
+    return name.includes('agonizing blast');
+  });
+  return hasAgonizing ? abilityModifier(char.stats?.CHA ?? 10) : 0;
+}
+
 /** Computes full breakdown for a weapon's to-hit and damage. */
 export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema | null): WeaponBreakdown {
   const stats = char?.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 };
@@ -134,9 +152,10 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   // 3. Magic Bonus (non-destructively suppressed when DM activates Athas / Antimagic)
   const magicBonus = char?.magic_items_suppressed ? 0 : extractMagicBonus(weapon);
 
-  // 4. Fighting Styles
+  // 4. Fighting Styles & Invocations
   const archery = getArcheryBonus(weapon, char);
   const dueling = getDuelingBonus(weapon, char);
+  const agonizing = getAgonizingBlastBonus(weapon, char, statName);
 
   // 5. Misc, Gear & DM Modifiers
   const miscAttack = weapon.misc_attack_bonus ?? 0;
@@ -173,11 +192,12 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   const typeMatch = /\d\s*([a-zA-Z][a-zA-Z ]*)$/.exec(rawDice);
   const damageType = weapon.damage_type || (typeMatch ? typeMatch[1].trim() : '');
 
-  const totalDamageBonus = statMod + magicBonus + dueling + miscDamage + globalDamage + dmDamage;
+  const totalDamageBonus = statMod + magicBonus + dueling + agonizing + miscDamage + globalDamage + dmDamage;
   const damageParts: string[] = [baseDice];
   if (statName !== 'NONE' && statMod !== 0) damageParts.push(`${statMod >= 0 ? '+' + statMod : statMod} (${statName})`);
   if (magicBonus > 0) damageParts.push(`+${magicBonus} (Magic)`);
   if (dueling > 0) damageParts.push(`+${dueling} (Dueling)`);
+  if (agonizing !== 0) damageParts.push(`${agonizing > 0 ? '+' + agonizing : agonizing} (Agonizing)`);
   if (globalDamage !== 0) damageParts.push(`${globalDamage > 0 ? '+' + globalDamage : globalDamage} (Gear)`);
   if (dmDamage !== 0) damageParts.push(`${dmDamage > 0 ? '+' + dmDamage : dmDamage} (DM)`);
   if (miscDamage !== 0) damageParts.push(`${miscDamage > 0 ? '+' + miscDamage : miscDamage} (Misc)`);

@@ -31,8 +31,8 @@
         }
     },
     "primary_ability": [
-        "STR",
-        "DEX"
+        "DEX",
+        "WIS"
     ],
     "progression": {
         "1": {
@@ -231,5 +231,17 @@
     },
     "caster_type": "half",
     "spellcasting_ability": "WIS",
-    "scaling": {}
+    "scaling": {
+        "foe_slayer": {
+            "name": "Foe Slayer",
+            "kind": "rider",
+            "hint": "Once on each of your turns, add your Wisdom modifier to an attack roll or damage roll against a favored enemy.",
+            "steps": [
+                {
+                    "level": 20,
+                    "notation": "+WIS mod"
+                }
+            ]
+        }
+    }
 }

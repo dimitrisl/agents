@@ -99,6 +99,26 @@ export function hasInitiativeAdvantage(char: CharacterSchema | null | undefined)
   return false;
 }
 
+/**
+ * Rogue Reliable Talent: treat d20 rolls of 9 or lower as 10 on proficient ability/skill checks.
+ * 2014 unlocks at Rogue 11; 2024 unlocks at Rogue 7.
+ */
+export function hasReliableTalent(char: CharacterSchema | null | undefined): boolean {
+  if (!char) return false;
+  if (char.features_traits?.some((f) => (f.name || '').toLowerCase().includes('reliable talent'))) {
+    return true;
+  }
+  const minLevel = is2024Edition(char) ? 7 : 11;
+  if (
+    char.classes?.some(
+      (c) => (c.class_name || '').toLowerCase() === 'rogue' && (c.level || 0) >= minLevel
+    )
+  ) {
+    return true;
+  }
+  return (char.char_class || '').toLowerCase() === 'rogue' && (char.char_level || 1) >= minLevel;
+}
+
 export function hasAthleticsAdvantage(char: CharacterSchema | null | undefined): boolean {
   if (!char) return false;
   if (char.athletics_advantage) return true;

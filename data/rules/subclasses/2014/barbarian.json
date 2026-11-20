@@ -2,25 +2,89 @@
     "class_name": "Barbarian",
     "edition": "2014 Edition",
     "subclasses": {
-        "Path of the Zealot": {
-            "name": "Path of the Zealot",
-            "scaling": {
-                "divine_fury": {
-                    "name": "Divine Fury",
-                    "kind": "rider",
-                    "damage_type": "radiant or necrotic",
-                    "hint": "While raging, the first creature you hit on each of your turns takes extra damage.",
-                    "steps": [
-                        {
-                            "level": 3,
-                            "notation": "1d6 + (level/2)"
-                        }
-                    ]
+        "Path of the Berserker": {
+            "name": "Path of the Berserker",
+            "features": {
+                "3": {
+                    "name": "Frenzy",
+                    "description": "While raging, enter a Frenzy to make a single melee weapon attack as a Bonus Action on each turn (gain 1 level of Exhaustion when rage ends)."
+                },
+                "6": {
+                    "name": "Mindless Rage",
+                    "description": "You can't be Charmed or Frightened while raging; existing Charmed/Frightened effects are suspended during Rage."
+                },
+                "10": {
+                    "name": "Intimidating Presence",
+                    "description": "Use your Action to frighten a creature within 30 ft (WIS save DC 8 + PB + CHA mod)."
+                },
+                "14": {
+                    "name": "Retaliation",
+                    "description": "Use your Reaction to make a melee weapon attack against a creature within 5 ft that damages you."
+                }
+            }
+        },
+        "Path of the Totem Warrior": {
+            "name": "Path of the Totem Warrior",
+            "features": {
+                "3": {
+                    "name": "Spirit Seeker & Totem Spirit",
+                    "description": "Cast Beast Sense and Speak with Animals as rituals, and choose a Totem Spirit (Bear: Resistance to all damage except Psychic while raging; Eagle; or Wolf)."
+                },
+                "6": {
+                    "name": "Aspect of the Beast",
+                    "description": "Gain passive supernatural might from Bear (double carrying capacity, Adv vs push/break), Eagle (1-mile sight), or Wolf (track at fast pace)."
+                },
+                "10": {
+                    "name": "Spirit Walker",
+                    "description": "Cast Commune with Nature as a ritual."
+                },
+                "14": {
+                    "name": "Totemic Attunement",
+                    "description": "Gain peak totem magic while raging (Bear imposes Disadvantage on foes, Eagle grants short fly bursts, Wolf knocks Large or smaller targets Prone on hit)."
+                }
+            }
+        },
+        "Path of the Ancestral Guardian": {
+            "name": "Path of the Ancestral Guardian",
+            "features": {
+                "3": {
+                    "name": "Ancestral Protectors",
+                    "description": "The first creature you hit on your turn while raging has Disadvantage on attacks against targets other than you, and targets have Resistance to its damage."
+                },
+                "6": {
+                    "name": "Spirit Shield",
+                    "description": "Use your Reaction while raging to reduce damage dealt to an ally within 30 ft by 2d6 (3d6 at L10, 4d6 at L14)."
+                },
+                "10": {
+                    "name": "Consult the Spirits",
+                    "description": "Cast Augury or Clairvoyance (no slot/components) once per Short or Long Rest."
+                },
+                "14": {
+                    "name": "Vengeful Ancestors",
+                    "description": "When your Spirit Shield reduces damage, the attacker takes Force damage equal to the damage prevented."
                 }
             }
         },
         "Path of the Storm Herald": {
             "name": "Path of the Storm Herald",
+            "features": {
+                "3": {
+                    "name": "Storm Aura",
+                    "description": "Emit a 10-foot Storm Aura (Desert Fire damage, Sea Lightning strike, or Tundra Temporary HP) activated on Rage entry and Bonus Actions."
+                },
+                "6": {
+                    "name": "Storm Soul",
+                    "description": "Gain Resistance to Fire (Desert), Lightning + water breathing (Sea), or Cold + freezing water (Tundra)."
+                },
+                "10": {
+                    "name": "Shielding Storm",
+                    "description": "Creatures of your choice inside your Storm Aura gain the Damage Resistance of your Storm Soul."
+                },
+                "14": {
+                    "name": "Raging Storm",
+                    "description": "Reaction triggers punish attackers (Desert Fire retaliation), knock foes Prone (Sea), or freeze targets' speed to 0 (Tundra)."
+                }
+            },
             "scaling": {
                 "sea_aura": {
                     "name": "Storm Aura (Sea)",
@@ -45,6 +109,83 @@
                             "notation": "4d6"
                         }
                     ]
+                }
+            }
+        },
+        "Path of the Zealot": {
+            "name": "Path of the Zealot",
+            "features": {
+                "3": {
+                    "name": "Divine Fury & Warrior of the Gods",
+                    "description": "First weapon hit each turn while raging deals 1d6 + half Barbarian level Radiant or Necrotic damage; spells restoring you to life require no material components."
+                },
+                "6": {
+                    "name": "Fanatical Focus",
+                    "description": "Once per rage, reroll a failed saving throw."
+                },
+                "10": {
+                    "name": "Zealous Presence",
+                    "description": "Bonus Action battle cry grants up to 10 allies Advantage on attacks and saves until your next turn (1/Long Rest)."
+                },
+                "14": {
+                    "name": "Rage Beyond Death",
+                    "description": "While raging, having 0 HP doesn't knock you unconscious; you still make death saves but stay active until Rage ends."
+                }
+            },
+            "scaling": {
+                "divine_fury": {
+                    "name": "Divine Fury",
+                    "kind": "rider",
+                    "damage_type": "radiant or necrotic",
+                    "hint": "While raging, the first creature you hit on each of your turns takes extra damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6 + (level/2)"
+                        }
+                    ]
+                }
+            }
+        },
+        "Path of the Beast": {
+            "name": "Path of the Beast",
+            "features": {
+                "3": {
+                    "name": "Form of the Beast",
+                    "description": "While raging, manifest natural weapons: Bite (regain PB HP), Claws (extra claw attack), or Tail (+1d8 AC reaction / 10 ft reach)."
+                },
+                "6": {
+                    "name": "Bestial Soul",
+                    "description": "Natural weapons count as magical; choose swimming/water-breathing, climbing, or super-leaps recharging after Short or Long Rests."
+                },
+                "10": {
+                    "name": "Infectious Fury",
+                    "description": "Force a hit creature to make a WIS save or attack its ally / take 2d12 Psychic damage (PB/Long Rest)."
+                },
+                "14": {
+                    "name": "Call the Hunt",
+                    "description": "Empower allies within 30 ft on Rage entry with +5 Temporary HP each and +1d6 bonus damage once per turn (PB/Long Rest)."
+                }
+            }
+        },
+        "Path of Wild Magic": {
+            "name": "Path of Wild Magic",
+            "features": {
+                "3": {
+                    "name": "Magic Awareness & Wild Surge",
+                    "description": "Detect spells/magic items within 60 ft as an Action; trigger a chaotic Wild Magic table effect whenever entering Rage."
+                },
+                "6": {
+                    "name": "Bolstering Magic",
+                    "description": "Touch a creature to grant +1d3 to attacks/checks for 10 min or restore an expended spell slot of 1st–3rd level (PB/Long Rest)."
+                },
+                "10": {
+                    "name": "Unstable Backlash",
+                    "description": "Reaction upon taking damage or failing a save while raging to roll a new Wild Surge effect replacing the current one."
+                },
+                "14": {
+                    "name": "Controlled Surge",
+                    "description": "Roll twice on the Wild Magic table and choose which effect occurs."
                 }
             }
         }

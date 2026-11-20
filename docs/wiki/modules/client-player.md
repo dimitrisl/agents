@@ -54,10 +54,14 @@ The Player Companion module provides the responsive, real-time character sheet i
 
 ---
 
-### 4. Interactive Skills & Expertise Matrix
-- **Component:** [`client/src/app/features/player/skills-panel/`](../../../client/src/app/features/player/skills-panel)
-- **Proficiency Multipliers:**
+### 4. Interactive Skills, Reliable Talent, Rest Bonuses & Senses/Resistances Matrix
+- **Component:** [`client/src/app/features/player/tabs/skills-panel/`](../../../client/src/app/features/player/tabs/skills-panel), [`character-overview-card/`](../../../client/src/app/features/player/character-overview-card), and [`modals/short-rest-modal/`](../../../client/src/app/features/player/modals/short-rest-modal)
+- **Proficiency Multipliers & Reliable Talent:**
   - Players can toggle between Normal ($\times 0$), Proficient ($\times 1$), and Expertise ($\times 2$) directly on their sheet.
+  - Rogues with *Reliable Talent* (L11 in 2014, L7 in 2024) render `10+ MIN` badges on proficient skills and pass `minD20 = 10` into `DiceService.rollD20()`.
+- **Overview Senses, Resistances & Save Advantages; Short Rest Modals:**
+  - [`CharacterOverviewCardComponent`](../../../client/src/app/features/player/character-overview-card/character-overview-card.component.ts) renders `char.senses`, `char.damage_resistances`, and `char.save_advantages` badges in the status strip.
+  - [`ShortRestModalComponent`](../../../client/src/app/features/player/modals/short-rest-modal/short-rest-modal.component.ts) displays 2014 Bard *Song of Rest* dice banners, and `PlayerComponent.executeShortRest()` automatically rolls bonus Song of Rest healing and passes `char` for 2014 Sorcerer L20 *Sorcerous Restoration*.
 - **Dynamic Passive Scores:**
   - Automatically recalculates Passive Perception ($10 + \text{WIS mod} + \text{Skill Bonus} + \text{Feat/Item Bonuses}$), Passive Insight, and Passive Investigation. Incorporates +5 flat bonus from the *Observant* feat.
 

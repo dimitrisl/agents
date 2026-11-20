@@ -2,8 +2,117 @@
     "class_name": "Warlock",
     "edition": "2014 Edition",
     "subclasses": {
+        "The Archfey": {
+            "name": "The Archfey",
+            "features": {
+                "1": {
+                    "name": "Fey Presence",
+                    "description": "Action projects a 10-ft cube charming or frightening creatures until end of your next turn (1/Short Rest)."
+                },
+                "6": {
+                    "name": "Misty Escape",
+                    "description": "Reaction upon taking damage turns Invisible and teleports up to 60 ft (1/Short Rest)."
+                },
+                "10": {
+                    "name": "Beguiling Defenses",
+                    "description": "Immunity to the Charmed condition and Reaction reflects Charm attempts back at the caster."
+                },
+                "14": {
+                    "name": "Dark Delirium",
+                    "description": "Action plunges a creature within 60 ft into a 1-minute illusory realm (Charmed/Frightened, 1/Short Rest)."
+                }
+            }
+        },
+        "The Fiend": {
+            "name": "The Fiend",
+            "features": {
+                "1": {
+                    "name": "Dark One's Blessing",
+                    "description": "When reducing a hostile creature to 0 HP, gain Temporary HP equal to CHA modifier + Warlock level."
+                },
+                "6": {
+                    "name": "Dark One's Own Luck",
+                    "description": "Add +1d10 to an ability check or saving throw after rolling (1/Short or Long Rest)."
+                },
+                "10": {
+                    "name": "Fiendish Resilience",
+                    "description": "Choose one damage type after every Short or Long Rest to gain Resistance against it (except magical/silvered weapons)."
+                },
+                "14": {
+                    "name": "Hurl Through Hell",
+                    "description": "On an attack hit, banish target through the lower planes for 10d10 Psychic damage (if not a Fiend, 1/Long Rest)."
+                }
+            }
+        },
+        "The Great Old One": {
+            "name": "The Great Old One",
+            "features": {
+                "1": {
+                    "name": "Awakened Mind",
+                    "description": "Telepathically speak to any creature you can see within 30 ft if it understands at least one language."
+                },
+                "6": {
+                    "name": "Entropic Ward",
+                    "description": "Reaction imposes Disadvantage on an attack against you; if it misses, gain Advantage on your next attack (1/Short Rest)."
+                },
+                "10": {
+                    "name": "Thought Shield",
+                    "description": "Your thoughts cannot be read, and you gain Resistance to Psychic damage (reflecting Psychic back at attackers)."
+                },
+                "14": {
+                    "name": "Create Thrall",
+                    "description": "Action charms an incapacitated humanoid indefinitely until removed with Remove Curse/Greater Restoration."
+                }
+            }
+        },
+        "The Celestial": {
+            "name": "The Celestial",
+            "features": {
+                "1": {
+                    "name": "Bonus Cantrips & Healing Light",
+                    "description": "Learn Light and Sacred Flame; pool of (1 + Warlock level) d6s heals allies within 60 ft as a Bonus Action."
+                },
+                "6": {
+                    "name": "Radiant Soul",
+                    "description": "Gain Resistance to Radiant damage and add CHA modifier to one Radiant or Fire spell damage roll."
+                },
+                "10": {
+                    "name": "Celestial Resilience",
+                    "description": "Gain Warlock level + CHA Temporary HP after Short/Long Rests and grant half level + CHA Temporary HP to up to 5 allies."
+                },
+                "14": {
+                    "name": "Searing Vengeance",
+                    "description": "Instead of making a Death Save at start of turn, spring up with half HP, dealing 2d8 + CHA Radiant and blinding nearby foes (1/Long Rest)."
+                }
+            }
+        },
         "The Hexblade": {
             "name": "The Hexblade",
+            "armor_proficiencies": [
+                "Medium armor",
+                "Shields"
+            ],
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "features": {
+                "1": {
+                    "name": "Hexblade's Curse & Hex Warrior",
+                    "description": "Gain Medium Armor, Shields, and Martial Weapons; use CHA for weapon attacks/damage; Bonus Action curse adds +PB damage, 19–20 crits, and healing on kill."
+                },
+                "6": {
+                    "name": "Accursed Specter",
+                    "description": "Raise a slain humanoid's spirit as a loyal Specter until your next Long Rest (1/Long Rest)."
+                },
+                "10": {
+                    "name": "Armor of Hexes",
+                    "description": "Reaction against cursed target's hit turns attacks of 4+ on d6 into misses."
+                },
+                "14": {
+                    "name": "Master of Hexes",
+                    "description": "Transfer Hexblade's Curse to another creature within 30 ft when the cursed creature dies."
+                }
+            },
             "scaling": {
                 "hexblades_curse": {
                     "name": "Hexblade's Curse",
@@ -20,6 +129,24 @@
         },
         "The Fathomless": {
             "name": "The Fathomless",
+            "features": {
+                "1": {
+                    "name": "Tentacle of the Deeps & Gift of the Sea",
+                    "description": "Gain 40-ft Swim speed and water-breathing; Bonus Action summons a spectral Tentacle attacking for 1d8 Cold and slowing 10 ft (PB/Long Rest)."
+                },
+                "6": {
+                    "name": "Oceanic Soul & Guardian Coil",
+                    "description": "Resistance to Cold damage and underwater telepathy; Tentacle reduces ally damage within 10 ft by 1d8 as a Reaction."
+                },
+                "10": {
+                    "name": "Grasping Tentacles",
+                    "description": "Learn Evard's Black Tentacles, cast it 1/Long Rest without a slot, and gain Warlock level Temporary HP."
+                },
+                "14": {
+                    "name": "Fathomless Plunge",
+                    "description": "Action teleports yourself and up to 5 creatures up to 1 mile through water (1/Short Rest)."
+                }
+            },
             "scaling": {
                 "tentacle_of_the_deeps": {
                     "name": "Tentacle of the Deeps",
@@ -36,6 +163,69 @@
                             "notation": "2d8"
                         }
                     ]
+                }
+            }
+        },
+        "The Genie": {
+            "name": "The Genie",
+            "features": {
+                "1": {
+                    "name": "Genie's Vessel",
+                    "description": "Choose Dao/Djinni/Efreeti/Marid; store items inside a pocket vessel (Bottled Respite) and add +PB elemental damage once per turn (Genie's Wrath)."
+                },
+                "6": {
+                    "name": "Elemental Gift",
+                    "description": "Gain Resistance matching your Genie kind and Bonus Action 30-ft hover Fly Speed for 10 minutes (PB/Long Rest)."
+                },
+                "10": {
+                    "name": "Sanctuary Vessel",
+                    "description": "Bring up to 5 allies into Bottled Respite where a 10-minute stay grants Short Rest benefits + extra Hit Die healing."
+                },
+                "14": {
+                    "name": "Limited Wish",
+                    "description": "Action duplicates any 6th-level or lower spell from any class with 1 Action casting time (1/1d4 Long Rests)."
+                }
+            }
+        },
+        "The Undead": {
+            "name": "The Undead",
+            "features": {
+                "1": {
+                    "name": "Form of Dread",
+                    "description": "Bonus Action grants 1d10 + Warlock level Temp HP, immunity to Frightened, and chance to Frighten on hit for 1 min (PB/Long Rest)."
+                },
+                "6": {
+                    "name": "Grave Touched",
+                    "description": "No need to eat/drink/breathe; convert weapon/spell attack damage to Necrotic (+1 extra damage die while in Form of Dread)."
+                },
+                "10": {
+                    "name": "Necrotic Husk",
+                    "description": "Resistance to Necrotic damage (Immunity in Form of Dread), and explode in 2d10 + Warlock level Necrotic instead of dropping to 0 HP (1/1d4 Long Rests)."
+                },
+                "14": {
+                    "name": "Spirit Projection",
+                    "description": "Project an invisible/flying spirit from your body gaining BPS resistance and Conjuration/Necromancy healing (1/Long Rest)."
+                }
+            }
+        },
+        "The Undying": {
+            "name": "The Undying",
+            "features": {
+                "1": {
+                    "name": "Among the Dead",
+                    "description": "Learn Spare the Dying, Advantage on saves vs Disease, and Undead must pass a WIS save to target you."
+                },
+                "6": {
+                    "name": "Defy Death",
+                    "description": "Regain 1d8 + CON mod HP when succeeding on a Death Save or stabilizing an ally (1/Long Rest)."
+                },
+                "10": {
+                    "name": "Undying Nature",
+                    "description": "Hold breath indefinitely, no need to eat/drink/sleep, and age at 1/10th normal rate."
+                },
+                "14": {
+                    "name": "Indestructible Life",
+                    "description": "Bonus Action regains 1d8 + Warlock level HP and reattaches severed body parts (1/Short Rest)."
                 }
             }
         }

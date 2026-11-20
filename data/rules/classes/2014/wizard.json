@@ -180,5 +180,18 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "INT"
+    "spellcasting_ability": "INT",
+    "scaling": {
+        "arcane_recovery": {
+            "name": "Arcane Recovery",
+            "kind": "utility",
+            "hint": "Once per day on a Short Rest, recover expended spell slots with total levels <= ceil(Wizard level / 2), none 6th level or higher.",
+            "steps": [
+                {
+                    "level": 1,
+                    "notation": "Up to ceil(Wizard level / 2) slot levels (<=5th)"
+                }
+            ]
+        }
+    }
 }

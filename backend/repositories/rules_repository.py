@@ -26,6 +26,7 @@ _backgrounds_cache: dict = {}
 _weapons_cache: list | None = None
 _weapon_masteries_cache: dict = {}
 _subclasses_cache: dict = {}
+_class_choices_cache: dict = {}
 _monsters_cache: dict = {}
 
 
@@ -336,6 +337,40 @@ class RulesRepository:
         result = _load_json(filepath)
         _subclasses_cache[cache_key] = result
         return copy.deepcopy(result)
+
+    def get_subclass_entry(
+        self, class_name: str, subclass_name: str, edition: str = EDITION_2014
+    ) -> Optional[dict]:
+        """Look up a single subclass block (case-insensitive) from subclasses/<edition>/<class>.json."""
+        if not class_name or not subclass_name:
+            return None
+        sub_mech = self.get_subclass_mechanics(class_name, edition).get("subclasses", {})
+        if not isinstance(sub_mech, dict):
+            return None
+        target = str(subclass_name).strip().lower()
+        target_norm = "way of mercy" if target == "way of the mercy" else target
+        for k, v in sub_mech.items():
+            if not isinstance(v, dict):
+                continue
+            k_low = str(k).strip().lower()
+            if k_low in (target, target_norm):
+                return copy.deepcopy(v)
+        return None
+
+    def get_class_choices(self, edition: str = EDITION_2014) -> dict:
+        """Load static level-up class choice options (Fighting Styles, Invocations, Metamagic, etc.)."""
+        edition_val = _norm_edition(edition)
+        if edition_val in _class_choices_cache:
+            return copy.deepcopy(_class_choices_cache[edition_val])
+
+        filepath = os.path.join(DATA_DIR, "rules", f"class_choices_{edition_val}.json")
+        if not os.path.exists(filepath):
+            filepath = os.path.join(DATA_DIR, "rules", "class_choices_2014.json")
+        data = _load_json(filepath) if os.path.exists(filepath) else {}
+        if not isinstance(data, dict):
+            data = {}
+        _class_choices_cache[edition_val] = data
+        return copy.deepcopy(data)
 
     def get_available_backgrounds(self, edition: str = EDITION_2014) -> list:
         """

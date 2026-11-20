@@ -12,9 +12,11 @@ from backend.services.validation_service import (
     calculate_feature_hp_bonus_per_level,
     calculate_feature_speed_bonus,
     get_character_armor_proficiencies,
+    get_character_weapon_proficiencies,
     get_heavy_armor_strength_penalty,
     get_max_attunement_slots,
     is_feat_repeatable,
+    is_weapon_proficient,
     resolve_known_feat,
 )
 
@@ -983,6 +985,7 @@ def calculate_weapon_stats(
     suppress_magic_items: bool = False,
     martial_arts_die: Optional[str] = None,
     use_martial_arts: bool = False,
+    weapon_proficiencies: Optional[set[str] | list[str]] = None,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
@@ -1096,8 +1099,10 @@ def calculate_weapon_stats(
 
     ability_override = weapon.get("ability_modifier")
     if ability_override:
-        ability_override = ability_override.upper()
-        if ability_override in stats:
+        ability_override = str(ability_override).upper().strip()
+        if ability_override == "NONE":
+            mod = 0
+        elif ability_override in stats:
             mod = get_modifier(stats[ability_override])
         else:
             mod = str_mod
@@ -1112,9 +1117,10 @@ def calculate_weapon_stats(
     # Magic bonus from weapon or weapon name (suppressed non-destructively when Athas/Antimagic active)
     magic_bonus = 0 if suppress_magic_items else raw_magic_bonus
 
-    # Fighting styles & proficiency
+    # Fighting styles, Invocations & proficiency
     has_archery = False
     has_dueling = False
+    has_agonizing_blast = False
     if features_traits:
         for f in features_traits:
             f_name = (f if isinstance(f, str) else f.get("name", "")).lower()
@@ -1126,12 +1132,29 @@ def calculate_weapon_stats(
                 has_archery = True
             if "dueling" in f_name or "+2 bonus to damage rolls with that weapon" in f_desc:
                 has_dueling = True
+            if "agonizing blast" in f_name:
+                has_agonizing_blast = True
 
     archery_bonus = 2 if (has_archery and is_ranged) else 0
     dueling_bonus = 2 if (has_dueling and not is_ranged and not is_two_handed) else 0
 
-    is_proficient = weapon.get("proficient", True)
+    if weapon_proficiencies is not None:
+        is_proficient = is_weapon_proficient(
+            weapon,
+            weapon_proficiencies,
+            weapon_data=weapon_data if "weapon_data" in locals() else None,
+            is_monk=use_martial_arts and is_monk_weapon,
+        )
+        weapon["proficient"] = is_proficient
+    else:
+        is_proficient = weapon.get("proficient", True)
     prof_val = proficiency_bonus if is_proficient else 0
+
+    agonizing_bonus = (
+        get_modifier(stats.get("CHA", 10))
+        if (has_agonizing_blast and "eldritch blast" in name and (ability_override or "") != "CHA")
+        else 0
+    )
 
     misc_atk = int(weapon.get("misc_attack_bonus", 0) or 0)
     misc_dmg = int(weapon.get("misc_damage_bonus", 0) or 0)
@@ -1169,7 +1192,7 @@ def calculate_weapon_stats(
         type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
         dmg_type = type_match.group(1).strip() if type_match else ""
 
-        total_dmg_mod = mod + magic_bonus + dueling_bonus + misc_dmg
+        total_dmg_mod = mod + magic_bonus + dueling_bonus + agonizing_bonus + misc_dmg
 
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
         weapon["damage_bonus"] = f"+{total_dmg_mod}" if total_dmg_mod >= 0 else str(total_dmg_mod)
@@ -2090,12 +2113,72 @@ def sync_character_stats(
         half_prof_phys=(remarkable and not is_2024),
     )
 
-    char_data["saving_throw_values"] = calculate_saving_throws(
-        stats, prof_bonus, char_data.get("saving_throws", [])
+    # Saving Throw Proficiencies & Passive Bonuses (Diamond Soul, Slippery Mind, Aura of Protection, Soul of Artifice)
+    _save_alias_map = {
+        "STRENGTH": "STR",
+        "DEXTERITY": "DEX",
+        "CONSTITUTION": "CON",
+        "INTELLIGENCE": "INT",
+        "WISDOM": "WIS",
+        "CHARISMA": "CHA",
+    }
+
+    def _class_lvl(target_name: str) -> int:
+        tot = sum(
+            int(c.get("level") or 0)
+            for c in classes
+            if str(c.get("class_name") or "").strip().lower() == target_name
+        )
+        if tot == 0 and (char_class or "").strip().lower() == target_name:
+            tot = int(level or 1)
+        return tot
+
+    paladin_lvl = _class_lvl("paladin")
+    rogue_lvl_for_saves = _class_lvl("rogue")
+    artificer_lvl = _class_lvl("artificer")
+    ft_names_low = [
+        (f.get("name") if isinstance(f, dict) else str(f)).strip().lower()
+        for f in (char_data.get("features_traits") or [])
+    ]
+
+    norm_saves: list[str] = []
+    for s in char_data.get("saving_throws", []) or []:
+        s_up = str(s or "").strip().upper()
+        s_code = _save_alias_map.get(s_up, s_up[:3] if len(s_up) > 3 else s_up)
+        if s_code in ("STR", "DEX", "CON", "INT", "WIS", "CHA") and s_code not in norm_saves:
+            norm_saves.append(s_code)
+
+    if monk_level >= 14 or any("diamond soul" in fn for fn in ft_names_low):
+        for s_code in ("STR", "DEX", "CON", "INT", "WIS", "CHA"):
+            if s_code not in norm_saves:
+                norm_saves.append(s_code)
+    if rogue_lvl_for_saves >= 15 or any("slippery mind" in fn for fn in ft_names_low):
+        if "WIS" not in norm_saves:
+            norm_saves.append("WIS")
+
+    char_data["saving_throws"] = norm_saves
+
+    aura_of_protection_bonus = (
+        max(1, get_modifier(stats.get("CHA", 10)))
+        if (paladin_lvl >= 6 or any("aura of protection" in fn for fn in ft_names_low))
+        else 0
     )
-    if equip_save_bonus > 0 or equip_save_bonuses:
+    soul_of_artifice_bonus = 0
+    if not magic_items_suppressed and (
+        artificer_lvl >= 20 or any("soul of artifice" in fn for fn in ft_names_low)
+    ):
+        attuned_count = sum(
+            1
+            for eq in (char_data.get("equipment") or [])
+            if isinstance(eq, dict) and eq.get("attuned", False)
+        )
+        soul_of_artifice_bonus = min(max_attuned, attuned_count)
+
+    char_data["saving_throw_values"] = calculate_saving_throws(stats, prof_bonus, norm_saves)
+    feature_save_bonus = aura_of_protection_bonus + soul_of_artifice_bonus
+    if feature_save_bonus > 0 or equip_save_bonus > 0 or equip_save_bonuses:
         for s in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
-            bonus_to_add = equip_save_bonus + equip_save_bonuses.get(s, 0)
+            bonus_to_add = feature_save_bonus + equip_save_bonus + equip_save_bonuses.get(s, 0)
             if bonus_to_add:
                 char_data["saving_throw_values"][s] = (
                     char_data["saving_throw_values"].get(s, 0) + bonus_to_add
@@ -2194,6 +2277,9 @@ def sync_character_stats(
                 else ("1d8" if monk_level >= 11 else ("1d6" if monk_level >= 5 else "1d4"))
             )
 
+    weapon_profs = get_character_weapon_proficiencies(char_data, class_data)
+    char_data["weapon_proficiencies"] = sorted(weapon_profs)
+
     weapons = char_data.get("weapons", [])
     updated_weapons = []
     edited_weapon_rows = weapon_deltas.get("edited_rows", {}) if weapon_deltas else {}
@@ -2239,6 +2325,7 @@ def sync_character_stats(
                 suppress_magic_items=magic_items_suppressed,
                 martial_arts_die=martial_arts_die,
                 use_martial_arts=use_martial_arts,
+                weapon_proficiencies=weapon_profs,
             )
         )
 
@@ -2270,6 +2357,7 @@ def sync_character_stats(
                 suppress_magic_items=magic_items_suppressed,
                 martial_arts_die=martial_arts_die,
                 use_martial_arts=use_martial_arts,
+                weapon_proficiencies=weapon_profs,
             )
             updated_weapons.append(new_w)
 
@@ -2293,6 +2381,50 @@ def sync_character_stats(
                     return True
                 if isinstance(v, int) and v > 0:
                     return True
+        return False
+
+    def _get_innate_racial_spell_info() -> tuple[set[str], Optional[str]]:
+        r_name = str(char_data.get("race") or "").strip()
+        r_data = repo.get_race_data(r_name, edition) if r_name else None
+        innate = (r_data or {}).get("innate_spells") or {}
+        names: set[str] = set()
+        for sp_list in (innate.get("by_level") or {}).values():
+            for sp_n in sp_list or []:
+                names.add(str(sp_n).strip().lower())
+        r_low = r_name.lower()
+        if "high elf" in r_low or innate.get("cantrip_choice"):
+            # Only exclude cantrips when Fighter didn't choose non-racial leveled spells
+            names.update({"prestidigitation", "fire bolt", "minor illusion", "mage hand", "light"})
+        return names, innate.get("ability")
+
+    innate_spell_names, innate_spell_ability = _get_innate_racial_spell_info()
+
+    def _has_non_racial_spells(spells_val: Any) -> bool:
+        if isinstance(spells_val, dict):
+            for bucket, v in spells_val.items():
+                if not isinstance(v, list) or not v:
+                    continue
+                for item in v:
+                    nm = (
+                        item.get("name") or item.get("spell_name")
+                        if isinstance(item, dict)
+                        else str(item)
+                    )
+                    nm_low = str(nm or "").strip().lower()
+                    if not nm_low:
+                        continue
+                    if bucket == "cantrips":
+                        if nm_low not in innate_spell_names:
+                            return True
+                    elif nm_low not in innate_spell_names:
+                        return True
+            return False
+        if isinstance(spells_val, list):
+            return any(
+                str((x.get("name") if isinstance(x, dict) else x) or "").strip().lower()
+                not in innate_spell_names
+                for x in spells_val
+            )
         return False
 
     fighter_entries = [
@@ -2352,11 +2484,17 @@ def sync_character_stats(
                     and not has_casting_class_in_classes
                     and (
                         _has_populated_spell_slots(char_data.get("spell_slots"))
-                        or _has_populated_spells(char_data.get("spells"))
+                        or _has_non_racial_spells(char_data.get("spells"))
                     )
                 )
             ):
                 spell_ability = "INT"
+            elif (
+                innate_spell_ability
+                and _has_populated_spells(char_data.get("spells"))
+                and not _has_non_racial_spells(char_data.get("spells"))
+            ):
+                spell_ability = innate_spell_ability
             elif (
                 _has_populated_spells(char_data.get("spells"))
                 or bool(char_data.get("prepared_spells"))
@@ -2386,7 +2524,7 @@ def sync_character_stats(
         and fighter_entries
         and fighter_level >= 3
         and not has_casting_class_in_classes
-        and _has_populated_spells(char_data.get("spells"))
+        and _has_non_racial_spells(char_data.get("spells"))
     ):
         fighter_entries[0]["subclass"] = "Eldritch Knight"
         if (char_class or "").lower() == "fighter":
@@ -2700,8 +2838,101 @@ def sync_character_stats(
         # E. (Removed) Eldritch Knight / Arcane Trickster Cantrip Limit
         # This was flawed as it did not account for racial cantrips (e.g. High Elf) or feats (Magic Initiate)
 
-    # F. Class resource pools (Sorcery Points, Ki/Focus, Rage, Channel Divinity, ...)
-    # follow class levels and ability scores; hand-made pools are left alone.
+    # F. Senses, Damage Resistances, Save Advantages (Racial + Class/Subclass traits)
+    race_name_for_traits = str(char_data.get("race") or "").strip()
+    race_meta = repo.get_race_data(race_name_for_traits, edition) if race_name_for_traits else None
+    senses_list = [
+        str(s).strip() for s in ((race_meta or {}).get("senses") or []) if str(s).strip()
+    ]
+    resistances_list = [
+        str(r).strip()
+        for r in ((race_meta or {}).get("damage_resistances") or [])
+        if str(r).strip()
+    ]
+    save_advs = [
+        str(a).strip() for a in ((race_meta or {}).get("save_advantages") or []) if str(a).strip()
+    ]
+
+    ft_entries = char_data.get("features_traits") or []
+    has_gloom_umbral = any(
+        "gloom stalker" in str(c.get("subclass") or "").lower() and int(c.get("level") or 0) >= 3
+        for c in classes
+    ) or any(
+        "umbral sight" in str((f.get("name") if isinstance(f, dict) else f) or "").lower()
+        for f in ft_entries
+    )
+    if has_gloom_umbral:
+        if any("superior darkvision 120" in s.lower() for s in senses_list):
+            senses_list = ["Superior Darkvision 150 ft." if "120" in s else s for s in senses_list]
+        elif any("darkvision 60" in s.lower() for s in senses_list):
+            senses_list = ["Darkvision 90 ft." if "60" in s else s for s in senses_list]
+        else:
+            senses_list.append("Darkvision 60 ft.")
+
+    for f in ft_entries:
+        fn = str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+        fd = str((f.get("description") if isinstance(f, dict) else "") or "").strip().lower()
+        if "blind fighting" in fn and "Blindsight 10 ft." not in senses_list:
+            senses_list.append("Blindsight 10 ft.")
+        if "devil's sight" in fn and "Devil's Sight 120 ft." not in senses_list:
+            senses_list.append("Devil's Sight 120 ft.")
+        if "eyes of the dark" in fn and not any("120" in s for s in senses_list):
+            senses_list.append("Darkvision 120 ft.")
+        if "soul of the forge" in fn or "infernal constitution" in fn:
+            if "Fire" not in resistances_list:
+                resistances_list.append("Fire")
+        if "infernal constitution" in fn:
+            for elem in ("Cold", "Poison"):
+                if elem not in resistances_list:
+                    resistances_list.append(elem)
+        if "radiant soul" in fn and "Radiant" not in resistances_list:
+            resistances_list.append("Radiant")
+        if "necrotic husk" in fn and "Necrotic" not in resistances_list:
+            resistances_list.append("Necrotic")
+        if "inured to undeath" in fn and "Necrotic" not in resistances_list:
+            resistances_list.append("Necrotic")
+        if "spell resistance" in fn and "Spell Damage (Abjurer)" not in resistances_list:
+            resistances_list.append("Spell Damage (Abjurer)")
+        if "danger sense" in fn:
+            adv_txt = "Advantage on DEX saving throws vs visible effects (Danger Sense)"
+            if adv_txt not in save_advs:
+                save_advs.append(adv_txt)
+        if "mindless rage" in fn:
+            adv_txt = "Immune to Charmed & Frightened while Raging (Mindless Rage)"
+            if adv_txt not in save_advs:
+                save_advs.append(adv_txt)
+        if "aura of devotion" in fn:
+            adv_txt = "Immune to Charmed within 10 ft aura (Aura of Devotion)"
+            if adv_txt not in save_advs:
+                save_advs.append(adv_txt)
+        if "war caster" in fn or "eldritch mind" in fn:
+            adv_txt = "Advantage on CON saves to maintain Concentration"
+            if adv_txt not in save_advs:
+                save_advs.append(adv_txt)
+        # Resolve Draconic Ancestry elemental resistance cleanly when named in description
+        if "draconic ancestry" in fn:
+            for elem_word, res_label in (
+                ("fire", "Fire"),
+                ("cold", "Cold"),
+                ("lightning", "Lightning"),
+                ("acid", "Acid"),
+                ("poison", "Poison"),
+            ):
+                if elem_word in fd:
+                    resistances_list = [
+                        res_label if "draconic ancestry element" in r.lower() else r
+                        for r in resistances_list
+                    ]
+                    if res_label not in resistances_list:
+                        resistances_list.append(res_label)
+                    break
+
+    char_data["senses"] = list(dict.fromkeys(senses_list))
+    char_data["damage_resistances"] = list(dict.fromkeys(resistances_list))
+    char_data["save_advantages"] = list(dict.fromkeys(save_advs))
+
+    # G. Class & racial resource pools (Sorcery Points, Ki/Focus, Rage, Breath Weapon, ...)
+    # follow class levels, race, and ability scores; hand-made pools are left alone.
     from backend.services.class_resources_service import sync_class_resources
 
     current_resources = [
@@ -2709,7 +2940,12 @@ def sync_character_stats(
         for r in (char_data.get("class_resources") or [])
     ]
     char_data["class_resources"] = sync_class_resources(
-        current_resources, classes, char_data.get("stats") or {}, edition
+        current_resources,
+        classes,
+        char_data.get("stats") or {},
+        edition,
+        race=char_data.get("race"),
+        total_level=level,
     )
 
     if effective_exh >= 6:

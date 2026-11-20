@@ -286,16 +286,57 @@ export function resolveLongRest(char: CharacterSchema): LongRestOutcome {
  * regain 1 expended use on a Short Rest (all uses on a Long Rest), whereas
  * Focus/Ki Points, Action Surge, and 2014 short-rest pools recharge to full.
  */
+/**
+ * Resolves the 2014 PHB Bard Song of Rest extra healing die ('1d6'..'1d12'),
+ * returning null for 2024 Bards or non-Bards below level 2.
+ */
+export function songOfRestDie(char: CharacterSchema | null | undefined): string | null {
+  if (!char || is2024Edition(char)) return null;
+  let bardLevel = 0;
+  if (char.classes && char.classes.length > 0) {
+    const bardEntry = char.classes.find(
+      (c) => (c.class_name || '').trim().toLowerCase() === 'bard'
+    );
+    bardLevel = bardEntry?.level || 0;
+  } else if ((char.char_class || '').trim().toLowerCase() === 'bard') {
+    bardLevel = char.char_level || 1;
+  }
+  if (bardLevel < 2) return null;
+  if (bardLevel >= 17) return '1d12';
+  if (bardLevel >= 13) return '1d10';
+  if (bardLevel >= 9) return '1d8';
+  return '1d6';
+}
+
 export function rechargeShortRestResources(
   resources: ClassResource[] | undefined,
-  edition?: string
+  edition?: string,
+  char?: Pick<CharacterSchema, 'char_class' | 'char_level' | 'classes' | 'features_traits'> | null
 ): ClassResource[] {
   if (!resources) return [];
   const is2024 = String(edition || '').includes('2024');
+  let sorcLevel = 0;
+  if (char?.classes && char.classes.length > 0) {
+    const sorcEntry = char.classes.find(
+      (c) => (c.class_name || '').trim().toLowerCase() === 'sorcerer'
+    );
+    sorcLevel = sorcEntry?.level || 0;
+  } else if ((char?.char_class || '').trim().toLowerCase() === 'sorcerer') {
+    sorcLevel = char?.char_level || 1;
+  }
+  const hasSorcRestorationFeature = (char?.features_traits || []).some((f) => {
+    const name = typeof f === 'string' ? f : f?.name || '';
+    return name.toLowerCase().includes('sorcerous restoration');
+  });
+  const canRestore2014SorceryPoints = !is2024 && (sorcLevel >= 20 || hasSorcRestorationFeature);
+
   return resources.map((r) => {
     const nameClean = (r.name || '').trim().toLowerCase();
     if (is2024 && /^(rage|second wind|channel divinity|wild shape)$/i.test(nameClean)) {
       return { ...r, current: Math.min(r.max, (r.current ?? 0) + 1) };
+    }
+    if (canRestore2014SorceryPoints && nameClean === 'sorcery points') {
+      return { ...r, current: Math.min(r.max, (r.current ?? 0) + 4) };
     }
     if (r.recharge === 'short') {
       return { ...r, current: r.max };

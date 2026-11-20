@@ -216,6 +216,65 @@ _RACIAL_LANGUAGE_MAP: dict[str, str] = {
 }
 
 
+def grant_subclass_bonus_spells(
+    char_data: dict,
+    class_name: str,
+    subclass_name: str | None,
+    class_level: int,
+    edition: str,
+    repo: RulesRepository | None = None,
+) -> None:
+    """Grant Domain/Oath/Circle/Patron bonus spells unlocked up to class_level deterministically."""
+    if not class_name or not subclass_name:
+        return
+    repo = repo or RulesRepository()
+    sub_entry = repo.get_subclass_entry(class_name, subclass_name, edition)
+    bonus_spells_map = (sub_entry or {}).get("bonus_spells") or {}
+    if not isinstance(bonus_spells_map, dict) or not bonus_spells_map:
+        return
+
+    all_ed_spells = repo.get_all_spells(edition)
+    spell_lvl_lookup = {
+        str(sp.get("name") or "").strip().lower(): (
+            str(sp.get("name") or "").strip(),
+            int(sp.get("level", 1) or 1),
+        )
+        for sp in all_ed_spells
+        if isinstance(sp, dict) and sp.get("name")
+    }
+    sp_dict = char_data.setdefault("spells", {})
+    if not isinstance(sp_dict, dict):
+        sp_dict = {}
+        char_data["spells"] = sp_dict
+    prep_list = char_data.setdefault("prepared_spells", [])
+    if not isinstance(prep_list, list):
+        prep_list = []
+        char_data["prepared_spells"] = prep_list
+    prep_low = {str(p).strip().lower() for p in prep_list}
+
+    for req_lvl_str, sp_names in bonus_spells_map.items():
+        try:
+            req_lvl = int(req_lvl_str)
+        except (TypeError, ValueError):
+            continue
+        if class_level < req_lvl:
+            continue
+        for raw_sp in sp_names or []:
+            sp_clean = str(raw_sp or "").strip()
+            if not sp_clean:
+                continue
+            canon, sp_tier = spell_lvl_lookup.get(
+                sp_clean.lower(), (sp_clean, max(1, (req_lvl + 1) // 2))
+            )
+            b_key = "cantrips" if sp_tier == 0 else f"level_{sp_tier}"
+            bucket = sp_dict.setdefault(b_key, [])
+            if not any(str(x).strip().lower() == canon.lower() for x in bucket):
+                bucket.append(canon)
+            if canon.lower() not in prep_low:
+                prep_list.append(canon)
+                prep_low.add(canon.lower())
+
+
 def inject_mandatory_character_grants(
     char_data: dict,
     edition: str | None = None,
@@ -382,27 +441,27 @@ def inject_mandatory_character_grants(
                         )
 
             if effective_sub:
-                sub_mech = repo.get_subclass_mechanics(cname, edition_str).get("subclasses", {})
-                matched_sub = next(
-                    (v for k, v in sub_mech.items() if k.strip().lower() == effective_sub.lower()),
-                    None,
+                sub_entry = repo.get_subclass_entry(cname, effective_sub, edition_str) or {}
+                for entry in (sub_entry.get("scaling") or {}).values():
+                    if not isinstance(entry, dict):
+                        continue
+                    valid_steps = [
+                        st
+                        for st in (entry.get("steps") or [])
+                        if isinstance(st, dict) and int(st.get("level", 99)) <= clvl
+                    ]
+                    if valid_steps:
+                        best_step = max(valid_steps, key=lambda s: int(s.get("level", 0)))
+                        s_name = str(entry.get("name") or "").strip()
+                        hint = str(entry.get("hint") or "").strip()
+                        notation = str(best_step.get("notation") or "").strip()
+                        s_desc = f"{hint} ({notation})".strip(" ()") if notation else hint
+                        _add_feature(s_name, s_desc, "Subclass")
+
+                # Grant Domain/Oath/Circle/Patron bonus spells up to current class level
+                grant_subclass_bonus_spells(
+                    char_data, cname, effective_sub, clvl, edition_str, repo=repo
                 )
-                if isinstance(matched_sub, dict):
-                    for entry in (matched_sub.get("scaling") or {}).values():
-                        if not isinstance(entry, dict):
-                            continue
-                        valid_steps = [
-                            st
-                            for st in (entry.get("steps") or [])
-                            if isinstance(st, dict) and int(st.get("level", 99)) <= clvl
-                        ]
-                        if valid_steps:
-                            best_step = max(valid_steps, key=lambda s: int(s.get("level", 0)))
-                            s_name = str(entry.get("name") or "").strip()
-                            hint = str(entry.get("hint") or "").strip()
-                            notation = str(best_step.get("notation") or "").strip()
-                            s_desc = f"{hint} ({notation})".strip(" ()") if notation else hint
-                            _add_feature(s_name, s_desc, "Subclass")
 
     # 3. Mandatory Background Features, Tools & Skills
     bg_mandatory_skills: list[str] = []
@@ -747,6 +806,48 @@ def inject_mandatory_character_grants(
                             if s_name not in prepared:
                                 prepared.append(s_name)
                 char_data["prepared_spells"] = prepared
+
+        # Populate structured innate racial spells (High Elf cantrip, Drow Magic, Forest Gnome, Tiefling)
+    if auto_spells and race_data and isinstance(race_data.get("innate_spells"), dict):
+        innate = race_data["innate_spells"]
+        sp_dict = char_data.setdefault("spells", {})
+        if isinstance(sp_dict, dict):
+            known_low = {
+                str(s.get("name") if isinstance(s, dict) else s).strip().lower()
+                for lst in sp_dict.values()
+                if isinstance(lst, list)
+                for s in lst
+            }
+            all_ed_spells = repo.get_all_spells(edition_str)
+            sp_lookup = {
+                str(sp.get("name") or "").strip().lower(): (
+                    str(sp.get("name") or "").strip(),
+                    int(sp.get("level", 0) or 0),
+                )
+                for sp in all_ed_spells
+                if isinstance(sp, dict) and sp.get("name")
+            }
+
+            def _grant_innate(sp_title: str) -> None:
+                canon, tier = sp_lookup.get(sp_title.lower(), (sp_title, 1))
+                key = "cantrips" if tier == 0 else f"level_{tier}"
+                lst = sp_dict.setdefault(key, [])
+                if canon.lower() not in known_low:
+                    lst.append(canon)
+                    known_low.add(canon.lower())
+
+            for req_str, sp_list in (innate.get("by_level") or {}).items():
+                try:
+                    req_l = int(req_str)
+                except (TypeError, ValueError):
+                    continue
+                if level >= req_l:
+                    for sp_title in sp_list or []:
+                        _grant_innate(str(sp_title))
+
+            if innate.get("cantrip_choice") and is_forge and chosen_spells is None:
+                if not (sp_dict.get("cantrips") or []):
+                    _grant_innate("Prestidigitation")
 
     return char_data
 

@@ -267,12 +267,30 @@ export function getSubclassUnlockLevel(className: string, is2024: boolean = fals
 // --- Maximum Capacity Limits ---
 
 export function getMaxOriginFeats(race: string, edition: string = '2014'): number {
-  const r = (race || '').toLowerCase();
+  const r = (race || '').trim().toLowerCase();
   const is2024 = (edition || '').includes('2024');
   if (is2024) {
     return r.includes('human') && !r.includes('half') ? 2 : 1;
   }
-  return r === 'variant human' ? 1 : 0;
+  return r === 'variant human' || r.includes('variant human') ? 1 : 0;
+}
+
+/**
+ * Returns the number of bonus chosen skill proficiencies granted by a race/species
+ * in addition to any fixed racial skills (e.g., Half-Elf Skill Versatility +2,
+ * Variant Human / 2024 Human Skillful / Warforged Specialized Design +1).
+ */
+export function getRacialBonusSkillCount(race: string, is2024: boolean = true): number {
+  const r = (race || '').trim().toLowerCase();
+  if (!r) return 0;
+  if (!is2024) {
+    if (r.includes('half-elf') || r.includes('half elf')) return 2;
+    if (r.includes('variant human')) return 1;
+    return 0;
+  }
+  if (r === 'human' || (r.includes('human') && !r.includes('half'))) return 1;
+  if (r.includes('warforged')) return 1;
+  return 0;
 }
 
 export function getMaxGeneralFeats(

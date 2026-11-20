@@ -135,6 +135,33 @@
           </forge-badge>
         }
 
+        @for (sense of char.senses || []; track sense) {
+          <forge-badge tone="muted" class="h-7" [title]="'Special Sense: ' + sense">
+            👁️ {{ sense }}
+          </forge-badge>
+        }
+
+        @if ((char.damage_resistances || []).length > 0) {
+          <forge-badge
+            tone="muted"
+            class="h-7"
+            [title]="'Damage Resistances: ' + char.damage_resistances!.join(', ')"
+          >
+            🛡️ Resist: {{ char.damage_resistances!.join(', ') }}
+          </forge-badge>
+        }
+
+        @if ((char.save_advantages || []).length > 0) {
+          <forge-badge
+            tone="muted"
+            class="h-7"
+            [attr.aria-label]="'Saving Throw Advantages: ' + char.save_advantages!.join(', ')"
+            [title]="char.save_advantages!.join(' · ')"
+          >
+            ✨ Save Adv ({{ char.save_advantages!.length }})
+          </forge-badge>
+        }
+
         @for (cond of char.conditions; track cond) {
           <forge-badge tone="danger" class="h-7">
             {{ cond }}

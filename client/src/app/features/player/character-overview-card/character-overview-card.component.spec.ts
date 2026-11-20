@@ -58,4 +58,19 @@ describe('CharacterOverviewCardComponent', () => {
     expect(text).toContain('5d10, 3d6');
     expect(text).toContain('-10ft STR');
   });
+
+  it('displays senses, damage resistances, and save advantage badges', () => {
+    fixture.componentRef.setInput('char', {
+      ...baseChar,
+      senses: ['Darkvision 60 ft.'],
+      damage_resistances: ['Fire', 'Poison'],
+      save_advantages: ['Fey Ancestry (Charmed)', 'Danger Sense (DEX vs visible)'],
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('Darkvision 60 ft.');
+    expect(text).toContain('Resist: Fire, Poison');
+    expect(text).toContain('Save Adv (2)');
+  });
 });

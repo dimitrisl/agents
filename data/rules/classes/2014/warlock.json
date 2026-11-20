@@ -27,8 +27,8 @@
         }
     },
     "primary_ability": [
-        "WIS",
-        "CHA"
+        "CHA",
+        "CON"
     ],
     "progression": {
         "1": {

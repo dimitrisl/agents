@@ -93,7 +93,23 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against being Charmed (Fey Ancestry)"
+        ],
+        "weapon_proficiencies": [
+            "Longsword",
+            "Shortsword",
+            "Shortbow",
+            "Longbow"
+        ],
+        "innate_spells": {
+            "ability": "INT",
+            "cantrip_choice": "Wizard"
+        }
     },
     {
         "name": "Wood Elf",
@@ -137,7 +153,19 @@
             }
         ],
         "size": "Medium",
-        "speed": 35
+        "speed": 35,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against being Charmed (Fey Ancestry)"
+        ],
+        "weapon_proficiencies": [
+            "Longsword",
+            "Shortsword",
+            "Shortbow",
+            "Longbow"
+        ]
     },
     {
         "name": "Dark Elf (Drow)",
@@ -181,7 +209,32 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Superior Darkvision 120 ft."
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against being Charmed (Fey Ancestry)"
+        ],
+        "weapon_proficiencies": [
+            "Rapier",
+            "Shortsword",
+            "Hand Crossbow"
+        ],
+        "innate_spells": {
+            "ability": "CHA",
+            "by_level": {
+                "1": [
+                    "Dancing Lights"
+                ],
+                "3": [
+                    "Faerie Fire"
+                ],
+                "5": [
+                    "Darkness"
+                ]
+            }
+        }
     },
     {
         "name": "Half-Elf",
@@ -210,7 +263,13 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against being Charmed (Fey Ancestry)"
+        ]
     },
     {
         "name": "Hill Dwarf",
@@ -253,7 +312,22 @@
             }
         ],
         "size": "Medium",
-        "speed": 25
+        "speed": 25,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Poison"
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against Poison (Dwarven Resilience)"
+        ],
+        "weapon_proficiencies": [
+            "Battleaxe",
+            "Handaxe",
+            "Light Hammer",
+            "Warhammer"
+        ]
     },
     {
         "name": "Mountain Dwarf",
@@ -293,7 +367,22 @@
             }
         ],
         "size": "Medium",
-        "speed": 25
+        "speed": 25,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Poison"
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against Poison (Dwarven Resilience)"
+        ],
+        "weapon_proficiencies": [
+            "Battleaxe",
+            "Handaxe",
+            "Light Hammer",
+            "Warhammer"
+        ]
     },
     {
         "name": "Lightfoot Halfling",
@@ -325,7 +414,10 @@
             }
         ],
         "size": "Small",
-        "speed": 25
+        "speed": 25,
+        "save_advantages": [
+            "Advantage on saving throws against being Frightened (Brave)"
+        ]
     },
     {
         "name": "Stout Halfling",
@@ -357,7 +449,14 @@
             }
         ],
         "size": "Small",
-        "speed": 25
+        "speed": 25,
+        "damage_resistances": [
+            "Poison"
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against being Frightened (Brave)",
+            "Advantage on saving throws against Poison (Stout Resilience)"
+        ]
     },
     {
         "name": "Dragonborn",
@@ -381,7 +480,10 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "damage_resistances": [
+            "Draconic Ancestry Element (e.g. Fire)"
+        ]
     },
     {
         "name": "Forest Gnome",
@@ -413,7 +515,21 @@
             }
         ],
         "size": "Small",
-        "speed": 25
+        "speed": 25,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on INT, WIS, CHA saving throws against magic (Gnome Cunning)"
+        ],
+        "innate_spells": {
+            "ability": "INT",
+            "by_level": {
+                "1": [
+                    "Minor Illusion"
+                ]
+            }
+        }
     },
     {
         "name": "Rock Gnome",
@@ -445,7 +561,13 @@
             }
         ],
         "size": "Small",
-        "speed": 25
+        "speed": 25,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on INT, WIS, CHA saving throws against magic (Gnome Cunning)"
+        ]
     },
     {
         "name": "Half-Orc",
@@ -473,7 +595,10 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ]
     },
     {
         "name": "Tiefling",
@@ -497,7 +622,27 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Fire"
+        ],
+        "innate_spells": {
+            "ability": "CHA",
+            "by_level": {
+                "1": [
+                    "Thaumaturgy"
+                ],
+                "3": [
+                    "Hellish Rebuke"
+                ],
+                "5": [
+                    "Darkness"
+                ]
+            }
+        }
     },
     {
         "name": "Elf",
@@ -528,7 +673,19 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against being Charmed (Fey Ancestry)"
+        ],
+        "weapon_proficiencies": [
+            "Longsword",
+            "Shortsword",
+            "Shortbow",
+            "Longbow"
+        ]
     },
     {
         "name": "Dwarf",
@@ -555,7 +712,22 @@
             }
         ],
         "size": "Medium",
-        "speed": 25
+        "speed": 25,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Poison"
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against Poison (Dwarven Resilience)"
+        ],
+        "weapon_proficiencies": [
+            "Battleaxe",
+            "Handaxe",
+            "Light Hammer",
+            "Warhammer"
+        ]
     },
     {
         "name": "Halfling",
@@ -582,7 +754,10 @@
             }
         ],
         "size": "Small",
-        "speed": 25
+        "speed": 25,
+        "save_advantages": [
+            "Advantage on saving throws against being Frightened (Brave)"
+        ]
     },
     {
         "name": "Gnome",
@@ -601,6 +776,12 @@
             }
         ],
         "size": "Small",
-        "speed": 25
+        "speed": 25,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on INT, WIS, CHA saving throws against magic (Gnome Cunning)"
+        ]
     }
 ]

@@ -8,6 +8,7 @@ import {
   rechargeShortRestResources,
   resolveLongRest,
   resolveShortRest,
+  songOfRestDie,
   warlockPactDetails,
 } from './rest';
 
@@ -245,6 +246,30 @@ describe('rest rules', () => {
       expect(recharged.find((r) => r.name === 'Channel Divinity')?.current).toBe(1);
       expect(recharged.find((r) => r.name === 'Wild Shape')?.current).toBe(1);
       expect(recharged.find((r) => r.name === 'Action Surge')?.current).toBe(1); // regular short rest recharge
+    });
+
+    it('restores +4 Sorcery Points for 2014 Sorcerer level 20 on short rest (and excludes 2024)', () => {
+      const resources = [
+        { name: 'Sorcery Points', current: 3, max: 20, recharge: 'long' as const },
+      ];
+      const sorc2014 = hero({ char_class: 'Sorcerer', char_level: 20, dnd_edition: '2014 Edition' });
+      const res14 = rechargeShortRestResources(resources, '2014 Edition', sorc2014);
+      expect(res14[0].current).toBe(7);
+
+      const sorc2024 = hero({ char_class: 'Sorcerer', char_level: 20, dnd_edition: '2024 Revision' });
+      const res24 = rechargeShortRestResources(resources, '2024 Revision', sorc2024);
+      expect(res24[0].current).toBe(3);
+    });
+  });
+
+  describe('songOfRestDie', () => {
+    it('scales 1d6/1d8/1d10/1d12 across 2014 Bard tiers and returns null for 2024', () => {
+      expect(songOfRestDie(hero({ char_class: 'Bard', char_level: 1, dnd_edition: '2014 Edition' }))).toBeNull();
+      expect(songOfRestDie(hero({ char_class: 'Bard', char_level: 2, dnd_edition: '2014 Edition' }))).toBe('1d6');
+      expect(songOfRestDie(hero({ char_class: 'Bard', char_level: 9, dnd_edition: '2014 Edition' }))).toBe('1d8');
+      expect(songOfRestDie(hero({ char_class: 'Bard', char_level: 13, dnd_edition: '2014 Edition' }))).toBe('1d10');
+      expect(songOfRestDie(hero({ char_class: 'Bard', char_level: 17, dnd_edition: '2014 Edition' }))).toBe('1d12');
+      expect(songOfRestDie(hero({ char_class: 'Bard', char_level: 17, dnd_edition: '2024 Revision' }))).toBeNull();
     });
   });
 

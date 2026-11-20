@@ -30,8 +30,8 @@
         }
     },
     "primary_ability": [
-        "CON",
-        "CHA"
+        "CHA",
+        "CON"
     ],
     "progression": {
         "1": {
@@ -198,5 +198,37 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "CHA"
+    "spellcasting_ability": "CHA",
+    "scaling": {
+        "metamagic": {
+            "name": "Metamagic Options Known",
+            "kind": "utility",
+            "hint": "Number of Metamagic options unlocked to twist spells using Sorcery Points.",
+            "steps": [
+                {
+                    "level": 3,
+                    "notation": "2 options"
+                },
+                {
+                    "level": 10,
+                    "notation": "3 options"
+                },
+                {
+                    "level": 17,
+                    "notation": "4 options"
+                }
+            ]
+        },
+        "sorcerous_restoration": {
+            "name": "Sorcerous Restoration",
+            "kind": "utility",
+            "hint": "Regain 4 expended Sorcery Points whenever you finish a Short Rest.",
+            "steps": [
+                {
+                    "level": 20,
+                    "notation": "+4 SP on Short Rest"
+                }
+            ]
+        }
+    }
 }

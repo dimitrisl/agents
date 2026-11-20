@@ -133,4 +133,13 @@ describe('ShortRestModalComponent', () => {
 
     expect(component.selectedClassMaxDice).toBe(2);
   });
+
+  it('displays 2014 Bard Song of Rest banner when songOfRestDie is set and hit dice remain', () => {
+    fixture.componentRef.setInput('availableHitDice', 3);
+    fixture.componentRef.setInput('songOfRestDie', '1d8');
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(document.body.textContent).toContain('Song of Rest (1d8)');
+  });
 });

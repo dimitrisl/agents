@@ -681,6 +681,11 @@ async def apply_level_up(
                                     detail=f"Feat '{canon_name}' only allows increasing {', '.join(sorted(allowed_opts))}.",
                                 )
                             _bump_stat(stat1, 1)
+                            if canon_low == "resilient":
+                                saves = list(char_doc.get("saving_throws") or [])
+                                if stat1 not in [str(s).strip().upper()[:3] for s in saves]:
+                                    saves.append(stat1)
+                                char_doc["saving_throws"] = saves
 
                     char_doc.setdefault("features_traits", []).append(
                         {"name": canon_name, "description": feat_desc, "source": "Feat"}
@@ -708,11 +713,51 @@ async def apply_level_up(
                 # Metadata / mechanical level-up choices: do not append to features_traits
                 pass
             else:
-                # Fallback: only add if it's a real feature
+                # Structured class choice options (Fighting Style, Invocation, Metamagic, Maneuver, Pact Boon, Infusion, Hunter)
                 if choice_val and str(choice_val).lower() not in ("roll", "average", "manual"):
-                    char_doc.setdefault("features_traits", []).append(
-                        {"name": choice_val, "description": f"Selected for {choice_label}"}
-                    )
+                    clean_choice = str(choice_val).strip()
+                    if clean_choice.lower() not in {s.lower() for s in existing_features if s}:
+                        rules_repo_choices = RulesRepository().get_class_choices(edition)
+                        choice_desc = None
+                        for bucket_val in (rules_repo_choices or {}).values():
+                            items_iter = (
+                                [
+                                    item
+                                    for sub_lst in bucket_val.values()
+                                    for item in (sub_lst or [])
+                                ]
+                                if isinstance(bucket_val, dict)
+                                else (bucket_val if isinstance(bucket_val, list) else [])
+                            )
+                            matched_item = next(
+                                (
+                                    it
+                                    for it in items_iter
+                                    if isinstance(it, dict)
+                                    and str(it.get("name") or "").strip().lower()
+                                    == clean_choice.lower()
+                                ),
+                                None,
+                            )
+                            if matched_item:
+                                choice_desc = matched_item.get("description")
+                                break
+                        char_doc.setdefault("features_traits", []).append(
+                            {
+                                "name": clean_choice,
+                                "description": choice_desc or f"Selected for {choice_label}",
+                                "source": "Class",
+                            }
+                        )
+                        existing_features.add(clean_choice)
+
+    # Grant any Domain/Oath/Circle/Patron bonus spells unlocked for the active subclass up to new_class_level
+    if chosen_subclass:
+        from backend.services.rules_service import grant_subclass_bonus_spells
+
+        grant_subclass_bonus_spells(
+            char_doc, target_class, chosen_subclass, new_class_level, edition
+        )
 
     # Sync stats deterministically
 

@@ -2,176 +2,102 @@
     "class_name": "Cleric",
     "edition": "2014 Edition",
     "subclasses": {
-        "Forge Domain": {
-            "name": "Forge Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "fire",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
+        "Knowledge Domain": {
+            "name": "Knowledge Domain",
+            "bonus_spells": {
+                "1": [
+                    "Command",
+                    "Identify"
+                ],
+                "3": [
+                    "Augury",
+                    "Suggestion"
+                ],
+                "5": [
+                    "Nondetection",
+                    "Speak with Dead"
+                ],
+                "7": [
+                    "Arcane Eye",
+                    "Confusion"
+                ],
+                "9": [
+                    "Legend Lore",
+                    "Scrying"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Blessings of Knowledge",
+                    "description": "Learn two languages and gain proficiency + doubled Proficiency Bonus (Expertise) in two of Arcana, History, Nature, or Religion."
+                },
+                "2": {
+                    "name": "Channel Divinity: Knowledge of the Ages",
+                    "description": "Gain proficiency in any skill or tool for 10 minutes."
+                },
+                "6": {
+                    "name": "Channel Divinity: Read Thoughts",
+                    "description": "Read surface thoughts and cast Suggestion without a spell slot if target fails WIS save."
+                },
+                "8": {
+                    "name": "Potent Spellcasting",
+                    "description": "Add your Wisdom modifier to the damage you deal with any Cleric cantrip."
+                },
+                "17": {
+                    "name": "Visions of the Past",
+                    "description": "Meditate for 1 minute to recall vivid visions of an object's or area's past (1/Short Rest)."
                 }
             }
         },
         "Life Domain": {
             "name": "Life Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "radiant",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Bless",
+                    "Cure Wounds"
+                ],
+                "3": [
+                    "Lesser Restoration",
+                    "Spiritual Weapon"
+                ],
+                "5": [
+                    "Beacon of Hope",
+                    "Revivify"
+                ],
+                "7": [
+                    "Death Ward",
+                    "Guardian of Faith"
+                ],
+                "9": [
+                    "Mass Cure Wounds",
+                    "Raise Dead"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiency & Disciple of Life",
+                    "description": "Gain Heavy Armor proficiency; healing spells you cast restore an extra 2 + spell level HP."
+                },
+                "2": {
+                    "name": "Channel Divinity: Preserve Life",
+                    "description": "Action restores up to 5 x Cleric level HP distributed among creatures within 30 ft (up to half max HP each)."
+                },
+                "6": {
+                    "name": "Blessed Healer",
+                    "description": "When you cast a healing spell on another creature, you also regain 2 + spell level HP."
+                },
+                "8": {
+                    "name": "Divine Strike (Life Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Radiant damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Supreme Healing",
+                    "description": "Instead of rolling dice to heal with a spell, use the highest number possible for each die."
                 }
-            }
-        },
-        "Nature Domain": {
-            "name": "Nature Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "cold, fire, or lightning",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
-                }
-            }
-        },
-        "Tempest Domain": {
-            "name": "Tempest Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "thunder",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
-                }
-            }
-        },
-        "Trickery Domain": {
-            "name": "Trickery Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "poison",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
-                }
-            }
-        },
-        "War Domain": {
-            "name": "War Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "same as weapon",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
-                }
-            }
-        },
-        "Death Domain": {
-            "name": "Death Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "necrotic",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
-                }
-            }
-        },
-        "Order Domain": {
-            "name": "Order Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "psychic",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
-                }
-            }
-        },
-        "Twilight Domain": {
-            "name": "Twilight Domain",
+            },
             "scaling": {
                 "divine_strike": {
                     "name": "Divine Strike",
@@ -193,6 +119,50 @@
         },
         "Light Domain": {
             "name": "Light Domain",
+            "bonus_spells": {
+                "1": [
+                    "Burning Hands",
+                    "Faerie Fire"
+                ],
+                "3": [
+                    "Flaming Sphere",
+                    "Scorching Ray"
+                ],
+                "5": [
+                    "Daylight",
+                    "Fireball"
+                ],
+                "7": [
+                    "Guardian of Faith",
+                    "Wall of Fire"
+                ],
+                "9": [
+                    "Flame Strike",
+                    "Scrying"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Cantrip & Warding Flare",
+                    "description": "Gain Light cantrip; Reaction imposes Disadvantage on an attacker within 30 ft (WIS mod/Long Rest)."
+                },
+                "2": {
+                    "name": "Channel Divinity: Radiance of the Dawn",
+                    "description": "Dispel magical darkness within 30 ft and deal 2d10 + Cleric level Radiant damage (CON save for half)."
+                },
+                "6": {
+                    "name": "Improved Flare",
+                    "description": "Use Warding Flare to shield allies within 30 ft when they are attacked."
+                },
+                "8": {
+                    "name": "Potent Spellcasting",
+                    "description": "Add your Wisdom modifier to the damage you deal with any Cleric cantrip."
+                },
+                "17": {
+                    "name": "Corona of Light",
+                    "description": "Action sheds 60-ft sunlight imposing Disadvantage on saves vs Fire/Radiant spells for 1 minute."
+                }
+            },
             "scaling": {
                 "potent_spellcasting": {
                     "name": "Potent Spellcasting",
@@ -204,6 +174,697 @@
                             "notation": ""
                         }
                     ]
+                }
+            }
+        },
+        "Nature Domain": {
+            "name": "Nature Domain",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Animal Friendship",
+                    "Speak with Animals"
+                ],
+                "3": [
+                    "Barkskin",
+                    "Spike Growth"
+                ],
+                "5": [
+                    "Plant Growth",
+                    "Wind Wall"
+                ],
+                "7": [
+                    "Dominate Beast",
+                    "Grasping Vine"
+                ],
+                "9": [
+                    "Insect Plague",
+                    "Tree Stride"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Acolyte of Nature & Bonus Proficiency",
+                    "description": "Gain Heavy Armor proficiency, one Druid cantrip, and one skill (Animal Handling, Nature, or Survival)."
+                },
+                "2": {
+                    "name": "Channel Divinity: Charm Animals and Plants",
+                    "description": "Charm Beast and Plant creatures within 30 ft for 1 minute (WIS save)."
+                },
+                "6": {
+                    "name": "Dampen Elements",
+                    "description": "Reaction grants Resistance to Acid, Cold, Fire, Lightning, or Thunder damage to a creature within 30 ft."
+                },
+                "8": {
+                    "name": "Divine Strike (Nature Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Cold, Fire, or Lightning damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Master of Nature",
+                    "description": "Use Bonus Actions to command Beasts and Plants charmed by your Channel Divinity."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "cold, fire, or lightning",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Tempest Domain": {
+            "name": "Tempest Domain",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Fog Cloud",
+                    "Thunderwave"
+                ],
+                "3": [
+                    "Gust of Wind",
+                    "Shatter"
+                ],
+                "5": [
+                    "Call Lightning",
+                    "Sleet Storm"
+                ],
+                "7": [
+                    "Control Water",
+                    "Ice Storm"
+                ],
+                "9": [
+                    "Destructive Wave",
+                    "Insect Plague"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiencies & Wrath of the Storm",
+                    "description": "Gain Heavy Armor and Martial Weapons; Reaction deals 2d8 Lightning/Thunder damage to melee attackers within 5 ft (WIS mod/Long Rest)."
+                },
+                "2": {
+                    "name": "Channel Divinity: Destructive Wrath",
+                    "description": "Deal maximum damage instead of rolling when dealing Lightning or Thunder damage."
+                },
+                "6": {
+                    "name": "Thunderbolt Strike",
+                    "description": "Push Large or smaller creatures up to 10 ft when dealing Lightning damage."
+                },
+                "8": {
+                    "name": "Divine Strike (Tempest Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Thunder damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Stormborn",
+                    "description": "Gain a Fly Speed equal to your current walking speed whenever you are outdoors and not underground."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "thunder",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Trickery Domain": {
+            "name": "Trickery Domain",
+            "bonus_spells": {
+                "1": [
+                    "Charm Person",
+                    "Disguise Self"
+                ],
+                "3": [
+                    "Mirror Image",
+                    "Pass without Trace"
+                ],
+                "5": [
+                    "Blink",
+                    "Dispel Magic"
+                ],
+                "7": [
+                    "Dimension Door",
+                    "Polymorph"
+                ],
+                "9": [
+                    "Dominate Person",
+                    "Modify Memory"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Blessing of the Trickster",
+                    "description": "Action grants an ally Advantage on Stealth checks for 1 hour."
+                },
+                "2": {
+                    "name": "Channel Divinity: Invoke Duplicity",
+                    "description": "Create an illusory duplicate for 1 min: cast spells from its position and gain Adv when both are adjacent to target."
+                },
+                "6": {
+                    "name": "Channel Divinity: Cloak of Shadows",
+                    "description": "Action turns Invisible until end of next turn (or attacking/casting)."
+                },
+                "8": {
+                    "name": "Divine Strike (Trickery Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Poison damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Improved Duplicity",
+                    "description": "Create up to four illusory duplicates simultaneously with Invoke Duplicity."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "poison",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "War Domain": {
+            "name": "War Domain",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Divine Favor",
+                    "Shield of Faith"
+                ],
+                "3": [
+                    "Magic Weapon",
+                    "Spiritual Weapon"
+                ],
+                "5": [
+                    "Crusader's Mantle",
+                    "Spirit Guardians"
+                ],
+                "7": [
+                    "Freedom of Movement",
+                    "Stoneskin"
+                ],
+                "9": [
+                    "Flame Strike",
+                    "Hold Monster"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiencies & War Priest",
+                    "description": "Gain Heavy Armor and Martial Weapons; make a Bonus Action weapon attack after Attack action (WIS mod/Long Rest)."
+                },
+                "2": {
+                    "name": "Channel Divinity: Guided Strike",
+                    "description": "Gain a +10 bonus to an attack roll (after seeing roll, before hit/miss resolved)."
+                },
+                "6": {
+                    "name": "Channel Divinity: War God's Blessing",
+                    "description": "Reaction grants +10 to an ally's attack roll within 30 ft."
+                },
+                "8": {
+                    "name": "Divine Strike (War Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 extra weapon damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Avatar of Battle",
+                    "description": "Resistance to bludgeoning, piercing, and slashing damage from nonmagical attacks."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "same as weapon",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Death Domain": {
+            "name": "Death Domain",
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "False Life",
+                    "Ray of Sickness"
+                ],
+                "3": [
+                    "Blindness/Deafness",
+                    "Ray of Enfeeblement"
+                ],
+                "5": [
+                    "Animate Dead",
+                    "Vampiric Touch"
+                ],
+                "7": [
+                    "Blight",
+                    "Death Ward"
+                ],
+                "9": [
+                    "Antilife Shell",
+                    "Cloudkill"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiency & Reaper",
+                    "description": "Gain Martial Weapons and one Necromancy cantrip; target two adjacent creatures within 5 ft with Necromancy cantrips."
+                },
+                "2": {
+                    "name": "Channel Divinity: Touch of Death",
+                    "description": "Deal an extra 5 + 2 x Cleric level Necrotic damage on a melee attack hit."
+                },
+                "6": {
+                    "name": "Inescapable Destruction",
+                    "description": "Necrotic damage dealt by your Cleric spells and Channel Divinity ignores Resistance."
+                },
+                "8": {
+                    "name": "Divine Strike (Death Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Necrotic damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Improved Reaper",
+                    "description": "Target two adjacent creatures within 5 ft with Necromancy spells of 1st–5th level."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "necrotic",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Forge Domain": {
+            "name": "Forge Domain",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Identify",
+                    "Searing Smite"
+                ],
+                "3": [
+                    "Heat Metal",
+                    "Magic Weapon"
+                ],
+                "5": [
+                    "Elemental Weapon",
+                    "Protection from Energy"
+                ],
+                "7": [
+                    "Fabricate",
+                    "Wall of Fire"
+                ],
+                "9": [
+                    "Animate Objects",
+                    "Creation"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiencies & Blessing of the Forge",
+                    "description": "Gain Heavy Armor & smith's tools; imbue one armor or weapon (+1 AC or +1 attack/damage) after Long Rest."
+                },
+                "2": {
+                    "name": "Channel Divinity: Artisan's Blessing",
+                    "description": "1-hour ritual forges a metallic item worth up to 100 gp."
+                },
+                "6": {
+                    "name": "Soul of the Forge",
+                    "description": "Gain Resistance to Fire damage and +1 AC while wearing Heavy Armor."
+                },
+                "8": {
+                    "name": "Divine Strike (Forge Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Fire damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Saint of Forge and Fire",
+                    "description": "Immunity to Fire damage and Resistance to nonmagical BPS while wearing Heavy Armor."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "fire",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Grave Domain": {
+            "name": "Grave Domain",
+            "bonus_spells": {
+                "1": [
+                    "Bane",
+                    "False Life"
+                ],
+                "3": [
+                    "Gentle Repose",
+                    "Ray of Enfeeblement"
+                ],
+                "5": [
+                    "Revivify",
+                    "Vampiric Touch"
+                ],
+                "7": [
+                    "Blight",
+                    "Death Ward"
+                ],
+                "9": [
+                    "Antilife Shell",
+                    "Raise Dead"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Circle of Mortality & Eyes of the Grave",
+                    "description": "Maximize healing dice on 0-HP creatures and cast Spare the Dying as a 30-ft Bonus Action; sense Undead within 60 ft."
+                },
+                "2": {
+                    "name": "Channel Divinity: Path to the Grave",
+                    "description": "Curse a creature within 30 ft giving it Vulnerability to all damage of the next hitting attack."
+                },
+                "6": {
+                    "name": "Sentinel at Death's Door",
+                    "description": "Reaction negates a critical hit on yourself or an ally within 30 ft (WIS mod/Long Rest)."
+                },
+                "8": {
+                    "name": "Potent Spellcasting",
+                    "description": "Add your Wisdom modifier to the damage you deal with any Cleric cantrip."
+                },
+                "17": {
+                    "name": "Keeper of Souls",
+                    "description": "When an enemy dies within 60 ft, restore HP equal to its Hit Dice number to yourself or an ally (1/turn)."
+                }
+            }
+        },
+        "Order Domain": {
+            "name": "Order Domain",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Command",
+                    "Heroism"
+                ],
+                "3": [
+                    "Hold Person",
+                    "Zone of Truth"
+                ],
+                "5": [
+                    "Mass Healing Word",
+                    "Slow"
+                ],
+                "7": [
+                    "Compulsion",
+                    "Locate Creature"
+                ],
+                "9": [
+                    "Commune",
+                    "Dominate Person"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiencies & Voice of Authority",
+                    "description": "Gain Heavy Armor & Intimidation/Persuasion; targeting an ally with a leveled spell lets them make a Reaction weapon attack."
+                },
+                "2": {
+                    "name": "Channel Divinity: Order's Demand",
+                    "description": "Charm foes within 30 ft and force them to drop held items (WIS save)."
+                },
+                "6": {
+                    "name": "Embodiment of the Law",
+                    "description": "Cast Enchantment spells of 1st+ level as a Bonus Action (WIS mod/Long Rest)."
+                },
+                "8": {
+                    "name": "Divine Strike (Order Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Psychic damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Order's Wrath",
+                    "description": "Divine Strike marks the target until next turn, dealing an extra +2d8 Psychic when allies hit it."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "psychic",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Peace Domain": {
+            "name": "Peace Domain",
+            "bonus_spells": {
+                "1": [
+                    "Heroism",
+                    "Sanctuary"
+                ],
+                "3": [
+                    "Aid",
+                    "Warding Bond"
+                ],
+                "5": [
+                    "Beacon of Hope",
+                    "Sending"
+                ],
+                "7": [
+                    "Aura of Purity",
+                    "Resilient Sphere"
+                ],
+                "9": [
+                    "Greater Restoration",
+                    "Telepathic Bond"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Implement of Peace & Emboldening Bond",
+                    "description": "Gain Insight/Performance/Persuasion; bond PB creatures within 30 ft allowing each +1d4 once per turn to attacks/checks/saves (PB/Long Rest)."
+                },
+                "2": {
+                    "name": "Channel Divinity: Balm of Peace",
+                    "description": "Move up to your Speed without Opportunity Attacks and heal every ally passed within 5 ft 2d6 + WIS mod."
+                },
+                "6": {
+                    "name": "Protective Bond",
+                    "description": "Bonded creatures within 30 ft can teleport as a Reaction to take damage in place of another bonded ally."
+                },
+                "8": {
+                    "name": "Potent Spellcasting",
+                    "description": "Add your Wisdom modifier to the damage you deal with any Cleric cantrip."
+                },
+                "17": {
+                    "name": "Expansive Bond",
+                    "description": "Protective Bond extends to 60 ft and grants Resistance to the intercepted damage."
+                }
+            }
+        },
+        "Twilight Domain": {
+            "name": "Twilight Domain",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "bonus_spells": {
+                "1": [
+                    "Faerie Fire",
+                    "Sleep"
+                ],
+                "3": [
+                    "Moonbeam",
+                    "See Invisibility"
+                ],
+                "5": [
+                    "Aura of Vitality",
+                    "Tiny Hut"
+                ],
+                "7": [
+                    "Aura of Life",
+                    "Greater Invisibility"
+                ],
+                "9": [
+                    "Circle of Power",
+                    "Mislead"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Bonus Proficiencies, Eyes of Night & Vigilant Blessing",
+                    "description": "Gain Heavy Armor & Martial Weapons, 300-ft shareable Darkvision, and Action grants Adv on the next Initiative roll."
+                },
+                "2": {
+                    "name": "Channel Divinity: Twilight Sanctuary",
+                    "description": "1-minute 30-ft aura ending Charmed/Frightened or granting 1d6 + Cleric level Temporary HP each turn."
+                },
+                "6": {
+                    "name": "Steps of Night",
+                    "description": "Bonus Action in dim light/darkness grants Fly Speed equal to walking speed for 1 minute (PB/Long Rest)."
+                },
+                "8": {
+                    "name": "Divine Strike (Twilight Domain)",
+                    "description": "Once per turn, weapon hits deal +1d8 Radiant damage (+2d8 at Level 14)."
+                },
+                "17": {
+                    "name": "Twilight Shroud",
+                    "description": "You and allies inside your Twilight Sanctuary gain Half Cover (+2 AC and DEX saves)."
+                }
+            },
+            "scaling": {
+                "divine_strike": {
+                    "name": "Divine Strike",
+                    "kind": "rider",
+                    "damage_type": "radiant",
+                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
+                    "steps": [
+                        {
+                            "level": 8,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Arcana Domain": {
+            "name": "Arcana Domain",
+            "bonus_spells": {
+                "1": [
+                    "Detect Magic",
+                    "Magic Missile"
+                ],
+                "3": [
+                    "Magic Weapon",
+                    "Arcanist’s Magic Aura"
+                ],
+                "5": [
+                    "Dispel Magic",
+                    "Magic Circle"
+                ],
+                "7": [
+                    "Arcane Eye",
+                    "Secret Chest"
+                ],
+                "9": [
+                    "Planar Binding",
+                    "Teleportation Circle"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Arcane Initiate",
+                    "description": "Gain Arcana proficiency and two Wizard cantrips (count as Cleric cantrips for you)."
+                },
+                "2": {
+                    "name": "Channel Divinity: Arcane Abjuration",
+                    "description": "Turn Celestial, Elemental, Fey, or Fiend within 30 ft (banishes weak ones from L5+)."
+                },
+                "6": {
+                    "name": "Spell Breaker",
+                    "description": "When healing an ally with a leveled spell, simultaneously dispel one spell affecting them."
+                },
+                "8": {
+                    "name": "Potent Spellcasting",
+                    "description": "Add your Wisdom modifier to the damage you deal with any Cleric cantrip."
+                },
+                "17": {
+                    "name": "Arcane Mastery",
+                    "description": "Choose one 6th-, 7th-, 8th-, and 9th-level Wizard spell to add permanently to your Domain Spells."
                 }
             }
         }

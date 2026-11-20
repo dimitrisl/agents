@@ -4,21 +4,43 @@
     "subclasses": {
         "Champion": {
             "name": "Champion",
+            "features": {
+                "3": {
+                    "name": "Improved Critical (Champion)",
+                    "description": "Your weapon attacks score a critical hit on a roll of 19 or 20."
+                },
+                "7": {
+                    "name": "Remarkable Athlete (Champion)",
+                    "description": "Add half your Proficiency Bonus (rounded up) to any STR, DEX, or CON check that doesn't already use your proficiency bonus, and boost running long jump by STR modifier feet."
+                },
+                "10": {
+                    "name": "Additional Fighting Style (Champion)",
+                    "description": "You choose a second option from the Fighting Style class feature."
+                },
+                "15": {
+                    "name": "Superior Critical (Champion)",
+                    "description": "Your weapon attacks score a critical hit on a roll of 18–20."
+                },
+                "18": {
+                    "name": "Survivor (Champion)",
+                    "description": "At the start of each of your turns, regain HP equal to 5 + CON modifier if you have no more than half your HP remaining (above 0)."
+                }
+            },
             "scaling": {
                 "improved_critical": {
                     "name": "Improved Critical",
                     "kind": "utility",
                     "rollable": false,
-                    "hint": "Widened crit range \u2014 the Attack button already flags these as crits.",
+                    "hint": "Widened crit range — the Attack button already flags these as crits.",
                     "steps": [
                         {
                             "level": 3,
-                            "notation": "crit on 19\u201320",
+                            "notation": "crit on 19–20",
                             "value": 19
                         },
                         {
                             "level": 15,
-                            "notation": "crit on 18\u201320",
+                            "notation": "crit on 18–20",
                             "value": 18
                         }
                     ]
@@ -27,6 +49,28 @@
         },
         "Battle Master": {
             "name": "Battle Master",
+            "features": {
+                "3": {
+                    "name": "Combat Superiority & Student of War",
+                    "description": "Learn 3 Battle Master Maneuvers fueled by 4 d8 Superiority Dice (Short/Long Rest) and gain proficiency in one artisan's tool."
+                },
+                "7": {
+                    "name": "Know Your Enemy",
+                    "description": "Study a creature outside combat for 1 minute to compare relative stats, HP, AC, or Fighter levels."
+                },
+                "10": {
+                    "name": "Improved Combat Superiority",
+                    "description": "Your Superiority Dice turn into d10s (plus learn 2 additional maneuvers at L7/L10)."
+                },
+                "15": {
+                    "name": "Relentless",
+                    "description": "When you roll Initiative and have no Superiority Dice remaining, you regain 1 Superiority Die."
+                },
+                "18": {
+                    "name": "Improved Combat Superiority (d12)",
+                    "description": "Your Superiority Dice turn into d12s."
+                }
+            },
             "scaling": {
                 "superiority_dice": {
                     "name": "Superiority Die",
@@ -46,6 +90,181 @@
                             "notation": "1d12"
                         }
                     ]
+                }
+            }
+        },
+        "Eldritch Knight": {
+            "name": "Eldritch Knight",
+            "features": {
+                "3": {
+                    "name": "Spellcasting & Weapon Bond",
+                    "description": "Cast Wizard spells (INT; Abjuration and Evocation focus) and bond up to two weapons so you cannot be disarmed and can summon them as a Bonus Action."
+                },
+                "7": {
+                    "name": "War Magic",
+                    "description": "When you use your Action to cast a cantrip, you can make one weapon attack as a Bonus Action."
+                },
+                "10": {
+                    "name": "Eldritch Strike",
+                    "description": "Creatures hit by your weapon attack have Disadvantage on their next saving throw against a spell you cast before the end of your next turn."
+                },
+                "15": {
+                    "name": "Arcane Charge",
+                    "description": "Teleport up to 30 feet to an unoccupied space you can see when you use Action Surge."
+                },
+                "18": {
+                    "name": "Improved War Magic",
+                    "description": "When you use your Action to cast a spell, you can make one weapon attack as a Bonus Action."
+                }
+            }
+        },
+        "Arcane Archer": {
+            "name": "Arcane Archer",
+            "features": {
+                "3": {
+                    "name": "Arcane Archer Lore & Arcane Shot",
+                    "description": "Gain Arcana or Nature proficiency and Prestidigitation/Druidcraft, plus 2 magical Arcane Shot options (2/Short or Long Rest on shortbow/longbow hits)."
+                },
+                "7": {
+                    "name": "Magic Arrow & Curving Shot",
+                    "description": "Shortbow/longbow arrows count as magical; use a Bonus Action to redirect a missed magic arrow toward another target within 60 ft."
+                },
+                "10": {
+                    "name": "Additional Arcane Shot",
+                    "description": "Learn an additional Arcane Shot option (more choices also gained at L7/L15/L18)."
+                },
+                "15": {
+                    "name": "Ever-Ready Shot",
+                    "description": "If you roll Initiative with 0 Arcane Shot uses remaining, regain one use."
+                },
+                "18": {
+                    "name": "Master Arcane Shots",
+                    "description": "All Arcane Shot damage dice scale up (e.g. 4d6 / improved secondary dice)."
+                }
+            }
+        },
+        "Cavalier": {
+            "name": "Cavalier",
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiency, Born to the Saddle & Unwavering Mark",
+                    "description": "Adv vs falling off mount, 5 ft mount/dismount, and Unwavering Mark imposing Disadvantage + bonus revenge strike (STR mod/Long Rest)."
+                },
+                "7": {
+                    "name": "Warding Maneuver",
+                    "description": "Reaction grants +1d8 AC and Resistance to an adjacent ally or yourself on hit (CON mod/Long Rest)."
+                },
+                "10": {
+                    "name": "Hold the Line",
+                    "description": "Creatures provoke Opportunity Attacks when moving 5 ft or more within your reach, dropping their speed to 0 on hit."
+                },
+                "15": {
+                    "name": "Ferocious Charger",
+                    "description": "Move 10+ ft straight before hitting to force a STR save or knock the target Prone."
+                },
+                "18": {
+                    "name": "Vigilant Defender",
+                    "description": "Take a special Reaction once on every other creature's turn solely for Opportunity Attacks."
+                }
+            }
+        },
+        "Samurai": {
+            "name": "Samurai",
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiency & Fighting Spirit",
+                    "description": "Gain one social/History skill; Bonus Action grants Advantage on all weapon attacks this turn plus Temporary HP (3/Long Rest)."
+                },
+                "7": {
+                    "name": "Elegant Courtier",
+                    "description": "Add WIS modifier to Persuasion checks and gain proficiency in Wisdom saving throws (or INT/CHA if already proficient)."
+                },
+                "10": {
+                    "name": "Tireless Spirit",
+                    "description": "Regain 1 use of Fighting Spirit whenever you roll Initiative with 0 uses remaining."
+                },
+                "15": {
+                    "name": "Rapid Strike",
+                    "description": "Forgo Advantage on one Attack action strike to make one additional weapon attack as part of the same action."
+                },
+                "18": {
+                    "name": "Strength Before Death",
+                    "description": "Reaction upon dropping to 0 HP to immediately take an extra turn before falling unconscious (1/Long Rest)."
+                }
+            }
+        },
+        "Psi Warrior": {
+            "name": "Psi Warrior",
+            "features": {
+                "3": {
+                    "name": "Psionic Power",
+                    "description": "Gain Psionic Energy Dice equal to 2 x PB (d6, scales to d8/d10/d12) for Protective Field, Psionic Strike, and Telekinetic Movement."
+                },
+                "7": {
+                    "name": "Telekinetic Adept",
+                    "description": "Gain Psi-Powered Leap (Fly speed = 2x Speed until turn end) and Telekinetic Thrust (push 10 ft or knock Prone on Psionic Strike)."
+                },
+                "10": {
+                    "name": "Guarded Mind",
+                    "description": "Gain Resistance to Psychic damage and spend a Psionic Die at the start of your turn to end Charmed and Frightened conditions."
+                },
+                "15": {
+                    "name": "Bulwark of Force",
+                    "description": "Bonus Action grants Half Cover (+2 AC & DEX saves) to up to INT mod allies within 30 ft for 1 minute."
+                },
+                "18": {
+                    "name": "Telekinetic Master",
+                    "description": "Cast Telekinesis without components (1/Long Rest or 1 Psionic Die) and make one Bonus Action weapon attack each turn while concentrating."
+                }
+            }
+        },
+        "Rune Knight": {
+            "name": "Rune Knight",
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiencies, Rune Carver & Giant's Might",
+                    "description": "Gain smith's tools & Giant language; inscribe 2 magical Runes on gear; Bonus Action becomes Large (+1d6 damage, STR Adv, PB/Long Rest)."
+                },
+                "7": {
+                    "name": "Runic Shield",
+                    "description": "Reaction forces an attacker to reroll an attack hitting an ally within 60 ft (PB/Long Rest)."
+                },
+                "10": {
+                    "name": "Great Stature",
+                    "description": "Giant's Might extra damage rises to 1d8 (learn 4th Rune)."
+                },
+                "15": {
+                    "name": "Master of Runes",
+                    "description": "Invoke each known Rune twice per Short or Long Rest (learn 5th Rune)."
+                },
+                "18": {
+                    "name": "Runic Juggernaut",
+                    "description": "Giant's Might grows up to Huge size, adds +5 ft reach, and deals 1d10 extra damage."
+                }
+            }
+        },
+        "Echo Knight": {
+            "name": "Echo Knight",
+            "features": {
+                "3": {
+                    "name": "Manifest Echo & Unleash Incarnation",
+                    "description": "Bonus Action conjures a translucent Echo you can swap places with and attack through; make CON mod extra attacks per Long Rest from your Echo."
+                },
+                "7": {
+                    "name": "Echo Avatar",
+                    "description": "Transfer your senses into your Echo up to 1,000 ft away for 10 minutes."
+                },
+                "10": {
+                    "name": "Shadow Martyr",
+                    "description": "Reaction teleports your Echo in front of an attacked ally to intercept the attack (1/Short or Long Rest)."
+                },
+                "15": {
+                    "name": "Reclaim Potential",
+                    "description": "When an Echo is destroyed, gain 2d6 + CON mod Temporary HP (CON mod/Long Rest)."
+                },
+                "18": {
+                    "name": "Legion of One",
+                    "description": "Manifest two Echoes simultaneously and regain 1 Unleash Incarnation use when rolling Initiative with 0 left."
                 }
             }
         }

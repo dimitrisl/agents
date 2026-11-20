@@ -180,4 +180,18 @@ describe('Manual Build Recommendations Rules', () => {
     expect(getRacialSkills('Halfling', true)).toEqual(['Stealth']);
     expect(getRacialSkills('Elf', true)).toEqual(['Perception']);
   });
+
+  it('should compute racial bonus skill counts and 2014 Variant Human feat slots', () => {
+    const { getMaxOriginFeats, getRacialBonusSkillCount } = require('./recommendations');
+
+    expect(getRacialBonusSkillCount('Half-Elf', false)).toBe(2);
+    expect(getRacialBonusSkillCount('Variant Human', false)).toBe(1);
+    expect(getRacialBonusSkillCount('Human', false)).toBe(0);
+    expect(getRacialBonusSkillCount('Human', true)).toBe(1);
+    expect(getRacialBonusSkillCount('Warforged', true)).toBe(1);
+
+    expect(getMaxOriginFeats('Variant Human', '2014')).toBe(1);
+    expect(getMaxOriginFeats('Human', '2014')).toBe(0);
+    expect(getMaxOriginFeats('Human', '2024')).toBe(2);
+  });
 });

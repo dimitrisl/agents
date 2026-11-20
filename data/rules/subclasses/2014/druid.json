@@ -1,0 +1,189 @@
+{
+    "class_name": "Druid",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Circle of the Land": {
+            "name": "Circle of the Land",
+            "features": {
+                "2": {
+                    "name": "Bonus Cantrip & Natural Recovery",
+                    "description": "Learn an extra Druid cantrip; once per Long Rest during a Short Rest recover expended spell slots totaling <= ceil(Druid level / 2)."
+                },
+                "6": {
+                    "name": "Land's Stride & Circle Spells",
+                    "description": "Move through nonmagical difficult terrain freely, ignore nonmagical thorny damage, and Adv vs plant magic; Circle Spells unlock L3/5/7/9."
+                },
+                "10": {
+                    "name": "Nature's Ward",
+                    "description": "Cannot be Charmed or Frightened by Elementals or Fey, and immune to Poison and Disease."
+                },
+                "14": {
+                    "name": "Nature's Sanctuary",
+                    "description": "Beasts and Plant creatures must pass a WIS save to attack you."
+                }
+            }
+        },
+        "Circle of the Moon": {
+            "name": "Circle of the Moon",
+            "features": {
+                "2": {
+                    "name": "Combat Wild Shape & Circle Forms",
+                    "description": "Wild Shape as a Bonus Action, expend spell slots to heal 1d8/lvl while transformed, and assume Beast forms up to CR 1 (later Druid level / 3 from L6+)."
+                },
+                "6": {
+                    "name": "Primal Strike",
+                    "description": "Your attacks in Beast form count as magical; Wild Shape max CR increases to floor(Druid level / 3)."
+                },
+                "10": {
+                    "name": "Elemental Wild Shape",
+                    "description": "Expend two uses of Wild Shape simultaneously to transform into an Air, Earth, Fire, or Water Elemental."
+                },
+                "14": {
+                    "name": "Thousand Forms",
+                    "description": "Cast Alter Self at will without expending a spell slot."
+                }
+            }
+        },
+        "Circle of Dreams": {
+            "name": "Circle of Dreams",
+            "features": {
+                "2": {
+                    "name": "Balm of the Summer Court",
+                    "description": "Pool of d6s equal to Druid level: Bonus Action heals ally within 120 ft (up to half level dice) +1 Temp HP per die."
+                },
+                "6": {
+                    "name": "Hearth of Moonlight and Shadow",
+                    "description": "Short/Long Rest sphere hides your camp, boosts Stealth/Perception by +5, and hides firelight."
+                },
+                "10": {
+                    "name": "Hidden Paths",
+                    "description": "Bonus Action teleports yourself 60 ft or Action teleports an ally 30 ft (WIS mod/Long Rest)."
+                },
+                "14": {
+                    "name": "Walker in Dreams",
+                    "description": "End a Short Rest to cast Dream, Scrying, or Teleportation Circle back to your previous Long Rest spot (1/Long Rest)."
+                }
+            }
+        },
+        "Circle of the Shepherd": {
+            "name": "Circle of the Shepherd",
+            "features": {
+                "2": {
+                    "name": "Speech of the Woods & Spirit Totem",
+                    "description": "Learn Sylvan and communicate with Beasts; Bonus Action summons a 30-ft Bear, Hawk, or Unicorn Spirit Totem (1/Short Rest)."
+                },
+                "6": {
+                    "name": "Mighty Summoner",
+                    "description": "Beasts and Fey summoned by your spells gain +2 HP per Hit Die and magical natural weapons."
+                },
+                "10": {
+                    "name": "Guardian Spirit",
+                    "description": "Summoned Beasts and Fey ending turns inside your Spirit Totem regain HP equal to half your Druid level."
+                },
+                "14": {
+                    "name": "Faithful Summons",
+                    "description": "If incapacitated/reduced to 0 HP, automatically conjure four Beasts via Conjure Animals (9th-level equivalent, 1/Long Rest)."
+                }
+            }
+        },
+        "Circle of Spores": {
+            "name": "Circle of Spores",
+            "bonus_spells": {
+                "3": [
+                    "Blindness/Deafness",
+                    "Gentle Repose"
+                ],
+                "5": [
+                    "Animate Dead",
+                    "Gaseous Form"
+                ],
+                "7": [
+                    "Blight",
+                    "Confusion"
+                ],
+                "9": [
+                    "Cloudkill",
+                    "Contagion"
+                ]
+            },
+            "features": {
+                "2": {
+                    "name": "Halo of Spores & Symbiotic Entity",
+                    "description": "Reaction deals 1d4->1d10 Necrotic damage (CON save); spend Wild Shape for 4x Druid level Temp HP, +1d6 weapon Necrotic, and doubled Halo dice."
+                },
+                "6": {
+                    "name": "Fungal Infestation",
+                    "description": "Reaction animates a Beast/Humanoid dying within 10 ft as a 1-HP Zombie under your command (WIS mod/Long Rest)."
+                },
+                "10": {
+                    "name": "Spreading Spores",
+                    "description": "Bonus Action projects Halo of Spores as a 10-ft cube within 30 ft."
+                },
+                "14": {
+                    "name": "Fungal Body",
+                    "description": "Cannot be Blinded, Deafened, Frightened, or Poisoned, and critical hits against you become normal hits."
+                }
+            }
+        },
+        "Circle of Stars": {
+            "name": "Circle of Stars",
+            "features": {
+                "2": {
+                    "name": "Star Map & Starry Form",
+                    "description": "Gain Guidance + free Guiding Bolt casts (PB/Long Rest); expend Wild Shape as Bonus Action for Archer (1d8+WIS radiant), Chalice (extra heal), or Dragon (min 10 Concentration/INT/WIS)."
+                },
+                "6": {
+                    "name": "Cosmic Omen",
+                    "description": "Roll Weal (add 1d6) or Woe (subtract 1d6) as a Reaction within 30 ft (PB/Long Rest)."
+                },
+                "10": {
+                    "name": "Twinkling Constellations",
+                    "description": "Archer & Chalice scale to 2d8, Dragon grants 20-ft Fly Speed, and you can switch Starry Form each turn."
+                },
+                "14": {
+                    "name": "Full of Stars",
+                    "description": "While in Starry Form, gain Resistance to bludgeoning, piercing, and slashing damage."
+                }
+            }
+        },
+        "Circle of Wildfire": {
+            "name": "Circle of Wildfire",
+            "bonus_spells": {
+                "3": [
+                    "Flaming Sphere",
+                    "Scorching Ray"
+                ],
+                "5": [
+                    "Plant Growth",
+                    "Revivify"
+                ],
+                "7": [
+                    "Aura of Life",
+                    "Fire Shield"
+                ],
+                "9": [
+                    "Flame Strike",
+                    "Mass Cure Wounds"
+                ]
+            },
+            "features": {
+                "2": {
+                    "name": "Summon Wildfire Spirit",
+                    "description": "Expend Wild Shape to summon a Fiery Spirit (Bonus Action command, Flame Seed, and 15-ft Fiery Teleportation)."
+                },
+                "6": {
+                    "name": "Enhanced Bond",
+                    "description": "Add +1d8 to one Fire damage or healing roll of your spells when your Wildfire Spirit is summoned, and cast spells from its space."
+                },
+                "10": {
+                    "name": "Cauterizing Flames",
+                    "description": "Spectral flames turn deaths within 30 ft into 2d10 + WIS mod healing or Fire damage reactions (PB/Long Rest)."
+                },
+                "14": {
+                    "name": "Blazing Revival",
+                    "description": "If reduced to 0 HP within 120 ft of your Wildfire Spirit, drop the Spirit to 0 HP instead to revive at half HP (1/Long Rest)."
+                }
+            }
+        }
+    }
+}

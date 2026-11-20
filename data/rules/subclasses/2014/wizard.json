@@ -1,0 +1,286 @@
+{
+    "class_name": "Wizard",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "School of Abjuration": {
+            "name": "School of Abjuration",
+            "features": {
+                "2": {
+                    "name": "Abjuration Savant & Arcane Ward",
+                    "description": "Half cost/time to copy Abjuration spells; weave an Arcane Ward absorbing up to 2 x Wizard level + INT mod damage."
+                },
+                "6": {
+                    "name": "Projected Ward",
+                    "description": "Reaction spends your Arcane Ward to absorb damage targeting an ally within 30 ft."
+                },
+                "10": {
+                    "name": "Improved Abjuration",
+                    "description": "Add your Proficiency Bonus to ability checks made for Abjuration spells like Counterspell and Dispel Magic."
+                },
+                "14": {
+                    "name": "Spell Resistance",
+                    "description": "Advantage on saving throws against spells and Resistance to the damage of spells."
+                }
+            }
+        },
+        "School of Conjuration": {
+            "name": "School of Conjuration",
+            "features": {
+                "2": {
+                    "name": "Conjuration Savant & Minor Conjuration",
+                    "description": "Half cost/time to copy Conjuration spells; Action conjures a Small nonmagical inanimate object up to 10 lb."
+                },
+                "6": {
+                    "name": "Benign Transposition",
+                    "description": "Action teleports 30 ft or swaps places with a willing creature (1/Long Rest or Conjuration cast)."
+                },
+                "10": {
+                    "name": "Focused Conjuration",
+                    "description": "Taking damage never breaks your Concentration on a Conjuration spell."
+                },
+                "14": {
+                    "name": "Durable Summons",
+                    "description": "Creatures summoned by your Conjuration spells gain 30 Temporary HP."
+                }
+            }
+        },
+        "School of Divination": {
+            "name": "School of Divination",
+            "features": {
+                "2": {
+                    "name": "Divination Savant & Portent",
+                    "description": "Half cost/time to copy Divination spells; roll two d20s after each Long Rest and swap them into any visible attack, check, or save."
+                },
+                "6": {
+                    "name": "Expert Divination",
+                    "description": "Casting a 2nd+ level Divination spell regains one lower-level expended spell slot (up to 5th)."
+                },
+                "10": {
+                    "name": "The Third Eye",
+                    "description": "Action grants Darkvision, Ethereal Sight, Greater Comprehension, or See Invisibility until next rest."
+                },
+                "14": {
+                    "name": "Greater Portent",
+                    "description": "Roll three d20s for Portent instead of two after each Long Rest."
+                }
+            }
+        },
+        "School of Enchantment": {
+            "name": "School of Enchantment",
+            "features": {
+                "2": {
+                    "name": "Enchantment Savant & Hypnotic Gaze",
+                    "description": "Half cost/time to copy Enchantment spells; Action charms and incapacitates a creature within 5 ft while maintained (WIS save)."
+                },
+                "6": {
+                    "name": "Instinctive Charm",
+                    "description": "Reaction diverts an attack within 30 ft onto a nearer creature (WIS save, resets on Enchantment cast)."
+                },
+                "10": {
+                    "name": "Split Enchantment",
+                    "description": "Single-target Enchantment spells of 1st+ level can target a second creature."
+                },
+                "14": {
+                    "name": "Alter Memories",
+                    "description": "Creatures charmed by your Enchantment spells don't realize they were charmed and can forget hours of memory."
+                }
+            }
+        },
+        "School of Evocation": {
+            "name": "School of Evocation",
+            "features": {
+                "2": {
+                    "name": "Evocation Savant & Sculpt Spells",
+                    "description": "Half cost/time to copy Evocation spells; protect up to 1 + spell level allies so they automatically save and take 0 damage from your Evocation spells."
+                },
+                "6": {
+                    "name": "Potent Cantrip",
+                    "description": "Enemies take half damage from your saving-throw cantrips even when they succeed on the saving throw."
+                },
+                "10": {
+                    "name": "Empowered Evocation",
+                    "description": "Add your Intelligence modifier to one damage roll of any Wizard Evocation spell you cast."
+                },
+                "14": {
+                    "name": "Overchannel",
+                    "description": "Deal maximum damage on a 1st–5th level Wizard spell (free 1/Long Rest; escalating Necrotic backlash on repeats)."
+                }
+            }
+        },
+        "School of Illusion": {
+            "name": "School of Illusion",
+            "features": {
+                "2": {
+                    "name": "Illusion Savant & Improved Minor Illusion",
+                    "description": "Half cost/time to copy Illusion spells; learn Minor Illusion creating both sound and visual image at once."
+                },
+                "6": {
+                    "name": "Malleable Illusions",
+                    "description": "Action alters parameters of any ongoing Illusion spell lasting 1+ minute."
+                },
+                "10": {
+                    "name": "Illusory Self",
+                    "description": "Reaction forces an attack to miss by creating an illusory duplicate (1/Short or Long Rest)."
+                },
+                "14": {
+                    "name": "Illusory Reality",
+                    "description": "Bonus Action turns one inanimate object inside an Illusion spell physically real for 1 minute."
+                }
+            }
+        },
+        "School of Necromancy": {
+            "name": "School of Necromancy",
+            "features": {
+                "2": {
+                    "name": "Necromancy Savant & Grim Harvest",
+                    "description": "Half cost/time to copy Necromancy spells; regain 2x spell level HP (3x if Necromancy) when killing a creature with a leveled spell."
+                },
+                "6": {
+                    "name": "Undead Thralls",
+                    "description": "Add Animate Dead to your spellbook, animate +1 extra Undead, and add Wizard level HP + PB damage to your Undead."
+                },
+                "10": {
+                    "name": "Inured to Undeath",
+                    "description": "Resistance to Necrotic damage, and your HP maximum can never be reduced."
+                },
+                "14": {
+                    "name": "Command Undead",
+                    "description": "Action brings an Undead under your control via CHA save (indefinite if INT < 8)."
+                }
+            }
+        },
+        "School of Transmutation": {
+            "name": "School of Transmutation",
+            "features": {
+                "2": {
+                    "name": "Transmutation Savant & Minor Alchemy",
+                    "description": "Half cost/time to copy Transmutation spells; transmute wood, stone, iron, copper, or silver for up to 1 hour."
+                },
+                "6": {
+                    "name": "Transmuter's Stone",
+                    "description": "Craft a stone granting CON save proficiency, 60-ft Darkvision, +10 ft Speed, or Elemental Resistance (shareable)."
+                },
+                "10": {
+                    "name": "Shapechanger",
+                    "description": "Cast Polymorph targeting yourself as a CR <= 1 Beast once per Short or Long Rest without expending a slot."
+                },
+                "14": {
+                    "name": "Master Transmuter",
+                    "description": "Destroy your Transmuter's Stone to cure all ailments, transform objects, restore youth, or cast Raise Dead."
+                }
+            }
+        },
+        "Bladesinging": {
+            "name": "Bladesinging",
+            "armor_proficiencies": [
+                "Light armor"
+            ],
+            "weapon_proficiencies": [
+                "Rapier",
+                "Shortsword"
+            ],
+            "features": {
+                "2": {
+                    "name": "Training in War and Song & Bladesong",
+                    "description": "Gain Light Armor, Performance, and one 1-handed melee weapon proficiency; Bonus Action grants +INT to AC, +10 ft speed, Adv on Acrobatics, and +INT on Concentration saves (PB/Long Rest)."
+                },
+                "6": {
+                    "name": "Extra Attack (Bladesinger)",
+                    "description": "Attack twice when taking the Attack action, and optionally replace one of those attacks with casting a cantrip."
+                },
+                "10": {
+                    "name": "Song of Defense",
+                    "description": "Reaction during Bladesong expends a spell slot to reduce incoming damage by 5 x slot level."
+                },
+                "14": {
+                    "name": "Song of Victory",
+                    "description": "Add your Intelligence modifier to melee weapon damage rolls while Bladesong is active."
+                }
+            }
+        },
+        "War Magic": {
+            "name": "War Magic",
+            "features": {
+                "2": {
+                    "name": "Arcane Deflection & Tactical Wit",
+                    "description": "Add your Intelligence modifier to Initiative; Reaction grants +2 AC against one attack or +4 to a failed saving throw."
+                },
+                "6": {
+                    "name": "Power Surge",
+                    "description": "Store charges when countering/dispelling magic to add +half Wizard level Force damage to spells."
+                },
+                "10": {
+                    "name": "Durable Magic",
+                    "description": "Gain +2 bonus to AC and all saving throws while concentrating on a spell."
+                },
+                "14": {
+                    "name": "Deflecting Shroud",
+                    "description": "Arcane Deflection blasts up to three creatures within 60 ft for half Wizard level Force damage."
+                }
+            }
+        },
+        "Chronurgy Magic": {
+            "name": "Chronurgy Magic",
+            "features": {
+                "2": {
+                    "name": "Chronal Shift & Temporal Awareness",
+                    "description": "Add INT modifier to Initiative; Reaction forces any visible creature to reroll an attack, check, or save (2/Long Rest)."
+                },
+                "6": {
+                    "name": "Momentary Stasis",
+                    "description": "Action freezes a Large or smaller creature in time until end of next turn or taking damage (INT mod/Long Rest)."
+                },
+                "10": {
+                    "name": "Arcane Abeyance",
+                    "description": "Condense a 1st–4th level spell into a bead wearable and usable by allies within 1 hour (1/Short Rest)."
+                },
+                "14": {
+                    "name": "Convergent Future",
+                    "description": "Reaction locks any visible attack/check/save roll to just succeed or fail, gaining 1 level of Exhaustion."
+                }
+            }
+        },
+        "Graviturgy Magic": {
+            "name": "Graviturgy Magic",
+            "features": {
+                "2": {
+                    "name": "Adjust Density",
+                    "description": "Action halves (adv STR, +10 ft speed) or doubles (disadv STR, -10 ft speed) a Large or smaller creature's weight for 1 minute."
+                },
+                "6": {
+                    "name": "Gravity Well",
+                    "description": "Move a creature 5 ft when targeting it with a spell."
+                },
+                "10": {
+                    "name": "Violent Attraction",
+                    "description": "Reaction adds +1d10 damage to an ally's weapon hit or +2d10 to falling damage (INT mod/Long Rest)."
+                },
+                "14": {
+                    "name": "Event Horizon",
+                    "description": "Action radiates a 30-ft gravity field halving hostile movement and dealing 2d10 Force damage + zero speed on failed STR save (1/Long Rest or 3rd+ slot)."
+                }
+            }
+        },
+        "Order of Scribes": {
+            "name": "Order of Scribes",
+            "features": {
+                "2": {
+                    "name": "Wizardly Quill & Awakened Spellbook",
+                    "description": "Rapidly scribe spells and swap elemental damage types of cast Wizard spells with any other spell of the same level in your spellbook; 1/Long Rest ritual takes 1 Action."
+                },
+                "6": {
+                    "name": "Manifest Mind",
+                    "description": "Bonus Action projects your spellbook's mind (300 ft range) allowing you to cast spells through its senses (PB times/Long Rest)."
+                },
+                "10": {
+                    "name": "Master Scrivener",
+                    "description": "Craft a boosted magic scroll after every Long Rest (upcast +1 level) and craft scrolls at half cost/time."
+                },
+                "14": {
+                    "name": "One with the Word",
+                    "description": "Gain Adv on Arcana checks, and Reaction reduces incoming damage to 0 by dismissing Manifest Mind and temporarily losing 3d6 spell levels (1/Long Rest)."
+                }
+            }
+        }
+    }
+}

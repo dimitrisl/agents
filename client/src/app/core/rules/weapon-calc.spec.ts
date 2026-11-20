@@ -118,4 +118,31 @@ describe('Weapon Bonus Calculations and Breakdown', () => {
     expect(restored.attack.total).toBe(11); // +5 + 4 + 1 + 2 + 2 - 1 - 2 = 11
     expect(restored.damage.totalBonus).toBe(10); // 5 + 1 + 1 + 3 = 10
   });
+
+  it('adds Agonizing Blast +CHA damage on Eldritch Blast without double-counting explicit CHA modifier', () => {
+    const warlock: CharacterSchema = {
+      char_name: 'Morthos',
+      char_class: 'Warlock',
+      char_level: 5,
+      proficiency_bonus: 3,
+      stats: { STR: 8, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 18 },
+      features_traits: [{ name: 'Agonizing Blast', description: 'Add CHA mod to Eldritch Blast damage.' }],
+    } as any;
+
+    const ebNoStat: Weapon = {
+      name: 'Eldritch Blast',
+      attack_bonus: '+7',
+      damage_dice: '1d10 force',
+      ability_modifier: 'NONE',
+      range: '120 ft.',
+    };
+    const breakdownNone = calculateWeaponBreakdown(ebNoStat, warlock);
+    expect(breakdownNone.damage.totalBonus).toBe(4);
+    expect(breakdownNone.damage.formulaText).toContain('+4 (Agonizing)');
+
+    const ebExplicitCha: Weapon = { ...ebNoStat, ability_modifier: 'CHA' };
+    const breakdownCha = calculateWeaponBreakdown(ebExplicitCha, warlock);
+    expect(breakdownCha.damage.totalBonus).toBe(4);
+    expect(breakdownCha.damage.formulaText).not.toContain('(Agonizing)');
+  });
 });

@@ -27,8 +27,8 @@
         }
     },
     "primary_ability": [
-        "STR",
-        "DEX"
+        "DEX",
+        "WIS"
     ],
     "progression": {
         "1": {

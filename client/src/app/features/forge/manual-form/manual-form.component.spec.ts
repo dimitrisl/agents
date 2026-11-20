@@ -49,11 +49,17 @@ describe('ManualFormComponent', () => {
     expect(component.isSkillSelected('Arcana')).toBe(false);
   });
 
-  it('should load skill suggestions for class', () => {
+  it('should load skill suggestions for class (including 2024 Human Skillful +1 bonus)', () => {
     component.manualClass = 'Wizard';
     component.manualBackground = 'Sage'; // Sage grants Arcana & History
     component.loadSkillSuggestions();
-    // Sage grants Arcana, so suggestions should pick other class skills
+    // 2024 Human gets 1 Skillful bonus skill + 2 Wizard class skills = 3
+    expect(component.manualSkills.length).toBe(3);
+
+    // 2014 Elf has fixed Perception, so class skills remain 2
+    component.is2024 = false;
+    component.manualRace = 'High Elf';
+    component.loadSkillSuggestions();
     expect(component.manualSkills.length).toBe(2);
   });
 
@@ -63,6 +69,7 @@ describe('ManualFormComponent', () => {
     expect(component.isBackgroundSkill('Intimidation')).toBe(true);
     expect(component.isBackgroundSkill('Arcana')).toBe(false);
 
+    component.manualRace = 'Dwarf'; // no bonus skill picks
     component.manualClass = 'Fighter'; // standard recommended is Athletics & Perception
     component.loadSkillSuggestions();
     // Since Athletics is already granted by Soldier, it should pick Perception and another allowed skill
@@ -253,5 +260,42 @@ describe('ManualFormComponent', () => {
     const values = Array.from(select.options).map((o) => o.value);
     expect(values).toEqual(['Male', 'Female', 'Other']);
     expect(values).not.toContain('Non-binary');
+  });
+
+  it('supports Artificer optimizeStats and 2014 Half-Elf / Variant Human bonus skills and feat hints', () => {
+    component.is2024 = false;
+    component.manualClass = 'Artificer';
+    component.manualStatMethod = 'standard';
+    component.standardArrayValues = [15, 14, 13, 12, 10, 8];
+    const spy = jest.spyOn(component.manualStatsChange, 'emit');
+    component.optimizeStats();
+    expect(spy).toHaveBeenCalledWith({
+      INT: 15,
+      CON: 14,
+      DEX: 13,
+      WIS: 12,
+      CHA: 10,
+      STR: 8,
+    });
+
+    component.manualRace = 'Half-Elf';
+    component.manualClass = 'Wizard'; // 2 class skills + 2 Half-Elf bonus = 4
+    component.manualBackground = 'Acolyte';
+    expect(component.racialBonusSkillCount).toBe(2);
+    component.loadSkillSuggestions();
+    expect(component.manualSkills.length).toBe(4);
+
+    component.manualRace = 'Variant Human';
+    component.manualLevel = 1;
+    fixture.detectChanges();
+    expect(component.racialBonusSkillCount).toBe(1);
+    expect(component.maxOriginFeats).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('Level 1 Bonus Feat');
+
+    // Variant Human L1 can pick any non-origin 2014 feat (e.g. War Caster) in Manual Builder
+    component.manualFeats = [];
+    expect(component.canAddFeat({ name: 'War Caster', category: '' })).toBe(true);
+    component.toggleFeat('War Caster');
+    expect(component.manualFeats).toEqual(['War Caster']);
   });
 });

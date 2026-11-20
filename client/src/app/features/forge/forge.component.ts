@@ -198,14 +198,15 @@ export class ForgeComponent implements OnInit, OnDestroy {
   };
 
   classColors: Record<string, string> = {
-    'Barbarian': '#e74c3c', 'Bard': '#9b59b6', 'Cleric': '#f1c40f', 'Druid': '#2ecc71',
-    'Fighter': '#e67e22', 'Monk': '#1abc9c', 'Paladin': '#f39c12', 'Ranger': '#27ae60',
-    'Rogue': '#95a5a6', 'Sorcerer': '#ff6b6b', 'Warlock': '#8e44ad', 'Wizard': '#3498db'
+    'Artificer': '#00bcd4', 'Barbarian': '#e74c3c', 'Bard': '#9b59b6', 'Cleric': '#f1c40f',
+    'Druid': '#2ecc71', 'Fighter': '#e67e22', 'Monk': '#1abc9c', 'Paladin': '#f39c12',
+    'Ranger': '#27ae60', 'Rogue': '#95a5a6', 'Sorcerer': '#ff6b6b', 'Warlock': '#8e44ad',
+    'Wizard': '#3498db'
   };
 
   primaryStatsMap: Record<string, string[]> = {
-    'Barbarian': ['STR', 'CON'], 'Bard': ['CHA'], 'Cleric': ['WIS'], 'Druid': ['WIS'],
-    'Fighter': ['STR', 'DEX'], 'Monk': ['DEX', 'WIS'], 'Paladin': ['STR', 'CHA'],
+    'Artificer': ['INT', 'CON'], 'Barbarian': ['STR', 'CON'], 'Bard': ['CHA'], 'Cleric': ['WIS'],
+    'Druid': ['WIS'], 'Fighter': ['STR', 'DEX'], 'Monk': ['DEX', 'WIS'], 'Paladin': ['STR', 'CHA'],
     'Ranger': ['DEX', 'WIS'], 'Rogue': ['DEX'], 'Sorcerer': ['CHA'], 'Warlock': ['CHA'], 'Wizard': ['INT']
   };
 
@@ -615,7 +616,21 @@ export class ForgeComponent implements OnInit, OnDestroy {
   }
 
   get classOptions(): string[] {
-    return ['Barbarian', 'Bard', 'Cleric', 'Druid', 'Fighter', 'Monk', 'Paladin', 'Ranger', 'Rogue', 'Sorcerer', 'Warlock', 'Wizard'];
+    return [
+      'Artificer',
+      'Barbarian',
+      'Bard',
+      'Cleric',
+      'Druid',
+      'Fighter',
+      'Monk',
+      'Paladin',
+      'Ranger',
+      'Rogue',
+      'Sorcerer',
+      'Warlock',
+      'Wizard',
+    ];
   }
 
   get bgOptions(): string[] {

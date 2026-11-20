@@ -3,7 +3,8 @@
     "edition": "2014 Edition",
     "hit_die": "d8",
     "primary_ability": [
-        "Intelligence"
+        "INT",
+        "CON"
     ],
     "starting_proficiencies": {
         "saving_throws": [
@@ -212,5 +213,18 @@
         }
     },
     "caster_type": "half",
-    "spellcasting_ability": "INT"
+    "spellcasting_ability": "INT",
+    "scaling": {
+        "flash_of_genius": {
+            "name": "Flash of Genius",
+            "kind": "utility",
+            "hint": "Reaction: add your Intelligence modifier to an ability check or saving throw within 30 ft.",
+            "steps": [
+                {
+                    "level": 7,
+                    "notation": "+INT mod (Reaction)"
+                }
+            ]
+        }
+    }
 }

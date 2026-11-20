@@ -2,8 +2,183 @@
     "class_name": "Artificer",
     "edition": "2014 Edition",
     "subclasses": {
+        "Alchemist": {
+            "name": "Alchemist",
+            "bonus_spells": {
+                "3": [
+                    "Healing Word",
+                    "Ray of Sickness"
+                ],
+                "5": [
+                    "Flaming Sphere",
+                    "Acid Arrow"
+                ],
+                "9": [
+                    "Gaseous Form",
+                    "Mass Healing Word"
+                ],
+                "13": [
+                    "Blight",
+                    "Death Ward"
+                ],
+                "17": [
+                    "Cloudkill",
+                    "Raise Dead"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Tool Proficiency & Experimental Elixir",
+                    "description": "Gain proficiency with alchemist's supplies and brew Experimental Elixirs with random or chosen effects during a Long Rest or by spending spell slots."
+                },
+                "5": {
+                    "name": "Alchemical Savant",
+                    "description": "Add your Intelligence modifier to one healing roll or Acid, Fire, Necrotic, or Poison damage roll when casting an Artificer spell through alchemist's supplies."
+                },
+                "9": {
+                    "name": "Restorative Reagents",
+                    "description": "Creatures drinking your Experimental Elixir gain 2d6 + INT modifier Temporary HP; cast Lesser Restoration INT modifier times per Long Rest without a slot."
+                },
+                "15": {
+                    "name": "Chemical Mastery",
+                    "description": "Gain Resistance to Acid and Poison damage, immunity to the Poisoned condition, and cast Greater Restoration and Heal once per Long Rest without a slot."
+                }
+            }
+        },
+        "Armorer": {
+            "name": "Armorer",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "bonus_spells": {
+                "3": [
+                    "Magic Missile",
+                    "Thunderwave"
+                ],
+                "5": [
+                    "Mirror Image",
+                    "Shatter"
+                ],
+                "9": [
+                    "Hypnotic Pattern",
+                    "Lightning Bolt"
+                ],
+                "13": [
+                    "Fire Shield",
+                    "Greater Invisibility"
+                ],
+                "17": [
+                    "Passwall",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Tools of the Trade & Arcane Armor",
+                    "description": "Gain Heavy Armor proficiency and smith's tools; turn armor into Arcane Armor removing Strength requirements, usable as Guardian (Thunder Gauntlets, Defensive Field) or Infiltrator (Lightning Launcher, +5 ft speed)."
+                },
+                "5": {
+                    "name": "Extra Attack (Armorer)",
+                    "description": "Attack twice, rather than once, whenever you take the Attack action on your turn."
+                },
+                "9": {
+                    "name": "Armor Modifications",
+                    "description": "Your Arcane Armor counts as separate chest, boots, helmet, and weapon items for Artificer Infusions, and your maximum infused items increases by 2 for Arcane Armor pieces."
+                },
+                "15": {
+                    "name": "Perfected Armor",
+                    "description": "Upgrade your Arcane Armor model: Guardian pulls and blasts foes within 30 ft; Infiltrator grants Advantage and extra 1d6 Lightning damage once per turn."
+                }
+            }
+        },
+        "Artillerist": {
+            "name": "Artillerist",
+            "bonus_spells": {
+                "3": [
+                    "Shield",
+                    "Thunderwave"
+                ],
+                "5": [
+                    "Scorching Ray",
+                    "Shatter"
+                ],
+                "9": [
+                    "Fireball",
+                    "Wind Wall"
+                ],
+                "13": [
+                    "Ice Storm",
+                    "Wall of Fire"
+                ],
+                "17": [
+                    "Cone of Cold",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Tool Proficiency & Eldritch Cannon",
+                    "description": "Gain woodcarver's tools proficiency and conjure a Tiny/Small Eldritch Cannon (Flamethrower, Force Ballista, or Protector) fired with your Bonus Action."
+                },
+                "5": {
+                    "name": "Arcane Firearm",
+                    "description": "Carve sigils into a wand, staff, or rod; add 1d8 extra damage to one damage roll of any Artificer spell cast through it."
+                },
+                "9": {
+                    "name": "Explosive Cannon",
+                    "description": "Your Eldritch Cannon's damage increases by 1d8, and you can detonate it as an action dealing 3d8 Force damage in a 20-foot radius."
+                },
+                "15": {
+                    "name": "Fortified Position",
+                    "description": "Have two Eldritch Cannons active simultaneously and grant Half Cover (+2 AC and DEX saves) to allies within 10 ft of a cannon."
+                }
+            }
+        },
         "Battle Smith": {
             "name": "Battle Smith",
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "bonus_spells": {
+                "3": [
+                    "Heroism",
+                    "Shield"
+                ],
+                "5": [
+                    "Branding Smite",
+                    "Warding Bond"
+                ],
+                "9": [
+                    "Aura of Vitality",
+                    "Conjure Barrage"
+                ],
+                "13": [
+                    "Aura of Purity",
+                    "Fire Shield"
+                ],
+                "17": [
+                    "Banishing Smite",
+                    "Mass Cure Wounds"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Battle Ready & Steel Defender",
+                    "description": "Gain Martial Weapons proficiency, use INT for magic weapon attack/damage rolls, and command a loyal Steel Defender construct using your Bonus Action."
+                },
+                "5": {
+                    "name": "Extra Attack (Battle Smith)",
+                    "description": "Attack twice, rather than once, whenever you take the Attack action on your turn."
+                },
+                "9": {
+                    "name": "Arcane Jolt",
+                    "description": "When you hit with a magic weapon or your Steel Defender hits, deal 2d6 extra Force damage or heal 2d6 HP within 30 ft (INT modifier uses/Long Rest)."
+                },
+                "15": {
+                    "name": "Improved Defender",
+                    "description": "Arcane Jolt scales to 4d6, your Steel Defender gains +2 AC, and its Deflect Attack deals 1d4 + INT modifier Force damage."
+                }
+            },
             "scaling": {
                 "arcane_jolt": {
                     "name": "Arcane Jolt",
