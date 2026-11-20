@@ -58,6 +58,7 @@ export class SpellsPanelComponent {
   @Input() getSpellSlotUsed!: (lvl: number) => number;
   @Input() getSpellSlotMax!: (lvl: number) => number;
   @Input() editMode = false;
+  @Input() compactMobile = false;
   /** Dice a spell rolls at a slot level ("9d6"), or null when unknown. */
   @Input() castPreview: (spellName: string, slotLevel: number) => string | null = () => null;
 
@@ -76,6 +77,7 @@ export class SpellsPanelComponent {
 
   readonly spellLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   selectedSpell = signal<string | null>(null);
+  selectedSpellLevel = signal<number>(0);
   addingSpellGroup = signal<string | null>(null);
   newSpellName = '';
   addingFeature = signal<boolean>(false);
@@ -85,8 +87,110 @@ export class SpellsPanelComponent {
   searchQuery = signal<string>('');
   selectedFilter = signal<'all' | 'prepared' | 'cantrips'>('all');
 
+  // Mobile Companion State
+  mobileLevelFilter = signal<'all' | 'prepared' | number>('all');
+  showMobileSorcerySheet = signal<boolean>(false);
+
   // Upcast Dialog State (#173)
   upcastTarget = signal<{ spellName: string; baseLevel: number } | null>(null);
+
+  openSpellDetail(spellName: string, level: number): void {
+    this.selectedSpellLevel.set(level);
+    this.selectedSpell.set(spellName);
+  }
+
+  castFromDetail(spellName: string, level: number): void {
+    this.castNow(spellName, level, { stopPropagation: () => undefined } as Event);
+  }
+
+  openUpcastFromDetail(spellName: string, level: number): void {
+    this.openCastOptions(spellName, level, { stopPropagation: () => undefined } as Event);
+  }
+
+  ordinalLevel(level: number): string {
+    if (level === 0) return '0';
+    if (level === 1) return '1st';
+    if (level === 2) return '2nd';
+    if (level === 3) return '3rd';
+    return `${level}th`;
+  }
+
+  mobileLevelHeading(level: number): string {
+    if (level === 0) return 'Cantrips';
+    return `${this.ordinalLevel(level)} Level`;
+  }
+
+  get mobileLevelPills(): number[] {
+    const levels = new Set<number>();
+    for (const g of this.rawSpellGroups) {
+      if (g.spells.length > 0 || this.editMode) levels.add(g.level);
+    }
+    for (const lvl of this.activeSpellLevels) {
+      levels.add(lvl);
+    }
+    return Array.from(levels).sort((a, b) => a - b);
+  }
+
+  slotPipIndices(level: number): number[] {
+    const max = Math.max(0, this.getSpellSlotMax(level));
+    return Array.from({ length: max }, (_, idx) => idx + 1);
+  }
+
+  onSlotPipClick(level: number, pipIndex: number, event: Event): void {
+    event.stopPropagation();
+    this.haptics.lightTap();
+    const remaining = this.slotsRemaining(level);
+    if (pipIndex <= remaining) {
+      this.useSpellSlot.emit(level);
+    } else {
+      this.restoreSpellSlot.emit(level);
+    }
+  }
+
+  get mobileFilteredSpellGroups(): { label: string; level: number; spells: string[] }[] {
+    const query = this.searchQuery().trim().toLowerCase();
+    const filter = this.mobileLevelFilter();
+
+    const byLevel = new Map<number, { label: string; level: number; spells: string[] }>();
+    for (const g of this.rawSpellGroups) {
+      byLevel.set(g.level, { ...g, spells: [...g.spells] });
+    }
+    for (const lvl of this.activeSpellLevels) {
+      if (!byLevel.has(lvl)) {
+        byLevel.set(lvl, { label: `Level ${lvl}`, level: lvl, spells: [] });
+      }
+    }
+
+    const sorted = Array.from(byLevel.values()).sort((a, b) => a.level - b.level);
+
+    return sorted
+      .map((group) => {
+        if (typeof filter === 'number' && group.level !== filter) {
+          return { ...group, spells: [] };
+        }
+        const matchingSpells = group.spells.filter((spell) => {
+          if (filter === 'prepared' && !this.isPrepared(spell) && group.level > 0) {
+            return false;
+          }
+          if (query && !spell.toLowerCase().includes(query)) {
+            return false;
+          }
+          return true;
+        });
+        return { ...group, spells: matchingSpells };
+      })
+      .filter((group) => {
+        if (group.spells.length > 0) return true;
+        if (query) return false;
+        if (typeof filter === 'number') {
+          return group.level === filter && (this.getSpellSlotMax(group.level) > 0 || this.editMode);
+        }
+        if (filter === 'all') {
+          return (group.level > 0 && this.getSpellSlotMax(group.level) > 0) || this.editMode;
+        }
+        return false;
+      });
+  }
 
   // Class Resources Modal State (#173)
   showAddResourceModal = signal<boolean>(false);

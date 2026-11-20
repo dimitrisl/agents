@@ -33,6 +33,8 @@ import {
   isProficientIn,
   isSaveProficient,
   levelUp,
+  passiveInsightOf,
+  passiveInvestigationOf,
   passivePerceptionOf,
   planShortRest,
   proficiencyBonus,
@@ -341,6 +343,41 @@ describe('skill rules', () => {
 
     it('returns nothing for a name that is not a skill', () => {
       expect(findSkill(ALL_SKILLS, 'DEX')).toBeUndefined();
+    });
+  });
+
+  describe('passiveInvestigationOf & passiveInsightOf', () => {
+    it('computes 2014 passive Investigation/Insight with Observant (+5 Investigation) and L1 Exhaustion (-5)', () => {
+      const detective = hero({
+        dnd_edition: '2014 Edition',
+        stats: { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 14, CHA: 10 },
+        proficiency_bonus: 3,
+        skill_proficiencies: ['Investigation', 'Insight'],
+        features_traits: [{ name: 'Observant', description: '+5 to passive Perception and Investigation' }],
+      });
+      // Investigation: 10 + 3 (INT) + 3 (PB) + 5 (Observant) = 21
+      expect(passiveInvestigationOf(detective)).toBe(21);
+      // Insight: 10 + 2 (WIS) + 3 (PB) = 15
+      expect(passiveInsightOf(detective)).toBe(15);
+
+      const exhausted = { ...detective, exhaustion_level: 1 };
+      expect(passiveInvestigationOf(exhausted)).toBe(16);
+      expect(passiveInsightOf(exhausted)).toBe(10);
+    });
+
+    it('computes 2024 passive Investigation/Insight with -2 per exhaustion level and no 2014 +5 Observant bonus', () => {
+      const scholar2024 = hero({
+        dnd_edition: '2024 Revision (5.5e)',
+        stats: { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 14, CHA: 10 },
+        proficiency_bonus: 3,
+        skill_proficiencies: ['Investigation', 'Insight'],
+        features_traits: [{ name: 'Observant', description: '2024 Observant feat' }],
+        exhaustion_level: 2,
+      });
+      // Investigation: 10 + (3 + 3 - 4) = 12
+      expect(passiveInvestigationOf(scholar2024)).toBe(12);
+      // Insight: 10 + (2 + 3 - 4) = 11
+      expect(passiveInsightOf(scholar2024)).toBe(11);
     });
   });
 });

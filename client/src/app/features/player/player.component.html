@@ -15,106 +15,105 @@
     (deleteHero)="onDeleteHero()"
   ></app-player-dashboard-header>
 
-  <!-- MOBILE COMPANION COLLAPSIBLE HEADER (<1024px, #209) -->
-  <header
-    *ngIf="isCompanionMode()"
-    class="flex flex-col gap-2 border-b border-hairline pb-2 mb-3"
-  >
-    <!-- Compact Title & Switcher Row -->
-    <div class="flex items-center justify-between gap-2">
-      <div class="min-w-0 flex-1">
-        <p class="text-micro font-semibold uppercase text-accent leading-none">
-          Companion
-        </p>
-        <h1 class="font-display text-lg sm:text-xl font-bold leading-tight text-ink truncate">
-          {{ charState.activeCharacter()?.char_name || "Player Dashboard" }}
-        </h1>
-      </div>
+  <!-- MOBILE COMPANION HEADER: Only show title bar when no hero is loaded; otherwise keep ultra-clean switcher + actions drawer (#209) -->
+  @if (isCompanionMode() && (!charState.activeCharacter() || charState.filteredCharacters().length > 1 || showMobileHeaderActions())) {
+    <header class="mb-2 flex flex-col gap-2">
+      @if (!charState.activeCharacter()) {
+        <div class="flex items-center justify-between gap-2 border-b border-hairline pb-2">
+          <div class="min-w-0 flex-1">
+            <p class="text-micro font-semibold uppercase leading-none text-accent">Companion</p>
+            <h1 class="truncate font-display text-title font-bold leading-tight text-ink">Player Dashboard</h1>
+          </div>
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="showMobileHeaderActions.set(!showMobileHeaderActions())"
+            [attr.aria-expanded]="showMobileHeaderActions()"
+            aria-controls="mobile-hero-actions-drawer"
+            aria-label="Toggle Hero Actions"
+            class="shrink-0"
+          >
+            @if (showMobileHeaderActions()) {
+              <forge-icon name="close" size="xs" /> Close
+            } @else {
+              ⚙️ Actions ▾
+            }
+          </button>
+        </div>
+      }
 
-      <button
-        forgeButton
-        variant="secondary"
-        size="sm"
-        type="button"
-        (click)="showMobileHeaderActions.set(!showMobileHeaderActions())"
-        [attr.aria-expanded]="showMobileHeaderActions()"
-        aria-controls="mobile-hero-actions-drawer"
-        aria-label="Toggle Hero Actions"
-        class="shrink-0"
-      >
-        {{ showMobileHeaderActions() ? '✕ Close' : '⚙️ Actions ▾' }}
-      </button>
-    </div>
+      <!-- Inline Hero Switcher on Mobile (when multiple heroes exist) -->
+      @if (charState.filteredCharacters().length > 1) {
+        <div class="min-w-0 w-full">
+          <app-hero-switcher
+            [characters]="charState.filteredCharacters()"
+            [activeCharacter]="charState.activeCharacter()"
+            [activeCharacterId]="charState.activeCharacter()?.char_id"
+            [portraitUrl]="charState.activeCharacter() ? getPortraitUrl(charState.activeCharacter()) : ''"
+            (selectCharacter)="onSelectCharacter($event)"
+          />
+        </div>
+      }
 
-    <!-- Inline Hero Switcher on Mobile -->
-    @if (charState.filteredCharacters().length > 1) {
-      <div class="min-w-0 w-full">
-        <app-hero-switcher
-          [characters]="charState.filteredCharacters()"
-          [activeCharacter]="charState.activeCharacter()"
-          [activeCharacterId]="charState.activeCharacter()?.char_id"
-          [portraitUrl]="charState.activeCharacter() ? getPortraitUrl(charState.activeCharacter()) : ''"
-          (selectCharacter)="onSelectCharacter($event)"
-        />
-      </div>
-    }
-
-    <!-- Collapsible Actions Drawer -->
-    @if (showMobileHeaderActions()) {
-      <div id="mobile-hero-actions-drawer" class="grid grid-cols-2 gap-2 p-2.5 bg-panel rounded-xl border border-hairline mt-1 shadow-lg">
-        <button
-          forgeButton
-          variant="primary"
-          size="sm"
-          type="button"
-          (click)="goToForge(); showMobileHeaderActions.set(false)"
-        >
-          ✦ New Hero
-        </button>
-        <button
-          *ngIf="charState.activeCharacter()"
-          forgeButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="openEditModal(); showMobileHeaderActions.set(false)"
-        >
-          ✎ Edit Sheet
-        </button>
-        <button
-          *ngIf="charState.activeCharacter()"
-          forgeButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="toggleEditMode(); showMobileHeaderActions.set(false)"
-        >
-          {{ editMode() ? "💾 Done Editing" : "⚡ Quick Edit" }}
-        </button>
-        <button
-          *ngIf="charState.activeCharacter()"
-          forgeButton
-          variant="secondary"
-          size="sm"
-          type="button"
-          (click)="showJoinModal.set(true); showMobileHeaderActions.set(false)"
-        >
-          🔑 Join Campaign
-        </button>
-        <button
-          *ngIf="charState.activeCharacter()"
-          forgeButton
-          variant="danger"
-          size="sm"
-          type="button"
-          (click)="onDeleteHero(); showMobileHeaderActions.set(false)"
-          class="col-span-2"
-        >
-          🗑️ Delete Hero
-        </button>
-      </div>
-    }
-  </header>
+      <!-- Collapsible Actions Drawer -->
+      @if (showMobileHeaderActions()) {
+        <div id="mobile-hero-actions-drawer" class="grid grid-cols-2 gap-2 rounded-xl border border-hairline bg-panel p-2.5 shadow-card">
+          <button
+            forgeButton
+            variant="primary"
+            size="sm"
+            type="button"
+            (click)="goToForge(); showMobileHeaderActions.set(false)"
+          >
+            ✦ New Hero
+          </button>
+          <button
+            *ngIf="charState.activeCharacter()"
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="openEditModal(); showMobileHeaderActions.set(false)"
+          >
+            ✎ Edit Sheet
+          </button>
+          <button
+            *ngIf="charState.activeCharacter()"
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="toggleEditMode(); showMobileHeaderActions.set(false)"
+          >
+            {{ editMode() ? "💾 Done Editing" : "⚡ Quick Edit" }}
+          </button>
+          <button
+            *ngIf="charState.activeCharacter()"
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="showJoinModal.set(true); showMobileHeaderActions.set(false)"
+          >
+            🔑 Join Campaign
+          </button>
+          <button
+            *ngIf="charState.activeCharacter()"
+            forgeButton
+            variant="danger"
+            size="sm"
+            type="button"
+            (click)="onDeleteHero(); showMobileHeaderActions.set(false)"
+            class="col-span-2"
+          >
+            🗑️ Delete Hero
+          </button>
+        </div>
+      }
+    </header>
+  }
 
   <div class="unreadable-alert mb-6 p-4 bg-panel border border-crimson rounded-[8px] flex gap-4 items-center" *ngIf="charState.unreadableCharacters().length > 0">
     <svg class="h-6 w-6 shrink-0 text-crimson" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -241,89 +240,225 @@
       </div>
     }
 
-    <!-- STICKY MOBILE COMPANION VITALS BAR (#170) -->
+    <!-- STICKY 2-ROW MOBILE COMPANION HEADER (D&D Beyond Style, <1024px) -->
     <div
       *ngIf="isCompanionMode()"
-      class="sticky top-0 z-30 -mx-4 -mt-2 mb-4 bg-surface/95 backdrop-blur-md border-b border-hairline py-2 px-4 shadow-md flex items-center justify-between gap-2"
+      class="sticky top-0 z-30 -mx-4 -mt-2 mb-3 flex flex-col gap-2 border-b border-hairline bg-surface/95 px-3 py-2 shadow-card backdrop-blur-md"
+      data-testid="mobile-sticky-header"
     >
-      <!-- Hero info & HP tap target -->
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="min-w-0">
-          <h2 class="font-display font-bold text-sm text-ink truncate leading-tight">{{ char.char_name }}</h2>
-          <div class="flex items-center gap-2 text-micro text-muted">
-            <span class="min-w-0 truncate">{{ classSummary(char, 'compact') }}</span>
-            <span *ngIf="char.concentrating_on" class="text-gold font-bold flex items-center gap-0.5 truncate max-w-25">
-              🧠 {{ char.concentrating_on }}
-            </span>
+      <!-- ROW 1: Hero Identity • Tap HP Pill • Tap AC Badge • 1-Tap Roll Initiative -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+          <button
+            type="button"
+            (click)="showPortraitModal.set(true)"
+            aria-label="Open character portrait"
+            class="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-accent/60 bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            @if (getPortraitUrl(char) && !stickyPortraitError()) {
+              <img
+                [src]="getPortraitUrl(char)"
+                (error)="stickyPortraitError.set(true)"
+                alt=""
+                class="h-full w-full object-cover"
+              />
+            } @else {
+              <span class="flex h-full w-full items-center justify-center bg-accent/10 font-display text-label font-bold uppercase text-accent">
+                {{ (char.char_name || '?').charAt(0) }}
+              </span>
+            }
+          </button>
+
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <h2 class="min-w-0 truncate font-display text-body font-bold leading-tight text-ink">
+                {{ char.char_name }}
+              </h2>
+              @if (isHeroDeceased(char)) {
+                <forge-badge tone="danger" size="sm" title="Deceased at Exhaustion 6">💀 EXH 6</forge-badge>
+              }
+              @if (char.magic_items_suppressed) {
+                <forge-badge tone="accent" size="sm" title="Magic items suppressed">🏜️</forge-badge>
+              }
+            </div>
+            <div class="flex items-center gap-1.5 text-micro text-muted">
+              <span class="min-w-0 truncate">{{ classSummary(char, 'compact') }}</span>
+              @if (char.concentrating_on) {
+                <button
+                  type="button"
+                  (click)="showMobileHpSheet.set(true)"
+                  class="inline-flex max-w-28 shrink-0 items-center gap-0.5 truncate rounded bg-gold/15 px-1 text-micro font-bold text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [title]="'Concentrating on ' + char.concentrating_on"
+                >
+                  🧠 {{ char.concentrating_on }}
+                </button>
+              }
+            </div>
           </div>
+        </div>
+
+        <!-- Vitals Pill Trio: HP • AC • Init -->
+        <div class="flex shrink-0 items-center gap-1.5">
+          <!-- Interactive HP Pill -> Opens Slide-Up HP & Status Sheet from ANY tab -->
+          <button
+            type="button"
+            (click)="showMobileHpSheet.set(true)"
+            data-testid="mobile-sticky-hp-btn"
+            class="flex min-h-9 items-center gap-1 rounded-lg border px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="
+              (char.hp_current ?? char.hp_max) === 0 || isHeroDeceased(char)
+                ? 'border-red/50 bg-red/15 text-red'
+                : 'border-hairline bg-panel text-ink hover:bg-surface-hover'
+            "
+            [attr.aria-label]="'Hit points ' + (char.hp_current ?? char.hp_max) + ' of ' + char.hp_max + '. Open HP and status sheet'"
+          >
+            <span class="text-label font-bold text-red" aria-hidden="true">♥</span>
+            <span class="font-mono text-label font-bold tabular-nums">{{ char.hp_current ?? char.hp_max }}/{{ char.hp_max }}</span>
+            @if (char.hp_temp) {
+              <span class="text-micro font-bold tabular-nums text-gold">+{{ char.hp_temp }}</span>
+            }
+          </button>
+
+          <!-- Interactive AC Badge -> Opens AC Breakdown Sheet -->
+          <button
+            type="button"
+            (click)="showMobileAcSheet.set(true)"
+            data-testid="mobile-sticky-ac-btn"
+            class="flex min-h-9 items-center gap-0.5 rounded-lg border border-hairline bg-tile px-2 py-1 text-label font-bold tabular-nums text-accent transition-colors hover:border-hairline-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [attr.aria-label]="'Armor Class ' + char.armor_class + '. View breakdown'"
+            title="Armor Class breakdown"
+          >
+            <span aria-hidden="true">🛡️</span>{{ char.armor_class }}
+          </button>
+
+          <!-- 1-Tap Roll Initiative Button -->
+          <button
+            type="button"
+            (click)="rollInitiative()"
+            data-testid="mobile-sticky-init-btn"
+            class="flex min-h-9 items-center gap-0.5 rounded-lg border border-accent/40 bg-accent/15 px-2 py-1 text-label font-bold tabular-nums text-accent transition-colors hover:bg-accent/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [attr.aria-label]="'Roll Initiative (' + getInitiativeModString(char) + ')'"
+            title="Tap to roll Initiative"
+          >
+            <span aria-hidden="true">⚡</span>{{ getInitiativeModString(char) }}
+            @if (hasHeroInitiativeAdvantage(char)) {
+              <span class="text-micro text-gold" aria-hidden="true">▲</span>
+            }
+          </button>
         </div>
       </div>
 
-      <!-- Compact Vitals -->
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- HP Badge (tap to damage/heal) -->
-        <button
-          type="button"
-          (click)="selectMobileTab('hero')"
-          class="flex items-baseline gap-1 px-2.5 py-1 rounded-lg bg-panel border border-hairline cursor-pointer transition-colors hover:bg-surface-hover"
-          title="Hit points (tap to view hero overview)"
-        >
-          <span class="text-xs text-crimson font-bold">♥</span>
-          <span class="font-mono font-bold text-xs text-ink">{{ char.hp_current ?? char.hp_max }}/{{ char.hp_max }}</span>
-          <span *ngIf="char.hp_temp" class="text-micro font-bold text-gold">+{{ char.hp_temp }}</span>
-        </button>
+      <!-- ROW 2: Thumb Toolbar (Roll Mode • Inspiration • Rest & Tools • Visibility • Wake • Dice) -->
+      <div class="flex items-center justify-between gap-1.5">
+        <div class="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <!-- Compact Roll Mode Segmented Pills -->
+          <div
+            class="inline-flex shrink-0 items-center rounded-full border border-hairline bg-panel p-0.5"
+            role="radiogroup"
+            aria-label="Roll mode"
+            data-testid="mobile-roll-mode-group"
+          >
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="rollMode === 'normal'"
+              (click)="setRollMode('normal')"
+              data-testid="mobile-roll-mode-normal"
+              class="min-h-7 rounded-full px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="rollMode === 'normal' ? 'bg-tile text-ink ring-1 ring-inset ring-hairline-hover' : 'text-muted hover:text-ink'"
+            >
+              Flat
+            </button>
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="rollMode === 'advantage'"
+              (click)="setRollMode('advantage')"
+              data-testid="mobile-roll-mode-advantage"
+              class="min-h-7 rounded-full px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="rollMode === 'advantage' ? 'bg-emerald/15 text-emerald ring-1 ring-inset ring-emerald/40' : 'text-muted hover:text-ink'"
+            >
+              ▲ Adv
+            </button>
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="rollMode === 'disadvantage'"
+              (click)="setRollMode('disadvantage')"
+              data-testid="mobile-roll-mode-disadvantage"
+              class="min-h-7 rounded-full px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="rollMode === 'disadvantage' ? 'bg-red/15 text-red ring-1 ring-inset ring-red/40' : 'text-muted hover:text-ink'"
+            >
+              ▼ Dis
+            </button>
+          </div>
 
-        <!-- AC Badge -->
-        <span class="px-2 py-1 rounded-lg bg-tile border border-hairline text-xs font-bold text-accent" title="Armor Class">
-          🛡️ {{ char.armor_class }}
-        </span>
+          <!-- Inspiration Toggle -->
+          <button
+            type="button"
+            (click)="toggleMobileInspiration()"
+            [attr.aria-pressed]="!!char.inspiration"
+            [attr.aria-label]="char.inspiration ? 'Inspiration active (tap to clear)' : 'Grant Inspiration'"
+            data-testid="mobile-inspiration-toggle"
+            class="flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="char.inspiration ? 'border-gold/40 bg-gold/15 text-gold' : 'border-hairline bg-panel text-muted hover:text-ink'"
+          >
+            <span aria-hidden="true">{{ char.inspiration ? '★' : '☆' }}</span>
+            <span class="hidden min-[390px]:inline">Insp</span>
+          </button>
+        </div>
 
-        @if (isHeroDeceased(char)) {
-          <forge-badge tone="danger" size="sm" title="Deceased at Exhaustion 6">
-            💀 EXH 6
-          </forge-badge>
-        }
-        @if (char.magic_items_suppressed) {
-          <forge-badge tone="accent" size="sm" title="Magic items suppressed (Athas / Antimagic)">
-            🏜️
-          </forge-badge>
-        }
+        <!-- Right Quick Controls: Rest & Tools • Visibility • Wake Lock • Quick Dice -->
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            (click)="showMobileRestSheet.set(true)"
+            data-testid="mobile-rest-tools-btn"
+            aria-label="Open Rest, Level Up and Sheet Tools"
+            class="flex min-h-8 items-center gap-1 rounded-lg border border-hairline bg-panel px-2 text-micro font-semibold text-ink transition-colors hover:border-hairline-hover hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <span aria-hidden="true">⛺</span>
+            <span>Rest</span>
+          </button>
 
-        <!-- Wake Lock Button (#170) -->
-        <button
-          type="button"
-          (click)="wakeLock.toggle()"
-          class="p-1.5 rounded-lg border text-xs transition-all cursor-pointer"
-          [ngClass]="wakeLock.isEnabled() ? 'bg-gold/20 border-gold/50 text-gold' : 'bg-surface border-hairline text-muted'"
-          [title]="wakeLock.isEnabled() ? 'Screen Wake Lock active (Screen will stay on)' : 'Keep Screen Awake'"
-        >
-          🔆
-        </button>
+          @if (char.active_campaign) {
+            <button
+              type="button"
+              (click)="toggleRollVisibility()"
+              class="flex min-h-8 min-w-8 items-center justify-center rounded-lg border text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="rollVisibility() === 'dm' ? 'border-gold/50 bg-gold/15 text-gold' : 'border-hairline bg-panel text-muted hover:text-ink'"
+              [attr.aria-pressed]="rollVisibility() === 'dm'"
+              [attr.aria-label]="rollVisibility() === 'dm' ? 'Roll visibility: Whisper DM only' : 'Roll visibility: Public to table'"
+              [title]="rollVisibility() === 'dm' ? 'Rolls whispered to DM only' : 'Rolls broadcast to party & DM'"
+              data-testid="mobile-roll-visibility-toggle"
+            >
+              {{ rollVisibility() === 'dm' ? '🔒' : '📢' }}
+            </button>
+          }
 
-        <!-- Roll Visibility Toggle (#197) -->
-        <button
-          *ngIf="char.active_campaign"
-          type="button"
-          (click)="toggleRollVisibility()"
-          class="min-h-8 min-w-8 p-1.5 rounded-lg border text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-          [ngClass]="rollVisibility() === 'dm' ? 'bg-gold/20 border-gold/50 text-gold' : 'bg-surface border-hairline text-muted hover:text-ink'"
-          [attr.aria-pressed]="rollVisibility() === 'dm'"
-          [attr.aria-label]="rollVisibility() === 'dm' ? 'Roll visibility: Whisper DM only' : 'Roll visibility: Public to table'"
-          [title]="rollVisibility() === 'dm' ? 'Rolls whispered to DM only (click for Public)' : 'Rolls broadcast to party & DM (click for DM Whisper)'"
-          data-testid="mobile-roll-visibility-toggle"
-        >
-          {{ rollVisibility() === 'dm' ? '🔒' : '📢' }}
-        </button>
+          <button
+            type="button"
+            (click)="wakeLock.toggle()"
+            class="flex min-h-8 min-w-8 items-center justify-center rounded-lg border text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="wakeLock.isEnabled() ? 'border-gold/50 bg-gold/15 text-gold' : 'border-hairline bg-panel text-muted hover:text-ink'"
+            [attr.aria-pressed]="wakeLock.isEnabled()"
+            aria-label="Keep screen awake"
+            [title]="wakeLock.isEnabled() ? 'Screen Wake Lock active' : 'Keep Screen Awake'"
+          >
+            🔆
+          </button>
 
-        <!-- Dice Button (#172) -->
-        <button
-          type="button"
-          (click)="showQuickDiceDrawer.set(true)"
-          class="p-1.5 rounded-lg bg-accent/20 border border-accent/40 text-accent text-xs font-bold cursor-pointer transition-colors hover:bg-accent/30"
-          title="Open Quick-Dice Tray"
-        >
-          🎲
-        </button>
+          <button
+            type="button"
+            (click)="showQuickDiceDrawer.set(true)"
+            aria-label="Open Quick-Dice Tray"
+            title="Open Quick-Dice Tray"
+            data-testid="mobile-quick-dice-btn"
+            class="flex min-h-8 min-w-8 items-center justify-center rounded-lg border border-accent/40 bg-accent/15 text-label text-accent transition-colors hover:bg-accent/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            🎲
+          </button>
+        </div>
       </div>
     </div>
 
@@ -331,14 +466,9 @@
 
     <!-- 1. COMPANION MODE (Mobile / Tablet Tabletop Companion) -->
     <div *ngIf="isCompanionMode()" class="pb-24">
-      <!-- HERO OVERVIEW TAB -->
-      <div *ngIf="mobileActiveTab() === 'hero'" class="flex flex-col gap-4">
-        <div *ngIf="char.active_campaign" class="flex items-center gap-2 rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-body text-gold">
-          <span>Member of Campaign: <strong>{{ char.active_campaign }}</strong></span>
-          <button (click)="showHomebrewModal.set(true)" class="ml-auto bg-gold text-surface px-3 py-1 rounded text-xs font-bold hover:bg-gold/90 transition-colors">Browse Homebrew</button>
-        </div>
-
-        <app-character-overview-card
+      <!-- HERO OVERVIEW TAB (D&D Beyond Style: Sub-pills Abilities & Saves | Senses & Defenses) -->
+      <div *ngIf="mobileActiveTab() === 'hero'" class="flex flex-col gap-3">
+        <app-mobile-hero-view
           [char]="char"
           [editMode]="editMode()"
           [edition]="char.dnd_edition || charState.dndEdition()"
@@ -346,131 +476,79 @@
           [availableHitDice]="getAvailableHitDice()"
           [classHitDieSize]="getClassHitDieSize()"
           [passivePerception]="charState.passivePerception()"
+          [passiveInvestigation]="getPassiveInvestigation(char)"
+          [passiveInsight]="getPassiveInsight(char)"
           [abilityEntries]="getStatsArray(char.stats)"
-          [getModifierString]="getModifierString"
+          [activeSubTab]="mobileHeroSubTab()"
+          (activeSubTabChange)="mobileHeroSubTab.set($event)"
           (portrait)="showPortraitModal.set(true)"
-          (hpChange)="adjustHp($event)"
-          (tempChange)="adjustTempHp($event)"
-          (deathSaveChange)="setDeathSave($event.type, $event.value)"
-          (rollDeathSave)="rollDeathSave()"
-          (applyDamage)="applyDamage($event)"
-          (applyHeal)="applyHeal($event)"
-          (setTempHp)="setTempHp($event)"
           (abilityCheck)="rollAbilityCheck($event)"
           (savingThrow)="rollSavingThrow($event)"
           (manageConditions)="openConditionsModal()"
           (removeCondition)="removeCondition($event)"
           (endConcentration)="endConcentration()"
-          (rollInitiative)="rollInitiative()"
-        ></app-character-overview-card>
-
-        <app-action-dock
-          [canLevelUp]="char.char_level < 20"
-          [isInCampaign]="!!char.active_campaign"
-          [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
-          [longRestUnlocked]="!!char.dm_long_rest_unlocked"
-          [levelUpUnlocked]="!!char.dm_level_up_unlocked"
-          [isDeceasedByExhaustion]="isHeroDeceased(char)"
-          [isGeneratingStrategy]="isGeneratingStrategy()"
-          [isLevelUpLoading]="levelUpLoading()"
-          (shortRest)="openShortRestModal()"
-          (longRest)="triggerLongRest()"
-          (levelUp)="onLevelUp()"
-          (audit)="onValidateCharacter()"
-          (strategy)="onGenerateStrategy()"
-          (exportPdf)="onExportPdf()"
-          (importCharacter)="openImportModal()"
-          (dodge)="onCombatAction('Dodge')"
-          (dash)="onCombatAction('Dash')"
-          (disengage)="onCombatAction('Disengage')"
-          (help)="onCombatAction('Help')"
-        ></app-action-dock>
+          (browseHomebrew)="showHomebrewModal.set(true)"
+          (openAcSheet)="showMobileAcSheet.set(true)"
+        ></app-mobile-hero-view>
       </div>
 
-      <!-- COMBAT & INVENTORY TAB -->
-      <div *ngIf="mobileActiveTab() === 'combat'" class="flex flex-col gap-4">
-        <forge-card padding="none" [hoverable]="false">
-          <div class="p-4">
-            <app-combat-panel
-              [char]="char"
-              [editMode]="editMode()"
-              [rollMode]="rollMode"
-              [encounterState]="encounterState"
-              (addWeapon)="addWeapon()"
-              (deleteWeapon)="deleteWeapon($event)"
-              (toggleEquipped)="toggleEquipped($event)"
-              (addEquipment)="addEquipment()"
-              (deleteEquipment)="deleteEquipment($event)"
-              (consumePotion)="onConsumePotion($event)"
-              (save)="queueCharSave()"
-              (updateHeroStatus)="onUpdateHeroStatus($event)"
-            ></app-combat-panel>
-          </div>
-        </forge-card>
-
-        <app-action-dock
-          [canLevelUp]="char.char_level < 20"
-          [isInCampaign]="!!char.active_campaign"
-          [shortRestUnlocked]="!!char.dm_short_rest_unlocked"
-          [longRestUnlocked]="!!char.dm_long_rest_unlocked"
-          [levelUpUnlocked]="!!char.dm_level_up_unlocked"
-          [isDeceasedByExhaustion]="isHeroDeceased(char)"
-          [isGeneratingStrategy]="isGeneratingStrategy()"
-          [isLevelUpLoading]="levelUpLoading()"
-          (shortRest)="openShortRestModal()"
-          (longRest)="triggerLongRest()"
-          (levelUp)="onLevelUp()"
-          (audit)="onValidateCharacter()"
-          (strategy)="onGenerateStrategy()"
-          (exportPdf)="onExportPdf()"
-          (importCharacter)="openImportModal()"
-          (dodge)="onCombatAction('Dodge')"
-          (dash)="onCombatAction('Dash')"
-          (disengage)="onCombatAction('Disengage')"
-          (help)="onCombatAction('Help')"
-        ></app-action-dock>
+      <!-- COMBAT & INVENTORY TAB (Sub-pills: Attacks | Actions | Inventory | Features) -->
+      <div *ngIf="mobileActiveTab() === 'combat'" class="flex flex-col gap-3">
+        <app-combat-panel
+          [char]="char"
+          [editMode]="editMode()"
+          [compactMobile]="true"
+          [rollMode]="rollMode"
+          [encounterState]="encounterState"
+          (addWeapon)="addWeapon()"
+          (deleteWeapon)="deleteWeapon($event)"
+          (toggleEquipped)="toggleEquipped($event)"
+          (addEquipment)="addEquipment()"
+          (deleteEquipment)="deleteEquipment($event)"
+          (consumePotion)="onConsumePotion($event)"
+          (save)="queueCharSave()"
+          (updateHeroStatus)="onUpdateHeroStatus($event)"
+          (combatAction)="onCombatAction($event)"
+        ></app-combat-panel>
       </div>
 
-      <!-- SKILLS TAB -->
-      <div *ngIf="mobileActiveTab() === 'skills'" class="flex flex-col gap-4">
-        <forge-card padding="none" [hoverable]="false">
-          <div class="p-4">
-            <app-skills-panel
-              [allSkills]="allSkills"
-              [editMode]="editMode()"
-              [hasCheckDisadvantage]="hasCheckDisadvantage(char)"
-              [hasReliableTalent]="hasReliableTalent(char)"
-              [isProficient]="isProficient"
-              [isExpertise]="isExpertise"
-              [getSkillModString]="getSkillModString"
-              [getAttributeFullName]="getAttributeFullName"
-              (rollSkill)="rollSkillCheck($event)"
-              (toggleProficiency)="toggleSkillProficiency($event)"
-              (toggleExpertise)="toggleSkillExpertise($event)"
-            ></app-skills-panel>
-          </div>
-        </forge-card>
+      <!-- SKILLS TAB (Passives Bar + Filter Pills + Flat 18-Skill 1-Tap List) -->
+      <div *ngIf="mobileActiveTab() === 'skills'" class="flex flex-col gap-3">
+        <app-skills-panel
+          [allSkills]="allSkills"
+          [editMode]="editMode()"
+          [compactMobile]="true"
+          [passivePerception]="charState.passivePerception()"
+          [passiveInvestigation]="getPassiveInvestigation(char)"
+          [passiveInsight]="getPassiveInsight(char)"
+          [hasCheckDisadvantage]="hasCheckDisadvantage(char)"
+          [hasReliableTalent]="hasReliableTalent(char)"
+          [isProficient]="isProficient"
+          [isExpertise]="isExpertise"
+          [getSkillModString]="getSkillModString"
+          [getAttributeFullName]="getAttributeFullName"
+          (rollSkill)="rollSkillCheck($event)"
+          (toggleProficiency)="toggleSkillProficiency($event)"
+          (toggleExpertise)="toggleSkillExpertise($event)"
+        ></app-skills-panel>
       </div>
 
-      <!-- SPELLS TAB -->
-      <div *ngIf="mobileActiveTab() === 'spells'" class="flex flex-col gap-4">
-        <forge-card padding="none" [hoverable]="false">
-          <div class="p-4">
-            <app-spells-panel
-              [char]="char"
-              [editMode]="editMode()"
-              [getSpellSlotUsed]="getSpellSlotUsed"
-              [getSpellSlotMax]="getSpellSlotMax"
-              (useSpellSlot)="useSpellSlot($event)"
-              (restoreSpellSlot)="restoreSpellSlot($event)"
-              (flexibleCasting)="onFlexibleCasting($event)"
-              (metamagic)="onMetamagic($event)"
-              (castSpell)="onCastSpell($event)"
-              [castPreview]="spellCastPreview"
-              (save)="saveCurrentChar()"
-            ></app-spells-panel>
-          </div>
-        </forge-card>
+      <!-- SPELLS TAB (1-Line Header + Level Pills + Inline Slot Pips + Compact Rows) -->
+      <div *ngIf="mobileActiveTab() === 'spells'" class="flex flex-col gap-3">
+        <app-spells-panel
+          [char]="char"
+          [editMode]="editMode()"
+          [compactMobile]="true"
+          [getSpellSlotUsed]="getSpellSlotUsed"
+          [getSpellSlotMax]="getSpellSlotMax"
+          (useSpellSlot)="useSpellSlot($event)"
+          (restoreSpellSlot)="restoreSpellSlot($event)"
+          (flexibleCasting)="onFlexibleCasting($event)"
+          (metamagic)="onMetamagic($event)"
+          (castSpell)="onCastSpell($event)"
+          [castPreview]="spellCastPreview"
+          (save)="saveCurrentChar()"
+        ></app-spells-panel>
       </div>
 
       <!-- TABLE & INBOX TAB -->
@@ -800,72 +878,437 @@
       [activeCombatantId]="encounterState?.activeCombatantId || null"
     ></app-vtt-grid>
 
-    <!-- THUMB-ZONE BOTTOM NAVIGATION BAR (#170) -->
+    <!-- 5-TAB THUMB-ZONE BOTTOM NAVIGATION BAR (D&D Beyond Mobile Companion) -->
     <nav
       *ngIf="isCompanionMode()"
-      class="fixed bottom-0 inset-x-0 z-40 bg-surface/95 backdrop-blur-md border-t border-hairline px-2 py-1 flex items-center justify-around pb-[env(safe-area-inset-bottom)] shadow-2xl"
+      class="fixed bottom-0 inset-x-0 z-40 grid grid-cols-5 border-t border-hairline bg-surface/95 px-2 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] shadow-card backdrop-blur-md"
       aria-label="Companion Navigation"
+      data-testid="mobile-bottom-nav"
     >
       <button
         type="button"
         (click)="selectMobileTab('hero')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'hero' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
+        data-testid="mobile-nav-hero"
+        [attr.aria-current]="mobileActiveTab() === 'hero' ? 'page' : null"
+        class="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="mobileActiveTab() === 'hero' ? 'bg-accent/10 font-bold text-accent' : 'text-muted hover:text-ink'"
       >
-        <span class="text-lg">🛡️</span>
-        <span class="text-micro uppercase font-bold">Hero</span>
+        <span class="text-body" aria-hidden="true">🛡️</span>
+        <span class="text-micro font-bold uppercase">Hero</span>
       </button>
 
       <button
         type="button"
         (click)="selectMobileTab('combat')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'combat' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
+        data-testid="mobile-nav-combat"
+        [attr.aria-current]="mobileActiveTab() === 'combat' ? 'page' : null"
+        class="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="mobileActiveTab() === 'combat' ? 'bg-accent/10 font-bold text-accent' : 'text-muted hover:text-ink'"
       >
-        <span class="text-lg">⚔️</span>
-        <span class="text-micro uppercase font-bold">Combat</span>
+        <span class="text-body" aria-hidden="true">⚔️</span>
+        <span class="text-micro font-bold uppercase">Combat</span>
       </button>
 
       <button
         type="button"
         (click)="selectMobileTab('skills')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'skills' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
+        data-testid="mobile-nav-skills"
+        [attr.aria-current]="mobileActiveTab() === 'skills' ? 'page' : null"
+        class="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="mobileActiveTab() === 'skills' ? 'bg-accent/10 font-bold text-accent' : 'text-muted hover:text-ink'"
       >
-        <span class="text-lg">🎯</span>
-        <span class="text-micro uppercase font-bold">Skills</span>
+        <span class="text-body" aria-hidden="true">🎯</span>
+        <span class="text-micro font-bold uppercase">Skills</span>
       </button>
 
       <button
         type="button"
         (click)="selectMobileTab('spells')"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'spells' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
+        data-testid="mobile-nav-spells"
+        [attr.aria-current]="mobileActiveTab() === 'spells' ? 'page' : null"
+        class="flex min-h-12 flex-col items-center justify-center rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="mobileActiveTab() === 'spells' ? 'bg-accent/10 font-bold text-accent' : 'text-muted hover:text-ink'"
       >
-        <span class="text-lg">✨</span>
-        <span class="text-micro uppercase font-bold">Spells</span>
+        <span class="text-body" aria-hidden="true">✨</span>
+        <span class="text-micro font-bold uppercase">Spells</span>
       </button>
 
       <button
         type="button"
         (click)="selectMobileTab('table')"
-        class="relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors cursor-pointer"
-        [ngClass]="mobileActiveTab() === 'table' ? 'text-accent font-bold' : 'text-muted hover:text-ink'"
+        data-testid="mobile-nav-table"
+        [attr.aria-current]="mobileActiveTab() === 'table' ? 'page' : null"
+        class="relative flex min-h-12 flex-col items-center justify-center rounded-xl px-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="mobileActiveTab() === 'table' ? 'bg-accent/10 font-bold text-accent' : 'text-muted hover:text-ink'"
       >
-        <span class="text-lg">💬</span>
-        <span class="text-micro uppercase font-bold">Table</span>
-        <span *ngIf="unreadMessages > 0" class="absolute top-0 right-1 w-2.5 h-2.5 bg-accent rounded-full animate-ping motion-reduce:animate-none"></span>
-      </button>
-
-      <button
-        type="button"
-        (click)="showQuickDiceDrawer.set(true)"
-        class="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-gold hover:text-gold/80 transition-colors cursor-pointer"
-      >
-        <span class="text-lg">🎲</span>
-        <span class="text-micro uppercase font-bold">Dice</span>
+        <span class="text-body" aria-hidden="true">💬</span>
+        <span class="text-micro font-bold uppercase">Table</span>
+        @if (unreadMessages > 0) {
+          <span class="absolute right-3 top-1.5 h-2.5 w-2.5 rounded-full bg-accent animate-ping motion-reduce:animate-none"></span>
+        }
       </button>
     </nav>
+
+    <!-- MOBILE GLOBAL SLIDE-UP HP, DEATH SAVES & STATUS SHEET -->
+    <forge-modal
+      [open]="showMobileHpSheet()"
+      [sheetOnMobile]="true"
+      (openChange)="showMobileHpSheet.set($event)"
+      title="♥ Hit Points &amp; Status"
+      maxWidth="460px"
+    >
+      <div class="flex flex-col gap-3" data-testid="mobile-hp-sheet">
+        <app-hit-points-control
+          [current]="char.hp_current ?? char.hp_max"
+          [max]="char.hp_max"
+          [temp]="char.hp_temp ?? 0"
+          [deathSaves]="char.death_saves"
+          [isDeceasedByExhaustion]="isHeroDeceased(char)"
+          (hpChange)="adjustHp($event)"
+          (tempChange)="adjustTempHp($event)"
+          (deathSaveChange)="setDeathSave($event.type, $event.value)"
+          (rollDeathSave)="rollDeathSave()"
+          (applyDamage)="applyDamage($event)"
+          (applyHeal)="applyHeal($event)"
+          (setTempHp)="setTempHp($event)"
+        ></app-hit-points-control>
+
+        <!-- Conditions, Concentration & Exhaustion Section -->
+        <div class="flex flex-col gap-3 border-t border-hairline pt-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-micro font-semibold uppercase text-muted">Conditions &amp; Concentration</span>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="showMobileHpSheet.set(false); openConditionsModal()"
+            >
+              ⚡ Manage
+            </button>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-1.5">
+            @if (char.concentrating_on) {
+              <forge-badge tone="gold" class="h-7">
+                🧠 {{ char.concentrating_on }}
+                <button
+                  type="button"
+                  class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-gold hover:bg-gold/20"
+                  [attr.aria-label]="'End concentration on ' + char.concentrating_on"
+                  (click)="endConcentration()"
+                >
+                  <forge-icon name="close" size="xs" />
+                </button>
+              </forge-badge>
+            }
+            @for (cond of char.conditions || []; track cond) {
+              <forge-badge tone="danger" class="h-7">
+                {{ cond }}
+                <button
+                  type="button"
+                  class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-red hover:bg-red/20"
+                  [attr.aria-label]="'Remove ' + cond"
+                  (click)="removeCondition(cond)"
+                >
+                  <forge-icon name="close" size="xs" />
+                </button>
+              </forge-badge>
+            }
+            @if (!char.concentrating_on && !(char.conditions?.length)) {
+              <span class="text-label text-muted">No active conditions or concentration.</span>
+            }
+          </div>
+
+          <!-- Exhaustion Tracker -->
+          <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2">
+            <span class="text-micro font-semibold uppercase text-muted">
+              Exhaustion {{ char.active_campaign ? '(DM)' : '' }}
+            </span>
+            <div class="flex items-center gap-2">
+              @if (!char.active_campaign) {
+                <button
+                  forgeButton
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  type="button"
+                  [disabled]="(char.exhaustion_level ?? 0) <= 0"
+                  aria-label="Decrease exhaustion"
+                  (click)="adjustMobileExhaustion(-1)"
+                >
+                  <forge-icon name="minus" size="xs" />
+                </button>
+              }
+              <span
+                class="min-w-8 text-center text-label font-bold tabular-nums"
+                [ngClass]="(char.exhaustion_level ?? 0) > 0 && !char.exhaustion_bypass ? 'text-red' : 'text-ink'"
+              >
+                {{ char.exhaustion_level ?? 0 }}/6
+              </span>
+              @if (!char.active_campaign) {
+                <button
+                  forgeButton
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  type="button"
+                  [disabled]="(char.exhaustion_level ?? 0) >= 6"
+                  aria-label="Increase exhaustion"
+                  (click)="adjustMobileExhaustion(1)"
+                >
+                  <forge-icon name="plus" size="xs" />
+                </button>
+              }
+            </div>
+          </div>
+
+          @if (dmModifiersPartsOf(char).length > 0 || (char.dm_modifiers?.note || '').trim()) {
+            <div class="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-label text-accent">
+              ⚙️ DM Modifiers: {{ dmModifiersPartsOf(char).join(' · ') || char.dm_modifiers?.note }}
+            </div>
+          }
+        </div>
+      </div>
+    </forge-modal>
+
+    <!-- MOBILE AC BREAKDOWN SHEET -->
+    <forge-modal
+      [open]="showMobileAcSheet()"
+      [sheetOnMobile]="true"
+      (openChange)="showMobileAcSheet.set($event)"
+      title="🛡️ Armor Class Breakdown"
+      maxWidth="420px"
+    >
+      <div class="flex flex-col gap-3" data-testid="mobile-ac-sheet">
+        <div class="flex items-center justify-between rounded-xl bg-tile px-4 py-3">
+          <span class="text-micro font-semibold uppercase text-muted">Total Armor Class</span>
+          <span class="text-display font-bold tabular-nums text-accent">{{ char.armor_class }}</span>
+        </div>
+
+        @if (char.ac_breakdown; as bd) {
+          <div class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel text-label">
+            <div class="flex items-center justify-between px-3 py-2.5">
+              <span class="text-muted">Base ({{ bd.base_source }})</span>
+              <span class="font-semibold tabular-nums text-ink">{{ bd.base }}</span>
+            </div>
+            @if (bd.dex_applied !== 0) {
+              <div class="flex items-center justify-between px-3 py-2.5">
+                <span class="text-muted">
+                  Dexterity
+                  @if (bd.dex_cap !== null && bd.dex_cap !== undefined) {
+                    (max +{{ bd.dex_cap }})
+                  }
+                </span>
+                <span class="font-semibold tabular-nums text-ink">{{ bd.dex_applied >= 0 ? '+' + bd.dex_applied : bd.dex_applied }}</span>
+              </div>
+            }
+            @if (bd.shield_bonus) {
+              <div class="flex items-center justify-between px-3 py-2.5">
+                <span class="text-muted">{{ bd.shield_name || 'Shield' }}</span>
+                <span class="font-semibold tabular-nums text-ink">+{{ bd.shield_bonus }}</span>
+              </div>
+            }
+            @if (bd.defense_bonus) {
+              <div class="flex items-center justify-between px-3 py-2.5">
+                <span class="text-muted">Defense Fighting Style</span>
+                <span class="font-semibold tabular-nums text-ink">+{{ bd.defense_bonus }}</span>
+              </div>
+            }
+            @for (ob of bd.other_bonuses || []; track ob.name) {
+              <div class="flex items-center justify-between px-3 py-2.5">
+                <span class="text-muted">{{ ob.name }}</span>
+                <span class="font-semibold tabular-nums text-ink">{{ ob.bonus >= 0 ? '+' + ob.bonus : ob.bonus }}</span>
+              </div>
+            }
+            @if (bd.formula_text) {
+              <div class="bg-tile px-3 py-2 font-mono text-micro text-muted">
+                {{ bd.formula_text }}
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="rounded-xl border border-hairline bg-panel px-3 py-3 text-label text-muted">
+            Armor Class is currently set to {{ char.armor_class }}. Equip armor or shields in Combat → Inventory to compute an automatic breakdown.
+          </p>
+        }
+      </div>
+    </forge-modal>
+
+    <!-- MOBILE REST, PROGRESSION & SHEET TOOLS SHEET -->
+    <forge-modal
+      [open]="showMobileRestSheet()"
+      [sheetOnMobile]="true"
+      (openChange)="showMobileRestSheet.set($event)"
+      title="⛺ Rest, Progression &amp; Tools"
+      maxWidth="460px"
+    >
+      <div class="flex flex-col gap-4" data-testid="mobile-rest-sheet">
+        <!-- Rest & Recovery -->
+        <section class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-micro font-semibold uppercase text-muted">Rest &amp; Recovery</h3>
+            <span class="text-micro tabular-nums text-muted">
+              Hit Dice: {{ getAvailableHitDice() }}/{{ char.char_level }} d{{ getClassHitDieSize() }}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              [tone]="char.active_campaign && char.dm_short_rest_unlocked && !isHeroDeceased(char) ? 'accent' : undefined"
+              size="md"
+              type="button"
+              [disabled]="!canMobileShortRest(char)"
+              (click)="showMobileRestSheet.set(false); openShortRestModal()"
+            >
+              {{ char.active_campaign && !char.dm_short_rest_unlocked ? '🔒 Short Rest' : '⛺ Short Rest' }}
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              [tone]="char.active_campaign && char.dm_long_rest_unlocked && !isHeroDeceased(char) ? 'accent' : undefined"
+              size="md"
+              type="button"
+              [disabled]="!canMobileLongRest(char)"
+              (click)="showMobileRestSheet.set(false); triggerLongRest()"
+            >
+              {{ char.active_campaign && !char.dm_long_rest_unlocked ? '🔒 Long Rest' : '◐ Long Rest' }}
+            </button>
+          </div>
+        </section>
+
+        <!-- Progression -->
+        <section class="flex flex-col gap-2 border-t border-hairline pt-3">
+          <h3 class="text-micro font-semibold uppercase text-muted">Progression</h3>
+          <button
+            forgeButton
+            variant="secondary"
+            tone="accent"
+            size="md"
+            fullWidth
+            type="button"
+            [disabled]="!canMobileLevelUp(char)"
+            [loading]="levelUpLoading()"
+            (click)="showMobileRestSheet.set(false); onLevelUp()"
+          >
+            @if (char.char_level >= 20) {
+              ★ Max Level (20)
+            } @else if (char.active_campaign && !char.dm_level_up_unlocked) {
+              🔒 Level Up (DM Locked)
+            } @else {
+              ✦ Level Up to Level {{ char.char_level + 1 }}
+            }
+          </button>
+        </section>
+
+        <!-- Sheet Tools -->
+        <section class="flex flex-col gap-2 border-t border-hairline pt-3">
+          <h3 class="text-micro font-semibold uppercase text-muted">Sheet Tools &amp; Utilities</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); onValidateCharacter()"
+            >
+              🔍 Audit &amp; Fix
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              [loading]="isGeneratingStrategy()"
+              (click)="showMobileRestSheet.set(false); onGenerateStrategy()"
+            >
+              📖 AI Guide
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); onExportPdf()"
+            >
+              📥 Export PDF
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); openImportModal()"
+            >
+              📤 Import Hero
+            </button>
+          </div>
+        </section>
+
+        <!-- Hero Management (accessible from any tab) -->
+        <section class="flex flex-col gap-2 border-t border-hairline pt-3">
+          <h3 class="text-micro font-semibold uppercase text-muted">Hero Management</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); openEditModal()"
+            >
+              ✎ Edit Sheet
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              [tone]="editMode() ? 'accent' : undefined"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); toggleEditMode()"
+            >
+              {{ editMode() ? '💾 Done Editing' : '⚡ Quick Edit' }}
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); showJoinModal.set(true)"
+            >
+              🔑 Join Campaign
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-10"
+              (click)="showMobileRestSheet.set(false); goToForge()"
+            >
+              ✦ New Hero
+            </button>
+            <button
+              forgeButton
+              variant="danger"
+              size="sm"
+              type="button"
+              class="col-span-2 min-h-10"
+              (click)="showMobileRestSheet.set(false); onDeleteHero()"
+            >
+              🗑️ Delete Hero
+            </button>
+          </div>
+        </section>
+      </div>
+    </forge-modal>
 
     <!-- QUICK-DICE DRAWER MODAL (#172) -->
     <app-quick-dice-drawer

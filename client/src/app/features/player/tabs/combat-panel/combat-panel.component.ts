@@ -10,12 +10,21 @@ import {
   inject,
   ChangeDetectorRef,
   OnDestroy,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CharacterSchema, EquipmentItem, Weapon, WeaponEffect } from '../../../../core/models/character.model';
+import {
+  CharacterSchema,
+  ClassResource,
+  EquipmentItem,
+  FeatureTrait,
+  Weapon,
+  WeaponEffect,
+} from '../../../../core/models/character.model';
 import { getMasteryDefinition, calculateToppleDc } from '../../../../core/rules/weapon-masteries';
 import { DamagePart, DiceService, RollMode } from '../../../../core/services/dice.service';
+import { HapticsService } from '../../../../core/services/haptics.service';
 import { RollToastService } from '../../../../core/services/roll-toast.service';
 import {
   ClassCombatAction,
@@ -46,6 +55,10 @@ import {
 } from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
+export type MobileCombatSubTab = 'attacks' | 'actions' | 'inventory' | 'features';
+export type MobileFeatureFilter = 'all' | 'class' | 'subclass' | 'species' | 'feat';
+
+const KNOWN_MASTERIES = ['Cleave', 'Graze', 'Nick', 'Push', 'Sap', 'Slow', 'Topple', 'Vex'];
 
 const EMPTY_PROFILE: CombatProfile = {
   actions: [],
@@ -77,6 +90,7 @@ const EMPTY_PROFILE: CombatProfile = {
 export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() editMode = false;
+  @Input() compactMobile = false;
   @Input() rollMode: RollMode = 'normal';
   @Input() encounterState: any = null;
 
@@ -88,6 +102,23 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Output() save = new EventEmitter<void>();
   @Output() consumePotion = new EventEmitter<{ item: EquipmentItem; dice: string; bonus: number; name: string }>();
   @Output() updateHeroStatus = new EventEmitter<{ inspiration?: boolean; exhaustion_level?: number }>();
+  @Output() combatAction = new EventEmitter<'Dodge' | 'Dash' | 'Disengage' | 'Help'>();
+
+  // --- Mobile Companion State ---
+  mobileCombatSubTab = signal<MobileCombatSubTab>('attacks');
+  inspectedWeaponIndex = signal<number | null>(null);
+  inspectedItemIndex = signal<number | null>(null);
+  inspectedFeature = signal<FeatureTrait | null>(null);
+  mobileFeatureFilter = signal<MobileFeatureFilter>('all');
+  showWeaponConfigInSheet = signal<boolean>(false);
+
+  readonly mobileFeatureFilters: { id: MobileFeatureFilter; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'class', label: 'Class' },
+    { id: 'subclass', label: 'Subclass' },
+    { id: 'species', label: 'Species' },
+    { id: 'feat', label: 'Feat' },
+  ];
 
   actionUsed = false;
   bonusActionUsed = false;
@@ -104,6 +135,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   }
 
   private readonly dice = inject(DiceService);
+  private readonly haptics = inject(HapticsService);
   private readonly rollToast = inject(RollToastService);
   private readonly classCombat = inject(ClassCombatService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -1010,5 +1042,152 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     }
 
     this.consumePotion.emit({ item, dice, bonus, name: item.name });
+  }
+
+  // --- Mobile Companion Helpers & Inspectors ---
+  get inspectedWeapon(): Weapon | null {
+    const idx = this.inspectedWeaponIndex();
+    if (idx === null || !this.char?.weapons || idx < 0 || idx >= this.char.weapons.length) {
+      return null;
+    }
+    return this.char.weapons[idx];
+  }
+
+  openWeaponInspector(index: number): void {
+    this.showWeaponConfigInSheet.set(false);
+    this.inspectedWeaponIndex.set(index);
+  }
+
+  closeWeaponInspector(): void {
+    this.inspectedWeaponIndex.set(null);
+    this.showWeaponConfigInSheet.set(false);
+  }
+
+  get inspectedItem(): EquipmentItem | null {
+    const idx = this.inspectedItemIndex();
+    if (idx === null || !this.char?.equipment || idx < 0 || idx >= this.char.equipment.length) {
+      return null;
+    }
+    return this.char.equipment[idx];
+  }
+
+  openItemInspector(index: number): void {
+    this.inspectedItemIndex.set(index);
+  }
+
+  closeItemInspector(): void {
+    this.inspectedItemIndex.set(null);
+  }
+
+  openFeatureInspector(feature: FeatureTrait): void {
+    this.inspectedFeature.set(feature);
+  }
+
+  closeFeatureInspector(): void {
+    this.inspectedFeature.set(null);
+  }
+
+  weaponMasteryName(weapon: Weapon): string | null {
+    const explicit = String((weapon as any).mastery || '').trim();
+    if (explicit) return explicit;
+    const props = this.weaponProperties(weapon);
+    for (const mastery of KNOWN_MASTERIES) {
+      if (props.some((p) => p.toLowerCase().includes(mastery.toLowerCase()))) {
+        return mastery;
+      }
+    }
+    return null;
+  }
+
+  weaponMetaSummary(weapon: Weapon): string {
+    const parts: string[] = [];
+    const dmgType = this.weaponDamageType(weapon);
+    if (dmgType) parts.push(dmgType);
+    if (weapon.range) parts.push(weapon.range);
+    const props = this.weaponProperties(weapon);
+    if (props.length > 0) parts.push(props.slice(0, 3).join(', '));
+    return parts.join(' · ');
+  }
+
+  get classResources(): ClassResource[] {
+    return this.char?.class_resources ?? [];
+  }
+
+  resourcePipIndices(max: number): number[] {
+    return Array.from({ length: Math.max(0, max) }, (_, idx) => idx + 1);
+  }
+
+  onResourcePipClick(res: ClassResource, pipIndex: number, event: Event): void {
+    event.stopPropagation();
+    this.haptics.lightTap();
+    const nextCurrent = pipIndex === res.current ? pipIndex - 1 : pipIndex;
+    const clamped = Math.max(0, Math.min(res.max, nextCurrent));
+    this.char.class_resources = this.classResources.map((r) =>
+      r === res ? { ...r, current: clamped } : r
+    );
+    this.save.emit();
+    this.cdr.markForCheck();
+  }
+
+  adjustClassResource(res: ClassResource, delta: number, event: Event): void {
+    event.stopPropagation();
+    this.haptics.lightTap();
+    const clamped = Math.max(0, Math.min(res.max, (res.current ?? 0) + delta));
+    if (clamped === res.current) return;
+    this.char.class_resources = this.classResources.map((r) =>
+      r === res ? { ...r, current: clamped } : r
+    );
+    this.save.emit();
+    this.cdr.markForCheck();
+  }
+
+  get features(): FeatureTrait[] {
+    const raw = this.char?.features_traits ?? [];
+    return raw.filter((f) => {
+      const name = (f.name || '').trim().toLowerCase();
+      const desc = (f.description || '').trim().toLowerCase();
+      if (name === 'roll' || name === 'average' || name === 'manual') return false;
+      if (desc.includes('selected for level_up_class') || desc.includes('selected for hp_method')) return false;
+      return true;
+    });
+  }
+
+  classifyFeatureSource(feature: FeatureTrait): 'class' | 'subclass' | 'species' | 'feat' | 'other' {
+    const src = (feature.source || '').trim().toLowerCase();
+    const subclass = (this.char?.subclass || '').trim().toLowerCase();
+    const race = (this.char?.race || '').trim().toLowerCase();
+    const charClass = (this.char?.char_class || '').trim().toLowerCase();
+    const classNames = (this.char?.classes || []).map((c) => (c.class_name || '').trim().toLowerCase()).filter(Boolean);
+    const subclassNames = (this.char?.classes || []).map((c) => (c.subclass || '').trim().toLowerCase()).filter(Boolean);
+
+    if (src.includes('feat') || src.includes('origin')) return 'feat';
+    if (src.includes('subclass') || (subclass && src.includes(subclass)) || subclassNames.some((s) => src.includes(s))) {
+      return 'subclass';
+    }
+    if (
+      src.includes('species') ||
+      src.includes('race') ||
+      src.includes('racial') ||
+      src.includes('lineage') ||
+      src.includes('ancestry') ||
+      (race && src.includes(race))
+    ) {
+      return 'species';
+    }
+    if (src.includes('class') || (charClass && src.includes(charClass)) || classNames.some((c) => src.includes(c))) {
+      return 'class';
+    }
+    return 'other';
+  }
+
+  get filteredMobileFeatures(): FeatureTrait[] {
+    const filter = this.mobileFeatureFilter();
+    if (filter === 'all') return this.features;
+    return this.features.filter((f) => this.classifyFeatureSource(f) === filter);
+  }
+
+  featureFilterCount(filter: MobileFeatureFilter): number {
+    if (filter === 'all') return this.features.length;
+    return this.features.filter((f) => this.classifyFeatureSource(f) === filter).length;
   }
 }

@@ -1,124 +1,290 @@
-<forge-section variant="plain" density="compact" title="📜 Skill Proficiencies & Check Rollers">
-  <div actions class="flex flex-wrap items-center gap-3">
-    <label class="inline-flex items-center gap-2 text-label font-semibold text-muted">
-      <forge-toggle
-        [checked]="showProficientOnly"
-        (checkedChange)="setProficientOnly($event)"
-        ariaLabel="Show proficient skills only"
-      />
-      Proficient only (⭐)
-    </label>
-    <button
-      forgeButton
-      variant="ghost"
-      size="sm"
-      type="button"
-      [attr.aria-label]="allOpen ? 'Collapse all skill groups' : 'Expand all skill groups'"
-      (click)="toggleAll()"
+@if (compactMobile) {
+  <!-- D&D BEYOND MOBILE COMPANION: PASSIVES BAR + FILTER PILLS + FLAT 18-SKILL 1-TAP LIST -->
+  <div class="flex flex-col gap-3" data-testid="mobile-skills-view">
+    <!-- 3-Column Passives Bar -->
+    <section aria-label="Passive Senses">
+      <div class="grid grid-cols-3 divide-x divide-hairline overflow-hidden rounded-xl bg-tile" data-testid="mobile-skills-passives">
+        <div class="flex flex-col items-center px-2 py-2.5 text-center">
+          <span class="text-micro font-semibold uppercase text-muted">Perception</span>
+          <span class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ passivePerception }}</span>
+        </div>
+        <div class="flex flex-col items-center px-2 py-2.5 text-center">
+          <span class="text-micro font-semibold uppercase text-muted">Investigation</span>
+          <span class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ passiveInvestigation }}</span>
+        </div>
+        <div class="flex flex-col items-center px-2 py-2.5 text-center">
+          <span class="text-micro font-semibold uppercase text-muted">Insight</span>
+          <span class="mt-1 text-metric font-bold leading-none tabular-nums text-accent">{{ passiveInsight }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Horizontal Filter Pills -->
+    <div
+      class="flex items-center gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      role="tablist"
+      aria-label="Filter skills"
+      data-testid="mobile-skills-filters"
     >
-      <forge-icon
-        name="chevron-down"
-        size="sm"
-        class="transition-transform duration-150 motion-reduce:transition-none"
-        [class.rotate-180]="allOpen"
-      />
-      {{ allOpen ? 'Collapse all' : 'Expand all' }}
-    </button>
-  </div>
-
-  <p class="text-label text-muted">
-    Click ⭐/⚪ to toggle proficiency, or EXP for expertise. Roll checks with 🎲 Roll.
-  </p>
-
-  <div class="flex flex-col gap-2">
-    @for (attr of skillAttributes; track attr) {
-      <section class="rounded-xl border border-hairline bg-panel">
+      @for (opt of mobileFilterOptions; track opt.id) {
         <button
           type="button"
-          class="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-          [attr.aria-expanded]="openGroups[attr]"
-          [attr.aria-controls]="'skills-panel-' + attr"
-          (click)="toggleGroup(attr)"
+          role="tab"
+          [attr.aria-selected]="mobileSkillFilter() === opt.id"
+          [attr.data-testid]="'mobile-skill-filter-' + opt.id"
+          (click)="mobileSkillFilter.set(opt.id)"
+          class="flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+          [ngClass]="
+            mobileSkillFilter() === opt.id
+              ? (opt.id === 'PROF'
+                  ? 'border-gold/40 bg-gold/15 font-semibold text-gold'
+                  : 'border-accent/40 bg-accent/15 font-semibold text-accent')
+              : 'border-hairline bg-panel text-muted hover:text-ink'
+          "
         >
-          <span class="font-display text-body font-bold text-ink">{{ getAttributeFullName(attr) }} ({{ attr }})</span>
-          <span class="flex shrink-0 items-center gap-2">
-            <forge-badge
-              [tone]="proficientCount(attr) > 0 ? 'gold' : 'muted'"
-              [attr.aria-label]="proficientCount(attr) + ' of ' + getSkillsByAttribute(attr).length + ' skills proficient'"
-            >
-              {{ proficientCount(attr) }}/{{ getSkillsByAttribute(attr).length }} ⭐
-            </forge-badge>
-            <forge-icon
-              name="chevron-down"
-              size="sm"
-              class="text-muted transition-transform duration-150 motion-reduce:transition-none"
-              [class.-rotate-90]="!openGroups[attr]"
-            />
-          </span>
+          <span>{{ opt.label }}</span>
+          @if (opt.id === 'ALL') {
+            <span class="text-micro tabular-nums opacity-80">({{ allSkills.length }})</span>
+          } @else if (opt.id === 'PROF') {
+            <span class="text-micro tabular-nums opacity-80">({{ totalProficientCount }})</span>
+          }
         </button>
+      }
+    </div>
 
-        @if (openGroups[attr]) {
-          <div [id]="'skills-panel-' + attr" class="border-t border-hairline p-3">
-            @if (visibleSkills(attr).length === 0) {
-              <p class="px-1 text-label text-muted">No proficient skills in {{ getAttributeFullName(attr) }}.</p>
-            } @else {
-              <div class="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
-                @for (skill of visibleSkills(attr); track skill.name) {
-            <div
-              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-hairline bg-tile px-3 py-2 transition-colors hover:border-hairline-hover"
+    <!-- Flat Alphabetical 1-Tap Skill List -->
+    <ul
+      class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel"
+      data-testid="mobile-skills-list"
+    >
+      @for (skill of mobileFilteredSkills; track skill.name) {
+        <li>
+          @if (!editMode) {
+            <button
+              type="button"
+              (click)="rollSkill.emit(skill)"
+              [attr.aria-label]="
+                'Roll ' + skill.name + ' (' + skill.ability + '), ' + getSkillModString(skill) +
+                (isExpertise(skill.name) ? ', expertise' : isProficient(skill.name) ? ', proficient' : '')
+              "
+              [attr.data-testid]="'mobile-skill-row-' + skill.name"
+              class="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+              [ngClass]="isProficient(skill.name) ? 'bg-gold/5' : ''"
             >
-              <div class="min-w-36 flex-1">
-                <div class="flex items-center gap-2 min-w-0">
-                  <button
-                    type="button"
-                    class="text-sm transition-colors shrink-0 cursor-pointer hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-                    [ngClass]="{
-                      'text-gold': isProficient(skill.name),
-                      'text-muted hover:text-ink': !isProficient(skill.name)
-                    }"
-                    (click)="toggleProficiency.emit(skill.name)"
-                    [attr.aria-label]="(isProficient(skill.name) ? 'Remove' : 'Add') + ' proficiency for ' + skill.name"
-                    [title]="isProficient(skill.name) ? 'Proficient (click to remove)' : 'Untrained (click to train)'"
-                  >
-                    {{ isProficient(skill.name) ? '⭐' : '⚪' }}
-                  </button>
-                  <strong class="truncate text-body text-ink font-semibold" [title]="skill.name">{{ skill.name }}</strong>
-                  @if (isProficient(skill.name)) {
-                  <button
-                    type="button"
-                    class="text-micro font-bold uppercase px-1.5 py-0.5 rounded transition-all"
-                    [ngClass]="{
-                      'bg-gold/20 text-gold border border-gold/40 shadow-sm': isExpertise(skill.name),
-                      'bg-panel text-muted border border-hairline hover:text-ink hover:border-muted': !isExpertise(skill.name)
-                    }"
-                    (click)="toggleExpertise.emit(skill.name)"
-                    [title]="isExpertise(skill.name) ? 'Expertise active (double PB) - click to remove' : 'Click to give Expertise (double PB)'"
-                  >
-                    {{ isExpertise(skill.name) ? '🌟 EXP' : 'EXP' }}
-                  </button>
-                  }
-                </div>
-              </div>
+              <span class="flex min-w-0 flex-1 items-center gap-2">
+                <span
+                  class="w-6 shrink-0 text-center text-label font-bold"
+                  [ngClass]="isProficient(skill.name) ? 'text-gold' : 'text-muted'"
+                  aria-hidden="true"
+                >
+                  {{ isExpertise(skill.name) ? '★★' : isProficient(skill.name) ? '★' : '☆' }}
+                </span>
+                <strong
+                  class="min-w-0 truncate text-body"
+                  [ngClass]="isProficient(skill.name) ? 'font-semibold text-ink' : 'font-medium text-ink/90'"
+                >
+                  {{ skill.name }}
+                </strong>
+                <span class="shrink-0 rounded-md bg-tile px-1.5 py-0.5 text-micro font-semibold uppercase text-muted">
+                  {{ skill.ability }}
+                </span>
+              </span>
 
-              <div class="flex shrink-0 items-center gap-1.5">
+              <span class="flex shrink-0 items-center gap-1.5">
                 @if (hasReliableTalent && isProficient(skill.name)) {
                   <forge-badge tone="gold" size="sm" title="Reliable Talent: minimum d20 roll of 10 on proficient checks">10+ MIN</forge-badge>
                 }
                 @if (hasCheckDisadvantage) {
                   <forge-badge tone="danger" size="sm" title="Disadvantage from Exhaustion (2014)">DIS</forge-badge>
                 }
-                <forge-badge tone="accent" size="md">{{ getSkillModString(skill) }}</forge-badge>
-                <button forgeButton variant="secondary" size="sm" type="button" (click)="rollSkill.emit(skill)">
-                  🎲 Roll
+                <span
+                  class="inline-flex min-w-14 items-center justify-center gap-1 rounded-lg border px-2 py-1 text-label font-bold tabular-nums"
+                  [ngClass]="
+                    isProficient(skill.name)
+                      ? 'border-accent/40 bg-accent/15 text-accent'
+                      : 'border-hairline bg-tile text-ink'
+                  "
+                >
+                  <span aria-hidden="true">🎲</span>
+                  {{ getSkillModString(skill) }}
+                </span>
+              </span>
+            </button>
+          } @else {
+            <div class="flex min-h-11 items-center justify-between gap-2 px-3 py-2">
+              <div class="flex min-w-0 flex-1 items-center gap-2">
+                <button
+                  type="button"
+                  (click)="toggleProficiency.emit(skill.name)"
+                  [attr.aria-label]="(isProficient(skill.name) ? 'Remove' : 'Add') + ' proficiency for ' + skill.name"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-hairline bg-tile text-label font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [ngClass]="isProficient(skill.name) ? 'border-gold/40 bg-gold/15 text-gold' : 'text-muted'"
+                >
+                  {{ isProficient(skill.name) ? '★' : '☆' }}
                 </button>
-              </div>
-            </div>
+                @if (isProficient(skill.name)) {
+                  <button
+                    type="button"
+                    (click)="toggleExpertise.emit(skill.name)"
+                    [attr.aria-label]="(isExpertise(skill.name) ? 'Remove' : 'Add') + ' expertise for ' + skill.name"
+                    class="rounded-md border px-1.5 py-1 text-micro font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    [ngClass]="
+                      isExpertise(skill.name)
+                        ? 'border-gold/40 bg-gold/15 text-gold'
+                        : 'border-hairline bg-tile text-muted'
+                    "
+                  >
+                    {{ isExpertise(skill.name) ? '★★ EXP' : 'EXP' }}
+                  </button>
                 }
+                <strong class="min-w-0 truncate text-body font-medium text-ink">{{ skill.name }}</strong>
+                <span class="shrink-0 rounded-md bg-tile px-1.5 py-0.5 text-micro font-semibold uppercase text-muted">
+                  {{ skill.ability }}
+                </span>
               </div>
-            }
-          </div>
-        }
-      </section>
-    }
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                type="button"
+                (click)="rollSkill.emit(skill)"
+              >
+                🎲 {{ getSkillModString(skill) }}
+              </button>
+            </div>
+          }
+        </li>
+      } @empty {
+        <li class="px-4 py-6 text-center text-label text-muted">
+          No skills match this filter.
+        </li>
+      }
+    </ul>
   </div>
-</forge-section>
+} @else {
+  <!-- DESKTOP VTT VIEW (UNCHANGED) -->
+  <forge-section variant="plain" density="compact" title="📜 Skill Proficiencies & Check Rollers">
+    <div actions class="flex flex-wrap items-center gap-3">
+      <label class="inline-flex items-center gap-2 text-label font-semibold text-muted">
+        <forge-toggle
+          [checked]="showProficientOnly"
+          (checkedChange)="setProficientOnly($event)"
+          ariaLabel="Show proficient skills only"
+        />
+        Proficient only (⭐)
+      </label>
+      <button
+        forgeButton
+        variant="ghost"
+        size="sm"
+        type="button"
+        [attr.aria-label]="allOpen ? 'Collapse all skill groups' : 'Expand all skill groups'"
+        (click)="toggleAll()"
+      >
+        <forge-icon
+          name="chevron-down"
+          size="sm"
+          class="transition-transform duration-150 motion-reduce:transition-none"
+          [class.rotate-180]="allOpen"
+        />
+        {{ allOpen ? 'Collapse all' : 'Expand all' }}
+      </button>
+    </div>
+
+    <p class="text-label text-muted">
+      Click ⭐/⚪ to toggle proficiency, or EXP for expertise. Roll checks with 🎲 Roll.
+    </p>
+
+    <div class="flex flex-col gap-2">
+      @for (attr of skillAttributes; track attr) {
+        <section class="rounded-xl border border-hairline bg-panel">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [attr.aria-expanded]="openGroups[attr]"
+            [attr.aria-controls]="'skills-panel-' + attr"
+            (click)="toggleGroup(attr)"
+          >
+            <span class="font-display text-body font-bold text-ink">{{ getAttributeFullName(attr) }} ({{ attr }})</span>
+            <span class="flex shrink-0 items-center gap-2">
+              <forge-badge
+                [tone]="proficientCount(attr) > 0 ? 'gold' : 'muted'"
+                [attr.aria-label]="proficientCount(attr) + ' of ' + getSkillsByAttribute(attr).length + ' skills proficient'"
+              >
+                {{ proficientCount(attr) }}/{{ getSkillsByAttribute(attr).length }} ⭐
+              </forge-badge>
+              <forge-icon
+                name="chevron-down"
+                size="sm"
+                class="text-muted transition-transform duration-150 motion-reduce:transition-none"
+                [class.-rotate-90]="!openGroups[attr]"
+              />
+            </span>
+          </button>
+
+          @if (openGroups[attr]) {
+            <div [id]="'skills-panel-' + attr" class="border-t border-hairline p-3">
+              @if (visibleSkills(attr).length === 0) {
+                <p class="px-1 text-label text-muted">No proficient skills in {{ getAttributeFullName(attr) }}.</p>
+              } @else {
+                <div class="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                  @for (skill of visibleSkills(attr); track skill.name) {
+              <div
+                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-hairline bg-tile px-3 py-2 transition-colors hover:border-hairline-hover"
+              >
+                <div class="min-w-36 flex-1">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <button
+                      type="button"
+                      class="text-sm transition-colors shrink-0 cursor-pointer hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+                      [ngClass]="{
+                        'text-gold': isProficient(skill.name),
+                        'text-muted hover:text-ink': !isProficient(skill.name)
+                      }"
+                      (click)="toggleProficiency.emit(skill.name)"
+                      [attr.aria-label]="(isProficient(skill.name) ? 'Remove' : 'Add') + ' proficiency for ' + skill.name"
+                      [title]="isProficient(skill.name) ? 'Proficient (click to remove)' : 'Untrained (click to train)'"
+                    >
+                      {{ isProficient(skill.name) ? '⭐' : '⚪' }}
+                    </button>
+                    <strong class="truncate text-body text-ink font-semibold" [title]="skill.name">{{ skill.name }}</strong>
+                    @if (isProficient(skill.name)) {
+                    <button
+                      type="button"
+                      class="text-micro font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                      [ngClass]="{
+                        'bg-gold/20 text-gold border border-gold/40 shadow-sm': isExpertise(skill.name),
+                        'bg-panel text-muted border border-hairline hover:text-ink hover:border-muted': !isExpertise(skill.name)
+                      }"
+                      (click)="toggleExpertise.emit(skill.name)"
+                      [title]="isExpertise(skill.name) ? 'Expertise active (double PB) - click to remove' : 'Click to give Expertise (double PB)'"
+                    >
+                      {{ isExpertise(skill.name) ? '🌟 EXP' : 'EXP' }}
+                    </button>
+                    }
+                  </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-1.5">
+                  @if (hasReliableTalent && isProficient(skill.name)) {
+                    <forge-badge tone="gold" size="sm" title="Reliable Talent: minimum d20 roll of 10 on proficient checks">10+ MIN</forge-badge>
+                  }
+                  @if (hasCheckDisadvantage) {
+                    <forge-badge tone="danger" size="sm" title="Disadvantage from Exhaustion (2014)">DIS</forge-badge>
+                  }
+                  <forge-badge tone="accent" size="md">{{ getSkillModString(skill) }}</forge-badge>
+                  <button forgeButton variant="secondary" size="sm" type="button" (click)="rollSkill.emit(skill)">
+                    🎲 Roll
+                  </button>
+                </div>
+              </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
+  </forge-section>
+}

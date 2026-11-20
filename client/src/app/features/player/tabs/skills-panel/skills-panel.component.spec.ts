@@ -73,4 +73,48 @@ describe('SkillsPanelComponent', () => {
     );
     expect(badges.filter((t) => t === '10+ MIN').length).toBe(1); // Only Stealth in open DEX group (Insight WIS is collapsed)
   });
+
+  describe('Mobile Companion compactMobile mode', () => {
+    beforeEach(() => {
+      fixture.componentRef.setInput('compactMobile', true);
+      fixture.componentRef.setInput('passivePerception', 16);
+      fixture.componentRef.setInput('passiveInvestigation', 13);
+      fixture.componentRef.setInput('passiveInsight', 14);
+      fixture.detectChanges();
+    });
+
+    it('renders 3-column passives bar and flat alphabetical 1-tap skill list without accordions', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="mobile-skills-passives"]')?.textContent).toContain('16');
+      expect(el.querySelector('[data-testid="mobile-skills-passives"]')?.textContent).toContain('13');
+      expect(el.querySelector('[data-testid="mobile-skills-passives"]')?.textContent).toContain('14');
+      expect(shownSkills()).toEqual(['Acrobatics', 'Arcana', 'Athletics', 'Insight', 'Persuasion', 'Stealth']);
+    });
+
+    it('filters skills via horizontal filter pills (PROF and ability)', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      (el.querySelector('[data-testid="mobile-skill-filter-PROF"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(shownSkills()).toEqual(['Insight', 'Stealth']);
+
+      (el.querySelector('[data-testid="mobile-skill-filter-DEX"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(shownSkills()).toEqual(['Acrobatics', 'Stealth']);
+    });
+
+    it('emits rollSkill on 1-tap row click and renders Reliable Talent / Exhaustion badges', () => {
+      const rollSpy = jest.spyOn(component.rollSkill, 'emit');
+      fixture.componentRef.setInput('hasReliableTalent', true);
+      fixture.componentRef.setInput('hasCheckDisadvantage', true);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const stealthRow = el.querySelector('[data-testid="mobile-skill-row-Stealth"]') as HTMLButtonElement;
+      expect(stealthRow.textContent).toContain('10+ MIN');
+      expect(stealthRow.textContent).toContain('DIS');
+
+      stealthRow.click();
+      expect(rollSpy).toHaveBeenCalledWith({ name: 'Stealth', ability: 'DEX' });
+    });
+  });
 });

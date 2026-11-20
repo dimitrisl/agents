@@ -78,6 +78,8 @@ import {
   hasAthleticsAdvantage,
   isIncapacitated,
   levelUp,
+  passiveInsightOf,
+  passiveInvestigationOf,
   passivePerceptionOf,
   planShortRest,
   proficiencyBonus,
@@ -123,6 +125,8 @@ import {
 import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player-dashboard-header.component';
 import { HeroSwitcherComponent } from './hero-switcher/hero-switcher.component';
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
+import { HitPointsControlComponent } from './hit-points-control/hit-points-control.component';
+import { MobileHeroViewComponent } from './mobile-hero-view/mobile-hero-view.component';
 import { CharacterTabsComponent } from './character-tabs/character-tabs.component';
 import { RollModeSelectorComponent } from './roll-mode-selector/roll-mode-selector.component';
 import { SkillsPanelComponent } from './tabs/skills-panel/skills-panel.component';
@@ -179,6 +183,8 @@ interface RollTarget {
     PlayerDashboardHeaderComponent,
     HeroSwitcherComponent,
     CharacterOverviewCardComponent,
+    HitPointsControlComponent,
+    MobileHeroViewComponent,
     CharacterTabsComponent,
     RollModeSelectorComponent,
     SkillsPanelComponent,
@@ -232,7 +238,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return this.isMobileViewport();
   });
   mobileActiveTab = signal<'hero' | 'combat' | 'skills' | 'spells' | 'table'>('hero');
+  mobileHeroSubTab = signal<'abilities' | 'senses'>('abilities');
   showMobileHeaderActions = signal(false);
+  showMobileHpSheet = signal(false);
+  showMobileRestSheet = signal(false);
+  showMobileAcSheet = signal(false);
+  stickyPortraitError = signal(false);
   showQuickDiceDrawer = signal(false);
   showConcentrationPrompt = signal(false);
   concentrationDc = signal(10);
@@ -453,6 +464,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // so Cast can roll at once and the upcast menu can show each level's dice.
     effect(() => {
       const char = this.charState.activeCharacter();
+      this.stickyPortraitError.set(false);
       const hasSpells = Object.values(char?.spells || {}).some((list) => Array.isArray(list) && list.length > 0);
       if (char && hasSpells) {
         this.spellRules.load(char.dnd_edition || this.charState.dndEdition()).subscribe();
@@ -2676,6 +2688,65 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     else if (tab === 'table') {
       this.selectSheetSubTab('roleplay');
       this.unreadMessages = 0;
+    }
+  }
+
+  setRollMode(mode: RollMode): void {
+    this.haptics.lightTap();
+    this.rollMode = mode;
+  }
+
+  toggleMobileInspiration(): void {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.haptics.lightTap();
+    this.onUpdateHeroStatus({ inspiration: !char.inspiration });
+  }
+
+  getInitiativeModString(char: CharacterSchema | null | undefined): string {
+    if (!char) return '+0';
+    const mod = char.initiative_modifier ?? abilityCheckModifier(char, 'DEX');
+    return formatModifier(mod);
+  }
+
+  hasHeroInitiativeAdvantage(char: CharacterSchema | null | undefined): boolean {
+    return hasInitiativeAdvantage(char);
+  }
+
+  getPassiveInvestigation(char: CharacterSchema | null | undefined): number {
+    return passiveInvestigationOf(char);
+  }
+
+  getPassiveInsight(char: CharacterSchema | null | undefined): number {
+    return passiveInsightOf(char);
+  }
+
+  canMobileShortRest(char: CharacterSchema | null | undefined): boolean {
+    if (!char || this.isHeroDeceased(char)) return false;
+    return !char.active_campaign || !!char.dm_short_rest_unlocked;
+  }
+
+  canMobileLongRest(char: CharacterSchema | null | undefined): boolean {
+    if (!char || this.isHeroDeceased(char)) return false;
+    return !char.active_campaign || !!char.dm_long_rest_unlocked;
+  }
+
+  canMobileLevelUp(char: CharacterSchema | null | undefined): boolean {
+    if (!char || char.char_level >= 20 || this.isHeroDeceased(char)) return false;
+    return !char.active_campaign || !!char.dm_level_up_unlocked;
+  }
+
+  dmModifiersPartsOf(char: CharacterSchema | null | undefined): string[] {
+    return describeDmModifiers(char?.dm_modifiers);
+  }
+
+  adjustMobileExhaustion(delta: number): void {
+    const char = this.charState.activeCharacter();
+    if (!char || char.active_campaign?.trim()) return;
+    const current = char.exhaustion_level ?? 0;
+    const next = Math.max(0, Math.min(6, current + delta));
+    if (next !== current) {
+      this.onUpdateHeroStatus({ exhaustion_level: next });
     }
   }
 

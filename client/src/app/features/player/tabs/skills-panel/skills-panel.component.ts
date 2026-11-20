@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -9,6 +9,8 @@ import {
   ForgeToggleComponent,
 } from '../../../../shared/ui';
 import type { SkillDefinition } from '../../player.component';
+
+export type MobileSkillFilter = 'ALL' | 'PROF' | 'STR' | 'DEX' | 'INT' | 'WIS' | 'CHA';
 
 @Component({
   selector: 'app-skills-panel',
@@ -28,6 +30,10 @@ import type { SkillDefinition } from '../../player.component';
 export class SkillsPanelComponent {
   @Input() allSkills: SkillDefinition[] = [];
   @Input() editMode = false;
+  @Input() compactMobile = false;
+  @Input() passivePerception = 10;
+  @Input() passiveInvestigation = 10;
+  @Input() passiveInsight = 10;
   @Input() hasCheckDisadvantage = false;
   @Input() hasReliableTalent = false;
   @Input() isProficient!: (skillName: string) => boolean;
@@ -38,6 +44,31 @@ export class SkillsPanelComponent {
   @Output() rollSkill = new EventEmitter<SkillDefinition>();
   @Output() toggleProficiency = new EventEmitter<string>();
   @Output() toggleExpertise = new EventEmitter<string>();
+
+  mobileSkillFilter = signal<MobileSkillFilter>('ALL');
+  readonly mobileFilterOptions: { id: MobileSkillFilter; label: string }[] = [
+    { id: 'ALL', label: 'All' },
+    { id: 'PROF', label: '★ Proficient' },
+    { id: 'STR', label: 'STR' },
+    { id: 'DEX', label: 'DEX' },
+    { id: 'INT', label: 'INT' },
+    { id: 'WIS', label: 'WIS' },
+    { id: 'CHA', label: 'CHA' },
+  ];
+
+  get totalProficientCount(): number {
+    return this.allSkills.filter((skill) => this.isProficient(skill.name)).length;
+  }
+
+  get mobileFilteredSkills(): SkillDefinition[] {
+    const filter = this.mobileSkillFilter();
+    const list = this.allSkills.filter((skill) => {
+      if (filter === 'ALL') return true;
+      if (filter === 'PROF') return this.isProficient(skill.name);
+      return skill.ability === filter;
+    });
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   showProficientOnly = false;
   openGroups: { [key: string]: boolean } = {

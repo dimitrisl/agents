@@ -1763,4 +1763,49 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
 
     fixture.destroy();
   });
+
+  it('supports D&D Beyond mobile companion sticky header actions, global sheets, and passive helpers', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      dnd_edition: '2024 Revision (5.5e)',
+      active_campaign: 'Curse of Strahd',
+      char_level: 5,
+      proficiency_bonus: 3,
+      stats: { STR: 10, DEX: 16, CON: 14, INT: 14, WIS: 16, CHA: 8 },
+      skill_proficiencies: ['Perception', 'Investigation', 'Insight'],
+      initiative_modifier: 3,
+      dm_short_rest_unlocked: true,
+      dm_long_rest_unlocked: false,
+      dm_level_up_unlocked: false,
+    });
+
+    comp.companionModeOverride.set(true);
+    comp.selectMobileTab('combat');
+    expect(comp.mobileActiveTab()).toBe('combat');
+
+    // Global HP sheet opens without leaving the Combat tab
+    comp.showMobileHpSheet.set(true);
+    expect(comp.showMobileHpSheet()).toBe(true);
+    expect(comp.mobileActiveTab()).toBe('combat');
+
+    // Sticky toolbar controls
+    comp.setRollMode('advantage');
+    expect(comp.rollMode).toBe('advantage');
+
+    comp.toggleMobileInspiration();
+    expect(charState.activeCharacter()?.inspiration).toBe(true);
+
+    // Sticky Init & Passive helpers
+    const activeChar = charState.activeCharacter()!;
+    expect(comp.getInitiativeModString(activeChar)).toBe('+3');
+    expect(comp.getPassiveInvestigation(activeChar)).toBe(15); // 10 + 2 (INT) + 3 (PB)
+    expect(comp.getPassiveInsight(activeChar)).toBe(16); // 10 + 3 (WIS) + 3 (PB)
+
+    // Rest & Level Up DM unlock checks in mobile Rest sheet
+    expect(comp.canMobileShortRest(activeChar)).toBe(true);
+    expect(comp.canMobileLongRest(activeChar)).toBe(false);
+    expect(comp.canMobileLevelUp(activeChar)).toBe(false);
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
 });

@@ -26,6 +26,7 @@ export class ForgeModalComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Input() open = false;
   @Input() title?: string;
   @Input() maxWidth = '560px';
+  @Input() sheetOnMobile = false;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() closed = new EventEmitter<void>();
@@ -64,6 +65,10 @@ export class ForgeModalComponent implements AfterViewInit, OnChanges, OnDestroy 
         width: `min(92vw, ${this.maxWidth})`,
         maxWidth: '92vw',
         maxHeight: '85vh',
+        panelClass: this.sheetOnMobile ? 'forge-mobile-sheet-pane' : undefined,
+        backdropClass: this.sheetOnMobile
+          ? ['cdk-overlay-dark-backdrop', 'forge-mobile-sheet-backdrop']
+          : undefined,
         restoreFocus: true,
         autoFocus: 'first-tabbable',
       });

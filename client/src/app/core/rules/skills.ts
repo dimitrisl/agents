@@ -187,6 +187,32 @@ export function passivePerceptionOf(char: CharacterSchema | null | undefined): n
   return 10 + basePerc + (hasObservant ? 5 : 0) - disadv2014 + dmPassive;
 }
 
+/**
+ * Passive Investigation: `10 + Investigation modifier + (Observant +5 in 2014) - (5 if 2014 L1+ exh)`.
+ * Under 2024 rules, Observant grants proficiency/expertise (already in `skillModifier`) and exhaustion is `-2 * lvl`.
+ */
+export function passiveInvestigationOf(char: CharacterSchema | null | undefined): number {
+  if (!char) return 10;
+  const baseInv = skillModifier(char, { name: 'Investigation', ability: 'INT' });
+  const hasObservant =
+    !is2024Edition(char) &&
+    (char.features_traits || []).some((f) =>
+      (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('observant')
+    );
+  const disadv2014 = !is2024Edition(char) && effectiveExhaustionLevel(char) >= 1 ? 5 : 0;
+  return 10 + baseInv + (hasObservant ? 5 : 0) - disadv2014;
+}
+
+/**
+ * Passive Insight: `10 + Insight modifier - (5 if 2014 L1+ exh)`.
+ */
+export function passiveInsightOf(char: CharacterSchema | null | undefined): number {
+  if (!char) return 10;
+  const baseIns = skillModifier(char, { name: 'Insight', ability: 'WIS' });
+  const disadv2014 = !is2024Edition(char) && effectiveExhaustionLevel(char) >= 1 ? 5 : 0;
+  return 10 + baseIns - disadv2014;
+}
+
 export function skillModifierString(
   char: CharacterSchema | null | undefined,
   skill: SkillDefinition

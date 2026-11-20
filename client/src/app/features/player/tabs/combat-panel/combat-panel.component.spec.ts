@@ -540,4 +540,121 @@ describe('CombatPanelComponent', () => {
     expect(component.damagePreview(staleDiceWeapon)).toBe('2d6+12');
     expect(component.displayedAttackBonus(staleDiceWeapon)).toBe('+11');
   });
+
+  describe('Mobile Companion compactMobile mode', () => {
+    beforeEach(() => {
+      component.char = {
+        ...JSON.parse(JSON.stringify(mockChar)),
+        dnd_edition: '2024 Revision (5.5e)',
+        subclass: 'Battle Master',
+        weapon_masteries: ['Topple'],
+        weapons: [
+          {
+            name: 'Battleaxe',
+            attack_bonus: '+7',
+            damage_dice: '1d8+4 slashing',
+            properties: 'Versatile, Topple',
+          },
+        ],
+        class_resources: [
+          { name: 'Second Wind', current: 2, max: 3, recharge: 'short', auto: true },
+        ],
+        features_traits: [
+          { name: 'Action Surge', source: 'Fighter', description: 'Take one additional action.' },
+          { name: 'Dwarven Resilience', source: 'Dwarf', description: 'Resistance to poison.' },
+          { name: 'Alert', source: 'Origin Feat', description: 'Add PB to initiative.' },
+          { name: 'roll', source: 'Level Up', description: 'Selected for hp_method' },
+        ],
+      };
+      fixture.componentRef.setInput('compactMobile', true);
+      fixture.detectChanges();
+    });
+
+    it('renders 4 sub-pills and switches between Attacks, Actions, Inventory, and Features', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-testid="mobile-combat-attacks"]')).toBeTruthy();
+
+      (el.querySelector('[data-testid="mobile-combat-subtab-actions"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.mobileCombatSubTab()).toBe('actions');
+      expect(el.querySelector('[data-testid="mobile-combat-actions"]')).toBeTruthy();
+
+      (el.querySelector('[data-testid="mobile-combat-subtab-inventory"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.mobileCombatSubTab()).toBe('inventory');
+      expect(el.querySelector('[data-testid="mobile-combat-inventory"]')).toBeTruthy();
+
+      (el.querySelector('[data-testid="mobile-combat-subtab-features"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.mobileCombatSubTab()).toBe('features');
+      expect(el.querySelector('[data-testid="mobile-combat-features"]')).toBeTruthy();
+    });
+
+    it('opens Weapon Inspector sheet cleanly for index 0 and rolls attack/damage directly from compact row', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const atkSpy = jest.spyOn(component, 'rollAttack');
+      const dmgSpy = jest.spyOn(component, 'rollWeaponDamage');
+
+      (el.querySelector('[data-testid="mobile-weapon-atk-0"]') as HTMLButtonElement).click();
+      expect(atkSpy).toHaveBeenCalledWith(component.char.weapons![0]);
+
+      (el.querySelector('[data-testid="mobile-weapon-dmg-0"]') as HTMLButtonElement).click();
+      expect(dmgSpy).toHaveBeenCalledWith(component.char.weapons![0]);
+
+      (el.querySelector('[data-testid="mobile-weapon-row-0"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.inspectedWeaponIndex()).toBe(0);
+      expect(component.inspectedWeapon?.name).toBe('Battleaxe');
+      expect(component.weaponMasteryName(component.char.weapons![0])).toBe('Topple');
+    });
+
+    it('toggles class resource pips immutably and emits standard combat actions in Actions sub-tab', () => {
+      const saveSpy = jest.spyOn(component.save, 'emit');
+      const actionSpy = jest.spyOn(component.combatAction, 'emit');
+      const el = fixture.nativeElement as HTMLElement;
+
+      (el.querySelector('[data-testid="mobile-combat-subtab-actions"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const resBefore = component.char.class_resources![0];
+      component.onResourcePipClick(resBefore, 2, new MouseEvent('click'));
+      expect(component.char.class_resources![0].current).toBe(1);
+      expect(component.char.class_resources![0]).not.toBe(resBefore);
+      expect(saveSpy).toHaveBeenCalled();
+
+      component.onResourcePipClick(component.char.class_resources![0], 3, new MouseEvent('click'));
+      expect(component.char.class_resources![0].current).toBe(3);
+
+      const dodgeBtn = Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes('Dodge'));
+      dodgeBtn?.click();
+      expect(actionSpy).toHaveBeenCalledWith('Dodge');
+    });
+
+    it('filters synthetic level-up entries and filters features by source pills', () => {
+      expect(component.features.map((f) => f.name)).toEqual(['Action Surge', 'Dwarven Resilience', 'Alert']);
+
+      component.mobileFeatureFilter.set('species');
+      expect(component.filteredMobileFeatures.map((f) => f.name)).toEqual(['Dwarven Resilience']);
+
+      component.mobileFeatureFilter.set('feat');
+      expect(component.filteredMobileFeatures.map((f) => f.name)).toEqual(['Alert']);
+
+      component.mobileFeatureFilter.set('class');
+      expect(component.filteredMobileFeatures.map((f) => f.name)).toEqual(['Action Surge']);
+
+      component.openFeatureInspector(component.features[0]);
+      expect(component.inspectedFeature()?.name).toBe('Action Surge');
+    });
+
+    it('opens Item Inspector sheet cleanly for index 0 in Inventory sub-tab', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      (el.querySelector('[data-testid="mobile-combat-subtab-inventory"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      (el.querySelector('[data-testid="mobile-item-row-0"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.inspectedItemIndex()).toBe(0);
+      expect(component.inspectedItem?.name).toBe('Potion of Healing');
+    });
+  });
 });
