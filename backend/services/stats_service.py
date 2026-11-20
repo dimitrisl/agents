@@ -2929,8 +2929,13 @@ def sync_character_stats(
                         resistances_list.append(res_label)
                     break
 
-    # Suppress unresolved Dragonborn placeholder string when no specific ancestry element is set
-    resistances_list = [r for r in resistances_list if "draconic ancestry element" not in r.lower()]
+    # Suppress unresolved ancestral placeholder strings when no specific damage type is chosen
+    resistances_list = [
+        r
+        for r in resistances_list
+        if "draconic ancestry element" not in r.lower()
+        and "fiendish legacy element" not in r.lower()
+    ]
 
     # Gloom Stalker Umbral Sight runs after racial senses and Eyes of the Dark so 120ft / 60ft upgrade cleanly
     has_gloom_umbral = any(

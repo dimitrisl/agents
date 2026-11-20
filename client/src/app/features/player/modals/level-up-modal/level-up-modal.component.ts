@@ -312,13 +312,18 @@ export class LevelUpModalComponent {
     return Math.max(1, priorHpBase + baseLevelGain + this.previewPendingHpAdjustment);
   }
 
+  private siblingGroup(choiceType: string): string {
+    return choiceType.replace(/_\d+$/, '');
+  }
+
   availableOptionsFor(choice: LevelUpChoice, idx: number): string[] {
     const choices = this.levelUpAnalysis?.choices_required ?? [];
+    const targetGroup = this.siblingGroup(choice.type);
     const currentRaw = this.userChoices[`${choice.type}_${idx}`];
     const currentNorm = typeof currentRaw === 'string' ? currentRaw.trim().toLowerCase() : '';
     const takenBySiblings = new Set<string>();
     choices.forEach((c, j) => {
-      if (j !== idx && c.type === choice.type) {
+      if (j !== idx && this.siblingGroup(c.type) === targetGroup) {
         const val = this.userChoices[`${c.type}_${j}`];
         if (val && typeof val === 'string') {
           const norm = val.trim().toLowerCase();
@@ -334,17 +339,18 @@ export class LevelUpModalComponent {
 
   get hasDuplicateSiblingChoices(): boolean {
     const choices = this.levelUpAnalysis?.choices_required ?? [];
-    const seenByType = new Map<string, Set<string>>();
+    const seenByGroup = new Map<string, Set<string>>();
     for (let i = 0; i < choices.length; i++) {
       const choice = choices[i];
       const raw = this.userChoices[`${choice.type}_${i}`];
       if (!raw || typeof raw !== 'string') continue;
       const norm = raw.trim().toLowerCase();
       if (!norm) continue;
-      let bucket = seenByType.get(choice.type);
+      const group = this.siblingGroup(choice.type);
+      let bucket = seenByGroup.get(group);
       if (!bucket) {
         bucket = new Set<string>();
-        seenByType.set(choice.type, bucket);
+        seenByGroup.set(group, bucket);
       }
       if (bucket.has(norm)) {
         return true;

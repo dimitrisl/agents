@@ -433,7 +433,7 @@ _MULTICLASS_ARMOR_PROFS_2024: dict[str, tuple[str, ...]] = {
     "druid": ("light armor", "shields"),
 }
 
-_MULTICLASS_WEAPON_PROFS: dict[str, tuple[str, ...]] = {
+_MULTICLASS_WEAPON_PROFS_2014: dict[str, tuple[str, ...]] = {
     "artificer": (),
     "barbarian": ("simple weapons", "martial weapons"),
     "bard": (),
@@ -447,6 +447,12 @@ _MULTICLASS_WEAPON_PROFS: dict[str, tuple[str, ...]] = {
     "sorcerer": (),
     "warlock": ("simple weapons",),
     "wizard": (),
+}
+
+_MULTICLASS_WEAPON_PROFS_2024: dict[str, tuple[str, ...]] = {
+    **_MULTICLASS_WEAPON_PROFS_2014,
+    "monk": (),
+    "warlock": (),
 }
 
 
@@ -577,6 +583,8 @@ def get_character_weapon_proficiencies(
     """Extract weapon proficiencies from primary class, multiclass table, subclass, race, and features."""
     profs: set[str] = set()
     edition = char_data.get("dnd_edition", "2014 Edition")
+    is_2024 = "2024" in str(edition or "")
+    mc_weapon_table = _MULTICLASS_WEAPON_PROFS_2024 if is_2024 else _MULTICLASS_WEAPON_PROFS_2014
     repo = RulesRepository()
 
     class_entries = _extract_class_subclass_tuples(char_data)
@@ -599,7 +607,7 @@ def get_character_weapon_proficiencies(
                         if norm and norm != "none":
                             profs.add(norm)
             else:
-                profs.update(_MULTICLASS_WEAPON_PROFS.get(c_low, ()))
+                profs.update(mc_weapon_table.get(c_low, ()))
 
             if csub and csub.lower() not in ("none", "n/a"):
                 sub_prog = repo.get_class_progression(cname, edition) or c_prog

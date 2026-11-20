@@ -145,6 +145,55 @@ def _assign_array_by_priority(
     return {stat: sorted_scores[idx] for idx, stat in enumerate(ordered_stats)}
 
 
+_SAVE_ALIAS_MAP: dict[str, str] = {
+    "STRENGTH": "STR",
+    "DEXTERITY": "DEX",
+    "CONSTITUTION": "CON",
+    "INTELLIGENCE": "INT",
+    "WISDOM": "WIS",
+    "CHARISMA": "CHA",
+}
+
+
+def _norm_spell_key(name: Any) -> str:
+    return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
+
+def _extract_resilient_stat(feat_label: str) -> str | None:
+    """Parse explicit stat from e.g. 'Resilient (WIS)' or 'Resilient (Wisdom)'."""
+    m = re.search(
+        r"\(\s*(STR(?:ENGTH)?|DEX(?:TERITY)?|CON(?:STITUTION)?|INT(?:ELLIGENCE)?|WIS(?:DOM)?|CHA(?:RISMA)?)\s*\)",
+        str(feat_label or ""),
+        re.I,
+    )
+    if not m:
+        return None
+    tok = m.group(1).strip().upper()
+    return _SAVE_ALIAS_MAP.get(tok, tok[:3])
+
+
+def _seed_class_saving_throws(
+    raw_saves: list | None,
+    char_class: str,
+    repo: RulesRepository,
+    edition: str,
+) -> list[str]:
+    """Normalize existing saving throws, seeding base class saves from RulesRepository when empty."""
+    source = raw_saves
+    if not source and char_class:
+        c_prog = repo.get_class_progression(char_class, edition) or {}
+        source = (c_prog.get("starting_proficiencies") or {}).get("saving_throws") or []
+    out: list[str] = []
+    for s in source or []:
+        up = str(s or "").strip().upper()
+        if not up:
+            continue
+        code = _SAVE_ALIAS_MAP.get(up, up[:3])
+        if code in _STAT_KEYS and code not in out:
+            out.append(code)
+    return out
+
+
 def _enforce_deterministic_forge_stats(
     char_data: dict,
     char_class: str,
@@ -316,39 +365,19 @@ def _enforce_deterministic_forge_stats(
                         if str(opt).strip()
                     }
                     is_resilient = picked_feat["name"].strip().lower() == "resilient"
-                    explicit_save_match = (
-                        re.search(r"\((STR|DEX|CON|INT|WIS|CHA)\)", cand_name, re.I)
-                        if is_resilient
-                        else None
-                    )
-                    explicit_save = (
-                        explicit_save_match.group(1).upper() if explicit_save_match else None
-                    )
+                    explicit_save = _extract_resilient_stat(cand_name) if is_resilient else None
                     search_order = [
                         s for s in priority_order if not allowed_opts or s in allowed_opts
                     ]
                     for s in _STAT_KEYS:
                         if (not allowed_opts or s in allowed_opts) and s not in search_order:
                             search_order.append(s)
+                    seeded_saves: list[str] = []
                     if is_resilient:
-                        c_prog = repo.get_class_progression(char_class, edition) or {}
-                        abbr_save_map = {
-                            "STRENGTH": "STR",
-                            "DEXTERITY": "DEX",
-                            "CONSTITUTION": "CON",
-                            "INTELLIGENCE": "INT",
-                            "WISDOM": "WIS",
-                            "CHARISMA": "CHA",
-                        }
-                        existing_saves = {
-                            abbr_save_map.get(str(s).strip().upper(), str(s).strip().upper()[:3])
-                            for s in (
-                                char_data.get("saving_throws")
-                                or (c_prog.get("starting_proficiencies") or {}).get("saving_throws")
-                                or []
-                            )
-                            if str(s).strip()
-                        }
+                        seeded_saves = _seed_class_saving_throws(
+                            char_data.get("saving_throws"), char_class, repo, edition
+                        )
+                        existing_saves = set(seeded_saves)
                         # Prefer CON/WIS/DEX non-proficient saves for Resilient unless explicitly requested
                         non_prof = [
                             s
@@ -367,12 +396,10 @@ def _enforce_deterministic_forge_stats(
                             break
                     if is_resilient:
                         resilient_stat = explicit_save or chosen_choice_stat
-                        if resilient_stat:
-                            saves_list = list(char_data.get("saving_throws") or [])
-                            norm_existing = {str(s).strip().upper()[:3] for s in saves_list}
-                            if resilient_stat not in norm_existing:
-                                saves_list.append(resilient_stat)
-                            char_data["saving_throws"] = saves_list
+                        if resilient_stat and resilient_stat not in seeded_saves:
+                            seeded_saves.append(resilient_stat)
+                        if seeded_saves:
+                            char_data["saving_throws"] = seeded_saves
                 _sync_feat_to_traits(picked_feat)
                 cleaned_advs.append(
                     {
@@ -865,9 +892,7 @@ def forge_character_manual(
         feat_traits = []
         for f_name in chosen_feats:
             f_clean = str(f_name or "").strip()
-            f_base = re.sub(
-                r"\s*\((?:STR|DEX|CON|INT|WIS|CHA)\)\s*$", "", f_clean, flags=re.I
-            ).strip()
+            f_base = re.sub(r"\s*\([^)]*\)\s*$", "", f_clean).strip()
             f_data = all_rules_feats.get(f_clean.lower()) or all_rules_feats.get(f_base.lower())
             name = f_data["name"] if f_data else f_clean
             desc = f_data.get("description", "") if f_data else ""
@@ -888,24 +913,13 @@ def forge_character_manual(
                     "source": "Feat",
                 }
             )
-            # Ensure Resilient in Manual Forge also grants a saving throw proficiency
+            # Seed starting class saves when omitted before appending Resilient's save proficiency
             if name.lower() == "resilient":
-                m_stat = re.search(r"\((STR|DEX|CON|INT|WIS|CHA)\)", f_clean, re.I)
-                abbr_map_man = {
-                    "STRENGTH": "STR",
-                    "DEXTERITY": "DEX",
-                    "CONSTITUTION": "CON",
-                    "INTELLIGENCE": "INT",
-                    "WISDOM": "WIS",
-                    "CHARISMA": "CHA",
-                }
-                cur_saves = [
-                    abbr_map_man.get(str(s).strip().upper(), str(s).strip().upper()[:3])
-                    for s in (result.get("saving_throws") or [])
-                    if str(s).strip()
-                ]
-                chosen_save = m_stat.group(1).upper() if m_stat else None
-                if not chosen_save and len(cur_saves) < 3:
+                cur_saves = _seed_class_saving_throws(
+                    result.get("saving_throws"), char_class, repo, edition
+                )
+                chosen_save = _extract_resilient_stat(f_clean)
+                if not chosen_save:
                     priority_order = _get_class_stat_priority(char_class, repo, edition)
                     for cand_s in ["CON", "WIS", "DEX", *priority_order, *_STAT_KEYS]:
                         if cand_s not in cur_saves:
@@ -913,7 +927,7 @@ def forge_character_manual(
                             break
                 if chosen_save and chosen_save not in cur_saves:
                     cur_saves.append(chosen_save)
-                    result["saving_throws"] = cur_saves
+                result["saving_throws"] = cur_saves
         result["advancements"] = advancements
         existing_traits = [
             f
@@ -2390,12 +2404,12 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     for s in lvl_list:
                         name = s.get("name") if isinstance(s, dict) else str(s)
                         if name:
-                            known_spells_lower.add(name.strip().lower())
+                            known_spells_lower.add(_norm_spell_key(name))
         elif isinstance(sp_dict, list):
             for s in sp_dict:
                 name = s.get("name") if isinstance(s, dict) else str(s)
                 if name:
-                    known_spells_lower.add(name.strip().lower())
+                    known_spells_lower.add(_norm_spell_key(name))
 
         all_spells = rules_repo.get_all_spells(edition)
         spells_level_map = {s["name"]: s.get("level", 0) for s in all_spells if "name" in s}
@@ -2406,7 +2420,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         magical_secrets_spells = []
         for s in all_spells:
             s_name = s.get("name", "")
-            if not s_name or s_name.strip().lower() in known_spells_lower:
+            if not s_name or _norm_spell_key(s_name) in known_spells_lower:
                 continue
             s_level = s.get("level", 0)
             s_classes = [str(c).lower() for c in s.get("classes", [])]

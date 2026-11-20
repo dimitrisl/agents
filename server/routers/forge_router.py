@@ -612,13 +612,19 @@ async def apply_level_up(
                 else:
                     target_list = spells_dict.setdefault(f"level_{spell_level}", [])
 
-                if not any(str(s).strip().lower() == canonical_name.lower() for s in target_list):
+                def _norm_sp(val: str) -> str:
+                    return (
+                        str(val or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+                    )
+
+                canon_norm = _norm_sp(canonical_name)
+                if not any(_norm_sp(s) == canon_norm for s in target_list):
                     target_list.append(canonical_name)
                 prepared_list = char_doc.get("prepared_spells")
                 if not isinstance(prepared_list, list):
                     prepared_list = []
                     char_doc["prepared_spells"] = prepared_list
-                if not any(str(s).strip().lower() == canonical_name.lower() for s in prepared_list):
+                if not any(_norm_sp(s) == canon_norm for s in prepared_list):
                     prepared_list.append(canonical_name)
             elif choice_type == "feat" or "feat" in choice_label.lower():
                 if choice_val == "+2 to one Stat":

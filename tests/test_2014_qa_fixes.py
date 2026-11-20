@@ -770,6 +770,16 @@ def test_multiclass_primary_vs_secondary_proficiencies_2014_and_2024():
         assert "medium armor" not in sr_armor
         assert is_weapon_proficient({"name": "Rapier"}, sr_weapons) is False
 
+        # Wizard 1 / Monk 1: 2014 Monk multiclass grants Shortsword; 2024 PHB grants no new weapon proficiencies
+        wiz_monk = _make_base_char(
+            char_class="Wizard",
+            char_level=2,
+            classes=[{"class_name": "Wizard", "level": 1}, {"class_name": "Monk", "level": 1}],
+            dnd_edition=ed,
+        )
+        wm_weapons = get_character_weapon_proficiencies(wiz_monk, wiz_prog)
+        assert is_weapon_proficient({"name": "Shortsword"}, wm_weapons) is (ed == EDITION_2014)
+
         # Secondary Tempest Domain Cleric still grants Heavy Armor & Martial Weapons via subclass at L1 (2014)
         if ed == EDITION_2014:
             wiz_tempest = _make_base_char(
@@ -936,13 +946,52 @@ def test_resilient_in_forge_and_squat_nimbleness_no_str9():
             "Lyra",
             {"STR": 8, "DEX": 14, "CON": 15, "INT": 16, "WIS": 12, "CHA": 10},
             ["Arcana", "History"],
-            ["INT", "WIS"],
+            [],  # UI leaves saving_throws empty -> must seed INT & WIS then append CON
             "INT",
             "",
             edition=EDITION_2014,
             chosen_feats=["Resilient"],
         )
-    assert "CON" in man_char["saving_throws"]
+        man_fighter = forge_character_manual(
+            4,
+            "Human",
+            "Fighter",
+            "Soldier",
+            "Champion",
+            "Lawful Good",
+            "Male",
+            "Garrick",
+            {"STR": 16, "DEX": 12, "CON": 14, "INT": 8, "WIS": 13, "CHA": 10},
+            ["Athletics", "Perception"],
+            [],  # UI leaves saving_throws empty -> must seed STR & CON then append WIS
+            None,
+            "",
+            edition=EDITION_2024,
+            chosen_feats=["Resilient (Wisdom)"],
+        )
+    assert {"INT", "WIS", "CON"}.issubset(set(man_char["saving_throws"]))
+    assert {"STR", "CON", "WIS"}.issubset(set(man_fighter["saving_throws"]))
+
+    # _enforce_deterministic_forge_stats with saving_throws omitted preserves base class saves + Resilient
+    ai_omitted_saves = {
+        "char_class": "Fighter",
+        "stats": {"STR": 15, "DEX": 12, "CON": 14, "INT": 8, "WIS": 13, "CHA": 10},
+        "advancements": [{"level": 4, "type": "Feat", "name": "Resilient (Wisdom)"}],
+    }
+    _enforce_deterministic_forge_stats(
+        ai_omitted_saves,
+        char_class="Fighter",
+        race="Human",
+        background="Soldier",
+        target_level=4,
+        edition=EDITION_2014,
+        stats_mode="standard",
+        rolled_stats=None,
+        auto_feats=True,
+        repo=repo,
+    )
+    assert {"STR", "CON", "WIS"}.issubset(set(ai_omitted_saves["saving_throws"]))
+    assert ai_omitted_saves["stats"]["WIS"] == 15
 
 
 def test_gloom_stalker_2024_orc_150ft_and_high_elf_ek_guard():
@@ -991,3 +1040,31 @@ def test_gloom_stalker_2024_orc_150ft_and_high_elf_ek_guard():
     synced_champ = sync_character_stats(high_elf_chill)
     assert synced_champ["subclass"] == "Champion"
     assert not synced_champ["spell_slots"]
+
+    # 2024 Tiefling without explicit legacy resistance suppresses literal placeholder
+    tiefling_2024 = sync_character_stats(
+        _make_base_char(
+            race="Tiefling",
+            char_class="Wizard",
+            char_level=1,
+            dnd_edition=EDITION_2024,
+        )
+    )
+    assert not any(
+        "fiendish legacy element" in r.lower()
+        for r in (tiefling_2024.get("damage_resistances") or [])
+    )
+
+    # Curly vs ASCII apostrophe normalization excludes already-known Arcanist's Magic Aura in analyze_level_up
+    wiz_arcanist = _make_base_char(
+        char_class="Wizard",
+        char_level=3,
+        classes=[{"class_name": "Wizard", "level": 3, "subclass": "School of Evocation"}],
+        spells={"level_2": ["Arcanist's Magic Aura"]},
+        dnd_edition=EDITION_2014,
+    )
+    wiz_a = analyze_level_up(wiz_arcanist)
+    spell_opts = [
+        o for c in wiz_a["choices_required"] if c["type"] == "spell" for o in c["options"]
+    ]
+    assert not any("arcanist" in o.lower() for o in spell_opts)
