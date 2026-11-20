@@ -39,8 +39,8 @@
         }
     },
     "primary_ability": [
-        "INT",
-        "WIS"
+        "WIS",
+        "CON"
     ],
     "progression": {
         "1": {
@@ -205,5 +205,26 @@
         }
     },
     "caster_type": "full",
-    "spellcasting_ability": "WIS"
+    "spellcasting_ability": "WIS",
+    "scaling": {
+        "wild_shape": {
+            "name": "Wild Shape Max CR",
+            "kind": "utility",
+            "hint": "Maximum Beast Challenge Rating and movement restrictions for Wild Shape.",
+            "steps": [
+                {
+                    "level": 2,
+                    "notation": "CR 1/4 (no fly/swim)"
+                },
+                {
+                    "level": 4,
+                    "notation": "CR 1/2 (no fly)"
+                },
+                {
+                    "level": 8,
+                    "notation": "CR 1"
+                }
+            ]
+        }
+    }
 }

@@ -24,6 +24,7 @@ import {
   hasRemarkableAthlete,
   hasInitiativeAdvantage,
   hasAthleticsAdvantage,
+  hasReliableTalent,
   is2024Edition,
   isDeceasedByExhaustion,
   isIncapacitated,
@@ -1153,5 +1154,58 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       '+2 Checks',
       '-1 Passive Perc',
     ]);
+  });
+
+  it('normalizes saving throws and resolves Diamond Soul, Slippery Mind, Aura of Protection, Soul of Artifice, and Reliable Talent', () => {
+    const monk14 = hero({
+      char_class: 'Monk',
+      char_level: 14,
+      proficiency_bonus: 5,
+      stats: { STR: 10, DEX: 18, CON: 14, INT: 10, WIS: 16, CHA: 8 },
+      saving_throws: ['Strength', 'Dexterity'],
+    });
+    expect(isSaveProficient(monk14, 'STR')).toBe(true);
+    expect(isSaveProficient(monk14, 'WIS')).toBe(true); // Diamond Soul
+    expect(savingThrowModifier(monk14, 'CHA')).toBe(4); // -1 + 5
+
+    const rogue15 = hero({
+      char_class: 'Rogue',
+      char_level: 15,
+      proficiency_bonus: 5,
+      stats: { STR: 8, DEX: 20, CON: 14, INT: 14, WIS: 12, CHA: 10 },
+      saving_throws: ['DEX', 'INT'],
+      dnd_edition: '2014 Edition',
+    });
+    expect(isSaveProficient(rogue15, 'WIS')).toBe(true); // Slippery Mind
+    expect(savingThrowModifier(rogue15, 'WIS')).toBe(6);
+
+    const paladin6 = hero({
+      char_class: 'Paladin',
+      char_level: 6,
+      proficiency_bonus: 3,
+      stats: { STR: 18, DEX: 10, CON: 14, INT: 8, WIS: 12, CHA: 18 },
+      saving_throws: ['WIS', 'CHA'],
+    });
+    expect(savingThrowModifier(paladin6, 'DEX')).toBe(4); // +4 Aura of Protection
+
+    const artificer20 = hero({
+      char_class: 'Artificer',
+      char_level: 20,
+      proficiency_bonus: 6,
+      stats: { STR: 10, DEX: 14, CON: 16, INT: 20, WIS: 12, CHA: 10 },
+      saving_throws: ['CON', 'INT'],
+      equipment: [
+        { name: 'Item 1', attuned: true },
+        { name: 'Item 2', attuned: true },
+        { name: 'Item 3', attuned: true },
+      ],
+    });
+    expect(savingThrowModifier(artificer20, 'INT')).toBe(14); // +5 + 6 + 3
+
+    // Reliable Talent edition parity: L11 in 2014 vs L7 in 2024
+    expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 10, dnd_edition: '2014 Edition' }))).toBe(false);
+    expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 11, dnd_edition: '2014 Edition' }))).toBe(true);
+    expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 6, dnd_edition: '2024 Revision' }))).toBe(false);
+    expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 7, dnd_edition: '2024 Revision' }))).toBe(true);
   });
 });

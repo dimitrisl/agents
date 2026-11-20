@@ -208,17 +208,30 @@
         "weapons": [
             "Simple",
             "Martial"
-        ]
+        ],
+        "skills": {
+            "count": 2,
+            "options": [
+                "Acrobatics",
+                "Animal Handling",
+                "Athletics",
+                "History",
+                "Insight",
+                "Intimidation",
+                "Perception",
+                "Survival"
+            ]
+        }
     },
     "scaling": {
         "second_wind": {
             "name": "Second Wind",
             "kind": "heal",
-            "hint": "Bonus Action. Regain hit points, then take a rest to get it back.",
+            "hint": "Bonus Action. Regain hit points equal to 1d10 + your Fighter level, once per short or long rest.",
             "steps": [
                 {
                     "level": 1,
-                    "notation": "1d10"
+                    "notation": "1d10 + Fighter level"
                 }
             ]
         }

@@ -1,0 +1,393 @@
+{
+    "class_name": "Paladin",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Oath of Devotion": {
+            "name": "Oath of Devotion",
+            "bonus_spells": {
+                "3": [
+                    "Protection from Evil and Good",
+                    "Sanctuary"
+                ],
+                "5": [
+                    "Lesser Restoration",
+                    "Zone of Truth"
+                ],
+                "9": [
+                    "Beacon of Hope",
+                    "Dispel Magic"
+                ],
+                "13": [
+                    "Freedom of Movement",
+                    "Guardian of Faith"
+                ],
+                "17": [
+                    "Commune",
+                    "Flame Strike"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Sacred Weapon & Turn the Unholy",
+                    "description": "Sacred Weapon adds +CHA modifier to weapon attacks for 1 minute; Turn the Unholy turns Fiends and Undead within 30 ft."
+                },
+                "7": {
+                    "name": "Aura of Devotion",
+                    "description": "You and allies within 10 ft (30 ft at L18) cannot be Charmed while you are conscious."
+                },
+                "15": {
+                    "name": "Purity of Spirit",
+                    "description": "You are always under the effects of the Protection from Evil and Good spell."
+                },
+                "20": {
+                    "name": "Holy Nimbus",
+                    "description": "Action sheds 30-ft bright sunlight dealing 10 Radiant damage to foes starting turns inside & Adv on saves vs Fiend/Undead spells (1/Long Rest)."
+                }
+            }
+        },
+        "Oath of the Ancients": {
+            "name": "Oath of the Ancients",
+            "bonus_spells": {
+                "3": [
+                    "Ensnaring Strike",
+                    "Speak with Animals"
+                ],
+                "5": [
+                    "Moonbeam",
+                    "Misty Step"
+                ],
+                "9": [
+                    "Plant Growth",
+                    "Protection from Energy"
+                ],
+                "13": [
+                    "Ice Storm",
+                    "Stoneskin"
+                ],
+                "17": [
+                    "Commune with Nature",
+                    "Tree Stride"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Nature's Wrath & Turn the Faithless",
+                    "description": "Restrain a foe with spectral vines or turn Fey and Fiends within 30 ft."
+                },
+                "7": {
+                    "name": "Aura of Warding",
+                    "description": "You and friendly creatures within 10 ft (30 ft at L18) have Resistance to damage from spells."
+                },
+                "15": {
+                    "name": "Undying Sentinel",
+                    "description": "Drop to 1 HP instead of 0 HP once per Long Rest and suffer none of old age's drawbacks."
+                },
+                "20": {
+                    "name": "Elder Champion",
+                    "description": "Transform for 1 minute to regain 10 HP/turn, cast Paladin spells as Bonus Actions, and impose Disadvantage vs your spells (1/Long Rest)."
+                }
+            }
+        },
+        "Oath of Vengeance": {
+            "name": "Oath of Vengeance",
+            "bonus_spells": {
+                "3": [
+                    "Bane",
+                    "Hunter's Mark"
+                ],
+                "5": [
+                    "Hold Person",
+                    "Misty Step"
+                ],
+                "9": [
+                    "Haste",
+                    "Protection from Energy"
+                ],
+                "13": [
+                    "Banishment",
+                    "Dimension Door"
+                ],
+                "17": [
+                    "Hold Monster",
+                    "Scrying"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Abjure Enemy & Vow of Enmity",
+                    "description": "Frighten/halt an enemy (Adv on Fiends/Undead) or Bonus Action grants Advantage on all attacks vs one foe for 1 minute."
+                },
+                "7": {
+                    "name": "Relentless Avenger",
+                    "description": "Move up to half your speed without provoking Opportunity Attacks immediately after hitting with an Opportunity Attack."
+                },
+                "15": {
+                    "name": "Soul of Vengeance",
+                    "description": "Reaction allows a melee weapon attack when your Vow of Enmity target makes an attack."
+                },
+                "20": {
+                    "name": "Avenging Angel",
+                    "description": "Grow angelic wings (60 ft Fly speed) and project a 30-ft aura of menace for 1 hour (1/Long Rest)."
+                }
+            }
+        },
+        "Oath of Conquest": {
+            "name": "Oath of Conquest",
+            "bonus_spells": {
+                "3": [
+                    "Armor of Agathys",
+                    "Command"
+                ],
+                "5": [
+                    "Hold Person",
+                    "Spiritual Weapon"
+                ],
+                "9": [
+                    "Bestow Curse",
+                    "Fear"
+                ],
+                "13": [
+                    "Dominate Beast",
+                    "Stoneskin"
+                ],
+                "17": [
+                    "Cloudkill",
+                    "Dominate Person"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Conquering Presence & Guided Strike",
+                    "description": "Frighten creatures within 30 ft or add +10 to a weapon attack roll."
+                },
+                "7": {
+                    "name": "Aura of Conquest",
+                    "description": "Frightened enemies within 10 ft (30 ft at L18) have 0 speed and take half your Paladin level in Psychic damage at turn start."
+                },
+                "15": {
+                    "name": "Scornful Rebuke",
+                    "description": "Attackers that hit you take Psychic damage equal to your Charisma modifier."
+                },
+                "20": {
+                    "name": "Invincible Conqueror",
+                    "description": "Action grants Resistance to all damage, an extra Attack action attack, and critical hits on 19–20 for 1 minute (1/Long Rest)."
+                }
+            }
+        },
+        "Oath of Redemption": {
+            "name": "Oath of Redemption",
+            "bonus_spells": {
+                "3": [
+                    "Sanctuary",
+                    "Sleep"
+                ],
+                "5": [
+                    "Calm Emotions",
+                    "Hold Person"
+                ],
+                "9": [
+                    "Counterspell",
+                    "Hypnotic Pattern"
+                ],
+                "13": [
+                    "Resilient Sphere",
+                    "Stoneskin"
+                ],
+                "17": [
+                    "Hold Monster",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Emissary of Peace & Rebuke the Violent",
+                    "description": "Gain +5 Persuasion for 10 min or Reaction reflects Radiant damage equal to damage dealt by an attacker."
+                },
+                "7": {
+                    "name": "Aura of the Guardian",
+                    "description": "Reaction takes damage magically in place of an ally within 10 ft (30 ft at L18)."
+                },
+                "15": {
+                    "name": "Protective Spirit",
+                    "description": "Regain 1d6 + half Paladin level HP at end of turn if below half HP."
+                },
+                "20": {
+                    "name": "Emissary of Redemption",
+                    "description": "Permanent Resistance to all damage from creatures you haven't attacked, and attackers take half damage back as Radiant."
+                }
+            }
+        },
+        "Oath of Glory": {
+            "name": "Oath of Glory",
+            "bonus_spells": {
+                "3": [
+                    "Guiding Bolt",
+                    "Heroism"
+                ],
+                "5": [
+                    "Enhance Ability",
+                    "Magic Weapon"
+                ],
+                "9": [
+                    "Haste",
+                    "Protection from Energy"
+                ],
+                "13": [
+                    "Compulsion",
+                    "Freedom of Movement"
+                ],
+                "17": [
+                    "Commune",
+                    "Flame Strike"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Peerless Athlete & Inspiring Smite",
+                    "description": "Adv on Athletics/Acrobatics & 2x carry/jump for 10 min, or Bonus Action after Divine Smite distributes 2d8 + level Temporary HP."
+                },
+                "7": {
+                    "name": "Aura of Alacrity",
+                    "description": "Your walking speed increases by 10 ft, and allies starting within 5 ft (10 ft at L18) gain +10 ft speed for that turn."
+                },
+                "15": {
+                    "name": "Glorious Defense",
+                    "description": "Reaction adds CHA mod to an ally's AC within 10 ft and allows a counter-attack if the attack misses (CHA mod/Long Rest)."
+                },
+                "20": {
+                    "name": "Living Legend",
+                    "description": "Bonus Action empowers CHA checks, turns missed attacks into hits 1/turn, and rerolls failed saves as a Reaction for 1 minute (1/Long Rest)."
+                }
+            }
+        },
+        "Oath of the Watchers": {
+            "name": "Oath of the Watchers",
+            "bonus_spells": {
+                "3": [
+                    "Alarm",
+                    "Detect Magic"
+                ],
+                "5": [
+                    "Moonbeam",
+                    "See Invisibility"
+                ],
+                "9": [
+                    "Counterspell",
+                    "Nondetection"
+                ],
+                "13": [
+                    "Aura of Purity",
+                    "Banishment"
+                ],
+                "17": [
+                    "Hold Monster",
+                    "Scrying"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Watcher's Will & Abjure the Extraplanar",
+                    "description": "Grant CHA mod allies Adv on INT/WIS/CHA saves for 1 min, or Turn Aberrations/Celestials/Elementals/Fey/Fiends."
+                },
+                "7": {
+                    "name": "Aura of the Sentinel",
+                    "description": "You and allies within 10 ft (30 ft at L18) add your Proficiency Bonus to Initiative rolls."
+                },
+                "15": {
+                    "name": "Vigilant Rebuke",
+                    "description": "Reaction deals 2d8 + CHA Force damage whenever a creature forces you/allies within 30 ft to make an INT/WIS/CHA save."
+                },
+                "20": {
+                    "name": "Mortal Bulwark",
+                    "description": "Bonus Action gains 120 ft Truesight, Adv vs extraplanar foes, and banishment hits for 1 minute (1/Long Rest)."
+                }
+            }
+        },
+        "Oathbreaker": {
+            "name": "Oathbreaker",
+            "bonus_spells": {
+                "3": [
+                    "Hellish Rebuke",
+                    "Inflict Wounds"
+                ],
+                "5": [
+                    "Crown of Madness",
+                    "Darkness"
+                ],
+                "9": [
+                    "Animate Dead",
+                    "Bestow Curse"
+                ],
+                "13": [
+                    "Blight",
+                    "Confusion"
+                ],
+                "17": [
+                    "Contagion",
+                    "Dominate Person"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Control Undead & Dreadful Aspect",
+                    "description": "Command a low-CR Undead for 24h or frighten enemies within 30 ft for 1 minute."
+                },
+                "7": {
+                    "name": "Aura of Hate",
+                    "description": "You, nearby Fiends, and Undead within 10 ft (30 ft at L18) add +CHA mod to melee weapon damage rolls."
+                },
+                "15": {
+                    "name": "Supernatural Resistance",
+                    "description": "Gain Resistance to bludgeoning, piercing, and slashing damage from nonmagical attacks."
+                },
+                "20": {
+                    "name": "Dread Lord",
+                    "description": "Project a 30-ft aura of gloom for 1 min dealing 4d10 Psychic damage to frightened foes and allowing shadow attacks (1/Long Rest)."
+                }
+            }
+        },
+        "Oath of the Crown": {
+            "name": "Oath of the Crown",
+            "bonus_spells": {
+                "3": [
+                    "Command",
+                    "Compelled Duel"
+                ],
+                "5": [
+                    "Warding Bond",
+                    "Zone of Truth"
+                ],
+                "9": [
+                    "Aura of Vitality",
+                    "Spirit Guardians"
+                ],
+                "13": [
+                    "Banishment",
+                    "Guardian of Faith"
+                ],
+                "17": [
+                    "Circle of Power",
+                    "Geas"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Channel Divinity: Champion Challenge & Turn the Tide",
+                    "description": "Compel nearby enemies not to move beyond 30 ft, or Bonus Action heals injured allies 1d6 + CHA mod."
+                },
+                "7": {
+                    "name": "Divine Allegiance",
+                    "description": "Reaction substitutes your own HP to absorb all damage dealt to a creature within 5 ft."
+                },
+                "15": {
+                    "name": "Unyielding Spirit",
+                    "description": "Advantage on saving throws to avoid being Paralyzed or Stunned."
+                },
+                "20": {
+                    "name": "Exalted Champion",
+                    "description": "Action grants Resistance to nonmagical BPS, ally Adv on Death Saves, and Adv on WIS saves for 1 hour (1/Long Rest)."
+                }
+            }
+        }
+    }
+}

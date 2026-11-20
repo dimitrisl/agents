@@ -1,0 +1,112 @@
+{
+  "fighting_styles": {
+    "fighter": [
+      {"name": "Fighting Style: Archery", "description": "You gain a +2 bonus to attack rolls you make with ranged weapons."},
+      {"name": "Fighting Style: Defense", "description": "While you are wearing armor, you gain a +1 bonus to AC."},
+      {"name": "Fighting Style: Dueling", "description": "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."},
+      {"name": "Fighting Style: Great Weapon Fighting", "description": "When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die."},
+      {"name": "Fighting Style: Protection", "description": "When a creature you can see attacks a target other than you within 5 feet of you, you can use your Reaction to impose Disadvantage on the attack roll (requires shield)."},
+      {"name": "Fighting Style: Two-Weapon Fighting", "description": "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack."},
+      {"name": "Fighting Style: Blind Fighting", "description": "You have Blindsight with a range of 10 feet."},
+      {"name": "Fighting Style: Interception", "description": "Reaction when a creature within 5 ft hits an ally: reduce damage by 1d10 + your Proficiency Bonus (requires shield or weapon)."},
+      {"name": "Fighting Style: Thrown Weapon Fighting", "description": "Draw a thrown weapon as part of the attack and gain +2 bonus to damage rolls with ranged thrown weapon attacks."}
+    ],
+    "paladin": [
+      {"name": "Fighting Style: Defense", "description": "While you are wearing armor, you gain a +1 bonus to AC."},
+      {"name": "Fighting Style: Dueling", "description": "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."},
+      {"name": "Fighting Style: Great Weapon Fighting", "description": "When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die."},
+      {"name": "Fighting Style: Protection", "description": "When a creature you can see attacks a target other than you within 5 feet of you, you can use your Reaction to impose Disadvantage on the attack roll (requires shield)."},
+      {"name": "Fighting Style: Blessed Warrior", "description": "You learn two Cleric cantrips (CHA spellcasting) and can swap one on level up."},
+      {"name": "Fighting Style: Blind Fighting", "description": "You have Blindsight with a range of 10 feet."},
+      {"name": "Fighting Style: Interception", "description": "Reaction reduces incoming damage to an adjacent ally by 1d10 + Proficiency Bonus."}
+    ],
+    "ranger": [
+      {"name": "Fighting Style: Archery", "description": "You gain a +2 bonus to attack rolls you make with ranged weapons."},
+      {"name": "Fighting Style: Defense", "description": "While you are wearing armor, you gain a +1 bonus to AC."},
+      {"name": "Fighting Style: Dueling", "description": "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."},
+      {"name": "Fighting Style: Two-Weapon Fighting", "description": "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack."},
+      {"name": "Fighting Style: Druidic Warrior", "description": "You learn two Druid cantrips (WIS spellcasting) and can swap one on level up."},
+      {"name": "Fighting Style: Blind Fighting", "description": "You have Blindsight with a range of 10 feet."},
+      {"name": "Fighting Style: Thrown Weapon Fighting", "description": "Draw a thrown weapon as part of the attack and gain +2 damage with thrown ranged attacks."}
+    ]
+  },
+  "pact_boons": [
+    {"name": "Pact of the Blade", "description": "Action creates a magical pact weapon you are proficient with (or bonds an existing magic weapon)."},
+    {"name": "Pact of the Chain", "description": "Learn Find Familiar and optionally summon an Imp, Pseudodragon, Quasit, or Sprite."},
+    {"name": "Pact of the Tome", "description": "Receive a Book of Shadows granting three cantrips from any class's spell list."},
+    {"name": "Pact of the Talisman", "description": "Wear an amulet allowing you to add 1d4 to a failed ability check (Proficiency Bonus times per Long Rest)."}
+  ],
+  "eldritch_invocations": [
+    {"name": "Agonizing Blast", "min_level": 2, "description": "Add your Charisma modifier to the damage each Eldritch Blast beam deals on a hit."},
+    {"name": "Devil's Sight", "min_level": 2, "description": "See normally in darkness, both magical and nonmagical, to a distance of 120 feet."},
+    {"name": "Eldritch Mind", "min_level": 2, "description": "Advantage on Constitution saving throws you make to maintain Concentration on a spell."},
+    {"name": "Fiendish Vigor", "min_level": 2, "description": "Cast False Life on yourself at will as a 1st-level spell without expending a spell slot."},
+    {"name": "Armor of Shadows", "min_level": 2, "description": "Cast Mage Armor on yourself at will without expending a spell slot."},
+    {"name": "Mask of Many Faces", "min_level": 2, "description": "Cast Disguise Self at will without expending a spell slot."},
+    {"name": "Repelling Blast", "min_level": 2, "description": "Push hit creatures up to 10 feet straight away with Eldritch Blast."},
+    {"name": "Grasp of Hadar", "min_level": 2, "description": "Once per turn when hitting with Eldritch Blast, pull the target up to 10 feet closer."},
+    {"name": "Beguiling Influence", "min_level": 2, "description": "Gain proficiency in the Deception and Persuasion skills."},
+    {"name": "Book of Ancient Secrets", "min_level": 3, "pact": "Pact of the Tome", "description": "Inscribe and cast ritual spells from any class in your Book of Shadows."},
+    {"name": "Improved Pact Weapon", "min_level": 3, "pact": "Pact of the Blade", "description": "Your pact weapon counts as a +1 magic weapon and arcane spellcasting focus, and can form ranged bows/crossbows."},
+    {"name": "Voice of the Chain Master", "min_level": 3, "pact": "Pact of the Chain", "description": "Communicate telepathically and perceive through your familiar's senses across any distance on the same plane."},
+    {"name": "Thirsting Blade", "min_level": 5, "pact": "Pact of the Blade", "description": "Attack twice, rather than once, whenever you take the Attack action with your pact weapon."},
+    {"name": "Eldritch Smite", "min_level": 5, "pact": "Pact of the Blade", "description": "Once per turn on hit with your pact weapon, expend a Pact slot to deal +1d8 (+1d8 per slot level) Force damage and knock Prone."},
+    {"name": "One with Shadows", "min_level": 5, "description": "Turn Invisible in dim light or darkness until you move or act."},
+    {"name": "Sculptor of Flesh", "min_level": 7, "description": "Cast Polymorph once per Long Rest using a Warlock spell slot."},
+    {"name": "Ghostly Gaze", "min_level": 7, "description": "Bonus Action sees through solid objects within 30 ft for 1 minute (1/Short Rest)."},
+    {"name": "Lifedrinker", "min_level": 12, "pact": "Pact of the Blade", "description": "Deal extra Necrotic damage equal to your Charisma modifier on hits with your pact weapon."},
+    {"name": "Shroud of Shadow", "min_level": 15, "description": "Cast Invisibility at will without expending a spell slot."}
+  ],
+  "metamagic": [
+    {"name": "Metamagic: Quickened Spell", "description": "Spend 2 Sorcery Points to change a casting time of 1 Action to 1 Bonus Action."},
+    {"name": "Metamagic: Twinned Spell", "description": "Spend Sorcery Points equal to a single-target spell's level (1 for cantrips) to target a second creature."},
+    {"name": "Metamagic: Subtle Spell", "description": "Spend 1 Sorcery Point to cast a spell without any Somatic or Verbal components."},
+    {"name": "Metamagic: Careful Spell", "description": "Spend 1 Sorcery Point to let up to CHA modifier creatures automatically succeed on a spell's save."},
+    {"name": "Metamagic: Empowered Spell", "description": "Spend 1 Sorcery Point to reroll up to CHA modifier damage dice of a spell."},
+    {"name": "Metamagic: Heightened Spell", "description": "Spend 3 Sorcery Points to impose Disadvantage on one target's first save against your spell."},
+    {"name": "Metamagic: Distant Spell", "description": "Spend 1 Sorcery Point to double a spell's range (or turn Touch into 30 ft)."},
+    {"name": "Metamagic: Extended Spell", "description": "Spend 1 Sorcery Point to double a spell's duration (up to 24 hours)."}
+  ],
+  "maneuvers": [
+    {"name": "Maneuver: Precision Attack", "description": "Expend a Superiority Die to add it to a weapon attack roll."},
+    {"name": "Maneuver: Trip Attack", "description": "Add Superiority Die to damage and force a Large or smaller target to make a STR save or fall Prone."},
+    {"name": "Maneuver: Menacing Attack", "description": "Add Superiority Die to damage and Frighten the target on a failed WIS save until end of your next turn."},
+    {"name": "Maneuver: Riposte", "description": "Reaction after a melee attack misses you: make one melee attack adding Superiority Die to damage."},
+    {"name": "Maneuver: Disarming Attack", "description": "Add Superiority Die to damage and force a STR save or drop one held item."},
+    {"name": "Maneuver: Pushing Attack", "description": "Add Superiority Die to damage and push a Large or smaller target up to 15 ft on a failed STR save."},
+    {"name": "Maneuver: Commander's Strike", "description": "Forgo one attack and Bonus Action to grant an ally a Reaction weapon attack adding Superiority Die to damage."},
+    {"name": "Maneuver: Bait and Switch", "description": "Swap places with an adjacent willing creature within 5 ft, adding Superiority Die to AC until start of next turn."},
+    {"name": "Maneuver: Tactical Assessment", "description": "Add Superiority Die to an Investigation, History, or Insight check."}
+  ],
+  "artificer_infusions": [
+    {"name": "Infusion: Enhanced Defense", "min_level": 2, "description": "Armor or shield grants +1 bonus to AC (+2 at Artificer level 10)."},
+    {"name": "Infusion: Enhanced Weapon", "min_level": 2, "description": "Simple or martial weapon becomes a +1 magic weapon (+2 at Artificer level 10)."},
+    {"name": "Infusion: Repeating Shot", "min_level": 2, "description": "+1 magic ranged weapon that ignores Loading and automatically creates ammunition."},
+    {"name": "Infusion: Mind Sharpener", "min_level": 2, "description": "Armor/robes let the wearer use a Reaction to automatically succeed on a failed Concentration save (4 charges)."},
+    {"name": "Infusion: Bag of Holding", "min_level": 2, "description": "Replicate a magical Bag of Holding."},
+    {"name": "Infusion: Homunculus Servant", "min_level": 2, "description": "Animate a Tiny mechanical Homunculus Servant."},
+    {"name": "Infusion: Radiant Weapon", "min_level": 6, "description": "+1 magic weapon shedding light with 4 charges to Blind melee attackers as a Reaction."},
+    {"name": "Infusion: Winged Boots", "min_level": 10, "description": "Replicate Winged Boots (Fly Speed equal to walking speed)."}
+  ],
+  "hunter_choices": {
+    "3": [
+      {"name": "Hunter's Prey: Colossus Slayer", "description": "Once per turn, deal +1d8 weapon damage to a target below its HP maximum."},
+      {"name": "Hunter's Prey: Giant Killer", "description": "Reaction makes a weapon attack against an adjacent Large or larger creature that attacks you."},
+      {"name": "Hunter's Prey: Horde Breaker", "description": "Once per turn, make an extra weapon attack against a second creature within 5 ft of your original target."}
+    ],
+    "7": [
+      {"name": "Defensive Tactics: Multiattack Defense", "description": "When a creature hits you, gain +4 AC against all subsequent attacks made by that creature this turn."},
+      {"name": "Defensive Tactics: Escape the Horde", "description": "Opportunity Attacks against you are made with Disadvantage."},
+      {"name": "Defensive Tactics: Steel Will", "description": "You have Advantage on saving throws against being Frightened."}
+    ],
+    "11": [
+      {"name": "Multiattack: Volley", "description": "Action makes a ranged attack against any number of creatures within 10 ft of a point you can see."},
+      {"name": "Multiattack: Whirlwind Attack", "description": "Action makes a melee attack against any number of creatures within 5 ft of you."}
+    ],
+    "15": [
+      {"name": "Superior Hunter's Defense: Uncanny Dodge", "description": "Reaction halves an attacker's damage against you."},
+      {"name": "Superior Hunter's Defense: Evasion", "description": "Take 0 damage on successful DEX saves and half on failures."},
+      {"name": "Superior Hunter's Defense: Stand Against the Tide", "description": "Reaction forces a creature missing you with a melee attack to repeat it against another nearby creature."}
+    ]
+  }
+}

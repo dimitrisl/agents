@@ -25,7 +25,14 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Necrotic",
+            "Radiant"
+        ]
     },
     {
         "name": "Dragonborn",
@@ -53,7 +60,13 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Draconic Ancestry Element"
+        ]
     },
     {
         "name": "Dwarf",
@@ -80,7 +93,16 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Poison"
+        ],
+        "save_advantages": [
+            "Advantage on saving throws to avoid or end Poisoned (Dwarven Resilience)"
+        ]
     },
     {
         "name": "Elf",
@@ -108,7 +130,13 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on saving throws to avoid or end Charmed (Fey Ancestry)"
+        ]
     },
     {
         "name": "Gnome",
@@ -128,7 +156,13 @@
             }
         ],
         "size": "Small",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "save_advantages": [
+            "Advantage on INT, WIS, CHA saving throws (Gnomish Cunning)"
+        ]
     },
     {
         "name": "Goliath",
@@ -172,7 +206,10 @@
             }
         ],
         "size": "Small",
-        "speed": 30
+        "speed": 30,
+        "save_advantages": [
+            "Advantage on saving throws to avoid or end Frightened (Brave)"
+        ]
     },
     {
         "name": "Human",
@@ -212,7 +249,10 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 120 ft."
+        ]
     },
     {
         "name": "Tiefling",
@@ -232,7 +272,13 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "senses": [
+            "Darkvision 60 ft."
+        ],
+        "damage_resistances": [
+            "Fiendish Legacy Element (e.g. Fire)"
+        ]
     },
     {
         "name": "Warforged",
@@ -256,6 +302,12 @@
             }
         ],
         "size": "Medium",
-        "speed": 30
+        "speed": 30,
+        "damage_resistances": [
+            "Poison"
+        ],
+        "save_advantages": [
+            "Advantage on saving throws against Poison (Constructed Resilience)"
+        ]
     }
 ]

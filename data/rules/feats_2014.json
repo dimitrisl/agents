@@ -636,8 +636,7 @@
             "min_level": 0,
             "stat_requirements": {},
             "other": [
-                "Proficiency with Medium Armor",
-                "Proficiency with Heavy Armor"
+                "Proficiency with Medium Armor"
             ]
         },
         "source": "Player's Handbook, p. 167",
@@ -754,9 +753,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Proficiency with Light Armor"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 167",
         "is_official": true,
@@ -847,9 +844,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 168",
         "is_official": true,
@@ -871,9 +866,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 168",
         "is_official": true,
@@ -895,9 +888,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 168",
         "is_official": true,
@@ -919,9 +910,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 168",
         "is_official": true,
@@ -943,9 +932,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 168",
         "is_official": true,
@@ -967,9 +954,7 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {},
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 168",
         "is_official": true,
@@ -1060,9 +1045,7 @@
             "min_level": 0,
             "stat_requirements": {},
             "other": [
-                "Proficiency with Light Armor",
-                "Proficiency with Medium Armor",
-                "Proficiency with Shields"
+                "Proficiency with Light Armor"
             ]
         },
         "source": "Player's Handbook, p. 168",
@@ -1237,11 +1220,9 @@
         "prerequisites": {
             "min_level": 0,
             "stat_requirements": {
-                "WIS": 13
+                "INT_OR_WIS": 13
             },
-            "other": [
-                "Spellcasting"
-            ]
+            "other": []
         },
         "source": "Player's Handbook, p. 169",
         "is_official": true,
@@ -1481,7 +1462,7 @@
             "min_level": 0,
             "stat_requirements": {},
             "other": [
-                "Spellcasting"
+                "Gnome"
             ]
         },
         "source": "Unknown",
@@ -2671,6 +2652,377 @@
         "stat_choice_options": [
             "DEX",
             "INT"
+        ]
+    },
+    {
+        "name": "Artificer Initiate",
+        "description": "You've learned some of an artificer's inventiveness: learn one Artificer cantrip and one 1st-level Artificer spell (1/Long Rest free and using spell slots), using Intelligence as your spellcasting ability, plus proficiency with one artisan's tool (which can act as a spellcasting focus).",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 79",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false,
+        "stat_choice_options": []
+    },
+    {
+        "name": "Chef",
+        "description": "Increase your Constitution or Wisdom by 1 (max 20), gain proficiency with cook's utensils, roll extra healing d8s during Short Rests, and craft special treats during Long Rests granting Temporary Hit Points equal to your Proficiency Bonus.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 79",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "CON",
+            "WIS"
+        ]
+    },
+    {
+        "name": "Crusher",
+        "description": "Increase your Strength or Constitution by 1 (max 20). Once per turn when dealing bludgeoning damage, move the target 5 feet; on a critical hit with bludgeoning damage, attack rolls against that creature have Advantage until the start of your next turn.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 79",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "CON"
+        ]
+    },
+    {
+        "name": "Eldritch Adept",
+        "description": "You learn one Eldritch Invocation option of your choice from the warlock class (must have no prerequisites unless you are a Warlock who meets them).",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": [
+                "Spellcasting"
+            ]
+        },
+        "source": "Tasha's Cauldron of Everything, p. 79",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false,
+        "stat_choice_options": []
+    },
+    {
+        "name": "Fey Touched",
+        "description": "Increase your Intelligence, Wisdom, or Charisma by 1 (max 20). You learn Misty Step and one 1st-level Divination or Enchantment spell (each castable once per Long Rest without a spell slot and with normal spell slots).",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 79",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Fighting Initiate",
+        "description": "Your martial training gives you one Fighting Style option of your choice from the fighter class (you must already have proficiency with at least one martial weapon).",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": [
+                "Proficiency with Martial Weapons"
+            ]
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false,
+        "stat_choice_options": []
+    },
+    {
+        "name": "Gunner",
+        "description": "Increase your Dexterity by 1 (max 20), gain proficiency with firearms, ignore the loading property of firearms, and make ranged attacks within 5 feet of a hostile creature without disadvantage.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 1,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false,
+        "stat_choice_options": []
+    },
+    {
+        "name": "Metamagic Adept",
+        "description": "You learn two Metamagic options from the sorcerer class and gain 2 Sorcery Points (recharging on a Long Rest) solely for Metamagic.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": [
+                "Spellcasting"
+            ]
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false,
+        "stat_choice_options": []
+    },
+    {
+        "name": "Piercer",
+        "description": "Increase your Strength or Dexterity by 1 (max 20). Once per turn, reroll one piercing damage die; on a critical hit with piercing damage, roll one additional damage die.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
+    },
+    {
+        "name": "Poisoner",
+        "description": "Your attacks ignore resistance to poison damage, you can coat weapons with potent poison as a Bonus Action (save vs poisoned + 2d8 poison), and gain proficiency with the poisoner's kit.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": false,
+        "stat_choice_options": []
+    },
+    {
+        "name": "Shadow Touched",
+        "description": "Increase your Intelligence, Wisdom, or Charisma by 1 (max 20). You learn Invisibility and one 1st-level Illusion or Necromancy spell (each castable once per Long Rest without a spell slot and with normal spell slots).",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Skill Expert",
+        "description": "Increase one ability score by 1 (max 20), gain proficiency in one skill of your choice, and gain Expertise in one skill you are proficient in.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 80",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Slasher",
+        "description": "Increase your Strength or Dexterity by 1 (max 20). Once per turn when dealing slashing damage, reduce the target's speed by 10 feet; on a critical hit with slashing damage, the target has Disadvantage on attack rolls until your next turn.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 81",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "STR",
+            "DEX"
+        ]
+    },
+    {
+        "name": "Telekinetic",
+        "description": "Increase your Intelligence, Wisdom, or Charisma by 1 (max 20). Learn Mage Hand (invisible, +30 ft range if already known) and shove a creature 5 feet as a Bonus Action.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 81",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
+        ]
+    },
+    {
+        "name": "Telepathic",
+        "description": "Increase your Intelligence, Wisdom, or Charisma by 1 (max 20). Speak telepathically within 60 feet and cast Detect Thoughts once per Long Rest without a spell slot.",
+        "prerequisites": {
+            "min_level": 0,
+            "stat_requirements": {},
+            "other": []
+        },
+        "source": "Tasha's Cauldron of Everything, p. 81",
+        "is_official": true,
+        "stat_bonus": {
+            "STR": 0,
+            "DEX": 0,
+            "CON": 0,
+            "INT": 0,
+            "WIS": 0,
+            "CHA": 0
+        },
+        "hp_bonus_per_level": 0,
+        "has_stat_choice": true,
+        "stat_choice_options": [
+            "INT",
+            "WIS",
+            "CHA"
         ]
     }
 ]

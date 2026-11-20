@@ -4,6 +4,24 @@
     "subclasses": {
         "Hunter": {
             "name": "Hunter",
+            "features": {
+                "3": {
+                    "name": "Hunter's Prey",
+                    "description": "Choose Colossus Slayer (+1d8 once per turn vs injured foes), Giant Killer (reaction counter vs Large+), or Horde Breaker (extra attack vs adjacent foe)."
+                },
+                "7": {
+                    "name": "Defensive Tactics",
+                    "description": "Choose Escape the Horde (Disadvantage on opportunity attacks against you), Multiattack Defense (+4 AC vs repeat hits), or Steel Will (Adv vs Frightened)."
+                },
+                "11": {
+                    "name": "Multiattack",
+                    "description": "Choose Volley (ranged attack against every enemy within 10 ft of a point) or Whirlwind Attack (melee attack against all foes within 5 ft)."
+                },
+                "15": {
+                    "name": "Superior Hunter's Defense",
+                    "description": "Choose Evasion (avoid half/all DEX save damage), Stand Against the Tide, or Uncanny Dodge (halve incoming attack damage as Reaction)."
+                }
+            },
             "scaling": {
                 "colossus_slayer": {
                     "name": "Colossus Slayer",
@@ -18,8 +36,115 @@
                 }
             }
         },
+        "Beast Master": {
+            "name": "Beast Master",
+            "features": {
+                "3": {
+                    "name": "Ranger's Companion",
+                    "description": "Bond with a CR <= 1/4 Medium or smaller Beast (or TCoE Primal Companion) adding your Proficiency Bonus to its AC, attacks, damage, saves, and skills."
+                },
+                "7": {
+                    "name": "Exceptional Training",
+                    "description": "Command your beast to Dash, Disengage, or Help as a Bonus Action; its attacks count as magical."
+                },
+                "11": {
+                    "name": "Bestial Fury",
+                    "description": "Your beast companion can make two attacks when you command it to take the Attack action."
+                },
+                "15": {
+                    "name": "Share Spells",
+                    "description": "When you cast a spell targeting yourself, you can also affect your beast companion within 30 ft."
+                }
+            }
+        },
+        "Gloom Stalker": {
+            "name": "Gloom Stalker",
+            "bonus_spells": {
+                "3": [
+                    "Disguise Self"
+                ],
+                "5": [
+                    "Rope Trick"
+                ],
+                "9": [
+                    "Fear"
+                ],
+                "13": [
+                    "Greater Invisibility"
+                ],
+                "17": [
+                    "Seeming"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Dread Ambusher & Umbral Sight",
+                    "description": "Add WIS modifier to Initiative, +10 ft turn-1 speed & extra turn-1 weapon attack (+1d8 damage), gain 60 ft Darkvision (+30 ft if already have it) and invisibility to Darkvision in darkness."
+                },
+                "7": {
+                    "name": "Iron Mind",
+                    "description": "Gain proficiency in Wisdom saving throws (or Intelligence/Charisma if already proficient in WIS)."
+                },
+                "11": {
+                    "name": "Stalker's Flurry",
+                    "description": "Once per turn when you miss with a weapon attack, make another weapon attack as part of the same action."
+                },
+                "15": {
+                    "name": "Shadowy Dodge",
+                    "description": "Reaction imposes Disadvantage on an attack roll against you before knowing if it hits."
+                }
+            },
+            "scaling": {
+                "dread_ambusher": {
+                    "name": "Dread Ambusher",
+                    "kind": "rider",
+                    "hint": "First turn of combat: +10ft walking speed, one extra weapon attack that deals extra weapon damage on hit.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        }
+                    ]
+                }
+            }
+        },
         "Horizon Walker": {
             "name": "Horizon Walker",
+            "bonus_spells": {
+                "3": [
+                    "Protection from Evil and Good"
+                ],
+                "5": [
+                    "Misty Step"
+                ],
+                "9": [
+                    "Haste"
+                ],
+                "13": [
+                    "Banishment"
+                ],
+                "17": [
+                    "Teleportation Circle"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Detect Portal & Planar Warrior",
+                    "description": "Action senses planar portals within 1 mile; Bonus Action converts your next weapon attack's damage into Force damage and adds +1d8 Force."
+                },
+                "7": {
+                    "name": "Ethereal Step",
+                    "description": "Bonus Action casts Etherealness until turn end (1/Short or Long Rest)."
+                },
+                "11": {
+                    "name": "Distant Strike",
+                    "description": "Teleport 10 ft before each weapon attack and gain a 3rd attack against a distinct creature; Planar Warrior scales to +2d8 Force."
+                },
+                "15": {
+                    "name": "Spectral Defense",
+                    "description": "Reaction halves all damage from a hitting attack against you by turning briefly ethereal."
+                }
+            },
             "scaling": {
                 "planar_warrior": {
                     "name": "Planar Warrior",
@@ -63,19 +188,138 @@
                 }
             }
         },
-        "Gloom Stalker": {
-            "name": "Gloom Stalker",
-            "scaling": {
-                "dread_ambusher": {
-                    "name": "Dread Ambusher",
-                    "kind": "rider",
-                    "hint": "First turn of combat: +10ft walking speed, one extra weapon attack that deals extra weapon damage on hit.",
-                    "steps": [
-                        {
-                            "level": 3,
-                            "notation": "1d8"
-                        }
-                    ]
+        "Monster Slayer": {
+            "name": "Monster Slayer",
+            "bonus_spells": {
+                "3": [
+                    "Protection from Evil and Good"
+                ],
+                "5": [
+                    "Zone of Truth"
+                ],
+                "9": [
+                    "Magic Circle"
+                ],
+                "13": [
+                    "Banishment"
+                ],
+                "17": [
+                    "Hold Monster"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Hunter's Sense & Slayer's Prey",
+                    "description": "Action discerns target's resistances/immunities/vulnerabilities (WIS mod/Long Rest); Bonus Action deals +1d6 damage once per turn to a chosen quarry."
+                },
+                "7": {
+                    "name": "Supernatural Defense",
+                    "description": "Add +1d6 to any saving throw or grapple escape caused by your Slayer's Prey target."
+                },
+                "11": {
+                    "name": "Magic-User's Nemesis",
+                    "description": "Reaction forces your foe to make a WIS save or its spell/teleport fails (1/Short or Long Rest)."
+                },
+                "15": {
+                    "name": "Slayer's Counter",
+                    "description": "When your Slayer's Prey forces a save, Reaction lets you make a weapon attack; hitting automatically passes the save."
+                }
+            }
+        },
+        "Fey Wanderer": {
+            "name": "Fey Wanderer",
+            "bonus_spells": {
+                "3": [
+                    "Charm Person"
+                ],
+                "5": [
+                    "Misty Step"
+                ],
+                "9": [
+                    "Dispel Magic"
+                ],
+                "13": [
+                    "Dimension Door"
+                ],
+                "17": [
+                    "Mislead"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Dreadful Strikes & Otherworldly Glamour",
+                    "description": "Weapon hits deal +1d4 Psychic once per creature per turn (+1d6 at L11); add WIS modifier to Charisma checks and gain a social skill."
+                },
+                "7": {
+                    "name": "Beguiling Twist",
+                    "description": "Adv vs Charmed/Frightened; Reaction redirects a failed/succeeded Charm/Fear save onto another foe within 120 ft."
+                },
+                "11": {
+                    "name": "Fey Reinforcements",
+                    "description": "Cast Summon Fey without material components (1/Long Rest or slot) and optionally remove Concentration (1 min duration)."
+                },
+                "15": {
+                    "name": "Misty Wanderer",
+                    "description": "Cast Misty Step PB times/Long Rest without a slot, bringing one willing creature within 5 ft."
+                }
+            }
+        },
+        "Swarmkeeper": {
+            "name": "Swarmkeeper",
+            "bonus_spells": {
+                "3": [
+                    "Faerie Fire"
+                ],
+                "5": [
+                    "Web"
+                ],
+                "9": [
+                    "Gaseous Form"
+                ],
+                "13": [
+                    "Arcane Eye"
+                ],
+                "17": [
+                    "Insect Plague"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Gathered Swarm",
+                    "description": "Learn Mage Hand; once per turn on hit, have your swarm deal +1d6 Piercing damage, move target 15 ft (STR save), or move you 5 ft."
+                },
+                "7": {
+                    "name": "Writhing Tide",
+                    "description": "Bonus Action gains a 10-ft Fly Speed and hover for 1 minute (PB/Long Rest)."
+                },
+                "11": {
+                    "name": "Mighty Swarm",
+                    "description": "Swarm damage increases to 1d8, pushes knock target Prone, and self-moves grant Half Cover."
+                },
+                "15": {
+                    "name": "Swarming Dispersal",
+                    "description": "Reaction halves incoming damage and teleports 30 ft (PB/Long Rest)."
+                }
+            }
+        },
+        "Drakewarden": {
+            "name": "Drakewarden",
+            "features": {
+                "3": {
+                    "name": "Draconic Gift & Drake Companion",
+                    "description": "Learn Draconic & Thaumaturgy; Action summons a Small elemental Drake Companion obeying Bonus Action commands with Infused Strikes (+1d6 elemental damage)."
+                },
+                "7": {
+                    "name": "Bond of Fang and Scale",
+                    "description": "Mount your Medium Drake (cannot fly while mounted yet), its bites add +1d6 elemental damage, and you gain Resistance to its chosen element."
+                },
+                "11": {
+                    "name": "Drake's Breath",
+                    "description": "Exhale (you or Drake) an 8d6 elemental 30-ft cone DEX save (1/Long Rest or 3rd+ spell slot; 10d6 at L15)."
+                },
+                "15": {
+                    "name": "Perfected Bond",
+                    "description": "Drake becomes Large (fly while mounted), Infused Strikes rises to +2d6, and Reaction halves damage to either of you (PB/Long Rest)."
                 }
             }
         }

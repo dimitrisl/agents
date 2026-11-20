@@ -2,8 +2,47 @@
     "class_name": "Rogue",
     "edition": "2014 Edition",
     "subclasses": {
+        "Thief": {
+            "name": "Thief",
+            "features": {
+                "3": {
+                    "name": "Fast Hands & Second-Story Work",
+                    "description": "Use Cunning Action for Sleight of Hand, Thieves' Tools, or Use an Object; climb costs no extra movement and jump distance adds DEX modifier feet."
+                },
+                "9": {
+                    "name": "Supreme Sneak",
+                    "description": "Advantage on Stealth checks if you move no more than half your speed on the same turn."
+                },
+                "13": {
+                    "name": "Use Magic Device",
+                    "description": "Ignore all class, race, and level requirements on the use of magic items."
+                },
+                "17": {
+                    "name": "Thief's Reflexes",
+                    "description": "Take two turns during the first round of any combat (Initiative and Initiative - 10)."
+                }
+            }
+        },
         "Assassin": {
             "name": "Assassin",
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiencies & Assassinate",
+                    "description": "Gain disguise kit & poisoner's kit; Advantage on attacks against targets who haven't acted yet, and hits on surprised creatures are automatic Critical Hits."
+                },
+                "9": {
+                    "name": "Infiltration Expertise",
+                    "description": "Unfailingly create false identities (7 days and 25 gp)."
+                },
+                "13": {
+                    "name": "Impostor",
+                    "description": "Unerringly mimic another person's speech, writing, and behavior after 3 hours of study."
+                },
+                "17": {
+                    "name": "Death Strike",
+                    "description": "Surprised creatures hit by your attack must make a CON save or take double damage from the attack."
+                }
+            },
             "scaling": {
                 "assassinate": {
                     "name": "Assassinate",
@@ -18,8 +57,131 @@
                 }
             }
         },
+        "Arcane Trickster": {
+            "name": "Arcane Trickster",
+            "features": {
+                "3": {
+                    "name": "Spellcasting & Mage Hand Legerdemain",
+                    "description": "Cast Wizard spells (INT; Illusion/Enchantment focus) and make Mage Hand invisible to pick locks/pockets at 30 ft via Cunning Action."
+                },
+                "9": {
+                    "name": "Magical Ambush",
+                    "description": "Targets have Disadvantage on saving throws against your spells if you are hidden from them when casting."
+                },
+                "13": {
+                    "name": "Versatile Trickster",
+                    "description": "Bonus Action uses Mage Hand to distract a target within 5 ft, granting Advantage on your attacks against it."
+                },
+                "17": {
+                    "name": "Spell Thief",
+                    "description": "Reaction attempts to negate and temporarily steal a spell cast at you (1/Long Rest)."
+                }
+            }
+        },
+        "Mastermind": {
+            "name": "Mastermind",
+            "features": {
+                "3": {
+                    "name": "Master of Intrigue & Master of Tactics",
+                    "description": "Gain disguise/forgery kits, 2 languages, and mimicry; use Help as a Bonus Action with a 30-ft range."
+                },
+                "9": {
+                    "name": "Insightful Manipulator",
+                    "description": "Observe a creature outside combat for 1 min to learn two relative stats/HP/levels."
+                },
+                "13": {
+                    "name": "Misdirection",
+                    "description": "Reaction redirects an attack targeting you onto an adjacent creature providing you cover."
+                },
+                "17": {
+                    "name": "Soul of Deceit",
+                    "description": "Your thoughts cannot be read, and you can present false thoughts on Deception checks; magic always thinks you tell the truth."
+                }
+            }
+        },
+        "Swashbuckler": {
+            "name": "Swashbuckler",
+            "features": {
+                "3": {
+                    "name": "Fancy Footwork & Rakish Audacity",
+                    "description": "Targets you melee-attack cannot make Opportunity Attacks against you this turn; add CHA mod to Initiative and Sneak Attack 1v1 duels cleanly."
+                },
+                "9": {
+                    "name": "Panache",
+                    "description": "Action Insight/Persuasion check charms friendly targets or goads hostile targets into focusing on you."
+                },
+                "13": {
+                    "name": "Elegant Maneuver",
+                    "description": "Bonus Action grants Advantage on your next Acrobatics or Athletics check."
+                },
+                "17": {
+                    "name": "Master Duelist",
+                    "description": "Reroll a missed attack roll with Advantage once per Short or Long Rest."
+                }
+            }
+        },
+        "Inquisitive": {
+            "name": "Inquisitive",
+            "features": {
+                "3": {
+                    "name": "Ear for Deceit, Eye for Detail & Insightful Fighting",
+                    "description": "Treat rolls <= 7 as 8 on Insight to spot lies; Cunning Action Perception/Investigation; Bonus Action Insight contest enables Sneak Attack for 1 minute."
+                },
+                "9": {
+                    "name": "Steady Eye",
+                    "description": "Advantage on Perception and Investigation checks if you move no more than half your speed."
+                },
+                "13": {
+                    "name": "Unerring Eye",
+                    "description": "Sense illusions, shapechangers, and magic within 30 ft (WIS mod/Long Rest)."
+                },
+                "17": {
+                    "name": "Eye for Weakness",
+                    "description": "Add +3d6 extra Sneak Attack damage against targets under your Insightful Fighting."
+                }
+            }
+        },
+        "Scout": {
+            "name": "Scout",
+            "features": {
+                "3": {
+                    "name": "Skirmisher & Survivalist",
+                    "description": "Gain proficiency & Expertise in Nature and Survival; Reaction moves half speed without Opportunity Attacks when an enemy ends its turn within 5 ft."
+                },
+                "9": {
+                    "name": "Superior Mobility",
+                    "description": "Your walking, climbing, and swimming speeds increase by +10 feet."
+                },
+                "13": {
+                    "name": "Ambush Master",
+                    "description": "Advantage on Initiative rolls; the first creature you hit on turn 1 takes attacks from all allies at Advantage until your next turn."
+                },
+                "17": {
+                    "name": "Sudden Strike",
+                    "description": "Bonus Action weapon attack after Attack action can also deal Sneak Attack damage to a second target."
+                }
+            }
+        },
         "Phantom": {
             "name": "Phantom",
+            "features": {
+                "3": {
+                    "name": "Whispers of the Dead & Wails from the Grave",
+                    "description": "Swap a bonus skill/tool after rests; deal half Sneak Attack dice Necrotic damage to a second creature within 30 ft (PB/Long Rest)."
+                },
+                "9": {
+                    "name": "Tokens of the Departed",
+                    "description": "Reaction captures Soul Trinkets from dying creatures granting Adv on Death/CON saves or fueling extra Wails uses."
+                },
+                "13": {
+                    "name": "Ghost Walk",
+                    "description": "Bonus Action turns spectral (10 ft Fly, hover, pass through walls, enemy attacks at Disadvantage; 1/Long Rest or 1 Soul Trinket)."
+                },
+                "17": {
+                    "name": "Death's Friend",
+                    "description": "Wails from the Grave also deals its Necrotic damage to your first target, and you regain a Soul Trinket whenever rolling Initiative with 0 left."
+                }
+            },
             "scaling": {
                 "wails_from_the_grave": {
                     "name": "Wails from the Grave",
@@ -32,6 +194,27 @@
                             "notation": "half sneak attack"
                         }
                     ]
+                }
+            }
+        },
+        "Soulknife": {
+            "name": "Soulknife",
+            "features": {
+                "3": {
+                    "name": "Psionic Power & Psychic Blades",
+                    "description": "Pool of 2x PB Psionic Energy Dice (d6->d12) for Psi-Bolstered Knack & Psychic Whispers; manifest 1d6/1d4 Psychic Blades leaving no wounds."
+                },
+                "9": {
+                    "name": "Soul Blades",
+                    "description": "Spend a Psionic Die when missing with a Psychic Blade (Homing Strikes) or throw one to teleport up to 10x roll ft (Psychic Teleportation)."
+                },
+                "13": {
+                    "name": "Psychic Veil",
+                    "description": "Action turns Invisible for 1 hour (1/Long Rest or 1 Psionic Die)."
+                },
+                "17": {
+                    "name": "Rend Mind",
+                    "description": "Deal Sneak Attack with Psychic Blade to force a WIS save or Stun the target for 1 minute (1/Long Rest or 3 Psionic Dice)."
                 }
             }
         }

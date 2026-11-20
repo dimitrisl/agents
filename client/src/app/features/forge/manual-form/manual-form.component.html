@@ -662,7 +662,7 @@
               Skills & Proficiencies
             </h2>
             <p class="text-label text-muted">
-              {{ manualClass }} typically chooses {{ skillRules.count }} class skills. (Selected: {{ manualSkills.length }})
+              {{ manualClass }} typically chooses {{ skillRules.count }} class skills@if (racialBonusSkillCount > 0) { + {{ racialBonusSkillCount }} {{ manualRace }} bonus skill{{ racialBonusSkillCount > 1 ? 's' : '' }} }. (Selected: {{ manualSkills.length }})
               @if (backgroundSkills.length > 0) {
                 <span class="text-micro text-accent font-mono ml-1">
                   · Background grants: {{ backgroundSkills.join(', ') }}
@@ -754,16 +754,28 @@
             </h2>
             <div class="flex flex-wrap items-center gap-2 text-label text-muted">
               <span>Choose feats for your character.</span>
-              <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
-                <span>Origin:</span>
-                <strong [class.text-accent]="originFeatsCount >= maxOriginFeats">{{ originFeatsCount }}/{{ maxOriginFeats }}</strong>
-                <span class="text-hairline">|</span>
-                <span>General:</span>
-                <strong [class.text-accent]="generalFeatsCount >= maxGeneralFeats">{{ generalFeatsCount }}/{{ maxGeneralFeats }}</strong>
-              </span>
+              @if (is2024) {
+                <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
+                  <span>Origin:</span>
+                  <strong [class.text-accent]="originFeatsCount >= maxOriginFeats">{{ originFeatsCount }}/{{ maxOriginFeats }}</strong>
+                  <span class="text-hairline">|</span>
+                  <span>General:</span>
+                  <strong [class.text-accent]="generalFeatsCount >= maxGeneralFeats">{{ generalFeatsCount }}/{{ maxGeneralFeats }}</strong>
+                </span>
+              } @else {
+                <span class="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface/60 px-2 py-0.5 text-micro">
+                  <span>Feats:</span>
+                  <strong [class.text-accent]="manualFeats.length >= maxOriginFeats + maxGeneralFeats">{{ manualFeats.length }}/{{ maxOriginFeats + maxGeneralFeats }}</strong>
+                </span>
+              }
               @if (backgroundOriginFeat) {
                 <span class="text-micro text-accent font-mono">
                   · Background grants: {{ backgroundOriginFeat }}
+                </span>
+              }
+              @if (!is2024 && maxOriginFeats > 0) {
+                <span class="text-micro text-accent font-mono">
+                  · {{ manualRace }} grants: +{{ maxOriginFeats }} Level 1 Bonus Feat
                 </span>
               }
             </div>
@@ -801,6 +813,7 @@
 
         <!-- Controls: Tab + Search -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          @if (is2024) {
           <div class="flex items-center gap-2">
             <button
               type="button"
@@ -830,6 +843,11 @@
               All ({{ availableFeats.length }})
             </button>
           </div>
+          } @else {
+          <div class="flex items-center gap-2">
+            <span class="text-label font-semibold text-muted">All 2014 Feats ({{ filteredFeats.length }})</span>
+          </div>
+          }
 
           <div class="w-full sm:w-64">
             <input

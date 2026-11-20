@@ -448,6 +448,21 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
                     else:
                         proficiencies.add(p_lower)
 
+    # 1b. Subclass armor proficiencies (e.g. Life/Tempest/War/Forge Cleric Heavy Armor, Hexblade/Valor Medium+Shields)
+    for cname, csub, clvl in _extract_class_subclass_tuples(char_data):
+        if not csub or csub.lower() in ("none", "n/a"):
+            continue
+        c_prog = repo.get_class_progression(cname, edition)
+        min_lvl = _get_subclass_min_level(c_prog) if c_prog else SUBCLASS_MIN_LEVEL
+        if clvl >= (min_lvl if min_lvl is not None else SUBCLASS_MIN_LEVEL):
+            sub_entry = repo.get_subclass_entry(cname, csub, edition) or {}
+            for p in sub_entry.get("armor_proficiencies") or []:
+                p_low = str(p).strip().lower()
+                if p_low in ("light", "medium", "heavy"):
+                    proficiencies.add(f"{p_low} armor")
+                elif p_low:
+                    proficiencies.add(p_low)
+
     # 2. Features and Traits
     # e.g., "Bonus Proficiency: Heavy Armor" or "Training in War and Song" (Light armor)
     for feat in char_data.get("features_traits", []):
@@ -470,6 +485,241 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
         proficiencies.update(["light armor", "medium armor", "heavy armor", "shields"])
 
     return proficiencies
+
+
+def _extract_class_subclass_tuples(char_data: Dict[str, Any]) -> list[tuple[str, str, int]]:
+    """Return normalized [(class_name, subclass_name, class_level)] entries."""
+    out: list[tuple[str, str, int]] = []
+    primary_class = str(char_data.get("char_class") or "").strip()
+    primary_sub = str(char_data.get("subclass") or "").strip()
+    classes = char_data.get("classes") or []
+    for cls in classes:
+        c_dict = (
+            cls
+            if isinstance(cls, dict)
+            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
+        )
+        cname = str(c_dict.get("class_name") or "").strip()
+        if not cname:
+            continue
+        try:
+            clvl = max(1, int(c_dict.get("level") or 1))
+        except (TypeError, ValueError):
+            clvl = 1
+        csub = str(
+            c_dict.get("subclass")
+            or (primary_sub if cname.lower() == primary_class.lower() else "")
+        ).strip()
+        out.append((cname, csub, clvl))
+    if not out and primary_class:
+        try:
+            clvl = max(1, int(char_data.get("char_level") or 1))
+        except (TypeError, ValueError):
+            clvl = 1
+        out.append((primary_class, primary_sub, clvl))
+    return out
+
+
+def _normalize_weapon_prof_token(raw: str) -> str:
+    clean = str(raw or "").strip().lower()
+    if clean in ("simple", "simple weapons"):
+        return "simple weapons"
+    if clean in ("martial", "martial weapons"):
+        return "martial weapons"
+    return clean
+
+
+def get_character_weapon_proficiencies(
+    char_data: Dict[str, Any], class_data: Dict[str, Any] | None = None
+) -> set[str]:
+    """Extract weapon proficiencies from class, multiclass, subclass, race, and features."""
+    profs: set[str] = set()
+    edition = char_data.get("dnd_edition", "2014 Edition")
+    repo = RulesRepository()
+
+    class_entries = _extract_class_subclass_tuples(char_data)
+    class_datas = [class_data] if class_data else []
+    for cname, csub, clvl in class_entries:
+        c_prog = repo.get_class_progression(cname, edition)
+        if c_prog and c_prog not in class_datas:
+            class_datas.append(c_prog)
+        if csub and csub.lower() not in ("none", "n/a"):
+            min_lvl = _get_subclass_min_level(c_prog) if c_prog else SUBCLASS_MIN_LEVEL
+            if clvl >= (min_lvl if min_lvl is not None else SUBCLASS_MIN_LEVEL):
+                sub_entry = repo.get_subclass_entry(cname, csub, edition) or {}
+                for wp in sub_entry.get("weapon_proficiencies") or []:
+                    norm = _normalize_weapon_prof_token(wp)
+                    if norm:
+                        profs.add(norm)
+
+    for cd in class_datas:
+        if isinstance(cd, dict):
+            for wp in (cd.get("starting_proficiencies") or {}).get("weapons") or []:
+                norm = _normalize_weapon_prof_token(wp)
+                if norm and norm != "none":
+                    profs.add(norm)
+
+    race_name = str(char_data.get("race") or "").strip()
+    if race_name:
+        race_data = repo.get_race_data(race_name, edition) or {}
+        for wp in race_data.get("weapon_proficiencies") or []:
+            norm = _normalize_weapon_prof_token(wp)
+            if norm:
+                profs.add(norm)
+
+    known_weapon_tokens = (
+        "simple weapons",
+        "martial weapons",
+        "hand crossbows",
+        "heavy crossbows",
+        "light crossbows",
+        "longswords",
+        "shortswords",
+        "rapiers",
+        "scimitars",
+        "shortbows",
+        "longbows",
+        "daggers",
+        "darts",
+        "slings",
+        "quarterstaffs",
+        "battleaxes",
+        "handaxes",
+        "light hammers",
+        "warhammers",
+        "clubs",
+        "javelins",
+        "maces",
+        "sickles",
+        "spears",
+        "firearms",
+    )
+    for feat in char_data.get("features_traits", []) or []:
+        if not isinstance(feat, dict):
+            continue
+        f_name = str(feat.get("name") or "").lower()
+        f_desc = str(feat.get("description") or "").lower()
+        combined = f"{f_name} {f_desc}"
+        if "gunner" in f_name:
+            profs.add("firearms")
+        if "tavern brawler" in f_name:
+            profs.add("improvised weapons")
+        if "proficien" in combined or "training" in combined or "hex warrior" in f_name:
+            for tok in known_weapon_tokens:
+                if tok in combined or tok.rstrip("s") in combined:
+                    profs.add(tok)
+
+    return profs
+
+
+def is_weapon_proficient(
+    weapon: Dict[str, Any],
+    weapon_proficiencies: set[str] | list[str] | None,
+    weapon_data: Dict[str, Any] | None = None,
+    is_monk: bool = False,
+) -> bool:
+    """Return True if the character is proficient with the equipped weapon."""
+    if weapon.get("proficient") is False:
+        return False
+    if weapon.get("is_custom"):
+        return bool(weapon.get("proficient", True))
+    if not weapon_proficiencies:
+        return bool(weapon.get("proficient", True))
+
+    w_name = str(weapon.get("name") or "").strip().lower()
+    if not w_name or "unarmed" in w_name or "spell" in w_name or "eldritch blast" in w_name:
+        return bool(weapon.get("proficient", True))
+
+    prof_set = {_normalize_weapon_prof_token(p) for p in weapon_proficiencies if str(p).strip()}
+    clean_base = re.sub(r"\s*\+\d+\s*", " ", w_name).strip()
+
+    if is_monk and (
+        "shortsword" in clean_base
+        or (
+            weapon_data
+            and "simple" in str(weapon_data.get("category") or "").lower()
+            and "melee" in str(weapon_data.get("category") or "").lower()
+        )
+    ):
+        return True
+
+    simple_known = (
+        "club",
+        "dagger",
+        "greatclub",
+        "handaxe",
+        "javelin",
+        "light hammer",
+        "mace",
+        "quarterstaff",
+        "sickle",
+        "spear",
+        "light crossbow",
+        "dart",
+        "shortbow",
+        "sling",
+    )
+    martial_known = (
+        "battleaxe",
+        "flail",
+        "glaive",
+        "greataxe",
+        "greatsword",
+        "halberd",
+        "lance",
+        "longsword",
+        "maul",
+        "morningstar",
+        "pike",
+        "rapier",
+        "scimitar",
+        "shortsword",
+        "trident",
+        "war pick",
+        "warhammer",
+        "whip",
+        "blowgun",
+        "hand crossbow",
+        "heavy crossbow",
+        "longbow",
+        "net",
+    )
+
+    if weapon_data:
+        cat = str(weapon_data.get("category") or "").lower()
+        if "simple" in cat and "simple weapons" in prof_set:
+            return True
+        if "martial" in cat and "martial weapons" in prof_set:
+            return True
+    else:
+        if (
+            any(re.search(rf"\b{re.escape(k)}\b", clean_base) for k in simple_known)
+            and "simple weapons" in prof_set
+        ):
+            return True
+        if (
+            any(re.search(rf"\b{re.escape(k)}\b", clean_base) for k in martial_known)
+            and "martial weapons" in prof_set
+        ):
+            return True
+
+    # Direct single-weapon or plural proficiency token match (e.g. "longsword" vs "longswords")
+    for tok in prof_set:
+        tok_sing = tok[:-1] if tok.endswith("s") else tok
+        if (
+            tok == clean_base
+            or tok_sing == clean_base
+            or (len(tok_sing) >= 4 and re.search(rf"\b{re.escape(tok_sing)}\b", clean_base))
+        ):
+            return True
+
+    # Only fall back to explicit/default weapon flag for custom/unknown weapon names
+    if weapon_data is None and not any(
+        re.search(rf"\b{re.escape(k)}\b", clean_base) for k in simple_known + martial_known
+    ):
+        return bool(weapon.get("proficient", True))
+
+    return False
 
 
 def get_max_attunement_slots(char_data: Dict[str, Any]) -> int:

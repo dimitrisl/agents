@@ -24,6 +24,7 @@ export interface RollOptions {
   numDice?: number;
   modifier?: number;
   mode?: RollMode;
+  minD20?: number;
 }
 
 /** One named line of a damage roll — the weapon, then every rider stacked on it. */
@@ -85,7 +86,7 @@ export class DiceService {
     return Math.floor(Math.random() * sides) + 1;
   }
 
-  roll({ sides, numDice = 1, modifier = 0, mode = 'normal' }: RollOptions): DiceRoll {
+  roll({ sides, numDice = 1, modifier = 0, mode = 'normal', minD20 }: RollOptions): DiceRoll {
     // Advantage is a d20 mechanic: it has no meaning on 2d6, so it is dropped
     // rather than silently applied to the wrong thing.
     const modeApplies = mode !== 'normal' && sides === 20 && numDice === 1;
@@ -100,6 +101,10 @@ export class DiceService {
     } else {
       rolls = Array.from({ length: numDice }, () => this.rollDie(sides));
       raw = rolls.reduce((sum, value) => sum + value, 0);
+    }
+
+    if (sides === 20 && numDice === 1 && minD20 && minD20 > 1 && raw < minD20) {
+      raw = Math.min(20, minD20);
     }
 
     return {
@@ -117,8 +122,8 @@ export class DiceService {
   }
 
   /** Convenience for the most common roll in the game. */
-  rollD20(modifier = 0, mode: RollMode = 'normal'): DiceRoll {
-    return this.roll({ sides: 20, numDice: 1, modifier, mode });
+  rollD20(modifier = 0, mode: RollMode = 'normal', minD20?: number): DiceRoll {
+    return this.roll({ sides: 20, numDice: 1, modifier, mode, minD20 });
   }
 
   /** Rolls dice notation (`2d6+1`, `d8`). Falls back to 1d20 like the backend. */

@@ -137,14 +137,61 @@ export function abilityCheckModifier(
   return abilityModifierOf(char, ability) - exhaustionD20Penalty(char) + dmCheck;
 }
 
+const SAVE_FULL_TO_CODE: Record<string, string> = {
+  STRENGTH: 'STR',
+  DEXTERITY: 'DEX',
+  CONSTITUTION: 'CON',
+  INTELLIGENCE: 'INT',
+  WISDOM: 'WIS',
+  CHARISMA: 'CHA',
+};
+
+function classLevelFor(char: CharacterSchema | null | undefined, className: string): number {
+  if (!char) return 0;
+  const target = className.toLowerCase();
+  if (char.classes && char.classes.length > 0) {
+    const entry = char.classes.find((c) => (c.class_name || '').trim().toLowerCase() === target);
+    if (entry) return entry.level || 0;
+  }
+  return (char.char_class || '').trim().toLowerCase() === target ? char.char_level || 1 : 0;
+}
+
 export function isSaveProficient(
   char: CharacterSchema | null | undefined,
   ability: string
 ): boolean {
-  return char?.saving_throws?.includes(ability) || false;
+  if (!char) return false;
+  const code = ability.trim().toUpperCase();
+  const normalizedSaves = new Set(
+    (char.saving_throws || []).map((s) => {
+      const up = String(s || '').trim().toUpperCase();
+      return SAVE_FULL_TO_CODE[up] ?? up;
+    })
+  );
+  if (normalizedSaves.has(code)) return true;
+
+  // Monk 14+ Diamond Soul grants proficiency in all saving throws
+  const hasDiamondSoul =
+    classLevelFor(char, 'monk') >= 14 ||
+    (char.features_traits || []).some((f) =>
+      (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('diamond soul')
+    );
+  if (hasDiamondSoul) return true;
+
+  // Rogue 15+ Slippery Mind grants Wisdom saving throw proficiency
+  if (code === 'WIS') {
+    const hasSlipperyMind =
+      classLevelFor(char, 'rogue') >= 15 ||
+      (char.features_traits || []).some((f) =>
+        (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('slippery mind')
+      );
+    if (hasSlipperyMind) return true;
+  }
+
+  return false;
 }
 
-/** Ability modifier, plus proficiency when trained, minus exhaustion, plus DM saves bonus. */
+/** Ability modifier, plus proficiency when trained, minus exhaustion, plus Aura/Soul/DM save bonuses. */
 export function savingThrowModifier(
   char: CharacterSchema | null | undefined,
   ability: string
@@ -156,11 +203,34 @@ export function savingThrowModifier(
     return char.saving_throw_values[ability];
   }
 
+  let extraSaveBonus = 0;
+  // Paladin 6+ Aura of Protection: +CHA modifier (minimum +1)
+  const hasAura =
+    classLevelFor(char, 'paladin') >= 6 ||
+    (char.features_traits || []).some((f) =>
+      (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('aura of protection')
+    );
+  if (hasAura) {
+    extraSaveBonus += Math.max(1, abilityModifierOf(char, 'CHA'));
+  }
+
+  // Artificer 20 Soul of Artifice: +1 per attuned magic item (max +6)
+  const hasSoulOfArtifice =
+    classLevelFor(char, 'artificer') >= 20 ||
+    (char.features_traits || []).some((f) =>
+      (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('soul of artifice')
+    );
+  if (hasSoulOfArtifice) {
+    const attunedCount = (char.equipment || []).filter((e) => e && e.attuned).length;
+    extraSaveBonus += Math.min(6, attunedCount);
+  }
+
   const dmSave = char.dm_modifiers?.saving_throws_bonus ?? 0;
   return (
     abilityModifierOf(char, ability) +
     (isSaveProficient(char, ability) ? proficiencyBonus(char) : 0) -
     exhaustionD20Penalty(char) +
+    extraSaveBonus +
     dmSave
   );
 }

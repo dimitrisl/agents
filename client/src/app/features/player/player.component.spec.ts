@@ -1712,4 +1712,55 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
 
     fixture.destroy();
   });
+
+  it('applies 2014 Rogue Reliable Talent floor on proficient skill checks and Bard Song of Rest / Sorcerous Restoration on short rest', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      dnd_edition: '2014 Edition',
+      active_campaign: undefined,
+      char_class: 'Rogue',
+      char_level: 11,
+      proficiency_bonus: 4,
+      stats: { STR: 10, DEX: 18, CON: 14, INT: 12, WIS: 12, CHA: 10 },
+      skill_proficiencies: ['Stealth'],
+      hp_current: 20,
+      hp_max: 80,
+      hit_dice: '11d8',
+      hit_dice_used: 0,
+    });
+    const dice = TestBed.inject(DiceService);
+    jest.spyOn(dice, 'rollDie').mockReturnValue(2);
+
+    // Proficient skill gets floored d20 = 10 (+4 DEX +4 PB = 18)
+    const stealthRoll = comp.rollSkillCheck({ name: 'Stealth', ability: 'DEX' });
+    expect(stealthRoll.raw).toBe(10);
+    expect(stealthRoll.total).toBe(18);
+
+    // Untrained skill is NOT floored by Reliable Talent (2 + 0 = 2)
+    const athleticsRoll = comp.rollSkillCheck({ name: 'Athletics', ability: 'STR' });
+    expect(athleticsRoll.raw).toBe(2);
+    expect(athleticsRoll.total).toBe(2);
+
+    // 2014 Bard L5 Song of Rest (+1d6) + Hit Die roll during offline short rest
+    charState.activeCharacter.set({
+      ...charState.activeCharacter()!,
+      char_class: 'Bard',
+      char_level: 5,
+      dnd_edition: '2014 Edition',
+      stats: { STR: 8, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 18 },
+      hp_current: 15,
+      hp_max: 38,
+      hit_dice_used: 0,
+      class_resources: [{ name: 'Sorcery Points', current: 2, max: 20, recharge: 'long' }],
+    });
+    jest.spyOn(dice, 'rollDie').mockReturnValue(4);
+    comp.shortRestDiceToSpend = 1;
+    comp.shortRestDieSize = 8;
+    comp.shortRestManualHp = null;
+    comp.executeShortRest();
+    // 1d8 (4) + CON (+2) + Song of Rest 1d6 (4) = +10 HP (15 -> 25)
+    expect(charState.activeCharacter()!.hp_current).toBe(25);
+    http.match((r) => r.method === 'PUT').forEach((r) => r.flush(charState.activeCharacter()));
+
+    fixture.destroy();
+  });
 });

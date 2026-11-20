@@ -436,5 +436,11 @@ describe('ForgeComponent', () => {
       expect(component.aiRace).toBe('AI Choice');
       expect(component.bgOptions).toContain('Farmer');
     });
+
+    it('includes Artificer in classOptions, classColors, and primaryStatsMap', () => {
+      expect(component.classOptions).toContain('Artificer');
+      expect(component.classColors['Artificer']).toBeTruthy();
+      expect(component.primaryStatsMap['Artificer']).toEqual(['INT', 'CON']);
+    });
   });
 });

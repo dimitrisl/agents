@@ -42,6 +42,10 @@
     />
   </div>
 
+  <div *ngIf="songOfRestDie && availableHitDice > 0" class="mt-4 rounded-lg border border-hairline bg-tile p-3 text-body text-ink">
+    🎵 <strong class="text-accent">Song of Rest ({{ songOfRestDie }})</strong>: When you spend Hit Dice digitally, your soothing performance adds <strong>+{{ songOfRestDie }}</strong> bonus healing automatically.
+  </div>
+
   <div *ngIf="availableHitDice === 0" class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body text-red">
     ⚠️ You have no available Hit Dice remaining! Take a Long Rest to recover Hit Dice.
   </div>

@@ -20,6 +20,7 @@ tests/
 ├── test_dm_exhaustion_locks_modifiers.py # 2014 & 2024 Exhaustion L0-6 & L6 death, bypass waiver, non-destructive Athas magic suppression, signed DM modifiers, campaign-only locks & 1-shot unlocks vs Solo freedom, _roll_in_secret Disadvantage/cancellation, and campaign detach/delete cleanup
 ├── test_deterministic_character_math.py # Multi-class (Fighter, Wizard, Rogue, Draconic Sorcerer) Level 3 & 8 2014/2024 deterministic math, Forge/Level-Up anti-hallucination, PDF bounds, and SRD encounter hydration/fallback
 ├── test_code_review_fixes.py         # Full-stack security & correctness regression suite (XFF right-to-left proxy IP, magic-byte image validation, production JWT enforcement, VTT fog bounds, rules parity, level-up server authority, safe script queries)
+├── test_2014_qa_fixes.py             # 2014 Edition QA regression & 2024 parity suite (Paladin/Monk/Rogue/Artificer saves, Resilient half-feat, weapon profs, feat prereqs, all 13 subclass progressions & domain/innate spells, 2014 choice pickers + Agonizing Blast, Sorcerous Restoration & racial resource pools, senses/resistances/save advantages)
 ├── test_mechanics*.py                # AC math, spell slots, saving throws, and conditions
 ├── test_dnd_rules_audit_fixes*.py    # 2014 vs. 2024 rule audit verifications
 ├── test_audit_critical_p0_p1_fixes.py # Regression suite for 17 code review & security audit fixes

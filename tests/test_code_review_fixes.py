@@ -1625,6 +1625,11 @@ def test_barbarian_2014_path_feature_and_all_2024_level3_subclasses_resolve():
     from backend.core.constants import SUBCLASSES_2024
     from backend.services.forge_service import resolve_level_up_automatic_features
 
+    expected_berserker = {
+        6: "Mindless Rage",
+        10: "Intimidating Presence",
+        14: "Retaliation",
+    }
     for lvl in (6, 10, 14):
         feats = resolve_level_up_automatic_features(
             char_class="Barbarian",
@@ -1634,7 +1639,7 @@ def test_barbarian_2014_path_feature_and_all_2024_level3_subclasses_resolve():
         )
         names = [f.get("name") for f in feats]
         assert "Path feature" not in names
-        assert "Path of the Berserker Subclass Feature" in names
+        assert expected_berserker[lvl] in names
 
     # Exhaustively verify every 2024 subclass in BOTH SUBCLASSES_2024 and data/rules/subclasses.json
     with open("data/rules/subclasses.json") as f:

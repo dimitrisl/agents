@@ -66,6 +66,7 @@ import {
   formatClassSummary,
   formatModifier,
   hasExhaustionDisadvantage,
+  hasReliableTalent,
   hasSpellSlotLevel,
   HitDieOption,
   hitDieSize,
@@ -91,6 +92,7 @@ import {
   savingThrowModifier,
   skillModifier,
   skillModifierString,
+  songOfRestDie,
   spellSlotMax,
   spellSlotUsed,
   spendSpellSlot,
@@ -1071,6 +1073,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return warlockPactDetails(this.charState.activeCharacter());
   }
 
+  getSongOfRestDie(): string | null {
+    return songOfRestDie(this.charState.activeCharacter());
+  }
+
+  hasReliableTalent(char: CharacterSchema | null | undefined): boolean {
+    return hasReliableTalent(char);
+  }
+
   classSummary(
     char: CharacterSchema | null | undefined,
     variant: 'long' | 'compact' = 'compact'
@@ -1111,27 +1121,31 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!plan) return;
 
     const { diceSpent, dieSize, conBonus } = plan;
+    const songDie = this.getSongOfRestDie();
     let healedAmount = 0;
     let roll: any = null;
+    let songRoll: DiceRoll | null = null;
     if (this.shortRestManualHp !== null && this.shortRestManualHp !== undefined && `${this.shortRestManualHp}`.trim() !== '') {
       healedAmount = Math.max(0, Number(this.shortRestManualHp));
     } else {
       roll = diceSpent > 0
         ? this.dice.roll({ numDice: diceSpent, sides: dieSize, modifier: conBonus })
         : null;
-      healedAmount = roll ? roll.total : 0;
+      songRoll = diceSpent > 0 && songDie ? this.dice.rollNotation(songDie) : null;
+      healedAmount = (roll ? roll.total : 0) + (songRoll ? songRoll.total : 0);
     }
     const rest = resolveShortRest(char, plan, healedAmount);
 
     const announceShortRest = () => {
       if (roll && diceSpent > 0) {
+        const songExpr = songRoll && songDie ? ` + ${songDie} (${songRoll.raw}) [Song of Rest]` : '';
         this.rollToast.showRoll({
           title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
-          expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}`,
+          expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}${songExpr}`,
           raw: roll.raw,
           rolls: roll.rolls,
           sides: dieSize,
-          modifier: conBonus,
+          modifier: conBonus + (songRoll ? songRoll.total : 0),
           total: rest.rolled,
           rollType: 'healing',
           message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
@@ -1188,7 +1202,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (char.class_resources) {
       char.class_resources = rechargeShortRestResources(
         char.class_resources,
-        char.dnd_edition || this.charState.dndEdition()
+        char.dnd_edition || this.charState.dndEdition(),
+        char
       );
     }
 
@@ -1416,9 +1431,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     title: string,
     modifier: number,
     mode: RollMode = this.rollMode,
-    options?: { rollType?: SheetRollCategory; skipBroadcast?: boolean }
+    options?: { rollType?: SheetRollCategory; skipBroadcast?: boolean; minD20?: number }
   ) {
-    const roll = this.dice.rollD20(modifier, mode);
+    const roll = this.dice.rollD20(modifier, mode, options?.minD20);
 
     this.rollToast.showRoll({
       title: `${title}${this.dice.modeLabel(roll.mode)}`,
@@ -1444,9 +1459,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       hasExhaustionDisadvantage(char, 'check'),
       autoAdv
     );
-    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    const reliableMin = isProficientIn(char, skill.name) && hasReliableTalent(char) ? 10 : undefined;
+    const noteParts: string[] = [];
+    if (resolved.cancelled) noteParts.push('[ADV vs EXH DIS → NORMAL]');
+    if (reliableMin) noteParts.push('[RELIABLE 10+]');
+    const note = noteParts.length ? ` ${noteParts.join(' ')}` : '';
     return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK${note}`, this.getSkillModifier(skill), resolved.mode, {
       rollType: 'skill',
+      minD20: reliableMin,
     });
   }
 

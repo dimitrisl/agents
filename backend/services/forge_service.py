@@ -1153,6 +1153,20 @@ def _generate_dynamic_future_milestones(
                         ):
                             known_match = desc
                             break
+            if not known_match:
+                sub_entry = (
+                    repo.get_subclass_entry(target_class, subclass, edition) if subclass else None
+                )
+                if isinstance(sub_entry, dict):
+                    sub_feat = (sub_entry.get("features") or {}).get(str(lvl))
+                    if isinstance(sub_feat, dict) and sub_feat.get("name"):
+                        known_match = str(sub_feat["name"])
+                    elif isinstance(sub_feat, list) and sub_feat:
+                        known_match = " & ".join(
+                            str(x.get("name"))
+                            for x in sub_feat
+                            if isinstance(x, dict) and x.get("name")
+                        )
             if known_match:
                 details.append(known_match)
             else:
@@ -1819,13 +1833,29 @@ def resolve_level_up_automatic_features(
     resolved_features = []
     for feat in static_features:
         if is_subclass_placeholder_name(feat.get("name", "")):
-            details_map = SUBCLASS_FEATURES_DETAILS_2024 if is_2024 else SUBCLASS_FEATURES_DETAILS
-            sub_detail = _lookup_subclass_detail(
-                details_map, char_class, subclass_to_use, target_level
-            )
-            if not sub_detail and is_2024:
+            sub_detail = None
+            if is_2024:
                 sub_detail = _lookup_subclass_detail(
-                    SUBCLASS_FEATURES_DETAILS, char_class, subclass_to_use, target_level
+                    SUBCLASS_FEATURES_DETAILS_2024, char_class, subclass_to_use, target_level
+                )
+            else:
+                sub_entry = rules_repo.get_subclass_entry(char_class, subclass_to_use, edition)
+                if isinstance(sub_entry, dict):
+                    raw_lvl_feat = (sub_entry.get("features") or {}).get(str(target_level))
+                    if isinstance(raw_lvl_feat, dict) and raw_lvl_feat.get("name"):
+                        sub_detail = {
+                            "name": str(raw_lvl_feat["name"]),
+                            "description": str(raw_lvl_feat.get("description") or ""),
+                        }
+                    elif isinstance(raw_lvl_feat, list):
+                        for item in raw_lvl_feat:
+                            if isinstance(item, dict) and item.get("name"):
+                                resolved_features.append({**item, "source": "Subclass"})
+                        continue
+            if not sub_detail:
+                details_map = SUBCLASS_FEATURES_DETAILS
+                sub_detail = _lookup_subclass_detail(
+                    details_map, char_class, subclass_to_use, target_level
                 )
             if sub_detail:
                 resolved_features.append({**sub_detail, "source": "Subclass"})
@@ -2101,8 +2131,91 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     is_asi_level = any(is_asi_or_epic_boon_feature(f.get("name", "")) for f in static_features)
 
+    full_half_pact_casters = {
+        "bard",
+        "cleric",
+        "druid",
+        "paladin",
+        "ranger",
+        "sorcerer",
+        "warlock",
+        "wizard",
+        "artificer",
+    }
+    c_lower = char_class.lower()
+    sub_lower = str(subclass_to_use or "").lower()
+    is_third_caster = (c_lower == "fighter" and "eldritch knight" in sub_lower) or (
+        c_lower == "rogue" and "arcane trickster" in sub_lower
+    )
+    spell_list_class = (
+        "wizard" if is_third_caster else (c_lower if c_lower in full_half_pact_casters else None)
+    )
+
     if is_asi_level:
+        from backend.services.validation_service import (
+            get_character_armor_proficiencies,
+            get_character_weapon_proficiencies,
+        )
+
         char_race = char_data.get("race", "").lower()
+        char_stats = char_data.get("stats") or {}
+        target_class_prog = rules_repo.get_class_progression(char_class, edition)
+        char_armor_profs = get_character_armor_proficiencies(char_data, target_class_prog)
+        char_weapon_profs = get_character_weapon_proficiencies(char_data, target_class_prog)
+        has_spellcasting = bool(
+            spell_list_class
+            and (spell_list_class not in ("paladin", "ranger") or is_2024 or target_level >= 2)
+        ) or any(
+            k in str(f.get("name") if isinstance(f, dict) else f).lower()
+            for f in (char_data.get("features_traits") or [])
+            for k in ("spellcasting", "pact magic", "magic initiate", "ritual caster")
+        )
+
+        def _meets_stat_reqs(stat_reqs: dict) -> bool:
+            for rk, req_val in (stat_reqs or {}).items():
+                rk_up = str(rk).strip().upper()
+                try:
+                    needed = int(req_val)
+                except (TypeError, ValueError):
+                    continue
+                if "_OR_" in rk_up:
+                    options_ab = [p.strip()[:3] for p in rk_up.split("_OR_") if p.strip()]
+                    if not any(int(char_stats.get(ab, 10) or 10) >= needed for ab in options_ab):
+                        return False
+                elif rk_up[:3] in _STAT_KEYS:
+                    if int(char_stats.get(rk_up[:3], 10) or 10) < needed:
+                        return False
+            return True
+
+        def _meets_other_req(req_str: str) -> bool:
+            r_low = str(req_str or "").strip().lower()
+            if not r_low:
+                return True
+            if "strength 13+" in r_low and int(char_stats.get("STR", 10) or 10) < 13:
+                return False
+            if r_low == "spellcasting":
+                return has_spellcasting
+            if "proficiency with light armor" in r_low or "light armor proficiency" in r_low:
+                return "light armor" in char_armor_profs or "all armor" in char_armor_profs
+            if "proficiency with medium armor" in r_low or "medium armor proficiency" in r_low:
+                return "medium armor" in char_armor_profs or "all armor" in char_armor_profs
+            if "proficiency with heavy armor" in r_low or "heavy armor proficiency" in r_low:
+                return "heavy armor" in char_armor_profs or "all armor" in char_armor_profs
+            if "proficiency with shields" in r_low or "shield proficiency" in r_low:
+                return "shields" in char_armor_profs or "all armor" in char_armor_profs
+            if "proficiency with martial weapons" in r_low or "martial weapon" in r_low:
+                return "martial weapons" in char_weapon_profs
+            if r_low == "elf":
+                return (
+                    bool(re.search(r"\b(?:elf|high elf|wood elf|dark elf|drow)\b", char_race))
+                    and "half-elf" not in char_race
+                )
+            if r_low == "half-elf":
+                return "half-elf" in char_race
+            if r_low == "human":
+                return bool(re.search(r"\bhuman\b", char_race)) and "half" not in char_race
+            return bool(re.search(rf"\b{re.escape(r_low)}\b", char_race)) or (r_low in char_race)
+
         allowed_feats = []
         feat_metadata: dict[str, dict[str, Any]] = {}
         for f in rules_repo.get_all_feats(edition):
@@ -2119,8 +2232,10 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 min_req_level = 0
             if min_req_level > target_total_level:
                 continue
+            if not is_2024 and not _meets_stat_reqs(prereqs.get("stat_requirements") or {}):
+                continue
             reqs = prereqs.get("other", [])
-            if not reqs or any(r.lower() in char_race for r in reqs):
+            if not reqs or any(_meets_other_req(r) for r in reqs):
                 allowed_feats.append(f_name)
                 stat_opts = [
                     str(opt).strip().upper()[:3]
@@ -2149,25 +2264,6 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         )
 
     # 3. Spells (Full Casters, Half Casters, Pact Magic + Mystic Arcanum, 1/3 Casters, & Cantrip scaling)
-    full_half_pact_casters = {
-        "bard",
-        "cleric",
-        "druid",
-        "paladin",
-        "ranger",
-        "sorcerer",
-        "warlock",
-        "wizard",
-        "artificer",
-    }
-    c_lower = char_class.lower()
-    sub_lower = str(subclass_to_use or "").lower()
-    is_third_caster = (c_lower == "fighter" and "eldritch knight" in sub_lower) or (
-        c_lower == "rogue" and "arcane trickster" in sub_lower
-    )
-    spell_list_class = (
-        "wizard" if is_third_caster else (c_lower if c_lower in full_half_pact_casters else None)
-    )
 
     def _expected_cantrips(cls_low: str, lvl: int, sub_low: str) -> int:
         if cls_low in ("wizard", "cleric"):
@@ -2418,6 +2514,163 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 "ai_recommendation": "Arcana or Investigation synergizes best with Wizard INT.",
             }
         )
+
+    # 5. Structured 2014 Class / Subclass Build Choices (Fighting Style, Pact Boon, Invocations, Metamagic, Maneuvers, Infusions, Hunter)
+    if not is_2024:
+        choices_catalog = rules_repo.get_class_choices(edition)
+        owned_ft_low = {
+            str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+            for f in (char_data.get("features_traits") or [])
+        }
+        owned_pact = next((name for name in owned_ft_low if name.startswith("pact of the ")), None)
+
+        # Fighting Styles
+        if (
+            (c_lower == "fighter" and target_level == 1)
+            or (c_lower == "fighter" and "champion" in sub_lower and target_level == 10)
+            or (c_lower in ("paladin", "ranger") and target_level == 2)
+        ):
+            style_opts = [
+                opt["name"]
+                for opt in (choices_catalog.get("fighting_styles") or {}).get(c_lower, [])
+                if opt.get("name") and opt["name"].lower() not in owned_ft_low
+            ]
+            if style_opts:
+                choices.append(
+                    {
+                        "type": "fighting_style",
+                        "label": "Choose a Fighting Style",
+                        "options": style_opts,
+                        "ai_recommendation": f"Pick {style_opts[0]} to sharpen your martial combat role.",
+                    }
+                )
+
+        # Warlock Pact Boon (Level 3)
+        if c_lower == "warlock" and target_level == 3 and not owned_pact:
+            boon_opts = [
+                opt["name"] for opt in (choices_catalog.get("pact_boons") or []) if opt.get("name")
+            ]
+            if boon_opts:
+                choices.append(
+                    {
+                        "type": "pact_boon",
+                        "label": "Choose your Pact Boon",
+                        "options": boon_opts,
+                        "ai_recommendation": "Pact of the Tome (utility rituals/cantrips) or Pact of the Blade (Hexblade/melee).",
+                    }
+                )
+
+        # Warlock Eldritch Invocations (L2 gains 2; L5/7/9/12/15/18 gain 1 each)
+        inv_grants = {2: 2, 5: 1, 7: 1, 9: 1, 12: 1, 15: 1, 18: 1}
+        if c_lower == "warlock" and target_level in inv_grants:
+            inv_opts = [
+                opt["name"]
+                for opt in (choices_catalog.get("eldritch_invocations") or [])
+                if opt.get("name")
+                and opt["name"].lower() not in owned_ft_low
+                and int(opt.get("min_level", 2) or 2) <= target_level
+                and (not opt.get("pact") or opt["pact"].lower() == (owned_pact or ""))
+            ]
+            if inv_opts:
+                count_inv = inv_grants[target_level]
+                for idx_i in range(count_inv):
+                    choices.append(
+                        {
+                            "type": "eldritch_invocation",
+                            "label": "Choose an Eldritch Invocation"
+                            if count_inv == 1
+                            else f"Choose Eldritch Invocation #{idx_i + 1}",
+                            "options": inv_opts,
+                            "ai_recommendation": "Agonizing Blast is staple for Eldritch Blast DPR; Devil's Sight and Eldritch Mind offer strong defense.",
+                        }
+                    )
+
+        # Sorcerer Metamagic (L3 gains 2; L10/17 gain 1)
+        mm_grants = {3: 2, 10: 1, 17: 1}
+        if c_lower == "sorcerer" and target_level in mm_grants:
+            mm_opts = [
+                opt["name"]
+                for opt in (choices_catalog.get("metamagic") or [])
+                if opt.get("name") and opt["name"].lower() not in owned_ft_low
+            ]
+            if mm_opts:
+                count_mm = mm_grants[target_level]
+                for idx_m in range(count_mm):
+                    choices.append(
+                        {
+                            "type": "metamagic",
+                            "label": "Choose a Metamagic Option"
+                            if count_mm == 1
+                            else f"Choose Metamagic Option #{idx_m + 1}",
+                            "options": mm_opts,
+                            "ai_recommendation": "Quickened Spell and Twinned Spell offer top action economy.",
+                        }
+                    )
+
+        # Fighter (Battle Master) Maneuvers (L3 gains 3; L7/10/15 gain 2)
+        bm_grants = {3: 3, 7: 2, 10: 2, 15: 2}
+        if c_lower == "fighter" and "battle master" in sub_lower and target_level in bm_grants:
+            bm_opts = [
+                opt["name"]
+                for opt in (choices_catalog.get("maneuvers") or [])
+                if opt.get("name") and opt["name"].lower() not in owned_ft_low
+            ]
+            if bm_opts:
+                count_bm = bm_grants[target_level]
+                for idx_b in range(count_bm):
+                    choices.append(
+                        {
+                            "type": "maneuver",
+                            "label": f"Battle Master: Choose Maneuver #{idx_b + 1}",
+                            "options": bm_opts,
+                            "ai_recommendation": "Precision Attack, Trip Attack, and Riposte maximize accuracy and DPR.",
+                        }
+                    )
+
+        # Artificer Infusions Known (L2 gains 2 pickers; L6/10/14/18 gain 1)
+        inf_grants = {2: 2, 6: 1, 10: 1, 14: 1, 18: 1}
+        if c_lower == "artificer" and target_level in inf_grants:
+            inf_opts = [
+                opt["name"]
+                for opt in (choices_catalog.get("artificer_infusions") or [])
+                if opt.get("name")
+                and opt["name"].lower() not in owned_ft_low
+                and int(opt.get("min_level", 2) or 2) <= target_level
+            ]
+            if inf_opts:
+                count_inf = inf_grants[target_level]
+                for idx_a in range(count_inf):
+                    choices.append(
+                        {
+                            "type": "infusion",
+                            "label": "Choose an Artificer Infusion"
+                            if count_inf == 1
+                            else f"Choose Artificer Infusion #{idx_a + 1}",
+                            "options": inf_opts,
+                            "ai_recommendation": "Enhanced Defense / Enhanced Weapon / Mind Sharpener boost party survivability.",
+                        }
+                    )
+
+        # Ranger (Hunter) archetype options (L3/7/11/15)
+        if (
+            c_lower == "ranger"
+            and "hunter" in sub_lower
+            and str(target_level) in (choices_catalog.get("hunter_choices") or {})
+        ):
+            h_opts = [
+                opt["name"]
+                for opt in (choices_catalog.get("hunter_choices") or {}).get(str(target_level), [])
+                if opt.get("name") and opt["name"].lower() not in owned_ft_low
+            ]
+            if h_opts:
+                choices.append(
+                    {
+                        "type": "hunter_choice",
+                        "label": f"Hunter (Level {target_level}): Choose Archetype Option",
+                        "options": h_opts,
+                        "ai_recommendation": f"Consider {h_opts[0]} for reliable combat impact.",
+                    }
+                )
 
     # Deterministically compute updated spell slots for the target level
     updated_classes = [dict(c) for c in classes] if classes else []

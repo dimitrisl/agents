@@ -300,4 +300,15 @@ describe('DiceService', () => {
       expect(service.signed(-2)).toBe('-2');
     });
   });
+
+  describe('rollD20 minD20 floor (Reliable Talent)', () => {
+    it('floors d20 rolls below minD20 up to minD20 and clears isNat1', () => {
+      jest.spyOn(service, 'rollDie').mockReturnValue(1);
+      const res = service.rollD20(7, 'normal', 10);
+      expect(res.rolls).toEqual([1]);
+      expect(res.raw).toBe(10);
+      expect(res.total).toBe(17);
+      expect(res.isNat1).toBe(false);
+    });
+  });
 });

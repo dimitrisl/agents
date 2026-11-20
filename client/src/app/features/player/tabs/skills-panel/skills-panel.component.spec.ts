@@ -64,4 +64,13 @@ describe('SkillsPanelComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('DIS');
   });
+
+  it('renders 10+ MIN badges only on proficient skills when hasReliableTalent is true', () => {
+    fixture.componentRef.setInput('hasReliableTalent', true);
+    fixture.detectChanges();
+    const badges = Array.from(fixture.nativeElement.querySelectorAll('forge-badge')).map((b: any) =>
+      b.textContent.trim()
+    );
+    expect(badges.filter((t) => t === '10+ MIN').length).toBe(1); // Only Stealth in open DEX group (Insight WIS is collapsed)
+  });
 });

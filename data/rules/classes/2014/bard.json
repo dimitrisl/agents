@@ -3,8 +3,8 @@
     "edition": "2014 Edition",
     "hit_die": "d8",
     "primary_ability": [
-        "DEX",
-        "CHA"
+        "CHA",
+        "DEX"
     ],
     "starting_proficiencies": {
         "saving_throws": [

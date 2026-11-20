@@ -2,8 +2,173 @@
     "class_name": "Monk",
     "edition": "2014 Edition",
     "subclasses": {
+        "Way of the Open Hand": {
+            "name": "Way of the Open Hand",
+            "features": {
+                "3": {
+                    "name": "Open Hand Technique",
+                    "description": "When Flurry of Blows hits, knock targets Prone (DEX save), push 15 ft (STR save), or strip their Reactions until the end of your next turn."
+                },
+                "6": {
+                    "name": "Wholeness of Body",
+                    "description": "Action regains 3 x Monk level HP once per Long Rest."
+                },
+                "11": {
+                    "name": "Tranquility",
+                    "description": "Gain the effect of a Sanctuary spell after every Long Rest (DC 8 + PB + WIS mod)."
+                },
+                "17": {
+                    "name": "Quivering Palm",
+                    "description": "Spend 3 Ki on an unarmed strike to set lethal vibrations; later use an Action to drop target to 0 HP (CON save) or 10d10 Necrotic damage."
+                }
+            }
+        },
+        "Way of Shadow": {
+            "name": "Way of Shadow",
+            "features": {
+                "3": {
+                    "name": "Shadow Arts",
+                    "description": "Learn Minor Illusion and spend 2 Ki to cast Darkness, Darkvision, Pass without Trace, or Silence without material components."
+                },
+                "6": {
+                    "name": "Shadow Step",
+                    "description": "Bonus Action teleports 60 ft from dim light/darkness to dim light/darkness with Advantage on your next melee attack."
+                },
+                "11": {
+                    "name": "Cloak of Shadows",
+                    "description": "Action turns you Invisible in dim light or darkness until you attack or cast a spell."
+                },
+                "17": {
+                    "name": "Opportunist",
+                    "description": "Reaction allows a melee attack against a creature within 5 ft hit by an ally's attack."
+                }
+            }
+        },
+        "Way of the Four Elements": {
+            "name": "Way of the Four Elements",
+            "features": {
+                "3": {
+                    "name": "Disciple of the Elements",
+                    "description": "Learn Elemental Attunement plus 1 Elemental Discipline fueling elemental attacks/spells with Ki (extra Disciplines at L6/11/17)."
+                },
+                "6": {
+                    "name": "Elemental Disciplines (6th Level)",
+                    "description": "Learn an additional Elemental Discipline (unlocking higher Ki-cast elemental spells up to your tier limit)."
+                },
+                "11": {
+                    "name": "Elemental Disciplines (11th Level)",
+                    "description": "Learn an additional Elemental Discipline including Wind/Fly/Stone/Fire mid-tier powers."
+                },
+                "17": {
+                    "name": "Elemental Disciplines (17th Level)",
+                    "description": "Learn a 4th Elemental Discipline (up to 6 Ki abilities such as Breath of Winter or River of Hungry Flame)."
+                }
+            }
+        },
+        "Way of the Long Death": {
+            "name": "Way of the Long Death",
+            "features": {
+                "3": {
+                    "name": "Touch of Death",
+                    "description": "When reducing a creature within 5 ft to 0 HP, gain Temporary HP equal to WIS modifier + Monk level."
+                },
+                "6": {
+                    "name": "Hour of Reaping",
+                    "description": "Action frightens all creatures within 30 ft that can see you (WIS save)."
+                },
+                "11": {
+                    "name": "Mastery of Death",
+                    "description": "Spend 1 Ki point to drop to 1 HP instead of 0 HP when reduced to 0 HP."
+                },
+                "17": {
+                    "name": "Touch of the Long Death",
+                    "description": "Spend 1–10 Ki as an Action to deal 2d10 Necrotic damage per Ki spent on a touch (CON save for half)."
+                }
+            }
+        },
+        "Way of the Sun Soul": {
+            "name": "Way of the Sun Soul",
+            "features": {
+                "3": {
+                    "name": "Radiant Sun Bolt",
+                    "description": "Hurl 30-ft ranged Radiant spell attacks using DEX + Martial Arts die; spend 1 Ki after Attack to hurl two bolts as Bonus Action."
+                },
+                "6": {
+                    "name": "Searing Arc Strike",
+                    "description": "Spend 2+ Ki immediately after taking the Attack action to cast Burning Hands as a Bonus Action."
+                },
+                "11": {
+                    "name": "Searing Sunburst",
+                    "description": "Action hurls a 20-ft radius orb of light within 150 ft dealing 2d6 Radiant (spend up to 3 Ki for +2d6 each; CON save negates)."
+                },
+                "17": {
+                    "name": "Sun Shield",
+                    "description": "Shed 30-ft bright light and deal 5 + WIS mod Radiant damage as a Reaction when hit by a melee attack."
+                }
+            }
+        },
+        "Way of the Drunken Master": {
+            "name": "Way of the Drunken Master",
+            "features": {
+                "3": {
+                    "name": "Drunken Technique & Bonus Proficiencies",
+                    "description": "Gain Performance & brewer's supplies proficiency; using Flurry of Blows grants free Disengage and +10 ft walking speed."
+                },
+                "6": {
+                    "name": "Tipsy Sway",
+                    "description": "Stand from Prone using only 5 ft of movement, and spend 1 Ki as a Reaction to redirect a missed melee attack onto another foe."
+                },
+                "11": {
+                    "name": "Drunkard's Luck",
+                    "description": "Spend 2 Ki to cancel Disadvantage on an ability check, attack roll, or saving throw."
+                },
+                "17": {
+                    "name": "Intoxicated Frenzy",
+                    "description": "Make up to 3 additional Flurry of Blows unarmed strikes when targeting distinct creatures."
+                }
+            }
+        },
+        "Way of the Kensei": {
+            "name": "Way of the Kensei",
+            "features": {
+                "3": {
+                    "name": "Path of the Kensei",
+                    "description": "Designate melee & ranged Kensei weapons as Monk weapons, gain +2 AC with Agile Parry after an unarmed strike, and +1d4 damage on Kensei's Shot."
+                },
+                "6": {
+                    "name": "One with the Blade",
+                    "description": "Kensei weapon attacks count as magical, and spend 1 Ki once per turn to add Martial Arts die damage (Deft Strike)."
+                },
+                "11": {
+                    "name": "Sharpen the Blade",
+                    "description": "Bonus Action spends 1–3 Ki to turn a nonmagical Kensei weapon into a +1/+2/+3 weapon for 1 minute."
+                },
+                "17": {
+                    "name": "Unerring Accuracy",
+                    "description": "Once per turn when you miss with a Monk weapon attack, reroll the attack roll."
+                }
+            }
+        },
         "Way of Mercy": {
             "name": "Way of Mercy",
+            "features": {
+                "3": {
+                    "name": "Implements of Mercy, Hand of Healing & Hand of Harm",
+                    "description": "Gain Insight, Medicine, herbalism kit; replace an unarmed strike or Flurry with Hand of Healing (MA die + WIS) or spend 1 Ki on hit for +MA die + WIS Necrotic."
+                },
+                "6": {
+                    "name": "Physician's Touch",
+                    "description": "Hand of Healing cures conditions/diseases; Hand of Harm inflicts the Poisoned condition without a saving throw."
+                },
+                "11": {
+                    "name": "Flurry of Healing and Harm",
+                    "description": "Use Hand of Healing freely with Flurry of Blows and apply Hand of Harm once per Flurry at no extra Ki cost."
+                },
+                "17": {
+                    "name": "Hand of Ultimate Mercy",
+                    "description": "Spend 5 Ki to restore a creature that died within 24 hours to life with 4d10 + WIS modifier HP (1/Long Rest)."
+                }
+            },
             "scaling": {
                 "hand_of_harm": {
                     "name": "Hand of Harm",
@@ -16,6 +181,48 @@
                             "notation": "1 martial arts die"
                         }
                     ]
+                }
+            }
+        },
+        "Way of the Astral Self": {
+            "name": "Way of the Astral Self",
+            "features": {
+                "3": {
+                    "name": "Arms of the Astral Self",
+                    "description": "Bonus Action spends 1 Ki to summon spectral arms (10 ft reach, Force damage using WIS instead of STR/DEX)."
+                },
+                "6": {
+                    "name": "Visage of the Astral Self",
+                    "description": "Spend 1 Ki for 120 ft darkvision (seeing through darkness), 600 ft telepathic voice, and Adv on Insight/Intimidation."
+                },
+                "11": {
+                    "name": "Body of the Astral Self",
+                    "description": "Deflect Energy reduces Acid/Cold/Fire/Force/Lightning/Thunder damage and empowers one Astral hit per turn by +Martial Arts die."
+                },
+                "17": {
+                    "name": "Awakened Astral Self",
+                    "description": "Spend 5 Ki to summon full astral armor granting +2 AC and three attacks with the Attack action."
+                }
+            }
+        },
+        "Way of the Ascendant Dragon": {
+            "name": "Way of the Ascendant Dragon",
+            "features": {
+                "3": {
+                    "name": "Draconic Disciple & Breath of the Dragon",
+                    "description": "Convert unarmed strikes to Acid/Cold/Fire/Lightning/Poison and replace an Attack action strike with a 2x Martial Arts die cone/line Breath Weapon (PB/Long Rest or 2 Ki)."
+                },
+                "6": {
+                    "name": "Wings Unfurled",
+                    "description": "Using Step of the Wind grants a Fly Speed equal to your walking speed until the end of your turn (PB/Long Rest or free with Ki)."
+                },
+                "11": {
+                    "name": "Aspect of the Wyrm",
+                    "description": "Bonus Action creates a 10-ft draconic aura granting allies elemental Damage Resistance or frightening foes (3 Ki after 1/Long Rest)."
+                },
+                "17": {
+                    "name": "Ascendant Aspect",
+                    "description": "Gain 10 ft Blindsight, Breath scales to 3/4 MA dice + 20-ft explosive aura blasts on Aspect activation."
                 }
             }
         }

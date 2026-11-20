@@ -65,9 +65,9 @@
               <div class="grid grid-cols-1 gap-2 md:grid-cols-2 2xl:grid-cols-3">
                 @for (skill of visibleSkills(attr); track skill.name) {
             <div
-              class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-tile px-3 py-2 transition-colors hover:border-hairline-hover"
+              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-hairline bg-tile px-3 py-2 transition-colors hover:border-hairline-hover"
             >
-              <div class="min-w-0 flex-1">
+              <div class="min-w-36 flex-1">
                 <div class="flex items-center gap-2 min-w-0">
                   <button
                     type="button"
@@ -101,6 +101,9 @@
               </div>
 
               <div class="flex shrink-0 items-center gap-1.5">
+                @if (hasReliableTalent && isProficient(skill.name)) {
+                  <forge-badge tone="gold" size="sm" title="Reliable Talent: minimum d20 roll of 10 on proficient checks">10+ MIN</forge-badge>
+                }
                 @if (hasCheckDisadvantage) {
                   <forge-badge tone="danger" size="sm" title="Disadvantage from Exhaustion (2014)">DIS</forge-badge>
                 }

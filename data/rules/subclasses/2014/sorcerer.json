@@ -1,0 +1,218 @@
+{
+    "class_name": "Sorcerer",
+    "edition": "2014 Edition",
+    "subclasses": {
+        "Draconic Bloodline": {
+            "name": "Draconic Bloodline",
+            "features": {
+                "1": {
+                    "name": "Dragon Ancestor & Draconic Resilience (Draconic Bloodline)",
+                    "description": "Speak Draconic & pick an elemental Dragon Ancestor; +1 HP per Sorcerer level and base AC = 13 + DEX modifier when unarmored."
+                },
+                "6": {
+                    "name": "Elemental Affinity",
+                    "description": "Add CHA modifier to one damage roll of spells matching your Draconic element, and spend 1 SP for 1 hour Damage Resistance."
+                },
+                "14": {
+                    "name": "Dragon Wings",
+                    "description": "Bonus Action manifests dragon wings granting a Fly Speed equal to your current walking speed."
+                },
+                "18": {
+                    "name": "Draconic Presence",
+                    "description": "Spend 5 SP as an Action for a 60-ft aura of awe or fear for 1 minute."
+                }
+            }
+        },
+        "Wild Magic": {
+            "name": "Wild Magic",
+            "features": {
+                "1": {
+                    "name": "Wild Magic Surge & Tides of Chaos",
+                    "description": "Spontaneous d20 chaos triggers Wild Magic Surges after leveled spells; gain Advantage on one attack, check, or save (recharged on Surge or Long Rest)."
+                },
+                "6": {
+                    "name": "Bend Luck",
+                    "description": "Reaction spends 2 SP to add or subtract 1d4 from another creature's attack, check, or save."
+                },
+                "14": {
+                    "name": "Controlled Chaos",
+                    "description": "Roll twice on the Wild Magic Surge table and use either number."
+                },
+                "18": {
+                    "name": "Spell Bombardment",
+                    "description": "When rolling the maximum value on a spell damage die, roll it again and add the roll (1/turn)."
+                }
+            }
+        },
+        "Divine Soul": {
+            "name": "Divine Soul",
+            "features": {
+                "1": {
+                    "name": "Divine Magic & Favored by the Gods",
+                    "description": "Access the full Cleric spell list as Sorcerer spells (+alignment spell); add +2d4 to a failed save or missed attack (1/Short or Long Rest)."
+                },
+                "6": {
+                    "name": "Empowered Healing",
+                    "description": "Spend 1 SP to reroll any number of healing dice for yourself or an ally within 5 ft."
+                },
+                "14": {
+                    "name": "Otherworldly Wings",
+                    "description": "Bonus Action manifests spectral wings granting a 30-ft Fly Speed."
+                },
+                "18": {
+                    "name": "Unearthly Recovery",
+                    "description": "Bonus Action regains up to half your max HP when below half HP (1/Long Rest)."
+                }
+            }
+        },
+        "Shadow Magic": {
+            "name": "Shadow Magic",
+            "features": {
+                "1": {
+                    "name": "Eyes of the Dark & Strength of the Grave",
+                    "description": "120-ft Darkvision (+Darkness at L3 see-through for 2 SP); CHA save prevents dropping to 0 HP (drops to 1 HP, 1/Long Rest)."
+                },
+                "6": {
+                    "name": "Hound of Ill Omen",
+                    "description": "Bonus Action spends 3 SP to summon a spectral Hound imposing Disadvantage on the target's saves vs your spells."
+                },
+                "14": {
+                    "name": "Shadow Walk",
+                    "description": "Bonus Action teleports 120 ft from dim light/darkness to another dim light/darkness space."
+                },
+                "18": {
+                    "name": "Umbral Form",
+                    "description": "Spend 6 SP as a Bonus Action for 1 minute: pass through objects/creatures and Resistance to all damage except Force/Radiant."
+                }
+            }
+        },
+        "Storm Sorcery": {
+            "name": "Storm Sorcery",
+            "features": {
+                "1": {
+                    "name": "Wind Speaker & Tempestuous Magic",
+                    "description": "Speak Primordial; Bonus Action flies 10 ft without Opportunity Attacks before or after casting a 1st+ level spell."
+                },
+                "6": {
+                    "name": "Heart of the Storm & Storm Guide",
+                    "description": "Resistance to Lightning & Thunder; casting Lightning/Thunder spells erupts 10-ft AoE dealing half Sorcerer level damage."
+                },
+                "14": {
+                    "name": "Storm's Fury",
+                    "description": "Reaction deals Sorcerer level Lightning damage and pushes melee attackers 20 ft (STR save)."
+                },
+                "18": {
+                    "name": "Wind Soul",
+                    "description": "Immunity to Lightning and Thunder damage, 60-ft Fly Speed, and share 30-ft flight with allies 1/Short Rest."
+                }
+            }
+        },
+        "Aberrant Mind": {
+            "name": "Aberrant Mind",
+            "bonus_spells": {
+                "1": [
+                    "Arms of Hadar",
+                    "Dissonant Whispers"
+                ],
+                "3": [
+                    "Calm Emotions",
+                    "Detect Thoughts"
+                ],
+                "5": [
+                    "Hunger of Hadar",
+                    "Sending"
+                ],
+                "7": [
+                    "Black Tentacles",
+                    "Summon Aberration"
+                ],
+                "9": [
+                    "Telepathic Bond",
+                    "Telekinesis"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Telepathic Speech & Psionic Spells",
+                    "description": "Link telepathically within 30 ft up to 1 mile; permanently add Psionic Spells (Mind Sliver + domain spells) swappable by school."
+                },
+                "6": {
+                    "name": "Psionic Sorcery & Psychic Defenses",
+                    "description": "Cast Psionic Spells spending SP equal to spell level without V/S components; Resistance to Psychic + Adv vs Charmed/Frightened."
+                },
+                "14": {
+                    "name": "Revelation in Flesh",
+                    "description": "Spend 1+ SP as a Bonus Action for 10 min of flight, see invisibility, 60-ft swim speed, or squeezing through 1-inch spaces."
+                },
+                "18": {
+                    "name": "Warping Implosion",
+                    "description": "Teleport 120 ft leaving a 30-ft gravity sphere pulling foes and dealing 3d10 Force damage (1/Long Rest or 5 SP)."
+                }
+            }
+        },
+        "Clockwork Soul": {
+            "name": "Clockwork Soul",
+            "bonus_spells": {
+                "1": [
+                    "Alarm",
+                    "Protection from Evil and Good"
+                ],
+                "3": [
+                    "Aid",
+                    "Lesser Restoration"
+                ],
+                "5": [
+                    "Dispel Magic",
+                    "Protection from Energy"
+                ],
+                "7": [
+                    "Freedom of Movement",
+                    "Summon Construct"
+                ],
+                "9": [
+                    "Greater Restoration",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "1": {
+                    "name": "Clockwork Magic & Restore Balance",
+                    "description": "Add Clockwork Spells (swappable with Abjuration/Transmutation); Reaction cancels Advantage or Disadvantage within 60 ft (PB/Long Rest)."
+                },
+                "6": {
+                    "name": "Bastion of Law",
+                    "description": "Action spends 1–5 SP creating an arcane ward of d8 damage-shield dice on a creature until Long Rest."
+                },
+                "14": {
+                    "name": "Trance of Order",
+                    "description": "Bonus Action spends 5 SP for 1 minute: attacks against you can't have Adv and d20 attacks/checks/saves treat <= 9 as 10."
+                },
+                "18": {
+                    "name": "Clockwork Cavalcade",
+                    "description": "Action restores up to 100 HP across creatures in a 30-ft cube, repairs objects, and ends <= 6th level spells (1/Long Rest or 7 SP)."
+                }
+            }
+        },
+        "Lunar Sorcery": {
+            "name": "Lunar Sorcery",
+            "features": {
+                "1": {
+                    "name": "Lunar Embodiment & Moon Fire",
+                    "description": "Attune to Full/New/Crescent Moon phases unlocking bonus Lunar Spells and Sacred Flame hitting adjacent creatures."
+                },
+                "6": {
+                    "name": "Lunar Boons & Waxing and Waning",
+                    "description": "Reduce Metamagic cost by 1 SP on Lunar Phase spells (PB/Long Rest); spend 1 SP to switch Lunar Phases as a Bonus Action."
+                },
+                "14": {
+                    "name": "Lunar Empowerment",
+                    "description": "Gain phase passives (Full: Adv on Investigation/Perception; New: Adv on Stealth + dim light; Crescent: Radiant/Necrotic Resistance)."
+                },
+                "18": {
+                    "name": "Lunar Phenomenon",
+                    "description": "Bonus Action phase shift unleashes lunar bursts (blind enemies + heal ally / Necrotic pulse + Invisibility / teleport) 1/Long Rest or 5 SP."
+                }
+            }
+        }
+    }
+}

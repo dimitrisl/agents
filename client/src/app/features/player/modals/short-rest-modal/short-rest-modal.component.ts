@@ -34,6 +34,7 @@ export class ShortRestModalComponent {
   @Input() hitDieOptions: HitDieOption[] = [];
   @Input() selectedDieSize = 8;
   @Input() manualHp: number | null = null;
+  @Input() songOfRestDie: string | null = null;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() shortRestDiceToSpendChange = new EventEmitter<number>();

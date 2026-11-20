@@ -89,7 +89,7 @@ SUBCLASSES_2014 = {
         "Way of the Drunken Master",
         "Way of the Kensei",
         "Way of the Astral Self",
-        "Way of the Mercy",
+        "Way of Mercy",
         "Way of the Ascendant Dragon",
     ],
     "Paladin": [

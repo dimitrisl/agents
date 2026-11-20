@@ -23,6 +23,7 @@ import {
   ORIGIN_SUGGESTED_FEATS,
   getBackgroundSkills,
   getBackgroundOriginFeat,
+  getRacialBonusSkillCount,
   getRacialSkills,
 } from '../../../core/rules/recommendations';
 
@@ -145,6 +146,10 @@ export class ManualFormComponent {
     return getRacialSkills(this.manualRace, this.is2024);
   }
 
+  get racialBonusSkillCount(): number {
+    return getRacialBonusSkillCount(this.manualRace, this.is2024);
+  }
+
   isRacialSkill(name: string): boolean {
     return this.racialSkills.some((s) => s.toLowerCase() === (name || '').toLowerCase());
   }
@@ -157,7 +162,7 @@ export class ManualFormComponent {
     const nonBgRecs = this.skillRules.recommended.filter(
       (s) => !grantedSkills.includes(s.toLowerCase())
     );
-    const needed = this.skillRules.count;
+    const needed = this.skillRules.count + this.racialBonusSkillCount;
     const finalSkills = [...nonBgRecs];
     if (finalSkills.length < needed) {
       const remainingAllowed = this.skillRules.allowed.filter(
@@ -183,6 +188,9 @@ export class ManualFormComponent {
   }
 
   canAddFeat(feat: any): boolean {
+    if (!this.is2024) {
+      return (this.manualFeats || []).length < this.maxOriginFeats + this.maxGeneralFeats;
+    }
     const isOrigin = this.isOriginFeat(feat);
     if (isOrigin) {
       return this.originFeatsCount < this.maxOriginFeats || this.generalFeatsCount < this.maxGeneralFeats;
@@ -223,8 +231,10 @@ export class ManualFormComponent {
       const desc = (f.description || '').toLowerCase();
       const isOrigin = this.isOriginFeat(f);
 
-      if (this.featTab === 'origin' && !isOrigin) return false;
-      if (this.featTab === 'general' && isOrigin) return false;
+      if (this.is2024) {
+        if (this.featTab === 'origin' && !isOrigin) return false;
+        if (this.featTab === 'general' && isOrigin) return false;
+      }
 
       if (search && !name.includes(search) && !desc.includes(search)) return false;
       return true;
@@ -257,30 +267,43 @@ export class ManualFormComponent {
       list.splice(idx, 1);
     } else {
       const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
-      const isOrigin = this.isOriginFeat(f);
-
-      if (isOrigin) {
-        if (this.originFeatsCount >= this.maxOriginFeats && this.generalFeatsCount >= this.maxGeneralFeats) {
-          if (this.maxOriginFeats === 0 && !this.is2024) {
+      if (!this.is2024) {
+        const totalCap = this.maxOriginFeats + this.maxGeneralFeats;
+        if (list.length >= totalCap) {
+          if (totalCap === 0) {
             this.featLimitWarning = `In 2014 rules, only Variant Human receives a bonus feat at Level 1. Switch species to Variant Human or level up to 4.`;
-          } else if (this.maxGeneralFeats === 0) {
-            this.featLimitWarning = `Origin Feat limit reached (${this.maxOriginFeats}). General feats unlock at Level 4. Deselect an Origin Feat first.`;
           } else {
-            this.featLimitWarning = `Feat capacity reached (${this.maxOriginFeats} Origin + ${this.maxGeneralFeats} General allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+            this.featLimitWarning = `Feat capacity reached (${totalCap} allowed for Level ${this.manualLevel} ${this.manualRace} ${this.manualClass}). Deselect one first.`;
           }
           return;
         }
+        list.push(name);
       } else {
-        if (this.generalFeatsCount >= this.maxGeneralFeats) {
-          if (this.maxGeneralFeats === 0) {
-            this.featLimitWarning = `General Feats unlock at Level 4 (ASI milestones). You cannot select General Feats at Level ${this.manualLevel}.`;
-          } else {
-            this.featLimitWarning = `General Feat limit reached (${this.maxGeneralFeats} allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+        const isOrigin = this.isOriginFeat(f);
+
+        if (isOrigin) {
+          if (this.originFeatsCount >= this.maxOriginFeats && this.generalFeatsCount >= this.maxGeneralFeats) {
+            if (this.maxOriginFeats === 0) {
+              this.featLimitWarning = `Origin Feat limit reached (${this.maxOriginFeats}). General feats unlock at Level 4. Deselect an Origin Feat first.`;
+            } else if (this.maxGeneralFeats === 0) {
+              this.featLimitWarning = `Origin Feat limit reached (${this.maxOriginFeats}). General feats unlock at Level 4. Deselect an Origin Feat first.`;
+            } else {
+              this.featLimitWarning = `Feat capacity reached (${this.maxOriginFeats} Origin + ${this.maxGeneralFeats} General allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+            }
+            return;
           }
-          return;
+        } else {
+          if (this.generalFeatsCount >= this.maxGeneralFeats) {
+            if (this.maxGeneralFeats === 0) {
+              this.featLimitWarning = `General Feats unlock at Level 4 (ASI milestones). You cannot select General Feats at Level ${this.manualLevel}.`;
+            } else {
+              this.featLimitWarning = `General Feat limit reached (${this.maxGeneralFeats} allowed for Level ${this.manualLevel} ${this.manualClass}). Deselect one first.`;
+            }
+            return;
+          }
         }
+        list.push(name);
       }
-      list.push(name);
     }
     this.manualFeats = list;
     this.manualFeatsChange.emit(this.manualFeats);
@@ -291,16 +314,20 @@ export class ManualFormComponent {
     const recs = getRecommendedFeats(this.manualClass, this.manualLevel, this.is2024);
     const chosen: string[] = [];
 
-    // Fill origin feats up to maxOriginFeats
-    const originRecs = recs.filter((name) => {
-      const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
-      return f && this.isOriginFeat(f);
-    });
-    chosen.push(...originRecs.slice(0, this.maxOriginFeats));
+    if (!this.is2024) {
+      chosen.push(...recs.slice(0, this.maxOriginFeats + this.maxGeneralFeats));
+    } else {
+      // Fill origin feats up to maxOriginFeats
+      const originRecs = recs.filter((name) => {
+        const f = (this.availableFeats || []).find((feat) => feat.name === name) || { name };
+        return f && this.isOriginFeat(f);
+      });
+      chosen.push(...originRecs.slice(0, this.maxOriginFeats));
 
-    // Fill general feats up to maxGeneralFeats
-    const generalRecs = recs.filter((name) => !chosen.includes(name));
-    chosen.push(...generalRecs.slice(0, this.maxGeneralFeats));
+      // Fill general feats up to maxGeneralFeats
+      const generalRecs = recs.filter((name) => !chosen.includes(name));
+      chosen.push(...generalRecs.slice(0, this.maxGeneralFeats));
+    }
 
     this.manualFeats = Array.from(new Set(chosen));
     this.manualFeatsChange.emit(this.manualFeats);
@@ -484,6 +511,7 @@ export class ManualFormComponent {
 
     let primary: string[] = [];
     switch (this.manualClass.toLowerCase()) {
+      case 'artificer': primary = ['INT', 'CON', 'DEX', 'WIS', 'CHA', 'STR']; break;
       case 'barbarian': primary = ['STR', 'CON', 'DEX', 'WIS', 'CHA', 'INT']; break;
       case 'bard': primary = ['CHA', 'DEX', 'CON', 'WIS', 'INT', 'STR']; break;
       case 'cleric': primary = ['WIS', 'CON', 'STR', 'DEX', 'INT', 'CHA']; break;

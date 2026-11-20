@@ -106,7 +106,12 @@ def _restore_pact_magic_slots(
     return updated
 
 
-def _recharge_short_rest_resources(resources: Optional[List[Any]], is_2024: bool) -> List[Any]:
+def _recharge_short_rest_resources(
+    resources: Optional[List[Any]],
+    is_2024: bool,
+    sorcerer_level: int = 0,
+    has_sorcerous_restoration: bool = False,
+) -> List[Any]:
     recharged: List[Any] = []
     for res in resources or []:
         if not isinstance(res, dict):
@@ -118,6 +123,13 @@ def _recharge_short_rest_resources(resources: Optional[List[Any]], is_2024: bool
         name_clean = str(r_copy.get("name") or "").strip()
         if is_2024 and _SHORT_REST_2024_SINGLE_RECHARGE_RE.match(name_clean):
             r_copy["current"] = min(r_max, cur + 1)
+        elif (
+            not is_2024
+            and (sorcerer_level >= 20 or has_sorcerous_restoration)
+            and name_clean.lower() in ("sorcery points", "sorcery point", "font of magic")
+        ):
+            # 2014 PHB L20 Capstone: Sorcerous Restoration regains 4 SP on a Short Rest.
+            r_copy["current"] = min(r_max, cur + 4)
         elif str(r_copy.get("recharge") or "").lower() == "short":
             r_copy["current"] = r_max
         recharged.append(r_copy)
@@ -176,8 +188,23 @@ def apply_short_rest(
 
     updated["hit_dice_used"] = max(0, int(updated.get("hit_dice_used") or 0)) + spent
     updated["spell_slots"] = _restore_pact_magic_slots(updated, updated.get("spell_slots"))
+    classes = updated.get("classes") or []
+    sorc_lvl = sum(
+        int(c.get("level", 0) or 0)
+        for c in classes
+        if isinstance(c, dict) and str(c.get("class_name") or "").lower() == "sorcerer"
+    )
+    if sorc_lvl == 0 and str(updated.get("char_class") or "").lower() == "sorcerer":
+        sorc_lvl = int(updated.get("char_level") or 1)
+    has_sorc_restoration = any(
+        isinstance(f, dict) and "sorcerous restoration" in str(f.get("name") or "").lower()
+        for f in (updated.get("features_traits") or [])
+    )
     updated["class_resources"] = _recharge_short_rest_resources(
-        updated.get("class_resources"), is_2024
+        updated.get("class_resources"),
+        is_2024,
+        sorcerer_level=sorc_lvl,
+        has_sorcerous_restoration=has_sorc_restoration,
     )
     updated["dm_short_rest_unlocked"] = False
 
