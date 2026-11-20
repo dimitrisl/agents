@@ -762,15 +762,21 @@ def is_weapon_proficient(
         ]
     )
     finesse_martial_names = ("rapier", "scimitar", "shortsword", "whip")
-    light_martial_names = ("scimitar", "shortsword")
+    light_martial_names = ("scimitar", "shortsword", "hand crossbow")
     is_finesse_prop = any("finesse" in p for p in w_props) or any(
         re.search(rf"\b{re.escape(k)}\b", clean_base) for k in finesse_martial_names
     )
     is_light_prop = any("light" in p for p in w_props) or any(
         re.search(rf"\b{re.escape(k)}\b", clean_base) for k in light_martial_names
     )
+    is_ranged_light = "hand crossbow" in clean_base or (
+        weapon_data and "ranged" in str(weapon_data.get("category") or "").lower()
+    )
     has_finesse_martial_prof = any("martial" in tok and "finesse" in tok for tok in prof_set)
-    has_light_martial_prof = any("martial" in tok and "light" in tok for tok in prof_set)
+    has_light_martial_prof = any(
+        "martial" in tok and "light" in tok and ("finesse" in tok or not is_ranged_light)
+        for tok in prof_set
+    )
 
     if weapon_data:
         cat = str(weapon_data.get("category") or "").lower()

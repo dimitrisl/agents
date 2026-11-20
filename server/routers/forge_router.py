@@ -702,8 +702,15 @@ async def apply_level_up(
                                 )
                             _bump_stat(stat1, 1)
                             if canon_low == "resilient":
-                                saves = list(char_doc.get("saving_throws") or [])
-                                if stat1 not in [str(s).strip().upper()[:3] for s in saves]:
+                                from backend.services.forge_service import _seed_class_saving_throws
+
+                                saves = _seed_class_saving_throws(
+                                    char_doc.get("saving_throws"),
+                                    str(char_doc.get("char_class") or target_class),
+                                    RulesRepository(),
+                                    edition,
+                                )
+                                if stat1 not in saves:
                                     saves.append(stat1)
                                 char_doc["saving_throws"] = saves
 

@@ -712,6 +712,7 @@ def test_2024_rogue_monk_conditional_weapons_and_non_sticky_proficiency():
         is_weapon_proficient({"name": "Scimitar"}, r_profs, weapon_data=all_weps["scimitar"])
         is True
     )
+    assert is_weapon_proficient({"name": "Hand Crossbow"}, r_profs) is True
     assert (
         is_weapon_proficient({"name": "Longsword"}, r_profs, weapon_data=all_weps["longsword"])
         is False
