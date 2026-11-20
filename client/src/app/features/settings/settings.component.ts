@@ -18,9 +18,9 @@ import {
 
 // Shown until GET /settings/ai answers (or if it fails); mirrors backend AVAILABLE_MODELS.
 const DEFAULT_MODEL_OPTIONS: AIModelOption[] = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Fast)', provider: 'gemini', free_tier: false },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Deep Reasoning)', provider: 'gemini', free_tier: false },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Free)', provider: 'gemini', free_tier: true },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash (Fast)', provider: 'gemini', free_tier: false },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Deep Reasoning)', provider: 'gemini', free_tier: false },
   { id: 'claude-opus-5-5', label: 'Claude Opus 5.5 (Best Quality)', provider: 'anthropic', free_tier: false },
   { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (Balanced)', provider: 'anthropic', free_tier: false },
   { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5 (Cheapest)', provider: 'anthropic', free_tier: false },
@@ -46,7 +46,7 @@ const DEFAULT_MODEL_OPTIONS: AIModelOption[] = [
 })
 export class SettingsComponent implements OnInit {
   aiTemperature = 0.7;
-  preferredModel = 'gemini-2.5-flash';
+  preferredModel = 'gemini-3.5-flash';
   modelOptions: AIModelOption[] = DEFAULT_MODEL_OPTIONS;
   saving = false;
   /**

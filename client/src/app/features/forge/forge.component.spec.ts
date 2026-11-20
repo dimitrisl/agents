@@ -365,5 +365,51 @@ describe('ForgeComponent', () => {
         r.flush({ characters: [], unreadable: [] })
       );
     });
+
+    it('keeps aiGender at default when restoring a stale draft with removed gender options', () => {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+      localStorage.setItem(
+        'phyrexian_forge_ai_draft',
+        JSON.stringify({ aiGender: 'Non-binary', aiRace: 'Aasimar', aiClass: 'Wizard' })
+      );
+
+      component.restoreAiDraft();
+      expect(component.aiClass).toBe('Wizard');
+      expect(component.aiGender).toBe('AI Choice');
+      expect(component.aiRace).toBe('AI Choice');
+    });
+
+    it('separates 2014 vs 2024 races/backgrounds, resets stale aiRace on toggle, and applies 2014 racial stat bonuses', () => {
+      fixture.detectChanges();
+      httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+      // 2014 Edition: Variant Human present, Warforged absent
+      expect(component.raceOptions).toContain('Variant Human');
+      expect(component.raceOptions).not.toContain('Warforged');
+      // 2014 Human gets +1 to all 6 stats when Step 4 overrides remain None
+      expect(component.getFinalStat('STR')).toBe(16);
+      expect(component.getFinalStat('CHA')).toBe(9);
+
+      // Selecting Dwarf in 2014 pre-fills +2 CON
+      component.onManualRaceChange('Dwarf');
+      expect(component.adjPlus2).toBe('CON');
+      expect(component.getFinalStat('CON')).toBe(15);
+
+      // Selecting Half-Elf in 2014 AI Forge and toggling to 2024 resets aiRace instead of blanking
+      component.aiRace = 'Half-Elf';
+      component.toggleEditionAndRefresh();
+      httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+
+      expect(component.is2024).toBe(true);
+      expect(component.raceOptions).toContain('Warforged');
+      expect(component.raceOptions).not.toContain('Half-Elf');
+      expect(component.aiRace).toBe('AI Choice');
+      expect(component.bgOptions).toContain('Farmer');
+    });
   });
 });

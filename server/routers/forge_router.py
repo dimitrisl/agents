@@ -489,14 +489,26 @@ async def apply_level_up(
             clean = stat_aliases.get(clean, clean[:3])
         return clean
 
-    def _bump_stat(stat_key: str, amount: int) -> None:
+    def _bump_stat(stat_key: str, amount: int, cap_override: Optional[int] = None) -> None:
         norm_key = _norm_stat(stat_key)
+        cap = cap_override if cap_override is not None else stat_cap
         if norm_key in valid_stat_keys and norm_key in char_doc.get("stats", {}):
-            char_doc["stats"][norm_key] = min(stat_cap, int(char_doc["stats"][norm_key]) + amount)
+            char_doc["stats"][norm_key] = min(cap, int(char_doc["stats"][norm_key]) + amount)
             if isinstance(char_doc.get("base_stats"), dict) and norm_key in char_doc["base_stats"]:
                 char_doc["base_stats"][norm_key] = min(
-                    stat_cap, int(char_doc["base_stats"][norm_key]) + amount
+                    cap, int(char_doc["base_stats"][norm_key]) + amount
                 )
+
+    # Apply Level 20 Class Stat Capstones deterministically once upon reaching class level 20
+    if new_class_level == 20:
+        t_low = target_class.strip().lower()
+        if t_low == "barbarian":
+            champ_cap = 25 if is_2024_edition else 24
+            _bump_stat("STR", 4, cap_override=champ_cap)
+            _bump_stat("CON", 4, cap_override=champ_cap)
+        elif t_low == "monk" and is_2024_edition:
+            _bump_stat("DEX", 4, cap_override=25)
+            _bump_stat("WIS", 4, cap_override=25)
 
     # Inject authoritative automatic features from static RulesRepository only (never trust client list)
     static_auto_features = resolve_level_up_automatic_features(

@@ -48,7 +48,7 @@ describe('TutorialViewComponent', () => {
     jest.spyOn(component.finish, 'emit');
     const compiled = fixture.nativeElement as HTMLElement;
     const buttons = Array.from(compiled.querySelectorAll('button'));
-    const finishBtn = buttons.find((b) => b.textContent?.includes('Ξεκίνα') || b.textContent?.includes('Enter'));
+    const finishBtn = buttons.find((b) => b.textContent?.includes('Enter the Forge'));
     expect(finishBtn).toBeTruthy();
     finishBtn?.click();
     expect(component.finish.emit).toHaveBeenCalled();
@@ -70,10 +70,10 @@ describe('TutorialViewComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Συγχαρητήρια, Μόλις Έμαθες D&D!');
+    expect(compiled.textContent).toContain('Congratulations, You Just Learned D&D!');
 
     const playerGuideBtn = Array.from(compiled.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Θέλω να φτιάξω Παίκτη')
+      b.textContent?.includes('I Want to Build a Player')
     );
     expect(playerGuideBtn).toBeTruthy();
     playerGuideBtn?.click();

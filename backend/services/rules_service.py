@@ -470,11 +470,19 @@ def inject_mandatory_character_grants(
                 if _add_skill(str(opt)):
                     added_class_skills += 1
 
-        # Bonus skill choices from Species (Human 2024 Skill Versatility / Warforged Specialized Design / Half-Elf)
+        # Bonus skill choices from Species (Human 2024 Skill Versatility / Warforged Specialized Design / Half-Elf / Variant Human)
         bonus_racial_choices = (
             2 if has_skill_versatility_two else (1 if has_skill_versatility_one else 0)
         )
-        if bonus_racial_choices > 0 and had_no_user_skills and class_skill_options:
+        if (
+            bonus_racial_choices > 0
+            and (
+                had_no_user_skills
+                or len(skill_profs)
+                <= len(bg_mandatory_skills) + len(racial_mandatory_skills) + class_skill_count
+            )
+            and class_skill_options
+        ):
             added_bonus = 0
             for opt in class_skill_options + [
                 "Perception",
@@ -490,7 +498,7 @@ def inject_mandatory_character_grants(
 
         char_data["skill_proficiencies"] = skill_profs
 
-    # 4. Mandatory 2024 Background Origin Feat & Human Versatile Origin Feat
+    # 4. Mandatory 2024 Background Origin Feat, Human Versatile Origin Feat & 2014 Variant Human Bonus Feat
     if is_2024 and auto_feats and is_forge:
         all_feats_2024 = repo.get_all_feats("2024")
         feats_by_name = {
@@ -549,6 +557,36 @@ def inject_mandatory_character_grants(
                 _inject_origin_feat(versatile_pick)
 
         char_data["advancements"] = advancements
+    elif not is_2024 and auto_feats and is_forge and "variant human" in race.lower():
+        has_any_feat = any(
+            isinstance(f, dict) and str(f.get("name") or "").lower().startswith("feat:")
+            for f in features_list
+        )
+        advancements = list(char_data.get("advancements") or [])
+        has_l1_feat = any(
+            isinstance(a, dict) and int(a.get("level") or 0) == 1 for a in advancements
+        )
+        if not has_any_feat and not has_l1_feat and not chosen_feats:
+            all_feats_2014 = repo.get_all_feats("2014")
+            tough_obj = next(
+                (f for f in all_feats_2014 if str(f.get("name") or "").lower() == "tough"),
+                None,
+            )
+            vh_desc = (
+                str(tough_obj.get("description") or "")
+                if tough_obj
+                else "Your hit point maximum increases by an amount equal to twice your level."
+            )
+            _add_feature("Feat: Tough", vh_desc, "Feat")
+            advancements.append(
+                {
+                    "level": 1,
+                    "type": "Feat",
+                    "name": "Tough",
+                    "description": vh_desc[:200],
+                }
+            )
+            char_data["advancements"] = advancements
 
     # 5. Deterministic Starting Languages, Equipment, Weapons & Spells Fallback (on Forge)
     if is_forge:
@@ -591,33 +629,121 @@ def inject_mandatory_character_grants(
 
         # Starting Spells (for spellcasters when auto_spells=True and chosen_spells is None)
         if auto_spells and chosen_spells is None:
+            from backend.services.stats_service import calculate_max_spell_slots
+
             current_spells = char_data.get("spells") or {}
             has_any_spells = isinstance(current_spells, dict) and any(
                 isinstance(v, list) and len(v) > 0 for v in current_spells.values()
             )
-            if not has_any_spells:
-                can_cast_at_lvl = class_lower in (
-                    "wizard",
-                    "cleric",
-                    "druid",
-                    "bard",
-                    "sorcerer",
-                    "warlock",
-                    "artificer",
-                ) or (class_lower in ("paladin", "ranger") and (is_2024 or level >= 2))
-                if can_cast_at_lvl and class_lower in _DEFAULT_STARTING_SPELLS_BY_CLASS:
-                    starter_spells = {
-                        k: list(v)
-                        for k, v in _DEFAULT_STARTING_SPELLS_BY_CLASS[class_lower].items()
-                        if v
-                    }
-                    char_data["spells"] = starter_spells
-                    prepared = []
-                    for s_list in starter_spells.values():
+            sub_low = subclass.lower()
+            spell_cls_low = (
+                "wizard"
+                if (
+                    (class_lower == "fighter" and "eldritch knight" in sub_low)
+                    or (class_lower == "rogue" and "arcane trickster" in sub_low)
+                )
+                else class_lower
+            )
+            max_slots = calculate_max_spell_slots(
+                char_class, level, subclass=subclass, edition=edition_str
+            )
+            unlocked_tiers = [i for i in range(1, 10) if max_slots.get(f"level_{i}", 0) > 0]
+            if class_lower == "warlock":
+                if level >= 11:
+                    unlocked_tiers.append(6)
+                if level >= 13:
+                    unlocked_tiers.append(7)
+                if level >= 15:
+                    unlocked_tiers.append(8)
+                if level >= 17:
+                    unlocked_tiers.append(9)
+
+            expected_cantrips = 0
+            if class_lower in ("wizard", "cleric"):
+                expected_cantrips = 3 if level < 4 else (4 if level < 10 else 5)
+            elif class_lower == "sorcerer":
+                expected_cantrips = 4 if level < 4 else (5 if level < 10 else 6)
+            elif class_lower in ("bard", "druid", "warlock"):
+                expected_cantrips = 2 if level < 4 else (3 if level < 10 else 4)
+            elif class_lower == "artificer":
+                expected_cantrips = 2 if level < 10 else (3 if level < 14 else 4)
+            elif class_lower == "fighter" and "eldritch knight" in sub_low and level >= 3:
+                expected_cantrips = 2 if level < 10 else 3
+            elif class_lower == "rogue" and "arcane trickster" in sub_low and level >= 3:
+                expected_cantrips = 3 if level < 10 else 4
+
+            can_cast_at_lvl = bool(unlocked_tiers) or expected_cantrips > 0
+
+            if not has_any_spells and can_cast_at_lvl:
+                starter_src = _DEFAULT_STARTING_SPELLS_BY_CLASS.get(spell_cls_low, {})
+                starter_spells = {k: list(v) for k, v in starter_src.items() if v}
+                char_data["spells"] = starter_spells
+                current_spells = starter_spells
+
+            # If fallback or high-level caster lacks spells at newly unlocked tiers (or lacks cantrips),
+            # fill deterministically from static rules without discarding existing picks.
+            if can_cast_at_lvl and (
+                not has_any_spells
+                or not any(current_spells.get(f"level_{t}") for t in unlocked_tiers if t >= 2)
+            ):
+                spells_dict = (
+                    dict(current_spells) if isinstance(current_spells, dict) else {"cantrips": []}
+                )
+                all_edition_spells = repo.get_all_spells(edition_str)
+                known_lower = {
+                    str(s.get("name") if isinstance(s, dict) else s).strip().lower()
+                    for lst in spells_dict.values()
+                    if isinstance(lst, list)
+                    for s in lst
+                }
+
+                # Fill missing cantrips up to expected count
+                cantrips_list = list(spells_dict.get("cantrips") or [])
+                if len(cantrips_list) < expected_cantrips:
+                    for sp in all_edition_spells:
+                        if len(cantrips_list) >= expected_cantrips:
+                            break
+                        if sp.get("level", 0) != 0:
+                            continue
+                        sp_classes = [str(c).lower() for c in sp.get("classes", [])]
+                        if not sp_classes or spell_cls_low in sp_classes:
+                            sname = sp.get("name", "")
+                            if sname and sname.lower() not in known_lower:
+                                cantrips_list.append(sname)
+                                known_lower.add(sname.lower())
+                if cantrips_list:
+                    spells_dict["cantrips"] = cantrips_list
+
+                # Fill up to 2 curated spells per unlocked tier that is currently empty
+                for tier in sorted(set(unlocked_tiers)):
+                    tier_key = f"level_{tier}"
+                    if spells_dict.get(tier_key):
+                        continue
+                    tier_picks: list[str] = []
+                    for sp in all_edition_spells:
+                        if sp.get("level", 0) != tier:
+                            continue
+                        sp_classes = [str(c).lower() for c in sp.get("classes", [])]
+                        if not sp_classes or spell_cls_low in sp_classes:
+                            sname = sp.get("name", "")
+                            if sname and sname.lower() not in known_lower:
+                                tier_picks.append(sname)
+                                known_lower.add(sname.lower())
+                                if len(tier_picks) >= (
+                                    1 if class_lower == "warlock" and tier >= 6 else 2
+                                ):
+                                    break
+                    if tier_picks:
+                        spells_dict[tier_key] = tier_picks
+
+                char_data["spells"] = spells_dict
+                prepared = list(char_data.get("prepared_spells") or [])
+                for s_list in spells_dict.values():
+                    if isinstance(s_list, list):
                         for s_name in s_list:
                             if s_name not in prepared:
                                 prepared.append(s_name)
-                    char_data["prepared_spells"] = prepared
+                char_data["prepared_spells"] = prepared
 
     return char_data
 

@@ -33,7 +33,7 @@ def test_save_and_load_config(clean_config):
     loaded = load_config()
     assert loaded["ai_settings"]["temperature"] == 1.0
     # Verify merge with defaults
-    assert loaded["ai_settings"]["preferred_model"] == "gemini-2.5-flash"
+    assert loaded["ai_settings"]["preferred_model"] == "gemini-3.5-flash"
 
 
 def test_load_corrupted_config(clean_config):

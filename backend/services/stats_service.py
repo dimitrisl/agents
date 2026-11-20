@@ -981,6 +981,8 @@ def calculate_weapon_stats(
     homebrew_content: List[Dict[str, Any]] = None,
     features_traits: List[Any] = None,
     suppress_magic_items: bool = False,
+    martial_arts_die: Optional[str] = None,
+    use_martial_arts: bool = False,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
@@ -1058,6 +1060,12 @@ def calculate_weapon_stats(
         is_ranged = "ranged" in category or any("ammunition" in p for p in props)
         is_finesse = any("finesse" in p for p in props)
         is_two_handed = any("two-handed" in p for p in props)
+        is_heavy = any("heavy" in p for p in props)
+        is_monk_weapon = (
+            ("unarmed" in name)
+            or ("shortsword" in name)
+            or ("simple" in category and "melee" in category and not is_heavy and not is_two_handed)
+        )
     else:
         raw_props = str(weapon.get("properties") or "").lower()
         is_ranged = any(word in name for word in ["bow", "crossbow", "sling", "dart", "blowgun"])
@@ -1065,6 +1073,26 @@ def calculate_weapon_stats(
             word in name for word in ["rapier", "dagger", "scimitar", "shortsword", "whip"]
         )
         is_two_handed = "two-handed" in raw_props
+        is_heavy = "heavy" in raw_props
+        is_monk_weapon = (
+            (
+                "unarmed" in name
+                or any(
+                    mw in name
+                    for mw in (
+                        "quarterstaff",
+                        "shortsword",
+                        "spear",
+                        "dagger",
+                        "club",
+                        "mace",
+                        "sickle",
+                    )
+                )
+            )
+            and not is_heavy
+            and not is_two_handed
+        )
 
     ability_override = weapon.get("ability_modifier")
     if ability_override:
@@ -1076,7 +1104,7 @@ def calculate_weapon_stats(
     else:
         if is_ranged:
             mod = dex_mod
-        elif is_finesse:
+        elif is_finesse or (use_martial_arts and is_monk_weapon):
             mod = max(str_mod, dex_mod)
         else:
             mod = str_mod
@@ -1133,6 +1161,11 @@ def calculate_weapon_stats(
     dice_match = re.match(r"^\s*(\d+d\d+)", damage_raw or "", re.I)
     if dice_match:
         dice_part = dice_match.group(1)
+        if use_martial_arts and is_monk_weapon and martial_arts_die:
+            ma_match = re.match(r"^\s*1d(\d+)", martial_arts_die, re.I)
+            cur_match = re.match(r"^\s*1d(\d+)", dice_part, re.I)
+            if ma_match and cur_match and int(ma_match.group(1)) > int(cur_match.group(1)):
+                dice_part = f"1d{ma_match.group(1)}"
         type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
         dmg_type = type_match.group(1).strip() if type_match else ""
 
@@ -1699,8 +1732,62 @@ def sync_character_stats(
     )
     armor_speed_penalty, _ = get_heavy_armor_strength_penalty(char_data, items_lookup=items_lookup)
     char_data["heavy_armor_speed_penalty"] = armor_speed_penalty
+
+    has_equipped_armor = False
+    has_equipped_shield = False
+    has_equipped_heavy_armor = False
+    for eq in char_data.get("equipment", []) or []:
+        if not isinstance(eq, dict) or not eq.get("equipped", False):
+            continue
+        eq_name = str(eq.get("name") or "").strip().lower()
+        item_db = _find_catalog_item(eq_name, all_items)
+        if _is_shield_item(eq_name, item_db):
+            has_equipped_shield = True
+            continue
+        item_type = str((item_db or {}).get("type") or eq.get("type") or "").lower()
+        if item_type.endswith("armor") or (item_db and "ac_base" in item_db):
+            has_equipped_armor = True
+            if "heavy armor" in item_type:
+                has_equipped_heavy_armor = True
+
+    monk_level = next(
+        (
+            int(c.get("level") or 0)
+            for c in classes
+            if str(c.get("class_name") or "").lower() == "monk"
+        ),
+        0,
+    )
+    barb_level = next(
+        (
+            int(c.get("level") or 0)
+            for c in classes
+            if str(c.get("class_name") or "").lower() == "barbarian"
+        ),
+        0,
+    )
+    class_speed_bonus = 0
+    if monk_level >= 2 and not has_equipped_armor and not has_equipped_shield:
+        class_speed_bonus += (
+            30
+            if monk_level >= 18
+            else (
+                25
+                if monk_level >= 14
+                else (20 if monk_level >= 10 else (15 if monk_level >= 6 else 10))
+            )
+        )
+    if barb_level >= 5 and not has_equipped_heavy_armor:
+        class_speed_bonus += 10
+
     raw_speed = max(
-        0, base_speed + equip_speed_bonus + feat_speed_bonus - armor_speed_penalty + dm_speed_bonus
+        0,
+        base_speed
+        + equip_speed_bonus
+        + feat_speed_bonus
+        + class_speed_bonus
+        - armor_speed_penalty
+        + dm_speed_bonus,
     )
     if effective_exh >= 6:
         char_data["speed"] = 0
@@ -2091,6 +2178,22 @@ def sync_character_stats(
     char_data["initiative_advantage"] = has_init_adv
     char_data["athletics_advantage"] = has_ath_adv
 
+    use_martial_arts = monk_level >= 1 and not has_equipped_armor and not has_equipped_shield
+    martial_arts_die = None
+    if use_martial_arts:
+        if is_2024_sheet:
+            martial_arts_die = (
+                "1d12"
+                if monk_level >= 17
+                else ("1d10" if monk_level >= 11 else ("1d8" if monk_level >= 5 else "1d6"))
+            )
+        else:
+            martial_arts_die = (
+                "1d10"
+                if monk_level >= 17
+                else ("1d8" if monk_level >= 11 else ("1d6" if monk_level >= 5 else "1d4"))
+            )
+
     weapons = char_data.get("weapons", [])
     updated_weapons = []
     edited_weapon_rows = weapon_deltas.get("edited_rows", {}) if weapon_deltas else {}
@@ -2134,6 +2237,8 @@ def sync_character_stats(
                 homebrew_content,
                 features_traits=char_data.get("features_traits", []),
                 suppress_magic_items=magic_items_suppressed,
+                martial_arts_die=martial_arts_die,
+                use_martial_arts=use_martial_arts,
             )
         )
 
@@ -2163,6 +2268,8 @@ def sync_character_stats(
                 homebrew_content,
                 features_traits=char_data.get("features_traits", []),
                 suppress_magic_items=magic_items_suppressed,
+                martial_arts_die=martial_arts_die,
+                use_martial_arts=use_martial_arts,
             )
             updated_weapons.append(new_w)
 

@@ -1,6 +1,9 @@
 {
   "_doc": "Limited-use class pools, filled in on every character save (stats_service.sync_character_stats). max: per_level (x class level, from 'from'), steps ([[class level, uses], ...], the highest reached applies) or ability (modifier + plus, at least min). recharge: short|long; recharge_short_from switches to short rests from that class level. aliases match pools a player already added by hand so they are adopted, not duplicated.",
   "2014": {
+    "artificer": [
+      { "id": "flash_of_genius", "name": "Flash of Genius", "recharge": "long", "max": { "ability": "INT", "min": 1, "from": 7 } }
+    ],
     "barbarian": [
       { "id": "rage", "name": "Rage", "aliases": ["rages", "rage uses"], "recharge": "long", "max": { "steps": [[1, 2], [3, 3], [6, 4], [12, 5], [17, 6]] } }
     ],
@@ -34,6 +37,9 @@
     ]
   },
   "2024": {
+    "artificer": [
+      { "id": "flash_of_genius", "name": "Flash of Genius", "recharge": "long", "max": { "ability": "INT", "min": 1, "from": 7 } }
+    ],
     "barbarian": [
       { "id": "rage", "name": "Rage", "aliases": ["rages", "rage uses"], "recharge": "long", "max": { "steps": [[1, 2], [3, 3], [6, 4], [12, 5], [17, 6]] } }
     ],

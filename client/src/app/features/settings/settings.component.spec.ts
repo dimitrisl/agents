@@ -10,7 +10,8 @@ const SAVED: AISettings = {
   preferred_model: 'claude-sonnet-5-5',
   temperature: 0.7,
   available_models: [
-    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Fast)', provider: 'gemini', free_tier: false },
+    { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Free)', provider: 'gemini', free_tier: true },
+    { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash (Fast)', provider: 'gemini', free_tier: false },
     { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (Balanced)', provider: 'anthropic', free_tier: false },
   ],
   has_anthropic_key: true,

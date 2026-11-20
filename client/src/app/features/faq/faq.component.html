@@ -4,16 +4,16 @@
   >
     <div class="min-w-0 lg:max-w-160">
       <p class="text-micro font-semibold uppercase text-accent">
-        Knowledge Base & Guides
+        Knowledge Base &amp; Guides
       </p>
       <h1
         class="mt-1 font-display text-[2rem] leading-tight text-ink sm:text-[2.25rem]"
       >
-        ❓ Συχνές Ερωτήσεις & Οδηγός Χρήσης
+        ❓ Frequently Asked Questions &amp; User Guide
       </h1>
       <p class="mt-1 text-body text-muted">
-        Αναλυτικός οδηγός για όλες τις δυνατότητες του Phyrexian Forge:
-        Companion Mode, Forge, VTT, Session Logs & Κανόνες.
+        Complete reference for Phyrexian Forge features: Companion Mode,
+        Character Forge, VTT, Session Logs &amp; Rules.
       </p>
     </div>
 
@@ -22,8 +22,8 @@
       <input
         forgeInput
         type="search"
-        placeholder="Αναζήτηση (π.χ. Advantage, Concentration, VTT)…"
-        aria-label="Αναζήτηση στις συχνές ερωτήσεις"
+        placeholder="Search (e.g. Advantage, Concentration, VTT)…"
+        aria-label="Search frequently asked questions"
         [ngModel]="searchQuery()"
         (ngModelChange)="searchQuery.set($event)"
         class="pr-11"
@@ -50,12 +50,12 @@
     <!-- Category nav: a scrolling strip on phones, a sticky list from lg -->
     <nav
       class="min-w-0 lg:sticky lg:top-6 lg:self-start"
-      aria-label="Κατηγορίες ερωτήσεων"
+      aria-label="Question categories"
     >
       <p
         class="mb-2 hidden px-1 text-micro font-semibold uppercase text-muted lg:block"
       >
-        Κατηγορίες
+        Categories
       </p>
       <ul
         class="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none lg:flex-col lg:overflow-visible lg:pb-0"
@@ -101,7 +101,7 @@
           class="flex min-w-0 items-center gap-2 font-display text-title text-ink"
         >
           @if (searchQuery()) {
-            <span class="truncate">Αποτελέσματα για «{{ searchQuery() }}»</span>
+            <span class="truncate">Results for "{{ searchQuery() }}"</span>
           } @else {
             <span aria-hidden="true">{{ activeCategory().icon }}</span>
             <span class="truncate">{{
@@ -127,7 +127,7 @@
               class="transition-transform duration-150 motion-reduce:transition-none"
               [class.rotate-180]="allExpanded()"
             />
-            {{ allExpanded() ? "Σύμπτυξη όλων" : "Άνοιγμα όλων" }}
+            {{ allExpanded() ? "Collapse all" : "Expand all" }}
           </button>
         }
       </div>
@@ -135,8 +135,8 @@
       @if (filteredFaqItems().length === 0) {
         <forge-empty-state
           icon="🔍"
-          title="Δεν βρέθηκαν αποτελέσματα"
-          description="Δοκιμάστε διαφορετικούς όρους ή επιλέξτε μια κατηγορία από τη λίστα."
+          title="No results found"
+          description="Try different keywords or pick a category from the list."
         >
           <button
             forgeButton
@@ -146,7 +146,7 @@
             (click)="searchQuery.set('')"
             class="mt-2"
           >
-            Καθαρισμός αναζήτησης
+            Clear search
           </button>
         </forge-empty-state>
       } @else {
@@ -203,13 +203,13 @@
                     >
                       <span
                         class="mr-1 text-micro font-semibold uppercase text-muted"
-                        >Σχετικά</span
+                        >Related</span
                       >
                       @for (tag of item.tags; track tag) {
                         <button
                           type="button"
                           class="rounded-md border border-hairline bg-panel px-2 py-0.5 text-micro text-muted transition-colors hover:border-accent/40 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                          [title]="'Αναζήτηση για ' + tag"
+                          [title]="'Search for ' + tag"
                           (click)="searchQuery.set(tag)"
                         >
                           #{{ tag }}
@@ -230,11 +230,10 @@
       >
         <div class="min-w-0">
           <h4 class="font-display text-title text-ink">
-            Έχετε κάποια άλλη απορία ή βρήκατε bug;
+            Have another question or spotted a bug?
           </h4>
           <p class="mt-1 text-label text-muted">
-            Μπορείτε να ρωτήσετε απευθείας τον Rules Oracle ή να απευθυνθείτε
-            στον διαχειριστή.
+            Ask the Rules Oracle directly or reach out to your server administrator.
           </p>
         </div>
         <div class="flex shrink-0 flex-wrap items-center gap-2">
@@ -242,7 +241,7 @@
             >📚 Rules Library</a
           >
           <a routerLink="/player" forgeButton variant="primary" size="sm"
-            >Επιστροφή στο Dashboard</a
+            >Back to Dashboard</a
           >
         </div>
       </div>

@@ -42,6 +42,82 @@ def _load_json(filepath: str):
         return []
 
 
+_ARTIFICER_SPELL_NAMES = frozenset(
+    {
+        "Acid Splash",
+        "Fire Bolt",
+        "Guidance",
+        "Light",
+        "Mage Hand",
+        "Mending",
+        "Message",
+        "Poison Spray",
+        "Prestidigitation",
+        "Ray of Frost",
+        "Shocking Grasp",
+        "Spare the Dying",
+        "Thorn Whip",
+        "Alarm",
+        "Cure Wounds",
+        "Detect Magic",
+        "Disguise Self",
+        "Expeditious Retreat",
+        "Faerie Fire",
+        "False Life",
+        "Feather Fall",
+        "Grease",
+        "Identify",
+        "Jump",
+        "Longstrider",
+        "Purify Food and Drink",
+        "Sanctuary",
+        "Aid",
+        "Alter Self",
+        "Blur",
+        "Continual Flame",
+        "Darkvision",
+        "Enhance Ability",
+        "Enlarge/Reduce",
+        "Heat Metal",
+        "Invisibility",
+        "Lesser Restoration",
+        "Levitate",
+        "Magic Mouth",
+        "Magic Weapon",
+        "Protection from Poison",
+        "Rope Trick",
+        "See Invisibility",
+        "Spider Climb",
+        "Web",
+        "Blink",
+        "Create Food and Water",
+        "Dispel Magic",
+        "Elemental Weapon",
+        "Fly",
+        "Glyph of Warding",
+        "Haste",
+        "Protection from Energy",
+        "Revivify",
+        "Water Breathing",
+        "Water Walk",
+        "Arcane Eye",
+        "Fabricate",
+        "Faithful Hound",
+        "Freedom of Movement",
+        "Private Sanctum",
+        "Resilient Sphere",
+        "Secret Chest",
+        "Stone Shape",
+        "Stoneskin",
+        "Animate Objects",
+        "Arcane Hand",
+        "Creation",
+        "Greater Restoration",
+        "Wall of Stone",
+    }
+)
+
+
 class RulesRepository:
     def __init__(self):
         # Ensure directories exist
@@ -164,6 +240,12 @@ class RulesRepository:
         filename = f"spells_{edition_val}.json"
         filepath = os.path.join(DATA_DIR, "rules", filename)
         spells = _load_json(filepath)
+        for sp in spells:
+            if isinstance(sp, dict) and sp.get("name") in _ARTIFICER_SPELL_NAMES:
+                cls_list = list(sp.get("classes") or [])
+                if not any(str(c).lower() == "artificer" for c in cls_list):
+                    cls_list.append("Artificer")
+                    sp["classes"] = cls_list
         _spells_cache[edition_val] = spells
         return copy.deepcopy(spells)
 
@@ -202,10 +284,35 @@ class RulesRepository:
         if not race_name:
             return None
         clean = str(race_name).strip().lower()
-        if clean == "variant human":
-            clean = "human"
-
         primary_ed = _norm_edition(edition)
+        if clean == "variant human":
+            if primary_ed == "2014":
+                return {
+                    "name": "Variant Human",
+                    "stat_bonuses": {"CHOICE_1": 1, "CHOICE_2": 1},
+                    "description": "Humans of varied upbringing who gain a bonus skill and feat at 1st level.",
+                    "traits": [
+                        {
+                            "name": "Ability Score Increase",
+                            "description": "Two different ability scores of your choice increase by 1.",
+                        },
+                        {
+                            "name": "Skills",
+                            "description": "You gain proficiency in one skill of your choice.",
+                        },
+                        {
+                            "name": "Bonus Feat",
+                            "description": "You gain one feat of your choice at 1st level.",
+                        },
+                        {
+                            "name": "Extra Language",
+                            "description": "You can speak, read, and write Common and one extra language of your choice.",
+                        },
+                    ],
+                    "size": "Medium",
+                    "speed": 30,
+                }
+            clean = "human"
         fallback_ed = "2014" if primary_ed == "2024" else "2024"
 
         for ed in (primary_ed, fallback_ed):
