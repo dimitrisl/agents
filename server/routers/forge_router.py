@@ -537,6 +537,8 @@ async def apply_level_up(
     )
 
     # Process user choices (feats, spells, skills — subclass already applied above)
+    selected_structured_in_payload: set[str] = set()
+    selected_spells_in_payload: set[str] = set()
     if payload.user_choices:
         for choice_key, choice_val in payload.user_choices.items():
             if (
@@ -569,6 +571,12 @@ async def apply_level_up(
 
             if choice_type == "spell" or "spell" in choice_label.lower():
                 clean_val = str(choice_val).strip()
+                norm_val = clean_val.lower().replace("\u2019", "'").replace("\u2018", "'")
+                if norm_val in selected_spells_in_payload:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Duplicate spell selection '{clean_val}' for '{choice_label}'. Please choose distinct options.",
+                    )
 
                 rules_repo = RulesRepository()
                 all_spells = rules_repo.get_all_spells(edition)
@@ -577,7 +585,12 @@ async def apply_level_up(
                     (
                         s
                         for s in all_spells
-                        if str(s.get("name", "")).strip().lower() == clean_val.lower()
+                        if str(s.get("name", ""))
+                        .strip()
+                        .lower()
+                        .replace("\u2019", "'")
+                        .replace("\u2018", "'")
+                        == norm_val
                     ),
                     None,
                 )
@@ -589,6 +602,7 @@ async def apply_level_up(
                     )
                     continue
 
+                selected_spells_in_payload.add(norm_val)
                 spell_level = matched_spell.get("level")
                 canonical_name = matched_spell.get("name") or clean_val
                 spells_dict = char_doc.setdefault("spells", {})
@@ -716,40 +730,44 @@ async def apply_level_up(
                 # Structured class choice options (Fighting Style, Invocation, Metamagic, Maneuver, Pact Boon, Infusion, Hunter)
                 if choice_val and str(choice_val).lower() not in ("roll", "average", "manual"):
                     clean_choice = str(choice_val).strip()
-                    if clean_choice.lower() not in {s.lower() for s in existing_features if s}:
-                        rules_repo_choices = RulesRepository().get_class_choices(edition)
-                        choice_desc = None
-                        for bucket_val in (rules_repo_choices or {}).values():
-                            items_iter = (
-                                [
-                                    item
-                                    for sub_lst in bucket_val.values()
-                                    for item in (sub_lst or [])
-                                ]
-                                if isinstance(bucket_val, dict)
-                                else (bucket_val if isinstance(bucket_val, list) else [])
-                            )
-                            matched_item = next(
-                                (
-                                    it
-                                    for it in items_iter
-                                    if isinstance(it, dict)
-                                    and str(it.get("name") or "").strip().lower()
-                                    == clean_choice.lower()
-                                ),
-                                None,
-                            )
-                            if matched_item:
-                                choice_desc = matched_item.get("description")
-                                break
-                        char_doc.setdefault("features_traits", []).append(
-                            {
-                                "name": clean_choice,
-                                "description": choice_desc or f"Selected for {choice_label}",
-                                "source": "Class",
-                            }
+                    clean_low = clean_choice.lower()
+                    if clean_low in selected_structured_in_payload or clean_low in {
+                        s.lower() for s in existing_features if s
+                    }:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Duplicate selection '{clean_choice}' for '{choice_label}'. Please choose distinct options.",
                         )
-                        existing_features.add(clean_choice)
+                    selected_structured_in_payload.add(clean_low)
+                    rules_repo_choices = RulesRepository().get_class_choices(edition)
+                    choice_desc = None
+                    for bucket_val in (rules_repo_choices or {}).values():
+                        items_iter = (
+                            [item for sub_lst in bucket_val.values() for item in (sub_lst or [])]
+                            if isinstance(bucket_val, dict)
+                            else (bucket_val if isinstance(bucket_val, list) else [])
+                        )
+                        matched_item = next(
+                            (
+                                it
+                                for it in items_iter
+                                if isinstance(it, dict)
+                                and str(it.get("name") or "").strip().lower()
+                                == clean_choice.lower()
+                            ),
+                            None,
+                        )
+                        if matched_item:
+                            choice_desc = matched_item.get("description")
+                            break
+                    char_doc.setdefault("features_traits", []).append(
+                        {
+                            "name": clean_choice,
+                            "description": choice_desc or f"Selected for {choice_label}",
+                            "source": "Class",
+                        }
+                    )
+                    existing_features.add(clean_choice)
 
     # Grant any Domain/Oath/Circle/Patron bonus spells unlocked for the active subclass up to new_class_level
     if chosen_subclass:

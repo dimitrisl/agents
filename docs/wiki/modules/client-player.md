@@ -34,9 +34,9 @@ The Player Companion module provides the responsive, real-time character sheet i
 - **Dynamic Progression Roadmap:**
   - Provides an interactive **Level Switcher** (levels 1 through 20) allowing players to inspect upcoming class features, subclass milestones, ability score improvements (ASI), and spell slot unlocks.
   - Dynamically inspects the character's primary class (or multiclass array with robust fallback to `char_class` and `char_level`).
-- **Contextual Build Suggestions:**
+- **Contextual Build Suggestions & Multi-Pick Hygiene:**
   - Advises on spell selections, feats, and playstyle options tailored strictly to the character's **current class, level, and existing spellbook/loadout**.
-  - Prevents recommending spells or feats already known by the character.
+  - Prevents recommending spells or feats already known by the character, and filters sibling-selected options (`availableOptionsFor`) plus disables submission (`hasDuplicateSiblingChoices`) across multi-pick class choices (Invocations, Metamagic, Maneuvers, Infusions).
 
 ---
 

@@ -256,6 +256,13 @@ describe('rest rules', () => {
       const res14 = rechargeShortRestResources(resources, '2014 Edition', sorc2014);
       expect(res14[0].current).toBe(7);
 
+      const fontRes = rechargeShortRestResources(
+        [{ name: 'Font of Magic', current: 2, max: 20, recharge: 'long' as const }],
+        '2014 Edition',
+        sorc2014
+      );
+      expect(fontRes[0].current).toBe(6);
+
       const sorc2024 = hero({ char_class: 'Sorcerer', char_level: 20, dnd_edition: '2024 Revision' });
       const res24 = rechargeShortRestResources(resources, '2024 Revision', sorc2024);
       expect(res24[0].current).toBe(3);

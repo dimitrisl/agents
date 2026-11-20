@@ -1,10 +1,12 @@
 import copy
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 import mongomock
 from fastapi.testclient import TestClient
 
-from backend.core.constants import EDITION_2014, EDITION_2024
+from backend.core.constants import EDITION_2014, EDITION_2024, SUBCLASSES_2014
 from backend.core.schemas import LevelUpAnalysisSchema, LevelUpApplyRequest
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.class_resources_service import rules_pools, sync_class_resources
@@ -338,9 +340,9 @@ def test_2014_feat_prerequisites_and_2024_parity():
     assert "Lightly Armored" in w_feat_choice["options"]
     assert "Fey Touched" in w_feat_choice["options"]
 
-    # 2024 parity: low-CHA Fighter sees Actor/Telekinetic, Heavily Armored (Medium Armor prof),
-    # and Shield Master (STR 16 >= 13 + Shield prof), while non-caster Psi Warrior excludes War Caster;
-    # Wizard 2024 gets War Caster and excludes Heavily Armored / Shield Master.
+    # 2024 parity: low-CHA Fighter (STR 16, DEX 12, CHA 8) sees Telekinetic (no stat req in 2024),
+    # Charger / Polearm Master (STR_OR_DEX 13+), Heavily Armored, Shield Master, while excluding Actor (CHA 13+)
+    # and War Caster (non-caster Psi Warrior); Wizard 2024 (INT 16, CHA 10) gets War Caster & excludes Heavily Armored.
     fighter_2024 = _make_base_char(
         char_class="Fighter",
         char_level=3,
@@ -351,11 +353,26 @@ def test_2014_feat_prerequisites_and_2024_parity():
     )
     f24_analysis = analyze_level_up(copy.deepcopy(fighter_2024))
     f24_feat_choice = next(c for c in f24_analysis["choices_required"] if c["type"] == "feat")
-    assert "Actor" in f24_feat_choice["options"]
+    assert "Actor" not in f24_feat_choice["options"]
     assert "Telekinetic" in f24_feat_choice["options"]
+    assert "Charger" in f24_feat_choice["options"]
+    assert "Polearm Master" in f24_feat_choice["options"]
     assert "Heavily Armored" in f24_feat_choice["options"]
     assert "Shield Master" in f24_feat_choice["options"]
     assert "War Caster" not in f24_feat_choice["options"]
+
+    bard_2024 = _make_base_char(
+        char_class="Bard",
+        char_level=3,
+        subclass="College of Lore",
+        classes=[{"class_name": "Bard", "level": 3, "subclass": "College of Lore"}],
+        stats={"STR": 8, "DEX": 14, "CON": 12, "INT": 10, "WIS": 12, "CHA": 16},
+        dnd_edition=EDITION_2024,
+    )
+    b24_feat = next(
+        c for c in analyze_level_up(bard_2024)["choices_required"] if c["type"] == "feat"
+    )
+    assert "Actor" in b24_feat["options"]
 
     wiz_2024 = _make_base_char(
         char_class="Wizard",
@@ -532,7 +549,7 @@ def test_2014_structured_choice_pickers_apply_and_agonizing_blast():
     eb = next(w for w in w2["weapons"] if w["name"] == "Eldritch Blast")
     assert eb["damage_bonus"] == "+4"  # CHA +4 added cleanly via Agonizing Blast
 
-    # Sorcerer L2->3 gets 2 Metamagic pickers; Battle Master L2->3 gets 3 Maneuver pickers; Artificer L1->2 gets 2 Infusions
+    # Sorcerer L2->3 gets 2 Metamagic pickers; Battle Master L2->3 gets 3 Maneuver pickers; Artificer L1->2 gets 4 Infusions Known
     sorc_l2 = _make_base_char(
         char_class="Sorcerer",
         char_level=2,
@@ -556,7 +573,7 @@ def test_2014_structured_choice_pickers_apply_and_agonizing_blast():
         classes=[{"class_name": "Artificer", "level": 1, "subclass": None}],
     )
     art_a = analyze_level_up(art_l1)
-    assert len([c for c in art_a["choices_required"] if c["type"] == "infusion"]) == 2
+    assert len([c for c in art_a["choices_required"] if c["type"] == "infusion"]) == 4
 
     hunter_l2 = _make_base_char(
         char_class="Ranger",
@@ -672,3 +689,305 @@ def test_senses_damage_resistances_and_save_advantages_derivation():
             edition=EDITION_2014,
         )
     assert "Breath Weapon" in {r["name"] for r in db_paladin["class_resources"]}
+    assert "Draconic Ancestry Element (e.g. Fire)" not in (
+        db_paladin.get("damage_resistances") or []
+    )
+
+
+def test_2024_rogue_monk_conditional_weapons_and_non_sticky_proficiency():
+    repo = RulesRepository()
+    rogue_prog = repo.get_class_progression("Rogue", EDITION_2024)
+    monk_prog = repo.get_class_progression("Monk", EDITION_2024)
+
+    rogue24 = _make_base_char(
+        char_class="Rogue",
+        char_level=1,
+        classes=[{"class_name": "Rogue", "level": 1}],
+        dnd_edition=EDITION_2024,
+    )
+    r_profs = get_character_weapon_proficiencies(rogue24, rogue_prog)
+    all_weps = {w["name"].lower(): w for w in repo.get_all_weapons()}
+    assert is_weapon_proficient({"name": "Rapier"}, r_profs, weapon_data=all_weps["rapier"]) is True
+    assert (
+        is_weapon_proficient({"name": "Scimitar"}, r_profs, weapon_data=all_weps["scimitar"])
+        is True
+    )
+    assert (
+        is_weapon_proficient({"name": "Longsword"}, r_profs, weapon_data=all_weps["longsword"])
+        is False
+    )
+
+    monk24 = _make_base_char(
+        char_class="Monk",
+        char_level=1,
+        classes=[{"class_name": "Monk", "level": 1}],
+        dnd_edition=EDITION_2024,
+    )
+    m_profs = get_character_weapon_proficiencies(monk24, monk_prog)
+    assert (
+        is_weapon_proficient({"name": "Scimitar"}, m_profs, weapon_data=all_weps["scimitar"])
+        is True
+    )
+    assert (
+        is_weapon_proficient({"name": "Shortsword"}, m_profs, weapon_data=all_weps["shortsword"])
+        is True
+    )
+    assert (
+        is_weapon_proficient({"name": "Rapier"}, m_profs, weapon_data=all_weps["rapier"]) is False
+    )
+
+    # Non-sticky proficiency: stale proficient=False updates to True when character gains Martial prof
+    wiz_fighter = _make_base_char(
+        char_class="Wizard",
+        char_level=2,
+        classes=[{"class_name": "Wizard", "level": 1}, {"class_name": "Fighter", "level": 1}],
+        stats={"STR": 16, "DEX": 12, "CON": 14, "INT": 16, "WIS": 10, "CHA": 10},
+        weapons=[{"name": "Rapier", "proficient": False, "damage_dice": "1d8 piercing"}],
+    )
+    synced = sync_character_stats(wiz_fighter)
+    rapier = next(w for w in synced["weapons"] if w["name"] == "Rapier")
+    assert rapier["proficient"] is True
+    assert rapier["attack_bonus"] == "+5"  # +3 STR + 2 PB
+
+
+def test_multiclass_primary_vs_secondary_proficiencies_2014_and_2024():
+    repo = RulesRepository()
+    for ed in (EDITION_2014, EDITION_2024):
+        wiz_prog = repo.get_class_progression("Wizard", ed)
+        sorc_rogue = _make_base_char(
+            char_class="Sorcerer",
+            char_level=2,
+            classes=[{"class_name": "Sorcerer", "level": 1}, {"class_name": "Rogue", "level": 1}],
+            dnd_edition=ed,
+        )
+        sr_armor = get_character_armor_proficiencies(
+            sorc_rogue, repo.get_class_progression("Sorcerer", ed)
+        )
+        sr_weapons = get_character_weapon_proficiencies(
+            sorc_rogue, repo.get_class_progression("Sorcerer", ed)
+        )
+        assert "light armor" in sr_armor
+        assert "medium armor" not in sr_armor
+        assert is_weapon_proficient({"name": "Rapier"}, sr_weapons) is False
+
+        # Secondary Tempest Domain Cleric still grants Heavy Armor & Martial Weapons via subclass at L1 (2014)
+        if ed == EDITION_2014:
+            wiz_tempest = _make_base_char(
+                char_class="Wizard",
+                char_level=2,
+                classes=[
+                    {"class_name": "Wizard", "level": 1},
+                    {"class_name": "Cleric", "level": 1, "subclass": "Tempest Domain"},
+                ],
+                dnd_edition=ed,
+            )
+            assert "heavy armor" in get_character_armor_proficiencies(wiz_tempest, wiz_prog)
+            assert is_weapon_proficient(
+                {"name": "Warhammer"}, get_character_weapon_proficiencies(wiz_tempest, wiz_prog)
+            )
+
+
+def test_2024_rogue_l15_slippery_mind_grants_wis_and_cha():
+    rogue15_14 = sync_character_stats(
+        _make_base_char(
+            char_class="Rogue",
+            char_level=15,
+            classes=[{"class_name": "Rogue", "level": 15, "subclass": "Thief"}],
+            saving_throws=["DEX", "INT"],
+            dnd_edition=EDITION_2014,
+        )
+    )
+    assert "WIS" in rogue15_14["saving_throws"]
+    assert "CHA" not in rogue15_14["saving_throws"]
+
+    rogue15_24 = sync_character_stats(
+        _make_base_char(
+            char_class="Rogue",
+            char_level=15,
+            classes=[{"class_name": "Rogue", "level": 15, "subclass": "Thief"}],
+            saving_throws=["DEX", "INT"],
+            dnd_edition=EDITION_2024,
+        )
+    )
+    assert {"DEX", "INT", "WIS", "CHA"}.issubset(set(rogue15_24["saving_throws"]))
+
+
+def test_level_up_apply_rejects_duplicate_sibling_class_choices():
+    db = _AsyncDB()
+    warlock_l1 = _make_base_char(
+        char_id="warlock-dup",
+        owner_id="user-dup",
+        char_class="Warlock",
+        char_level=1,
+        subclass="The Fiend",
+        classes=[{"class_name": "Warlock", "level": 1, "subclass": "The Fiend"}],
+        dnd_edition=EDITION_2014,
+    )
+    db._db["characters"].insert_one(warlock_l1)
+    analysis = analyze_level_up(copy.deepcopy(warlock_l1))
+    analysis_model = LevelUpAnalysisSchema.model_validate(analysis)
+    inv_idx = [
+        i for i, c in enumerate(analysis_model.choices_required) if c.type == "eldritch_invocation"
+    ]
+    assert len(inv_idx) == 2
+
+    payload = LevelUpApplyRequest(
+        character_id="warlock-dup",
+        analysis=analysis_model,
+        user_choices={
+            "level_up_class": "Warlock",
+            f"eldritch_invocation_{inv_idx[0]}": "Agonizing Blast",
+            f"eldritch_invocation_{inv_idx[1]}": "Agonizing Blast",
+            "hp_method": "average",
+        },
+    )
+    app.dependency_overrides[get_current_user] = lambda: {"id": "user-dup", "role": "player"}
+    app.dependency_overrides[get_database] = lambda: db
+    try:
+        client = TestClient(app)
+        resp = client.post("/api/v1/forge/level-up-apply", json=payload.model_dump())
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 400
+    assert "duplicate" in resp.json()["detail"].lower()
+
+
+def test_2014_all_subclasses_catalog_sync_and_missing_bonus_spells():
+    repo = RulesRepository()
+    sc_catalog = json.loads(Path("data/rules/subclasses.json").read_text())["2014 Edition"]
+    assert "Arcana Domain" in sc_catalog["Cleric"]
+    assert "Oath of the Crown" in sc_catalog["Paladin"]
+    assert "The Undying" in sc_catalog["Warlock"]
+    assert "Lunar Sorcery" in SUBCLASSES_2014["Sorcerer"]
+
+    # Conquest Paladin L3 gets Armor of Agathys in level_1 (NOT level_2)
+    conquest = _make_base_char(char_class="Paladin", char_level=3, subclass="Oath of Conquest")
+    grant_subclass_bonus_spells(conquest, "Paladin", "Oath of Conquest", 3, EDITION_2014, repo=repo)
+    assert "Armor of Agathys" in (conquest["spells"].get("level_1") or [])
+    assert "Armor of Agathys" not in (conquest["spells"].get("level_2") or [])
+
+    # Aberrant Mind & Clockwork Soul missing spells resolve into exact tiers
+    aberrant = _make_base_char(char_class="Sorcerer", char_level=7, subclass="Aberrant Mind")
+    grant_subclass_bonus_spells(aberrant, "Sorcerer", "Aberrant Mind", 7, EDITION_2014, repo=repo)
+    assert "Arms of Hadar" in (aberrant["spells"].get("level_1") or [])
+    assert "Hunger of Hadar" in (aberrant["spells"].get("level_3") or [])
+    assert "Summon Aberration" in (aberrant["spells"].get("level_4") or [])
+
+    clockwork = _make_base_char(char_class="Sorcerer", char_level=7, subclass="Clockwork Soul")
+    grant_subclass_bonus_spells(clockwork, "Sorcerer", "Clockwork Soul", 7, EDITION_2014, repo=repo)
+    assert "Summon Construct" in (clockwork["spells"].get("level_4") or [])
+
+    # Arcana Domain L3 curly-apostrophe spell matches canonical Arcanist's Magic Aura in level_2
+    arcana = _make_base_char(char_class="Cleric", char_level=3, subclass="Arcana Domain")
+    grant_subclass_bonus_spells(arcana, "Cleric", "Arcana Domain", 3, EDITION_2014, repo=repo)
+    assert any("magic aura" in s.lower() for s in (arcana["spells"].get("level_2") or []))
+
+
+def test_resilient_in_forge_and_squat_nimbleness_no_str9():
+    from backend.services.forge_service import _enforce_deterministic_forge_stats
+
+    repo = RulesRepository()
+    # Low-STR Dwarf L4 sees Squat Nimbleness
+    dwarf_l3 = _make_base_char(
+        race="Hill Dwarf",
+        char_class="Cleric",
+        char_level=3,
+        classes=[{"class_name": "Cleric", "level": 3, "subclass": "Life Domain"}],
+        stats={"STR": 8, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+    )
+    f_opts = next(c for c in analyze_level_up(dwarf_l3)["choices_required"] if c["type"] == "feat")[
+        "options"
+    ]
+    assert "Squat Nimbleness" in f_opts
+
+    # _enforce_deterministic_forge_stats picking Resilient grants both +1 stat & saving throw proficiency
+    ai_doc = {
+        "char_class": "Fighter",
+        "stats": {"STR": 15, "DEX": 12, "CON": 14, "INT": 8, "WIS": 13, "CHA": 10},
+        "saving_throws": ["STR", "CON"],
+        "advancements": [{"level": 4, "type": "Feat", "name": "Resilient (WIS)"}],
+    }
+    _enforce_deterministic_forge_stats(
+        ai_doc,
+        char_class="Fighter",
+        race="Human",
+        background="Soldier",
+        target_level=4,
+        edition=EDITION_2014,
+        stats_mode="standard",
+        rolled_stats=None,
+        auto_feats=True,
+        repo=repo,
+    )
+    assert "WIS" in ai_doc["saving_throws"]
+    assert ai_doc["stats"]["WIS"] == 15  # 13 base + 1 (2014 Human) + 1 (Resilient WIS)
+
+    # forge_character_manual with Resilient grants an additional saving throw proficiency
+    with patch("backend.services.forge_service.generate_ai_json", return_value={}):
+        man_char = forge_character_manual(
+            4,
+            "Human",
+            "Wizard",
+            "Sage",
+            "School of Evocation",
+            "Neutral Good",
+            "Female",
+            "Lyra",
+            {"STR": 8, "DEX": 14, "CON": 15, "INT": 16, "WIS": 12, "CHA": 10},
+            ["Arcana", "History"],
+            ["INT", "WIS"],
+            "INT",
+            "",
+            edition=EDITION_2014,
+            chosen_feats=["Resilient"],
+        )
+    assert "CON" in man_char["saving_throws"]
+
+
+def test_gloom_stalker_2024_orc_150ft_and_high_elf_ek_guard():
+    # 2024 Orc (Darkvision 120 ft.) + Gloom Stalker 3 upgrades cleanly to Superior Darkvision 150 ft.
+    orc_gloom = sync_character_stats(
+        _make_base_char(
+            race="Orc",
+            char_class="Ranger",
+            char_level=3,
+            subclass="Gloom Stalker",
+            classes=[{"class_name": "Ranger", "level": 3, "subclass": "Gloom Stalker"}],
+            dnd_edition=EDITION_2024,
+        )
+    )
+    assert "Superior Darkvision 150 ft." in orc_gloom["senses"]
+    assert not any("darkvision 60" in s.lower() for s in orc_gloom["senses"])
+
+    # Shadow Sorcerer 1 (Eyes of the Dark 120 ft.) + Gloom Stalker 3 upgrades cleanly to 150 ft.
+    shadow_gloom = sync_character_stats(
+        _make_base_char(
+            race="Human",
+            char_class="Ranger",
+            char_level=4,
+            subclass="Gloom Stalker",
+            classes=[
+                {"class_name": "Ranger", "level": 3, "subclass": "Gloom Stalker"},
+                {"class_name": "Sorcerer", "level": 1, "subclass": "Shadow Magic"},
+            ],
+            features_traits=[{"name": "Eyes of the Dark", "description": "Darkvision 120 ft."}],
+            dnd_edition=EDITION_2014,
+        )
+    )
+    assert "Superior Darkvision 150 ft." in shadow_gloom["senses"]
+
+    # High Elf Champion Fighter L3 with Chill Touch (any Wizard cantrip) is NOT auto-inferred as Eldritch Knight
+    high_elf_chill = _make_base_char(
+        race="High Elf",
+        char_class="Fighter",
+        char_level=3,
+        subclass="Champion",
+        classes=[{"class_name": "Fighter", "level": 3, "subclass": "Champion"}],
+        spells={"cantrips": ["Chill Touch"]},
+        dnd_edition=EDITION_2014,
+    )
+    inject_mandatory_character_grants(high_elf_chill, edition=EDITION_2014)
+    synced_champ = sync_character_stats(high_elf_chill)
+    assert synced_champ["subclass"] == "Champion"
+    assert not synced_champ["spell_slots"]

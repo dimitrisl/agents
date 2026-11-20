@@ -292,7 +292,8 @@ def _enforce_deterministic_forge_stats(
                 if not cand_low or cand_low == "ability score improvement":
                     consumed_adv_indices.add(idx)
                     break
-                f_obj = all_feats.get(cand_low)
+                cand_base_low = re.sub(r"\s*\([^)]*\)\s*$", "", cand_low).strip()
+                f_obj = all_feats.get(cand_low) or all_feats.get(cand_base_low)
                 if not f_obj or f_obj["name"].lower() in used_feat_names:
                     continue
                 prereqs = f_obj.get("prerequisites") or {}
@@ -314,16 +315,64 @@ def _enforce_deterministic_forge_stats(
                         for opt in (picked_feat.get("stat_choice_options") or [])
                         if str(opt).strip()
                     }
+                    is_resilient = picked_feat["name"].strip().lower() == "resilient"
+                    explicit_save_match = (
+                        re.search(r"\((STR|DEX|CON|INT|WIS|CHA)\)", cand_name, re.I)
+                        if is_resilient
+                        else None
+                    )
+                    explicit_save = (
+                        explicit_save_match.group(1).upper() if explicit_save_match else None
+                    )
                     search_order = [
                         s for s in priority_order if not allowed_opts or s in allowed_opts
                     ]
                     for s in _STAT_KEYS:
                         if (not allowed_opts or s in allowed_opts) and s not in search_order:
                             search_order.append(s)
+                    if is_resilient:
+                        c_prog = repo.get_class_progression(char_class, edition) or {}
+                        abbr_save_map = {
+                            "STRENGTH": "STR",
+                            "DEXTERITY": "DEX",
+                            "CONSTITUTION": "CON",
+                            "INTELLIGENCE": "INT",
+                            "WISDOM": "WIS",
+                            "CHARISMA": "CHA",
+                        }
+                        existing_saves = {
+                            abbr_save_map.get(str(s).strip().upper(), str(s).strip().upper()[:3])
+                            for s in (
+                                char_data.get("saving_throws")
+                                or (c_prog.get("starting_proficiencies") or {}).get("saving_throws")
+                                or []
+                            )
+                            if str(s).strip()
+                        }
+                        # Prefer CON/WIS/DEX non-proficient saves for Resilient unless explicitly requested
+                        non_prof = [
+                            s
+                            for s in (["CON", "WIS", "DEX"] + search_order)
+                            if (not allowed_opts or s in allowed_opts) and s not in existing_saves
+                        ]
+                        search_order = (
+                            ([explicit_save] if explicit_save else []) + non_prof + search_order
+                        )
+                        search_order = list(dict.fromkeys(search_order))
+                    chosen_choice_stat = None
                     for p in search_order:
                         if base[p] < stat_cap:
                             base[p] = min(stat_cap, base[p] + 1)
+                            chosen_choice_stat = p
                             break
+                    if is_resilient:
+                        resilient_stat = explicit_save or chosen_choice_stat
+                        if resilient_stat:
+                            saves_list = list(char_data.get("saving_throws") or [])
+                            norm_existing = {str(s).strip().upper()[:3] for s in saves_list}
+                            if resilient_stat not in norm_existing:
+                                saves_list.append(resilient_stat)
+                            char_data["saving_throws"] = saves_list
                 _sync_feat_to_traits(picked_feat)
                 cleaned_advs.append(
                     {
@@ -774,11 +823,20 @@ def forge_character_manual(
             existing_feat_names.add(feat.get("name", "").lower())
 
     if chosen_spells is not None:
-        all_rules_spells = {s["name"].lower(): s for s in repo.get_all_spells(edition)}
+        all_rules_spells = {
+            str(s.get("name") or "")
+            .strip()
+            .lower()
+            .replace("\u2019", "'")
+            .replace("\u2018", "'"): s
+            for s in repo.get_all_spells(edition)
+            if isinstance(s, dict) and s.get("name")
+        }
         spells_dict: dict[str, list[str]] = {}
         prepared: list[str] = []
         for s_name in chosen_spells:
-            s_data = all_rules_spells.get(s_name.lower())
+            s_key = str(s_name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+            s_data = all_rules_spells.get(s_key)
             lvl = s_data.get("level", 0) if s_data else 0
             lvl_key = "cantrips" if lvl == 0 else f"level_{lvl}"
             clean_name = s_data["name"] if s_data else s_name
@@ -806,8 +864,12 @@ def forge_character_manual(
         advancements = []
         feat_traits = []
         for f_name in chosen_feats:
-            f_data = all_rules_feats.get(f_name.lower())
-            name = f_data["name"] if f_data else f_name
+            f_clean = str(f_name or "").strip()
+            f_base = re.sub(
+                r"\s*\((?:STR|DEX|CON|INT|WIS|CHA)\)\s*$", "", f_clean, flags=re.I
+            ).strip()
+            f_data = all_rules_feats.get(f_clean.lower()) or all_rules_feats.get(f_base.lower())
+            name = f_data["name"] if f_data else f_clean
             desc = f_data.get("description", "") if f_data else ""
             category = f_data.get("category", "General Feats") if f_data else "General Feats"
             adv_level = 1 if "origin" in category.lower() or "2024" in edition else 4
@@ -826,6 +888,32 @@ def forge_character_manual(
                     "source": "Feat",
                 }
             )
+            # Ensure Resilient in Manual Forge also grants a saving throw proficiency
+            if name.lower() == "resilient":
+                m_stat = re.search(r"\((STR|DEX|CON|INT|WIS|CHA)\)", f_clean, re.I)
+                abbr_map_man = {
+                    "STRENGTH": "STR",
+                    "DEXTERITY": "DEX",
+                    "CONSTITUTION": "CON",
+                    "INTELLIGENCE": "INT",
+                    "WISDOM": "WIS",
+                    "CHARISMA": "CHA",
+                }
+                cur_saves = [
+                    abbr_map_man.get(str(s).strip().upper(), str(s).strip().upper()[:3])
+                    for s in (result.get("saving_throws") or [])
+                    if str(s).strip()
+                ]
+                chosen_save = m_stat.group(1).upper() if m_stat else None
+                if not chosen_save and len(cur_saves) < 3:
+                    priority_order = _get_class_stat_priority(char_class, repo, edition)
+                    for cand_s in ["CON", "WIS", "DEX", *priority_order, *_STAT_KEYS]:
+                        if cand_s not in cur_saves:
+                            chosen_save = cand_s
+                            break
+                if chosen_save and chosen_save not in cur_saves:
+                    cur_saves.append(chosen_save)
+                    result["saving_throws"] = cur_saves
         result["advancements"] = advancements
         existing_traits = [
             f
@@ -2232,7 +2320,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                 min_req_level = 0
             if min_req_level > target_total_level:
                 continue
-            if not is_2024 and not _meets_stat_reqs(prereqs.get("stat_requirements") or {}):
+            if not _meets_stat_reqs(prereqs.get("stat_requirements") or {}):
                 continue
             reqs = prereqs.get("other", [])
             if not reqs or any(_meets_other_req(r) for r in reqs):
@@ -2627,8 +2715,8 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                         }
                     )
 
-        # Artificer Infusions Known (L2 gains 2 pickers; L6/10/14/18 gain 1)
-        inf_grants = {2: 2, 6: 1, 10: 1, 14: 1, 18: 1}
+        # Artificer Infusions Known (L2 gains 4; L6/10/14/18 each gain 2)
+        inf_grants = {2: 4, 6: 2, 10: 2, 14: 2, 18: 2}
         if c_lower == "artificer" and target_level in inf_grants:
             inf_opts = [
                 opt["name"]

@@ -205,7 +205,7 @@
           [ngModel]="userChoices[choice.type + '_' + i]"
           (ngModelChange)="onChoiceChange(choice.type + '_' + i, $event)">
           <option [value]="undefined" disabled selected>Select an option...</option>
-          <option *ngFor="let opt of choice.options" [value]="opt">{{ opt }}</option>
+          <option *ngFor="let opt of availableOptionsFor(choice, i)" [value]="opt">{{ opt }}</option>
         </select>
         <p *ngIf="choice.ai_recommendation" class="text-micro text-muted">💡 AI Suggests: {{ choice.ai_recommendation }}</p>
 
@@ -274,8 +274,14 @@
     </div>
   </div>
 
+  @if (hasDuplicateSiblingChoices) {
+    <p class="mt-3 rounded border border-accent/50 bg-accent/10 px-3 py-2 text-label font-semibold text-accent">
+      Duplicate option selected across sibling choices. Please pick distinct options before applying.
+    </p>
+  }
+
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
     <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
+    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices || hasDuplicateSiblingChoices" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
   </div>
 </forge-modal>

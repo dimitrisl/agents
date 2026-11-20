@@ -72,5 +72,8 @@ describe('CharacterOverviewCardComponent', () => {
     expect(text).toContain('Darkvision 60 ft.');
     expect(text).toContain('Resist: Fire, Poison');
     expect(text).toContain('Save Adv (2)');
+    const resistBadge = fixture.nativeElement.querySelector('[title="Damage Resistances: Fire, Poison"]');
+    expect(resistBadge?.className).toContain('min-h-7');
+    expect(resistBadge?.className).toContain('whitespace-normal');
   });
 });

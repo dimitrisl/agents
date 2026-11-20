@@ -434,7 +434,7 @@ def test_ac_breakdown_preserves_higher_unarmored_source():
 
 
 def test_multiclass_armor_proficiencies_and_perception_removal():
-    """Wizard 1 / Fighter 1 wearing Chain Mail is proficient via Fighter, and removing Perception proficiency sticks."""
+    """Wizard 1 / Fighter 1 gets Medium Armor + Shields (NOT Heavy Armor per PHB MC table), while Fighter 1 / Wizard 1 keeps Heavy Armor, and removing Perception sticks."""
     wiz_fighter = {
         "char_name": "Armored Mage",
         "char_class": "Wizard",
@@ -449,7 +449,28 @@ def test_multiclass_armor_proficiencies_and_perception_removal():
         "skill_proficiencies": ["Perception", "Arcana"],
     }
     _, issues = deterministic_validate_build(wiz_fighter)
-    assert not any("lacks proficiency for chain mail" in i.lower() for i in issues)
+    assert any("lacks proficiency for chain mail" in i.lower() for i in issues)
+
+    wiz_fighter_med = {
+        **wiz_fighter,
+        "equipment": [
+            {"name": "Breastplate", "equipped": True},
+            {"name": "Shield", "equipped": True},
+        ],
+    }
+    _, med_issues = deterministic_validate_build(wiz_fighter_med)
+    assert not any("lacks proficiency" in i.lower() for i in med_issues)
+
+    fighter_wiz = {
+        **wiz_fighter,
+        "char_class": "Fighter",
+        "classes": [
+            {"class_name": "Fighter", "level": 1},
+            {"class_name": "Wizard", "level": 1},
+        ],
+    }
+    _, fw_issues = deterministic_validate_build(fighter_wiz)
+    assert not any("lacks proficiency for chain mail" in i.lower() for i in fw_issues)
 
     synced = sync_character_stats(wiz_fighter)
     assert "Perception" in synced["skill_proficiencies"]

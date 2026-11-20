@@ -9437,5 +9437,121 @@
     "duration": "Instantaneous",
     "description": "You brandish the weapon used in the spell\u2019s casting and make a melee attack with it against one creature...",
     "edition": "2014"
+  },
+  {
+    "name": "Armor of Agathys",
+    "level": 1,
+    "school": "abjuration",
+    "classes": [
+      "warlock"
+    ],
+    "actionType": "action",
+    "concentration": false,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "A cup of water",
+    "duration": "1 hour",
+    "description": "Gain 5 temporary hit points for the duration; melee attackers hitting you while these remain take 5 cold damage (+5 per slot level above 1st).",
+    "higherLevelSlot": "Temporary hit points and cold damage both increase by 5 for each slot level above 1st.",
+    "castingTime": "1 action",
+    "edition": "2014"
+  },
+  {
+    "name": "Arms of Hadar",
+    "level": 1,
+    "school": "conjuration",
+    "classes": [
+      "warlock"
+    ],
+    "actionType": "action",
+    "concentration": false,
+    "ritual": false,
+    "range": "Self (10-foot radius)",
+    "components": [
+      "v",
+      "s"
+    ],
+    "material": null,
+    "duration": "Instantaneous",
+    "description": "Creatures within 10 feet make a Strength save or take 2d6 necrotic damage and cannot take reactions until their next turn (half damage on success).",
+    "higherLevelSlot": "Damage increases by 1d6 for each slot level above 1st.",
+    "castingTime": "1 action",
+    "edition": "2014"
+  },
+  {
+    "name": "Hunger of Hadar",
+    "level": 3,
+    "school": "conjuration",
+    "classes": [
+      "warlock"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "150 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "A pickled octopus tentacle",
+    "duration": "Concentration, up to 1 minute",
+    "description": "Creates a 20-foot-radius sphere of darkness and difficult terrain; creatures starting or ending their turn inside take cold or acid damage.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2014"
+  },
+  {
+    "name": "Summon Aberration",
+    "level": 4,
+    "school": "conjuration",
+    "classes": [
+      "warlock",
+      "wizard"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "A pickled tentacle and an eyeball in a platinum-inlaid vial worth at least 400 gp",
+    "duration": "Concentration, up to 1 hour",
+    "description": "Summons an aberrant spirit ally (Beholderkin, Slaad, or Star Spawn form) that acts on your turns and scales with slot level.",
+    "higherLevelSlot": "Use the spell slot level wherever spell level appears in the spirit's stat block.",
+    "castingTime": "1 action",
+    "edition": "2014"
+  },
+  {
+    "name": "Summon Construct",
+    "level": 4,
+    "school": "conjuration",
+    "classes": [
+      "artificer",
+      "wizard"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "An ornate stone and metal lockbox worth at least 400 gp",
+    "duration": "Concentration, up to 1 hour",
+    "description": "Summons a construct spirit ally (Clay, Metal, or Stone form) that obeys your commands and scales with slot level.",
+    "higherLevelSlot": "Use the spell slot level wherever spell level appears in the spirit's stat block.",
+    "castingTime": "1 action",
+    "edition": "2014"
   }
 ]
