@@ -273,6 +273,9 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.restoreAiDraft();
     this.restoreTempHero();
     this.checkPendingGenerationRecovery();
+    if (this.adjPlus2 === 'None' && this.adjPlus1 === 'None' && this.adjPlus1Alt === 'None') {
+      this.applyOriginAbilityDefaults();
+    }
     this.updateSubclasses();
     this.updateManualSubclasses();
     this.fetchFeats();
@@ -408,14 +411,24 @@ export class ForgeComponent implements OnInit, OnDestroy {
   private static readonly RACE_2014_PRESETS: Record<string, [string, string, string]> = {
     Human: ['None', 'None', 'None'],
     'Variant Human': ['STR', 'CON', 'None'],
+    'High Elf': ['DEX', 'INT', 'None'],
+    'Wood Elf': ['DEX', 'WIS', 'None'],
+    'Dark Elf (Drow)': ['DEX', 'CHA', 'None'],
+    'Half-Elf': ['CHA', 'DEX', 'CON'],
+    'Hill Dwarf': ['CON', 'WIS', 'None'],
+    'Mountain Dwarf': ['CON', 'STR', 'STR'],
+    'Lightfoot Halfling': ['DEX', 'CHA', 'None'],
+    'Stout Halfling': ['DEX', 'CON', 'None'],
+    'Forest Gnome': ['INT', 'DEX', 'None'],
+    'Rock Gnome': ['INT', 'CON', 'None'],
+    Dragonborn: ['STR', 'CHA', 'None'],
+    'Half-Orc': ['STR', 'CON', 'None'],
+    Tiefling: ['CHA', 'INT', 'None'],
+    // Legacy/base fallbacks for imported or generic names
     Elf: ['DEX', 'None', 'None'],
     Dwarf: ['CON', 'None', 'None'],
     Halfling: ['DEX', 'None', 'None'],
-    Dragonborn: ['STR', 'CHA', 'None'],
     Gnome: ['INT', 'None', 'None'],
-    'Half-Elf': ['CHA', 'DEX', 'CON'],
-    'Half-Orc': ['STR', 'CON', 'None'],
-    Tiefling: ['CHA', 'INT', 'None'],
   };
 
   private static readonly BG_2024_PRESETS: Record<string, [string, string]> = {
@@ -504,6 +517,9 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.manualSkills = [];
     this.manualFeats = [];
     this.manualSpells = [];
+    if (!this.is2024 && this.manualRace === 'Variant Human') {
+      this.applyOriginAbilityDefaults();
+    }
     this.updateManualSubclasses();
     this.fetchSpells();
   }
@@ -579,7 +595,23 @@ export class ForgeComponent implements OnInit, OnDestroy {
   get raceOptions(): string[] {
     return this.is2024
       ? ['Aasimar', 'Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Goliath', 'Halfling', 'Human', 'Orc', 'Tiefling', 'Warforged']
-      : ['Human', 'Variant Human', 'Elf', 'Dwarf', 'Halfling', 'Dragonborn', 'Gnome', 'Half-Elf', 'Half-Orc', 'Tiefling'];
+      : [
+          'Human',
+          'Variant Human',
+          'High Elf',
+          'Wood Elf',
+          'Dark Elf (Drow)',
+          'Half-Elf',
+          'Hill Dwarf',
+          'Mountain Dwarf',
+          'Lightfoot Halfling',
+          'Stout Halfling',
+          'Dragonborn',
+          'Forest Gnome',
+          'Rock Gnome',
+          'Half-Orc',
+          'Tiefling',
+        ];
   }
 
   get classOptions(): string[] {
