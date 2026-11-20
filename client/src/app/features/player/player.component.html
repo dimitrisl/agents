@@ -460,6 +460,57 @@
           </button>
         </div>
       </div>
+
+      <!-- PERSISTENT INCOMING WHISPER BANNER (Stays visible until player taps to open Chat or dismisses) -->
+      @if (latestUnreadWhisper(); as incoming) {
+        <div
+          class="flex items-center gap-2 rounded-xl border border-accent/50 bg-panel p-2 shadow-card"
+          role="status"
+          aria-live="polite"
+          data-testid="mobile-whisper-banner"
+        >
+          <button
+            type="button"
+            (click)="openMobileWhisperChat()"
+            data-testid="mobile-whisper-banner-open"
+            class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <span class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-accent/50 bg-accent/15 text-micro font-bold uppercase text-accent">
+              {{ senderInitials(incoming.sender) }}
+              <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red ring-2 ring-surface" aria-hidden="true"></span>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center gap-1.5 text-micro">
+                <strong class="truncate font-bold text-ink">{{ incoming.sender }}</strong>
+                <span [ngClass]="incoming.recipient === 'All' ? 'text-cobalt' : 'text-gold'">
+                  {{ incoming.recipient === 'All' ? '📢 Party' : '🔒 Whisper' }}
+                </span>
+                @if (unreadMessages > 1) {
+                  <span class="rounded-full bg-accent/15 px-1.5 py-0.5 font-bold tabular-nums text-accent">
+                    +{{ unreadMessages - 1 }}
+                  </span>
+                }
+              </span>
+              <span class="mt-0.5 block truncate text-label text-ink">{{ incoming.message }}</span>
+            </span>
+            <span class="shrink-0 rounded-lg border border-accent/40 bg-accent/15 px-2.5 py-1.5 text-micro font-bold uppercase text-accent">
+              Open →
+            </span>
+          </button>
+
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            iconOnly
+            type="button"
+            aria-label="Dismiss whisper notification"
+            (click)="dismissMobileWhisperBanner($event)"
+          >
+            <forge-icon name="close" size="xs" />
+          </button>
+        </div>
+      }
     </div>
 
     <!-- MAIN CONTENT VIEWPORT: COMPANION MODE vs DESKTOP MODE -->
@@ -551,150 +602,343 @@
         ></app-spells-panel>
       </div>
 
-      <!-- TABLE & INBOX TAB -->
-      <div *ngIf="mobileActiveTab() === 'table'" class="flex flex-col gap-4 pb-52">
-        <!-- Direct In-Page DM Inbox Feed for mobile table -->
-        <section *ngIf="char.active_campaign" class="p-4 bg-panel rounded-2xl border border-hairline flex flex-col gap-3">
-          <header class="flex items-center justify-between gap-2 pb-2 border-b border-hairline">
-            <div>
-              <p class="text-micro font-semibold uppercase text-accent">Table Messages</p>
-              <h2 class="font-display text-title text-ink">{{ char.active_campaign }}</h2>
-            </div>
-            <button
-              type="button"
-              (click)="toggleRollVisibility()"
-              class="min-h-9 px-3 rounded-full border text-label font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-              [ngClass]="rollVisibility() === 'dm' ? 'bg-gold/14 border-gold/40 text-gold' : 'bg-panel border-hairline text-ink hover:border-hairline-hover'"
-              [attr.aria-pressed]="rollVisibility() === 'dm'"
-            >
-              {{ rollVisibility() === 'dm' ? '🔒 Whisper DM' : '📢 Public Rolls' }}
-            </button>
-          </header>
-
-          <div #whisperFeed class="whisper-list max-h-75 overflow-y-auto" role="log">
-            <div *ngIf="inboxFeed.length === 0" class="whisper-empty">
-              Nothing yet. Whispers, party rolls, and DM roll requests appear here as they happen.
-            </div>
-
-            @for (entry of inboxFeed; track entry.key) {
-              @if (entry.kind === 'whisper') {
-                <article class="whisper-message" [class.broadcast]="entry.whisper.recipient === 'All'" [class.own]="isOwnWhisper(entry.whisper)">
-                  <div class="whisper-meta">
-                    <span class="message-kind">{{ isOwnWhisper(entry.whisper) ? 'You (' + char.char_name + ')' : entry.whisper.sender }}</span>
-                    <time class="shrink-0 text-micro text-muted">{{ formatWhisperTime(entry.whisper.timestamp) }}</time>
-                  </div>
-                  <p class="whisper-text">{{ entry.whisper.message }}</p>
-                  @if (!isOwnWhisper(entry.whisper) && entry.whisper.recipient !== 'All') {
-                    <p class="message-status text-micro text-muted">
-                      💬 Private to {{ entry.whisper.recipient_character_name || char.char_name }}
-                    </p>
-                  }
-                </article>
-              } @else if (entry.kind === 'campaign_roll') {
-                <article class="whisper-message" [class.broadcast]="entry.roll.visibility === 'public'" [class.own]="isOwnRollLog(entry.roll)">
-                  <div class="whisper-meta">
-                    <span class="message-kind">
-                      🎲 {{ isOwnRollLog(entry.roll) ? 'You (' + entry.roll.char_name + ')' : entry.roll.char_name }}
-                      @if (!isOwnRollLog(entry.roll) && entry.roll.sender_username) {
-                        <span class="text-micro text-muted">(&#64;{{ entry.roll.sender_username }})</span>
-                      }
-                      @if (entry.roll.visibility === 'dm') {
-                        <span class="ml-1 text-micro text-gold">🔒 DM</span>
-                      }
-                    </span>
-                    <time class="shrink-0 text-micro text-muted">{{ formatRollLogTime(entry.roll.created_at) }}</time>
-                  </div>
-                  <p class="whisper-text">
-                    {{ entry.roll.roll_label }}: <strong>{{ entry.roll.total }}</strong>
-                    <span class="text-micro text-muted">({{ entry.roll.formula }})</span>
-                    @if (entry.roll.is_crit) {
-                      <span class="ml-1 text-micro font-bold text-gold">CRIT</span>
-                    } @else if (entry.roll.is_fumble) {
-                      <span class="ml-1 text-micro font-bold text-crimson">NAT 1</span>
-                    }
-                  </p>
-                </article>
-              } @else {
-                <article class="roll-request-message" [class.pending]="entry.request.status === 'pending'">
-                  <div class="whisper-meta">
-                    <span class="message-kind">🎲 {{ entry.request.is_secret ? 'Secret' : 'DM' }} {{ entry.request.roll_type }}</span>
-                    <time class="shrink-0 text-micro text-muted">{{ formatRollRequestTime(entry.request.created_at) }}</time>
-                  </div>
-                  <p class="whisper-text">{{ entry.request.stat }}{{ entry.request.reason ? ' · ' + entry.request.reason : '' }}</p>
-                  <button *ngIf="entry.request.status !== 'resolved' && entry.request.status !== 'cancelled'" forgeButton variant="secondary" size="sm" type="button" (click)="openRollPrompt(entry.request)">
-                    Roll
-                  </button>
-                </article>
-              }
-            }
-          </div>
-        </section>
-
-        <!-- Sticky Table Whisper Dock (#211) -->
+      <!-- TABLE & INBOX TAB (Sub-pills: Messenger-style Chat & Feed | Compact Lore & Notes) -->
+      <div
+        *ngIf="mobileActiveTab() === 'table'"
+        class="flex flex-col gap-3"
+        [ngClass]="char.active_campaign && mobileTableSubTab() === 'chat' ? 'pb-36' : 'pb-6'"
+        data-testid="mobile-table-view"
+      >
+        <!-- Sub-Pill Switcher -->
         <div
-          *ngIf="char.active_campaign"
-          class="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] inset-x-0 z-30 bg-surface/95 backdrop-blur-md border-t border-hairline p-3 flex flex-col gap-2 shadow-2xl"
+          class="grid grid-cols-2 rounded-full border border-hairline bg-panel p-1"
+          role="tablist"
+          aria-label="Table sections"
+          data-testid="mobile-table-subtabs"
         >
-          <!-- Quick Whisper Chips (#175) -->
-          <div class="flex flex-wrap gap-1.5 overflow-x-auto pb-0.5">
-            <button
-              type="button"
-              (click)="sendQuickWhisper('👁️ I make a secret perception / insight check.')"
-              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0 transition-colors"
-            >
-              👁️ Secret Perception
-            </button>
-            <button
-              type="button"
-              (click)="sendQuickWhisper('🗡️ I attempt Sleight of Hand / Stealth quietly.')"
-              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0 transition-colors"
-            >
-              🗡️ Sleight of Hand
-            </button>
-            <button
-              type="button"
-              (click)="sendQuickWhisper('🔍 I investigate the area secretly.')"
-              class="px-2.5 py-1 rounded-full bg-tile hover:bg-tile/80 text-xs text-muted hover:text-ink border border-hairline cursor-pointer shrink-0 transition-colors"
-            >
-              🔍 Investigation
-            </button>
-          </div>
-
-          <!-- Whisper Input -->
-          <form class="whisper-reply !p-0 !border-0 !bg-transparent" (ngSubmit)="sendWhisperReply()">
-            <textarea
-              forgeTextarea
-              rows="2"
-              name="whisperReply"
-              placeholder="Send quiet whisper to DM…"
-              [(ngModel)]="whisperReply"
-            ></textarea>
-            <div class="whisper-reply-actions">
-              <span class="text-micro text-muted">Private to the DM</span>
-              <button
-                forgeButton
-                variant="secondary"
-                tone="accent"
-                size="sm"
-                type="submit"
-                [disabled]="!whisperReply.trim() || isSendingWhisperReply"
-              >
-                {{ isSendingWhisperReply ? 'Sending…' : 'Send' }}
-              </button>
-            </div>
-          </form>
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="mobileTableSubTab() === 'chat'"
+            data-testid="mobile-table-subtab-chat"
+            (click)="selectMobileTableSubTab('chat')"
+            class="flex min-h-9 items-center justify-center gap-1.5 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="
+              mobileTableSubTab() === 'chat'
+                ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+                : 'text-muted hover:text-ink'
+            "
+          >
+            <span>💬 Chat &amp; Feed</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="mobileTableSubTab() === 'lore'"
+            data-testid="mobile-table-subtab-lore"
+            (click)="selectMobileTableSubTab('lore')"
+            class="flex min-h-9 items-center justify-center gap-1.5 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="
+              mobileTableSubTab() === 'lore'
+                ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+                : 'text-muted hover:text-ink'
+            "
+          >
+            <span>📖 Lore &amp; Notes</span>
+          </button>
         </div>
 
-        <!-- Roleplay Panel -->
-        <forge-card padding="none" [hoverable]="false">
-          <div class="p-4">
-            <app-roleplay-panel
-              [char]="char"
-              [editMode]="editMode()"
-              (save)="saveCurrentChar()"
-            ></app-roleplay-panel>
-          </div>
-        </forge-card>
+        <!-- SUB-TAB 1: MESSENGER-STYLE TABLE CHAT & FEED -->
+        @if (mobileTableSubTab() === 'chat') {
+          @if (char.active_campaign) {
+            <!-- Compact Campaign Strip + Feed Filter Pills -->
+            <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div class="min-w-0 flex items-center gap-1.5">
+                <span class="h-2 w-2 shrink-0 rounded-full bg-emerald" aria-hidden="true"></span>
+                <span class="truncate text-label font-semibold text-ink">{{ char.active_campaign }}</span>
+              </div>
+              <div class="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  (click)="mobileTableFeedFilter.set('all')"
+                  data-testid="mobile-chat-filter-all"
+                  class="min-h-7 rounded-full border px-2.5 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [ngClass]="mobileTableFeedFilter() === 'all' ? 'border-accent/40 bg-accent/15 text-accent' : 'border-hairline bg-panel text-muted hover:text-ink'"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  (click)="mobileTableFeedFilter.set('whispers')"
+                  data-testid="mobile-chat-filter-whispers"
+                  class="min-h-7 rounded-full border px-2.5 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [ngClass]="mobileTableFeedFilter() === 'whispers' ? 'border-accent/40 bg-accent/15 text-accent' : 'border-hairline bg-panel text-muted hover:text-ink'"
+                >
+                  💬 Chat
+                </button>
+                <button
+                  type="button"
+                  (click)="mobileTableFeedFilter.set('rolls')"
+                  data-testid="mobile-chat-filter-rolls"
+                  class="min-h-7 rounded-full border px-2.5 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [ngClass]="mobileTableFeedFilter() === 'rolls' ? 'border-accent/40 bg-accent/15 text-accent' : 'border-hairline bg-panel text-muted hover:text-ink'"
+                >
+                  🎲 Rolls
+                </button>
+              </div>
+            </div>
+
+            <!-- Messenger Chat Thread -->
+            <div
+              #whisperFeed
+              class="flex min-h-72 flex-col gap-2.5 rounded-2xl border border-hairline bg-panel p-3"
+              role="log"
+              aria-live="polite"
+              data-testid="mobile-messenger-thread"
+            >
+              @if (filteredMobileInboxFeed.length === 0) {
+                <div class="my-auto flex flex-col items-center justify-center gap-1 py-10 text-center">
+                  <span class="text-title" aria-hidden="true">💬</span>
+                  <p class="text-body font-medium text-ink">No table messages yet</p>
+                  <p class="max-w-64 text-label text-muted">
+                    Whispers with the DM, party rolls, and roll prompts appear here like a live chat.
+                  </p>
+                </div>
+              }
+
+              @for (entry of filteredMobileInboxFeed; track entry.key) {
+                @if (entry.kind === 'whisper') {
+                  @if (isOwnWhisper(entry.whisper)) {
+                    <!-- OUTGOING MESSENGER BUBBLE (Right-aligned, edition-accent tinted) -->
+                    <article
+                      class="ml-auto flex max-w-[82%] flex-col items-end gap-0.5"
+                      data-testid="mobile-whisper-outgoing"
+                    >
+                      <div class="rounded-2xl rounded-br-sm border border-accent/40 bg-accent/15 px-3.5 py-2 text-body leading-snug text-ink">
+                        <p class="whitespace-pre-wrap break-words">{{ entry.whisper.message }}</p>
+                      </div>
+                      <div class="flex items-center gap-1.5 px-1 text-micro text-muted">
+                        <span>To {{ entry.whisper.recipient }}</span>
+                        <span aria-hidden="true">·</span>
+                        <time>{{ formatWhisperTime(entry.whisper.timestamp) }}</time>
+                      </div>
+                    </article>
+                  } @else {
+                    <!-- INCOMING MESSENGER BUBBLE (Left-aligned with avatar circle) -->
+                    <article
+                      class="flex max-w-[86%] items-end gap-2"
+                      data-testid="mobile-whisper-incoming"
+                    >
+                      <span
+                        class="mb-4 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-micro font-bold uppercase"
+                        [ngClass]="
+                          entry.whisper.recipient === 'All'
+                            ? 'border-cobalt/40 bg-cobalt/15 text-cobalt'
+                            : 'border-accent/40 bg-accent/15 text-accent'
+                        "
+                        aria-hidden="true"
+                      >
+                        {{ senderInitials(entry.whisper.sender) }}
+                      </span>
+
+                      <div class="flex min-w-0 flex-col items-start gap-0.5">
+                        <div class="flex items-center gap-1.5 px-1 text-micro text-muted">
+                          <span class="font-semibold text-ink">{{ entry.whisper.sender }}</span>
+                          @if (entry.whisper.recipient === 'All') {
+                            <span class="text-cobalt">📢 Party</span>
+                          } @else {
+                            <span class="text-gold">🔒 Private</span>
+                          }
+                        </div>
+                        <div
+                          class="rounded-2xl rounded-bl-sm border px-3.5 py-2 text-body leading-snug text-ink"
+                          [ngClass]="
+                            entry.whisper.recipient === 'All'
+                              ? 'border-cobalt/35 bg-cobalt/10'
+                              : 'border-hairline bg-tile'
+                          "
+                        >
+                          <p class="whitespace-pre-wrap break-words">{{ entry.whisper.message }}</p>
+                        </div>
+                        <div class="flex items-center gap-2 px-1 text-micro text-muted">
+                          <time>{{ formatWhisperTime(entry.whisper.timestamp) }}</time>
+                          @if (!entry.whisper.has_open_report) {
+                            <button
+                              type="button"
+                              class="text-micro text-muted hover:text-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              (click)="reportWhisper(entry.whisper)"
+                              title="Report whisper"
+                            >
+                              🚩 Report
+                            </button>
+                          } @else {
+                            <span class="text-gold">🚩 Reported</span>
+                          }
+                        </div>
+                      </div>
+                    </article>
+                  }
+                } @else if (entry.kind === 'campaign_roll') {
+                  <!-- SYSTEM ROLL PILL (Centered compact pill so chat stays clean) -->
+                  <article class="mx-auto flex max-w-[94%] flex-wrap items-center justify-center gap-1.5 rounded-full border border-hairline bg-tile px-3 py-1 text-center text-micro text-muted">
+                    <span>
+                      🎲 <strong class="font-semibold text-ink">{{ isOwnRollLog(entry.roll) ? 'You' : entry.roll.char_name }}</strong>
+                      · {{ entry.roll.roll_label }}
+                      <strong class="font-bold tabular-nums text-accent">{{ entry.roll.total }}</strong>
+                      <span class="ml-1 opacity-80">({{ entry.roll.formula }})</span>
+                    </span>
+                    @if (entry.roll.visibility === 'dm') {
+                      <span class="font-semibold text-gold">🔒 DM</span>
+                    }
+                    @if (entry.roll.is_crit) {
+                      <span class="font-bold text-gold">CRIT</span>
+                    } @else if (entry.roll.is_fumble) {
+                      <span class="font-bold text-red">NAT 1</span>
+                    }
+                    <time class="opacity-70">{{ formatRollLogTime(entry.roll.created_at) }}</time>
+                  </article>
+                } @else {
+                  <!-- INTERACTIVE DM ROLL REQUEST CARD (Left-aligned DM action bubble) -->
+                  <article class="flex max-w-[88%] items-end gap-2">
+                    <span
+                      class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/40 bg-accent/15 text-micro font-bold text-accent"
+                      aria-hidden="true"
+                    >
+                      DM
+                    </span>
+                    <div class="flex min-w-0 flex-1 flex-col gap-1.5 rounded-2xl rounded-bl-sm border border-accent/40 bg-accent/10 px-3.5 py-2.5">
+                      <div class="flex items-center justify-between gap-2 text-micro">
+                        <span class="font-bold uppercase text-accent">
+                          🎲 {{ entry.request.is_secret ? 'Secret' : 'DM' }} {{ entry.request.roll_type }}
+                        </span>
+                        <time class="text-muted">{{ formatRollRequestTime(entry.request.created_at) }}</time>
+                      </div>
+                      <p class="text-body font-medium text-ink">
+                        {{ entry.request.stat }}{{ entry.request.reason ? ' · ' + entry.request.reason : '' }}
+                      </p>
+                      @if (entry.request.result) {
+                        <p class="text-label font-semibold text-accent">
+                          Rolled {{ entry.request.result.total }} ({{ entry.request.result.expression }})
+                        </p>
+                      }
+                      @if (entry.request.status !== 'resolved' && entry.request.status !== 'cancelled') {
+                        <div>
+                          <button
+                            forgeButton
+                            variant="primary"
+                            size="sm"
+                            type="button"
+                            (click)="openRollPrompt(entry.request)"
+                          >
+                            🎲 Roll Now
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  </article>
+                }
+              }
+            </div>
+
+            <!-- SLEEK 1-LINE MESSENGER COMPOSER BAR (Only docked on Chat sub-tab!) -->
+            <div
+              class="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-hairline bg-surface/95 px-3 py-2 backdrop-blur-md"
+              data-testid="mobile-messenger-composer"
+            >
+              <!-- Optional On-Demand Quick Whisper Chips (1 horizontal row) -->
+              @if (showMobileQuickWhispers()) {
+                <div class="mb-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    (click)="sendQuickWhisper('👁️ I make a secret perception / insight check.'); showMobileQuickWhispers.set(false)"
+                    class="min-h-7 shrink-0 rounded-full border border-hairline bg-tile px-2.5 text-micro font-semibold text-ink transition-colors hover:border-hairline-hover"
+                  >
+                    👁️ Secret Perception
+                  </button>
+                  <button
+                    type="button"
+                    (click)="sendQuickWhisper('🗡️ I attempt Sleight of Hand / Stealth quietly.'); showMobileQuickWhispers.set(false)"
+                    class="min-h-7 shrink-0 rounded-full border border-hairline bg-tile px-2.5 text-micro font-semibold text-ink transition-colors hover:border-hairline-hover"
+                  >
+                    🗡️ Stealth / Sleight
+                  </button>
+                  <button
+                    type="button"
+                    (click)="sendQuickWhisper('🔍 I investigate the area secretly.'); showMobileQuickWhispers.set(false)"
+                    class="min-h-7 shrink-0 rounded-full border border-hairline bg-tile px-2.5 text-micro font-semibold text-ink transition-colors hover:border-hairline-hover"
+                  >
+                    🔍 Investigate
+                  </button>
+                </div>
+              }
+
+              <form class="flex items-center gap-2" (ngSubmit)="sendWhisperReply()">
+                <button
+                  type="button"
+                  (click)="showMobileQuickWhispers.set(!showMobileQuickWhispers())"
+                  [attr.aria-expanded]="showMobileQuickWhispers()"
+                  aria-label="Toggle quick whisper presets"
+                  title="Quick whisper presets"
+                  data-testid="mobile-quick-whisper-toggle"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  [ngClass]="
+                    showMobileQuickWhispers()
+                      ? 'border-accent/40 bg-accent/15 text-accent'
+                      : 'border-hairline bg-tile text-muted hover:text-ink'
+                  "
+                >
+                  ⚡
+                </button>
+
+                <input
+                  forgeInput
+                  dense
+                  type="text"
+                  name="whisperReply"
+                  autocomplete="off"
+                  class="min-w-0 flex-1 rounded-full px-3.5"
+                  placeholder="Whisper to DM…"
+                  aria-label="Whisper message to DM"
+                  [(ngModel)]="whisperReply"
+                />
+
+                <button
+                  forgeButton
+                  variant="primary"
+                  size="sm"
+                  type="submit"
+                  class="min-h-10 shrink-0 rounded-full px-3.5"
+                  [disabled]="!whisperReply.trim() || isSendingWhisperReply"
+                  aria-label="Send whisper to DM"
+                >
+                  {{ isSendingWhisperReply ? '…' : 'Send' }}
+                </button>
+              </form>
+            </div>
+          } @else {
+            <forge-empty-state
+              icon="💬"
+              title="Not in a Campaign"
+              description="Join a campaign to exchange live Messenger-style whispers and roll prompts with your DM."
+            >
+              <div class="mt-2 flex justify-center">
+                <button forgeButton variant="primary" size="md" type="button" (click)="showJoinModal.set(true)">
+                  🔑 Join Campaign
+                </button>
+              </div>
+            </forge-empty-state>
+          }
+        }
+
+        <!-- SUB-TAB 2: COMPACT LORE & ROLEPLAY NOTES -->
+        @if (mobileTableSubTab() === 'lore') {
+          <app-roleplay-panel
+            [char]="char"
+            [editMode]="editMode()"
+            [compactMobile]="true"
+            (save)="saveCurrentChar()"
+          ></app-roleplay-panel>
+        }
       </div>
     </div>
 
@@ -944,7 +1188,13 @@
         <span class="text-body" aria-hidden="true">💬</span>
         <span class="text-micro font-bold uppercase">Table</span>
         @if (unreadMessages > 0) {
-          <span class="absolute right-3 top-1.5 h-2.5 w-2.5 rounded-full bg-accent animate-ping motion-reduce:animate-none"></span>
+          <span
+            class="whisper-unread !right-2 !top-0.5"
+            data-testid="mobile-nav-table-unread"
+            [attr.aria-label]="unreadMessages + ' unread table messages'"
+          >
+            {{ unreadMessages > 9 ? '9+' : unreadMessages }}
+          </span>
         }
       </button>
     </nav>

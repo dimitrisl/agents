@@ -1805,6 +1805,63 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     expect(comp.canMobileLongRest(activeChar)).toBe(false);
     expect(comp.canMobileLevelUp(activeChar)).toBe(false);
 
+    // Table tab Messenger sub-tabs, chat filtering, and sender initials
+    comp.selectMobileTab('table');
+    expect(comp.mobileTableSubTab()).toBe('chat');
+    expect(comp.senderInitials('DM')).toBe('DM');
+    expect(comp.senderInitials('Valen Stormblade')).toBe('VS');
+
+    comp.whisperHistory = [
+      { id: 'w1', sender: 'DM', recipient: activeChar.char_name, message: 'Secret clue', timestamp: '2026-11-20 20:00:00' },
+    ];
+    comp.rollLogHistory = [
+      {
+        id: 'r1',
+        campaign_name: 'Curse of Strahd',
+        char_id: activeChar.char_id!,
+        char_name: activeChar.char_name,
+        sender_user_id: 'u1',
+        roll_type: 'skill',
+        roll_label: 'Perception',
+        formula: '1d20+6',
+        rolls: [12],
+        modifier: 6,
+        total: 18,
+        visibility: 'public',
+        created_at: '2026-11-20 20:01:00',
+      },
+    ];
+    (comp as any).rebuildInboxFeed();
+    comp.mobileTableFeedFilter.set('whispers');
+    expect(comp.filteredMobileInboxFeed.every((e) => e.kind === 'whisper')).toBe(true);
+    comp.mobileTableFeedFilter.set('rolls');
+    expect(comp.filteredMobileInboxFeed.every((e) => e.kind !== 'whisper')).toBe(true);
+
+    // Persistent DM whisper notification when on another tab -> tapping switches straight to Table Chat
+    comp.selectMobileTab('hero');
+    expect(comp.mobileActiveTab()).toBe('hero');
+    (comp as any).addWhisper(
+      { id: 'w-live', sender: 'DM', recipient: activeChar.char_name, message: 'A hidden door clicks open.', timestamp: '2026-11-20 20:05:00' },
+      true
+    );
+    expect(comp.unreadMessages).toBe(1);
+    expect(comp.latestUnreadWhisper()?.message).toBe('A hidden door clicks open.');
+
+    comp.openMobileWhisperChat();
+    expect(comp.mobileActiveTab()).toBe('table');
+    expect(comp.mobileTableSubTab()).toBe('chat');
+    expect(comp.mobileTableFeedFilter()).toBe('all');
+    expect(comp.unreadMessages).toBe(0);
+    expect(comp.latestUnreadWhisper()).toBeNull();
+
+    // Arriving while already viewing Mobile Chat does NOT create unread badge or banner
+    (comp as any).addWhisper(
+      { id: 'w-live-2', sender: 'DM', recipient: activeChar.char_name, message: 'Roll Stealth!', timestamp: '2026-11-20 20:06:00' },
+      true
+    );
+    expect(comp.unreadMessages).toBe(0);
+    expect(comp.latestUnreadWhisper()).toBeNull();
+
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();
   });

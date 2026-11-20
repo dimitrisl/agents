@@ -33,6 +33,7 @@ const BACKSTORY_CLAMP_THRESHOLD = 420;
 export class RoleplayPanelComponent {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() editMode = false;
+  @Input() compactMobile = false;
 
   @Output() save = new EventEmitter<void>();
 

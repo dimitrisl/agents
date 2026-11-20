@@ -1,3 +1,84 @@
+@if (compactMobile) {
+  <!-- D&D BEYOND MOBILE COMPANION: COMPACT LORE & ROLEPLAY NOTES -->
+  <div class="flex flex-col gap-3" data-testid="mobile-lore-view">
+    @if (char.alignment || char.background) {
+      <div class="flex flex-wrap items-center gap-1.5 px-1">
+        @if (char.alignment) {
+          <forge-badge tone="accent" size="sm">{{ char.alignment }}</forge-badge>
+        }
+        @if (char.background) {
+          <forge-badge tone="muted" size="sm">{{ char.background }}</forge-badge>
+        }
+      </div>
+    }
+
+    <!-- Compact Personality & Backstory Card -->
+    <section
+      class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel"
+      aria-label="Character personality and backstory"
+    >
+      @for (field of traitFields; track field.key) {
+        <div class="px-3.5 py-3">
+          <h4 class="text-micro font-semibold uppercase text-muted">{{ field.label }}</h4>
+          @if (!editMode) {
+            @if (char[field.key]) {
+              <p class="mt-1 text-body leading-relaxed text-ink">{{ char[field.key] }}</p>
+            } @else {
+              <p class="mt-1 text-label italic text-muted">Not recorded yet.</p>
+            }
+          } @else {
+            <textarea
+              forgeTextarea
+              class="mt-1.5"
+              rows="2"
+              [attr.aria-label]="field.label"
+              [(ngModel)]="char[field.key]"
+              (change)="save.emit()"
+            ></textarea>
+          }
+        </div>
+      }
+
+      <div class="px-3.5 py-3">
+        <h4 class="text-micro font-semibold uppercase text-muted">Backstory</h4>
+        @if (!editMode) {
+          @if (char.backstory) {
+            <p
+              class="mt-1 whitespace-pre-line text-body leading-relaxed text-ink"
+              [class.line-clamp-6]="isBackstoryClampable && !backstoryExpanded"
+            >
+              {{ char.backstory }}
+            </p>
+            @if (isBackstoryClampable) {
+              <button
+                forgeButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                class="mt-1.5"
+                [attr.aria-expanded]="backstoryExpanded"
+                (click)="toggleBackstory()"
+              >
+                {{ backstoryExpanded ? 'Show less' : 'Show more' }}
+              </button>
+            }
+          } @else {
+            <p class="mt-1 text-label italic text-muted">No backstory recorded yet.</p>
+          }
+        } @else {
+          <textarea
+            forgeTextarea
+            class="mt-1.5"
+            rows="5"
+            aria-label="Backstory"
+            [(ngModel)]="char.backstory"
+            (change)="save.emit()"
+          ></textarea>
+        }
+      </div>
+    </section>
+  </div>
+} @else {
 <div class="flex flex-col gap-6">
   <section class="flex flex-col gap-3" aria-labelledby="roleplay-personality-heading">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -98,3 +179,4 @@
     </div>
   </section>
 </div>
+}

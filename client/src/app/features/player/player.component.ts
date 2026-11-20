@@ -112,6 +112,7 @@ import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeIconComponent,
+  ForgeInputDirective,
   ForgeSpinnerComponent,
   ForgeSkeletonComponent,
   ForgeCardComponent,
@@ -172,9 +173,10 @@ interface RollTarget {
     FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
-  ForgeIconComponent,
-  ForgeSpinnerComponent,
-  ForgeSkeletonComponent,
+    ForgeIconComponent,
+    ForgeInputDirective,
+    ForgeSpinnerComponent,
+    ForgeSkeletonComponent,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
     ForgeModalComponent,
@@ -239,6 +241,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   });
   mobileActiveTab = signal<'hero' | 'combat' | 'skills' | 'spells' | 'table'>('hero');
   mobileHeroSubTab = signal<'abilities' | 'senses'>('abilities');
+  mobileTableSubTab = signal<'chat' | 'lore'>('chat');
+  mobileTableFeedFilter = signal<'all' | 'whispers' | 'rolls'>('all');
+  showMobileQuickWhispers = signal(false);
+  latestUnreadWhisper = signal<Whisper | null>(null);
   showMobileHeaderActions = signal(false);
   showMobileHpSheet = signal(false);
   showMobileRestSheet = signal(false);
@@ -492,6 +498,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.rollRequestHistory = [];
         this.rollLogHistory = [];
         this.unreadMessages = 0;
+        this.latestUnreadWhisper.set(null);
         this.whisperReply = '';
         this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
@@ -662,7 +669,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         const isOwnReply = this.isOwnWhisper(whisper);
         this.addWhisper(whisper, !isOwnReply);
         if (!isOwnReply) {
-          this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
+          if (this.isCompanionMode()) {
+            this.haptics.lightTap();
+          } else {
+            this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
+          }
         }
       } else if (msg.type === 'campaign_roll') {
         const rollLog = msg['payload'] as CampaignRollLog | undefined;
@@ -2051,6 +2062,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       });
   }
 
+  private isViewingMobileWhisperChat(): boolean {
+    return (
+      this.isCompanionMode() &&
+      this.mobileActiveTab() === 'table' &&
+      this.mobileTableSubTab() === 'chat'
+    );
+  }
+
   private addWhisper(whisper: Whisper, markUnread: boolean): void {
     if (whisper.id && this.whisperHistory.some((item) => item.id === whisper.id)) return;
 
@@ -2059,8 +2078,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox()) {
+    const inboxVisible = this.showWhisperInbox() || this.isViewingMobileWhisperChat();
+    if (markUnread && !inboxVisible) {
       this.unreadMessages += 1;
+      if (this.isCompanionMode()) {
+        this.latestUnreadWhisper.set(whisper);
+      }
     }
   }
 
@@ -2687,8 +2710,61 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     else if (tab === 'spells') this.selectSheetSubTab('spells');
     else if (tab === 'table') {
       this.selectSheetSubTab('roleplay');
-      this.unreadMessages = 0;
+      const hasCampaign = !!this.charState.activeCharacter()?.active_campaign;
+      this.mobileTableSubTab.set(hasCampaign ? 'chat' : 'lore');
+      if (hasCampaign) {
+        this.unreadMessages = 0;
+        this.latestUnreadWhisper.set(null);
+        this.pendingFeedScroll = true;
+      }
     }
+  }
+
+  selectMobileTableSubTab(subTab: 'chat' | 'lore'): void {
+    this.mobileTableSubTab.set(subTab);
+    if (subTab === 'chat') {
+      this.unreadMessages = 0;
+      this.latestUnreadWhisper.set(null);
+      this.pendingFeedScroll = true;
+    }
+  }
+
+  openMobileWhisperChat(): void {
+    this.haptics.lightTap();
+    this.mobileActiveTab.set('table');
+    this.selectSheetSubTab('roleplay');
+    this.mobileTableSubTab.set('chat');
+    if (this.mobileTableFeedFilter() === 'rolls') {
+      this.mobileTableFeedFilter.set('all');
+    }
+    this.unreadMessages = 0;
+    this.latestUnreadWhisper.set(null);
+    this.pendingFeedScroll = true;
+  }
+
+  dismissMobileWhisperBanner(event?: Event): void {
+    event?.stopPropagation();
+    this.latestUnreadWhisper.set(null);
+  }
+
+  get filteredMobileInboxFeed(): InboxEntry[] {
+    const filter = this.mobileTableFeedFilter();
+    if (filter === 'all') return this.inboxFeed;
+    if (filter === 'whispers') {
+      return this.inboxFeed.filter((e) => e.kind === 'whisper');
+    }
+    return this.inboxFeed.filter((e) => e.kind === 'campaign_roll' || e.kind === 'roll');
+  }
+
+  senderInitials(name?: string): string {
+    const clean = (name || '').trim();
+    if (!clean) return '?';
+    if (clean.toLowerCase() === 'dm' || clean.toLowerCase() === 'dungeon master') return 'DM';
+    const parts = clean.split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
   }
 
   setRollMode(mode: RollMode): void {
