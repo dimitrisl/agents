@@ -74,7 +74,6 @@
           >
             <option value="Male">Male</option>
             <option value="Female">Female</option>
-            <option value="Non-binary">Non-binary</option>
             <option value="Other">Other</option>
           </select>
         </div>
@@ -526,19 +525,32 @@
       class="overflow-hidden rounded-xl bg-panel"
       aria-labelledby="manual-step-adjust"
     >
-      <header class="flex items-center gap-3 bg-tile px-4 py-3">
-        <span
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
-          aria-hidden="true"
-        >
-          4
-        </span>
-        <h2
-          id="manual-step-adjust"
-          class="min-w-0 font-display text-title text-ink"
-        >
-          Score Adjustments
-        </h2>
+      <header class="flex flex-col gap-2 bg-tile px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/12 text-label font-bold text-accent"
+            aria-hidden="true"
+          >
+            4
+          </span>
+          <div>
+            <h2
+              id="manual-step-adjust"
+              class="min-w-0 font-display text-title text-ink"
+            >
+              Score Adjustments
+            </h2>
+            <p class="text-label text-muted">
+              @if (is2024) {
+                2024 Background ASI (+2 / +1 or +1 / +1 / +1) — auto-suggested when choosing a Background.
+              } @else if (manualRace === "Human" && adjPlus2 === "None" && adjPlus1 === "None" && adjPlus1Alt === "None") {
+                2014 Human applies +1 to all 6 ability scores automatically unless customized below.
+              } @else {
+                2014 Racial Ability Bonuses — auto-filled when choosing a Race (editable for custom origins).
+              }
+            </p>
+          </div>
+        </div>
       </header>
 
       <div class="flex flex-col gap-4 p-4">

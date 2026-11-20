@@ -77,7 +77,7 @@ describe('FaqComponent', () => {
   it('a tag starts a search across every category', () => {
     component.toggleQuestion('dm-2'); // open an answer that shows its tags
     fixture.detectChanges();
-    const tag = fixture.nativeElement.querySelector('button[title^="Αναζήτηση για"]') as HTMLButtonElement;
+    const tag = fixture.nativeElement.querySelector('button[title^="Search for"]') as HTMLButtonElement;
     tag.click();
     expect(component.searchQuery()).toBe(tag.textContent!.trim().replace(/^#/, ''));
   });

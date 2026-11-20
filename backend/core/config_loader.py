@@ -13,20 +13,20 @@ CONFIG_FILE = "config.json"
 # parsing) stay on the selected model instead of escalating to pro_model.
 # Anthropic models run on the user's own API key (saved in Settings).
 AVAILABLE_MODELS = {
-    "gemini-2.5-flash": {
-        "label": "Gemini 2.5 Flash (Fast)",
-        "provider": "gemini",
-        "free_tier": False,
-    },
-    "gemini-2.5-pro": {
-        "label": "Gemini 2.5 Pro (Deep Reasoning)",
-        "provider": "gemini",
-        "free_tier": False,
-    },
     "gemini-3.5-flash": {
         "label": "Gemini 3.5 Flash (Free)",
         "provider": "gemini",
         "free_tier": True,
+    },
+    "gemini-3.6-flash": {
+        "label": "Gemini 3.6 Flash (Fast)",
+        "provider": "gemini",
+        "free_tier": False,
+    },
+    "gemini-3.1-pro-preview": {
+        "label": "Gemini 3.1 Pro (Deep Reasoning)",
+        "provider": "gemini",
+        "free_tier": False,
     },
     "claude-opus-5-5": {
         "label": "Claude Opus 5.5 (Best Quality)",
@@ -45,7 +45,28 @@ AVAILABLE_MODELS = {
     },
 }
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+
+# Map retired/legacy Gemini IDs saved in old config files or MongoDB user records
+# to active replacements so existing users never hit silent 404 model failures.
+LEGACY_GEMINI_MODEL_ALIASES = {
+    "gemini-1.5-flash": "gemini-3.5-flash",
+    "gemini-1.5-pro": "gemini-3.1-pro-preview",
+    "gemini-2.0-flash": "gemini-3.5-flash",
+    "gemini-2.5-flash": "gemini-3.5-flash",
+    "gemini-2.5-flash-lite": "gemini-3.5-flash-lite",
+    "gemini-2.5-pro": "gemini-3.1-pro-preview",
+}
+
+
+def resolve_gemini_model_id(model: Optional[str]) -> str:
+    """Normalize and transparently migrate retired Gemini model IDs to active defaults."""
+    clean = str(model or "").strip()
+    if clean.startswith("models/"):
+        clean = clean[7:]
+    if not clean:
+        return DEFAULT_GEMINI_MODEL
+    return LEGACY_GEMINI_MODEL_ALIASES.get(clean, clean)
 
 
 def is_free_tier_model(model: str) -> bool:
@@ -67,12 +88,24 @@ def set_user_ai_settings(user_settings: Optional[dict]) -> None:
 
 def get_ai_settings() -> dict:
     """Global ai_settings from config.json, overridden by the current user's choices."""
-    ai_settings = dict(load_config().get("ai_settings", {}))
+    raw_global = load_config().get("ai_settings", {})
+    ai_settings = dict(raw_global)
+    for field in ("preferred_model", "fallback_model", "pro_model"):
+        if field in ai_settings and provider_for_model(ai_settings[field]) == "gemini":
+            migrated = resolve_gemini_model_id(ai_settings[field])
+            if field == "preferred_model" and migrated not in AVAILABLE_MODELS:
+                migrated = DEFAULT_GEMINI_MODEL
+            ai_settings[field] = migrated
+
     user_settings = _user_ai_settings.get() or {}
 
     model = user_settings.get("preferred_model")
     if model in AVAILABLE_MODELS:
         ai_settings["preferred_model"] = model
+    elif model in LEGACY_GEMINI_MODEL_ALIASES:
+        migrated = LEGACY_GEMINI_MODEL_ALIASES[model]
+        if migrated in AVAILABLE_MODELS:
+            ai_settings["preferred_model"] = migrated
 
     temperature = user_settings.get("temperature")
     if isinstance(temperature, (int, float)) and 0.0 <= temperature <= 1.0:
@@ -89,9 +122,9 @@ def get_user_api_key(provider: str) -> Optional[str]:
 
 DEFAULT_CONFIG = {
     "ai_settings": {
-        "preferred_model": "gemini-2.5-flash",
-        "fallback_model": "gemini-1.5-flash",
-        "pro_model": "gemini-2.5-pro",
+        "preferred_model": "gemini-3.5-flash",
+        "fallback_model": "gemini-3.6-flash",
+        "pro_model": "gemini-3.1-pro-preview",
         "temperature": 0.7,
     },
     "app_settings": {"debug_mode": False, "portrait_dir": "data/portraits"},

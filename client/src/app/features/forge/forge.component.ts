@@ -315,11 +315,17 @@ export class ForgeComponent implements OnInit, OnDestroy {
       const saved = localStorage.getItem(AI_DRAFT_STORAGE_KEY);
       if (saved) {
         const draft = JSON.parse(saved);
-        if (draft.aiRace) this.aiRace = draft.aiRace;
+        if (draft.aiRace && ['AI Choice', ...this.raceOptions].includes(draft.aiRace)) {
+          this.aiRace = draft.aiRace;
+        }
         if (draft.aiClass) this.aiClass = draft.aiClass;
-        if (draft.aiBackground) this.aiBackground = draft.aiBackground;
+        if (draft.aiBackground && ['AI Choice', ...this.bgOptions].includes(draft.aiBackground)) {
+          this.aiBackground = draft.aiBackground;
+        }
         if (draft.aiLevel) this.aiLevel = draft.aiLevel;
-        if (draft.aiGender) this.aiGender = draft.aiGender;
+        if (draft.aiGender && ['AI Choice', 'Male', 'Female', 'Other'].includes(draft.aiGender)) {
+          this.aiGender = draft.aiGender;
+        }
         if (draft.aiSubclass) this.aiSubclass = draft.aiSubclass;
         if (draft.aiConcept) this.aiConcept = draft.aiConcept;
         if (draft.aiName) this.aiName = draft.aiName;
@@ -399,16 +405,92 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.wakeLock.disable();
   }
 
+  private static readonly RACE_2014_PRESETS: Record<string, [string, string, string]> = {
+    Human: ['None', 'None', 'None'],
+    'Variant Human': ['STR', 'CON', 'None'],
+    Elf: ['DEX', 'None', 'None'],
+    Dwarf: ['CON', 'None', 'None'],
+    Halfling: ['DEX', 'None', 'None'],
+    Dragonborn: ['STR', 'CHA', 'None'],
+    Gnome: ['INT', 'None', 'None'],
+    'Half-Elf': ['CHA', 'DEX', 'CON'],
+    'Half-Orc': ['STR', 'CON', 'None'],
+    Tiefling: ['CHA', 'INT', 'None'],
+  };
+
+  private static readonly BG_2024_PRESETS: Record<string, [string, string]> = {
+    Acolyte: ['WIS', 'CHA'],
+    Artisan: ['INT', 'DEX'],
+    Charlatan: ['CHA', 'DEX'],
+    Criminal: ['DEX', 'CON'],
+    Entertainer: ['CHA', 'DEX'],
+    Farmer: ['CON', 'WIS'],
+    Guard: ['STR', 'WIS'],
+    Guide: ['WIS', 'DEX'],
+    Hermit: ['WIS', 'CON'],
+    Noble: ['CHA', 'INT'],
+    Sage: ['INT', 'CON'],
+    Sailor: ['DEX', 'WIS'],
+    Scribe: ['INT', 'DEX'],
+    Soldier: ['STR', 'CON'],
+    Wayfarer: ['DEX', 'CHA'],
+    'Custom Background': ['None', 'None'],
+  };
+
+  applyOriginAbilityDefaults(): void {
+    if (this.is2024) {
+      const [p2, p1] = ForgeComponent.BG_2024_PRESETS[this.manualBackground] ?? ['None', 'None'];
+      this.adjPlus2 = p2;
+      this.adjPlus1 = p1;
+      this.adjPlus1Alt = 'None';
+    } else {
+      const [p2, p1, p1Alt] = ForgeComponent.RACE_2014_PRESETS[this.manualRace] ?? ['None', 'None', 'None'];
+      if (this.manualRace === 'Variant Human') {
+        const primary = (this.primaryStatsMap[this.manualClass] || ['STR'])[0];
+        const secondary = primary === 'CON' ? 'DEX' : 'CON';
+        this.adjPlus2 = 'None';
+        this.adjPlus1 = primary;
+        this.adjPlus1Alt = secondary;
+      } else {
+        this.adjPlus2 = p2;
+        this.adjPlus1 = p1;
+        this.adjPlus1Alt = p1Alt;
+      }
+    }
+  }
+
+  onManualRaceChange(race?: string) {
+    if (race !== undefined) this.manualRace = race;
+    if (!this.is2024) {
+      this.applyOriginAbilityDefaults();
+    }
+  }
+
+  onManualBackgroundChange(background?: string) {
+    if (background !== undefined) this.manualBackground = background;
+    if (this.is2024) {
+      this.applyOriginAbilityDefaults();
+    }
+  }
+
   toggleEditionAndRefresh() {
     this.charState.toggleEdition();
     this.manualFeats = [];
     this.manualSpells = [];
+    if (!['AI Choice', ...this.raceOptions].includes(this.aiRace)) {
+      this.aiRace = 'AI Choice';
+    }
+    if (!['AI Choice', ...this.bgOptions].includes(this.aiBackground)) {
+      this.aiBackground = 'AI Choice';
+    }
     if (!this.raceOptions.includes(this.manualRace)) {
       this.manualRace = this.raceOptions[0] || 'Human';
     }
     if (!this.bgOptions.includes(this.manualBackground)) {
       this.manualBackground = this.bgOptions[0] || 'Soldier';
     }
+    this.applyOriginAbilityDefaults();
+    this.saveAiDraft();
     this.updateSubclasses();
     this.updateManualSubclasses();
     this.fetchFeats();
@@ -497,7 +579,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
   get raceOptions(): string[] {
     return this.is2024
       ? ['Aasimar', 'Dragonborn', 'Dwarf', 'Elf', 'Gnome', 'Goliath', 'Halfling', 'Human', 'Orc', 'Tiefling', 'Warforged']
-      : ['Human', 'Variant Human', 'Elf', 'Dwarf', 'Halfling', 'Dragonborn', 'Tiefling', 'Half-Orc', 'Gnome', 'Half-Elf', 'Warforged'];
+      : ['Human', 'Variant Human', 'Elf', 'Dwarf', 'Halfling', 'Dragonborn', 'Gnome', 'Half-Elf', 'Half-Orc', 'Tiefling'];
   }
 
   get classOptions(): string[] {
@@ -505,7 +587,9 @@ export class ForgeComponent implements OnInit, OnDestroy {
   }
 
   get bgOptions(): string[] {
-    return ['Acolyte', 'Charlatan', 'Criminal', 'Entertainer', 'Folk Hero', 'Guild Artisan', 'Hermit', 'Noble', 'Outlander', 'Sage', 'Sailor', 'Soldier', 'Urchin', 'Custom Background'];
+    return this.is2024
+      ? ['Acolyte', 'Artisan', 'Charlatan', 'Criminal', 'Entertainer', 'Farmer', 'Guard', 'Guide', 'Hermit', 'Noble', 'Sage', 'Sailor', 'Scribe', 'Soldier', 'Wayfarer', 'Custom Background']
+      : ['Acolyte', 'Charlatan', 'Criminal', 'Entertainer', 'Folk Hero', 'Guild Artisan', 'Hermit', 'Noble', 'Outlander', 'Sage', 'Sailor', 'Soldier', 'Urchin', 'Custom Background'];
   }
 
   // --- Blueprint side panel (presentation only, derived from the form state) ---
@@ -630,6 +714,11 @@ export class ForgeComponent implements OnInit, OnDestroy {
 
   getFinalStat(key: string): number {
     let base = Number(this.manualStats[key]) || 10;
+    const adjNone =
+      this.adjPlus2 === 'None' && this.adjPlus1 === 'None' && this.adjPlus1Alt === 'None';
+    if (!this.is2024 && this.manualRace === 'Human' && adjNone) {
+      return base + 1;
+    }
     if (this.adjPlus2 === key) base += 2;
     if (this.adjPlus1 === key) base += 1;
     if (this.adjPlus1Alt === key) base += 1;

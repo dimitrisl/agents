@@ -26,7 +26,7 @@ def users_db(tmp_path, monkeypatch):
         "u2": {
             "id": "u2",
             "username": "player",
-            "ai_settings": {"preferred_model": "gemini-2.5-pro", "temperature": 0.2},
+            "ai_settings": {"preferred_model": "gemini-3.1-pro-preview", "temperature": 0.2},
         },
     }
     state = {"current": "u1"}
@@ -57,7 +57,7 @@ def test_get_ai_settings_lists_free_model_and_global_default(users_db):
     response = client.get("/api/v1/settings/ai")
     assert response.status_code == 200
     data = response.json()
-    assert data["preferred_model"] == "gemini-2.5-flash"
+    assert data["preferred_model"] == "gemini-3.5-flash"
     free = [m for m in data["available_models"] if m["free_tier"]]
     assert [m["id"] for m in free] == ["gemini-3.5-flash"]
 
@@ -66,7 +66,7 @@ def test_get_ai_settings_returns_users_own_choice(users_db):
     _, state = users_db
     state["current"] = "u2"
     data = client.get("/api/v1/settings/ai").json()
-    assert data["preferred_model"] == "gemini-2.5-pro"
+    assert data["preferred_model"] == "gemini-3.1-pro-preview"
     assert data["temperature"] == 0.2
 
 
@@ -74,22 +74,22 @@ def test_update_only_affects_calling_user(users_db):
     users, state = users_db
     response = client.put(
         "/api/v1/settings/ai",
-        json={"preferred_model": "gemini-3.5-flash", "temperature": 0.4},
+        json={"preferred_model": "gemini-3.6-flash", "temperature": 0.4},
     )
     assert response.status_code == 200
-    assert response.json()["preferred_model"] == "gemini-3.5-flash"
+    assert response.json()["preferred_model"] == "gemini-3.6-flash"
     assert users["u1"]["ai_settings"] == {
-        "preferred_model": "gemini-3.5-flash",
+        "preferred_model": "gemini-3.6-flash",
         "temperature": 0.4,
     }
 
     # The other user keeps their own model
     state["current"] = "u2"
-    assert client.get("/api/v1/settings/ai").json()["preferred_model"] == "gemini-2.5-pro"
+    assert client.get("/api/v1/settings/ai").json()["preferred_model"] == "gemini-3.1-pro-preview"
     # Global config untouched
     assert (
         not os.path.exists(config_loader.CONFIG_FILE)
-        or "gemini-3.5-flash" not in open(config_loader.CONFIG_FILE).read()
+        or config_loader.load_config()["ai_settings"]["preferred_model"] == "gemini-3.5-flash"
     )
 
 
@@ -115,7 +115,7 @@ def test_invalid_user_overrides_fall_back_to_global(tmp_path, monkeypatch):
     set_user_ai_settings({"preferred_model": "not-a-model", "temperature": 7})
     try:
         ai = get_ai_settings()
-        assert ai["preferred_model"] == "gemini-2.5-flash"
+        assert ai["preferred_model"] == "gemini-3.5-flash"
         assert ai["temperature"] == 0.7
     finally:
         set_user_ai_settings(None)
@@ -141,9 +141,9 @@ def test_free_model_skips_pro_and_model_listing(user_model):
 
 
 def test_paid_model_still_escalates_to_pro(user_model):
-    user_model("gemini-2.5-flash")
+    user_model("gemini-3.6-flash")
     provider = GeminiProvider(api_key="test")
-    assert provider._get_model(use_pro=True) == "gemini-2.5-pro"
+    assert provider._get_model(use_pro=True) == "gemini-3.1-pro-preview"
 
 
 def test_text_cache_is_per_model(user_model):
@@ -154,10 +154,10 @@ def test_text_cache_is_per_model(user_model):
 
     user_model("gemini-3.5-flash")
     assert provider.generate_text("same prompt") == "gemini-3.5-flash"
-    user_model("gemini-2.5-pro")
+    user_model("gemini-3.1-pro-preview")
     provider.client.models.list.return_value = [MagicMock(name="m")]
-    provider.client.models.list.return_value[0].name = "models/gemini-2.5-pro"
-    assert provider.generate_text("same prompt") == "gemini-2.5-pro"
+    provider.client.models.list.return_value[0].name = "models/gemini-3.1-pro-preview"
+    assert provider.generate_text("same prompt") == "gemini-3.1-pro-preview"
 
 
 def test_quota_error_maps_to_429(user_model):
@@ -230,14 +230,14 @@ def test_empty_key_removes_it(users_db, key_check):
     client.put(
         "/api/v1/settings/ai",
         json={
-            "preferred_model": "gemini-2.5-flash",
+            "preferred_model": "gemini-3.6-flash",
             "temperature": 0.7,
             "anthropic_api_key": "sk-ant-x-9999",
         },
     )
     response = client.put(
         "/api/v1/settings/ai",
-        json={"preferred_model": "gemini-2.5-flash", "temperature": 0.7, "anthropic_api_key": ""},
+        json={"preferred_model": "gemini-3.6-flash", "temperature": 0.7, "anthropic_api_key": ""},
     )
     assert response.json()["has_anthropic_key"] is False
     assert "anthropic_api_key_enc" not in users["u1"]["ai_settings"]
@@ -340,6 +340,31 @@ def test_gemini_ignores_claude_choice_for_its_own_model(claude_user):
     provider = GeminiProvider(api_key="test")
     provider.client = MagicMock()
     listed = MagicMock()
-    listed.name = "models/gemini-2.5-flash"
+    listed.name = "models/gemini-3.5-flash"
     provider.client.models.list.return_value = [listed]
-    assert provider._get_model() == "gemini-2.5-flash"
+    assert provider._get_model() == "gemini-3.5-flash"
+
+
+def test_legacy_retired_model_migrates_and_falls_back_on_404(tmp_path, monkeypatch):
+    monkeypatch.setattr(config_loader, "CONFIG_FILE", str(tmp_path / "config.json"))
+    set_user_ai_settings({"preferred_model": "gemini-2.5-flash", "temperature": 0.6})
+    try:
+        ai = get_ai_settings()
+        assert ai["preferred_model"] == "gemini-3.5-flash"
+
+        provider = GeminiProvider(api_key="test")
+        provider.client = MagicMock()
+        seen_models = []
+
+        def fake_gen(model, **kwargs):
+            seen_models.append(model)
+            if model == "gemini-3.5-flash":
+                raise RuntimeError("404 NOT_FOUND no longer available")
+            return MagicMock(text='{"backstory": "Recovered hero lore."}')
+
+        provider.client.models.generate_content.side_effect = fake_gen
+        res = provider.generate_json("Create lore")
+        assert res == {"backstory": "Recovered hero lore."}
+        assert seen_models == ["gemini-3.5-flash", "gemini-3.6-flash"]
+    finally:
+        set_user_ai_settings(None)

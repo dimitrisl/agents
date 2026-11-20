@@ -199,14 +199,17 @@ def _enforce_deterministic_forge_stats(
         race_data = repo.get_race_data(race, edition) or {}
         stat_bonuses = race_data.get("stat_bonuses") or {}
         if isinstance(stat_bonuses, dict):
+            chosen_flex_stats: set[str] = set()
             for k, bonus in stat_bonuses.items():
                 key = str(k).strip().upper()[:3]
                 if key in base:
                     base[key] = min(20, base[key] + int(bonus or 0))
+                    chosen_flex_stats.add(key)
                 elif key == "CHO" or str(k).strip().lower() in ("choice", "any", "flex"):
                     for p in priority_order:
-                        if p not in stat_bonuses:
+                        if p not in stat_bonuses and p not in chosen_flex_stats:
                             base[p] = min(20, base[p] + int(bonus or 0))
+                            chosen_flex_stats.add(p)
                             break
 
     # Apply deterministic Level >= 4 ASI / Epic Boon advancements
@@ -376,6 +379,20 @@ def _enforce_deterministic_forge_stats(
         char_data["advancements"] = cleaned_advs
 
     overall_cap = 30 if (is_2024 and target_level >= 19) else 20
+
+    # Level 20 Class Stat Capstones (Primal Champion / Body and Mind)
+    c_low = (char_class or "").strip().lower()
+    if target_level >= 20:
+        if c_low == "barbarian":
+            champ_cap = 25 if is_2024 else 24
+            base["STR"] = min(champ_cap, base["STR"] + 4)
+            base["CON"] = min(champ_cap, base["CON"] + 4)
+            overall_cap = max(overall_cap, champ_cap)
+        elif c_low == "monk" and is_2024:
+            base["DEX"] = min(25, base["DEX"] + 4)
+            base["WIS"] = min(25, base["WIS"] + 4)
+            overall_cap = max(overall_cap, 25)
+
     char_data["stats"] = {k: max(1, min(overall_cap, int(base[k]))) for k in _STAT_KEYS}
 
 
@@ -479,16 +496,19 @@ def forge_character(
     if not isinstance(result, dict) or not result:
         logger.warning("AI JSON generation returned None. Generating default fallback character.")
         result = get_default_character()
+        resolved_fb_class = forge_class if forge_class != "AI Choice" else "Fighter"
+        fb_priority = _get_class_stat_priority(resolved_fb_class, repo, edition)
         result.update(
             {
                 "char_name": name if name != "AI Choice" else "Forged Hero",
                 "gender": gender if gender != "AI Choice" else "Male",
-                "char_class": forge_class if forge_class != "AI Choice" else "Fighter",
+                "char_class": resolved_fb_class,
                 "subclass": subclass if subclass and subclass != "AI Choice" else None,
                 "char_level": target_level,
                 "race": forge_race if forge_race != "AI Choice" else "Human",
                 "background": forge_background if forge_background != "AI Choice" else "Soldier",
                 "alignment": alignment if alignment != "AI Choice" else "True Neutral",
+                "stats": _assign_array_by_priority(_STANDARD_ARRAY, None, fb_priority),
                 "concept": concept or "",
                 "dnd_edition": edition,
             }
@@ -2128,36 +2148,54 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             }
         )
 
-    # 3. Spells (Simplified generic spell choice for casters)
-    spellcasters = [
-        "Bard",
-        "Cleric",
-        "Druid",
-        "Paladin",
-        "Ranger",
-        "Sorcerer",
-        "Warlock",
-        "Wizard",
-        "Artificer",
-    ]
-    if char_class in spellcasters:
+    # 3. Spells (Full Casters, Half Casters, Pact Magic + Mystic Arcanum, 1/3 Casters, & Cantrip scaling)
+    full_half_pact_casters = {
+        "bard",
+        "cleric",
+        "druid",
+        "paladin",
+        "ranger",
+        "sorcerer",
+        "warlock",
+        "wizard",
+        "artificer",
+    }
+    c_lower = char_class.lower()
+    sub_lower = str(subclass_to_use or "").lower()
+    is_third_caster = (c_lower == "fighter" and "eldritch knight" in sub_lower) or (
+        c_lower == "rogue" and "arcane trickster" in sub_lower
+    )
+    spell_list_class = (
+        "wizard" if is_third_caster else (c_lower if c_lower in full_half_pact_casters else None)
+    )
+
+    def _expected_cantrips(cls_low: str, lvl: int, sub_low: str) -> int:
+        if cls_low in ("wizard", "cleric"):
+            return 3 if lvl < 4 else (4 if lvl < 10 else 5)
+        if cls_low == "sorcerer":
+            return 4 if lvl < 4 else (5 if lvl < 10 else 6)
+        if cls_low in ("bard", "druid", "warlock"):
+            return 2 if lvl < 4 else (3 if lvl < 10 else 4)
+        if cls_low == "artificer":
+            return 2 if lvl < 10 else (3 if lvl < 14 else 4)
+        if cls_low == "fighter" and "eldritch knight" in sub_low:
+            return 0 if lvl < 3 else (2 if lvl < 10 else 3)
+        if cls_low == "rogue" and "arcane trickster" in sub_low:
+            return 0 if lvl < 3 else (3 if lvl < 10 else 4)
+        return 0
+
+    if spell_list_class:
         max_slots = calculate_max_spell_slots(
-            char_class, target_level, current_subclass, edition=edition
+            char_class, target_level, subclass_to_use, edition=edition
         )
         max_spell_level = 0
         for i in range(1, 10):
             if max_slots.get(f"level_{i}", 0) > 0:
                 max_spell_level = i
 
-        # Handle Warlock Mystic Arcanum or similar edge cases
-        if char_class == "Warlock" and target_level >= 11:
-            max_spell_level = max(max_spell_level, 6)
-        if char_class == "Warlock" and target_level >= 13:
-            max_spell_level = max(max_spell_level, 7)
-        if char_class == "Warlock" and target_level >= 15:
-            max_spell_level = max(max_spell_level, 8)
-        if char_class == "Warlock" and target_level >= 17:
-            max_spell_level = max(max_spell_level, 9)
+        # Warlock Pact slots cap at level 5; Mystic Arcanum unlocks 1 spell each at L11/13/15/17
+        warlock_arcanum_map = {11: 6, 13: 7, 15: 8, 17: 9}
+        arcanum_lvl = warlock_arcanum_map.get(target_level) if c_lower == "warlock" else None
 
         # Collect all spells already known by the character to exclude them
         known_spells_lower = set()
@@ -2179,22 +2217,60 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         spells_level_map = {s["name"]: s.get("level", 0) for s in all_spells if "name" in s}
 
         spells = []
+        cantrip_options = []
+        arcanum_options = []
         magical_secrets_spells = []
-        char_class_lower = char_class.lower()
         for s in all_spells:
             s_name = s.get("name", "")
             if not s_name or s_name.strip().lower() in known_spells_lower:
                 continue
             s_level = s.get("level", 0)
-            if 0 < s_level <= max_spell_level:
+            s_classes = [str(c).lower() for c in s.get("classes", [])]
+            matches_class = not s_classes or spell_list_class in s_classes
+            if s_level == 0 and matches_class:
+                cantrip_options.append(s_name)
+            elif 0 < s_level <= max_spell_level:
                 magical_secrets_spells.append(s_name)
-                s_classes = [c.lower() for c in s.get("classes", [])]
-                if not s_classes or char_class_lower in s_classes:
+                if matches_class:
                     spells.append(s_name)
+            elif arcanum_lvl and s_level == arcanum_lvl and matches_class:
+                arcanum_options.append(s_name)
 
         # Sort spells: highest level (newest tier) first, then alphabetical
         spells.sort(key=lambda n: (-spells_level_map.get(n, 0), n))
         magical_secrets_spells.sort(key=lambda n: (-spells_level_map.get(n, 0), n))
+        cantrip_options.sort()
+        arcanum_options.sort()
+
+        # Grant newly unlocked Cantrip choice(s) when expected cantrip count increases
+        prev_cantrips = _expected_cantrips(
+            c_lower, class_current_level, str(current_subclass or "").lower()
+        )
+        new_cantrips = _expected_cantrips(c_lower, target_level, sub_lower)
+        gained_cantrips = max(0, new_cantrips - prev_cantrips)
+        if gained_cantrips > 0 and cantrip_options:
+            for idx_c in range(min(gained_cantrips, 3)):
+                choices.append(
+                    {
+                        "type": "spell",
+                        "label": f"Learn a {spell_list_class.title()} Cantrip"
+                        if gained_cantrips == 1
+                        else f"Learn {spell_list_class.title()} Cantrip #{idx_c + 1}",
+                        "options": cantrip_options,
+                        "ai_recommendation": f"Choose a signature cantrip like {cantrip_options[0]}.",
+                    }
+                )
+
+        # Grant Mystic Arcanum choice specifically at Warlock L11/13/15/17
+        if arcanum_lvl and arcanum_options:
+            choices.append(
+                {
+                    "type": "spell",
+                    "label": f"Mystic Arcanum: Choose a Level {arcanum_lvl} Warlock Spell",
+                    "options": arcanum_options,
+                    "ai_recommendation": f"Choose one Level {arcanum_lvl} spell you can cast once per Long Rest without a Pact slot.",
+                }
+            )
 
         # Dynamic AI recommendation focused on the highest unlocked tier
         top_candidates = [s for s in spells if spells_level_map.get(s, 0) == max_spell_level][:3]
@@ -2240,11 +2316,11 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "ai_recommendation": f"Lore Bards get Magical Secrets early! Choose up to Level {max_spell_level} spells.",
                 }
             )
-        else:
+        elif max_spell_level >= 1 and spells:
             choices.append(
                 {
                     "type": "spell",
-                    "label": f"Learn/Prepare a {char_class} Spell",
+                    "label": f"Learn/Prepare a {spell_list_class.title()} Spell",
                     "options": spells,
                     "ai_recommendation": ai_spell_rec,
                 }

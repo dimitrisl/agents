@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from backend.core.constants import EDITION_2014
+from backend.core.constants import EDITION_2014, GENDERS
 from backend.services.forge_service import forge_character_manual
 
 
@@ -335,3 +335,8 @@ def test_forge_character_manual_deterministic_mandatory_grants_2014_edition(mock
     assert "unarmored defense" in trait_names
     assert "wanderer" in trait_names  # 2014 Outlander narrative background feature
     assert not any("origin feat" in n for n in trait_names)  # No 2024 Origin Feat in 2014 edition
+
+
+def test_gender_constants_omit_non_binary():
+    assert GENDERS == ["Male", "Female", "Other"]
+    assert "Non-binary" not in GENDERS

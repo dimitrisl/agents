@@ -2570,7 +2570,7 @@ def test_forge_character_manual_resolves_concrete_subclass_features(
             background="Soldier",
             subclass=subclass,
             alignment="Neutral Good",
-            gender="Non-binary",
+            gender="Male",
             name="Manual Subclass Hero",
             base_stats={"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 16},
             skill_proficiencies=["Athletics", "Perception"],

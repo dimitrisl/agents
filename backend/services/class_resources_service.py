@@ -58,6 +58,8 @@ def _pool_max(rule: Dict[str, Any], class_level: int, stats: Dict[str, Any]) -> 
         reached = [uses for lvl, uses in spec["steps"] if class_level >= lvl]
         return int(reached[-1]) if reached else 0
     if "ability" in spec:
+        if class_level < spec.get("from", 1):
+            return 0
         value = _modifier(stats.get(spec["ability"], 10)) + int(spec.get("plus", 0))
         return max(int(spec.get("min", 0)), value)
     return 0

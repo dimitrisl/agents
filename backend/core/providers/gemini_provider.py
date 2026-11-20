@@ -14,6 +14,7 @@ from backend.core.config_loader import (
     is_free_tier_model,
     load_config,
     provider_for_model,
+    resolve_gemini_model_id,
 )
 from backend.core.providers.llm_provider import LLMProvider
 
@@ -32,6 +33,25 @@ def _raise_for_quota(error_msg: str) -> None:
             status_code=429,
             detail="AI quota reached (free tier limit). Please wait a minute and try again.",
         )
+
+
+_FALLBACK_FLASH_CANDIDATES = (
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-3-flash-preview",
+)
+
+
+def _should_retry_with_fallback(model_name: str, error_msg: str) -> bool:
+    """Return True when a retired/overloaded/zero-pro-quota model error warrants trying a Flash fallback."""
+    low = error_msg.lower()
+    if "404" in error_msg or "not_found" in low or "no longer available" in low:
+        return True
+    if "503" in error_msg or "high demand" in low or "unavailable" in low:
+        return True
+    if ("429" in error_msg or "resource_exhausted" in low) and "pro" in model_name.lower():
+        return True
+    return False
 
 
 class GeminiProvider(LLMProvider):
@@ -59,15 +79,16 @@ class GeminiProvider(LLMProvider):
                 if provider_for_model(global_model) == "gemini"
                 else DEFAULT_GEMINI_MODEL
             )
+        preferred = resolve_gemini_model_id(preferred)
 
         if use_pro and not is_free_tier_model(preferred):
-            return ai_settings.get("pro_model", "gemini-2.5-pro")
+            return resolve_gemini_model_id(ai_settings.get("pro_model", "gemini-3.1-pro-preview"))
 
         # Free-tier models are used as-is: the model list lookup below would
         # spend an extra request of the free quota on every call.
         if is_free_tier_model(preferred):
             return preferred
-        fallback = ai_settings.get("fallback_model", "gemini-2.5-flash")
+        fallback = resolve_gemini_model_id(ai_settings.get("fallback_model", DEFAULT_GEMINI_MODEL))
 
         try:
             if not self.client:
@@ -84,7 +105,7 @@ class GeminiProvider(LLMProvider):
                 if preferred.lower() in name:
                     return name[7:] if name.startswith("models/") else name
 
-            stable_default = "gemini-2.5-flash"
+            stable_default = DEFAULT_GEMINI_MODEL
             for name in model_names:
                 if stable_default in name:
                     return name[7:] if name.startswith("models/") else name
@@ -93,6 +114,37 @@ class GeminiProvider(LLMProvider):
         except Exception as e:
             logger.warning(f"Failed to fetch model list, defaulting to {fallback}. Error: {e}")
             return fallback[7:] if fallback.startswith("models/") else fallback
+
+    def _candidate_models(self, primary: str) -> list[str]:
+        """Ordered, deduplicated Gemini model chain starting with the resolved primary."""
+        ai_settings = get_ai_settings()
+        cfg_fallback = resolve_gemini_model_id(ai_settings.get("fallback_model"))
+        raw = [resolve_gemini_model_id(primary), cfg_fallback, *_FALLBACK_FLASH_CANDIDATES]
+        candidates: list[str] = []
+        for m in raw:
+            if m and provider_for_model(m) == "gemini" and m not in candidates:
+                candidates.append(m)
+        return candidates
+
+    def _call_with_model_fallback(self, primary: str, call_fn):
+        """Invoke call_fn(model_name), falling back to healthy Gemini Flash models on 404/503/Pro-429."""
+        candidates = self._candidate_models(primary)
+        last_exc: Optional[Exception] = None
+        for idx, candidate in enumerate(candidates):
+            try:
+                return call_fn(candidate)
+            except Exception as e:
+                last_exc = e
+                has_next = idx + 1 < len(candidates)
+                if has_next and _should_retry_with_fallback(candidate, str(e)):
+                    logger.warning(
+                        f"Gemini model '{candidate}' failed ({e}); retrying with fallback '{candidates[idx + 1]}'."
+                    )
+                    continue
+                raise
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("No Gemini candidate models available.")
 
     def generate_text(
         self, prompt: str, temperature: Optional[float] = None, use_cache: bool = True
@@ -112,11 +164,14 @@ class GeminiProvider(LLMProvider):
 
     def _generate_text_uncached(self, prompt: str, model: str, temperature: Optional[float]) -> str:
         try:
-            response = self.client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(
-                    temperature=temperature,
+            response = self._call_with_model_fallback(
+                model,
+                lambda candidate: self.client.models.generate_content(
+                    model=candidate,
+                    contents=prompt,
+                    config=genai.types.GenerateContentConfig(
+                        temperature=temperature,
+                    ),
                 ),
             )
             return response.text or ""
@@ -139,6 +194,7 @@ class GeminiProvider(LLMProvider):
         if not self.client:
             return None
 
+        cleaned_text = ""
         try:
             if temperature is None:
                 temperature = get_ai_settings().get("temperature")
@@ -159,10 +215,13 @@ class GeminiProvider(LLMProvider):
             if schema:
                 config_kwargs["response_schema"] = schema
 
-            response = self.client.models.generate_content(
-                model=model,
-                contents=full_prompt,
-                config=genai.types.GenerateContentConfig(**config_kwargs),
+            response = self._call_with_model_fallback(
+                model,
+                lambda candidate: self.client.models.generate_content(
+                    model=candidate,
+                    contents=full_prompt,
+                    config=genai.types.GenerateContentConfig(**config_kwargs),
+                ),
             )
 
             if not response or not response.text:
@@ -201,9 +260,12 @@ class GeminiProvider(LLMProvider):
             contents.append(prompt)
             model = self._get_model(use_pro=True)
 
-            response = self.client.models.generate_content(
-                model=model,
-                contents=contents,
+            response = self._call_with_model_fallback(
+                model,
+                lambda candidate: self.client.models.generate_content(
+                    model=candidate,
+                    contents=contents,
+                ),
             )
             return response.text
         except Exception as e:
@@ -240,6 +302,7 @@ class GeminiProvider(LLMProvider):
         if not self.client:
             return None
 
+        cleaned_text = ""
         try:
             if temperature is None:
                 temperature = get_ai_settings().get("temperature")
@@ -260,12 +323,15 @@ class GeminiProvider(LLMProvider):
 
             model = self._get_model(use_pro=True)
 
-            response = self.client.models.generate_content(
-                model=model,
-                contents=contents,
-                config=genai.types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=temperature,
+            response = self._call_with_model_fallback(
+                model,
+                lambda candidate: self.client.models.generate_content(
+                    model=candidate,
+                    contents=contents,
+                    config=genai.types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=temperature,
+                    ),
                 ),
             )
 

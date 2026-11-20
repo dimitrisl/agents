@@ -22,4 +22,11 @@ describe('AiFormComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('offers Male, Female, and Other alongside AI Choice without Non-binary', () => {
+    const select = fixture.nativeElement.querySelector('#ai-gender') as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(['AI Choice', 'Male', 'Female', 'Other']);
+    expect(values).not.toContain('Non-binary');
+  });
 });

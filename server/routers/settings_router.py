@@ -9,9 +9,11 @@ from pydantic import BaseModel, Field
 
 from backend.core.config_loader import (
     AVAILABLE_MODELS,
+    DEFAULT_GEMINI_MODEL,
     get_ai_settings,
     get_user_api_key,
     provider_for_model,
+    resolve_gemini_model_id,
     set_user_ai_settings,
 )
 from backend.services.campaign_service import _maybe_await
@@ -49,8 +51,11 @@ class AISettingsUpdate(BaseModel):
 
 def _build_response(ai_settings: dict) -> AISettingsResponse:
     api_key = get_user_api_key("anthropic")
+    pref = ai_settings.get("preferred_model", DEFAULT_GEMINI_MODEL)
+    if provider_for_model(pref) == "gemini":
+        pref = resolve_gemini_model_id(pref)
     return AISettingsResponse(
-        preferred_model=ai_settings.get("preferred_model", "gemini-2.5-flash"),
+        preferred_model=pref,
         temperature=ai_settings.get("temperature", 0.7),
         available_models=[
             AIModelOption(

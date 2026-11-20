@@ -4,7 +4,7 @@ EDITION_2014 = "2014 Edition"
 EDITION_2024 = "2024 Revision (5.5e)"
 EDITIONS = [EDITION_2014, EDITION_2024]
 
-GENDERS = ["Male", "Female", "Non-binary", "Other"]
+GENDERS = ["Male", "Female", "Other"]
 
 ALIGNMENTS = [
     "Lawful Good",

@@ -9,7 +9,7 @@ The `backend/repositories/` package encapsulates data access for static D&D rule
 
 | Repository | Responsibility |
 | :--- | :--- |
-| [`rules_repository.py`](../../../backend/repositories/rules_repository.py) | Singleton `RulesRepository` providing access to 2014 & 2024 D&D rulesets: classes, subclasses, spells, feats, backgrounds (`get_background_data`), species/races (`get_race_data`), items, weapons, skills, and languages. Implements module-level caches to prevent accidental state mutation. |
+| [`rules_repository.py`](../../../backend/repositories/rules_repository.py) | Singleton `RulesRepository` providing access to 2014 & 2024 D&D rulesets: classes, subclasses, spells (including canonical SRD Artificer spell tagging), feats, backgrounds (`get_background_data`), species/races (`get_race_data`, including 2014 *Variant Human*), items, weapons, skills, and languages. Implements module-level caches to prevent accidental state mutation. |
 | [`character_repository.py`](../../../backend/repositories/character_repository.py) | Abstraction interface for character persistence. |
 
 ---

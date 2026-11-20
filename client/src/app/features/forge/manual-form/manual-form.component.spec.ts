@@ -247,4 +247,11 @@ describe('ManualFormComponent', () => {
     expect(component.backgroundOriginFeat).toBe('Alert');
     expect(component.isBackgroundOriginFeat('Alert')).toBe(true);
   });
+
+  it('offers Male, Female, and Other without Non-binary', () => {
+    const select = fixture.nativeElement.querySelector('#manual-gender') as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(['Male', 'Female', 'Other']);
+    expect(values).not.toContain('Non-binary');
+  });
 });
