@@ -233,9 +233,12 @@ def grant_subclass_bonus_spells(
     if not isinstance(bonus_spells_map, dict) or not bonus_spells_map:
         return
 
+    def _norm_spell_key(name: str) -> str:
+        return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
     all_ed_spells = repo.get_all_spells(edition)
     spell_lvl_lookup = {
-        str(sp.get("name") or "").strip().lower(): (
+        _norm_spell_key(sp.get("name")): (
             str(sp.get("name") or "").strip(),
             int(sp.get("level", 1) or 1),
         )
@@ -250,7 +253,7 @@ def grant_subclass_bonus_spells(
     if not isinstance(prep_list, list):
         prep_list = []
         char_data["prepared_spells"] = prep_list
-    prep_low = {str(p).strip().lower() for p in prep_list}
+    prep_low = {_norm_spell_key(p) for p in prep_list}
 
     for req_lvl_str, sp_names in bonus_spells_map.items():
         try:
@@ -263,16 +266,15 @@ def grant_subclass_bonus_spells(
             sp_clean = str(raw_sp or "").strip()
             if not sp_clean:
                 continue
-            canon, sp_tier = spell_lvl_lookup.get(
-                sp_clean.lower(), (sp_clean, max(1, (req_lvl + 1) // 2))
-            )
+            sp_key = _norm_spell_key(sp_clean)
+            canon, sp_tier = spell_lvl_lookup.get(sp_key, (sp_clean, max(1, (req_lvl + 1) // 2)))
             b_key = "cantrips" if sp_tier == 0 else f"level_{sp_tier}"
             bucket = sp_dict.setdefault(b_key, [])
-            if not any(str(x).strip().lower() == canon.lower() for x in bucket):
+            if not any(_norm_spell_key(x) == _norm_spell_key(canon) for x in bucket):
                 bucket.append(canon)
-            if canon.lower() not in prep_low:
+            if _norm_spell_key(canon) not in prep_low:
                 prep_list.append(canon)
-                prep_low.add(canon.lower())
+                prep_low.add(_norm_spell_key(canon))
 
 
 def inject_mandatory_character_grants(

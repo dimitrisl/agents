@@ -1177,7 +1177,20 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       dnd_edition: '2014 Edition',
     });
     expect(isSaveProficient(rogue15, 'WIS')).toBe(true); // Slippery Mind
+    expect(isSaveProficient(rogue15, 'CHA')).toBe(false);
     expect(savingThrowModifier(rogue15, 'WIS')).toBe(6);
+
+    const rogue15_2024 = hero({
+      char_class: 'Rogue',
+      char_level: 15,
+      proficiency_bonus: 5,
+      stats: { STR: 8, DEX: 20, CON: 14, INT: 14, WIS: 12, CHA: 10 },
+      saving_throws: ['DEX', 'INT'],
+      dnd_edition: '2024 Revision (5.5e)',
+    });
+    expect(isSaveProficient(rogue15_2024, 'WIS')).toBe(true);
+    expect(isSaveProficient(rogue15_2024, 'CHA')).toBe(true); // 2024 Slippery Mind grants WIS + CHA
+    expect(savingThrowModifier(rogue15_2024, 'CHA')).toBe(5);
 
     const paladin6 = hero({
       char_class: 'Paladin',
@@ -1201,6 +1214,7 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       ],
     });
     expect(savingThrowModifier(artificer20, 'INT')).toBe(14); // +5 + 6 + 3
+    expect(savingThrowModifier({ ...artificer20, magic_items_suppressed: true }, 'INT')).toBe(11); // Suppressed disables Soul of Artifice
 
     // Reliable Talent edition parity: L11 in 2014 vs L7 in 2024
     expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 10, dnd_edition: '2014 Edition' }))).toBe(false);

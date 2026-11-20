@@ -1761,8 +1761,9 @@ def test_non_repeatable_feat_dedup_blocked_on_level_up_and_flagged_by_audit(edit
     if is_2024:
         assert feat_choice["feat_metadata"]["Charger"]["has_stat_choice"] is True
         assert feat_choice["feat_metadata"]["Charger"]["stat_choice_options"] == ["STR", "DEX"]
-        assert feat_choice["feat_metadata"]["Actor"]["has_stat_choice"] is False
-        assert feat_choice["feat_metadata"]["Actor"]["stat_bonus"] == {"CHA": 1}
+        assert feat_choice["feat_metadata"]["Great Weapon Master"]["has_stat_choice"] is False
+        assert feat_choice["feat_metadata"]["Great Weapon Master"]["stat_bonus"] == {"STR": 1}
+        assert "Actor" not in feat_choice["options"]  # CHA 8 < 13 prerequisite in 2024 PHB
 
     # 2. level-up-apply rejects duplicate non-repeatable Tough, identical +1/+1 stats, and illegal half-feat stat
     db = _AsyncDB(f"dupe_feat_{'24' if is_2024 else '14'}")

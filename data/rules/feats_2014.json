@@ -1429,9 +1429,7 @@
         "description": "You are uncommonly nimble for your race. You gain the following benefits: \n  \n• Increase your Dexterity or Strength score by 1, to a maximum of 20. \n  \n• Increase your walking speed by 5 feet. \n  \n• You gain proficiency in the Acrobatics or Athletics skill (your choice).\n  \n• You have advantage on any Strength 9Athletics) or Dexterity (Acrobatics) check you makes to escape from being grappled.",
         "prerequisites": {
             "min_level": 0,
-            "stat_requirements": {
-                "STR": 9
-            },
+            "stat_requirements": {},
             "other": [
                 "Dwarf",
                 "Halfling",

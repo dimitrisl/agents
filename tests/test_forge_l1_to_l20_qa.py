@@ -110,6 +110,7 @@ def _level_up_to_20(
             for f in (cur.get("features_traits") or [])
             if isinstance(f, dict)
         }
+        seen_other_choices: set[str] = set()
 
         for idx, ch in enumerate(analysis.get("choices_required") or []):
             ct = ch.get("type")
@@ -142,7 +143,16 @@ def _level_up_to_20(
                     user_choices[key] = pick
                     seen_spells.add(pick.lower())
             elif opts:
-                user_choices[key] = opts[0]
+                pick = next(
+                    (
+                        o
+                        for o in opts
+                        if o.lower() not in seen_other_choices and o.lower() not in seen_feats
+                    ),
+                    opts[0],
+                )
+                user_choices[key] = pick
+                seen_other_choices.add(pick.lower())
 
         apply_resp = client.post(
             "/api/v1/forge/level-up-apply",

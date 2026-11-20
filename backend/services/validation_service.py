@@ -412,44 +412,92 @@ def collect_build_suggestions(
     return suggestions
 
 
+_MULTICLASS_ARMOR_PROFS_2014: dict[str, tuple[str, ...]] = {
+    "artificer": ("light armor", "medium armor", "shields"),
+    "barbarian": ("shields",),
+    "bard": ("light armor",),
+    "cleric": ("light armor", "medium armor", "shields"),
+    "druid": ("light armor", "medium armor", "shields"),
+    "fighter": ("light armor", "medium armor", "shields"),
+    "monk": (),
+    "paladin": ("light armor", "medium armor", "shields"),
+    "ranger": ("light armor", "medium armor", "shields"),
+    "rogue": ("light armor",),
+    "sorcerer": (),
+    "warlock": ("light armor",),
+    "wizard": (),
+}
+
+_MULTICLASS_ARMOR_PROFS_2024: dict[str, tuple[str, ...]] = {
+    **_MULTICLASS_ARMOR_PROFS_2014,
+    "druid": ("light armor", "shields"),
+}
+
+_MULTICLASS_WEAPON_PROFS_2014: dict[str, tuple[str, ...]] = {
+    "artificer": (),
+    "barbarian": ("simple weapons", "martial weapons"),
+    "bard": (),
+    "cleric": (),
+    "druid": (),
+    "fighter": ("simple weapons", "martial weapons"),
+    "monk": ("simple weapons", "shortswords"),
+    "paladin": ("simple weapons", "martial weapons"),
+    "ranger": ("simple weapons", "martial weapons"),
+    "rogue": (),
+    "sorcerer": (),
+    "warlock": ("simple weapons",),
+    "wizard": (),
+}
+
+_MULTICLASS_WEAPON_PROFS_2024: dict[str, tuple[str, ...]] = {
+    **_MULTICLASS_WEAPON_PROFS_2014,
+    "monk": (),
+    "warlock": (),
+}
+
+
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
-    """Extracts all armor proficiencies granted by class, multiclass entries, subclass, and features."""
+    """Extracts all armor proficiencies granted by primary class, multiclass table, subclass, and features."""
     proficiencies = set()
     edition = char_data.get("dnd_edition", "2014 Edition")
+    is_2024 = "2024" in str(edition or "")
     repo = RulesRepository()
+    mc_armor_table = _MULTICLASS_ARMOR_PROFS_2024 if is_2024 else _MULTICLASS_ARMOR_PROFS_2014
 
-    class_datas = [class_data] if class_data else []
-    for cls in char_data.get("classes", []):
-        c_dict = (
-            cls
-            if isinstance(cls, dict)
-            else (cls.model_dump() if hasattr(cls, "model_dump") else {})
-        )
-        cname = c_dict.get("class_name")
-        if cname:
-            c_prog = repo.get_class_progression(cname, edition)
-            if c_prog and c_prog not in class_datas:
-                class_datas.append(c_prog)
-
-    if not class_datas and char_data.get("char_class"):
-        c_prog = repo.get_class_progression(char_data["char_class"], edition)
-        if c_prog and c_prog not in class_datas:
-            class_datas.append(c_prog)
-
-    # 1. Base & Multiclass Proficiencies
-    for cd in class_datas:
-        if cd and "starting_proficiencies" in cd:
-            armor_profs = cd["starting_proficiencies"].get("armor", [])
-            for p in armor_profs:
-                p_lower = p.lower()
-                if p_lower != "none":
-                    if p_lower in ["light", "medium", "heavy"]:
-                        proficiencies.add(f"{p_lower} armor")
-                    else:
-                        proficiencies.add(p_lower)
+    class_entries = _extract_class_subclass_tuples(char_data)
+    if class_entries:
+        for idx, (cname, _, _) in enumerate(class_entries):
+            c_low = cname.strip().lower()
+            if idx == 0:
+                cd = (
+                    class_data
+                    if (
+                        isinstance(class_data, dict)
+                        and str(class_data.get("class_name") or "").strip().lower() in ("", c_low)
+                    )
+                    else repo.get_class_progression(cname, edition)
+                )
+                if cd and "starting_proficiencies" in cd:
+                    for p in cd["starting_proficiencies"].get("armor", []):
+                        p_lower = p.lower()
+                        if p_lower != "none":
+                            if p_lower in ["light", "medium", "heavy"]:
+                                proficiencies.add(f"{p_lower} armor")
+                            else:
+                                proficiencies.add(p_lower)
+            else:
+                proficiencies.update(mc_armor_table.get(c_low, ()))
+    elif class_data and "starting_proficiencies" in class_data:
+        for p in class_data["starting_proficiencies"].get("armor", []):
+            p_lower = p.lower()
+            if p_lower != "none":
+                if p_lower in ["light", "medium", "heavy"]:
+                    proficiencies.add(f"{p_lower} armor")
+                else:
+                    proficiencies.add(p_lower)
 
     # 1b. Subclass armor proficiencies (e.g. Life/Tempest/War/Forge Cleric Heavy Armor, Hexblade/Valor Medium+Shields)
-    for cname, csub, clvl in _extract_class_subclass_tuples(char_data):
+    for cname, csub, clvl in class_entries:
         if not csub or csub.lower() in ("none", "n/a"):
             continue
         c_prog = repo.get_class_progression(cname, edition)
@@ -532,32 +580,49 @@ def _normalize_weapon_prof_token(raw: str) -> str:
 def get_character_weapon_proficiencies(
     char_data: Dict[str, Any], class_data: Dict[str, Any] | None = None
 ) -> set[str]:
-    """Extract weapon proficiencies from class, multiclass, subclass, race, and features."""
+    """Extract weapon proficiencies from primary class, multiclass table, subclass, race, and features."""
     profs: set[str] = set()
     edition = char_data.get("dnd_edition", "2014 Edition")
+    is_2024 = "2024" in str(edition or "")
+    mc_weapon_table = _MULTICLASS_WEAPON_PROFS_2024 if is_2024 else _MULTICLASS_WEAPON_PROFS_2014
     repo = RulesRepository()
 
     class_entries = _extract_class_subclass_tuples(char_data)
-    class_datas = [class_data] if class_data else []
-    for cname, csub, clvl in class_entries:
-        c_prog = repo.get_class_progression(cname, edition)
-        if c_prog and c_prog not in class_datas:
-            class_datas.append(c_prog)
-        if csub and csub.lower() not in ("none", "n/a"):
-            min_lvl = _get_subclass_min_level(c_prog) if c_prog else SUBCLASS_MIN_LEVEL
-            if clvl >= (min_lvl if min_lvl is not None else SUBCLASS_MIN_LEVEL):
-                sub_entry = repo.get_subclass_entry(cname, csub, edition) or {}
-                for wp in sub_entry.get("weapon_proficiencies") or []:
-                    norm = _normalize_weapon_prof_token(wp)
-                    if norm:
-                        profs.add(norm)
+    if class_entries:
+        for idx, (cname, csub, clvl) in enumerate(class_entries):
+            c_low = cname.strip().lower()
+            c_prog = (
+                class_data
+                if (
+                    idx == 0
+                    and isinstance(class_data, dict)
+                    and str(class_data.get("class_name") or "").strip().lower() in ("", c_low)
+                )
+                else repo.get_class_progression(cname, edition)
+            )
+            if idx == 0:
+                if isinstance(c_prog, dict):
+                    for wp in (c_prog.get("starting_proficiencies") or {}).get("weapons") or []:
+                        norm = _normalize_weapon_prof_token(wp)
+                        if norm and norm != "none":
+                            profs.add(norm)
+            else:
+                profs.update(mc_weapon_table.get(c_low, ()))
 
-    for cd in class_datas:
-        if isinstance(cd, dict):
-            for wp in (cd.get("starting_proficiencies") or {}).get("weapons") or []:
-                norm = _normalize_weapon_prof_token(wp)
-                if norm and norm != "none":
-                    profs.add(norm)
+            if csub and csub.lower() not in ("none", "n/a"):
+                sub_prog = repo.get_class_progression(cname, edition) or c_prog
+                min_lvl = _get_subclass_min_level(sub_prog) if sub_prog else SUBCLASS_MIN_LEVEL
+                if clvl >= (min_lvl if min_lvl is not None else SUBCLASS_MIN_LEVEL):
+                    sub_entry = repo.get_subclass_entry(cname, csub, edition) or {}
+                    for wp in sub_entry.get("weapon_proficiencies") or []:
+                        norm = _normalize_weapon_prof_token(wp)
+                        if norm:
+                            profs.add(norm)
+    elif isinstance(class_data, dict):
+        for wp in (class_data.get("starting_proficiencies") or {}).get("weapons") or []:
+            norm = _normalize_weapon_prof_token(wp)
+            if norm and norm != "none":
+                profs.add(norm)
 
     race_name = str(char_data.get("race") or "").strip()
     if race_name:
@@ -619,8 +684,6 @@ def is_weapon_proficient(
     is_monk: bool = False,
 ) -> bool:
     """Return True if the character is proficient with the equipped weapon."""
-    if weapon.get("proficient") is False:
-        return False
     if weapon.get("is_custom"):
         return bool(weapon.get("proficient", True))
     if not weapon_proficiencies:
@@ -685,23 +748,60 @@ def is_weapon_proficient(
         "net",
     )
 
+    w_props = (
+        [str(p).lower() for p in (weapon_data.get("properties") or [])]
+        if weapon_data
+        else [
+            p.strip().lower()
+            for p in (
+                weapon.get("properties")
+                if isinstance(weapon.get("properties"), list)
+                else str(weapon.get("properties") or "").split(",")
+            )
+            if str(p).strip()
+        ]
+    )
+    finesse_martial_names = ("rapier", "scimitar", "shortsword", "whip")
+    light_martial_names = ("scimitar", "shortsword", "hand crossbow")
+    is_finesse_prop = any("finesse" in p for p in w_props) or any(
+        re.search(rf"\b{re.escape(k)}\b", clean_base) for k in finesse_martial_names
+    )
+    is_light_prop = any("light" in p for p in w_props) or any(
+        re.search(rf"\b{re.escape(k)}\b", clean_base) for k in light_martial_names
+    )
+    is_ranged_light = "hand crossbow" in clean_base or (
+        weapon_data and "ranged" in str(weapon_data.get("category") or "").lower()
+    )
+    has_finesse_martial_prof = any("martial" in tok and "finesse" in tok for tok in prof_set)
+    has_light_martial_prof = any(
+        "martial" in tok and "light" in tok and ("finesse" in tok or not is_ranged_light)
+        for tok in prof_set
+    )
+
     if weapon_data:
         cat = str(weapon_data.get("category") or "").lower()
         if "simple" in cat and "simple weapons" in prof_set:
             return True
-        if "martial" in cat and "martial weapons" in prof_set:
-            return True
+        if "martial" in cat:
+            if "martial weapons" in prof_set:
+                return True
+            if has_finesse_martial_prof and is_finesse_prop:
+                return True
+            if has_light_martial_prof and is_light_prop:
+                return True
     else:
         if (
             any(re.search(rf"\b{re.escape(k)}\b", clean_base) for k in simple_known)
             and "simple weapons" in prof_set
         ):
             return True
-        if (
-            any(re.search(rf"\b{re.escape(k)}\b", clean_base) for k in martial_known)
-            and "martial weapons" in prof_set
-        ):
-            return True
+        if any(re.search(rf"\b{re.escape(k)}\b", clean_base) for k in martial_known):
+            if "martial weapons" in prof_set:
+                return True
+            if has_finesse_martial_prof and is_finesse_prop:
+                return True
+            if has_light_martial_prof and is_light_prop:
+                return True
 
     # Direct single-weapon or plural proficiency token match (e.g. "longsword" vs "longswords")
     for tok in prof_set:

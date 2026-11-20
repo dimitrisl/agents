@@ -144,7 +144,7 @@
         @if ((char.damage_resistances || []).length > 0) {
           <forge-badge
             tone="muted"
-            class="h-7"
+            class="min-h-7 h-auto max-w-full whitespace-normal py-1 text-left"
             [title]="'Damage Resistances: ' + char.damage_resistances!.join(', ')"
           >
             🛡️ Resist: {{ char.damage_resistances!.join(', ') }}

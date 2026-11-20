@@ -2155,6 +2155,8 @@ def sync_character_stats(
     if rogue_lvl_for_saves >= 15 or any("slippery mind" in fn for fn in ft_names_low):
         if "WIS" not in norm_saves:
             norm_saves.append("WIS")
+        if is_2024 and "CHA" not in norm_saves:
+            norm_saves.append("CHA")
 
     char_data["saving_throws"] = norm_saves
 
@@ -2383,6 +2385,9 @@ def sync_character_stats(
                     return True
         return False
 
+    def _norm_sp_name(raw_name: Any) -> str:
+        return str(raw_name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
     def _get_innate_racial_spell_info() -> tuple[set[str], Optional[str]]:
         r_name = str(char_data.get("race") or "").strip()
         r_data = repo.get_race_data(r_name, edition) if r_name else None
@@ -2390,11 +2395,20 @@ def sync_character_stats(
         names: set[str] = set()
         for sp_list in (innate.get("by_level") or {}).values():
             for sp_n in sp_list or []:
-                names.add(str(sp_n).strip().lower())
+                nm = _norm_sp_name(sp_n)
+                if nm:
+                    names.add(nm)
         r_low = r_name.lower()
         if "high elf" in r_low or innate.get("cantrip_choice"):
-            # Only exclude cantrips when Fighter didn't choose non-racial leveled spells
-            names.update({"prestidigitation", "fire bolt", "minor illusion", "mage hand", "light"})
+            # Exclude all Wizard cantrips from Eldritch Knight auto-inference when Fighter has no leveled spells
+            for sp in repo.get_all_spells(edition):
+                if not isinstance(sp, dict):
+                    continue
+                sp_classes = [str(c).strip().lower() for c in (sp.get("classes") or [])]
+                if str(sp.get("level", "")).lower() in ("0", "cantrip") and "wizard" in sp_classes:
+                    sp_nm = _norm_sp_name(sp.get("name"))
+                    if sp_nm:
+                        names.add(sp_nm)
         return names, innate.get("ability")
 
     innate_spell_names, innate_spell_ability = _get_innate_racial_spell_info()
@@ -2410,7 +2424,7 @@ def sync_character_stats(
                         if isinstance(item, dict)
                         else str(item)
                     )
-                    nm_low = str(nm or "").strip().lower()
+                    nm_low = _norm_sp_name(nm)
                     if not nm_low:
                         continue
                     if bucket == "cantrips":
@@ -2421,8 +2435,7 @@ def sync_character_stats(
             return False
         if isinstance(spells_val, list):
             return any(
-                str((x.get("name") if isinstance(x, dict) else x) or "").strip().lower()
-                not in innate_spell_names
+                _norm_sp_name(x.get("name") if isinstance(x, dict) else x) not in innate_spell_names
                 for x in spells_val
             )
         return False
@@ -2854,20 +2867,6 @@ def sync_character_stats(
     ]
 
     ft_entries = char_data.get("features_traits") or []
-    has_gloom_umbral = any(
-        "gloom stalker" in str(c.get("subclass") or "").lower() and int(c.get("level") or 0) >= 3
-        for c in classes
-    ) or any(
-        "umbral sight" in str((f.get("name") if isinstance(f, dict) else f) or "").lower()
-        for f in ft_entries
-    )
-    if has_gloom_umbral:
-        if any("superior darkvision 120" in s.lower() for s in senses_list):
-            senses_list = ["Superior Darkvision 150 ft." if "120" in s else s for s in senses_list]
-        elif any("darkvision 60" in s.lower() for s in senses_list):
-            senses_list = ["Darkvision 90 ft." if "60" in s else s for s in senses_list]
-        else:
-            senses_list.append("Darkvision 60 ft.")
 
     for f in ft_entries:
         fn = str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
@@ -2876,7 +2875,10 @@ def sync_character_stats(
             senses_list.append("Blindsight 10 ft.")
         if "devil's sight" in fn and "Devil's Sight 120 ft." not in senses_list:
             senses_list.append("Devil's Sight 120 ft.")
-        if "eyes of the dark" in fn and not any("120" in s for s in senses_list):
+        if "eyes of the dark" in fn and not any(
+            "darkvision" in s.lower() and "120" in s for s in senses_list
+        ):
+            senses_list = [s for s in senses_list if "darkvision 60" not in s.lower()]
             senses_list.append("Darkvision 120 ft.")
         if "soul of the forge" in fn or "infernal constitution" in fn:
             if "Fire" not in resistances_list:
@@ -2926,6 +2928,36 @@ def sync_character_stats(
                     if res_label not in resistances_list:
                         resistances_list.append(res_label)
                     break
+
+    # Suppress unresolved ancestral placeholder strings when no specific damage type is chosen
+    resistances_list = [
+        r
+        for r in resistances_list
+        if "draconic ancestry element" not in r.lower()
+        and "fiendish legacy element" not in r.lower()
+    ]
+
+    # Gloom Stalker Umbral Sight runs after racial senses and Eyes of the Dark so 120ft / 60ft upgrade cleanly
+    has_gloom_umbral = any(
+        "gloom stalker" in str(c.get("subclass") or "").lower() and int(c.get("level") or 0) >= 3
+        for c in classes
+    ) or any(
+        "umbral sight" in str((f.get("name") if isinstance(f, dict) else f) or "").lower()
+        for f in ft_entries
+    )
+    if has_gloom_umbral:
+        if any("darkvision" in s.lower() and "120" in s for s in senses_list):
+            senses_list = [
+                "Superior Darkvision 150 ft." if ("darkvision" in s.lower() and "120" in s) else s
+                for s in senses_list
+            ]
+        elif any("darkvision" in s.lower() and "60" in s for s in senses_list):
+            senses_list = [
+                "Darkvision 90 ft." if ("darkvision" in s.lower() and "60" in s) else s
+                for s in senses_list
+            ]
+        elif not any("darkvision" in s.lower() for s in senses_list):
+            senses_list.append("Darkvision 60 ft.")
 
     char_data["senses"] = list(dict.fromkeys(senses_list))
     char_data["damage_resistances"] = list(dict.fromkeys(resistances_list))

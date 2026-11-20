@@ -12,7 +12,7 @@
         ],
         "weapons": [
             "Simple Weapons",
-            "Martial Weapons that have the Finesse property"
+            "Martial Weapons that have the Finesse or Light property"
         ],
         "skills": {
             "count": 4,

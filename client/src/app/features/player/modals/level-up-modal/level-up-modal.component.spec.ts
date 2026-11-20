@@ -437,4 +437,100 @@ describe('LevelUpModalComponent', () => {
     fixture.detectChanges();
     expect(component.previewPendingHpAdjustment).toBe(40);
   });
+
+  it('filters sibling-selected class choices and blocks duplicate submissions', () => {
+    fixture.componentRef.setInput('nextLevel', 2);
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      new_total_level: 2,
+      class_upgraded: 'Warlock',
+      new_class_level: 2,
+      hp_increase: 6,
+      new_total_hp: 16,
+      automatic_features: [],
+      choices_required: [
+        {
+          type: 'eldritch_invocation',
+          label: 'Choose Eldritch Invocation #1',
+          options: ['Agonizing Blast', "Devil's Sight", 'Repelling Blast'],
+        },
+        {
+          type: 'eldritch_invocation',
+          label: 'Choose Eldritch Invocation #2',
+          options: ['Agonizing Blast', "Devil's Sight", 'Repelling Blast'],
+        },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+    fixture.componentRef.setInput('open', true);
+
+    const choices = component.levelUpAnalysis!.choices_required!;
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Warlock',
+      eldritch_invocation_0: 'Agonizing Blast',
+    });
+    fixture.detectChanges();
+
+    expect(component.availableOptionsFor(choices[1], 1)).not.toContain('Agonizing Blast');
+    expect(component.availableOptionsFor(choices[0], 0)).toContain('Agonizing Blast');
+    expect(component.hasDuplicateSiblingChoices).toBe(false);
+
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Warlock',
+      eldritch_invocation_0: 'Agonizing Blast',
+      eldritch_invocation_1: 'Agonizing Blast',
+    });
+    fixture.detectChanges();
+    expect(component.hasDuplicateSiblingChoices).toBe(true);
+    const applyBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Apply Level Up')
+    ) as HTMLButtonElement | null;
+    expect(applyBtn?.disabled).toBe(true);
+  });
+
+  it('treats numbered sibling choice types like spell_secret_1 and spell_secret_2 as one group', () => {
+    fixture.componentRef.setInput('nextLevel', 10);
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      new_total_level: 10,
+      class_upgraded: 'Bard',
+      new_class_level: 10,
+      hp_increase: 7,
+      new_total_hp: 70,
+      automatic_features: [],
+      choices_required: [
+        {
+          type: 'spell_secret_1',
+          label: 'Magical Secrets Spell #1',
+          options: ['Counterspell', 'Fireball', 'Find Greater Steed'],
+        },
+        {
+          type: 'spell_secret_2',
+          label: 'Magical Secrets Spell #2',
+          options: ['Counterspell', 'Fireball', 'Find Greater Steed'],
+        },
+      ],
+      updated_proficiency_bonus: 4,
+      updated_spell_slots: {},
+    });
+    fixture.componentRef.setInput('open', true);
+
+    const choices = component.levelUpAnalysis!.choices_required!;
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Bard',
+      spell_secret_1_0: 'Counterspell',
+      spell_secret_2_1: 'Fireball',
+    });
+    fixture.detectChanges();
+
+    expect(component.availableOptionsFor(choices[1], 1)).not.toContain('Counterspell');
+    expect(component.hasDuplicateSiblingChoices).toBe(false);
+
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Bard',
+      spell_secret_1_0: 'Counterspell',
+      spell_secret_2_1: 'Counterspell',
+    });
+    fixture.detectChanges();
+    expect(component.hasDuplicateSiblingChoices).toBe(true);
+  });
 });

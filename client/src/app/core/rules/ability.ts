@@ -178,8 +178,8 @@ export function isSaveProficient(
     );
   if (hasDiamondSoul) return true;
 
-  // Rogue 15+ Slippery Mind grants Wisdom saving throw proficiency
-  if (code === 'WIS') {
+  // Rogue 15+ Slippery Mind grants WIS (and CHA in 2024 Revision) saving throw proficiency
+  if (code === 'WIS' || (code === 'CHA' && is2024Edition(char))) {
     const hasSlipperyMind =
       classLevelFor(char, 'rogue') >= 15 ||
       (char.features_traits || []).some((f) =>
@@ -214,15 +214,17 @@ export function savingThrowModifier(
     extraSaveBonus += Math.max(1, abilityModifierOf(char, 'CHA'));
   }
 
-  // Artificer 20 Soul of Artifice: +1 per attuned magic item (max +6)
-  const hasSoulOfArtifice =
-    classLevelFor(char, 'artificer') >= 20 ||
-    (char.features_traits || []).some((f) =>
-      (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('soul of artifice')
-    );
-  if (hasSoulOfArtifice) {
-    const attunedCount = (char.equipment || []).filter((e) => e && e.attuned).length;
-    extraSaveBonus += Math.min(6, attunedCount);
+  // Artificer 20 Soul of Artifice: +1 per attuned magic item (max +6), disabled when magic items are suppressed
+  if (!char.magic_items_suppressed) {
+    const hasSoulOfArtifice =
+      classLevelFor(char, 'artificer') >= 20 ||
+      (char.features_traits || []).some((f) =>
+        (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('soul of artifice')
+      );
+    if (hasSoulOfArtifice) {
+      const attunedCount = (char.equipment || []).filter((e) => e && e.attuned).length;
+      extraSaveBonus += Math.min(6, attunedCount);
+    }
   }
 
   const dmSave = char.dm_modifiers?.saving_throws_bonus ?? 0;

@@ -132,6 +132,7 @@ SUBCLASSES_2014 = {
         "Storm Sorcery",
         "Aberrant Mind",
         "Clockwork Soul",
+        "Lunar Sorcery",
     ],
     "Warlock": [
         "The Archfey",

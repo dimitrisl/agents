@@ -335,7 +335,10 @@ export function rechargeShortRestResources(
     if (is2024 && /^(rage|second wind|channel divinity|wild shape)$/i.test(nameClean)) {
       return { ...r, current: Math.min(r.max, (r.current ?? 0) + 1) };
     }
-    if (canRestore2014SorceryPoints && nameClean === 'sorcery points') {
+    if (
+      canRestore2014SorceryPoints &&
+      (nameClean === 'sorcery points' || nameClean === 'sorcery point' || nameClean === 'font of magic')
+    ) {
       return { ...r, current: Math.min(r.max, (r.current ?? 0) + 4) };
     }
     if (r.recharge === 'short') {

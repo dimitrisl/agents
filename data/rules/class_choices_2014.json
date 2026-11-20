@@ -81,11 +81,19 @@
   "artificer_infusions": [
     {"name": "Infusion: Enhanced Defense", "min_level": 2, "description": "Armor or shield grants +1 bonus to AC (+2 at Artificer level 10)."},
     {"name": "Infusion: Enhanced Weapon", "min_level": 2, "description": "Simple or martial weapon becomes a +1 magic weapon (+2 at Artificer level 10)."},
+    {"name": "Infusion: Enhanced Arcane Focus", "min_level": 2, "description": "Wand/rod/staff grants +1 bonus (+2 at L10) to spell attack rolls and ignores half cover."},
     {"name": "Infusion: Repeating Shot", "min_level": 2, "description": "+1 magic ranged weapon that ignores Loading and automatically creates ammunition."},
+    {"name": "Infusion: Returning Weapon", "min_level": 2, "description": "+1 magic thrown weapon that returns to your hand immediately after a ranged attack."},
     {"name": "Infusion: Mind Sharpener", "min_level": 2, "description": "Armor/robes let the wearer use a Reaction to automatically succeed on a failed Concentration save (4 charges)."},
     {"name": "Infusion: Bag of Holding", "min_level": 2, "description": "Replicate a magical Bag of Holding."},
+    {"name": "Infusion: Goggles of Night", "min_level": 2, "description": "Replicate Goggles of Night granting 60 ft Darkvision (+60 ft if already possessed)."},
     {"name": "Infusion: Homunculus Servant", "min_level": 2, "description": "Animate a Tiny mechanical Homunculus Servant."},
     {"name": "Infusion: Radiant Weapon", "min_level": 6, "description": "+1 magic weapon shedding light with 4 charges to Blind melee attackers as a Reaction."},
+    {"name": "Infusion: Repulsion Shield", "min_level": 6, "description": "+1 shield with 4 charges to push a melee attacker up to 15 ft as a Reaction."},
+    {"name": "Infusion: Resistant Armor", "min_level": 6, "description": "Armor grants resistance to one chosen energy/damage type (Acid, Cold, Fire, Force, Lightning, Necrotic, Poison, Psychic, Radiant, or Thunder)."},
+    {"name": "Infusion: Spell-Refueling Ring", "min_level": 6, "description": "Action recovers one expended spell slot of 3rd level or lower once per dawn."},
+    {"name": "Infusion: Boots of Winding Path", "min_level": 6, "description": "Bonus Action teleports up to 15 ft to an unoccupied space seen earlier this turn."},
+    {"name": "Infusion: Helm of Awareness", "min_level": 10, "description": "Grants Advantage on Initiative rolls and prevents being surprised while conscious."},
     {"name": "Infusion: Winged Boots", "min_level": 10, "description": "Replicate Winged Boots (Fly Speed equal to walking speed)."}
   ],
   "hunter_choices": {
