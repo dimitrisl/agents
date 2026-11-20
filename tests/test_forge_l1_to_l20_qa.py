@@ -362,3 +362,145 @@ def test_l1_to_l20_progression_artificer_ek_warlock_barbarian_monk(_mock_ai):
     finally:
         limiter.enabled = orig_limiter
         app.dependency_overrides = orig_overrides
+
+
+@patch("backend.services.forge_service.generate_ai_json", return_value=None)
+def test_2014_subraces_and_2024_species_parity(_mock_ai):
+    from backend.repositories.rules_repository import RulesRepository
+    from backend.services.validation_service import get_character_armor_proficiencies
+
+    repo = RulesRepository()
+
+    # 2014 Wood Elf: +2 DEX, +1 WIS, speed 35 ft, Keen Senses (Perception)
+    wood_elf = forge_character(
+        target_level=1,
+        forge_race="Wood Elf",
+        forge_class="Ranger",
+        forge_background="Outlander",
+        concept="Forest tracker",
+        name="Theren",
+        edition=EDITION_2014,
+    )
+    assert wood_elf["stats"]["DEX"] == 17  # 15 + 2
+    assert wood_elf["stats"]["WIS"] == 15  # 14 + 1
+    assert wood_elf["speed"] == 35
+    assert "Perception" in wood_elf["skill_proficiencies"]
+    assert any(f["name"] == "Mask of the Wild" for f in wood_elf["features_traits"])
+
+    # 2014 High Elf: +2 DEX, +1 INT, Cantrip & Elf Weapon Training (Wizard priority: INT=15->16, CON=14, DEX=13->15)
+    high_elf = forge_character(
+        target_level=1,
+        forge_race="High Elf",
+        forge_class="Wizard",
+        forge_background="Sage",
+        concept="Arcane blade",
+        name="Aelar",
+        edition=EDITION_2014,
+    )
+    assert high_elf["stats"]["INT"] == 16  # 15 + 1
+    assert high_elf["stats"]["DEX"] == 15  # 13 + 2
+    assert any(f["name"] == "Cantrip" for f in high_elf["features_traits"])
+    assert any(f["name"] == "Elf Weapon Training" for f in high_elf["features_traits"])
+
+    # 2014 Dark Elf (Drow) and "Drow" alias: +2 DEX, +1 CHA, Drow Magic & Superior Darkvision
+    assert (repo.get_race_data("Drow", EDITION_2014) or {}).get("name") == "Dark Elf (Drow)"
+    drow = forge_character(
+        target_level=1,
+        forge_race="Dark Elf (Drow)",
+        forge_class="Rogue",
+        forge_background="Criminal",
+        concept="Underdark scout",
+        name="Driz",
+        edition=EDITION_2014,
+    )
+    assert drow["stats"]["DEX"] == 17  # 15 + 2
+    assert drow["stats"]["CHA"] == 11  # 10 + 1
+    assert any(f["name"] == "Drow Magic" for f in drow["features_traits"])
+
+    # 2014 Hill Dwarf (+1 WIS, +2 CON, Dwarven Toughness +1 HP/lvl) vs Mountain Dwarf (+2 STR, +2 CON, Light/Medium Armor)
+    hill_dwarf = forge_character_manual(
+        1,
+        "Hill Dwarf",
+        "Cleric",
+        "Acolyte",
+        "Life Domain",
+        "Lawful Good",
+        "Male",
+        "Torin",
+        {"STR": 14, "DEX": 10, "CON": 15, "INT": 8, "WIS": 16, "CHA": 12},
+        ["Religion", "Medicine"],
+        [],
+        None,
+        "",
+        edition=EDITION_2014,
+    )
+    assert hill_dwarf["speed"] == 25
+    assert hill_dwarf["hp_max"] == 8 + 2 + 1  # d8 hit die + CON(+2) + Dwarven Toughness(+1)
+
+    mtn_dwarf = forge_character(
+        target_level=1,
+        forge_race="Mountain Dwarf",
+        forge_class="Wizard",
+        forge_background="Soldier",
+        concept="Armored abjurer",
+        name="Bruenor",
+        edition=EDITION_2014,
+    )
+    assert mtn_dwarf["stats"]["STR"] >= 10
+    wiz_prog = repo.get_class_progression("Wizard", EDITION_2014)
+    armor_profs = get_character_armor_proficiencies(mtn_dwarf, wiz_prog)
+    assert {"light armor", "medium armor"}.issubset(armor_profs)
+
+    # 2014 Half-Elf: +2 CHA and two distinct +1 bonuses + Skill Versatility (2 skills)
+    half_elf = forge_character(
+        target_level=1,
+        forge_race="Half-Elf",
+        forge_class="Bard",
+        forge_background="Entertainer",
+        concept="Diplomat",
+        name="Lyric",
+        edition=EDITION_2014,
+    )
+    assert half_elf["stats"]["CHA"] == 17  # 15 + 2
+    assert sum(half_elf["stats"].values()) == sum((15, 14, 13, 12, 10, 8)) + 4
+    assert any(f["name"] == "Skill Versatility" for f in half_elf["features_traits"])
+
+    # 2014 Lightfoot Halfling: Naturally Stealthy trait WITHOUT forcing Stealth skill proficiency;
+    # 2024 Halfling: Naturally Stealthy DOES grant Stealth skill proficiency
+    lf_2014 = forge_character_manual(
+        1,
+        "Lightfoot Halfling",
+        "Fighter",
+        "Acolyte",
+        None,
+        "Neutral Good",
+        "Male",
+        "Pip",
+        {"STR": 10, "DEX": 17, "CON": 14, "INT": 12, "WIS": 10, "CHA": 13},
+        ["Athletics", "Perception"],
+        [],
+        None,
+        "",
+        edition=EDITION_2014,
+    )
+    assert any(f["name"] == "Naturally Stealthy" for f in lf_2014["features_traits"])
+    assert "Stealth" not in lf_2014["skill_proficiencies"]
+
+    half_2024 = forge_character_manual(
+        1,
+        "Halfling",
+        "Fighter",
+        "Acolyte",
+        None,
+        "Neutral Good",
+        "Male",
+        "Milo",
+        {"STR": 10, "DEX": 17, "CON": 14, "INT": 12, "WIS": 10, "CHA": 13},
+        ["Athletics", "Perception"],
+        [],
+        None,
+        "",
+        edition=EDITION_2024,
+    )
+    assert "Stealth" in half_2024["skill_proficiencies"]
+    assert (repo.get_race_data("Drow", EDITION_2024) or {}).get("name") == "Elf"

@@ -387,14 +387,39 @@ describe('ForgeComponent', () => {
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
 
-      // 2014 Edition: Variant Human present, Warforged absent
+      // 2014 Edition: Variant Human & canonical subraces present, Warforged absent
       expect(component.raceOptions).toContain('Variant Human');
+      expect(component.raceOptions).toContain('High Elf');
+      expect(component.raceOptions).toContain('Wood Elf');
+      expect(component.raceOptions).toContain('Dark Elf (Drow)');
+      expect(component.raceOptions).toContain('Half-Elf');
+      expect(component.raceOptions).toContain('Hill Dwarf');
+      expect(component.raceOptions).toContain('Mountain Dwarf');
+      expect(component.raceOptions).toContain('Lightfoot Halfling');
+      expect(component.raceOptions).toContain('Stout Halfling');
+      expect(component.raceOptions).toContain('Forest Gnome');
+      expect(component.raceOptions).toContain('Rock Gnome');
       expect(component.raceOptions).not.toContain('Warforged');
       // 2014 Human gets +1 to all 6 stats when Step 4 overrides remain None
       expect(component.getFinalStat('STR')).toBe(16);
       expect(component.getFinalStat('CHA')).toBe(9);
 
-      // Selecting Dwarf in 2014 pre-fills +2 CON
+      // Selecting High Elf in 2014 pre-fills +2 DEX, +1 INT
+      component.onManualRaceChange('High Elf');
+      expect(component.adjPlus2).toBe('DEX');
+      expect(component.adjPlus1).toBe('INT');
+      expect(component.getFinalStat('DEX')).toBe(16);
+      expect(component.getFinalStat('INT')).toBe(13);
+
+      // Selecting Mountain Dwarf in 2014 pre-fills +2 CON, +2 STR
+      component.onManualRaceChange('Mountain Dwarf');
+      expect(component.adjPlus2).toBe('CON');
+      expect(component.adjPlus1).toBe('STR');
+      expect(component.adjPlus1Alt).toBe('STR');
+      expect(component.getFinalStat('CON')).toBe(15);
+      expect(component.getFinalStat('STR')).toBe(17);
+
+      // Legacy Dwarf preset fallback still pre-fills +2 CON
       component.onManualRaceChange('Dwarf');
       expect(component.adjPlus2).toBe('CON');
       expect(component.getFinalStat('CON')).toBe(15);

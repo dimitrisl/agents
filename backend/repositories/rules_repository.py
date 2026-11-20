@@ -286,33 +286,10 @@ class RulesRepository:
         clean = str(race_name).strip().lower()
         primary_ed = _norm_edition(edition)
         if clean == "variant human":
-            if primary_ed == "2014":
-                return {
-                    "name": "Variant Human",
-                    "stat_bonuses": {"CHOICE_1": 1, "CHOICE_2": 1},
-                    "description": "Humans of varied upbringing who gain a bonus skill and feat at 1st level.",
-                    "traits": [
-                        {
-                            "name": "Ability Score Increase",
-                            "description": "Two different ability scores of your choice increase by 1.",
-                        },
-                        {
-                            "name": "Skills",
-                            "description": "You gain proficiency in one skill of your choice.",
-                        },
-                        {
-                            "name": "Bonus Feat",
-                            "description": "You gain one feat of your choice at 1st level.",
-                        },
-                        {
-                            "name": "Extra Language",
-                            "description": "You can speak, read, and write Common and one extra language of your choice.",
-                        },
-                    ],
-                    "size": "Medium",
-                    "speed": 30,
-                }
-            clean = "human"
+            if primary_ed != "2014":
+                clean = "human"
+        elif clean in ("drow", "dark elf"):
+            clean = "dark elf (drow)" if primary_ed == "2014" else "elf"
         fallback_ed = "2014" if primary_ed == "2024" else "2024"
 
         for ed in (primary_ed, fallback_ed):

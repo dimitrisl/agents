@@ -166,4 +166,18 @@ describe('Manual Build Recommendations Rules', () => {
     expect(getSubclassUnlockLevel('Cleric', true)).toBe(3);
     expect(getSubclassUnlockLevel('Wizard', true)).toBe(3);
   });
+
+  it('should compute racial skills accurately across 2014 subraces and 2024 species', () => {
+    const { getRacialSkills } = require('./recommendations');
+
+    expect(getRacialSkills('High Elf', false)).toEqual(['Perception']);
+    expect(getRacialSkills('Wood Elf', false)).toEqual(['Perception']);
+    expect(getRacialSkills('Dark Elf (Drow)', false)).toEqual(['Perception']);
+    expect(getRacialSkills('Half-Elf', false)).toEqual([]);
+    expect(getRacialSkills('Lightfoot Halfling', false)).toEqual([]);
+    expect(getRacialSkills('Half-Orc', false)).toEqual(['Intimidation']);
+
+    expect(getRacialSkills('Halfling', true)).toEqual(['Stealth']);
+    expect(getRacialSkills('Elf', true)).toEqual(['Perception']);
+  });
 });

@@ -454,13 +454,15 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
         if not isinstance(feat, dict):
             continue
         desc = (feat.get("description", "") + " " + feat.get("name", "")).lower()
-        if "light armor" in desc and ("proficien" in desc or "training" in desc):
+        if "proficien" not in desc and "training" not in desc:
+            continue
+        if re.search(r"\blight(?:\s*(?:,|and)\s*(?:medium|heavy))*\s+armor\b", desc):
             proficiencies.add("light armor")
-        if "medium armor" in desc and ("proficien" in desc or "training" in desc):
+        if re.search(r"\bmedium(?:\s*(?:,|and)\s*heavy)*\s+armor\b", desc):
             proficiencies.add("medium armor")
-        if "heavy armor" in desc and ("proficien" in desc or "training" in desc):
+        if "heavy armor" in desc:
             proficiencies.add("heavy armor")
-        if "shields" in desc and ("proficien" in desc or "training" in desc):
+        if "shields" in desc:
             proficiencies.add("shields")
 
     # "All armor" covers everything

@@ -440,7 +440,7 @@ export function getBackgroundOriginFeat(background: string, is2024: boolean = tr
 
 export function getRacialSkills(race: string, is2024: boolean = true): string[] {
   const r = (race || '').trim().toLowerCase();
-  if (r.includes('elf') && !r.includes('half')) {
+  if ((r.includes('elf') || r.includes('drow')) && !r.includes('half')) {
     return ['Perception'];
   }
   if (is2024 && r.includes('halfling')) {

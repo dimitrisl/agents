@@ -202,6 +202,7 @@ _DEFAULT_STARTING_SPELLS_BY_CLASS: dict[str, dict[str, list[str]]] = {
 
 _RACIAL_LANGUAGE_MAP: dict[str, str] = {
     "elf": "Elvish",
+    "drow": "Elvish",
     "half-elf": "Elvish",
     "dwarf": "Dwarvish",
     "halfling": "Halfling",
@@ -307,7 +308,9 @@ def inject_mandatory_character_grants(
 
             if t_low == "keen senses" or "proficiency in the perception skill" in desc_low:
                 racial_mandatory_skills.append("Perception")
-            elif t_low == "naturally stealthy" or "proficiency in the stealth skill" in desc_low:
+            elif (
+                t_low == "naturally stealthy" and is_2024
+            ) or "proficiency in the stealth skill" in desc_low:
                 racial_mandatory_skills.append("Stealth")
             elif t_low == "menacing" or "proficiency in the intimidation skill" in desc_low:
                 racial_mandatory_skills.append("Intimidation")
