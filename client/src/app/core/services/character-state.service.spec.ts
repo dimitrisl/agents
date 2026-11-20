@@ -14,6 +14,7 @@ describe('CharacterStateService', () => {
   beforeEach(() => {
     localStorage.removeItem('phyrexian_forge_active_char');
     localStorage.removeItem('phyrexian_forge_active_char_snapshot');
+    localStorage.removeItem('phyrexian_forge_active_edition');
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [CharacterStateService]
@@ -26,6 +27,7 @@ describe('CharacterStateService', () => {
     httpMock.verify();
     localStorage.removeItem('phyrexian_forge_active_char');
     localStorage.removeItem('phyrexian_forge_active_char_snapshot');
+    localStorage.removeItem('phyrexian_forge_active_edition');
   });
 
   it('should be created', () => {
@@ -150,6 +152,8 @@ describe('CharacterStateService', () => {
       service.toggleEdition();
       expect(service.dndEdition()).toBe('2024 Revision (5.5e)');
       expect(service.activeCharacter()).toEqual(mockChar2024);
+      TestBed.flushEffects();
+      expect(localStorage.getItem('phyrexian_forge_active_edition')).toBe('2024 Revision (5.5e)');
 
       service.toggleEdition();
       expect(service.dndEdition()).toBe('2014 Edition');

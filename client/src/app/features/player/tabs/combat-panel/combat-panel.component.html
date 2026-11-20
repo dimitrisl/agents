@@ -188,7 +188,7 @@
                     }
                   </span>
                   @if (weaponMetaSummary(weapon); as meta) {
-                    <span class="truncate text-micro text-muted">{{ meta }}</span>
+                    <span class="truncate text-micro leading-normal text-muted">{{ meta }}</span>
                   }
                 </button>
 
@@ -320,21 +320,66 @@
           </div>
         </section>
 
-        <!-- Interactive Class Resource Pools with Clickable Pips -->
+        <!-- Interactive Class Resource Pools with Clickable Pips + Add/Edit Parity -->
         <section class="flex flex-col gap-2" aria-label="Class Resource Pools">
-          <h3 class="px-1 text-micro font-semibold uppercase text-muted">Class Resources &amp; Pools</h3>
+          <div class="flex items-center justify-between gap-2 px-1">
+            <h3 class="text-micro font-semibold uppercase text-muted">Class Resources &amp; Pools</h3>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              data-testid="mobile-add-resource-btn"
+              (click)="openAddResourceModal()"
+            >
+              + Add Pool
+            </button>
+          </div>
           @if (classResources.length > 0) {
             <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel" data-testid="mobile-class-resources">
-              @for (res of classResources; track res.name + '-' + $index) {
+              @for (res of classResources; track res.name + '-' + $index; let rIndex = $index) {
                 <li class="flex flex-col gap-2 px-3 py-3">
                   <div class="flex items-center justify-between gap-2">
-                    <div class="min-w-0">
+                    <div class="min-w-0 flex-1">
                       <p class="truncate text-body font-semibold text-ink">{{ res.name }}</p>
-                      <p class="text-micro uppercase text-muted">{{ res.recharge }} rest</p>
+                      <p class="text-micro uppercase text-muted">
+                        {{ res.recharge }} rest
+                        @if (res.auto) {
+                          · ⚙ Class
+                        }
+                      </p>
                     </div>
-                    <span class="shrink-0 text-label font-bold tabular-nums text-accent">
-                      {{ res.current }} / {{ res.max }}
-                    </span>
+                    <div class="flex shrink-0 items-center gap-1">
+                      <span class="mr-1 text-label font-bold tabular-nums text-accent">
+                        {{ res.current }} / {{ res.max }}
+                      </span>
+                      <button
+                        forgeButton
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        type="button"
+                        [attr.aria-label]="'Edit ' + res.name"
+                        [attr.data-testid]="'mobile-edit-resource-' + rIndex"
+                        (click)="openEditResourceModal(rIndex, $event)"
+                      >
+                        <forge-icon name="pencil" size="xs" />
+                      </button>
+                      @if (editMode && !res.auto) {
+                        <button
+                          forgeButton
+                          variant="danger"
+                          size="sm"
+                          iconOnly
+                          type="button"
+                          [attr.aria-label]="'Delete ' + res.name"
+                          [attr.data-testid]="'mobile-delete-resource-' + rIndex"
+                          (click)="deleteMobileResource(rIndex, $event)"
+                        >
+                          <forge-icon name="close" size="xs" />
+                        </button>
+                      }
+                    </div>
                   </div>
 
                   @if (res.max <= 10) {
@@ -504,7 +549,7 @@
                         }
                       </span>
                       @if (row.item.description) {
-                        <span class="truncate text-micro text-muted">{{ row.item.description }}</span>
+                        <span class="truncate text-micro leading-normal text-muted">{{ row.item.description }}</span>
                       }
                     </button>
 
@@ -1089,6 +1134,114 @@
         </p>
       </div>
     }
+  </forge-modal>
+
+  <!-- SLIDE-UP CLASS RESOURCE ADD / EDIT SHEET -->
+  <forge-modal
+    [open]="showMobileResourceModal()"
+    [sheetOnMobile]="true"
+    (closed)="closeResourceModal()"
+    [title]="editingResource ? '⚡ Edit ' + editingResource.name : '⚡ Add Resource Pool'"
+    maxWidth="420px"
+  >
+    <div class="flex flex-col gap-3" data-testid="mobile-resource-modal">
+      @if (editingResource?.auto) {
+        <p class="rounded-lg border border-hairline bg-tile px-3 py-2 text-micro text-muted">
+          ⚙ Max and recharge follow your class level ({{ resourceRulesMax }}). Add a bonus adjustment for feats, items, or house rules.
+        </p>
+      } @else {
+        <div>
+          <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-name">Resource Name</label>
+          <input
+            id="mobile-res-name"
+            forgeInput
+            dense
+            type="text"
+            class="w-full"
+            [(ngModel)]="newResourceName"
+            placeholder="e.g. Luck Points, Superiority Dice"
+          />
+        </div>
+      }
+
+      <div class="grid grid-cols-2 gap-3">
+        @if (editingResource?.auto) {
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-bonus">Adjustment (+/−)</label>
+            <input
+              id="mobile-res-bonus"
+              forgeInput
+              dense
+              type="number"
+              class="w-full"
+              [min]="1 - resourceRulesMax"
+              max="100"
+              [(ngModel)]="newResourceBonus"
+            />
+            <p class="mt-1 text-micro text-muted">Max {{ resourceEditedMax }}</p>
+          </div>
+        } @else {
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-max">Max Charges</label>
+            <input
+              id="mobile-res-max"
+              forgeInput
+              dense
+              type="number"
+              class="w-full"
+              min="1"
+              max="100"
+              [(ngModel)]="newResourceMax"
+            />
+          </div>
+        }
+        <div>
+          <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-recharge">Recharge On</label>
+          <select
+            id="mobile-res-recharge"
+            forgeSelect
+            dense
+            [(ngModel)]="newResourceRecharge"
+            [disabled]="!!editingResource?.auto"
+            class="w-full"
+          >
+            <option value="short">Short Rest</option>
+            <option value="long">Long Rest</option>
+          </select>
+        </div>
+      </div>
+
+      @if (editingResource) {
+        <div>
+          <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-current">Current Charges</label>
+          <input
+            id="mobile-res-current"
+            forgeInput
+            dense
+            type="number"
+            class="w-full"
+            min="0"
+            [max]="resourceEditedMax"
+            [(ngModel)]="newResourceCurrent"
+          />
+        </div>
+      }
+
+      <div class="flex justify-end gap-2 border-t border-hairline pt-3">
+        <button forgeButton variant="ghost" size="sm" type="button" (click)="closeResourceModal()">Cancel</button>
+        <button
+          forgeButton
+          variant="primary"
+          size="sm"
+          type="button"
+          data-testid="mobile-save-resource-btn"
+          (click)="confirmMobileResource()"
+          [disabled]="!editingResource?.auto && !newResourceName.trim()"
+        >
+          Save Pool
+        </button>
+      </div>
+    </div>
   </forge-modal>
 } @else {
 <div class="flex flex-col gap-6">

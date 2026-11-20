@@ -5,6 +5,7 @@ import {
   EventEmitter,
   Input,
   OnChanges,
+  OnInit,
   Output,
   SimpleChanges,
   inject,
@@ -51,7 +52,12 @@ import {
   describeDmModifiers,
   exhaustionD20Penalty,
   hasExhaustionDisadvantage,
+  removeClassResourceAt,
   resolveRollMode,
+  resourceEditedMax,
+  resourceRulesMax,
+  setClassResourceCurrent,
+  upsertClassResourceList,
 } from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
@@ -87,7 +93,7 @@ const EMPTY_PROFILE: CombatProfile = {
     class: 'block',
   },
 })
-export class CombatPanelComponent implements OnChanges, OnDestroy {
+export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() editMode = false;
   @Input() compactMobile = false;
@@ -100,6 +106,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   @Output() addEquipment = new EventEmitter<void>();
   @Output() deleteEquipment = new EventEmitter<number>();
   @Output() save = new EventEmitter<void>();
+  @Output() saveImmediate = new EventEmitter<void>();
   @Output() consumePotion = new EventEmitter<{ item: EquipmentItem; dice: string; bonus: number; name: string }>();
   @Output() updateHeroStatus = new EventEmitter<{ inspiration?: boolean; exhaustion_level?: number }>();
   @Output() combatAction = new EventEmitter<'Dodge' | 'Dash' | 'Disengage' | 'Help'>();
@@ -111,6 +118,14 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   inspectedFeature = signal<FeatureTrait | null>(null);
   mobileFeatureFilter = signal<MobileFeatureFilter>('all');
   showWeaponConfigInSheet = signal<boolean>(false);
+  showMobileResourceModal = signal<boolean>(false);
+  newResourceName = '';
+  newResourceMax = 3;
+  newResourceRecharge: 'short' | 'long' = 'long';
+  newResourceCurrent = 0;
+  newResourceBonus = 0;
+  editingResource: ClassResource | null = null;
+  private lastHeroKey?: string;
 
   readonly mobileFeatureFilters: { id: MobileFeatureFilter; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -152,6 +167,10 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   /** What the last combat-profile request was for; see profileKey(). */
   private profileKey?: string;
 
+  ngOnInit(): void {
+    this.lastHeroKey ??= this.char ? (this.char.char_id || this.char.char_name) : '';
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['encounterState'] || changes['char']) {
       const nextActiveId: string | null = this.encounterState?.activeCombatantId ?? null;
@@ -173,6 +192,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     if (!changes['char']) return;
 
     if (!this.char) {
+      this.lastHeroKey = undefined;
       this.profileSub?.unsubscribe();
       this.profileKey = undefined;
       this.profile = EMPTY_PROFILE;
@@ -180,6 +200,16 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
+
+    const heroKey = this.char.char_id || this.char.char_name;
+    if (this.lastHeroKey !== undefined && heroKey !== this.lastHeroKey) {
+      this.inspectedWeaponIndex.set(null);
+      this.inspectedItemIndex.set(null);
+      this.inspectedFeature.set(null);
+      this.showWeaponConfigInSheet.set(false);
+      this.closeResourceModal();
+    }
+    this.lastHeroKey = heroKey;
 
     // Every save hands us a new character object. Only refetch when something the
     // profile depends on changed: refetching on each save burned through the API
@@ -665,8 +695,9 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     return [
       this.weaponNotation(weapon),
       ...this.activeEffects(weapon).map((e) => this.effectDamageNotation(e)).filter(Boolean),
-      ...this.activeRiders.map((r) => this.riderNotation(r)),
+      ...this.activeRiders.map((r) => this.riderNotation(r)).filter(Boolean),
     ]
+      .filter(Boolean)
       .join(' + ')
       .replace(/\+ \+/g, '+');
   }
@@ -1121,10 +1152,7 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
     event.stopPropagation();
     this.haptics.lightTap();
     const nextCurrent = pipIndex === res.current ? pipIndex - 1 : pipIndex;
-    const clamped = Math.max(0, Math.min(res.max, nextCurrent));
-    this.char.class_resources = this.classResources.map((r) =>
-      r === res ? { ...r, current: clamped } : r
-    );
+    this.char.class_resources = setClassResourceCurrent(this.char.class_resources, res, nextCurrent);
     this.save.emit();
     this.cdr.markForCheck();
   }
@@ -1132,12 +1160,67 @@ export class CombatPanelComponent implements OnChanges, OnDestroy {
   adjustClassResource(res: ClassResource, delta: number, event: Event): void {
     event.stopPropagation();
     this.haptics.lightTap();
-    const clamped = Math.max(0, Math.min(res.max, (res.current ?? 0) + delta));
-    if (clamped === res.current) return;
-    this.char.class_resources = this.classResources.map((r) =>
-      r === res ? { ...r, current: clamped } : r
-    );
+    const nextCurrent = Math.max(0, Math.min(res.max, (res.current ?? 0) + delta));
+    if (nextCurrent === res.current) return;
+    this.char.class_resources = setClassResourceCurrent(this.char.class_resources, res, nextCurrent);
     this.save.emit();
+    this.cdr.markForCheck();
+  }
+
+  get resourceRulesMax(): number {
+    return resourceRulesMax(this.editingResource);
+  }
+
+  get resourceEditedMax(): number {
+    return resourceEditedMax(this.editingResource, this.newResourceMax, this.newResourceBonus);
+  }
+
+  openAddResourceModal(): void {
+    this.editingResource = null;
+    this.newResourceName = '';
+    this.newResourceMax = 3;
+    this.newResourceRecharge = 'long';
+    this.showMobileResourceModal.set(true);
+  }
+
+  openEditResourceModal(index: number, event: Event): void {
+    event.stopPropagation();
+    const res = this.classResources[index];
+    if (!res) return;
+    this.editingResource = res;
+    this.newResourceName = res.name;
+    this.newResourceMax = res.max;
+    this.newResourceBonus = res.bonus ?? 0;
+    this.newResourceCurrent = res.current;
+    this.newResourceRecharge = res.recharge;
+    this.showMobileResourceModal.set(true);
+  }
+
+  closeResourceModal(): void {
+    this.editingResource = null;
+    this.showMobileResourceModal.set(false);
+  }
+
+  confirmMobileResource(): void {
+    const next = upsertClassResourceList(this.char.class_resources, this.editingResource, {
+      name: this.newResourceName,
+      max: this.newResourceMax,
+      recharge: this.newResourceRecharge,
+      current: this.newResourceCurrent,
+      bonus: this.newResourceBonus,
+    });
+    if (!next) return;
+    this.char.class_resources = next;
+    this.saveImmediate.emit();
+    this.closeResourceModal();
+    this.cdr.markForCheck();
+  }
+
+  deleteMobileResource(index: number, event: Event): void {
+    event.stopPropagation();
+    if (!this.char.class_resources) return;
+    this.char.class_resources = removeClassResourceAt(this.char.class_resources, index);
+    this.saveImmediate.emit();
     this.cdr.markForCheck();
   }
 

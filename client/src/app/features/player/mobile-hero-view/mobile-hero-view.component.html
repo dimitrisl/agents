@@ -66,18 +66,19 @@
           </p>
         } @else {
           <div class="grid grid-cols-1 gap-2">
-            <input forgeInput dense type="text" [(ngModel)]="char.char_name" placeholder="Name" aria-label="Character name" />
+            <input forgeInput dense type="text" [(ngModel)]="char.char_name" (change)="onInlineFieldChange()" placeholder="Name" aria-label="Character name" />
             <div class="grid grid-cols-2 gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="char.race" placeholder="Race" aria-label="Race" />
-              <input forgeInput dense type="text" [(ngModel)]="char.background" placeholder="Background" aria-label="Background" />
+              <input forgeInput dense type="text" [(ngModel)]="char.race" (change)="onInlineFieldChange()" placeholder="Race" aria-label="Race" />
+              <input forgeInput dense type="text" [(ngModel)]="char.background" (change)="onInlineFieldChange()" placeholder="Background" aria-label="Background" />
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="char.char_class" placeholder="Class" aria-label="Class" />
+              <input forgeInput dense type="text" [(ngModel)]="char.char_class" (change)="onInlineFieldChange()" placeholder="Class" aria-label="Class" />
               <input
                 forgeInput
                 dense
                 type="text"
                 [(ngModel)]="char.subclass"
+                (change)="onInlineFieldChange()"
                 placeholder="Subclass"
                 aria-label="Subclass"
                 [readonly]="!canEditSubclass"
@@ -88,12 +89,15 @@
                 forgeInput
                 dense
                 type="number"
+                min="1"
+                max="20"
                 [(ngModel)]="char.char_level"
+                (change)="onInlineFieldChange()"
                 placeholder="Level"
                 aria-label="Level"
                 [readonly]="!!char.active_campaign"
               />
-              <input forgeInput dense type="number" [(ngModel)]="char.speed" placeholder="Speed (ft)" aria-label="Speed" />
+              <input forgeInput dense type="number" min="0" max="300" [(ngModel)]="char.speed" (change)="onInlineFieldChange()" placeholder="Speed (ft)" aria-label="Speed" />
             </div>
           </div>
         }
@@ -115,12 +119,12 @@
         </button>
 
         @if (char.concentrating_on) {
-          <forge-badge tone="gold" class="h-7">
+          <forge-badge tone="gold" class="min-h-7">
             <span aria-hidden="true">🧠</span>
             {{ char.concentrating_on }}
             <button
               type="button"
-              class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-gold transition-colors hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              class="-mr-1 inline-flex min-h-7 min-w-7 items-center justify-center rounded text-gold transition-colors hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               [attr.aria-label]="'End concentration on ' + char.concentrating_on"
               (click)="endConcentration.emit()"
             >
@@ -130,29 +134,29 @@
         }
 
         @if (deceasedByExhaustion) {
-          <forge-badge tone="danger" class="h-7">💀 Deceased (Exh 6)</forge-badge>
+          <forge-badge tone="danger" class="min-h-7">💀 Deceased (Exh 6)</forge-badge>
         } @else if ((char.exhaustion_level ?? 0) > 0) {
-          <forge-badge [tone]="char.exhaustion_bypass ? 'muted' : 'danger'" class="h-7" [title]="exhaustionTooltip">
+          <forge-badge [tone]="char.exhaustion_bypass ? 'muted' : 'danger'" class="min-h-7" [title]="exhaustionTooltip">
             🥱 Exh {{ char.exhaustion_level }}{{ char.exhaustion_bypass ? ' (Waived)' : '' }}
           </forge-badge>
         }
 
         @if (char.magic_items_suppressed) {
-          <forge-badge tone="accent" class="h-7">🏜️ Magic Suppressed</forge-badge>
+          <forge-badge tone="accent" class="min-h-7">🏜️ Magic Suppressed</forge-badge>
         }
 
         @if (dmModifiersParts.length > 0 || (char.dm_modifiers?.note || '').trim()) {
-          <forge-badge tone="accent" class="h-7">
+          <forge-badge tone="accent" class="min-h-7">
             ⚙️ DM: {{ dmModifiersParts.length > 0 ? dmModifiersParts.join(' · ') : char.dm_modifiers?.note }}
           </forge-badge>
         }
 
         @for (cond of char.conditions || []; track cond) {
-          <forge-badge tone="danger" class="h-7">
+          <forge-badge tone="danger" class="min-h-7">
             {{ cond }}
             <button
               type="button"
-              class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-red transition-colors hover:bg-red/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              class="-mr-1 inline-flex min-h-7 min-w-7 items-center justify-center rounded text-red transition-colors hover:bg-red/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               [attr.aria-label]="'Remove ' + cond"
               (click)="removeCondition.emit(cond)"
             >
@@ -242,8 +246,11 @@
                 forgeInput
                 dense
                 type="number"
+                min="1"
+                max="30"
                 class="mt-1.5 w-full max-w-16 text-center"
                 [(ngModel)]="char.stats[entry.key]"
+                (change)="onInlineFieldChange()"
                 [attr.aria-label]="entry.key + ' score'"
               />
             </div>

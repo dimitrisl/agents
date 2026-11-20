@@ -7,6 +7,7 @@
  * this barrel, never from the individual files.
  */
 export * from './ability';
+export * from './class-resources';
 export * from './hit-points';
 export * from './level-up';
 export * from './rest';

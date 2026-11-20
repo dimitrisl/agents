@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { SpellsPanelComponent } from './spells-panel.component';
 import { CharacterSchema } from '../../../../core/models/character.model';
 import { HapticsService } from '../../../../core/services/haptics.service';
@@ -40,7 +42,7 @@ describe('SpellsPanelComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SpellsPanelComponent],
-      providers: [HapticsService, RollToastService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), HapticsService, RollToastService],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SpellsPanelComponent);
@@ -348,6 +350,17 @@ describe('SpellsPanelComponent', () => {
       component.castFromDetail('Magic Missile', 1);
       expect(slotSpy).toHaveBeenCalledWith(1);
       expect(castSpy).toHaveBeenCalledWith({ spellName: 'Magic Missile', level: 1, isRitual: false });
+    });
+
+    it('resets active spell filters and open sheets when hero changes', () => {
+      component.mobileLevelFilter.set(1);
+      component.openSpellDetail('Magic Missile', 1);
+      expect(component.selectedSpell()).toBe('Magic Missile');
+
+      fixture.componentRef.setInput('char', { ...component.char, char_id: 'wizard-2', char_name: 'Elminster' });
+      fixture.detectChanges();
+      expect(component.mobileLevelFilter()).toBe('all');
+      expect(component.selectedSpell()).toBeNull();
     });
   });
 });

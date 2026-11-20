@@ -245,6 +245,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   mobileTableFeedFilter = signal<'all' | 'whispers' | 'rolls'>('all');
   showMobileQuickWhispers = signal(false);
   latestUnreadWhisper = signal<Whisper | null>(null);
+  unreadWhisperCount = signal<number>(0);
   showMobileHeaderActions = signal(false);
   showMobileHpSheet = signal(false);
   showMobileRestSheet = signal(false);
@@ -483,9 +484,32 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         ? `${char.active_campaign}::${char.char_id || char.char_name}`
         : null;
     });
+    let prevCharKey: string | null | undefined;
     effect((onCleanup) => {
       const key = wsConnectionKey();
       const char = untracked(() => this.charState.activeCharacter());
+      const charKey = char ? (char.char_id || char.char_name) : null;
+      if (prevCharKey !== undefined && charKey !== prevCharKey) {
+        this.whisperHistory = [];
+        this.rollRequestHistory = [];
+        this.rollLogHistory = [];
+        this.unreadMessages = 0;
+        this.unreadWhisperCount.set(0);
+        this.latestUnreadWhisper.set(null);
+        this.whisperReply = '';
+        this.showWhisperInbox.set(false);
+        this.loadedCampaignMessageKey = null;
+        this.encounterState = null;
+        this.clearRollPrompts();
+        this.rebuildInboxFeed();
+        this.showMobileHpSheet.set(false);
+        this.showMobileAcSheet.set(false);
+        this.showMobileRestSheet.set(false);
+        this.showMobileQuickWhispers.set(false);
+        this.mobileTableSubTab.set(char?.active_campaign ? 'chat' : 'lore');
+      }
+      prevCharKey = charKey;
+
       if (key && char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
         // private whispers and roll requests to this hero alone.
@@ -498,6 +522,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.rollRequestHistory = [];
         this.rollLogHistory = [];
         this.unreadMessages = 0;
+        this.unreadWhisperCount.set(0);
         this.latestUnreadWhisper.set(null);
         this.whisperReply = '';
         this.showWhisperInbox.set(false);
@@ -1304,7 +1329,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // nothing is still a round trip.
     if (!char || !hasSpellSlotLevel(char, lvl)) return;
 
-    char.spell_slots = spendSpellSlot(char.spell_slots, lvl);
+    const updated: CharacterSchema = {
+      ...char,
+      spell_slots: spendSpellSlot(char.spell_slots, lvl),
+    };
+    this.charState.activeCharacter.set(updated);
     // Debounced like the rest of the sheet: a cast also sets concentration right
     // after, and an immediate save here used to answer with the pre-cast sheet,
     // briefly wiping the new Status chip until the second save landed.
@@ -1317,7 +1346,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // pointless save is still a round trip.
     if (!char || !hasSpellSlotLevel(char, lvl)) return;
 
-    char.spell_slots = regainSpellSlot(char.spell_slots, lvl);
+    const updated: CharacterSchema = {
+      ...char,
+      spell_slots: regainSpellSlot(char.spell_slots, lvl),
+    };
+    this.charState.activeCharacter.set(updated);
     this.queueCharSave();
   }
 
@@ -1330,11 +1363,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!result) return;
 
     const before = sorceryPointsPool(char)?.current ?? 0;
-    char.spell_slots = result.spell_slots;
-    char.class_resources = result.class_resources;
+    const updated: CharacterSchema = {
+      ...char,
+      spell_slots: result.spell_slots,
+      class_resources: result.class_resources,
+    };
+    this.charState.activeCharacter.set(updated);
     this.queueCharSave();
 
-    const points = `${before} ➡️ ${sorceryPointsPool(char)?.current ?? 0}`;
+    const points = `${before} ➡️ ${sorceryPointsPool(updated)?.current ?? 0}`;
     this.rollToast.showMessage(
       '✨ FLEXIBLE CASTING',
       event.direction === 'create'
@@ -1352,11 +1389,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const resources = option && spendMetamagic(char, option, event.spellLevel);
     if (!option || !resources) return;
 
-    char.class_resources = resources;
+    const updated: CharacterSchema = {
+      ...char,
+      class_resources: resources,
+    };
+    this.charState.activeCharacter.set(updated);
     this.queueCharSave();
     this.rollToast.showMessage(
       `✨ ${option.name.toUpperCase()}`,
-      `${option.summary} (−${metamagicCost(option, event.spellLevel)} SP, ${sorceryPointsPool(char)?.current ?? 0} left)`
+      `${option.summary} (−${metamagicCost(option, event.spellLevel)} SP, ${sorceryPointsPool(updated)?.current ?? 0} left)`
     );
   }
 
@@ -1877,6 +1918,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.showWhisperInbox.set(!this.showWhisperInbox());
     if (this.showWhisperInbox()) {
       this.unreadMessages = 0;
+      this.unreadWhisperCount.set(0);
+      this.latestUnreadWhisper.set(null);
       this.pendingFeedScroll = true;
     }
   }
@@ -2082,6 +2125,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (markUnread && !inboxVisible) {
       this.unreadMessages += 1;
       if (this.isCompanionMode()) {
+        this.unreadWhisperCount.update((c) => c + 1);
         this.latestUnreadWhisper.set(whisper);
       }
     }
@@ -2184,7 +2228,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox()) {
+    const inboxVisible = this.showWhisperInbox() || this.isViewingMobileWhisperChat();
+    if (markUnread && !inboxVisible) {
       this.unreadMessages += 1;
     }
   }
@@ -2359,6 +2404,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // We just need to reload from the server to get the fresh state (and correct version number).
         this.charState.loadCharacters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
         this.loadedCampaignMessageKey = null;
+        this.mobileTableSubTab.set('chat');
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
       error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')
@@ -2702,6 +2748,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  private clearMobileUnreadWhispers(): void {
+    this.unreadMessages = 0;
+    this.unreadWhisperCount.set(0);
+    this.latestUnreadWhisper.set(null);
+    this.pendingFeedScroll = true;
+  }
+
   selectMobileTab(tab: 'hero' | 'combat' | 'skills' | 'spells' | 'table') {
     this.haptics.lightTap();
     this.mobileActiveTab.set(tab);
@@ -2713,9 +2766,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       const hasCampaign = !!this.charState.activeCharacter()?.active_campaign;
       this.mobileTableSubTab.set(hasCampaign ? 'chat' : 'lore');
       if (hasCampaign) {
-        this.unreadMessages = 0;
-        this.latestUnreadWhisper.set(null);
-        this.pendingFeedScroll = true;
+        this.clearMobileUnreadWhispers();
       }
     }
   }
@@ -2723,9 +2774,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   selectMobileTableSubTab(subTab: 'chat' | 'lore'): void {
     this.mobileTableSubTab.set(subTab);
     if (subTab === 'chat') {
-      this.unreadMessages = 0;
-      this.latestUnreadWhisper.set(null);
-      this.pendingFeedScroll = true;
+      this.clearMobileUnreadWhispers();
     }
   }
 
@@ -2737,14 +2786,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (this.mobileTableFeedFilter() === 'rolls') {
       this.mobileTableFeedFilter.set('all');
     }
-    this.unreadMessages = 0;
-    this.latestUnreadWhisper.set(null);
-    this.pendingFeedScroll = true;
+    this.clearMobileUnreadWhispers();
   }
 
   dismissMobileWhisperBanner(event?: Event): void {
     event?.stopPropagation();
     this.latestUnreadWhisper.set(null);
+    this.unreadWhisperCount.set(0);
   }
 
   get filteredMobileInboxFeed(): InboxEntry[] {

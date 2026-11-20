@@ -11,6 +11,7 @@ import {
   TemplateRef,
   ViewChild,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Dialog, DialogModule, DialogRef } from '@angular/cdk/dialog';
 import { ForgeButtonDirective } from '../forge-button/forge-button.directive';
 import { ForgeIconComponent } from '../forge-icon/forge-icon.component';
@@ -18,7 +19,7 @@ import { ForgeIconComponent } from '../forge-icon/forge-icon.component';
 @Component({
   selector: 'forge-modal',
   standalone: true,
-  imports: [DialogModule, ForgeButtonDirective, ForgeIconComponent],
+  imports: [CommonModule, DialogModule, ForgeButtonDirective, ForgeIconComponent],
   templateUrl: './forge-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

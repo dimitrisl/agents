@@ -1860,7 +1860,31 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
       true
     );
     expect(comp.unreadMessages).toBe(0);
+    expect(comp.unreadWhisperCount()).toBe(0);
     expect(comp.latestUnreadWhisper()).toBeNull();
+
+    // Unread roll requests must not inflate unreadWhisperCount (+N badge on whisper banner)
+    comp.selectMobileTab('combat');
+    (comp as any).addRollRequest({
+      id: 'req-unread',
+      char_filename: 'valen.json',
+      char_name: activeChar.char_name,
+      roll_type: 'skill',
+      stat: 'Perception',
+      status: 'pending',
+      created_at: '2026-11-20 20:07:00',
+    }, true);
+    (comp as any).addWhisper(
+      { id: 'w-live-3', sender: 'DM', recipient: activeChar.char_name, message: 'One secret whisper', timestamp: '2026-11-20 20:08:00' },
+      true
+    );
+    expect(comp.unreadMessages).toBe(2);
+    expect(comp.unreadWhisperCount()).toBe(1);
+
+    // Desktop inbox toggle also clears mobile whisper banner state
+    comp.toggleWhisperInbox();
+    expect(comp.latestUnreadWhisper()).toBeNull();
+    expect(comp.unreadWhisperCount()).toBe(0);
 
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();

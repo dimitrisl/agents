@@ -149,18 +149,21 @@
       aria-live="assertive"
     >
       <div class="flex items-center gap-3">
-        <span class="text-2xl" aria-hidden="true">⚔️</span>
+        <span class="text-title" aria-hidden="true">⚔️</span>
         <div>
-          <p class="font-display font-black text-accent text-sm sm:text-base uppercase tracking-wider">
+          <p class="font-display text-body font-bold uppercase text-accent">
             It's Your Turn! (Round {{ encounterState?.round || 1 }})
           </p>
-          <p class="text-xs text-muted">You are the active combatant. Make your attack or spell!</p>
+          <p class="text-label text-muted">You are the active combatant. Make your attack or spell!</p>
         </div>
       </div>
       <button
+        forgeButton
+        variant="secondary"
+        tone="accent"
+        size="sm"
         type="button"
         (click)="selectMobileTab('combat')"
-        class="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 text-surface font-extrabold text-xs shadow-md transition-colors cursor-pointer"
       >
         Actions
       </button>
@@ -169,35 +172,35 @@
     <!-- ON DECK BANNER (#175) -->
     <div
       *ngIf="isOnDeck"
-      class="mb-4 p-2.5 bg-gold/10 border border-gold/40 rounded-xl flex items-center justify-between text-xs text-gold font-bold shadow-sm"
+      class="mb-4 flex items-center justify-between rounded-xl border border-gold/40 bg-gold/10 p-2.5 text-label font-semibold text-gold shadow-card"
     >
       <span class="flex items-center gap-2">
         <span>⏳</span> You're On Deck! Prepare your action for the next turn.
       </span>
     </div>
 
-    <!-- CONCENTRATION CHECK PROMPT (#171) -->
+    <!-- CONCENTRATION CHECK PROMPT (#171 — Desktop uses top banner; Companion pins inside sticky header) -->
     <div
-      *ngIf="showConcentrationPrompt()"
-      class="mb-4 p-3 bg-crimson/15 border border-crimson/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md"
+      *ngIf="!isCompanionMode() && showConcentrationPrompt()"
+      class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-crimson/60 bg-crimson/15 p-3 shadow-card"
     >
       <div class="flex items-center gap-2">
-        <span class="text-xl">🧠</span>
+        <span class="text-title" aria-hidden="true">🧠</span>
         <div>
-          <p class="text-xs font-bold text-crimson uppercase">Concentration Check Required!</p>
+          <p class="text-label font-bold uppercase text-crimson">Concentration Check Required!</p>
           <p class="text-micro text-muted">
             You took damage while concentrating on <strong>{{ char.concentrating_on }}</strong>. Target: DC {{ concentrationDc() }} CON Save.
           </p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <button
           forgeButton
           variant="secondary"
+          tone="accent"
           size="sm"
           type="button"
           (click)="keepConcentration()"
-          class="text-xs font-bold text-accent"
           title="Passed Physical Tabletop Check"
         >
           ✓ Passed (Keep)
@@ -208,14 +211,16 @@
           size="sm"
           type="button"
           (click)="rollConcentrationSave()"
-          class="text-xs font-bold"
         >
           🎲 Roll CON Save (DC {{ concentrationDc() }})
         </button>
         <button
+          forgeButton
+          variant="ghost"
+          size="sm"
           type="button"
           (click)="dropConcentration()"
-          class="text-xs text-muted hover:text-crimson px-2 py-1"
+          class="text-crimson"
         >
           Drop Spell
         </button>
@@ -243,7 +248,7 @@
     <!-- STICKY 2-ROW MOBILE COMPANION HEADER (D&D Beyond Style, <1024px) -->
     <div
       *ngIf="isCompanionMode()"
-      class="sticky top-0 z-30 -mx-4 -mt-2 mb-3 flex flex-col gap-2 border-b border-hairline bg-surface/95 px-3 py-2 shadow-card backdrop-blur-md"
+      class="sticky top-14 z-20 -mx-4 -mt-2 mb-3 flex flex-col gap-2 border-b border-hairline bg-surface/95 px-3 py-2 shadow-card backdrop-blur-md lg:top-0"
       data-testid="mobile-sticky-header"
     >
       <!-- ROW 1: Hero Identity • Tap HP Pill • Tap AC Badge • 1-Tap Roll Initiative -->
@@ -284,14 +289,12 @@
             <div class="flex items-center gap-1.5 text-micro text-muted">
               <span class="min-w-0 truncate">{{ classSummary(char, 'compact') }}</span>
               @if (char.concentrating_on) {
-                <button
-                  type="button"
-                  (click)="showMobileHpSheet.set(true)"
-                  class="inline-flex max-w-28 shrink-0 items-center gap-0.5 truncate rounded bg-gold/15 px-1 text-micro font-bold text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                <span
+                  class="inline-flex max-w-28 shrink-0 items-center gap-0.5 truncate rounded bg-gold/15 px-1.5 py-0.5 text-micro font-bold text-gold"
                   [title]="'Concentrating on ' + char.concentrating_on"
                 >
                   🧠 {{ char.concentrating_on }}
-                </button>
+                </span>
               }
             </div>
           </div>
@@ -350,7 +353,10 @@
 
       <!-- ROW 2: Thumb Toolbar (Roll Mode • Inspiration • Rest & Tools • Visibility • Wake • Dice) -->
       <div class="flex items-center justify-between gap-1.5">
-        <div class="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          class="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          data-testid="mobile-thumb-toolbar-left"
+        >
           <!-- Compact Roll Mode Segmented Pills -->
           <div
             class="inline-flex shrink-0 items-center rounded-full border border-hairline bg-panel p-0.5"
@@ -399,12 +405,13 @@
             (click)="toggleMobileInspiration()"
             [attr.aria-pressed]="!!char.inspiration"
             [attr.aria-label]="char.inspiration ? 'Inspiration active (tap to clear)' : 'Grant Inspiration'"
+            [title]="char.inspiration ? 'Inspiration active (tap to clear)' : 'Grant Inspiration'"
             data-testid="mobile-inspiration-toggle"
-            class="flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            class="flex min-h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-full border px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             [ngClass]="char.inspiration ? 'border-gold/40 bg-gold/15 text-gold' : 'border-hairline bg-panel text-muted hover:text-ink'"
           >
             <span aria-hidden="true">{{ char.inspiration ? '★' : '☆' }}</span>
-            <span class="hidden min-[390px]:inline">Insp</span>
+            <span class="hidden min-[420px]:inline">Insp</span>
           </button>
         </div>
 
@@ -418,7 +425,7 @@
             class="flex min-h-8 items-center gap-1 rounded-lg border border-hairline bg-panel px-2 text-micro font-semibold text-ink transition-colors hover:border-hairline-hover hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <span aria-hidden="true">⛺</span>
-            <span>Rest</span>
+            <span class="hidden min-[385px]:inline">Rest</span>
           </button>
 
           @if (char.active_campaign) {
@@ -485,9 +492,9 @@
                 <span [ngClass]="incoming.recipient === 'All' ? 'text-cobalt' : 'text-gold'">
                   {{ incoming.recipient === 'All' ? '📢 Party' : '🔒 Whisper' }}
                 </span>
-                @if (unreadMessages > 1) {
+                @if (unreadWhisperCount() > 1) {
                   <span class="rounded-full bg-accent/15 px-1.5 py-0.5 font-bold tabular-nums text-accent">
-                    +{{ unreadMessages - 1 }}
+                    +{{ unreadWhisperCount() - 1 }}
                   </span>
                 }
               </span>
@@ -509,6 +516,77 @@
           >
             <forge-icon name="close" size="xs" />
           </button>
+        </div>
+      }
+
+      <!-- QUICK EDIT ACTIVE STICKY BANNER (Always accessible on any tab) -->
+      @if (editMode()) {
+        <div
+          class="flex items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/10 px-2.5 py-1.5"
+          role="status"
+          data-testid="mobile-edit-banner"
+        >
+          <span class="text-micro font-semibold uppercase text-gold">✎ Quick Edit Mode</span>
+          <button
+            forgeButton
+            variant="primary"
+            size="sm"
+            type="button"
+            data-testid="mobile-edit-done-btn"
+            (click)="toggleEditMode()"
+          >
+            💾 Done &amp; Save
+          </button>
+        </div>
+      }
+
+      <!-- STICKY CONCENTRATION CHECK PROMPT ON COMPANION (Never missed offscreen when scrolled!) -->
+      @if (showConcentrationPrompt()) {
+        <div
+          class="flex flex-col gap-2 rounded-xl border border-crimson/60 bg-crimson/15 p-2.5 shadow-card"
+          role="alert"
+          data-testid="mobile-concentration-prompt"
+        >
+          <div class="flex items-start gap-2">
+            <span class="text-body" aria-hidden="true">🧠</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-label font-bold uppercase text-crimson">Concentration Check Required!</p>
+              <p class="text-micro text-muted">
+                Concentrating on <strong class="text-ink">{{ char.concentrating_on }}</strong> · DC {{ concentrationDc() }} CON Save
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              forgeButton
+              variant="secondary"
+              tone="accent"
+              size="sm"
+              type="button"
+              (click)="keepConcentration()"
+            >
+              ✓ Passed
+            </button>
+            <button
+              forgeButton
+              variant="primary"
+              size="sm"
+              type="button"
+              (click)="rollConcentrationSave()"
+            >
+              🎲 Roll Save (DC {{ concentrationDc() }})
+            </button>
+            <button
+              forgeButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              (click)="dropConcentration()"
+              class="text-crimson"
+            >
+              Drop Spell
+            </button>
+          </div>
         </div>
       }
     </div>
@@ -540,6 +618,7 @@
           (endConcentration)="endConcentration()"
           (browseHomebrew)="showHomebrewModal.set(true)"
           (openAcSheet)="showMobileAcSheet.set(true)"
+          (save)="queueCharSave()"
         ></app-mobile-hero-view>
       </div>
 
@@ -558,6 +637,7 @@
           (deleteEquipment)="deleteEquipment($event)"
           (consumePotion)="onConsumePotion($event)"
           (save)="queueCharSave()"
+          (saveImmediate)="saveCurrentChar()"
           (updateHeroStatus)="onUpdateHeroStatus($event)"
           (combatAction)="onCombatAction($event)"
         ></app-combat-panel>
@@ -691,7 +771,7 @@
             <!-- Messenger Chat Thread -->
             <div
               #whisperFeed
-              class="flex min-h-72 flex-col gap-2.5 rounded-2xl border border-hairline bg-panel p-3"
+              class="flex max-h-[48dvh] min-h-60 flex-col gap-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-hairline bg-panel p-3"
               role="log"
               aria-live="polite"
               data-testid="mobile-messenger-thread"
@@ -765,7 +845,7 @@
                           @if (!entry.whisper.has_open_report) {
                             <button
                               type="button"
-                              class="text-micro text-muted hover:text-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              class="inline-flex min-h-7 items-center rounded px-1.5 text-micro text-muted hover:text-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                               (click)="reportWhisper(entry.whisper)"
                               title="Report whisper"
                             >
@@ -1240,11 +1320,11 @@
 
           <div class="flex flex-wrap items-center gap-1.5">
             @if (char.concentrating_on) {
-              <forge-badge tone="gold" class="h-7">
+              <forge-badge tone="gold" class="min-h-7">
                 🧠 {{ char.concentrating_on }}
                 <button
                   type="button"
-                  class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-gold hover:bg-gold/20"
+                  class="-mr-1 inline-flex min-h-7 min-w-7 items-center justify-center rounded text-gold hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   [attr.aria-label]="'End concentration on ' + char.concentrating_on"
                   (click)="endConcentration()"
                 >
@@ -1253,11 +1333,11 @@
               </forge-badge>
             }
             @for (cond of char.conditions || []; track cond) {
-              <forge-badge tone="danger" class="h-7">
+              <forge-badge tone="danger" class="min-h-7">
                 {{ cond }}
                 <button
                   type="button"
-                  class="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded text-red hover:bg-red/20"
+                  class="-mr-1 inline-flex min-h-7 min-w-7 items-center justify-center rounded text-red hover:bg-red/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   [attr.aria-label]="'Remove ' + cond"
                   (click)="removeCondition(cond)"
                 >

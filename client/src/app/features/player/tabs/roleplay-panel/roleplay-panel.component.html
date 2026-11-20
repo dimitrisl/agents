@@ -1,7 +1,7 @@
 @if (compactMobile) {
   <!-- D&D BEYOND MOBILE COMPANION: COMPACT LORE & ROLEPLAY NOTES -->
   <div class="flex flex-col gap-3" data-testid="mobile-lore-view">
-    @if (char.alignment || char.background) {
+    @if (!editMode && (char.alignment || char.background)) {
       <div class="flex flex-wrap items-center gap-1.5 px-1">
         @if (char.alignment) {
           <forge-badge tone="accent" size="sm">{{ char.alignment }}</forge-badge>
@@ -9,6 +9,27 @@
         @if (char.background) {
           <forge-badge tone="muted" size="sm">{{ char.background }}</forge-badge>
         }
+      </div>
+    } @else if (editMode) {
+      <div class="grid grid-cols-2 gap-2 px-1">
+        <input
+          forgeInput
+          dense
+          type="text"
+          [(ngModel)]="char.alignment"
+          (change)="save.emit()"
+          placeholder="Alignment"
+          aria-label="Alignment"
+        />
+        <input
+          forgeInput
+          dense
+          type="text"
+          [(ngModel)]="char.background"
+          (change)="save.emit()"
+          placeholder="Background"
+          aria-label="Background"
+        />
       </div>
     }
 

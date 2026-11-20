@@ -2,7 +2,12 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema } from '../../../../core/models/character.model';
-import { ForgeBadgeComponent, ForgeButtonDirective, ForgeTextareaDirective } from '../../../../shared/ui';
+import {
+  ForgeBadgeComponent,
+  ForgeButtonDirective,
+  ForgeInputDirective,
+  ForgeTextareaDirective,
+} from '../../../../shared/ui';
 
 type RoleplayTraitKey = 'personality_traits' | 'ideals' | 'bonds' | 'flaws';
 
@@ -22,6 +27,7 @@ const BACKSTORY_CLAMP_THRESHOLD = 420;
     FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
+    ForgeInputDirective,
     ForgeTextareaDirective,
   ],
   templateUrl: './roleplay-panel.component.html',

@@ -656,5 +656,38 @@ describe('CombatPanelComponent', () => {
       expect(component.inspectedItemIndex()).toBe(0);
       expect(component.inspectedItem?.name).toBe('Potion of Healing');
     });
+
+    it('adds, edits, and deletes mobile class resource pools and resets open inspectors on hero change', () => {
+      const saveSpy = jest.spyOn(component.saveImmediate, 'emit');
+      component.openAddResourceModal();
+      component.newResourceName = 'Superiority Dice';
+      component.newResourceMax = 4;
+      component.newResourceRecharge = 'short';
+      component.confirmMobileResource();
+
+      expect(component.classResources.some((r) => r.name === 'Superiority Dice' && r.max === 4)).toBe(true);
+      expect(saveSpy).toHaveBeenCalled();
+
+      const customIdx = component.classResources.findIndex((r) => r.name === 'Superiority Dice');
+      component.openEditResourceModal(customIdx, new MouseEvent('click'));
+      component.newResourceMax = 5;
+      component.newResourceCurrent = 3;
+      component.confirmMobileResource();
+      expect(component.classResources[customIdx].max).toBe(5);
+      expect(component.classResources[customIdx].current).toBe(3);
+
+      component.openWeaponInspector(0);
+      component.openFeatureInspector(component.features[0]);
+      expect(component.inspectedWeaponIndex()).toBe(0);
+      expect(component.inspectedFeature()).toBeTruthy();
+
+      fixture.componentRef.setInput('char', { ...component.char, char_id: 'hero-2', char_name: 'Aria' });
+      fixture.detectChanges();
+      expect(component.inspectedWeaponIndex()).toBeNull();
+      expect(component.inspectedFeature()).toBeNull();
+
+      component.deleteMobileResource(component.classResources.length - 1, new MouseEvent('click'));
+      expect(component.classResources.some((r) => r.name === 'Superiority Dice')).toBe(false);
+    });
   });
 });

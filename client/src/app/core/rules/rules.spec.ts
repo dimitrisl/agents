@@ -40,14 +40,19 @@ import {
   proficiencyBonus,
   proficiencyBonusForLevel,
   regainSpellSlot,
+  removeClassResourceAt,
   resolveLongRest,
   resolveRollMode,
   resolveShortRest,
+  resourceEditedMax,
+  resourceRulesMax,
   restoreAllSpellSlots,
   savingThrowModifier,
+  setClassResourceCurrent,
   skillModifier,
   skillModifierString,
   spellSlotKey,
+  upsertClassResourceList,
   spellSlotMax,
   spellSlotUsed,
   spendSpellSlot,
@@ -378,6 +383,39 @@ describe('skill rules', () => {
       expect(passiveInvestigationOf(scholar2024)).toBe(12);
       // Insight: 10 + (2 + 3 - 4) = 11
       expect(passiveInsightOf(scholar2024)).toBe(11);
+    });
+  });
+
+  describe('class resource helpers', () => {
+    it('adds, edits auto bonus adjustments, updates current immutably, and deletes pools', () => {
+      const added = upsertClassResourceList([], null, {
+        name: 'Lucky Points',
+        max: 3,
+        recharge: 'long',
+        current: 3,
+        bonus: 0,
+      })!;
+      expect(added).toEqual([{ name: 'Lucky Points', current: 3, max: 3, recharge: 'long' }]);
+      expect(upsertClassResourceList(added, null, { name: '  ', max: 3, recharge: 'long', current: 3, bonus: 0 })).toBeNull();
+
+      const autoPool = { name: 'Rage', current: 2, max: 3, bonus: 1, recharge: 'long' as const, auto: true };
+      expect(resourceRulesMax(autoPool)).toBe(2);
+      expect(resourceEditedMax(autoPool, 3, 2)).toBe(4);
+
+      const editedAuto = upsertClassResourceList([autoPool], autoPool, {
+        name: 'Ignored',
+        max: 3,
+        recharge: 'short',
+        current: 5,
+        bonus: 2,
+      })!;
+      expect(editedAuto[0].max).toBe(4);
+      expect(editedAuto[0].current).toBe(4);
+      expect(editedAuto[0].bonus).toBe(2);
+
+      const decremented = setClassResourceCurrent(editedAuto, editedAuto[0], -3);
+      expect(decremented[0].current).toBe(0);
+      expect(removeClassResourceAt(decremented, 0)).toEqual([]);
     });
   });
 });

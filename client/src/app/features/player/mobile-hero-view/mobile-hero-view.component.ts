@@ -81,13 +81,42 @@ export class MobileHeroViewComponent implements OnChanges {
   @Output() endConcentration = new EventEmitter<void>();
   @Output() browseHomebrew = new EventEmitter<void>();
   @Output() openAcSheet = new EventEmitter<void>();
+  @Output() save = new EventEmitter<void>();
 
   imageLoadError = false;
+  private lastHeroKey?: string;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['portraitUrl']) {
+    const heroKey = this.char ? (this.char.char_id || this.char.char_name) : '';
+    if (changes['portraitUrl'] || (changes['char'] && heroKey !== this.lastHeroKey)) {
       this.imageLoadError = false;
     }
+    this.lastHeroKey = heroKey;
+  }
+
+  onInlineFieldChange(): void {
+    if (!this.char) return;
+    if (this.char.stats) {
+      for (const key of Object.keys(this.char.stats)) {
+        const val = Number(this.char.stats[key]);
+        if (Number.isFinite(val)) {
+          this.char.stats[key] = Math.max(1, Math.min(30, Math.round(val)));
+        }
+      }
+    }
+    if (!this.char.active_campaign && this.char.char_level !== undefined) {
+      const lvl = Number(this.char.char_level);
+      if (Number.isFinite(lvl)) {
+        this.char.char_level = Math.max(1, Math.min(20, Math.round(lvl)));
+      }
+    }
+    if (this.char.speed !== undefined) {
+      const spd = Number(this.char.speed);
+      if (Number.isFinite(spd)) {
+        this.char.speed = Math.max(0, Math.min(300, Math.round(spd)));
+      }
+    }
+    this.save.emit();
   }
 
   selectSubTab(tab: 'abilities' | 'senses'): void {

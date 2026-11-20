@@ -174,7 +174,7 @@
   }
 
   .cdk-overlay-backdrop.forge-mobile-sheet-backdrop {
-    background: rgb(0 0 0 / 78%);
+    background: rgb(0 0 0 / 82%);
   }
 
   @media (max-width: 1023px) {
@@ -191,13 +191,13 @@
     }
 
     .forge-mobile-sheet-pane .forge-mobile-sheet-section {
-      background: var(--bg-deep);
-      border-radius: 14px 14px 0 0;
+      background: var(--bg-deep) !important;
+      border-radius: 14px 14px 0 0 !important;
       border-left: 0;
       border-right: 0;
       border-bottom: 0;
-      padding: 0.75rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
-      max-height: 88vh;
+      padding: 0.75rem 1rem calc(1.25rem + env(safe-area-inset-bottom)) !important;
+      max-height: 88vh !important;
     }
   }
 
@@ -494,4 +494,9 @@ img, svg, video, canvas {
   }
 }
 
+}
+
+/* Unlayered override so bottom-sheet backdrop beats @angular/cdk's unlayered 0.32 rule */
+.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.forge-mobile-sheet-backdrop {
+  background: rgb(0 0 0 / 82%);
 }

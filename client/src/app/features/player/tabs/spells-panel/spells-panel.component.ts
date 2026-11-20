@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  signal,
+  SimpleChanges,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema, ClassResource, FeatureTrait } from '../../../../core/models/character.model';
@@ -13,7 +24,11 @@ import {
   metamagicEdition,
   metamagicKnownLimit,
   metamagicOptions,
+  removeClassResourceAt,
+  resourceEditedMax,
+  resourceRulesMax,
   toggleMetamagicFeature,
+  upsertClassResourceList,
   createdSlots,
   pointsFromSlot,
   sorceryPointsPool,
@@ -53,7 +68,7 @@ import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell
     class: 'block',
   },
 })
-export class SpellsPanelComponent {
+export class SpellsPanelComponent implements OnInit, OnChanges {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() getSpellSlotUsed!: (lvl: number) => number;
   @Input() getSpellSlotMax!: (lvl: number) => number;
@@ -93,6 +108,23 @@ export class SpellsPanelComponent {
 
   // Upcast Dialog State (#173)
   upcastTarget = signal<{ spellName: string; baseLevel: number } | null>(null);
+  private lastHeroKey?: string;
+
+  ngOnInit(): void {
+    this.lastHeroKey ??= this.char ? (this.char.char_id || this.char.char_name) : '';
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['char']) return;
+    const heroKey = this.char ? (this.char.char_id || this.char.char_name) : '';
+    if (this.lastHeroKey !== undefined && heroKey !== this.lastHeroKey) {
+      this.mobileLevelFilter.set('all');
+      this.selectedSpell.set(null);
+      this.upcastTarget.set(null);
+      this.showMobileSorcerySheet.set(false);
+    }
+    this.lastHeroKey = heroKey;
+  }
 
   openSpellDetail(spellName: string, level: number): void {
     this.selectedSpellLevel.set(level);
@@ -100,11 +132,11 @@ export class SpellsPanelComponent {
   }
 
   castFromDetail(spellName: string, level: number): void {
-    this.castNow(spellName, level, { stopPropagation: () => undefined } as Event);
+    this.castNow(spellName, level);
   }
 
   openUpcastFromDetail(spellName: string, level: number): void {
-    this.openCastOptions(spellName, level, { stopPropagation: () => undefined } as Event);
+    this.openCastOptions(spellName, level);
   }
 
   ordinalLevel(level: number): string {
@@ -474,8 +506,8 @@ export class SpellsPanelComponent {
    * One click: cantrips cast for free; leveled spells spend the lowest open slot
    * (the base level when there is one). The ▾ next to Cast is for upcasting.
    */
-  castNow(spellName: string, baseLevel: number, event: Event) {
-    event.stopPropagation();
+  castNow(spellName: string, baseLevel: number, event?: Event) {
+    event?.stopPropagation();
     this.haptics.lightTap();
 
     const slot = this.lowestOpenSlot(baseLevel);
@@ -487,8 +519,8 @@ export class SpellsPanelComponent {
     this.castSpell.emit({ spellName, level: slot, isRitual: false });
   }
 
-  openCastOptions(spellName: string, baseLevel: number, event: Event) {
-    event.stopPropagation();
+  openCastOptions(spellName: string, baseLevel: number, event?: Event) {
+    event?.stopPropagation();
     this.castMetamagic.set([]);
     this.upcastTarget.set({ spellName, baseLevel });
   }
@@ -554,6 +586,7 @@ export class SpellsPanelComponent {
     this.haptics.lightTap();
     if (res.current < res.max) {
       res.current += 1;
+      this.char.class_resources = [...this.classResources];
       this.save.emit();
     }
   }
@@ -563,6 +596,7 @@ export class SpellsPanelComponent {
     this.haptics.lightTap();
     if (res.current > 0) {
       res.current -= 1;
+      this.char.class_resources = [...this.classResources];
       this.save.emit();
     }
   }
@@ -582,15 +616,11 @@ export class SpellsPanelComponent {
 
   /** What the class rules alone give a rules pool. */
   get resourceRulesMax(): number {
-    const res = this.editingResource;
-    return res ? res.max - (res.bonus ?? 0) : 0;
+    return resourceRulesMax(this.editingResource);
   }
 
   get resourceEditedMax(): number {
-    if (this.editingResource?.auto) {
-      return Math.max(1, this.resourceRulesMax + (Number(this.newResourceBonus) || 0));
-    }
-    return Math.max(1, Number(this.newResourceMax) || 1);
+    return resourceEditedMax(this.editingResource, this.newResourceMax, this.newResourceBonus);
   }
 
   openAddResourceModal() {
@@ -607,34 +637,15 @@ export class SpellsPanelComponent {
   }
 
   confirmAddResource() {
-    const editing = this.editingResource;
-    if (editing) {
-      const max = this.resourceEditedMax;
-      const current = Math.min(max, Math.max(0, Math.floor(Number(this.newResourceCurrent) || 0)));
-      // A rules pool keeps its name and recharge (the server sets them); the
-      // adjustment rides on top of the rules max on every level up.
-      const changes: Partial<ClassResource> = editing.auto
-        ? { max, current, bonus: max - this.resourceRulesMax }
-        : { name: this.newResourceName.trim() || editing.name, max, current, recharge: this.newResourceRecharge };
-      this.char.class_resources = this.classResources.map((r) => (r === editing ? { ...r, ...changes } : r));
-      this.save.emit();
-      this.closeAddResourceModal();
-      return;
-    }
-
-    const name = this.newResourceName.trim();
-    if (!name) return;
-
-    if (!this.char.class_resources) {
-      this.char.class_resources = [];
-    }
-    const maxVal = Math.max(1, this.newResourceMax || 1);
-    this.char.class_resources.push({
-      name,
-      current: maxVal,
-      max: maxVal,
+    const next = upsertClassResourceList(this.char.class_resources, this.editingResource, {
+      name: this.newResourceName,
+      max: this.newResourceMax,
       recharge: this.newResourceRecharge,
+      current: this.newResourceCurrent,
+      bonus: this.newResourceBonus,
     });
+    if (!next) return;
+    this.char.class_resources = next;
     this.save.emit();
     this.closeAddResourceModal();
   }
@@ -642,7 +653,7 @@ export class SpellsPanelComponent {
   deleteResource(index: number, event: Event) {
     event.stopPropagation();
     if (this.char.class_resources) {
-      this.char.class_resources.splice(index, 1);
+      this.char.class_resources = removeClassResourceAt(this.char.class_resources, index);
       this.save.emit();
     }
   }
