@@ -135,11 +135,8 @@ Eyebrow (`text-micro uppercase text-accent`) → `h1` (`font-display`) → one m
 **Stat tile group** — `combat-stat-grid/`
 One `rounded-xl bg-tile` container split by `border-x` / `border-t` dividers — **not** separate boxed tiles. Each cell: `text-micro uppercase text-muted` label over a `text-metric font-bold text-accent` value.
 
-**Interactive row** — `skill-roll-row/`
-One `grid min-h-11 ... bg-panel px-4 py-2 hover:bg-tile` row, never several small bordered boxes. Rows are separated by the parent's `divide-y divide-hairline`. Emphasised state = tinted background at ~6% + stronger text + a shape change (filled vs hollow icon), **never a saturated fill**.
-
-**Collapsible group** — `ability-skill-group/`
-`rounded-xl border border-hairline bg-panel` wrapper; header on `bg-tile` with `aria-expanded` + `aria-controls`; a rotating inline-SVG chevron (`transition-transform duration-150`). Secondary actions inside the header call `$event.stopPropagation()` so they do not toggle the group.
+**Interactive row & collapsible group** — `tabs/skills-panel/` (and mobile rows in `tabs/combat-panel/` / `tabs/spells-panel/`)
+Collapsible sections use `rounded-xl border border-hairline bg-panel`, header button with `aria-expanded` + `aria-controls` and rotating SVG chevron (`transition-transform duration-150`); skill/item rows render crisp single-line `bg-tile`/`bg-panel` cards with subtle hover border changes rather than saturated fills.
 
 **Segmented control** — `roll-mode-selector/`
 `grid grid-cols-N rounded-full border border-hairline bg-panel p-1`. Selected = `bg-tile text-ink font-semibold` (neutral) or a ~12–14% semantic tint. **Never a solid white or solid accent fill.** Radio inputs stay `sr-only`; `aria-checked` on each label; `title` explains the effect.
@@ -177,11 +174,10 @@ Verify at **375 / 768 / 1024 / 1440 / 1920**. No horizontal page overflow at any
 
 ## 6. Known debt — fix opportunistically, never extend
 
-- **`text-body-sm` does not exist.** It is used **51 times across 20 files** but there is no `--text-body-sm` in `@theme inline`, so it resolves to nothing and the text silently inherits its size. Either add the token or replace the usages with `text-body` / `text-label`. **Do not add new usages.**
+- **`text-body-sm` does not exist.** All legacy usages have been removed (0 occurrences remaining in `client/src/`). Always use `text-body` / `text-label`. **Never introduce new usages.**
 - `@layer legacy` in `styles.css` still contains `.phyrexian-*`, `.nav-tabs`, `.tab-item`, `.modal-card` and a `max-width: 768px` patch block. Any page you touch must end with **zero** references to these. Delete a legacy rule once its last consumer is gone.
 - `forge-tabs variant="pill"` is legacy styling. Pages still on the default must be migrated to `variant="underline"`.
 - Ad-hoc surfaces (`bg-black/25`, `bg-black/30`, `bg-white/[0.04]`) still exist outside the Player Dashboard. Replace them with `bg-panel` / `bg-tile` in any file you touch.
-- `features/player/ability-scores/`, `features/player/hero-vault-bar/` and `features/player/tabs/skills-panel/` are leftover directories from the refactor — verify they are unreferenced and delete them.
 
 ## 7. Definition of done for a page refactor
 

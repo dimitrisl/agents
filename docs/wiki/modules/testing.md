@@ -9,6 +9,7 @@ The automated test suite combines unit tests, service tests, integration tests w
 
 ```
 tests/
+├── e2e/                              # Opaque-box requirement & integration suites (test_github_issues.py, test_qa_audit_defects.py, test_tabletop_workflows.py, tier 1-4)
 ├── fixtures/                         # Mock JSON payloads for rules, campaigns, and characters
 ├── test_unique_indexes_and_races.py # Unique index collisions, race conditions (register, campaign, join)
 ├── test_integration.py               # Full-flow integration, character takeover protection, party isolation
@@ -32,7 +33,7 @@ server/tests/
 └── test_lore.py                      # Rules query and lore prompt tests
 
 client/src/
-└── app/**/*.spec.ts                  # Angular 19 / Jest frontend unit & component tests
+└── app/**/*.spec.ts                  # Angular 19 / Jest unit & component tests (core/rules, state services, DM VTT, Forge, Player Desktop & Mobile Companion views)
 ```
 
 ---

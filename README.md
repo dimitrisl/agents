@@ -65,12 +65,21 @@ Comprehensive technical and architectural documentation is organized in the cent
 
 ### 🧪 Manual Commands & Testing
 ```bash
-# Run backend test suite (486 tests)
+# Run backend test suite
 poetry run pytest tests/ -v
 
-# Run frontend test suite (423 tests across 39 suites)
+# Run frontend test suite (Jest + Angular 19)
 cd client && npm test -- --watch=false
+
+# Run Tabletop & Online VTT multi-client QA simulation
+poetry run python scripts/qa/simulate_session.py --mode both
 
 # Run pre-commit hooks and code formatters
 poetry run pre-commit run --all-files
 ```
+
+---
+
+## 🤖 Agent Customizations (`.agents/`)
+- **Clean-Context Code Reviewer:** [`.agents/agents/code-reviewer/agent.md`](.agents/agents/code-reviewer/agent.md) — independent full-stack reviewer subagent (read-only) aligned with [`.agents/skills/code-review/SKILL.md`](.agents/skills/code-review/SKILL.md).
+- **Domain & Workflow Skills:** `code-review`, `python-fastapi-mongo`, `angular19-tailwind4`, `dnd-expert`, `tabletop-qa`, `doc-sync`, `ticket-resolution`, `page-refactor`, and `local-ship-pr`.

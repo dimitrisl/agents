@@ -50,7 +50,7 @@ An AI tool inspired by the "Return of the Lazy Dungeon Master" methodology.
 
 ### 🎙️ Session Transcription & Auto-Journaling
 * **Feature:** DMs who record their sessions (audio) can upload the MP3/WAV file directly to the workspace.
-* **Process:** Using Gemini 1.5's native multimodal audio understanding (or Whisper), the system transcribes the session.
+* **Process:** Using Gemini's native multimodal audio understanding (or Whisper), the system transcribes the session.
 * **Output:** Automatically generates a formatted **Session Log** for the Campaign Chronicle, extracts new NPCs met, loot acquired, and locations visited, saving the DM hours of post-session note-taking.
 
 ### 🎭 Villain Simulator (Roleplay Sandbox)
