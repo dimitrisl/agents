@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  inject,
+  Input,
+  OnChanges,
+  OnInit,
+  Output,
+  signal,
+  SimpleChanges,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CharacterSchema, ClassResource, FeatureTrait } from '../../../../core/models/character.model';
@@ -13,7 +24,11 @@ import {
   metamagicEdition,
   metamagicKnownLimit,
   metamagicOptions,
+  removeClassResourceAt,
+  resourceEditedMax,
+  resourceRulesMax,
   toggleMetamagicFeature,
+  upsertClassResourceList,
   createdSlots,
   pointsFromSlot,
   sorceryPointsPool,
@@ -53,11 +68,12 @@ import { SpellDetailModalComponent } from '../../modals/spell-detail-modal/spell
     class: 'block',
   },
 })
-export class SpellsPanelComponent {
+export class SpellsPanelComponent implements OnInit, OnChanges {
   @Input({ required: true }) char!: CharacterSchema;
   @Input() getSpellSlotUsed!: (lvl: number) => number;
   @Input() getSpellSlotMax!: (lvl: number) => number;
   @Input() editMode = false;
+  @Input() compactMobile = false;
   /** Dice a spell rolls at a slot level ("9d6"), or null when unknown. */
   @Input() castPreview: (spellName: string, slotLevel: number) => string | null = () => null;
 
@@ -76,6 +92,7 @@ export class SpellsPanelComponent {
 
   readonly spellLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   selectedSpell = signal<string | null>(null);
+  selectedSpellLevel = signal<number>(0);
   addingSpellGroup = signal<string | null>(null);
   newSpellName = '';
   addingFeature = signal<boolean>(false);
@@ -85,8 +102,129 @@ export class SpellsPanelComponent {
   searchQuery = signal<string>('');
   selectedFilter = signal<'all' | 'prepared' | 'cantrips'>('all');
 
+  // Mobile Companion State
+  mobileLevelFilter = signal<'all' | 'prepared' | number>('all');
+  showMobileSorcerySheet = signal<boolean>(false);
+
   // Upcast Dialog State (#173)
   upcastTarget = signal<{ spellName: string; baseLevel: number } | null>(null);
+  private lastHeroKey?: string;
+
+  ngOnInit(): void {
+    this.lastHeroKey ??= this.char ? (this.char.char_id || this.char.char_name) : '';
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['char']) return;
+    const heroKey = this.char ? (this.char.char_id || this.char.char_name) : '';
+    if (this.lastHeroKey !== undefined && heroKey !== this.lastHeroKey) {
+      this.mobileLevelFilter.set('all');
+      this.selectedSpell.set(null);
+      this.upcastTarget.set(null);
+      this.showMobileSorcerySheet.set(false);
+    }
+    this.lastHeroKey = heroKey;
+  }
+
+  openSpellDetail(spellName: string, level: number): void {
+    this.selectedSpellLevel.set(level);
+    this.selectedSpell.set(spellName);
+  }
+
+  castFromDetail(spellName: string, level: number): void {
+    this.castNow(spellName, level);
+    this.selectedSpell.set(null);
+  }
+
+  openUpcastFromDetail(spellName: string, level: number): void {
+    this.selectedSpell.set(null);
+    queueMicrotask(() => this.openCastOptions(spellName, level));
+  }
+
+  ordinalLevel(level: number): string {
+    if (level === 0) return '0';
+    if (level === 1) return '1st';
+    if (level === 2) return '2nd';
+    if (level === 3) return '3rd';
+    return `${level}th`;
+  }
+
+  mobileLevelHeading(level: number): string {
+    if (level === 0) return 'Cantrips';
+    return `${this.ordinalLevel(level)} Level`;
+  }
+
+  get mobileLevelPills(): number[] {
+    const levels = new Set<number>();
+    for (const g of this.rawSpellGroups) {
+      if (g.spells.length > 0 || this.editMode) levels.add(g.level);
+    }
+    for (const lvl of this.activeSpellLevels) {
+      levels.add(lvl);
+    }
+    return Array.from(levels).sort((a, b) => a - b);
+  }
+
+  slotPipIndices(level: number): number[] {
+    const max = Math.max(0, this.getSpellSlotMax(level));
+    return Array.from({ length: max }, (_, idx) => idx + 1);
+  }
+
+  onSlotPipClick(level: number, pipIndex: number, event: Event): void {
+    event.stopPropagation();
+    this.haptics.lightTap();
+    const remaining = this.slotsRemaining(level);
+    if (pipIndex <= remaining) {
+      this.useSpellSlot.emit(level);
+    } else {
+      this.restoreSpellSlot.emit(level);
+    }
+  }
+
+  get mobileFilteredSpellGroups(): { label: string; level: number; spells: string[] }[] {
+    const query = this.searchQuery().trim().toLowerCase();
+    const filter = this.mobileLevelFilter();
+
+    const byLevel = new Map<number, { label: string; level: number; spells: string[] }>();
+    for (const g of this.rawSpellGroups) {
+      byLevel.set(g.level, { ...g, spells: [...g.spells] });
+    }
+    for (const lvl of this.activeSpellLevels) {
+      if (!byLevel.has(lvl)) {
+        byLevel.set(lvl, { label: `Level ${lvl}`, level: lvl, spells: [] });
+      }
+    }
+
+    const sorted = Array.from(byLevel.values()).sort((a, b) => a.level - b.level);
+
+    return sorted
+      .map((group) => {
+        if (typeof filter === 'number' && group.level !== filter) {
+          return { ...group, spells: [] };
+        }
+        const matchingSpells = group.spells.filter((spell) => {
+          if (filter === 'prepared' && !this.isPrepared(spell) && group.level > 0) {
+            return false;
+          }
+          if (query && !spell.toLowerCase().includes(query)) {
+            return false;
+          }
+          return true;
+        });
+        return { ...group, spells: matchingSpells };
+      })
+      .filter((group) => {
+        if (group.spells.length > 0) return true;
+        if (query) return false;
+        if (typeof filter === 'number') {
+          return group.level === filter && (this.getSpellSlotMax(group.level) > 0 || this.editMode);
+        }
+        if (filter === 'all') {
+          return (group.level > 0 && this.getSpellSlotMax(group.level) > 0) || this.editMode;
+        }
+        return false;
+      });
+  }
 
   // Class Resources Modal State (#173)
   showAddResourceModal = signal<boolean>(false);
@@ -370,8 +508,8 @@ export class SpellsPanelComponent {
    * One click: cantrips cast for free; leveled spells spend the lowest open slot
    * (the base level when there is one). The ▾ next to Cast is for upcasting.
    */
-  castNow(spellName: string, baseLevel: number, event: Event) {
-    event.stopPropagation();
+  castNow(spellName: string, baseLevel: number, event?: Event) {
+    event?.stopPropagation();
     this.haptics.lightTap();
 
     const slot = this.lowestOpenSlot(baseLevel);
@@ -383,8 +521,8 @@ export class SpellsPanelComponent {
     this.castSpell.emit({ spellName, level: slot, isRitual: false });
   }
 
-  openCastOptions(spellName: string, baseLevel: number, event: Event) {
-    event.stopPropagation();
+  openCastOptions(spellName: string, baseLevel: number, event?: Event) {
+    event?.stopPropagation();
     this.castMetamagic.set([]);
     this.upcastTarget.set({ spellName, baseLevel });
   }
@@ -450,6 +588,7 @@ export class SpellsPanelComponent {
     this.haptics.lightTap();
     if (res.current < res.max) {
       res.current += 1;
+      this.char.class_resources = [...this.classResources];
       this.save.emit();
     }
   }
@@ -459,6 +598,7 @@ export class SpellsPanelComponent {
     this.haptics.lightTap();
     if (res.current > 0) {
       res.current -= 1;
+      this.char.class_resources = [...this.classResources];
       this.save.emit();
     }
   }
@@ -478,15 +618,11 @@ export class SpellsPanelComponent {
 
   /** What the class rules alone give a rules pool. */
   get resourceRulesMax(): number {
-    const res = this.editingResource;
-    return res ? res.max - (res.bonus ?? 0) : 0;
+    return resourceRulesMax(this.editingResource);
   }
 
   get resourceEditedMax(): number {
-    if (this.editingResource?.auto) {
-      return Math.max(1, this.resourceRulesMax + (Number(this.newResourceBonus) || 0));
-    }
-    return Math.max(1, Number(this.newResourceMax) || 1);
+    return resourceEditedMax(this.editingResource, this.newResourceMax, this.newResourceBonus);
   }
 
   openAddResourceModal() {
@@ -503,34 +639,15 @@ export class SpellsPanelComponent {
   }
 
   confirmAddResource() {
-    const editing = this.editingResource;
-    if (editing) {
-      const max = this.resourceEditedMax;
-      const current = Math.min(max, Math.max(0, Math.floor(Number(this.newResourceCurrent) || 0)));
-      // A rules pool keeps its name and recharge (the server sets them); the
-      // adjustment rides on top of the rules max on every level up.
-      const changes: Partial<ClassResource> = editing.auto
-        ? { max, current, bonus: max - this.resourceRulesMax }
-        : { name: this.newResourceName.trim() || editing.name, max, current, recharge: this.newResourceRecharge };
-      this.char.class_resources = this.classResources.map((r) => (r === editing ? { ...r, ...changes } : r));
-      this.save.emit();
-      this.closeAddResourceModal();
-      return;
-    }
-
-    const name = this.newResourceName.trim();
-    if (!name) return;
-
-    if (!this.char.class_resources) {
-      this.char.class_resources = [];
-    }
-    const maxVal = Math.max(1, this.newResourceMax || 1);
-    this.char.class_resources.push({
-      name,
-      current: maxVal,
-      max: maxVal,
+    const next = upsertClassResourceList(this.char.class_resources, this.editingResource, {
+      name: this.newResourceName,
+      max: this.newResourceMax,
       recharge: this.newResourceRecharge,
+      current: this.newResourceCurrent,
+      bonus: this.newResourceBonus,
     });
+    if (!next) return;
+    this.char.class_resources = next;
     this.save.emit();
     this.closeAddResourceModal();
   }
@@ -538,7 +655,7 @@ export class SpellsPanelComponent {
   deleteResource(index: number, event: Event) {
     event.stopPropagation();
     if (this.char.class_resources) {
-      this.char.class_resources.splice(index, 1);
+      this.char.class_resources = removeClassResourceAt(this.char.class_resources, index);
       this.save.emit();
     }
   }

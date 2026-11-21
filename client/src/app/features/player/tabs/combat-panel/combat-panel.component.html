@@ -1,3 +1,1254 @@
+@if (compactMobile) {
+  <!-- D&D BEYOND MOBILE COMPANION: SUB-PILLS (ATTACKS | ACTIONS | INVENTORY | FEATURES) -->
+  <div class="flex flex-col gap-3" data-testid="mobile-combat-view">
+    <!-- Horizontal Sub-Pill Switcher -->
+    <div
+      class="grid grid-cols-4 rounded-full border border-hairline bg-panel p-1"
+      role="tablist"
+      aria-label="Combat sections"
+      data-testid="mobile-combat-subtabs"
+    >
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="mobileCombatSubTab() === 'attacks'"
+        data-testid="mobile-combat-subtab-attacks"
+        (click)="mobileCombatSubTab.set('attacks')"
+        class="flex min-h-9 items-center justify-center rounded-full px-1.5 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="
+          mobileCombatSubTab() === 'attacks'
+            ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+            : 'text-muted hover:text-ink'
+        "
+      >
+        Attacks
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="mobileCombatSubTab() === 'actions'"
+        data-testid="mobile-combat-subtab-actions"
+        (click)="mobileCombatSubTab.set('actions')"
+        class="flex min-h-9 items-center justify-center rounded-full px-1.5 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="
+          mobileCombatSubTab() === 'actions'
+            ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+            : 'text-muted hover:text-ink'
+        "
+      >
+        Actions
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="mobileCombatSubTab() === 'inventory'"
+        data-testid="mobile-combat-subtab-inventory"
+        (click)="mobileCombatSubTab.set('inventory')"
+        class="flex min-h-9 items-center justify-center rounded-full px-1.5 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="
+          mobileCombatSubTab() === 'inventory'
+            ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+            : 'text-muted hover:text-ink'
+        "
+      >
+        Inventory
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="mobileCombatSubTab() === 'features'"
+        data-testid="mobile-combat-subtab-features"
+        (click)="mobileCombatSubTab.set('features')"
+        class="flex min-h-9 items-center justify-center rounded-full px-1.5 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        [ngClass]="
+          mobileCombatSubTab() === 'features'
+            ? 'bg-tile font-semibold text-ink ring-1 ring-inset ring-hairline-hover'
+            : 'text-muted hover:text-ink'
+        "
+      >
+        Features
+      </button>
+    </div>
+
+    <!-- SUB-PILL 1: ATTACKS -->
+    @if (mobileCombatSubTab() === 'attacks') {
+      <div class="flex flex-col gap-3" data-testid="mobile-combat-attacks">
+        <!-- Active Initiative Tracker Strip -->
+        @if (encounterState && encounterState.combatants?.length > 0) {
+          <section class="rounded-xl border border-hairline bg-panel p-3" aria-label="Initiative Tracker">
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-micro font-semibold uppercase text-accent">⚔️ Initiative Order</span>
+              <span class="text-micro font-semibold uppercase text-muted">Round {{ encounterState.round || 1 }}</span>
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              @for (combatant of encounterState.combatants; track combatant.id || combatant.name) {
+                <div
+                  class="flex min-w-24 shrink-0 flex-col items-center rounded-lg border px-2.5 py-2 text-center"
+                  [ngClass]="{
+                    'border-accent bg-accent/15 text-accent': encounterState.activeCombatantId === combatant.id,
+                    'border-hairline bg-tile text-muted': encounterState.activeCombatantId !== combatant.id,
+                    'opacity-50 grayscale': isCombatantDown(combatant)
+                  }"
+                >
+                  <span class="text-body font-bold tabular-nums">{{ combatant.initiative }}</span>
+                  <span
+                    class="w-full truncate text-micro font-semibold"
+                    [class.text-ink]="encounterState.activeCombatantId !== combatant.id"
+                  >
+                    {{ combatant.name }}
+                  </span>
+                  @if (isCombatantBloodied(combatant)) {
+                    <span class="text-micro font-bold uppercase text-red">🩸 Bloodied</span>
+                  } @else if (isCombatantDown(combatant)) {
+                    <span class="text-micro font-bold uppercase text-red">Down</span>
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- Active 2024 Weapon Masteries Compact Strip -->
+        @if (char.weapon_masteries && char.weapon_masteries.length > 0) {
+          <div class="flex flex-wrap items-center gap-1.5 rounded-xl border border-accent/25 bg-tile px-3 py-2">
+            <span class="text-micro font-semibold uppercase text-accent">Masteries</span>
+            @for (mastery of char.weapon_masteries; track mastery) {
+              <forge-badge tone="accent" size="sm" [title]="masteryTooltip(mastery)">
+                {{ mastery }}
+                @if (isTopple(mastery)) {
+                  <span>(DC {{ getToppleDc() }})</span>
+                }
+              </forge-badge>
+            }
+          </div>
+        }
+
+        <!-- Quick Damage Riders Strip (Sneak Attack, Smite, Rage, Hunter's Mark...) -->
+        @if (riders.length > 0) {
+          <div class="flex flex-wrap items-center gap-1.5 rounded-xl border border-hairline bg-tile px-3 py-2">
+            <span class="text-micro font-semibold uppercase text-muted">Riders</span>
+            @for (rider of riders; track rider.id) {
+              <button
+                type="button"
+                class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [attr.aria-pressed]="isRiderActive(rider)"
+                [title]="rider.hint"
+                (click)="toggleRider(rider)"
+              >
+                <forge-badge
+                  size="sm"
+                  [interactive]="true"
+                  [tone]="isRiderActive(rider) ? 'success' : 'muted'"
+                >
+                  <span aria-hidden="true">{{ rider.icon }}</span>
+                  {{ rider.name }} {{ riderNotation(rider) }}
+                  @if (isRiderActive(rider)) {
+                    <span aria-hidden="true">✓</span>
+                  }
+                </forge-badge>
+              </button>
+            }
+          </div>
+        }
+
+        <!-- Weapons Header -->
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-micro font-semibold uppercase text-muted">Attacks &amp; Weapons · Tap Row for Details</h3>
+            @if (profile.critThreshold < 20) {
+              <forge-badge tone="accent" size="sm">Crit {{ profile.critThreshold }}+</forge-badge>
+            }
+          </div>
+          @if (editMode) {
+            <button forgeButton variant="secondary" size="sm" type="button" (click)="addWeapon.emit()">
+              + Weapon
+            </button>
+          }
+        </div>
+
+        <!-- Compact 1-2 Line Weapon Rows -->
+        @if (char.weapons && char.weapons.length > 0) {
+          <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel" data-testid="mobile-weapons-list">
+            @for (weapon of char.weapons; track weapon.name + '-' + $index; let index = $index) {
+              <li class="flex min-h-14 items-center gap-2 pr-2 transition-colors hover:bg-tile">
+                <button
+                  type="button"
+                  (click)="openWeaponInspector(index)"
+                  [attr.aria-label]="'Inspect ' + weapon.name + ' breakdown and riders'"
+                  [attr.data-testid]="'mobile-weapon-row-' + index"
+                  class="flex min-h-14 min-w-0 flex-1 flex-col justify-center px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                >
+                  <span class="flex min-w-0 items-center gap-1.5">
+                    <span class="truncate text-body font-semibold text-ink">{{ weapon.name }}</span>
+                    @if (weaponMasteryName(weapon); as mastery) {
+                      <forge-badge tone="accent" size="sm" class="shrink-0">{{ mastery }}</forge-badge>
+                    }
+                    @if (activeEffects(weapon).length > 0) {
+                      <forge-badge tone="success" size="sm" class="shrink-0">+{{ activeEffects(weapon).length }}</forge-badge>
+                    }
+                  </span>
+                  @if (weaponMetaSummary(weapon); as meta) {
+                    <span class="truncate text-micro leading-normal text-muted">{{ meta }}</span>
+                  }
+                </button>
+
+                <!-- Direct Attack & Damage Roll Buttons -->
+                <div class="flex shrink-0 items-center gap-1.5">
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    tone="accent"
+                    size="sm"
+                    type="button"
+                    class="min-h-10 min-w-14 tabular-nums"
+                    [attr.aria-label]="'Roll attack with ' + weapon.name + ' (' + displayedAttackBonus(weapon) + ')'"
+                    [attr.data-testid]="'mobile-weapon-atk-' + index"
+                    (click)="rollAttack(weapon)"
+                  >
+                    🎲 {{ displayedAttackBonus(weapon) }}
+                  </button>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    class="min-h-10 max-w-28 truncate tabular-nums"
+                    [attr.aria-label]="'Roll damage for ' + weapon.name + ' (' + damagePreview(weapon) + ')'"
+                    [attr.data-testid]="'mobile-weapon-dmg-' + index"
+                    (click)="rollWeaponDamage(weapon)"
+                  >
+                    💥 {{ damagePreview(weapon) }}
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="rounded-xl border border-hairline bg-panel px-4 py-6 text-center text-label text-muted">
+            No weapons equipped yet.
+          </p>
+        }
+      </div>
+    }
+
+    <!-- SUB-PILL 2: ACTIONS (Turn Economy + Standard 5e Actions + Class Resources + Class Dice) -->
+    @if (mobileCombatSubTab() === 'actions') {
+      <div class="flex flex-col gap-3" data-testid="mobile-combat-actions">
+        <!-- Turn Economy -->
+        <section class="rounded-xl border border-hairline bg-panel p-3" aria-label="Turn Economy">
+          <div class="mb-2 flex items-center justify-between">
+            <h3 class="text-micro font-semibold uppercase text-muted">Turn Economy</h3>
+            <button forgeButton variant="ghost" size="sm" type="button" (click)="resetTurnEconomy()">
+              Reset
+            </button>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              class="flex min-h-11 items-center justify-center rounded-xl border px-2 py-2 text-label font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="actionUsed ? 'border-hairline bg-tile text-muted line-through' : 'border-accent/40 bg-accent/15 text-accent'"
+              [attr.aria-pressed]="actionUsed"
+              (click)="toggleActionEconomy('action')"
+            >
+              {{ actionUsed ? '✓ Action' : '⚔️ Action' }}
+            </button>
+            <button
+              type="button"
+              class="flex min-h-11 items-center justify-center rounded-xl border px-2 py-2 text-label font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="bonusActionUsed ? 'border-hairline bg-tile text-muted line-through' : 'border-accent/40 bg-accent/15 text-accent'"
+              [attr.aria-pressed]="bonusActionUsed"
+              (click)="toggleActionEconomy('bonus')"
+            >
+              {{ bonusActionUsed ? '✓ Bonus' : '⚡ Bonus' }}
+            </button>
+            <button
+              type="button"
+              class="flex min-h-11 items-center justify-center rounded-xl border px-2 py-2 text-label font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="reactionUsed ? 'border-hairline bg-tile text-muted line-through' : 'border-accent/40 bg-accent/15 text-accent'"
+              [attr.aria-pressed]="reactionUsed"
+              (click)="toggleActionEconomy('reaction')"
+            >
+              {{ reactionUsed ? '✓ Reaction' : '🛡️ React' }}
+            </button>
+          </div>
+        </section>
+
+        <!-- Standard Combat Actions (2x2 Grid) -->
+        <section class="rounded-xl border border-hairline bg-panel p-3" aria-label="Standard Combat Actions">
+          <h3 class="mb-2 text-micro font-semibold uppercase text-muted">Standard Combat Actions</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-11 justify-start"
+              (click)="combatAction.emit('Dodge')"
+            >
+              🛡️ Dodge
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-11 justify-start"
+              (click)="combatAction.emit('Dash')"
+            >
+              🏃 Dash
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-11 justify-start"
+              (click)="combatAction.emit('Disengage')"
+            >
+              💨 Disengage
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-11 justify-start"
+              (click)="combatAction.emit('Help')"
+            >
+              🤝 Help
+            </button>
+          </div>
+        </section>
+
+        <!-- Interactive Class Resource Pools with Clickable Pips + Add/Edit Parity -->
+        <section class="flex flex-col gap-2" aria-label="Class Resource Pools">
+          <div class="flex items-center justify-between gap-2 px-1">
+            <h3 class="text-micro font-semibold uppercase text-muted">Class Resources &amp; Pools</h3>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              data-testid="mobile-add-resource-btn"
+              (click)="openAddResourceModal()"
+            >
+              + Add Pool
+            </button>
+          </div>
+          @if (classResources.length > 0) {
+            <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel" data-testid="mobile-class-resources">
+              @for (res of classResources; track res.name + '-' + $index; let rIndex = $index) {
+                <li class="flex flex-col gap-2 px-3 py-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-body font-semibold text-ink">{{ res.name }}</p>
+                      <p class="text-micro uppercase text-muted">
+                        {{ res.recharge }} rest
+                        @if (res.auto) {
+                          · ⚙ Class
+                        }
+                      </p>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                      <span class="mr-1 text-label font-bold tabular-nums text-accent">
+                        {{ res.current }} / {{ res.max }}
+                      </span>
+                      <button
+                        forgeButton
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        type="button"
+                        [attr.aria-label]="'Edit ' + res.name"
+                        [attr.data-testid]="'mobile-edit-resource-' + rIndex"
+                        (click)="openEditResourceModal(rIndex, $event)"
+                      >
+                        <forge-icon name="pencil" size="xs" />
+                      </button>
+                      @if (editMode && !res.auto) {
+                        <button
+                          forgeButton
+                          variant="danger"
+                          size="sm"
+                          iconOnly
+                          type="button"
+                          [attr.aria-label]="'Delete ' + res.name"
+                          [attr.data-testid]="'mobile-delete-resource-' + rIndex"
+                          (click)="deleteMobileResource(rIndex, $event)"
+                        >
+                          <forge-icon name="close" size="xs" />
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  @if (res.max <= 10) {
+                    <div
+                      class="flex flex-wrap items-center gap-1"
+                      role="group"
+                      [attr.aria-label]="res.name + ' charges'"
+                    >
+                      @for (pip of resourcePipIndices(res.max); track pip) {
+                        <button
+                          type="button"
+                          (click)="onResourcePipClick(res, pip, $event)"
+                          [attr.aria-pressed]="pip <= res.current"
+                          [attr.aria-label]="'Set ' + res.name + ' to ' + (pip === res.current ? pip - 1 : pip)"
+                          class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        >
+                          <span
+                            class="h-4 w-4 rounded-full transition-colors"
+                            [ngClass]="
+                              pip <= res.current
+                                ? 'bg-accent'
+                                : 'border-2 border-muted/50 bg-tile'
+                            "
+                          ></span>
+                        </button>
+                      }
+                    </div>
+                  } @else {
+                    <div class="flex items-center justify-between gap-2">
+                      <button
+                        forgeButton
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        [disabled]="res.current <= 0"
+                        [attr.aria-label]="'Decrease ' + res.name"
+                        (click)="adjustClassResource(res, -1, $event)"
+                      >
+                        <forge-icon name="minus" size="xs" /> Spend
+                      </button>
+                      <span class="text-metric font-bold tabular-nums text-ink">{{ res.current }} / {{ res.max }}</span>
+                      <button
+                        forgeButton
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        [disabled]="res.current >= res.max"
+                        [attr.aria-label]="'Increase ' + res.name"
+                        (click)="adjustClassResource(res, 1, $event)"
+                      >
+                        <forge-icon name="plus" size="xs" /> Restore
+                      </button>
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="rounded-xl border border-hairline bg-panel px-4 py-4 text-center text-label text-muted">
+              No class resource pools tracked on this sheet.
+            </p>
+          }
+        </section>
+
+        <!-- Class Combat Dice (Second Wind, Lay on Hands, Sneak Attack, etc.) -->
+        @if (profile.actions.length > 0) {
+          <app-combat-dice-panel
+            [actions]="profile.actions"
+            [charClass]="char.char_class"
+            [charLevel]="char.char_level"
+            [subclass]="char.subclass"
+            [rollMode]="rollMode"
+            (rollAction)="rollClassAction($event)"
+          ></app-combat-dice-panel>
+        }
+      </div>
+    }
+
+    <!-- SUB-PILL 3: INVENTORY (Currency Bar + Attunement + Compact 1-Line Gear Rows) -->
+    @if (mobileCombatSubTab() === 'inventory') {
+      <div class="flex flex-col gap-3" data-testid="mobile-combat-inventory">
+        <!-- Compact Currency Bar -->
+        <section aria-label="Currency">
+          <div class="grid grid-cols-5 gap-1.5 rounded-xl border border-hairline bg-tile p-2">
+            @for (c of coinTypes; track c) {
+              <button
+                type="button"
+                (click)="openCoinModal(c)"
+                [attr.aria-label]="'Manage ' + c.toUpperCase() + ' (' + (currency[c] || 0) + ')'"
+                class="flex min-h-11 flex-col items-center justify-center rounded-lg border bg-surface px-1 py-1.5 transition-colors hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [ngClass]="c === 'gp' ? 'border-gold/40' : 'border-hairline'"
+              >
+                <span class="text-micro font-bold uppercase" [ngClass]="c === 'gp' ? 'text-gold' : 'text-muted'">
+                  {{ c }}
+                </span>
+                <span class="font-mono text-label font-bold tabular-nums" [ngClass]="c === 'gp' ? 'text-gold' : 'text-ink'">
+                  {{ currency[c] || 0 }}
+                </span>
+              </button>
+            }
+          </div>
+        </section>
+
+        <!-- Attunement & Filter Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+          <forge-badge
+            [tone]="attunedCount >= maxActiveAttunements ? 'gold' : 'muted'"
+            size="sm"
+          >
+            🔮 {{ attunedCount }}/{{ maxActiveAttunements }} Attuned
+          </forge-badge>
+          @if (editMode) {
+            <button forgeButton variant="secondary" size="sm" type="button" (click)="addEquipment.emit()">
+              + Item
+            </button>
+          }
+        </div>
+
+        @if (char.equipment && char.equipment.length > 0) {
+          <div
+            class="grid grid-cols-4 rounded-full border border-hairline bg-panel p-1"
+            role="radiogroup"
+            aria-label="Filter equipment"
+          >
+            @for (filter of equipmentFilters; track filter.id) {
+              <button
+                type="button"
+                role="radio"
+                class="flex min-h-8 items-center justify-center gap-1 rounded-full px-1.5 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [ngClass]="equipmentFilter === filter.id ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+                [attr.aria-checked]="equipmentFilter === filter.id"
+                (click)="equipmentFilter = filter.id"
+              >
+                <span>{{ filter.label === 'Inventory' ? 'Pack' : filter.label }}</span>
+                <span class="text-micro tabular-nums text-muted">{{ equipmentCount(filter.id) }}</span>
+              </button>
+            }
+          </div>
+
+          @for (group of equipmentGroups; track group.title) {
+            <div class="flex flex-col gap-1.5">
+              @if (group.title) {
+                <h4 class="px-1 text-micro font-semibold uppercase text-muted">
+                  {{ group.title }} · {{ group.rows.length }}
+                </h4>
+              }
+
+              <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel" data-testid="mobile-inventory-list">
+                @for (row of group.rows; track row.index) {
+                  <li class="flex min-h-12 items-center gap-2 pr-2 transition-colors hover:bg-tile">
+                    <button
+                      type="button"
+                      (click)="openItemInspector(row.index)"
+                      [attr.aria-label]="'Inspect ' + row.item.name"
+                      [attr.data-testid]="'mobile-item-row-' + row.index"
+                      class="flex min-h-12 min-w-0 flex-1 flex-col justify-center px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                    >
+                      <span class="flex min-w-0 items-center gap-1.5">
+                        <span class="truncate text-body font-medium text-ink">{{ row.item.name }}</span>
+                        @if ((row.item.quantity ?? 1) > 1) {
+                          <span class="shrink-0 text-micro font-semibold tabular-nums text-muted">×{{ row.item.quantity }}</span>
+                        }
+                        @if (row.item.ac_bonus) {
+                          <forge-badge [tone]="row.item.equipped ? 'accent' : 'muted'" size="sm" class="shrink-0">
+                            🛡️ {{ row.item.ac_bonus >= 10 ? row.item.ac_bonus : '+' + row.item.ac_bonus }}
+                          </forge-badge>
+                        }
+                      </span>
+                      @if (row.item.description) {
+                        <span class="truncate text-micro leading-normal text-muted">{{ row.item.description }}</span>
+                      }
+                    </button>
+
+                    <!-- Quick Right Actions -->
+                    <div class="flex shrink-0 items-center gap-1">
+                      @if (isHealingPotion(row.item) && (row.item.quantity ?? 1) > 0) {
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="success"
+                          size="sm"
+                          type="button"
+                          (click)="drinkPotion(row.item, $event)"
+                        >
+                          🧪 Drink
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        [ngClass]="
+                          row.item.attuned
+                            ? 'border-accent/40 bg-accent/15 text-accent'
+                            : 'border-hairline bg-tile text-muted opacity-70 hover:opacity-100'
+                        "
+                        [attr.aria-pressed]="!!row.item.attuned"
+                        [attr.aria-label]="(row.item.attuned ? 'Unattune ' : 'Attune ') + row.item.name"
+                        (click)="toggleAttuned(row.item)"
+                      >
+                        🔮
+                      </button>
+                      <button
+                        type="button"
+                        class="min-h-8 rounded-lg border px-2 text-micro font-semibold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        [ngClass]="
+                          row.item.equipped
+                            ? 'border-emerald/40 bg-emerald/15 text-emerald'
+                            : 'border-hairline bg-tile text-muted hover:text-ink'
+                        "
+                        [attr.aria-pressed]="!!row.item.equipped"
+                        [attr.aria-label]="(row.item.equipped ? 'Unequip ' : 'Equip ') + row.item.name"
+                        (click)="onToggleEquipped(row.item)"
+                      >
+                        {{ row.item.equipped ? 'Eqp' : 'Pack' }}
+                      </button>
+                    </div>
+                  </li>
+                } @empty {
+                  <li class="px-4 py-5 text-center text-label text-muted">Nothing here.</li>
+                }
+              </ul>
+            </div>
+          }
+        } @else {
+          <p class="rounded-xl border border-hairline bg-panel px-4 py-6 text-center text-label text-muted">
+            No equipment carried yet.
+          </p>
+        }
+      </div>
+    }
+
+    <!-- SUB-PILL 4: FEATURES & TRAITS -->
+    @if (mobileCombatSubTab() === 'features') {
+      <div class="flex flex-col gap-3" data-testid="mobile-combat-features">
+        <!-- Source Filter Pills -->
+        <div
+          class="flex items-center gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Filter features by source"
+        >
+          @for (f of mobileFeatureFilters; track f.id) {
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="mobileFeatureFilter() === f.id"
+              [attr.data-testid]="'mobile-feature-filter-' + f.id"
+              (click)="mobileFeatureFilter.set(f.id)"
+              class="flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="
+                mobileFeatureFilter() === f.id
+                  ? 'border-accent/40 bg-accent/15 font-semibold text-accent'
+                  : 'border-hairline bg-panel text-muted hover:text-ink'
+              "
+            >
+              <span>{{ f.label }}</span>
+              <span class="text-micro tabular-nums opacity-80">({{ featureFilterCount(f.id) }})</span>
+            </button>
+          }
+        </div>
+
+        <!-- Compact 1-Line Feature Rows -->
+        @if (filteredMobileFeatures.length > 0) {
+          <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel" data-testid="mobile-features-list">
+            @for (feature of filteredMobileFeatures; track feature.name + '-' + $index; let idx = $index) {
+              <li>
+                <button
+                  type="button"
+                  (click)="openFeatureInspector(feature)"
+                  [attr.aria-label]="'Inspect feature ' + feature.name"
+                  [attr.data-testid]="'mobile-feature-row-' + idx"
+                  class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                >
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-body font-semibold text-ink">{{ feature.name }}</span>
+                    @if (feature.description) {
+                      <span class="block truncate text-micro text-muted">{{ feature.description }}</span>
+                    }
+                  </span>
+                  <span class="flex shrink-0 items-center gap-1.5">
+                    @if (feature.source) {
+                      <forge-badge tone="muted" size="sm">{{ feature.source }}</forge-badge>
+                    }
+                    <forge-icon name="chevron-down" size="sm" class="-rotate-90 text-muted" />
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="rounded-xl border border-hairline bg-panel px-4 py-6 text-center text-label text-muted">
+            No features match this filter.
+          </p>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- SLIDE-UP WEAPON INSPECTOR SHEET -->
+  <forge-modal
+    [open]="!!inspectedWeapon"
+    [sheetOnMobile]="true"
+    (closed)="closeWeaponInspector()"
+    [title]="'⚔️ ' + (inspectedWeapon?.name || 'Weapon Details')"
+    maxWidth="520px"
+  >
+    @if (inspectedWeapon; as weapon) {
+      <div class="flex flex-col gap-4" data-testid="mobile-weapon-inspector">
+          <!-- Big Action Buttons -->
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              tone="accent"
+              size="sm"
+              type="button"
+              class="min-h-11"
+              (click)="rollAttack(weapon)"
+            >
+              🎲 {{ displayedAttackBonus(weapon) }}
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-11"
+              (click)="rollWeaponDamage(weapon)"
+            >
+              🩸 {{ damagePreview(weapon) }}
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              class="min-h-11"
+              (click)="rollWeaponDamage(weapon, true)"
+            >
+              💥 Crit
+            </button>
+          </div>
+
+          <!-- Math Breakdown -->
+          <div class="flex flex-col gap-1.5 rounded-xl border border-hairline bg-tile p-3 text-label">
+            <div class="flex items-start gap-2">
+              <span class="shrink-0 text-micro font-semibold uppercase text-accent">Attack</span>
+              <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).attack.formulaText }}</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="shrink-0 text-micro font-semibold uppercase text-emerald">Damage</span>
+              <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).damage.formulaText }}</span>
+            </div>
+          </div>
+
+          <!-- Properties & 2024 Weapon Mastery Rule -->
+          @if (weaponProperties(weapon).length > 0 || weaponMasteryName(weapon)) {
+            <div class="flex flex-col gap-2">
+              @if (weaponProperties(weapon).length > 0) {
+                <div class="flex flex-wrap gap-1.5">
+                  @for (prop of weaponProperties(weapon); track prop) {
+                    <forge-badge tone="muted" size="sm">{{ prop }}</forge-badge>
+                  }
+                </div>
+              }
+              @if (weaponMasteryName(weapon); as mastery) {
+                <div class="rounded-xl border border-accent/30 bg-accent/10 p-3 text-label text-ink">
+                  <p class="text-micro font-semibold uppercase text-accent">
+                    2024 Mastery: {{ mastery }}
+                    @if (isTopple(mastery)) {
+                      · DC {{ getToppleDc(weapon) }} CON Save
+                    }
+                  </p>
+                  <p class="mt-1 text-label text-muted">{{ masteryTooltip(mastery, weapon) }}</p>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Conditional Weapon Effects -->
+          @if (weapon.conditional_effects?.length) {
+            <div class="flex flex-col gap-2">
+              <p class="text-micro font-semibold uppercase text-muted">Situational Weapon Effects</p>
+              <div class="flex flex-wrap gap-1.5">
+                @for (effect of weapon.conditional_effects; track $index) {
+                  @if (isEffectRollable(effect)) {
+                    <button
+                      type="button"
+                      class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      [attr.aria-pressed]="isEffectActive(weapon, effect)"
+                      (click)="toggleEffect(weapon, effect)"
+                    >
+                      <forge-badge
+                        [interactive]="true"
+                        [tone]="isEffectActive(weapon, effect) ? 'success' : 'muted'"
+                      >
+                        {{ effect.label }} {{ effectSummary(effect) }}
+                        @if (isEffectActive(weapon, effect)) {
+                          <span aria-hidden="true">✓</span>
+                        }
+                      </forge-badge>
+                    </button>
+                  }
+                  @if (effect.note) {
+                    <forge-badge tone="gold">💀 {{ effect.label }}: {{ effect.note }}</forge-badge>
+                  }
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Class Damage Riders (Sneak Attack, Smite slot options, Rage...) -->
+          @if (riders.length > 0) {
+            <div class="flex flex-col gap-2 rounded-xl border border-hairline bg-panel p-3">
+              <p class="text-micro font-semibold uppercase text-muted">Class Damage Riders</p>
+              @for (rider of riders; track rider.id) {
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    [attr.aria-pressed]="isRiderActive(rider)"
+                    (click)="toggleRider(rider)"
+                  >
+                    <forge-badge
+                      size="md"
+                      [interactive]="true"
+                      [tone]="isRiderActive(rider) ? 'success' : 'muted'"
+                    >
+                      {{ rider.icon }} {{ rider.name }} {{ riderNotation(rider) }}
+                      @if (isRiderActive(rider)) {
+                        <span>✓</span>
+                      }
+                    </forge-badge>
+                  </button>
+                  @if (rider.options && rider.options.length > 1) {
+                    <div class="flex flex-wrap gap-1">
+                      @for (option of rider.options; track option.label) {
+                        <button
+                          type="button"
+                          class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          [attr.aria-pressed]="isOptionSelected(rider, option.notation)"
+                          (click)="selectOption(rider, option.notation)"
+                        >
+                          <forge-badge
+                            [interactive]="true"
+                            [tone]="isOptionSelected(rider, option.notation) ? 'accent' : 'muted'"
+                          >
+                            {{ option.label }}
+                          </forge-badge>
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Collapsible Overrides & Bonus Configuration -->
+          <div class="border-t border-hairline pt-3">
+            <div class="flex items-center justify-between gap-2">
+              <button
+                forgeButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                (click)="showWeaponConfigInSheet.set(!showWeaponConfigInSheet())"
+              >
+                <forge-icon name="sliders" size="sm" />
+                {{ showWeaponConfigInSheet() ? 'Hide Bonus Overrides' : 'Configure Bonuses & Overrides' }}
+              </button>
+              @if (editMode && inspectedWeaponIndex() !== null) {
+                <button
+                  forgeButton
+                  variant="danger"
+                  size="sm"
+                  type="button"
+                  (click)="deleteWeapon.emit(inspectedWeaponIndex()!); closeWeaponInspector()"
+                >
+                  Delete
+                </button>
+              }
+            </div>
+
+            @if (showWeaponConfigInSheet()) {
+              <div class="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-hairline bg-tile p-3">
+                <div>
+                  <label class="mb-1 block text-micro font-semibold uppercase text-muted">Scaling Ability</label>
+                  <select
+                    forgeSelect
+                    dense
+                    class="w-full"
+                    [ngModel]="weapon.ability_modifier || ''"
+                    (ngModelChange)="onWeaponAbilityChange(weapon, $event)"
+                  >
+                    <option value="">Auto ({{ getWeaponBreakdown(weapon).attack.statName }})</option>
+                    <option value="STR">STR ({{ formatMod(char.stats.STR) }})</option>
+                    <option value="DEX">DEX ({{ formatMod(char.stats.DEX) }})</option>
+                    <option value="CON">CON ({{ formatMod(char.stats.CON) }})</option>
+                    <option value="INT">INT ({{ formatMod(char.stats.INT) }})</option>
+                    <option value="WIS">WIS ({{ formatMod(char.stats.WIS) }})</option>
+                    <option value="CHA">CHA ({{ formatMod(char.stats.CHA) }})</option>
+                    <option value="NONE">None (+0)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="mb-1 block text-micro font-semibold uppercase text-muted">Magic Bonus</label>
+                  <select
+                    forgeSelect
+                    dense
+                    class="w-full"
+                    [ngModel]="getWeaponMagicBonus(weapon)"
+                    (ngModelChange)="onWeaponMagicChange(weapon, $event)"
+                  >
+                    <option [value]="0">+0</option>
+                    <option [value]="1">+1</option>
+                    <option [value]="2">+2</option>
+                    <option [value]="3">+3</option>
+                    <option [value]="4">+4</option>
+                    <option [value]="5">+5</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="mb-1 block text-micro font-semibold uppercase text-muted">Misc Attack</label>
+                  <input
+                    forgeInput
+                    dense
+                    type="number"
+                    class="w-full"
+                    [ngModel]="weapon.misc_attack_bonus || 0"
+                    (ngModelChange)="onWeaponMiscAttackChange(weapon, $event)"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-micro font-semibold uppercase text-muted">Misc Damage</label>
+                  <input
+                    forgeInput
+                    dense
+                    type="number"
+                    class="w-full"
+                    [ngModel]="weapon.misc_damage_bonus || 0"
+                    (ngModelChange)="onWeaponMiscDamageChange(weapon, $event)"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-micro font-semibold uppercase text-muted">Base Dice</label>
+                  <input
+                    forgeInput
+                    dense
+                    type="text"
+                    class="w-full"
+                    [ngModel]="getWeaponBaseDice(weapon)"
+                    (ngModelChange)="onWeaponBaseDiceChange(weapon, $event)"
+                  />
+                </div>
+                <div>
+                  <label class="mb-1 block text-micro font-semibold uppercase text-muted">Damage Type</label>
+                  <input
+                    forgeInput
+                    dense
+                    type="text"
+                    class="w-full"
+                    [ngModel]="getWeaponBreakdown(weapon).damage.damageType"
+                    (ngModelChange)="onWeaponDamageTypeChange(weapon, $event)"
+                  />
+                </div>
+                <label
+                  [attr.for]="'mobile-weapon-prof-' + inspectedWeaponIndex()"
+                  class="col-span-2 flex min-h-8 cursor-pointer items-center gap-2 text-label text-ink"
+                >
+                  <input
+                    [attr.id]="'mobile-weapon-prof-' + inspectedWeaponIndex()"
+                    type="checkbox"
+                    class="h-4 w-4 accent-[var(--theme-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    [checked]="weapon.proficient !== false"
+                    (change)="onWeaponProficiencyChange(weapon, $event)"
+                  />
+                  Proficient (+{{ char.proficiency_bonus || 2 }})
+                </label>
+                <div class="col-span-2">
+                  <button
+                    forgeButton
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    type="button"
+                    (click)="syncWeaponCalculations(weapon)"
+                  >
+                    ⚡ Recalculate &amp; Sync to Sheet
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+    }
+  </forge-modal>
+
+  <!-- SLIDE-UP ITEM INSPECTOR SHEET -->
+  <forge-modal
+    [open]="!!inspectedItem"
+    [sheetOnMobile]="true"
+    (closed)="closeItemInspector()"
+    [title]="'🎒 ' + (inspectedItem?.name || 'Item Details')"
+    maxWidth="460px"
+  >
+    @if (inspectedItem; as item) {
+      <div class="flex flex-col gap-4" data-testid="mobile-item-inspector">
+          <!-- Status & Quick Actions -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              forgeButton
+              variant="secondary"
+              [tone]="item.equipped ? 'success' : undefined"
+              size="sm"
+              type="button"
+              (click)="onToggleEquipped(item)"
+            >
+              {{ item.equipped ? '✓ Equipped' : 'Equip Item' }}
+            </button>
+            <button
+              forgeButton
+              variant="secondary"
+              [tone]="item.attuned ? 'accent' : undefined"
+              size="sm"
+              type="button"
+              (click)="toggleAttuned(item)"
+            >
+              {{ item.attuned ? '🔮 Attuned' : '🔮 Attune' }}
+            </button>
+            @if (isHealingPotion(item) && (item.quantity ?? 1) > 0) {
+              <button
+                forgeButton
+                variant="secondary"
+                tone="success"
+                size="sm"
+                type="button"
+                (click)="drinkPotion(item, $event); closeItemInspector()"
+              >
+                🧪 Drink Potion
+              </button>
+            }
+          </div>
+
+          <!-- Quantity Stepper -->
+          <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2.5">
+            <span class="text-micro font-semibold uppercase text-muted">Quantity</span>
+            <div class="flex items-center gap-2">
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                iconOnly
+                type="button"
+                [disabled]="(item.quantity ?? 1) <= 0"
+                [attr.aria-label]="'Decrease ' + item.name"
+                (click)="adjustQuantity(item, -1, $event)"
+              >
+                <forge-icon name="minus" size="xs" />
+              </button>
+              <span class="min-w-8 text-center text-body font-bold tabular-nums text-ink">
+                {{ item.quantity ?? 1 }}
+              </span>
+              <button
+                forgeButton
+                variant="secondary"
+                size="sm"
+                iconOnly
+                type="button"
+                [attr.aria-label]="'Increase ' + item.name"
+                (click)="adjustQuantity(item, 1, $event)"
+              >
+                <forge-icon name="plus" size="xs" />
+              </button>
+            </div>
+          </div>
+
+          <!-- AC Hint or Badge -->
+          @if (item.ac_bonus) {
+            <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2">
+              <span class="text-micro font-semibold uppercase text-muted">Armor Class Bonus</span>
+              <forge-badge [tone]="item.equipped ? 'accent' : 'muted'" size="sm">
+                🛡️ {{ item.ac_bonus >= 10 ? 'AC ' + item.ac_bonus : '+' + item.ac_bonus + ' AC' }}
+              </forge-badge>
+            </div>
+          } @else {
+            @if (acHintFromNotes(item); as hint) {
+              <button
+                forgeButton
+                variant="secondary"
+                tone="accent"
+                size="sm"
+                type="button"
+                (click)="onItemAcChange(item, hint)"
+              >
+                🛡️ Apply +{{ hint }} AC from Notes
+              </button>
+            }
+          }
+
+          <!-- Notes / Description or Edit Fields -->
+          @if (!editMode) {
+            <div class="rounded-xl border border-hairline bg-panel p-3">
+              <p class="text-micro font-semibold uppercase text-muted">Notes &amp; Properties</p>
+              <p class="mt-1 whitespace-pre-line text-body text-ink">
+                {{ item.description || 'No notes recorded for this item.' }}
+              </p>
+            </div>
+          } @else {
+            <div class="flex flex-col gap-2">
+              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="save.emit()" />
+              <input forgeInput dense type="text" [(ngModel)]="item.description" placeholder="Notes" (change)="save.emit()" />
+              <label class="flex items-center gap-2 text-micro font-semibold uppercase text-muted">
+                AC Bonus / Base
+                <input
+                  forgeInput
+                  dense
+                  type="number"
+                  class="w-20 text-center"
+                  [ngModel]="item.ac_bonus || null"
+                  (ngModelChange)="onItemAcChange(item, $event)"
+                />
+              </label>
+              @if (inspectedItemIndex() !== null) {
+                <button
+                  forgeButton
+                  variant="danger"
+                  size="sm"
+                  type="button"
+                  (click)="deleteEquipment.emit(inspectedItemIndex()!); closeItemInspector()"
+                >
+                  Delete Item
+                </button>
+              }
+            </div>
+          }
+        </div>
+    }
+  </forge-modal>
+
+  <!-- SLIDE-UP FEATURE INSPECTOR SHEET -->
+  <forge-modal
+    [open]="!!inspectedFeature()"
+    [sheetOnMobile]="true"
+    (closed)="closeFeatureInspector()"
+    [title]="'📜 ' + (inspectedFeature()?.name || 'Feature')"
+    maxWidth="520px"
+  >
+    @if (inspectedFeature(); as feat) {
+      <div class="flex flex-col gap-3">
+        @if (feat.source) {
+          <div>
+            <forge-badge tone="accent" size="sm">{{ feat.source }}</forge-badge>
+          </div>
+        }
+        <p class="whitespace-pre-line text-body leading-relaxed text-muted">
+          {{ feat.description || 'No description provided for this feature.' }}
+        </p>
+      </div>
+    }
+  </forge-modal>
+
+  <!-- SLIDE-UP CLASS RESOURCE ADD / EDIT SHEET -->
+  <forge-modal
+    [open]="showMobileResourceModal()"
+    [sheetOnMobile]="true"
+    (closed)="closeResourceModal()"
+    [title]="editingResource ? '⚡ Edit ' + editingResource.name : '⚡ Add Resource Pool'"
+    maxWidth="420px"
+  >
+    <div class="flex flex-col gap-3" data-testid="mobile-resource-modal">
+      @if (editingResource?.auto) {
+        <p class="rounded-lg border border-hairline bg-tile px-3 py-2 text-micro text-muted">
+          ⚙ Max and recharge follow your class level ({{ resourceRulesMax }}). Add a bonus adjustment for feats, items, or house rules.
+        </p>
+      } @else {
+        <div>
+          <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-name">Resource Name</label>
+          <input
+            id="mobile-res-name"
+            forgeInput
+            dense
+            type="text"
+            class="w-full"
+            [(ngModel)]="newResourceName"
+            placeholder="e.g. Luck Points, Superiority Dice"
+          />
+        </div>
+      }
+
+      <div class="grid grid-cols-2 gap-3">
+        @if (editingResource?.auto) {
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-bonus">Adjustment (+/−)</label>
+            <input
+              id="mobile-res-bonus"
+              forgeInput
+              dense
+              type="number"
+              class="w-full"
+              [min]="1 - resourceRulesMax"
+              max="100"
+              [(ngModel)]="newResourceBonus"
+            />
+            <p class="mt-1 text-micro text-muted">Max {{ resourceEditedMax }}</p>
+          </div>
+        } @else {
+          <div>
+            <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-max">Max Charges</label>
+            <input
+              id="mobile-res-max"
+              forgeInput
+              dense
+              type="number"
+              class="w-full"
+              min="1"
+              max="100"
+              [(ngModel)]="newResourceMax"
+            />
+          </div>
+        }
+        <div>
+          <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-recharge">Recharge On</label>
+          <select
+            id="mobile-res-recharge"
+            forgeSelect
+            dense
+            [(ngModel)]="newResourceRecharge"
+            [disabled]="!!editingResource?.auto"
+            class="w-full"
+          >
+            <option value="short">Short Rest</option>
+            <option value="long">Long Rest</option>
+          </select>
+        </div>
+      </div>
+
+      @if (editingResource) {
+        <div>
+          <label class="mb-1 block text-micro font-semibold uppercase text-muted" for="mobile-res-current">Current Charges</label>
+          <input
+            id="mobile-res-current"
+            forgeInput
+            dense
+            type="number"
+            class="w-full"
+            min="0"
+            [max]="resourceEditedMax"
+            [(ngModel)]="newResourceCurrent"
+          />
+        </div>
+      }
+
+      <div class="flex justify-end gap-2 border-t border-hairline pt-3">
+        <button forgeButton variant="ghost" size="sm" type="button" (click)="closeResourceModal()">Cancel</button>
+        <button
+          forgeButton
+          variant="primary"
+          size="sm"
+          type="button"
+          data-testid="mobile-save-resource-btn"
+          (click)="confirmMobileResource()"
+          [disabled]="!editingResource?.auto && !newResourceName.trim()"
+        >
+          Save Pool
+        </button>
+      </div>
+    </div>
+  </forge-modal>
+} @else {
 <div class="flex flex-col gap-6">
   <!-- HERO STATUS & TURN ECONOMY (#202) -->
   <div class="rounded-xl border border-hairline bg-panel p-4 flex flex-wrap items-center justify-between gap-4">
@@ -991,118 +2242,6 @@
     </div>
   </section>
 
-  <!-- COIN CALCULATOR MODAL -->
-  <forge-modal
-    [open]="showCoinModal"
-    (closed)="closeCoinModal()"
-    [title]="'💰 Manage ' + selectedCoin.toUpperCase()"
-    maxWidth="360px"
-  >
-    <div class="flex flex-col gap-4 p-2">
-      <div
-        class="flex items-center justify-between px-3 py-2 bg-tile rounded-lg"
-      >
-        <span class="text-xs text-muted uppercase">Current Balance</span>
-        <span class="font-mono font-bold text-lg text-ink"
-          >{{ currency[selectedCoin] || 0 }}
-          {{ selectedCoin.toUpperCase() }}</span
-        >
-      </div>
-
-      <!-- Coin Selector Chips -->
-      <div class="flex items-center justify-between gap-1">
-        <button
-          *ngFor="let c of coinTypes"
-          type="button"
-          (click)="selectCoin(c)"
-          class="flex-1 py-1 rounded text-xs font-bold uppercase transition-all"
-          [ngClass]="
-            selectedCoin === c
-              ? 'bg-gold text-surface'
-              : 'bg-surface text-muted hover:text-ink border border-hairline'
-          "
-        >
-          {{ c }}
-        </button>
-      </div>
-
-      <!-- Big Number Display -->
-      <div
-        class="flex flex-col items-center justify-center p-3 bg-surface rounded-xl border border-hairline"
-      >
-        <span class="text-micro font-semibold uppercase text-muted mb-1"
-          >Transaction Amount</span
-        >
-        <span class="text-3xl font-mono font-bold text-accent"
-          >{{ coinNumpadValue }} {{ selectedCoin.toUpperCase() }}</span
-        >
-      </div>
-
-      <!-- Quick Pills -->
-      <div class="flex items-center justify-between gap-1">
-        <button
-          *ngFor="let p of [1, 5, 10, 50, 100]"
-          type="button"
-          (click)="addCoinPill(p)"
-          class="flex-1 py-1 rounded bg-tile hover:bg-tile/80 border border-hairline text-xs font-bold text-ink transition-colors"
-        >
-          +{{ p }}
-        </button>
-      </div>
-
-      <!-- Numpad Grid -->
-      <div class="grid grid-cols-3 gap-2">
-        <button
-          *ngFor="let digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9']"
-          type="button"
-          (click)="appendCoinDigit(digit)"
-          class="h-11 rounded-xl bg-panel hover:bg-tile border border-hairline text-base font-bold text-ink transition-colors"
-        >
-          {{ digit }}
-        </button>
-        <button
-          type="button"
-          (click)="clearCoinNumpad()"
-          class="h-11 rounded-xl bg-tile/50 hover:bg-tile text-xs font-bold text-muted uppercase transition-colors"
-        >
-          Clear
-        </button>
-        <button
-          type="button"
-          (click)="appendCoinDigit('0')"
-          class="h-11 rounded-xl bg-panel hover:bg-tile border border-hairline text-base font-bold text-ink transition-colors"
-        >
-          0
-        </button>
-        <button
-          type="button"
-          (click)="backspaceCoin()"
-          class="h-11 rounded-xl bg-tile/50 hover:bg-tile text-base font-bold text-muted"
-        >
-          ⌫
-        </button>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-hairline">
-        <button
-          type="button"
-          (click)="executeAddCoins()"
-          class="h-11 rounded-xl bg-emerald/20 hover:bg-emerald/30 text-emerald font-bold text-sm border border-emerald/40"
-        >
-          ➕ Add Loot
-        </button>
-        <button
-          type="button"
-          (click)="executeSpendCoins()"
-          class="h-11 rounded-xl bg-crimson/20 hover:bg-crimson/30 text-crimson font-bold text-sm border border-crimson/40"
-        >
-          ➖ Spend Coins
-        </button>
-      </div>
-    </div>
-  </forge-modal>
-
   <section
     class="flex flex-col gap-3"
     aria-labelledby="combat-equipment-heading"
@@ -1323,7 +2462,7 @@
                   >
                     <forge-badge
                       [interactive]="true"
-                      class="w-22"
+                      class="w-24"
                       [tone]="row.item.equipped ? 'success' : 'muted'"
                     >
                       {{ row.item.equipped ? 'Equipped' : 'Inventory' }}
@@ -1367,3 +2506,115 @@
     (rollAction)="rollClassAction($event)"
   ></app-combat-dice-panel>
 </div>
+}
+
+<!-- SHARED COIN CALCULATOR MODAL -->
+<forge-modal
+  [open]="showCoinModal"
+  [sheetOnMobile]="true"
+  (closed)="closeCoinModal()"
+  [title]="'💰 Manage ' + selectedCoin.toUpperCase()"
+  maxWidth="360px"
+>
+  <div class="flex flex-col gap-4 p-2">
+    <div class="flex items-center justify-between rounded-lg bg-tile px-3 py-2">
+      <span class="text-micro uppercase text-muted">Current Balance</span>
+      <span class="font-mono text-body font-bold text-ink">
+        {{ currency[selectedCoin] || 0 }} {{ selectedCoin.toUpperCase() }}
+      </span>
+    </div>
+
+    <div class="flex items-center justify-between gap-1">
+      @for (c of coinTypes; track c) {
+        <button
+          type="button"
+          (click)="selectCoin(c)"
+          class="min-h-8 flex-1 rounded py-1.5 text-label font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          [ngClass]="
+            selectedCoin === c
+              ? 'border border-gold/40 bg-gold/15 text-gold'
+              : 'border border-hairline bg-surface text-muted hover:text-ink'
+          "
+        >
+          {{ c }}
+        </button>
+      }
+    </div>
+
+    <div class="flex flex-col items-center justify-center rounded-xl border border-hairline bg-surface p-3">
+      <span class="mb-1 text-micro font-semibold uppercase text-muted">Transaction Amount</span>
+      <span class="font-mono text-display font-bold text-accent">
+        {{ coinNumpadValue }} {{ selectedCoin.toUpperCase() }}
+      </span>
+    </div>
+
+    <div class="flex items-center justify-between gap-1">
+      @for (p of [1, 5, 10, 50, 100]; track p) {
+        <button
+          type="button"
+          (click)="addCoinPill(p)"
+          class="min-h-8 flex-1 rounded border border-hairline bg-tile py-1.5 text-label font-bold text-ink transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          +{{ p }}
+        </button>
+      }
+    </div>
+
+    <div class="grid grid-cols-3 gap-2">
+      @for (digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9']; track digit) {
+        <button
+          type="button"
+          (click)="appendCoinDigit(digit)"
+          class="h-11 rounded-xl border border-hairline bg-panel text-body font-bold text-ink transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {{ digit }}
+        </button>
+      }
+      <button
+        type="button"
+        (click)="clearCoinNumpad()"
+        class="h-11 rounded-xl border border-hairline bg-tile text-label font-bold uppercase text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        Clear
+      </button>
+      <button
+        type="button"
+        (click)="appendCoinDigit('0')"
+        class="h-11 rounded-xl border border-hairline bg-panel text-body font-bold text-ink transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        0
+      </button>
+      <button
+        type="button"
+        (click)="backspaceCoin()"
+        aria-label="Backspace"
+        class="h-11 rounded-xl border border-hairline bg-tile text-body font-bold text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        ⌫
+      </button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 border-t border-hairline pt-2">
+      <button
+        forgeButton
+        variant="secondary"
+        tone="success"
+        size="md"
+        type="button"
+        (click)="executeAddCoins()"
+      >
+        ➕ Add Loot
+      </button>
+      <button
+        forgeButton
+        variant="secondary"
+        tone="danger"
+        size="md"
+        type="button"
+        (click)="executeSpendCoins()"
+      >
+        ➖ Spend
+      </button>
+    </div>
+  </div>
+</forge-modal>

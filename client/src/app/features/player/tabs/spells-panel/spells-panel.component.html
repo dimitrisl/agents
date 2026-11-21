@@ -1,3 +1,432 @@
+@if (compactMobile) {
+  <!-- D&D BEYOND MOBILE COMPANION: 1-LINE HEADER + LEVEL PILLS + INLINE SLOT PIPS + COMPACT SPELL ROWS -->
+  <div class="flex flex-col gap-3" data-testid="mobile-spells-view">
+    <!-- Compact 1-Line Spellcasting Stats Bar -->
+    <section aria-label="Spellcasting statistics">
+      <div class="grid grid-cols-3 divide-x divide-hairline overflow-hidden rounded-xl bg-tile" data-testid="mobile-spell-stats">
+        <div class="px-2 py-2 text-center">
+          <p class="text-micro font-semibold uppercase text-muted">Mod</p>
+          <p class="mt-0.5 text-body font-bold leading-tight text-accent">
+            {{ char.spell_ability || '—' }}
+          </p>
+        </div>
+        <div class="px-2 py-2 text-center">
+          <p class="text-micro font-semibold uppercase text-muted">Save DC</p>
+          <p class="mt-0.5 text-body font-bold leading-tight tabular-nums text-accent">
+            {{ char.spell_save_dc ?? '—' }}
+          </p>
+        </div>
+        <div class="px-2 py-2 text-center">
+          <p class="text-micro font-semibold uppercase text-muted">Spell Atk</p>
+          <p class="mt-0.5 text-body font-bold leading-tight tabular-nums text-accent">
+            {{ char.spell_attack_bonus || '—' }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Compact Pact Magic / Sorcery Points Chips -->
+      @if (pactPool || sorceryPool) {
+        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+          @if (pactPool; as pact) {
+            <span
+              class="inline-flex items-center gap-1 rounded-full border border-cobalt/40 bg-cobalt/10 px-2.5 py-1 text-micro font-semibold text-cobalt"
+              title="Warlock Pact Magic slots recharge on a Short Rest"
+            >
+              ⚡ {{ pact.remaining }}/{{ pact.max }} Pact (Lv {{ pact.level }} · SR)
+            </span>
+          }
+          @if (sorceryPool; as pool) {
+            <button
+              type="button"
+              (click)="showMobileSorcerySheet.set(true)"
+              data-testid="mobile-sorcery-chip"
+              class="inline-flex min-h-7 items-center gap-1 rounded-full border border-accent/40 bg-accent/15 px-2.5 py-1 text-micro font-semibold text-accent transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <span>✨ {{ pool.current }}/{{ pool.max }} SP</span>
+              <span class="opacity-80">· Font &amp; Metamagic ▾</span>
+            </button>
+          }
+        </div>
+      }
+    </section>
+
+    @if (mobileLevelPills.length > 0 || editMode) {
+      <!-- Compact Search + Level/Prepared Filter Pills -->
+      <div class="flex flex-col gap-2">
+        <div class="relative">
+          <input
+            forgeInput
+            dense
+            type="text"
+            class="w-full pl-8"
+            placeholder="Search spells..."
+            aria-label="Search spells"
+            [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)"
+          />
+          <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-label text-muted" aria-hidden="true">🔍</span>
+        </div>
+
+        <div
+          class="flex items-center gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Filter spells by level"
+          data-testid="mobile-spell-level-pills"
+        >
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="mobileLevelFilter() === 'all'"
+            data-testid="mobile-spell-filter-all"
+            (click)="mobileLevelFilter.set('all')"
+            class="flex min-h-8 shrink-0 items-center rounded-full border px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="
+              mobileLevelFilter() === 'all'
+                ? 'border-accent/40 bg-accent/15 font-semibold text-accent'
+                : 'border-hairline bg-panel text-muted hover:text-ink'
+            "
+          >
+            All
+          </button>
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="mobileLevelFilter() === 'prepared'"
+            data-testid="mobile-spell-filter-prepared"
+            (click)="mobileLevelFilter.set('prepared')"
+            class="flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            [ngClass]="
+              mobileLevelFilter() === 'prepared'
+                ? 'border-gold/40 bg-gold/15 font-semibold text-gold'
+                : 'border-hairline bg-panel text-muted hover:text-ink'
+            "
+          >
+            ⭐ Prep
+          </button>
+          @for (lvl of mobileLevelPills; track lvl) {
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="mobileLevelFilter() === lvl"
+              [attr.data-testid]="'mobile-spell-filter-' + lvl"
+              (click)="mobileLevelFilter.set(lvl)"
+              class="flex min-h-8 shrink-0 items-center rounded-full border px-3 py-1 text-label tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="
+                mobileLevelFilter() === lvl
+                  ? 'border-accent/40 bg-accent/15 font-semibold text-accent'
+                  : 'border-hairline bg-panel text-muted hover:text-ink'
+              "
+            >
+              {{ ordinalLevel(lvl) }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Spell Level Sections with Inline Clickable Slot Pips -->
+      <div class="flex flex-col gap-4">
+        @for (group of mobileFilteredSpellGroups; track group.level) {
+          <section class="flex flex-col gap-1.5" [attr.data-testid]="'mobile-spell-group-' + group.level">
+            <!-- Level Header + Inline Slot Pips -->
+            <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div class="flex min-w-0 items-center gap-2">
+                <h4 class="text-micro font-semibold uppercase text-muted">
+                  {{ mobileLevelHeading(group.level) }}
+                </h4>
+                @if (group.level > 0 && pactCountAtLevel(group.level) > 0) {
+                  <span class="text-micro font-semibold text-cobalt">
+                    ⚡ {{ pactRemainingAtLevel(group.level) }}/{{ pactCountAtLevel(group.level) }} Pact
+                  </span>
+                }
+                @if (group.level > 0 && createdSlotCount(group.level) > 0) {
+                  <span class="text-micro font-semibold text-accent">
+                    +{{ createdSlotCount(group.level) }} SP
+                  </span>
+                }
+                @if (editMode) {
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    class="text-accent"
+                    (click)="addSpell(group.label)"
+                  >
+                    + Add
+                  </button>
+                }
+              </div>
+
+              <!-- Inline Clickable Spell Slot Pips -->
+              @if (group.level > 0 && getSpellSlotMax(group.level) > 0) {
+                <div
+                  class="flex shrink-0 items-center gap-1"
+                  role="group"
+                  [attr.aria-label]="'Level ' + group.level + ' spell slots: ' + slotsRemaining(group.level) + ' of ' + getSpellSlotMax(group.level) + ' remaining'"
+                  [attr.data-testid]="'mobile-slot-pips-' + group.level"
+                >
+                  @if (getSpellSlotMax(group.level) <= 8) {
+                    @for (pip of slotPipIndices(group.level); track pip) {
+                      <button
+                        type="button"
+                        (click)="onSlotPipClick(group.level, pip, $event)"
+                        [attr.aria-pressed]="pip <= slotsRemaining(group.level)"
+                        [attr.aria-label]="
+                          pip <= slotsRemaining(group.level)
+                            ? 'Spend level ' + group.level + ' spell slot'
+                            : 'Restore level ' + group.level + ' spell slot'
+                        "
+                        [attr.data-testid]="'mobile-slot-pip-' + group.level + '-' + pip"
+                        class="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      >
+                        <span
+                          class="h-3.5 w-3.5 rounded-full transition-colors"
+                          [ngClass]="
+                            pip <= slotsRemaining(group.level)
+                              ? 'bg-accent'
+                              : 'border-2 border-muted/50 bg-panel'
+                          "
+                        ></span>
+                      </button>
+                    }
+                  } @else {
+                    <button
+                      forgeButton
+                      variant="secondary"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [disabled]="slotsRemaining(group.level) === 0"
+                      [attr.aria-label]="'Spend level ' + group.level + ' spell slot'"
+                      (click)="useSpellSlot.emit(group.level)"
+                    >
+                      <forge-icon name="minus" size="xs" />
+                    </button>
+                    <button
+                      forgeButton
+                      variant="secondary"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [disabled]="getSpellSlotUsed(group.level) <= 0"
+                      [attr.aria-label]="'Restore level ' + group.level + ' spell slot'"
+                      (click)="restoreSpellSlot.emit(group.level)"
+                    >
+                      <forge-icon name="plus" size="xs" />
+                    </button>
+                  }
+                  <span class="ml-0.5 text-micro font-bold tabular-nums text-muted">
+                    {{ slotsRemaining(group.level) }}/{{ getSpellSlotMax(group.level) }}
+                  </span>
+                </div>
+              }
+            </div>
+
+            <!-- Inline Add Spell Editor (Edit Mode) -->
+            @if (editMode && addingSpellGroup() === group.label) {
+              <div class="flex items-center gap-2 px-1">
+                <input
+                  forgeInput
+                  dense
+                  type="text"
+                  class="flex-1"
+                  [(ngModel)]="newSpellName"
+                  [placeholder]="'New ' + group.label + ' spell...'"
+                  (keyup.enter)="confirmAddSpell(group.label)"
+                />
+                <button forgeButton variant="secondary" size="sm" type="button" (click)="confirmAddSpell(group.label)">Add</button>
+                <button forgeButton variant="ghost" size="sm" type="button" (click)="cancelAddSpell()">Cancel</button>
+              </div>
+            }
+
+            <!-- Compact 1-Line Spell Rows -->
+            @if (group.spells.length > 0) {
+              <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
+                @for (spell of group.spells; track spell + '-' + $index; let idx = $index) {
+                  <li class="flex min-h-11 items-center gap-2 pr-2 transition-colors hover:bg-tile">
+                    <button
+                      type="button"
+                      (click)="openSpellDetail(spell, group.level)"
+                      [attr.aria-label]="'Inspect ' + spell + ' details'"
+                      class="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                    >
+                      @if (group.level > 0 && isPrepared(spell)) {
+                        <span class="shrink-0 text-label text-gold" title="Prepared" aria-label="Prepared">★</span>
+                      }
+                      <span class="min-w-0 flex-1 truncate text-body font-medium text-ink">{{ spell }}</span>
+                    </button>
+
+                    <div class="flex shrink-0 items-center" role="group" [attr.aria-label]="'Cast ' + spell">
+                      <button
+                        forgeButton
+                        variant="secondary"
+                        tone="accent"
+                        size="sm"
+                        type="button"
+                        [attach]="group.level > 0 ? 'start' : undefined"
+                        (click)="castNow(spell, group.level, $event)"
+                      >
+                        ✨ Cast
+                        @if (castPreview(spell, lowestOpenSlot(group.level) ?? group.level); as dice) {
+                          <span class="font-normal tabular-nums opacity-80">{{ dice }}</span>
+                        }
+                      </button>
+                      @if (group.level > 0) {
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="accent"
+                          size="sm"
+                          attach="end"
+                          type="button"
+                          [attr.aria-label]="'Upcast or ritual options for ' + spell"
+                          (click)="openCastOptions(spell, group.level, $event)"
+                        >
+                          <forge-icon name="chevron-down" size="sm" />
+                        </button>
+                      }
+                    </div>
+
+                    @if (editMode) {
+                      <button
+                        forgeButton
+                        variant="danger"
+                        size="sm"
+                        iconOnly
+                        type="button"
+                        [attr.aria-label]="'Delete ' + spell"
+                        (click)="deleteSpell(group.label, idx, $event)"
+                      >
+                        <forge-icon name="close" size="sm" />
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="rounded-xl border border-hairline bg-panel px-3 py-2.5 text-label text-muted">
+                No {{ mobileLevelHeading(group.level) | lowercase }} spells listed.
+              </p>
+            }
+          </section>
+        } @empty {
+          <p class="rounded-xl border border-hairline bg-panel px-4 py-6 text-center text-label text-muted">
+            No spells match this filter.
+          </p>
+        }
+      </div>
+    } @else {
+      <forge-empty-state
+        icon="✨"
+        title="No spells on this sheet"
+        description="Martial heroes can track Class Resources and Features under Combat → Actions &amp; Features."
+      ></forge-empty-state>
+    }
+  </div>
+
+  <!-- Mobile Sorcery Points / Font of Magic / Metamagic Slide-Up Sheet -->
+  @if (sorceryPool; as pool) {
+    <forge-modal
+      [open]="showMobileSorcerySheet()"
+      [sheetOnMobile]="true"
+      (openChange)="showMobileSorcerySheet.set($event)"
+      title="✨ Font of Magic &amp; Metamagic"
+      maxWidth="460px"
+    >
+      <div class="flex flex-col gap-4">
+        <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2.5">
+          <span class="text-micro font-semibold uppercase text-muted">Sorcery Points</span>
+          <span class="text-metric font-bold tabular-nums text-accent">{{ pool.current }} / {{ pool.max }}</span>
+        </div>
+
+        @if (creatableLevels.length > 0) {
+          <div class="flex flex-col gap-1.5">
+            <p class="text-micro font-semibold uppercase text-muted">Create a Slot (Bonus Action)</p>
+            <div class="flex flex-wrap gap-1.5">
+              @for (lvl of creatableLevels; track lvl) {
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [disabled]="!canCreate(lvl)"
+                  (click)="flexibleCasting.emit({ direction: 'create', level: lvl })"
+                >
+                  Lv {{ lvl }} · {{ slotCost(lvl) }} SP
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @if (activeSpellLevels.length > 0) {
+          <div class="flex flex-col gap-1.5">
+            <p class="text-micro font-semibold uppercase text-muted">Convert Slot to Points</p>
+            <div class="flex flex-wrap gap-1.5">
+              @for (lvl of activeSpellLevels; track lvl) {
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [disabled]="!pointsFrom(lvl)"
+                  (click)="flexibleCasting.emit({ direction: 'points', level: lvl })"
+                >
+                  Lv {{ lvl }} → +{{ pointsFrom(lvl) || lvl }} SP
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @if (metamagicLimit > 0 || knownMetamagicOptions.length > 0) {
+          <div class="flex flex-col gap-2 border-t border-hairline pt-3">
+            <p class="text-micro font-semibold uppercase text-muted">
+              Metamagic · {{ knownMetamagicOptions.length }}/{{ metamagicLimit }} Known
+            </p>
+            @for (option of knownMetamagicOptions; track option.id) {
+              <div class="flex flex-col gap-1.5 rounded-xl bg-panel p-3">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="text-body font-semibold text-ink">{{ option.name }}</p>
+                    <p class="text-micro text-muted">{{ option.summary }}</p>
+                  </div>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    class="shrink-0"
+                    [disabled]="pool.current < metamagicMinCost(option)"
+                    (click)="useMetamagic(option)"
+                  >
+                    {{ option.costBySpellLevel ? 'Lv SP' : option.cost + ' SP' }}
+                  </button>
+                </div>
+                @if (twinPicking() === option.id) {
+                  <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                    @for (lvl of twinLevels; track lvl) {
+                      <button
+                        forgeButton
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        [disabled]="pool.current < twinCost(option, lvl)"
+                        (click)="useMetamagic(option, lvl)"
+                      >
+                        {{ lvl === 0 ? 'Cantrip' : 'Lv ' + lvl }} · {{ twinCost(option, lvl) }}
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </forge-modal>
+  }
+} @else {
 <div class="flex flex-col gap-6">
   <!-- Spellcasting Stats Overview -->
   <section aria-labelledby="spellcasting-stats-heading">
@@ -523,7 +952,7 @@
         <div class="flex flex-col gap-1.5">
           <div *ngFor="let spell of group.spells; let idx = index" class="rounded-xl overflow-hidden flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 bg-panel border border-hairline/60 hover:border-accent/40 transition-colors p-1">
             <div class="w-full sm:w-auto sm:flex-1 min-w-0">
-              <forge-list-row [title]="spell" actionLabel="Details" (onClick)="selectedSpell.set(spell)">
+              <forge-list-row [title]="spell" actionLabel="Details" (onClick)="openSpellDetail(spell, group.level)">
                 <ng-container trailing>
                   <forge-badge *ngIf="isPrepared(spell)" tone="accent" size="sm">Prepared</forge-badge>
                 </ng-container>
@@ -570,110 +999,6 @@
       </div>
     </div>
   </section>
-
-  <!-- CAST LEVEL PICKER (#173): only opened from the ▾ next to Cast -->
-  <forge-modal
-    [open]="!!upcastTarget()"
-    (closed)="closeUpcast()"
-    [title]="'✨ Cast ' + (upcastTarget()?.spellName || 'spell')"
-    maxWidth="420px"
-  >
-    @if (upcastTarget(); as target) {
-      <div class="flex flex-col gap-3">
-        <p class="text-label text-muted">
-          Choose the slot to spend. Higher slots roll more dice. Base level {{ target.baseLevel }}.
-        </p>
-
-        @if (sorceryPool && knownMetamagicOptions.length > 0) {
-          <div class="flex flex-col gap-1.5 rounded-xl border border-hairline bg-tile p-3">
-            <div class="flex items-baseline justify-between gap-2">
-              <p class="text-micro font-semibold uppercase text-muted">Metamagic</p>
-              <span class="text-micro text-muted">
-                Sorcery Points <span class="font-bold text-ink">{{ sorceryPool.current }}</span>
-              </span>
-            </div>
-            <div class="flex flex-wrap gap-1.5">
-              @for (option of knownMetamagicOptions; track option.id) {
-                <button
-                  forgeButton
-                  [variant]="isCastMetamagic(option) ? 'primary' : 'secondary'"
-                  size="sm"
-                  type="button"
-                  [attr.aria-pressed]="isCastMetamagic(option)"
-                  [disabled]="!isCastMetamagic(option) && !canAddCastMetamagic(option, target.baseLevel)"
-                  [title]="option.summary"
-                  (click)="toggleCastMetamagic(option)"
-                >
-                  {{ option.name.replace(' Spell', '') }} · {{ option.costBySpellLevel ? 'Lv' : option.cost }}
-                </button>
-              }
-            </div>
-          </div>
-        }
-
-        @if (getAvailableUpcastLevels(target.baseLevel).length === 0) {
-          <p class="rounded-lg border border-hairline bg-tile px-3 py-2 text-label text-muted">
-            No spell slots of level {{ target.baseLevel }} or higher left.
-          </p>
-        }
-
-        <ul class="flex flex-col divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
-          @for (lvl of getAvailableUpcastLevels(target.baseLevel); track lvl) {
-            <li>
-              <button
-                type="button"
-                class="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
-                [disabled]="!canPayCastMetamagic(lvl)"
-                (click)="confirmUpcast(lvl)"
-              >
-                <span class="min-w-0 flex-1">
-                  <span class="block font-semibold text-ink">
-                    Level {{ lvl }}
-                    @if (lvl > target.baseLevel) {
-                      <span class="ml-1 text-micro font-semibold uppercase text-accent">Upcast +{{ lvl - target.baseLevel }}</span>
-                    }
-                  </span>
-                  <span class="block text-micro text-muted">
-                    {{ slotsRemaining(lvl) }} of {{ getSpellSlotMax(lvl) }} slot{{ getSpellSlotMax(lvl) > 1 ? 's' : '' }} left
-                    @if (castMetamagicCost(lvl) > 0) {
-                      · <span class="font-semibold text-accent">−{{ castMetamagicCost(lvl) }} SP</span>
-                    }
-                  </span>
-                </span>
-                @if (castPreview(target.spellName, lvl); as dice) {
-                  <span class="rounded-md bg-tile px-2 py-1 text-label font-bold tabular-nums text-ink">{{ dice }}</span>
-                }
-              </button>
-            </li>
-          }
-        </ul>
-
-        <div class="flex items-center justify-between border-t border-hairline pt-3">
-          <button
-            forgeButton
-            variant="ghost"
-            size="sm"
-            type="button"
-            class="text-gold"
-            title="Rituals take 10 minutes longer and spend no slot (only spells with the ritual tag)"
-            [disabled]="!canPayCastMetamagic(target.baseLevel)"
-            (click)="confirmUpcast(target.baseLevel, true)"
-          >
-            🕯️ Cast as ritual (no slot)
-          </button>
-          <button forgeButton variant="ghost" size="sm" type="button" (click)="closeUpcast()">Cancel</button>
-        </div>
-      </div>
-    }
-  </forge-modal>
-
-  <!-- Spell Detail Modal -->
-  <app-spell-detail-modal
-    *ngIf="selectedSpell()"
-    [spellName]="selectedSpell()!"
-    [isPrepared]="isPrepared(selectedSpell()!)"
-    (close)="selectedSpell.set(null)"
-  ></app-spell-detail-modal>
 
   <!-- FEATURES SECTION -->
   <section class="flex flex-col gap-3" aria-labelledby="features-heading">
@@ -809,3 +1134,114 @@
     }
   </section>
 </div>
+}
+
+<!-- SHARED CAST LEVEL PICKER (#173) -->
+<forge-modal
+  [open]="!!upcastTarget()"
+  [sheetOnMobile]="true"
+  (closed)="closeUpcast()"
+  [title]="'✨ Cast ' + (upcastTarget()?.spellName || 'spell')"
+  maxWidth="420px"
+>
+  @if (upcastTarget(); as target) {
+    <div class="flex flex-col gap-3">
+      <p class="text-label text-muted">
+        Choose the slot to spend. Higher slots roll more dice. Base level {{ target.baseLevel }}.
+      </p>
+
+      @if (sorceryPool && knownMetamagicOptions.length > 0) {
+        <div class="flex flex-col gap-1.5 rounded-xl border border-hairline bg-tile p-3">
+          <div class="flex items-baseline justify-between gap-2">
+            <p class="text-micro font-semibold uppercase text-muted">Metamagic</p>
+            <span class="text-micro text-muted">
+              Sorcery Points <span class="font-bold text-ink">{{ sorceryPool.current }}</span>
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            @for (option of knownMetamagicOptions; track option.id) {
+              <button
+                forgeButton
+                [variant]="isCastMetamagic(option) ? 'primary' : 'secondary'"
+                size="sm"
+                type="button"
+                [attr.aria-pressed]="isCastMetamagic(option)"
+                [disabled]="!isCastMetamagic(option) && !canAddCastMetamagic(option, target.baseLevel)"
+                [title]="option.summary"
+                (click)="toggleCastMetamagic(option)"
+              >
+                {{ option.name.replace(' Spell', '') }} · {{ option.costBySpellLevel ? 'Lv' : option.cost }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      @if (getAvailableUpcastLevels(target.baseLevel).length === 0) {
+        <p class="rounded-lg border border-hairline bg-tile px-3 py-2 text-label text-muted">
+          No spell slots of level {{ target.baseLevel }} or higher left.
+        </p>
+      }
+
+      <ul class="flex flex-col divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
+        @for (lvl of getAvailableUpcastLevels(target.baseLevel); track lvl) {
+          <li>
+            <button
+              type="button"
+              class="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40"
+              [disabled]="!canPayCastMetamagic(lvl)"
+              (click)="confirmUpcast(lvl)"
+            >
+              <span class="min-w-0 flex-1">
+                <span class="block font-semibold text-ink">
+                  Level {{ lvl }}
+                  @if (lvl > target.baseLevel) {
+                    <span class="ml-1 text-micro font-semibold uppercase text-accent">Upcast +{{ lvl - target.baseLevel }}</span>
+                  }
+                </span>
+                <span class="block text-micro text-muted">
+                  {{ slotsRemaining(lvl) }} of {{ getSpellSlotMax(lvl) }} slot{{ getSpellSlotMax(lvl) > 1 ? 's' : '' }} left
+                  @if (castMetamagicCost(lvl) > 0) {
+                    · <span class="font-semibold text-accent">−{{ castMetamagicCost(lvl) }} SP</span>
+                  }
+                </span>
+              </span>
+              @if (castPreview(target.spellName, lvl); as dice) {
+                <span class="rounded-md bg-tile px-2 py-1 text-label font-bold tabular-nums text-ink">{{ dice }}</span>
+              }
+            </button>
+          </li>
+        }
+      </ul>
+
+      <div class="flex items-center justify-between border-t border-hairline pt-3">
+        <button
+          forgeButton
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="text-gold"
+          title="Rituals take 10 minutes longer and spend no slot (only spells with the ritual tag)"
+          [disabled]="!canPayCastMetamagic(target.baseLevel)"
+          (click)="confirmUpcast(target.baseLevel, true)"
+        >
+          🕯️ Cast as ritual (no slot)
+        </button>
+        <button forgeButton variant="ghost" size="sm" type="button" (click)="closeUpcast()">Cancel</button>
+      </div>
+    </div>
+  }
+</forge-modal>
+
+<!-- SHARED SPELL DETAIL MODAL -->
+@if (selectedSpell(); as spell) {
+  <app-spell-detail-modal
+    [spellName]="spell"
+    [spellLevel]="selectedSpellLevel()"
+    [isPrepared]="isPrepared(spell)"
+    [canCast]="true"
+    (cast)="castFromDetail(spell, selectedSpellLevel())"
+    (openUpcast)="openUpcastFromDetail(spell, selectedSpellLevel())"
+    (close)="selectedSpell.set(null)"
+  ></app-spell-detail-modal>
+}

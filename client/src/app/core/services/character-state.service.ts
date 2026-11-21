@@ -8,6 +8,7 @@ import { environment } from '../../../environments/environment';
 /** The hero the player last had open, restored after a page refresh. */
 const ACTIVE_CHARACTER_KEY = 'phyrexian_forge_active_char';
 const ACTIVE_CHARACTER_SNAPSHOT_KEY = 'phyrexian_forge_active_char_snapshot';
+const ACTIVE_EDITION_KEY = 'phyrexian_forge_active_edition';
 
 @Injectable({
   providedIn: 'root',
@@ -19,7 +20,7 @@ export class CharacterStateService {
   readonly characters = signal<CharacterSchema[]>([]);
   readonly unreadableCharacters = signal<any[]>([]);
   readonly activeCharacter = signal<CharacterSchema | null>(null);
-  readonly dndEdition = signal<string>('2014 Edition');
+  readonly dndEdition = signal<string>(this.readStoredEdition());
 
   // Computed Modifiers
   readonly filteredCharacters = computed(() => {
@@ -75,6 +76,7 @@ export class CharacterStateService {
 
     effect(() => {
       const edition = this.dndEdition();
+      this.storeEdition(edition);
       if (typeof document !== 'undefined' && document.documentElement) {
         document.documentElement.setAttribute(
           'data-edition',
@@ -163,6 +165,25 @@ export class CharacterStateService {
     return available.find((c) => c.char_id === remembered) ?? available[0] ?? null;
   }
 
+  private readStoredEdition(): string {
+    try {
+      const saved = localStorage.getItem(ACTIVE_EDITION_KEY);
+      if (saved && saved.includes('2024')) return '2024 Revision (5.5e)';
+      if (saved) return '2014 Edition';
+    } catch {
+      // Ignore storage access restrictions
+    }
+    return '2014 Edition';
+  }
+
+  private storeEdition(edition: string): void {
+    try {
+      localStorage.setItem(ACTIVE_EDITION_KEY, edition);
+    } catch {
+      // Ignore storage access restrictions
+    }
+  }
+
   private readActiveId(): string | null {
     try {
       return localStorage.getItem(ACTIVE_CHARACTER_KEY);
@@ -215,6 +236,7 @@ export class CharacterStateService {
     this.clearActiveSnapshot();
     try {
       localStorage.removeItem(ACTIVE_CHARACTER_KEY);
+      localStorage.removeItem(ACTIVE_EDITION_KEY);
     } catch {
       // Ignore storage errors.
     }

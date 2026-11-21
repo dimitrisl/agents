@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { SpellsPanelComponent } from './spells-panel.component';
 import { CharacterSchema } from '../../../../core/models/character.model';
 import { HapticsService } from '../../../../core/services/haptics.service';
@@ -40,7 +42,7 @@ describe('SpellsPanelComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SpellsPanelComponent],
-      providers: [HapticsService, RollToastService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), HapticsService, RollToastService],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SpellsPanelComponent);
@@ -289,5 +291,104 @@ describe('SpellsPanelComponent', () => {
     expect(component.pactCountAtLevel(2)).toBe(2);
     expect(text).toContain('1/2 Pact (Lvl 2 · Short Rest)');
     expect(text).not.toContain('4/4 Pact');
+  });
+
+  describe('Mobile Companion compactMobile mode', () => {
+    beforeEach(() => {
+      component.char = {
+        ...JSON.parse(JSON.stringify(mockChar)),
+        spell_ability: 'INT',
+        spell_save_dc: 15,
+        spell_attack_bonus: '+7',
+      };
+      component.getSpellSlotMax = (lvl: number) => component.char.spell_slots?.[String(lvl)]?.max ?? 0;
+      component.getSpellSlotUsed = (lvl: number) => component.char.spell_slots?.[String(lvl)]?.used ?? 0;
+      fixture.componentRef.setInput('compactMobile', true);
+      fixture.detectChanges();
+    });
+
+    it('renders compact 1-line spellcasting header and filters by level & prepared pills', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const statsText = el.querySelector('[data-testid="mobile-spell-stats"]')?.textContent || '';
+      expect(statsText).toContain('INT');
+      expect(statsText).toContain('15');
+      expect(statsText).toContain('+7');
+
+      (el.querySelector('[data-testid="mobile-spell-filter-2"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.mobileFilteredSpellGroups.map((g) => g.level)).toEqual([2]);
+      expect(component.mobileFilteredSpellGroups[0].spells).toEqual(['Misty Step', 'Scorching Ray']);
+
+      (el.querySelector('[data-testid="mobile-spell-filter-prepared"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const allPrepared = component.mobileFilteredSpellGroups.flatMap((g) => g.spells);
+      expect(allPrepared).toContain('Shield');
+      expect(allPrepared).not.toContain('Detect Magic');
+    });
+
+    it('spends or restores spell slots via inline clickable slot pips on level headers', () => {
+      const useSpy = jest.spyOn(component.useSpellSlot, 'emit');
+      const restoreSpy = jest.spyOn(component.restoreSpellSlot, 'emit');
+      const el = fixture.nativeElement as HTMLElement;
+
+      // Level 1 has max 4, used 1 => 3 remaining (pips 1,2,3 filled; pip 4 empty)
+      (el.querySelector('[data-testid="mobile-slot-pip-1-3"]') as HTMLButtonElement).click();
+      expect(useSpy).toHaveBeenCalledWith(1);
+
+      (el.querySelector('[data-testid="mobile-slot-pip-1-4"]') as HTMLButtonElement).click();
+      expect(restoreSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('opens spell detail with spell level and supports casting from detail helper', () => {
+      const castSpy = jest.spyOn(component.castSpell, 'emit');
+      const slotSpy = jest.spyOn(component.useSpellSlot, 'emit');
+
+      component.openSpellDetail('Magic Missile', 1);
+      expect(component.selectedSpell()).toBe('Magic Missile');
+      expect(component.selectedSpellLevel()).toBe(1);
+
+      component.castFromDetail('Magic Missile', 1);
+      expect(slotSpy).toHaveBeenCalledWith(1);
+      expect(castSpy).toHaveBeenCalledWith({ spellName: 'Magic Missile', level: 1, isRitual: false });
+    });
+
+    it('resets active spell filters and open sheets when hero changes', () => {
+      component.mobileLevelFilter.set(1);
+      component.openSpellDetail('Magic Missile', 1);
+      expect(component.selectedSpell()).toBe('Magic Missile');
+
+      fixture.componentRef.setInput('char', { ...component.char, char_id: 'wizard-2', char_name: 'Elminster' });
+      fixture.detectChanges();
+      expect(component.mobileLevelFilter()).toBe('all');
+      expect(component.selectedSpell()).toBeNull();
+    });
+
+    it('renders Warlock Pact + level_N schema slots in compactMobile mode and sequences detail -> upcast cleanly', async () => {
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        char_id: 'hexlock-1',
+        char_class: 'Warlock',
+        spells: { level_1: ['Hex'], level_2: ['Misty Step'] },
+        spell_slots: {
+          pact: { max: 2, used: 1, level: 2 },
+          level_1: { max: 2, used: 0 },
+          level_2: { max: 2, used: 1, pact_max: 2, pact_used: 1 },
+        },
+      });
+      component.getSpellSlotMax = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.max ?? 0;
+      component.getSpellSlotUsed = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.used ?? 0;
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent || '';
+      expect(text).toContain('1/2 Pact');
+      expect(component.mobileLevelPills).toEqual([1, 2]);
+
+      component.openSpellDetail('Hex', 1);
+      expect(component.selectedSpell()).toBe('Hex');
+      component.openUpcastFromDetail('Hex', 1);
+      expect(component.selectedSpell()).toBeNull();
+      await Promise.resolve();
+      expect(component.upcastTarget()).toEqual({ spellName: 'Hex', baseLevel: 1 });
+    });
   });
 });

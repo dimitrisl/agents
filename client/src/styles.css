@@ -161,6 +161,18 @@
     background: rgb(0 0 0 / 75%);
   }
 
+  /* Bottom-sheet entrance motion for <forge-modal [sheetOnMobile]="true"> */
+  @keyframes forge-sheet-up {
+    from {
+      transform: translateY(1rem);
+      opacity: 0.92;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
   /* [forgeButton] [loading]: a leading spinner in the button's text color.
      A pseudo-element because the directive cannot add markup; the button is
      inline-flex with gap-2, so it sits before the label like an icon. */
@@ -448,4 +460,39 @@ img, svg, video, canvas {
   }
 }
 
+}
+
+/* Unlayered overrides so mobile bottom sheets beat CDK unlayered backdrop & @layer utilities while desktop stays bg-surface */
+.cdk-overlay-backdrop.cdk-overlay-dark-backdrop.forge-mobile-sheet-backdrop {
+  background: rgb(0 0 0 / 82%);
+}
+
+@media (max-width: 1023px) {
+  .cdk-global-overlay-wrapper:has(.forge-mobile-sheet-pane) {
+    align-items: flex-end !important;
+    justify-content: center !important;
+  }
+
+  .cdk-overlay-pane.forge-mobile-sheet-pane {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    animation: forge-sheet-up 160ms ease-out;
+  }
+
+  .forge-mobile-sheet-pane .forge-mobile-sheet-section {
+    background: var(--bg-deep);
+    border-radius: 14px 14px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    padding: 0.75rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+    max-height: 88vh !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cdk-overlay-pane.forge-mobile-sheet-pane {
+    animation: none;
+  }
 }

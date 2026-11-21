@@ -1,4 +1,31 @@
-<forge-modal [open]="true" [title]="spellName" (closed)="closeModal()" class="w-full max-w-2xl">
+<forge-modal [open]="true" [sheetOnMobile]="true" [title]="spellName" (closed)="closeModal()" class="w-full max-w-2xl">
+  <!-- Quick Cast Actions when opened from Spellbook -->
+  @if (canCast) {
+    <div class="mb-4 flex flex-wrap items-center gap-2 border-b border-hairline pb-3">
+      <button
+        forgeButton
+        variant="primary"
+        size="sm"
+        type="button"
+        (click)="cast.emit(); closeModal()"
+      >
+        ✨ Cast {{ spellLevel === 0 ? 'Cantrip' : 'Spell' }}
+      </button>
+      @if ((spellLevel ?? 0) > 0) {
+        <button
+          forgeButton
+          variant="secondary"
+          tone="accent"
+          size="sm"
+          type="button"
+          (click)="openUpcast.emit()"
+        >
+          ⬆️ Upcast / Ritual
+        </button>
+      }
+    </div>
+  }
+
   <!-- Header Badges -->
   <div class="flex items-center gap-2 mb-4" *ngIf="spellData() as data">
     <forge-badge tone="accent" *ngIf="isPrepared">Prepared</forge-badge>
@@ -16,8 +43,8 @@
   </div>
 
   <!-- Error State -->
-  <div *ngIf="error()" class="rounded-lg bg-crimson/15 border border-crimson/40 p-4 text-center">
-    <p class="text-body text-crimson">{{ error() }}</p>
+  <div *ngIf="error()" class="rounded-lg bg-red/15 border border-red/40 p-4 text-center">
+    <p class="text-body text-red">{{ error() }}</p>
   </div>
 
   <!-- Spell Data -->
@@ -50,7 +77,8 @@
         <button
           *ngIf="hasSpellAttack()"
           forgeButton
-          variant="primary"
+          [variant]="canCast ? 'secondary' : 'primary'"
+          [tone]="canCast ? 'accent' : undefined"
           (click)="rollAttack()"
         >
           🎲 Roll Attack

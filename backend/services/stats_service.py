@@ -2080,13 +2080,14 @@ def sync_character_stats(
     jack = has_jack_of_all_trades(char_data)
     remarkable = has_remarkable_athlete(char_data, edition=edition)
 
-    # Observant feat (+5 bonus to passive Wisdom (Perception)) & item bonuses
+    # Observant feat (+5 bonus to passive Wisdom (Perception) under 2014 rules) & item bonuses
     passive_bonus = 0
-    for f in char_data.get("features_traits", []) or []:
-        fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
-        if "observant" in fname:
-            passive_bonus += 5
-            break
+    if not is_2024_sheet:
+        for f in char_data.get("features_traits", []) or []:
+            fname = (f.get("name") if isinstance(f, dict) else str(f)).lower()
+            if "observant" in fname:
+                passive_bonus += 5
+                break
     passive_bonus += int(char_data.get("passive_perception_bonus") or 0)
 
     disadv_passive_penalty = 5 if (not is_2024_sheet and effective_exh >= 1) else 0

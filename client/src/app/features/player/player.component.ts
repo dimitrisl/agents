@@ -19,7 +19,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, finalize, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, filter, finalize, map, merge, switchMap, tap } from 'rxjs';
 import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
 import { resolvePortraitUrl } from '../../core/utils/portrait';
 import { CharacterImportService, ImportedCharacter } from '../../core/services/character-import.service';
@@ -78,6 +78,8 @@ import {
   hasAthleticsAdvantage,
   isIncapacitated,
   levelUp,
+  passiveInsightOf,
+  passiveInvestigationOf,
   passivePerceptionOf,
   planShortRest,
   proficiencyBonus,
@@ -110,6 +112,7 @@ import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeIconComponent,
+  ForgeInputDirective,
   ForgeSpinnerComponent,
   ForgeSkeletonComponent,
   ForgeCardComponent,
@@ -123,6 +126,8 @@ import {
 import { PlayerDashboardHeaderComponent } from './player-dashboard-header/player-dashboard-header.component';
 import { HeroSwitcherComponent } from './hero-switcher/hero-switcher.component';
 import { CharacterOverviewCardComponent } from './character-overview-card/character-overview-card.component';
+import { HitPointsControlComponent } from './hit-points-control/hit-points-control.component';
+import { MobileHeroViewComponent } from './mobile-hero-view/mobile-hero-view.component';
 import { CharacterTabsComponent } from './character-tabs/character-tabs.component';
 import { RollModeSelectorComponent } from './roll-mode-selector/roll-mode-selector.component';
 import { SkillsPanelComponent } from './tabs/skills-panel/skills-panel.component';
@@ -168,9 +173,10 @@ interface RollTarget {
     FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
-  ForgeIconComponent,
-  ForgeSpinnerComponent,
-  ForgeSkeletonComponent,
+    ForgeIconComponent,
+    ForgeInputDirective,
+    ForgeSpinnerComponent,
+    ForgeSkeletonComponent,
     ForgeCardComponent,
     ForgeEmptyStateComponent,
     ForgeModalComponent,
@@ -179,6 +185,8 @@ interface RollTarget {
     PlayerDashboardHeaderComponent,
     HeroSwitcherComponent,
     CharacterOverviewCardComponent,
+    HitPointsControlComponent,
+    MobileHeroViewComponent,
     CharacterTabsComponent,
     RollModeSelectorComponent,
     SkillsPanelComponent,
@@ -232,7 +240,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return this.isMobileViewport();
   });
   mobileActiveTab = signal<'hero' | 'combat' | 'skills' | 'spells' | 'table'>('hero');
+  mobileHeroSubTab = signal<'abilities' | 'senses'>('abilities');
+  mobileTableSubTab = signal<'chat' | 'lore'>('chat');
+  mobileTableFeedFilter = signal<'all' | 'whispers' | 'rolls'>('all');
+  showMobileQuickWhispers = signal(false);
+  latestUnreadWhisper = signal<Whisper | null>(null);
+  unreadWhisperCount = signal<number>(0);
   showMobileHeaderActions = signal(false);
+  showMobileHpSheet = signal(false);
+  showMobileRestSheet = signal(false);
+  showMobileAcSheet = signal(false);
+  stickyPortraitError = signal(false);
   showQuickDiceDrawer = signal(false);
   showConcentrationPrompt = signal(false);
   concentrationDc = signal(10);
@@ -320,6 +338,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // only the value the user settles on is worth a round trip, so writes are
   // collapsed into a single trailing save.
   private readonly hpSave$ = new Subject<{ char: CharacterSchema; version: number }>();
+  private readonly immediateSave$ = new Subject<{
+    char: CharacterSchema;
+    version: number;
+    showToast: boolean;
+    onError?: (err: any) => void;
+  }>();
   private readonly levelUpAnalysis$ = new Subject<{
     char: CharacterSchema;
     choices: Record<string, any>;
@@ -350,33 +374,57 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     public wakeLock: WakeLockService,
     public haptics: HapticsService
   ) {
-    this.hpSave$
-      .pipe(
+    merge(
+      this.hpSave$.pipe(
         debounceTime(1000),
-        // concatMap, not switchMap: cancelling a request drops its response, not the
-        // server-side write, and the lost version then 409s every later save.
-        concatMap(({ char, version }) =>
+        // Drop queued snapshots superseded by a newer queued or immediate save.
+        filter(({ version }) => version >= this.localSaveVersion),
+        map((req) => ({ ...req, showToast: false, onError: undefined, isImmediate: false }))
+      ),
+      this.immediateSave$.pipe(map((req) => ({ ...req, isImmediate: true })))
+    )
+      .pipe(
+        // Serialize both debounced and immediate PUTs so versions never race into 409s
+        // or let an older debounced payload overwrite a newer immediate save.
+        concatMap(({ char, version, showToast, onError, isImmediate }) =>
           defer(() =>
             this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id!}`, {
               ...char,
               version: this.knownVersion(char),
             })
           ).pipe(
-            tap(updated => {
+            tap((updated) => {
               this.rememberVersion(updated);
-              // Only apply the full response if no newer local edits happened meanwhile.
-              if (this.localSaveVersion === version) {
+              this.charState.upsertCharacter(updated);
+              // Only replace the live sheet when no newer local edits or hero switch happened meanwhile.
+              if (
+                this.localSaveVersion === version &&
+                this.charState.activeCharacter()?.char_id === updated.char_id
+              ) {
                 this.charState.activeCharacter.set(updated);
-                // also update the cache silently
-                const list = this.charState.characters();
-                const idx = list.findIndex(c => c.char_id === updated.char_id);
-                if (idx >= 0) {
-                  this.charState.characters.set(list.map((c, i) => i === idx ? updated : c));
-                }
+              }
+              if (showToast) {
+                this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${char.char_name}.`);
               }
             }),
             catchError((err) => {
-              this.reportSaveFailure(char, err);
+              if (isImmediate) {
+                if (err?.status === 404) {
+                  this.createInVault(char, showToast, '💾 SHEET SAVED');
+                  return EMPTY;
+                }
+                if (err?.status === 409) {
+                  this.reportSaveFailure(char, err);
+                } else {
+                  this.rollToast.showMessage(
+                    '⚠️ SAVE FAILED',
+                    `Could not save ${char.char_name}. Your changes are still on screen — try again.`
+                  );
+                }
+                if (onError) onError(err);
+              } else {
+                this.reportSaveFailure(char, err);
+              }
               return EMPTY;
             })
           )
@@ -453,10 +501,46 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // so Cast can roll at once and the upcast menu can show each level's dice.
     effect(() => {
       const char = this.charState.activeCharacter();
+      this.stickyPortraitError.set(false);
       const hasSpells = Object.values(char?.spells || {}).some((list) => Array.isArray(list) && list.length > 0);
       if (char && hasSpells) {
         this.spellRules.load(char.dnd_edition || this.charState.dndEdition()).subscribe();
       }
+    });
+
+    const activeHeroKey = computed(() => {
+      const char = this.charState.activeCharacter();
+      return char ? (char.char_id || char.char_name) : null;
+    });
+    let prevCharKey: string | null | undefined;
+    effect(() => {
+      const charKey = activeHeroKey();
+      const char = untracked(() => this.charState.activeCharacter());
+      if (prevCharKey !== undefined && charKey !== prevCharKey) {
+        this.localSaveVersion++;
+        this.whisperHistory = [];
+        this.rollRequestHistory = [];
+        this.rollLogHistory = [];
+        this.unreadMessages = 0;
+        this.unreadWhisperCount.set(0);
+        this.latestUnreadWhisper.set(null);
+        this.whisperReply = '';
+        this.showWhisperInbox.set(false);
+        this.loadedCampaignMessageKey = null;
+        this.encounterState = null;
+        this.clearRollPrompts();
+        this.rebuildInboxFeed();
+        this.showMobileHpSheet.set(false);
+        this.showMobileAcSheet.set(false);
+        this.showMobileRestSheet.set(false);
+        this.showMobileQuickWhispers.set(false);
+        this.showQuickDiceDrawer.set(false);
+        this.showMobileHeaderActions.set(false);
+        this.showConcentrationPrompt.set(false);
+        this.editMode.set(false);
+        this.mobileTableSubTab.set(char?.active_campaign ? 'chat' : 'lore');
+      }
+      prevCharKey = charKey;
     });
 
     const wsConnectionKey = computed(() => {
@@ -468,6 +552,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     effect((onCleanup) => {
       const key = wsConnectionKey();
       const char = untracked(() => this.charState.activeCharacter());
+
       if (key && char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
         // private whispers and roll requests to this hero alone.
@@ -480,6 +565,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.rollRequestHistory = [];
         this.rollLogHistory = [];
         this.unreadMessages = 0;
+        this.unreadWhisperCount.set(0);
+        this.latestUnreadWhisper.set(null);
         this.whisperReply = '';
         this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
@@ -650,7 +737,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         const isOwnReply = this.isOwnWhisper(whisper);
         this.addWhisper(whisper, !isOwnReply);
         if (!isOwnReply) {
-          this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
+          if (this.isCompanionMode()) {
+            this.haptics.lightTap();
+          } else {
+            this.rollToast.showMessage(`💬 WHISPER FROM ${whisper.sender}`, whisper.message);
+          }
         }
       } else if (msg.type === 'campaign_roll') {
         const rollLog = msg['payload'] as CampaignRollLog | undefined;
@@ -1281,7 +1372,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // nothing is still a round trip.
     if (!char || !hasSpellSlotLevel(char, lvl)) return;
 
-    char.spell_slots = spendSpellSlot(char.spell_slots, lvl);
+    const updated: CharacterSchema = {
+      ...char,
+      spell_slots: spendSpellSlot(char.spell_slots, lvl),
+    };
+    this.charState.activeCharacter.set(updated);
     // Debounced like the rest of the sheet: a cast also sets concentration right
     // after, and an immediate save here used to answer with the pre-cast sheet,
     // briefly wiping the new Status chip until the second save landed.
@@ -1294,7 +1389,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     // pointless save is still a round trip.
     if (!char || !hasSpellSlotLevel(char, lvl)) return;
 
-    char.spell_slots = regainSpellSlot(char.spell_slots, lvl);
+    const updated: CharacterSchema = {
+      ...char,
+      spell_slots: regainSpellSlot(char.spell_slots, lvl),
+    };
+    this.charState.activeCharacter.set(updated);
     this.queueCharSave();
   }
 
@@ -1307,11 +1406,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!result) return;
 
     const before = sorceryPointsPool(char)?.current ?? 0;
-    char.spell_slots = result.spell_slots;
-    char.class_resources = result.class_resources;
+    const updated: CharacterSchema = {
+      ...char,
+      spell_slots: result.spell_slots,
+      class_resources: result.class_resources,
+    };
+    this.charState.activeCharacter.set(updated);
     this.queueCharSave();
 
-    const points = `${before} ➡️ ${sorceryPointsPool(char)?.current ?? 0}`;
+    const points = `${before} ➡️ ${sorceryPointsPool(updated)?.current ?? 0}`;
     this.rollToast.showMessage(
       '✨ FLEXIBLE CASTING',
       event.direction === 'create'
@@ -1329,11 +1432,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const resources = option && spendMetamagic(char, option, event.spellLevel);
     if (!option || !resources) return;
 
-    char.class_resources = resources;
+    const updated: CharacterSchema = {
+      ...char,
+      class_resources: resources,
+    };
+    this.charState.activeCharacter.set(updated);
     this.queueCharSave();
     this.rollToast.showMessage(
       `✨ ${option.name.toUpperCase()}`,
-      `${option.summary} (−${metamagicCost(option, event.spellLevel)} SP, ${sorceryPointsPool(char)?.current ?? 0} left)`
+      `${option.summary} (−${metamagicCost(option, event.spellLevel)} SP, ${sorceryPointsPool(updated)?.current ?? 0} left)`
     );
   }
 
@@ -1854,6 +1961,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.showWhisperInbox.set(!this.showWhisperInbox());
     if (this.showWhisperInbox()) {
       this.unreadMessages = 0;
+      this.unreadWhisperCount.set(0);
+      this.latestUnreadWhisper.set(null);
       this.pendingFeedScroll = true;
     }
   }
@@ -2039,6 +2148,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       });
   }
 
+  private isViewingMobileWhisperChat(): boolean {
+    return (
+      this.isCompanionMode() &&
+      this.mobileActiveTab() === 'table' &&
+      this.mobileTableSubTab() === 'chat'
+    );
+  }
+
   private addWhisper(whisper: Whisper, markUnread: boolean): void {
     if (whisper.id && this.whisperHistory.some((item) => item.id === whisper.id)) return;
 
@@ -2047,8 +2164,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox()) {
+    const inboxVisible = this.showWhisperInbox() || this.isViewingMobileWhisperChat();
+    if (markUnread && !inboxVisible) {
       this.unreadMessages += 1;
+      if (this.isCompanionMode()) {
+        this.unreadWhisperCount.update((c) => c + 1);
+        this.latestUnreadWhisper.set(whisper);
+      }
     }
   }
 
@@ -2149,7 +2271,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     );
     this.rebuildInboxFeed();
 
-    if (markUnread && !this.showWhisperInbox()) {
+    const inboxVisible = this.showWhisperInbox() || this.isViewingMobileWhisperChat();
+    if (markUnread && !inboxVisible) {
       this.unreadMessages += 1;
     }
   }
@@ -2324,6 +2447,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         // We just need to reload from the server to get the fresh state (and correct version number).
         this.charState.loadCharacters().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
         this.loadedCampaignMessageKey = null;
+        this.mobileTableSubTab.set('chat');
         this.rollToast.showMessage('🏰 CAMPAIGN JOINED', `Joined campaign "${res.campaign_name}" successfully!`);
       },
       error: (err) => this.rollToast.showMessage('⚠️ JOIN FAILED', err.error?.detail || 'Failed to join campaign.')
@@ -2351,10 +2475,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       concentrating_on: data.concentratingOn
     };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
     this.showConditionsModal.set(false);
   }
 
@@ -2540,11 +2661,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  onMobileHeroPatch(patch: Partial<CharacterSchema>): void {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const updated: CharacterSchema = { ...char, ...patch };
+    this.charState.activeCharacter.set(updated);
+    this.queueCharSave();
+  }
+
   saveCurrentChar(showToast = false, onError?: (err: any) => void) {
     const char = this.charState.activeCharacter();
     if (!char) return;
 
-    const copy = { ...char };
+    const copy = this.cloneChar(char);
+    this.localSaveVersion++;
     this.charState.activeCharacter.set(copy);
 
     if (!this.isInVault(copy)) {
@@ -2552,30 +2682,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
-    copy.version = this.knownVersion(copy);
-    this.charState.updateCharacter(copy.char_id!, copy).subscribe({
-      next: (updated) => {
-        this.rememberVersion(updated);
-        if (showToast) {
-          this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${copy.char_name}.`);
-        }
-      },
-      // Only a missing record justifies creating one. Any other failure is a real
-      // error, and forging a duplicate hero out of it would make things worse.
-      error: (err) => {
-        if (err?.status === 404) {
-          this.createInVault(copy, showToast, '💾 SHEET SAVED');
-        } else if (err?.status === 409) {
-          this.reportSaveFailure(copy, err);
-          if (onError) onError(err);
-        } else {
-          this.rollToast.showMessage(
-            '⚠️ SAVE FAILED',
-            `Could not save ${copy.char_name}. Your changes are still on screen — try again.`
-          );
-          if (onError) onError(err);
-        }
-      }
+    this.immediateSave$.next({
+      char: copy,
+      version: this.localSaveVersion,
+      showToast,
+      onError,
     });
   }
 
@@ -2590,10 +2701,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.saveCurrentChar();
       return;
     }
-    const copy = { ...char };
+    const copy = this.cloneChar(char);
     this.charState.activeCharacter.set(copy);
+    this.enqueueDebouncedSave(copy);
+  }
+
+  private cloneChar(char: CharacterSchema): CharacterSchema {
+    return JSON.parse(JSON.stringify(char));
+  }
+
+  private enqueueDebouncedSave(char: CharacterSchema): void {
+    if (!this.isInVault(char)) return;
     this.localSaveVersion++;
-    this.hpSave$.next({ char: copy, version: this.localSaveVersion });
+    this.hpSave$.next({ char: this.cloneChar(char), version: this.localSaveVersion });
   }
 
   private knownVersion(char: CharacterSchema): number {
@@ -2667,6 +2787,13 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  private clearMobileUnreadWhispers(): void {
+    this.unreadMessages = 0;
+    this.unreadWhisperCount.set(0);
+    this.latestUnreadWhisper.set(null);
+    this.pendingFeedScroll = true;
+  }
+
   selectMobileTab(tab: 'hero' | 'combat' | 'skills' | 'spells' | 'table') {
     this.haptics.lightTap();
     this.mobileActiveTab.set(tab);
@@ -2675,7 +2802,114 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     else if (tab === 'spells') this.selectSheetSubTab('spells');
     else if (tab === 'table') {
       this.selectSheetSubTab('roleplay');
-      this.unreadMessages = 0;
+      const hasCampaign = !!this.charState.activeCharacter()?.active_campaign;
+      this.mobileTableSubTab.set(hasCampaign ? 'chat' : 'lore');
+      if (hasCampaign) {
+        this.clearMobileUnreadWhispers();
+      }
+    }
+  }
+
+  selectMobileTableSubTab(subTab: 'chat' | 'lore'): void {
+    this.mobileTableSubTab.set(subTab);
+    if (subTab === 'chat') {
+      this.clearMobileUnreadWhispers();
+    }
+  }
+
+  openMobileWhisperChat(): void {
+    this.haptics.lightTap();
+    this.mobileActiveTab.set('table');
+    this.selectSheetSubTab('roleplay');
+    this.mobileTableSubTab.set('chat');
+    if (this.mobileTableFeedFilter() === 'rolls') {
+      this.mobileTableFeedFilter.set('all');
+    }
+    this.clearMobileUnreadWhispers();
+  }
+
+  dismissMobileWhisperBanner(event?: Event): void {
+    event?.stopPropagation();
+    this.latestUnreadWhisper.set(null);
+    this.unreadWhisperCount.set(0);
+  }
+
+  get filteredMobileInboxFeed(): InboxEntry[] {
+    const filter = this.mobileTableFeedFilter();
+    if (filter === 'all') return this.inboxFeed;
+    if (filter === 'whispers') {
+      return this.inboxFeed.filter((e) => e.kind === 'whisper');
+    }
+    return this.inboxFeed.filter((e) => e.kind === 'campaign_roll' || e.kind === 'roll');
+  }
+
+  senderInitials(name?: string): string {
+    const clean = (name || '').trim();
+    if (!clean) return '?';
+    if (clean.toLowerCase() === 'dm' || clean.toLowerCase() === 'dungeon master') return 'DM';
+    const parts = clean.split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
+  }
+
+  setRollMode(mode: RollMode): void {
+    this.haptics.lightTap();
+    this.rollMode = mode;
+  }
+
+  toggleMobileInspiration(): void {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    this.haptics.lightTap();
+    this.onUpdateHeroStatus({ inspiration: !char.inspiration });
+  }
+
+  getInitiativeModString(char: CharacterSchema | null | undefined): string {
+    if (!char) return '+0';
+    const mod = char.initiative_modifier ?? abilityCheckModifier(char, 'DEX');
+    return formatModifier(mod);
+  }
+
+  hasHeroInitiativeAdvantage(char: CharacterSchema | null | undefined): boolean {
+    return hasInitiativeAdvantage(char);
+  }
+
+  getPassiveInvestigation(char: CharacterSchema | null | undefined): number {
+    return passiveInvestigationOf(char);
+  }
+
+  getPassiveInsight(char: CharacterSchema | null | undefined): number {
+    return passiveInsightOf(char);
+  }
+
+  canMobileShortRest(char: CharacterSchema | null | undefined): boolean {
+    if (!char || this.isHeroDeceased(char)) return false;
+    return !char.active_campaign || !!char.dm_short_rest_unlocked;
+  }
+
+  canMobileLongRest(char: CharacterSchema | null | undefined): boolean {
+    if (!char || this.isHeroDeceased(char)) return false;
+    return !char.active_campaign || !!char.dm_long_rest_unlocked;
+  }
+
+  canMobileLevelUp(char: CharacterSchema | null | undefined): boolean {
+    if (!char || char.char_level >= 20 || this.isHeroDeceased(char)) return false;
+    return !char.active_campaign || !!char.dm_level_up_unlocked;
+  }
+
+  dmModifiersPartsOf(char: CharacterSchema | null | undefined): string[] {
+    return describeDmModifiers(char?.dm_modifiers);
+  }
+
+  adjustMobileExhaustion(delta: number): void {
+    const char = this.charState.activeCharacter();
+    if (!char || char.active_campaign?.trim()) return;
+    const current = char.exhaustion_level ?? 0;
+    const next = Math.max(0, Math.min(6, current + delta));
+    if (next !== current) {
+      this.onUpdateHeroStatus({ exhaustion_level: next });
     }
   }
 
@@ -2702,11 +2936,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const newHp = Math.max(0, currentHp - remainingDamage);
     const updated = { ...char, hp_current: newHp, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);
-
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
 
     // Trigger Concentration Check if character was concentrating (even when Temp HP absorbs the hit)
     if (char.concentrating_on && amount > 0) {
@@ -2729,11 +2959,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       death_saves: currentHp === 0 ? { successes: 0, failures: 0 } : char.death_saves,
     };
     this.charState.activeCharacter.set(updated);
-
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   setTempHp(amount: number) {
@@ -2742,10 +2968,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.haptics.lightTap();
     const updated = { ...char, hp_temp: Math.max(0, amount) };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   rollDeathSave() {
@@ -3095,10 +3318,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (delta > 0 && isDeceasedByExhaustion(char)) return;
     const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   adjustTempHp(delta: number) {
@@ -3107,10 +3327,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const newTemp = Math.max(0, (char.hp_temp || 0) + delta);
     const updated = { ...char, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   setDeathSave(type: 'successes' | 'failures', value: number) {
@@ -3122,10 +3339,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     };
     updated.death_saves[type] = Math.max(0, Math.min(3, value));
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   addWeapon() {

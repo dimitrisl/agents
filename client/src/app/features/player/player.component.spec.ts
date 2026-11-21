@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -1763,4 +1763,206 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
 
     fixture.destroy();
   });
+
+  it('supports D&D Beyond mobile companion sticky header actions, global sheets, and passive helpers', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      dnd_edition: '2024 Revision (5.5e)',
+      active_campaign: 'Curse of Strahd',
+      char_level: 5,
+      proficiency_bonus: 3,
+      stats: { STR: 10, DEX: 16, CON: 14, INT: 14, WIS: 16, CHA: 8 },
+      skill_proficiencies: ['Perception', 'Investigation', 'Insight'],
+      initiative_modifier: 3,
+      dm_short_rest_unlocked: true,
+      dm_long_rest_unlocked: false,
+      dm_level_up_unlocked: false,
+    });
+
+    comp.companionModeOverride.set(true);
+    comp.selectMobileTab('combat');
+    expect(comp.mobileActiveTab()).toBe('combat');
+
+    // Global HP sheet opens without leaving the Combat tab
+    comp.showMobileHpSheet.set(true);
+    expect(comp.showMobileHpSheet()).toBe(true);
+    expect(comp.mobileActiveTab()).toBe('combat');
+
+    // Sticky toolbar controls
+    comp.setRollMode('advantage');
+    expect(comp.rollMode).toBe('advantage');
+
+    comp.toggleMobileInspiration();
+    expect(charState.activeCharacter()?.inspiration).toBe(true);
+
+    // Sticky Init & Passive helpers
+    const activeChar = charState.activeCharacter()!;
+    expect(comp.getInitiativeModString(activeChar)).toBe('+3');
+    expect(comp.getPassiveInvestigation(activeChar)).toBe(15); // 10 + 2 (INT) + 3 (PB)
+    expect(comp.getPassiveInsight(activeChar)).toBe(16); // 10 + 3 (WIS) + 3 (PB)
+
+    // Rest & Level Up DM unlock checks in mobile Rest sheet
+    expect(comp.canMobileShortRest(activeChar)).toBe(true);
+    expect(comp.canMobileLongRest(activeChar)).toBe(false);
+    expect(comp.canMobileLevelUp(activeChar)).toBe(false);
+
+    // Table tab Messenger sub-tabs, chat filtering, and sender initials
+    comp.selectMobileTab('table');
+    expect(comp.mobileTableSubTab()).toBe('chat');
+    expect(comp.senderInitials('DM')).toBe('DM');
+    expect(comp.senderInitials('Valen Stormblade')).toBe('VS');
+
+    comp.whisperHistory = [
+      { id: 'w1', sender: 'DM', recipient: activeChar.char_name, message: 'Secret clue', timestamp: '2026-11-20 20:00:00' },
+    ];
+    comp.rollLogHistory = [
+      {
+        id: 'r1',
+        campaign_name: 'Curse of Strahd',
+        char_id: activeChar.char_id!,
+        char_name: activeChar.char_name,
+        sender_user_id: 'u1',
+        roll_type: 'skill',
+        roll_label: 'Perception',
+        formula: '1d20+6',
+        rolls: [12],
+        modifier: 6,
+        total: 18,
+        visibility: 'public',
+        created_at: '2026-11-20 20:01:00',
+      },
+    ];
+    (comp as any).rebuildInboxFeed();
+    comp.mobileTableFeedFilter.set('whispers');
+    expect(comp.filteredMobileInboxFeed.length).toBe(1);
+    expect(comp.filteredMobileInboxFeed.every((e) => e.kind === 'whisper')).toBe(true);
+    comp.mobileTableFeedFilter.set('rolls');
+    expect(comp.filteredMobileInboxFeed.length).toBe(1);
+    expect(comp.filteredMobileInboxFeed.every((e) => e.kind !== 'whisper')).toBe(true);
+
+    // Persistent DM whisper notification when on another tab -> tapping switches straight to Table Chat
+    comp.selectMobileTab('hero');
+    expect(comp.mobileActiveTab()).toBe('hero');
+    (comp as any).addWhisper(
+      { id: 'w-live', sender: 'DM', recipient: activeChar.char_name, message: 'A hidden door clicks open.', timestamp: '2026-11-20 20:05:00' },
+      true
+    );
+    expect(comp.unreadMessages).toBe(1);
+    expect(comp.latestUnreadWhisper()?.message).toBe('A hidden door clicks open.');
+
+    comp.openMobileWhisperChat();
+    expect(comp.mobileActiveTab()).toBe('table');
+    expect(comp.mobileTableSubTab()).toBe('chat');
+    expect(comp.mobileTableFeedFilter()).toBe('all');
+    expect(comp.unreadMessages).toBe(0);
+    expect(comp.latestUnreadWhisper()).toBeNull();
+
+    // Arriving while already viewing Mobile Chat does NOT create unread badge or banner
+    (comp as any).addWhisper(
+      { id: 'w-live-2', sender: 'DM', recipient: activeChar.char_name, message: 'Roll Stealth!', timestamp: '2026-11-20 20:06:00' },
+      true
+    );
+    expect(comp.unreadMessages).toBe(0);
+    expect(comp.unreadWhisperCount()).toBe(0);
+    expect(comp.latestUnreadWhisper()).toBeNull();
+
+    // Unread roll requests must not inflate unreadWhisperCount (+N badge on whisper banner)
+    comp.selectMobileTab('combat');
+    (comp as any).addRollRequest({
+      id: 'req-unread',
+      char_filename: 'valen.json',
+      char_name: activeChar.char_name,
+      roll_type: 'skill',
+      stat: 'Perception',
+      status: 'pending',
+      created_at: '2026-11-20 20:07:00',
+    }, true);
+    (comp as any).addWhisper(
+      { id: 'w-live-3', sender: 'DM', recipient: activeChar.char_name, message: 'One secret whisper', timestamp: '2026-11-20 20:08:00' },
+      true
+    );
+    expect(comp.unreadMessages).toBe(2);
+    expect(comp.unreadWhisperCount()).toBe(1);
+
+    // Desktop inbox toggle also clears mobile whisper banner state
+    comp.toggleWhisperInbox();
+    expect(comp.latestUnreadWhisper()).toBeNull();
+    expect(comp.unreadWhisperCount()).toBe(0);
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
+
+  it('resets mobile sheets, drawers, editMode, and concentration prompt on solo-to-solo hero switch', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'solo-1',
+      char_name: 'Solo One',
+      active_campaign: undefined,
+    });
+
+    comp.showMobileHpSheet.set(true);
+    comp.showMobileAcSheet.set(true);
+    comp.showMobileRestSheet.set(true);
+    comp.showMobileQuickWhispers.set(true);
+    comp.showQuickDiceDrawer.set(true);
+    comp.showMobileHeaderActions.set(true);
+    comp.showConcentrationPrompt.set(true);
+    comp.editMode.set(true);
+    comp.mobileTableSubTab.set('chat');
+
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'solo-2',
+      char_name: 'Solo Two',
+      active_campaign: undefined,
+    });
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(comp.showMobileHpSheet()).toBe(false);
+    expect(comp.showMobileAcSheet()).toBe(false);
+    expect(comp.showMobileRestSheet()).toBe(false);
+    expect(comp.showMobileQuickWhispers()).toBe(false);
+    expect(comp.showQuickDiceDrawer()).toBe(false);
+    expect(comp.showMobileHeaderActions()).toBe(false);
+    expect(comp.showConcentrationPrompt()).toBe(false);
+    expect(comp.editMode()).toBe(false);
+    expect(comp.mobileTableSubTab()).toBe('lore');
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
+
+  it('drops superseded debounced hpSave$ writes when saveCurrentChar saves immediately', fakeAsync(() => {
+    HTMLElement.prototype.scrollIntoView ??= jest.fn();
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'race-1',
+      hp_current: 40,
+      background: 'Sage',
+      version: 2,
+      active_campaign: undefined,
+    });
+
+    // Trigger a debounced save (adjustHp -> hpSave$) then an immediate save with newer edit
+    comp.adjustHp(-5);
+    expect(charState.activeCharacter()?.hp_current).toBe(35);
+
+    tick(200);
+    comp.onMobileHeroPatch({ background: 'Soldier' });
+    comp.saveCurrentChar(true);
+
+    const immediatePut = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/characters/race-1'));
+    expect(immediatePut.request.body.hp_current).toBe(35);
+    expect(immediatePut.request.body.background).toBe('Soldier');
+    expect(immediatePut.request.body.version).toBe(2);
+    immediatePut.flush({ ...immediatePut.request.body, version: 3 });
+
+    // Advance past the 1000ms debounce window — the older queued emission must NOT fire
+    tick(1200);
+    http.expectNone((r) => r.method === 'PUT' && r.url.endsWith('/characters/race-1'));
+    expect(charState.activeCharacter()?.background).toBe('Soldier');
+    expect(charState.activeCharacter()?.version).toBe(3);
+
+    http.match(() => true).forEach((r) => r.flush({}));
+    fixture.destroy();
+  }));
 });

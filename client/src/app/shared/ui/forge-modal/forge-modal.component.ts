@@ -11,6 +11,7 @@ import {
   TemplateRef,
   ViewChild,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Dialog, DialogModule, DialogRef } from '@angular/cdk/dialog';
 import { ForgeButtonDirective } from '../forge-button/forge-button.directive';
 import { ForgeIconComponent } from '../forge-icon/forge-icon.component';
@@ -18,7 +19,7 @@ import { ForgeIconComponent } from '../forge-icon/forge-icon.component';
 @Component({
   selector: 'forge-modal',
   standalone: true,
-  imports: [DialogModule, ForgeButtonDirective, ForgeIconComponent],
+  imports: [CommonModule, DialogModule, ForgeButtonDirective, ForgeIconComponent],
   templateUrl: './forge-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -26,6 +27,7 @@ export class ForgeModalComponent implements AfterViewInit, OnChanges, OnDestroy 
   @Input() open = false;
   @Input() title?: string;
   @Input() maxWidth = '560px';
+  @Input() sheetOnMobile = false;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() closed = new EventEmitter<void>();
@@ -64,6 +66,10 @@ export class ForgeModalComponent implements AfterViewInit, OnChanges, OnDestroy 
         width: `min(92vw, ${this.maxWidth})`,
         maxWidth: '92vw',
         maxHeight: '85vh',
+        panelClass: this.sheetOnMobile ? 'forge-mobile-sheet-pane' : undefined,
+        backdropClass: this.sheetOnMobile
+          ? ['cdk-overlay-dark-backdrop', 'forge-mobile-sheet-backdrop']
+          : undefined,
         restoreFocus: true,
         autoFocus: 'first-tabbable',
       });
