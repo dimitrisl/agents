@@ -29,8 +29,7 @@ The Player Companion module provides the responsive, real-time character sheet i
 ---
 
 ### 2. Multi-Level Progression Roadmap & Dynamic Build Advisor
-- **Modal:** [`client/src/app/features/player/modals/level-up-modal/`](../../../client/src/app/features/player/modals/level-up-modal)
-- **Component:** [`client/src/app/features/player/modals/build-advisor/`](../../../client/src/app/features/player/modals/build-advisor)
+- **Modal & Strategy:** [`client/src/app/features/player/modals/level-up-modal/`](../../../client/src/app/features/player/modals/level-up-modal) and [`client/src/app/features/player/modals/strategy-guide-modal/`](../../../client/src/app/features/player/modals/strategy-guide-modal)
 - **Dynamic Progression Roadmap:**
   - Provides an interactive **Level Switcher** (levels 1 through 20) allowing players to inspect upcoming class features, subclass milestones, ability score improvements (ASI), and spell slot unlocks.
   - Dynamically inspects the character's primary class (or multiclass array with robust fallback to `char_class` and `char_level`).
@@ -41,7 +40,7 @@ The Player Companion module provides the responsive, real-time character sheet i
 ---
 
 ### 3. Combat Engine & Weapon Breakdown
-- **Component:** [`client/src/app/features/player/combat/`](../../../client/src/app/features/player/combat)
+- **Component:** [`client/src/app/features/player/tabs/combat-panel/`](../../../client/src/app/features/player/tabs/combat-panel)
 - **Incapacitation Guard (`DEF-CR-01`):**
   - Combat actions (Dodge, Dash, Disengage, Help) evaluate eligibility via [`isIncapacitated(char)`](../../../client/src/app/core/rules/hit-points.ts#L22-L35).
   - Pristine characters (`hp_current: undefined / None`) resolve to `hp_max > 0` and are not locked out of action buttons. Action execution is blocked only when `currentHp(char) <= 0` or under active incapacitating conditions (`incapacitated`, `unconscious`, `paralyzed`, `petrified`, `stunned`).

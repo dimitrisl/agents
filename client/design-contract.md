@@ -174,7 +174,7 @@ Verify at **375 / 768 / 1024 / 1440 / 1920**. No horizontal page overflow at any
 
 ## 6. Known debt — fix opportunistically, never extend
 
-- **`text-body-sm` does not exist.** It is used **51 times across 20 files** but there is no `--text-body-sm` in `@theme inline`, so it resolves to nothing and the text silently inherits its size. Either add the token or replace the usages with `text-body` / `text-label`. **Do not add new usages.**
+- **`text-body-sm` does not exist.** All legacy usages have been removed (0 occurrences remaining in `client/src/`). Always use `text-body` / `text-label`. **Never introduce new usages.**
 - `@layer legacy` in `styles.css` still contains `.phyrexian-*`, `.nav-tabs`, `.tab-item`, `.modal-card` and a `max-width: 768px` patch block. Any page you touch must end with **zero** references to these. Delete a legacy rule once its last consumer is gone.
 - `forge-tabs variant="pill"` is legacy styling. Pages still on the default must be migrated to `variant="underline"`.
 - Ad-hoc surfaces (`bg-black/25`, `bg-black/30`, `bg-white/[0.04]`) still exist outside the Player Dashboard. Replace them with `bg-panel` / `bg-tile` in any file you touch.
