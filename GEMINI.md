@@ -12,8 +12,8 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 
 ### 🛠️ Core Technologies
 - **Backend:** FastAPI, Python 3.13+
-- **Frontend:** Angular 19 (Component-based, Signals, RxJS, custom CSS for a dark "Phyrexian" aesthetic)
-- **AI Engine:** Google GenAI SDK (Gemini 1.5 Flash/Pro)
+- **Frontend:** Angular 19 (Standalone OnPush Components, Signals, RxJS, Tailwind v4 CSS-first tokens & `forge-*` UI kit in `client/src/styles.css`)
+- **AI Engine:** Google GenAI SDK (`gemini-3.5-flash` default; configurable in `backend/core/config_loader.py`) & optional Anthropic Claude via user API key
 - **Data Persistence:** MongoDB Atlas (Characters, Campaigns, Users)
 - **Real-Time Engine:** WebSockets (FastAPI websockets & Angular WebSocketService)
 - **Rules Engine:** Static local JSON knowledge base for D&D rules (Classes, Spells, Feats).
@@ -81,8 +81,8 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 - **Stat Synchronization:** The `backend/services/stats_service.py` is the source of truth for all derived calculations (AC, HP, Save DC, etc.).
 - **Deterministic Validation:** The `backend/services/validation_service.py` enforces constraints (e.g., armor proficiencies) by strictly reading from `RulesRepository`. **NEVER HARDCODE** domain data (classes, weapons, spells) inside Python code.
 
-### 4. AI Usage (Gemini)
-- **AI Client:** Initialized in `backend/core/ai_client.py`. Uses `gemini-1.5-flash` for most tasks and `gemini-1.5-pro` for complex analysis.
+### 4. AI Usage (Gemini / Providers)
+- **AI Client:** Initialized in `backend/core/ai_client.py` and configured via `backend/core/config_loader.py` (default `gemini-3.5-flash`, with optional model escalation or user-supplied Anthropic Claude provider).
 - **Structured Output:** Always prefer `generate_ai_json` for programmatic tasks to ensure the response can be parsed into a Pydantic model.
 
 ### 5. Testing
@@ -90,13 +90,13 @@ This document serves as the primary instructional context for the **Phyrexian Fo
 - **Mocks:** Use `mongomock` for database tests and `unittest.mock` for AI client calls. Ensure Angular component tests use `HttpClientTestingModule`.
 
 ### 6. Styling
-- **Phyrexian Aesthetic:** Adhere to the high-contrast dark theme. Use CSS custom properties in Angular's global styles (`styles.css` / `index.css`) for UI modifications. Do not use Tailwind unless requested.
+- **Phyrexian Aesthetic & Design Contract:** Adhere to the high-contrast dark theme (`[data-edition="2014"|"2024"]`), Tailwind v4 CSS-first `@theme inline` tokens in `client/src/styles.css`, and the `forge-*` UI kit per [`client/design-contract.md`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/client/design-contract.md). Never create `tailwind.config.js` or hardcode literal hex colors.
 
 ### 7. Communication & Agent Behavior
 - **Full-Stack Development:** You have full jurisdiction across both backend (FastAPI/Python) and frontend (Angular 19/TypeScript). You are expected and permitted to make modifications to both backend and frontend code to deliver end-to-end features and bug fixes.
 - **LLM Wiki Navigation (Progressive Context Loading):** Before grepping blindly across the codebase, consult the master routing table in [`docs/wiki/index.md`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/docs/wiki/index.md) and open only the relevant concept or module wiki page to understand architectural invariants and locate key files.
 - **Independent Verification:** ALWAYS challenge and verify user claims. Do not assume what the user says is correct without independent verification. Double-check the codebase or test suite to confirm statements.
-- **Strict Code Reviews:** When asked to perform a code review on a branch, you MUST review EVERYTHING (Frontend, Backend, CI/CD, Scripts) against `origin/dev`. Read the exact procedure defined in `.claude/skills/code-review/SKILL.md` before starting any review.
+- **Strict Code Reviews:** When asked to perform a code review on a branch, you MUST review EVERYTHING (Frontend, Backend, CI/CD, Scripts) against `origin/dev`. Read `.agents/skills/code-review/SKILL.md` (or delegate to the clean-context `.agents/agents/code-reviewer/agent.md` subagent without prompt hints).
 - **Ticket Resolution:** Before implementing any ticket or issue, you MUST follow the strict analysis procedure defined in `.claude/skills/ticket-resolution/SKILL.md`. This ensures architectural impact is fully understood and a plan is approved before execution.
 - **Tabletop & Online QA Playtesting:** Before submitting any ticket for Code Review or merging into `dev`, you MUST verify end-to-end multi-client gameplay integrity across both In-Person Tabletop (Mobile Companion `< 1024px`, Physical Dice) and Online VTT (Desktop `>= 1024px`) modes. Run `poetry run python scripts/qa/simulate_session.py --mode both` and follow `.claude/skills/tabletop-qa/SKILL.md`.
 - **Documentation & LLM Wiki Synchronization (`doc-sync`):** After completing any code implementation and verifying that all tests pass, you MUST follow `.claude/skills/doc-sync/SKILL.md` to audit whether existing documentation (LLM Wiki in `docs/wiki/`, README, or guides) requires updating. Never conclude a coding task without performing this audit.

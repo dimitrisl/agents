@@ -11,12 +11,12 @@ The system is designed with a strict **layered architecture** and a clear separa
 
 | Layer | Technology | Key Responsibility |
 | :--- | :--- | :--- |
-| **Frontend** | Angular 19 (Signals, RxJS, Custom CSS) | Reactive UI, client-side character state, dice rendering, VTT grid, and WebSocket client. Maintained exclusively by @michalis89. |
+| **Frontend** | Angular 19 (Signals, RxJS, Tailwind v4 CSS-first tokens) | Reactive Desktop VTT (`>= 1024px`) & Mobile Companion (`< 1024px`) UI, client-side state, 3D dice rendering, VTT grid, and WebSocket client. |
 | **Backend Transport** | FastAPI, Python 3.13+ | RESTful endpoints (`/api/v1`), WebSocket channels (`/ws`), dependency injection, authentication. |
 | **Persistence** | MongoDB Atlas (via Motor async driver) | Persistent storage for users, characters, campaigns, members, entities, and logs. |
 | **Rules Engine** | Static JSON (`data/rules/`) + `RulesRepository` | Immutable source of truth for D&D 2014 & 2024 classes, spells, feats, and items. |
 | **Calculation Engine** | `backend/services/stats_service.py` | Single source of truth for derived statistics (AC, HP, Save DCs, Proficiencies). |
-| **AI Engine** | Google GenAI SDK (Gemini 1.5 Flash / Pro) | Thematic generation, backstory enrichment, DM session recap extraction, and voice session processing. |
+| **AI Engine** | Google GenAI SDK (`gemini-3.5-flash` default) & optional Anthropic Claude | Thematic generation, backstory enrichment, DM session recap extraction, and voice session processing. |
 
 ---
 
@@ -47,7 +47,6 @@ The system is designed with a strict **layered architecture** and a clear separa
 
 ---
 
-## 🔒 Jurisdiction & Collaboration Rules
-- **Backend Domain:** Exclusively Python 3.13+, FastAPI, Motor, Pydantic, and backend services.
-- **Frontend Domain:** Maintained by @michalis89. The backend agent must never modify Angular/TypeScript files.
-- **Git Branching Strategy:** All feature development merges into `dev`. Production releases target `main`. Normal development never commits directly to `main`.
+## 🔒 Collaboration & Branching Rules
+- **Full-Stack Delivery:** Features and bug fixes span both backend (`backend/`, `server/`) and frontend (`client/`), keeping deterministic rules synchronized across Python and `client/src/app/core/rules/`.
+- **Git Branching Strategy:** All feature development merges via Pull Request into `dev`. Production releases target `main`. Normal development never commits directly to `dev` or `main`.
