@@ -19,7 +19,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, finalize, switchMap, tap } from 'rxjs';
+import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, filter, finalize, map, merge, switchMap, tap } from 'rxjs';
 import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
 import { resolvePortraitUrl } from '../../core/utils/portrait';
 import { CharacterImportService, ImportedCharacter } from '../../core/services/character-import.service';
@@ -338,6 +338,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   // only the value the user settles on is worth a round trip, so writes are
   // collapsed into a single trailing save.
   private readonly hpSave$ = new Subject<{ char: CharacterSchema; version: number }>();
+  private readonly immediateSave$ = new Subject<{
+    char: CharacterSchema;
+    version: number;
+    showToast: boolean;
+    onError?: (err: any) => void;
+  }>();
   private readonly levelUpAnalysis$ = new Subject<{
     char: CharacterSchema;
     choices: Record<string, any>;
@@ -368,33 +374,57 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     public wakeLock: WakeLockService,
     public haptics: HapticsService
   ) {
-    this.hpSave$
-      .pipe(
+    merge(
+      this.hpSave$.pipe(
         debounceTime(1000),
-        // concatMap, not switchMap: cancelling a request drops its response, not the
-        // server-side write, and the lost version then 409s every later save.
-        concatMap(({ char, version }) =>
+        // Drop queued snapshots superseded by a newer queued or immediate save.
+        filter(({ version }) => version >= this.localSaveVersion),
+        map((req) => ({ ...req, showToast: false, onError: undefined, isImmediate: false }))
+      ),
+      this.immediateSave$.pipe(map((req) => ({ ...req, isImmediate: true })))
+    )
+      .pipe(
+        // Serialize both debounced and immediate PUTs so versions never race into 409s
+        // or let an older debounced payload overwrite a newer immediate save.
+        concatMap(({ char, version, showToast, onError, isImmediate }) =>
           defer(() =>
             this.http.put<CharacterSchema>(`${environment.apiBaseUrl}/characters/${char.char_id!}`, {
               ...char,
               version: this.knownVersion(char),
             })
           ).pipe(
-            tap(updated => {
+            tap((updated) => {
               this.rememberVersion(updated);
-              // Only apply the full response if no newer local edits happened meanwhile.
-              if (this.localSaveVersion === version) {
+              this.charState.upsertCharacter(updated);
+              // Only replace the live sheet when no newer local edits or hero switch happened meanwhile.
+              if (
+                this.localSaveVersion === version &&
+                this.charState.activeCharacter()?.char_id === updated.char_id
+              ) {
                 this.charState.activeCharacter.set(updated);
-                // also update the cache silently
-                const list = this.charState.characters();
-                const idx = list.findIndex(c => c.char_id === updated.char_id);
-                if (idx >= 0) {
-                  this.charState.characters.set(list.map((c, i) => i === idx ? updated : c));
-                }
+              }
+              if (showToast) {
+                this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${char.char_name}.`);
               }
             }),
             catchError((err) => {
-              this.reportSaveFailure(char, err);
+              if (isImmediate) {
+                if (err?.status === 404) {
+                  this.createInVault(char, showToast, '💾 SHEET SAVED');
+                  return EMPTY;
+                }
+                if (err?.status === 409) {
+                  this.reportSaveFailure(char, err);
+                } else {
+                  this.rollToast.showMessage(
+                    '⚠️ SAVE FAILED',
+                    `Could not save ${char.char_name}. Your changes are still on screen — try again.`
+                  );
+                }
+                if (onError) onError(err);
+              } else {
+                this.reportSaveFailure(char, err);
+              }
               return EMPTY;
             })
           )
@@ -478,18 +508,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     });
 
-    const wsConnectionKey = computed(() => {
+    const activeHeroKey = computed(() => {
       const char = this.charState.activeCharacter();
-      return char && char.active_campaign
-        ? `${char.active_campaign}::${char.char_id || char.char_name}`
-        : null;
+      return char ? (char.char_id || char.char_name) : null;
     });
     let prevCharKey: string | null | undefined;
-    effect((onCleanup) => {
-      const key = wsConnectionKey();
+    effect(() => {
+      const charKey = activeHeroKey();
       const char = untracked(() => this.charState.activeCharacter());
-      const charKey = char ? (char.char_id || char.char_name) : null;
       if (prevCharKey !== undefined && charKey !== prevCharKey) {
+        this.localSaveVersion++;
         this.whisperHistory = [];
         this.rollRequestHistory = [];
         this.rollLogHistory = [];
@@ -506,9 +534,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.showMobileAcSheet.set(false);
         this.showMobileRestSheet.set(false);
         this.showMobileQuickWhispers.set(false);
+        this.showQuickDiceDrawer.set(false);
+        this.showMobileHeaderActions.set(false);
+        this.showConcentrationPrompt.set(false);
+        this.editMode.set(false);
         this.mobileTableSubTab.set(char?.active_campaign ? 'chat' : 'lore');
       }
       prevCharKey = charKey;
+    });
+
+    const wsConnectionKey = computed(() => {
+      const char = this.charState.activeCharacter();
+      return char && char.active_campaign
+        ? `${char.active_campaign}::${char.char_id || char.char_name}`
+        : null;
+    });
+    effect((onCleanup) => {
+      const key = wsConnectionKey();
+      const char = untracked(() => this.charState.activeCharacter());
 
       if (key && char && char.active_campaign) {
         // The character rides along on the handshake so the server can route
@@ -2432,10 +2475,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       concentrating_on: data.concentratingOn
     };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
     this.showConditionsModal.set(false);
   }
 
@@ -2621,11 +2661,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  onMobileHeroPatch(patch: Partial<CharacterSchema>): void {
+    const char = this.charState.activeCharacter();
+    if (!char) return;
+    const updated: CharacterSchema = { ...char, ...patch };
+    this.charState.activeCharacter.set(updated);
+    this.queueCharSave();
+  }
+
   saveCurrentChar(showToast = false, onError?: (err: any) => void) {
     const char = this.charState.activeCharacter();
     if (!char) return;
 
-    const copy = { ...char };
+    const copy = this.cloneChar(char);
+    this.localSaveVersion++;
     this.charState.activeCharacter.set(copy);
 
     if (!this.isInVault(copy)) {
@@ -2633,30 +2682,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
-    copy.version = this.knownVersion(copy);
-    this.charState.updateCharacter(copy.char_id!, copy).subscribe({
-      next: (updated) => {
-        this.rememberVersion(updated);
-        if (showToast) {
-          this.rollToast.showMessage('💾 SHEET SAVED', `Saved changes for ${copy.char_name}.`);
-        }
-      },
-      // Only a missing record justifies creating one. Any other failure is a real
-      // error, and forging a duplicate hero out of it would make things worse.
-      error: (err) => {
-        if (err?.status === 404) {
-          this.createInVault(copy, showToast, '💾 SHEET SAVED');
-        } else if (err?.status === 409) {
-          this.reportSaveFailure(copy, err);
-          if (onError) onError(err);
-        } else {
-          this.rollToast.showMessage(
-            '⚠️ SAVE FAILED',
-            `Could not save ${copy.char_name}. Your changes are still on screen — try again.`
-          );
-          if (onError) onError(err);
-        }
-      }
+    this.immediateSave$.next({
+      char: copy,
+      version: this.localSaveVersion,
+      showToast,
+      onError,
     });
   }
 
@@ -2671,10 +2701,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.saveCurrentChar();
       return;
     }
-    const copy = { ...char };
+    const copy = this.cloneChar(char);
     this.charState.activeCharacter.set(copy);
+    this.enqueueDebouncedSave(copy);
+  }
+
+  private cloneChar(char: CharacterSchema): CharacterSchema {
+    return JSON.parse(JSON.stringify(char));
+  }
+
+  private enqueueDebouncedSave(char: CharacterSchema): void {
+    if (!this.isInVault(char)) return;
     this.localSaveVersion++;
-    this.hpSave$.next({ char: copy, version: this.localSaveVersion });
+    this.hpSave$.next({ char: this.cloneChar(char), version: this.localSaveVersion });
   }
 
   private knownVersion(char: CharacterSchema): number {
@@ -2897,11 +2936,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const newHp = Math.max(0, currentHp - remainingDamage);
     const updated = { ...char, hp_current: newHp, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);
-
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
 
     // Trigger Concentration Check if character was concentrating (even when Temp HP absorbs the hit)
     if (char.concentrating_on && amount > 0) {
@@ -2924,11 +2959,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       death_saves: currentHp === 0 ? { successes: 0, failures: 0 } : char.death_saves,
     };
     this.charState.activeCharacter.set(updated);
-
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   setTempHp(amount: number) {
@@ -2937,10 +2968,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.haptics.lightTap();
     const updated = { ...char, hp_temp: Math.max(0, amount) };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   rollDeathSave() {
@@ -3290,10 +3318,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (delta > 0 && isDeceasedByExhaustion(char)) return;
     const updated = { ...char, hp_current: adjustedHp(char, delta) };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   adjustTempHp(delta: number) {
@@ -3302,10 +3327,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const newTemp = Math.max(0, (char.hp_temp || 0) + delta);
     const updated = { ...char, hp_temp: newTemp };
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   setDeathSave(type: 'successes' | 'failures', value: number) {
@@ -3317,10 +3339,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     };
     updated.death_saves[type] = Math.max(0, Math.min(3, value));
     this.charState.activeCharacter.set(updated);
-    if (this.isInVault(updated)) {
-      this.localSaveVersion++;
-      this.hpSave$.next({ char: updated, version: this.localSaveVersion });
-    }
+    this.enqueueDebouncedSave(updated);
   }
 
   addWeapon() {

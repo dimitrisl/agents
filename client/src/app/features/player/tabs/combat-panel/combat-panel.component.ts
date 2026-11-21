@@ -207,7 +207,11 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       this.inspectedItemIndex.set(null);
       this.inspectedFeature.set(null);
       this.showWeaponConfigInSheet.set(false);
+      this.mobileFeatureFilter.set('all');
       this.closeResourceModal();
+      this.closeCoinModal();
+      this.resetTurnEconomy();
+      this.lastActiveCombatantId = null;
     }
     this.lastHeroKey = heroKey;
 

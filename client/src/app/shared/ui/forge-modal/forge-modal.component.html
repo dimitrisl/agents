@@ -1,7 +1,7 @@
 <ng-template #modalTemplate>
   <section
-    class="max-h-[85vh] overflow-y-auto rounded-[14px] border border-hairline p-6 text-ink shadow-card backdrop-blur-lg"
-    [ngClass]="sheetOnMobile ? 'forge-mobile-sheet-section bg-deep' : 'bg-surface'"
+    class="max-h-[85vh] overflow-y-auto rounded-[14px] border border-hairline bg-surface p-6 text-ink shadow-card backdrop-blur-lg"
+    [class.forge-mobile-sheet-section]="sheetOnMobile"
   >
     @if (sheetOnMobile) {
       <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-muted/40 lg:hidden" aria-hidden="true"></div>

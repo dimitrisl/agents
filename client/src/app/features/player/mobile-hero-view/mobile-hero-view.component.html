@@ -66,19 +66,29 @@
           </p>
         } @else {
           <div class="grid grid-cols-1 gap-2">
-            <input forgeInput dense type="text" [(ngModel)]="char.char_name" (change)="onInlineFieldChange()" placeholder="Name" aria-label="Character name" />
+            <input forgeInput dense type="text" [value]="char.char_name" (change)="onTextCommit('char_name', $any($event.target).value)" placeholder="Name" aria-label="Character name" />
             <div class="grid grid-cols-2 gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="char.race" (change)="onInlineFieldChange()" placeholder="Race" aria-label="Race" />
-              <input forgeInput dense type="text" [(ngModel)]="char.background" (change)="onInlineFieldChange()" placeholder="Background" aria-label="Background" />
+              <input forgeInput dense type="text" [value]="char.race" (change)="onTextCommit('race', $any($event.target).value)" placeholder="Race" aria-label="Race" />
+              <input forgeInput dense type="text" [value]="char.background" (change)="onTextCommit('background', $any($event.target).value)" placeholder="Background" aria-label="Background" />
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="char.char_class" (change)="onInlineFieldChange()" placeholder="Class" aria-label="Class" />
               <input
                 forgeInput
                 dense
                 type="text"
-                [(ngModel)]="char.subclass"
-                (change)="onInlineFieldChange()"
+                [value]="char.char_class"
+                (change)="onTextCommit('char_class', $any($event.target).value)"
+                placeholder="Class"
+                aria-label="Class"
+                [readonly]="isMulticlass"
+                [title]="isMulticlass ? 'Multiclass progressions are managed via Level Up' : ''"
+              />
+              <input
+                forgeInput
+                dense
+                type="text"
+                [value]="char.subclass ?? ''"
+                (change)="onTextCommit('subclass', $any($event.target).value)"
                 placeholder="Subclass"
                 aria-label="Subclass"
                 [readonly]="!canEditSubclass"
@@ -91,13 +101,25 @@
                 type="number"
                 min="1"
                 max="20"
-                [(ngModel)]="char.char_level"
-                (change)="onInlineFieldChange()"
+                #lvlInput
+                [value]="char.char_level"
+                (change)="onNumberCommit('char_level', lvlInput.value, 1, 20, lvlInput)"
                 placeholder="Level"
                 aria-label="Level"
-                [readonly]="!!char.active_campaign"
+                [readonly]="!!char.active_campaign || isMulticlass"
               />
-              <input forgeInput dense type="number" min="0" max="300" [(ngModel)]="char.speed" (change)="onInlineFieldChange()" placeholder="Speed (ft)" aria-label="Speed" />
+              <input
+                forgeInput
+                dense
+                type="number"
+                min="0"
+                max="300"
+                #spdInput
+                [value]="char.speed"
+                (change)="onNumberCommit('speed', spdInput.value, 0, 300, spdInput)"
+                placeholder="Speed (ft)"
+                aria-label="Speed"
+              />
             </div>
           </div>
         }
@@ -249,8 +271,9 @@
                 min="1"
                 max="30"
                 class="mt-1.5 w-full max-w-16 text-center"
-                [(ngModel)]="char.stats[entry.key]"
-                (change)="onInlineFieldChange()"
+                #statInput
+                [value]="char.stats[entry.key]"
+                (change)="onStatCommit(entry.key, statInput.value, statInput)"
                 [attr.aria-label]="entry.key + ' score'"
               />
             </div>

@@ -571,17 +571,23 @@ def test_observant_feat_passive_perception_bonus():
     synced1 = sync_character_stats(cleric_no_feat)
     assert synced1["passive_perception"] == 15
 
-    # With Observant feat -> 15 + 5 = 20
+    # With Observant feat under 2014 rules -> 15 + 5 = 20
     cleric_observant = {
         "char_name": "Cleric Observant",
         "char_class": "Cleric",
         "char_level": 1,
+        "dnd_edition": "2014 Edition",
         "stats": {"STR": 10, "DEX": 10, "CON": 12, "INT": 10, "WIS": 16, "CHA": 10},
         "skill_proficiencies": ["Perception"],
         "features_traits": [{"name": "Observant"}],
     }
     synced2 = sync_character_stats(cleric_observant)
     assert synced2["passive_perception"] == 20
+
+    # Under 2024 rules, Observant no longer grants +5 flat passive Perception
+    cleric_observant_2024 = {**cleric_observant, "dnd_edition": "2024 Revision (5.5e)"}
+    synced2024 = sync_character_stats(cleric_observant_2024)
+    assert synced2024["passive_perception"] == 15
 
 
 def test_initiative_advantage_resets_cleanly_on_subclass_change():

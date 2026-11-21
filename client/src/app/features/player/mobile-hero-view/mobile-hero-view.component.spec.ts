@@ -121,4 +121,42 @@ describe('MobileHeroViewComponent', () => {
     expect(component.hasCheckDisadvantage).toBe(true);
     expect(component.hasSaveDisadvantage).toBe(true);
   });
+
+  it('emits immutable charPatch updates without mutating @Input() char or stats in place and guards multiclass class/level', () => {
+    const patchSpy = jest.spyOn(component.charPatch, 'emit');
+    const originalStatsRef = component.char.stats;
+    const originalDex = component.char.stats.DEX;
+
+    fixture.componentRef.setInput('editMode', true);
+    fixture.detectChanges();
+
+    const dexInput = (fixture.nativeElement as HTMLElement).querySelector('input[aria-label="DEX score"]') as HTMLInputElement;
+    expect(dexInput).toBeTruthy();
+    dexInput.value = '42';
+    dexInput.dispatchEvent(new Event('change'));
+
+    expect(patchSpy).toHaveBeenCalledWith({
+      stats: { ...originalStatsRef, DEX: 30 },
+    });
+    expect(dexInput.value).toBe('30');
+    expect(component.char.stats.DEX).toBe(originalDex);
+
+    patchSpy.mockClear();
+    fixture.componentRef.setInput('char', {
+      ...component.char,
+      classes: [
+        { class_name: 'Rogue', level: 5 },
+        { class_name: 'Fighter', level: 2 },
+      ],
+    });
+    fixture.detectChanges();
+
+    const classInput = (fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Class"]') as HTMLInputElement;
+    const levelInput = (fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Level"]') as HTMLInputElement;
+    expect(classInput.readOnly).toBe(true);
+    expect(levelInput.readOnly).toBe(true);
+    component.onTextCommit('char_class', 'Wizard');
+    component.onNumberCommit('char_level', '9', 1, 20);
+    expect(patchSpy).not.toHaveBeenCalled();
+  });
 });

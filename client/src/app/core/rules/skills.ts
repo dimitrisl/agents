@@ -179,9 +179,11 @@ export function passivePerceptionOf(char: CharacterSchema | null | undefined): n
   }
   const perceptionSkill = { name: 'Perception', ability: 'WIS' as const };
   const basePerc = skillModifier(char, perceptionSkill);
-  const hasObservant = (char.features_traits || []).some((f) =>
-    (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('observant')
-  );
+  const hasObservant =
+    !is2024Edition(char) &&
+    (char.features_traits || []).some((f) =>
+      (typeof f === 'string' ? f : f.name || '').toLowerCase().includes('observant')
+    );
   const disadv2014 = !is2024Edition(char) && effectiveExhaustionLevel(char) >= 1 ? 5 : 0;
   const dmPassive = char.dm_modifiers?.passive_perception_bonus ?? 0;
   return 10 + basePerc + (hasObservant ? 5 : 0) - disadv2014 + dmPassive;

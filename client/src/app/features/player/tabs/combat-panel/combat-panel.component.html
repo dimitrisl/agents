@@ -83,7 +83,7 @@
             <div class="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               @for (combatant of encounterState.combatants; track combatant.id || combatant.name) {
                 <div
-                  class="flex min-w-22 shrink-0 flex-col items-center rounded-lg border px-2.5 py-2 text-center"
+                  class="flex min-w-24 shrink-0 flex-col items-center rounded-lg border px-2.5 py-2 text-center"
                   [ngClass]="{
                     'border-accent bg-accent/15 text-accent': encounterState.activeCombatantId === combatant.id,
                     'border-hairline bg-tile text-muted': encounterState.activeCombatantId !== combatant.id,
@@ -945,9 +945,14 @@
                     (ngModelChange)="onWeaponDamageTypeChange(weapon, $event)"
                   />
                 </div>
-                <label class="col-span-2 flex items-center gap-2 text-label text-ink">
+                <label
+                  [attr.for]="'mobile-weapon-prof-' + inspectedWeaponIndex()"
+                  class="col-span-2 flex min-h-8 cursor-pointer items-center gap-2 text-label text-ink"
+                >
                   <input
+                    [attr.id]="'mobile-weapon-prof-' + inspectedWeaponIndex()"
                     type="checkbox"
+                    class="h-4 w-4 accent-[var(--theme-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     [checked]="weapon.proficient !== false"
                     (change)="onWeaponProficiencyChange(weapon, $event)"
                   />
@@ -2457,7 +2462,7 @@
                   >
                     <forge-badge
                       [interactive]="true"
-                      class="w-22"
+                      class="w-24"
                       [tone]="row.item.equipped ? 'success' : 'muted'"
                     >
                       {{ row.item.equipped ? 'Equipped' : 'Inventory' }}
@@ -2524,7 +2529,7 @@
         <button
           type="button"
           (click)="selectCoin(c)"
-          class="flex-1 rounded py-1.5 text-label font-bold uppercase transition-colors"
+          class="min-h-8 flex-1 rounded py-1.5 text-label font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           [ngClass]="
             selectedCoin === c
               ? 'border border-gold/40 bg-gold/15 text-gold'
@@ -2548,7 +2553,7 @@
         <button
           type="button"
           (click)="addCoinPill(p)"
-          class="flex-1 rounded border border-hairline bg-tile py-1.5 text-label font-bold text-ink transition-colors hover:bg-surface-hover"
+          class="min-h-8 flex-1 rounded border border-hairline bg-tile py-1.5 text-label font-bold text-ink transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           +{{ p }}
         </button>
@@ -2560,7 +2565,7 @@
         <button
           type="button"
           (click)="appendCoinDigit(digit)"
-          class="h-11 rounded-xl border border-hairline bg-panel text-body font-bold text-ink transition-colors hover:bg-tile"
+          class="h-11 rounded-xl border border-hairline bg-panel text-body font-bold text-ink transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {{ digit }}
         </button>
@@ -2568,14 +2573,14 @@
       <button
         type="button"
         (click)="clearCoinNumpad()"
-        class="h-11 rounded-xl border border-hairline bg-tile text-label font-bold uppercase text-muted transition-colors hover:text-ink"
+        class="h-11 rounded-xl border border-hairline bg-tile text-label font-bold uppercase text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         Clear
       </button>
       <button
         type="button"
         (click)="appendCoinDigit('0')"
-        class="h-11 rounded-xl border border-hairline bg-panel text-body font-bold text-ink transition-colors hover:bg-tile"
+        class="h-11 rounded-xl border border-hairline bg-panel text-body font-bold text-ink transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         0
       </button>
@@ -2583,7 +2588,7 @@
         type="button"
         (click)="backspaceCoin()"
         aria-label="Backspace"
-        class="h-11 rounded-xl border border-hairline bg-tile text-body font-bold text-muted transition-colors hover:text-ink"
+        class="h-11 rounded-xl border border-hairline bg-tile text-body font-bold text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         ⌫
       </button>

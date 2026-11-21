@@ -362,5 +362,33 @@ describe('SpellsPanelComponent', () => {
       expect(component.mobileLevelFilter()).toBe('all');
       expect(component.selectedSpell()).toBeNull();
     });
+
+    it('renders Warlock Pact + level_N schema slots in compactMobile mode and sequences detail -> upcast cleanly', async () => {
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        char_id: 'hexlock-1',
+        char_class: 'Warlock',
+        spells: { level_1: ['Hex'], level_2: ['Misty Step'] },
+        spell_slots: {
+          pact: { max: 2, used: 1, level: 2 },
+          level_1: { max: 2, used: 0 },
+          level_2: { max: 2, used: 1, pact_max: 2, pact_used: 1 },
+        },
+      });
+      component.getSpellSlotMax = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.max ?? 0;
+      component.getSpellSlotUsed = (lvl: number) => component.char.spell_slots?.[`level_${lvl}`]?.used ?? 0;
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent || '';
+      expect(text).toContain('1/2 Pact');
+      expect(component.mobileLevelPills).toEqual([1, 2]);
+
+      component.openSpellDetail('Hex', 1);
+      expect(component.selectedSpell()).toBe('Hex');
+      component.openUpcastFromDetail('Hex', 1);
+      expect(component.selectedSpell()).toBeNull();
+      await Promise.resolve();
+      expect(component.upcastTarget()).toEqual({ spellName: 'Hex', baseLevel: 1 });
+    });
   });
 });

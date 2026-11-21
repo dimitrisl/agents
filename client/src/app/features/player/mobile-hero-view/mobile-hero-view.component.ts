@@ -8,7 +8,6 @@ import {
   SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
 import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
 import {
@@ -46,7 +45,6 @@ const ABILITY_FULL_NAMES: Record<string, string> = {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     ForgeBadgeComponent,
     ForgeButtonDirective,
     ForgeCardComponent,
@@ -81,7 +79,7 @@ export class MobileHeroViewComponent implements OnChanges {
   @Output() endConcentration = new EventEmitter<void>();
   @Output() browseHomebrew = new EventEmitter<void>();
   @Output() openAcSheet = new EventEmitter<void>();
-  @Output() save = new EventEmitter<void>();
+  @Output() charPatch = new EventEmitter<Partial<CharacterSchema>>();
 
   imageLoadError = false;
   private lastHeroKey?: string;
@@ -94,29 +92,52 @@ export class MobileHeroViewComponent implements OnChanges {
     this.lastHeroKey = heroKey;
   }
 
-  onInlineFieldChange(): void {
+  get isMulticlass(): boolean {
+    return (this.char?.classes?.length ?? 0) > 1;
+  }
+
+  onTextCommit(
+    field: 'char_name' | 'race' | 'background' | 'char_class' | 'subclass',
+    rawValue: string
+  ): void {
     if (!this.char) return;
-    if (this.char.stats) {
-      for (const key of Object.keys(this.char.stats)) {
-        const val = Number(this.char.stats[key]);
-        if (Number.isFinite(val)) {
-          this.char.stats[key] = Math.max(1, Math.min(30, Math.round(val)));
-        }
-      }
+    if (field === 'char_class' && this.isMulticlass) return;
+    if (field === 'subclass' && !this.canEditSubclass) return;
+    this.charPatch.emit({ [field]: rawValue });
+  }
+
+  onNumberCommit(
+    field: 'char_level' | 'speed',
+    rawValue: string,
+    min: number,
+    max: number,
+    inputEl?: HTMLInputElement
+  ): void {
+    if (!this.char) return;
+    if (field === 'char_level' && (!!this.char.active_campaign || this.isMulticlass)) return;
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = Math.max(min, Math.min(max, Math.round(parsed)));
+    if (inputEl && String(clamped) !== rawValue) {
+      inputEl.value = String(clamped);
     }
-    if (!this.char.active_campaign && this.char.char_level !== undefined) {
-      const lvl = Number(this.char.char_level);
-      if (Number.isFinite(lvl)) {
-        this.char.char_level = Math.max(1, Math.min(20, Math.round(lvl)));
-      }
+    this.charPatch.emit({ [field]: clamped });
+  }
+
+  onStatCommit(statKey: string, rawValue: string, inputEl?: HTMLInputElement): void {
+    if (!this.char?.stats) return;
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = Math.max(1, Math.min(30, Math.round(parsed)));
+    if (inputEl && String(clamped) !== rawValue) {
+      inputEl.value = String(clamped);
     }
-    if (this.char.speed !== undefined) {
-      const spd = Number(this.char.speed);
-      if (Number.isFinite(spd)) {
-        this.char.speed = Math.max(0, Math.min(300, Math.round(spd)));
-      }
-    }
-    this.save.emit();
+    this.charPatch.emit({
+      stats: {
+        ...this.char.stats,
+        [statKey]: clamped,
+      },
+    });
   }
 
   selectSubTab(tab: 'abilities' | 'senses'): void {

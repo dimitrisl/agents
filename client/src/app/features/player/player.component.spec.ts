@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -1833,8 +1833,10 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     ];
     (comp as any).rebuildInboxFeed();
     comp.mobileTableFeedFilter.set('whispers');
+    expect(comp.filteredMobileInboxFeed.length).toBe(1);
     expect(comp.filteredMobileInboxFeed.every((e) => e.kind === 'whisper')).toBe(true);
     comp.mobileTableFeedFilter.set('rolls');
+    expect(comp.filteredMobileInboxFeed.length).toBe(1);
     expect(comp.filteredMobileInboxFeed.every((e) => e.kind !== 'whisper')).toBe(true);
 
     // Persistent DM whisper notification when on another tab -> tapping switches straight to Table Chat
@@ -1889,4 +1891,78 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();
   });
+
+  it('resets mobile sheets, drawers, editMode, and concentration prompt on solo-to-solo hero switch', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'solo-1',
+      char_name: 'Solo One',
+      active_campaign: undefined,
+    });
+
+    comp.showMobileHpSheet.set(true);
+    comp.showMobileAcSheet.set(true);
+    comp.showMobileRestSheet.set(true);
+    comp.showMobileQuickWhispers.set(true);
+    comp.showQuickDiceDrawer.set(true);
+    comp.showMobileHeaderActions.set(true);
+    comp.showConcentrationPrompt.set(true);
+    comp.editMode.set(true);
+    comp.mobileTableSubTab.set('chat');
+
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'solo-2',
+      char_name: 'Solo Two',
+      active_campaign: undefined,
+    });
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    expect(comp.showMobileHpSheet()).toBe(false);
+    expect(comp.showMobileAcSheet()).toBe(false);
+    expect(comp.showMobileRestSheet()).toBe(false);
+    expect(comp.showMobileQuickWhispers()).toBe(false);
+    expect(comp.showQuickDiceDrawer()).toBe(false);
+    expect(comp.showMobileHeaderActions()).toBe(false);
+    expect(comp.showConcentrationPrompt()).toBe(false);
+    expect(comp.editMode()).toBe(false);
+    expect(comp.mobileTableSubTab()).toBe('lore');
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
+
+  it('drops superseded debounced hpSave$ writes when saveCurrentChar saves immediately', fakeAsync(() => {
+    HTMLElement.prototype.scrollIntoView ??= jest.fn();
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'race-1',
+      hp_current: 40,
+      background: 'Sage',
+      version: 2,
+      active_campaign: undefined,
+    });
+
+    // Trigger a debounced save (adjustHp -> hpSave$) then an immediate save with newer edit
+    comp.adjustHp(-5);
+    expect(charState.activeCharacter()?.hp_current).toBe(35);
+
+    tick(200);
+    comp.onMobileHeroPatch({ background: 'Soldier' });
+    comp.saveCurrentChar(true);
+
+    const immediatePut = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/characters/race-1'));
+    expect(immediatePut.request.body.hp_current).toBe(35);
+    expect(immediatePut.request.body.background).toBe('Soldier');
+    expect(immediatePut.request.body.version).toBe(2);
+    immediatePut.flush({ ...immediatePut.request.body, version: 3 });
+
+    // Advance past the 1000ms debounce window — the older queued emission must NOT fire
+    tick(1200);
+    http.expectNone((r) => r.method === 'PUT' && r.url.endsWith('/characters/race-1'));
+    expect(charState.activeCharacter()?.background).toBe('Soldier');
+    expect(charState.activeCharacter()?.version).toBe(3);
+
+    http.match(() => true).forEach((r) => r.flush({}));
+    fixture.destroy();
+  }));
 });

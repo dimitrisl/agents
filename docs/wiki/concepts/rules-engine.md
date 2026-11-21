@@ -70,7 +70,7 @@ In **Phyrexian Forge**, game mechanics and AI are strictly decoupled:
    - Toggling state recalculates the total skill check modifier dynamically: `AbilityMod + (PB * Multiplier)`.
    - Passive perception, passive insight, and passive investigation update automatically based on active proficiency/expertise:
      - Passive Perception: `10 + WIS mod + (PB if proficient, 2*PB if expertise, or half_prof if Jack of All Trades) + bonus_modifier`.
-     - Automatically integrates flat feat bonuses (e.g. **+5** from the *Observant* feat) and custom `passive_perception_bonus`.
+     - Automatically integrates flat feat bonuses (e.g. **+5** from the 2014 *Observant* feat) and custom `passive_perception_bonus`.
      - Passive Insight: `10 + WIS mod + (PB if proficient, 2*PB if expertise)`.
      - Passive Investigation: `10 + INT mod + (PB if proficient, 2*PB if expertise)`.
 

@@ -678,6 +678,11 @@ describe('CombatPanelComponent', () => {
 
       component.openWeaponInspector(0);
       component.openFeatureInspector(component.features[0]);
+      component.showCoinModal = true;
+      component.actionUsed = true;
+      component.bonusActionUsed = true;
+      component.reactionUsed = true;
+      component.mobileFeatureFilter.set('feat');
       expect(component.inspectedWeaponIndex()).toBe(0);
       expect(component.inspectedFeature()).toBeTruthy();
 
@@ -685,6 +690,11 @@ describe('CombatPanelComponent', () => {
       fixture.detectChanges();
       expect(component.inspectedWeaponIndex()).toBeNull();
       expect(component.inspectedFeature()).toBeNull();
+      expect(component.showCoinModal).toBe(false);
+      expect(component.actionUsed).toBe(false);
+      expect(component.bonusActionUsed).toBe(false);
+      expect(component.reactionUsed).toBe(false);
+      expect(component.mobileFeatureFilter()).toBe('all');
 
       component.deleteMobileResource(component.classResources.length - 1, new MouseEvent('click'));
       expect(component.classResources.some((r) => r.name === 'Superiority Dice')).toBe(false);

@@ -145,8 +145,11 @@
                 }
                 @if (editMode) {
                   <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
                     type="button"
-                    class="text-micro font-semibold text-accent hover:underline"
+                    class="text-accent"
                     (click)="addSpell(group.label)"
                   >
                     + Add

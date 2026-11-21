@@ -144,7 +144,7 @@
     <!-- GLOBAL INITIATIVE TURN ALERT BANNER (#175) -->
     <div
       *ngIf="isMyTurn"
-      class="mb-4 p-3.5 bg-gradient-to-r from-accent/20 to-panel border-2 border-accent rounded-2xl shadow-lg flex items-center justify-between animate-pulse motion-reduce:animate-none"
+      class="mb-4 p-3.5 bg-gradient-to-r from-accent/20 to-panel border-2 border-accent rounded-2xl shadow-card flex items-center justify-between animate-pulse motion-reduce:animate-none"
       role="alert"
       aria-live="assertive"
     >
@@ -182,12 +182,12 @@
     <!-- CONCENTRATION CHECK PROMPT (#171 — Desktop uses top banner; Companion pins inside sticky header) -->
     <div
       *ngIf="!isCompanionMode() && showConcentrationPrompt()"
-      class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-crimson/60 bg-crimson/15 p-3 shadow-card"
+      class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red/60 bg-red/15 p-3 shadow-card"
     >
       <div class="flex items-center gap-2">
         <span class="text-title" aria-hidden="true">🧠</span>
         <div>
-          <p class="text-label font-bold uppercase text-crimson">Concentration Check Required!</p>
+          <p class="text-label font-bold uppercase text-red">Concentration Check Required!</p>
           <p class="text-micro text-muted">
             You took damage while concentrating on <strong>{{ char.concentrating_on }}</strong>. Target: DC {{ concentrationDc() }} CON Save.
           </p>
@@ -220,7 +220,7 @@
           size="sm"
           type="button"
           (click)="dropConcentration()"
-          class="text-crimson"
+          class="text-red"
         >
           Drop Spell
         </button>
@@ -411,7 +411,7 @@
             [ngClass]="char.inspiration ? 'border-gold/40 bg-gold/15 text-gold' : 'border-hairline bg-panel text-muted hover:text-ink'"
           >
             <span aria-hidden="true">{{ char.inspiration ? '★' : '☆' }}</span>
-            <span class="hidden min-[420px]:inline">Insp</span>
+            <span class="hidden sm:inline">Insp</span>
           </button>
         </div>
 
@@ -425,7 +425,7 @@
             class="flex min-h-8 items-center gap-1 rounded-lg border border-hairline bg-panel px-2 text-micro font-semibold text-ink transition-colors hover:border-hairline-hover hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <span aria-hidden="true">⛺</span>
-            <span class="hidden min-[385px]:inline">Rest</span>
+            <span class="hidden sm:inline">Rest</span>
           </button>
 
           @if (char.active_campaign) {
@@ -543,14 +543,14 @@
       <!-- STICKY CONCENTRATION CHECK PROMPT ON COMPANION (Never missed offscreen when scrolled!) -->
       @if (showConcentrationPrompt()) {
         <div
-          class="flex flex-col gap-2 rounded-xl border border-crimson/60 bg-crimson/15 p-2.5 shadow-card"
+          class="flex flex-col gap-2 rounded-xl border border-red/60 bg-red/15 p-2.5 shadow-card"
           role="alert"
           data-testid="mobile-concentration-prompt"
         >
           <div class="flex items-start gap-2">
             <span class="text-body" aria-hidden="true">🧠</span>
             <div class="min-w-0 flex-1">
-              <p class="text-label font-bold uppercase text-crimson">Concentration Check Required!</p>
+              <p class="text-label font-bold uppercase text-red">Concentration Check Required!</p>
               <p class="text-micro text-muted">
                 Concentrating on <strong class="text-ink">{{ char.concentrating_on }}</strong> · DC {{ concentrationDc() }} CON Save
               </p>
@@ -582,7 +582,7 @@
               size="sm"
               type="button"
               (click)="dropConcentration()"
-              class="text-crimson"
+              class="text-red"
             >
               Drop Spell
             </button>
@@ -618,7 +618,7 @@
           (endConcentration)="endConcentration()"
           (browseHomebrew)="showHomebrewModal.set(true)"
           (openAcSheet)="showMobileAcSheet.set(true)"
-          (save)="queueCharSave()"
+          (charPatch)="onMobileHeroPatch($event)"
         ></app-mobile-hero-view>
       </div>
 
@@ -771,7 +771,7 @@
             <!-- Messenger Chat Thread -->
             <div
               #whisperFeed
-              class="flex max-h-[48dvh] min-h-60 flex-col gap-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-hairline bg-panel p-3"
+              class="flex max-h-80 min-h-56 flex-col gap-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-hairline bg-panel p-3"
               role="log"
               aria-live="polite"
               data-testid="mobile-messenger-thread"
@@ -1269,7 +1269,7 @@
         <span class="text-micro font-bold uppercase">Table</span>
         @if (unreadMessages > 0) {
           <span
-            class="whisper-unread !right-2 !top-0.5"
+            class="whisper-unread right-2! top-0.5!"
             data-testid="mobile-nav-table-unread"
             [attr.aria-label]="unreadMessages + ' unread table messages'"
           >

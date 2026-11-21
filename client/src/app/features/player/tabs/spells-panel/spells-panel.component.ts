@@ -133,10 +133,12 @@ export class SpellsPanelComponent implements OnInit, OnChanges {
 
   castFromDetail(spellName: string, level: number): void {
     this.castNow(spellName, level);
+    this.selectedSpell.set(null);
   }
 
   openUpcastFromDetail(spellName: string, level: number): void {
-    this.openCastOptions(spellName, level);
+    this.selectedSpell.set(null);
+    queueMicrotask(() => this.openCastOptions(spellName, level));
   }
 
   ordinalLevel(level: number): string {

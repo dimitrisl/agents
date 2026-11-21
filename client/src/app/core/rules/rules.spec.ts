@@ -362,11 +362,14 @@ describe('skill rules', () => {
       });
       // Investigation: 10 + 3 (INT) + 3 (PB) + 5 (Observant) = 21
       expect(passiveInvestigationOf(detective)).toBe(21);
+      // Perception: 10 + 2 (WIS) + 5 (Observant) = 17
+      expect(passivePerceptionOf(detective)).toBe(17);
       // Insight: 10 + 2 (WIS) + 3 (PB) = 15
       expect(passiveInsightOf(detective)).toBe(15);
 
       const exhausted = { ...detective, exhaustion_level: 1 };
       expect(passiveInvestigationOf(exhausted)).toBe(16);
+      expect(passivePerceptionOf(exhausted)).toBe(12);
       expect(passiveInsightOf(exhausted)).toBe(10);
     });
 
@@ -381,6 +384,8 @@ describe('skill rules', () => {
       });
       // Investigation: 10 + (3 + 3 - 4) = 12
       expect(passiveInvestigationOf(scholar2024)).toBe(12);
+      // Perception: 10 + (2 - 4) = 8 (no 2014 +5 flat Observant bonus under 2024 rules)
+      expect(passivePerceptionOf(scholar2024)).toBe(8);
       // Insight: 10 + (2 + 3 - 4) = 11
       expect(passiveInsightOf(scholar2024)).toBe(11);
     });
