@@ -313,13 +313,26 @@ export function getMaxGeneralFeats(
   return milestonesFor(className).filter((m) => m <= level).length;
 }
 
-export function getMaxCantrips(className: string, level: number = 1, subclass: string = ''): number {
+export function getMaxCantrips(
+  className: string,
+  level: number = 1,
+  subclass: string = '',
+  classChoices: string[] = []
+): number {
   const c = (className || '').toLowerCase();
   const sub = (subclass || '').toLowerCase();
   const lvl = Math.max(1, level);
-  if (['wizard', 'cleric'].includes(c)) return lvl < 4 ? 3 : lvl < 10 ? 4 : 5;
+  const choicesLow = (classChoices || []).map((ch) => String(ch || '').trim().toLowerCase());
+  let extraCantrips = 0;
+  if (c === 'cleric' && choicesLow.some((ch) => ch.includes('thaumaturge'))) {
+    extraCantrips += 1;
+  }
+  if (c === 'druid' && choicesLow.some((ch) => ch.includes('magician'))) {
+    extraCantrips += 1;
+  }
+  if (['wizard', 'cleric'].includes(c)) return (lvl < 4 ? 3 : lvl < 10 ? 4 : 5) + extraCantrips;
   if (['sorcerer'].includes(c)) return lvl < 4 ? 4 : lvl < 10 ? 5 : 6;
-  if (['druid', 'bard', 'warlock'].includes(c)) return lvl < 4 ? 2 : lvl < 10 ? 3 : 4;
+  if (['druid', 'bard', 'warlock'].includes(c)) return (lvl < 4 ? 2 : lvl < 10 ? 3 : 4) + extraCantrips;
   if (['artificer'].includes(c)) return lvl < 10 ? 2 : lvl < 14 ? 3 : 4;
   if (c === 'fighter' && sub.includes('eldritch knight')) {
     return lvl >= 10 ? 3 : lvl >= 3 ? 2 : 0;

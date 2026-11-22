@@ -1365,4 +1365,59 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       expect(savingThrowModifier(overAttuned, 'STR')).toBe(3);
     }
   });
+
+  describe('2024 Divine Order (Thaumaturge) & Primal Order (Magician) skill bonuses', () => {
+    const { orderSkillBonus } = require('./skills');
+    const { getMaxCantrips } = require('./recommendations');
+    const arcana = { name: 'Arcana', ability: 'INT' as const };
+    const religion = { name: 'Religion', ability: 'INT' as const };
+    const nature = { name: 'Nature', ability: 'INT' as const };
+
+    it('adds +max(1, WIS mod) to Arcana & Religion for 2024 Cleric Thaumaturge and ignores 2014 / generic placeholders', () => {
+      const thaum = hero({
+        dnd_edition: '2024 Revision (5.5e)',
+        char_class: 'Cleric',
+        stats: { STR: 10, DEX: 10, CON: 12, INT: 10, WIS: 16, CHA: 10 },
+        skills: {},
+        skill_proficiencies: [],
+        features_traits: [{ name: 'Divine Order: Thaumaturge', description: '' }],
+      });
+      expect(orderSkillBonus(thaum, 'Arcana')).toBe(3);
+      expect(skillModifier(thaum, arcana)).toBe(3);
+      expect(skillModifier(thaum, religion)).toBe(3);
+      expect(skillModifier(thaum, nature)).toBe(0);
+
+      // Floor at +1 when WIS mod <= 0
+      const lowWis = hero({ ...thaum, stats: { STR: 10, DEX: 10, CON: 12, INT: 10, WIS: 8, CHA: 10 } });
+      expect(orderSkillBonus(lowWis, 'Arcana')).toBe(1);
+      expect(skillModifier(lowWis, arcana)).toBe(1);
+
+      // Generic placeholder "Divine Order" does not apply bonus
+      const generic = hero({ ...thaum, features_traits: [{ name: 'Divine Order', description: 'Protector or Thaumaturge' }] });
+      expect(orderSkillBonus(generic, 'Arcana')).toBe(0);
+
+      // 2014 Edition ignores 2024 Thaumaturge bonus
+      const legacy = hero({ ...thaum, dnd_edition: '2014 Edition' });
+      expect(orderSkillBonus(legacy, 'Arcana')).toBe(0);
+    });
+
+    it('adds +max(1, WIS mod) to Arcana & Nature for 2024 Druid Magician and +1 cantrip in getMaxCantrips', () => {
+      const mag = hero({
+        dnd_edition: '2024 Revision (5.5e)',
+        char_class: 'Druid',
+        stats: { STR: 10, DEX: 12, CON: 12, INT: 10, WIS: 18, CHA: 10 },
+        skills: {},
+        skill_proficiencies: [],
+        features_traits: [{ name: 'Primal Order: Magician', description: '' }],
+      });
+      expect(skillModifier(mag, arcana)).toBe(4);
+      expect(skillModifier(mag, nature)).toBe(4);
+      expect(skillModifier(mag, religion)).toBe(0);
+
+      expect(getMaxCantrips('Cleric', 1, '', [])).toBe(3);
+      expect(getMaxCantrips('Cleric', 1, '', ['Divine Order: Thaumaturge'])).toBe(4);
+      expect(getMaxCantrips('Druid', 1, '', [])).toBe(2);
+      expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'])).toBe(3);
+    });
+  });
 });

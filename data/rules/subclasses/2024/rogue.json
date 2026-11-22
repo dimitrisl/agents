@@ -2,19 +2,138 @@
     "class_name": "Rogue",
     "edition": "2024 Edition",
     "subclasses": {
+        "Arcane Trickster": {
+            "name": "Arcane Trickster",
+            "features": {
+                "3": {
+                    "name": "Spellcasting & Mage Hand Legerdemain (Arcane Trickster)",
+                    "description": "Cast Wizard spells (INT) and summon an invisible Mage Hand capable of stowing, retrieving, picking locks, and disarming traps remotely."
+                },
+                "9": {
+                    "name": "Magical Ambush (Arcane Trickster)",
+                    "description": "If you have the Invisible condition when casting a spell on your turn, targets have Disadvantage on their first saving throw against it."
+                },
+                "13": {
+                    "name": "Versatile Trickster (Arcane Trickster)",
+                    "description": "When you use the Trip Cunning Strike option, your Mage Hand can distract another nearby target to trigger Sneak Attack."
+                },
+                "17": {
+                    "name": "Spell Thief (Arcane Trickster)",
+                    "description": "When targeted by a spell, use your Reaction to negate its effect on you and steal the knowledge to cast it for 8 hours (once per Long Rest)."
+                }
+            }
+        },
         "Assassin": {
             "name": "Assassin",
+            "features": {
+                "3": {
+                    "name": "Assassinate & Assassin's Tools (Assassin)",
+                    "description": "Gain Advantage on Initiative and first-round attacks against creatures that haven't acted (with extra Rogue-level damage on Sneak Attack), plus Disguise and Poisoner's Kit proficiency."
+                },
+                "9": {
+                    "name": "Infiltration Expertise (Assassin)",
+                    "description": "Adopt convincing false identities via Masterful Mimicry and move at normal speed while maintaining Advantage on attack rolls with Steady Aim."
+                },
+                "13": {
+                    "name": "Envenom Weapons (Assassin)",
+                    "description": "When using the Poison Cunning Strike option, the target takes an extra 2d6 Poison damage ignoring Poison Resistance."
+                },
+                "17": {
+                    "name": "Death Strike (Assassin)",
+                    "description": "Targets hit on the first round of combat must make a CON save or suffer doubled damage from that attack."
+                }
+            },
             "scaling": {
                 "assassinate": {
                     "name": "Assassinate",
                     "kind": "utility",
-                    "hint": "Advantage against creatures that haven't taken a turn. Hits against surprised creatures are critical hits.",
+                    "rollable": false,
+                    "hint": "Advantage on Initiative and first-round attacks vs creatures that haven't acted, adding Rogue level extra damage on Sneak Attack.",
                     "steps": [
                         {
                             "level": 3,
-                            "notation": ""
+                            "notation": "+Rogue Level"
                         }
                     ]
+                }
+            }
+        },
+        "Soulknife": {
+            "name": "Soulknife",
+            "features": {
+                "3": {
+                    "name": "Psionic Power & Psychic Blades (Soulknife)",
+                    "description": "Gain Psionic Energy Dice (d6) for Psi-Bolstered Knack and Psychic Whispers, and manifest melee or thrown Psychic Blades dealing Psychic damage."
+                },
+                "9": {
+                    "name": "Soul Blades (Soulknife)",
+                    "description": "Spend a Psionic Energy Die for Homing Strikes (+die to missed Psychic Blade attack) or Psychic Teleportation (teleport 10x die feet as a Bonus Action)."
+                },
+                "13": {
+                    "name": "Psychic Veil (Soulknife)",
+                    "description": "Become Invisible for 1 hour as a Magic action (once per Long Rest or by expending a Psionic Energy Die)."
+                },
+                "17": {
+                    "name": "Rend Mind (Soulknife)",
+                    "description": "Force a target damaged by Psychic Blades Sneak Attack to succeed on a WIS save or be Stunned for 1 minute (once per Long Rest or 3 Psionic Dice)."
+                }
+            },
+            "scaling": {
+                "psychic_blades": {
+                    "name": "Psychic Blades",
+                    "kind": "attack",
+                    "damage_type": "psychic",
+                    "hint": "Manifest a Psychic Blade (1d6 Psychic, Finesse/Thrown 60 ft) plus Bonus Action second blade (1d4 Psychic).",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        }
+                    ]
+                },
+                "psionic_energy_dice": {
+                    "name": "Psionic Energy Die",
+                    "kind": "utility",
+                    "hint": "Roll to bolster failed skill checks (Psi-Bolstered Knack) or fuel Homing Strikes / Psychic Teleportation.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 17,
+                            "notation": "1d12"
+                        }
+                    ]
+                }
+            }
+        },
+        "Thief": {
+            "name": "Thief",
+            "features": {
+                "3": {
+                    "name": "Fast Hands & Second-Story Work (Thief)",
+                    "description": "Use your Cunning Action Bonus Action to make Sleight of Hand checks, use Thieves' Tools, or take the Utilize/Magic action with an item, and gain a Climb Speed equal to your Speed."
+                },
+                "9": {
+                    "name": "Supreme Sneak (Thief)",
+                    "description": "Use the Stealth Attack Cunning Strike option (1d6) to remain Hidden after attacking if you end your turn behind Three-Quarters or Total Cover."
+                },
+                "13": {
+                    "name": "Use Magic Device (Thief)",
+                    "description": "Attune to up to four magic items, occasionally expend charges without draining them (on a 6 on 1d6), and use any Spell Scroll."
+                },
+                "17": {
+                    "name": "Thief's Reflexes (Thief)",
+                    "description": "Take two turns during the first round of any combat (the second at your Initiative minus 10)."
                 }
             }
         }

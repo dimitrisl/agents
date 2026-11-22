@@ -160,8 +160,10 @@ export class ForgeComponent implements OnInit, OnDestroy {
   manualSkills: string[] = [];
   manualFeats: string[] = [];
   manualSpells: string[] = [];
+  manualClassChoice = '';
   availableFeats: any[] = [];
   availableSpells: any[] = [];
+  availableClassChoices: Record<string, any> = {};
 
   // Dictionaries
   // Dictionaries representing full database ruleset
@@ -281,6 +283,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.updateManualSubclasses();
     this.fetchFeats();
     this.fetchSpells();
+    this.fetchClassChoices();
   }
 
   ngOnDestroy(): void {
@@ -491,6 +494,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.charState.toggleEdition();
     this.manualFeats = [];
     this.manualSpells = [];
+    this.manualClassChoice = '';
     if (!['AI Choice', ...this.raceOptions].includes(this.aiRace)) {
       this.aiRace = 'AI Choice';
     }
@@ -509,6 +513,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.updateManualSubclasses();
     this.fetchFeats();
     this.fetchSpells();
+    this.fetchClassChoices();
   }
 
   onManualClassChange(newClass?: string) {
@@ -518,6 +523,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.manualSkills = [];
     this.manualFeats = [];
     this.manualSpells = [];
+    this.manualClassChoice = '';
     if (!this.is2024 && this.manualRace === 'Variant Human') {
       this.applyOriginAbilityDefaults();
     }
@@ -555,6 +561,15 @@ export class ForgeComponent implements OnInit, OnDestroy {
       this.manualSpells = [];
     }
     this.fetchSpells();
+  }
+
+  fetchClassChoices() {
+    this.http.get<Record<string, any>>(`${environment.apiBaseUrl}/rules/class-choices`, {
+      params: { edition: this.charState.dndEdition() }
+    }).subscribe({
+      next: (choices) => this.availableClassChoices = choices || {},
+      error: () => this.availableClassChoices = {}
+    });
   }
 
   fetchFeats() {
@@ -925,6 +940,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
       skill_proficiencies: this.manualSkills,
       chosen_feats: this.manualFeats.length > 0 ? this.manualFeats : null,
       chosen_spells: this.manualSpells.length > 0 ? this.manualSpells : null,
+      chosen_class_choices: this.manualClassChoice ? [this.manualClassChoice] : null,
     }).subscribe({
       next: (char) => {
         char.char_portrait = sanitizePortraitUrl(char.char_portrait);

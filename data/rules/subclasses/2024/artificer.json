@@ -1,0 +1,275 @@
+{
+    "class_name": "Artificer",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Alchemist": {
+            "name": "Alchemist",
+            "bonus_spells": {
+                "3": [
+                    "Healing Word",
+                    "Ray of Sickness"
+                ],
+                "5": [
+                    "Acid Arrow",
+                    "Flaming Sphere"
+                ],
+                "9": [
+                    "Gaseous Form",
+                    "Mass Healing Word"
+                ],
+                "13": [
+                    "Blight",
+                    "Death Ward"
+                ],
+                "17": [
+                    "Cloudkill",
+                    "Raise Dead"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Experimental Elixir & Tool Proficiency (Alchemist)",
+                    "description": "Gain Alchemist's Supplies proficiency and brew Experimental Elixirs after a Long Rest or by expending spell slots."
+                },
+                "6": {
+                    "name": "Alchemical Savant (Alchemist)",
+                    "description": "When casting an Artificer spell through Alchemist's Supplies, add your INT modifier to one healing roll or Acid, Fire, Necrotic, or Poison damage roll."
+                },
+                "10": {
+                    "name": "Restorative Reagents (Alchemist)",
+                    "description": "Experimental Elixirs grant bonus Temporary HP, and you can cast Lesser Restoration INT modifier times per Long Rest without a slot."
+                },
+                "14": {
+                    "name": "Chemical Mastery (Alchemist)",
+                    "description": "Gain Resistance to Acid and Poison damage and Immunity to the Poisoned condition, and cast Greater Restoration and Heal once per Long Rest without slots."
+                }
+            }
+        },
+        "Armorer": {
+            "name": "Armorer",
+            "armor_proficiencies": [
+                "Heavy armor"
+            ],
+            "bonus_spells": {
+                "3": [
+                    "Magic Missile",
+                    "Thunderwave"
+                ],
+                "5": [
+                    "Mirror Image",
+                    "Shatter"
+                ],
+                "9": [
+                    "Hypnotic Pattern",
+                    "Lightning Bolt"
+                ],
+                "13": [
+                    "Fire Shield",
+                    "Greater Invisibility"
+                ],
+                "17": [
+                    "Passwall",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Arcane Armor & Tools of the Trade (Armorer)",
+                    "description": "Gain Heavy Armor and Smith's Tools proficiency and transform armor into Guardian or Infiltrator Arcane Armor."
+                },
+                "6": {
+                    "name": "Armor Modifications (Armorer)",
+                    "description": "Your Arcane Armor separates into distinct boots, bracers, chestpiece, and weapon slots for Plans/Replicate Magic Item and increases your known magic item plans."
+                },
+                "10": {
+                    "name": "Improved Arcane Armor (Armorer)",
+                    "description": "Enhance your Arcane Armor's model weapon strikes and defensive capabilities across Guardian and Infiltrator modes."
+                },
+                "14": {
+                    "name": "Perfected Armor (Armorer)",
+                    "description": "Maximize your Guardian/Infiltrator Arcane Armor effects, pulling foes into melee or unleashing intensified lightning strikes."
+                }
+            }
+        },
+        "Artillerist": {
+            "name": "Artillerist",
+            "bonus_spells": {
+                "3": [
+                    "Shield",
+                    "Thunderwave"
+                ],
+                "5": [
+                    "Scorching Ray",
+                    "Shatter"
+                ],
+                "9": [
+                    "Fireball",
+                    "Wind Wall"
+                ],
+                "13": [
+                    "Ice Storm",
+                    "Wall of Fire"
+                ],
+                "17": [
+                    "Cone of Cold",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Eldritch Cannon & Artillerist Spells (Artillerist)",
+                    "description": "Gain Woodcarver's Tools proficiency, prepare Artillerist spells, and summon a Magical Eldritch Cannon (Flamethrower, Force Ballista, or Protector)."
+                },
+                "6": {
+                    "name": "Arcane Firearm (Artillerist)",
+                    "description": "Inscribe a wand, staff, or rod as an Arcane Firearm to add 1d8 extra damage to one damage roll of your Artificer spells."
+                },
+                "10": {
+                    "name": "Explosive Cannon (Artillerist)",
+                    "description": "Your Eldritch Cannon damage/healing rolls scale by +1d8, and you can command it to detonate in a 20-foot-radius Force blast."
+                },
+                "14": {
+                    "name": "Fortified Position (Artillerist)",
+                    "description": "Maintain two Eldritch Cannons at once and grant Half Cover to yourself and allies within 10 feet of them."
+                }
+            },
+            "scaling": {
+                "eldritch_cannon": {
+                    "name": "Eldritch Cannon",
+                    "kind": "attack",
+                    "damage_type": "force",
+                    "hint": "Bonus Action activates your Eldritch Cannon (Force Ballista, Flamethrower, or Protector).",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d8"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "3d8"
+                        }
+                    ]
+                },
+                "arcane_firearm": {
+                    "name": "Arcane Firearm",
+                    "kind": "rider",
+                    "hint": "Add extra damage to one damage roll of an Artificer spell cast through your Arcane Firearm.",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "1d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Battle Smith": {
+            "name": "Battle Smith",
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "bonus_spells": {
+                "3": [
+                    "Heroism",
+                    "Shield"
+                ],
+                "5": [
+                    "Shining Smite",
+                    "Warding Bond"
+                ],
+                "9": [
+                    "Aura of Vitality",
+                    "Conjure Barrage"
+                ],
+                "13": [
+                    "Aura of Purity",
+                    "Fire Shield"
+                ],
+                "17": [
+                    "Banishing Smite",
+                    "Mass Cure Wounds"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Battle Ready & Steel Defender (Battle Smith)",
+                    "description": "Use INT for magic weapon attacks, gain Smith's Tools proficiency, keep Battle Smith spells prepared, and command a Steel Defender companion."
+                },
+                "6": {
+                    "name": "Arcane Jolt (Battle Smith)",
+                    "description": "Channel stored magic on weapon or Steel Defender hits to deal extra Force damage or heal an ally within 30 feet (INT mod uses per Long Rest)."
+                },
+                "10": {
+                    "name": "Steel Defender Resilience (Battle Smith)",
+                    "description": "Further empower your Steel Defender and Arcane Jolt support for frontline protection."
+                },
+                "14": {
+                    "name": "Improved Defender (Battle Smith)",
+                    "description": "Arcane Jolt scales to 4d6, your Steel Defender gains +2 AC, and Deflect Attack deals 1d4 + INT modifier Force damage."
+                }
+            },
+            "scaling": {
+                "arcane_jolt": {
+                    "name": "Arcane Jolt",
+                    "kind": "rider",
+                    "damage_type": "force",
+                    "hint": "Once per turn on a magic weapon or Steel Defender hit: deal extra Force damage or heal an ally within 30 ft.",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "4d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Cartographer": {
+            "name": "Cartographer",
+            "bonus_spells": {
+                "3": [
+                    "Faerie Fire",
+                    "Guiding Bolt",
+                    "Healing Word"
+                ],
+                "5": [
+                    "Locate Object",
+                    "Mind Spike"
+                ],
+                "9": [
+                    "Call Lightning",
+                    "Clairvoyance"
+                ],
+                "13": [
+                    "Banishment",
+                    "Locate Creature"
+                ],
+                "17": [
+                    "Scrying",
+                    "Teleportation Circle"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Tools of the Trade & Adventurer's Atlas (Cartographer)",
+                    "description": "Gain Calligrapher's Supplies and Cartographer's Tools proficiency (halving Spell Scroll scribing time and cost), keep Cartographer spells prepared, and link allies with Adventurer's Atlas maps."
+                },
+                "6": {
+                    "name": "Guided Precision & Portal Jump (Cartographer)",
+                    "description": "Enhance Adventurer's Atlas allies with extra precision and short-range spatial repositioning between mapped coordinates."
+                },
+                "10": {
+                    "name": "Ingenious Movement (Cartographer)",
+                    "description": "Use your Flash of Genius or Atlas links to help allies escape danger and traverse battlefield hazards effortlessly."
+                },
+                "14": {
+                    "name": "Superior Atlas (Cartographer)",
+                    "description": "Protect your Adventurer's Atlas holders from lethal hits with emergency rescue teleports and expand your magical cartography network."
+                }
+            }
+        }
+    }
+}

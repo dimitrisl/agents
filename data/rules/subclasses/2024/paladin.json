@@ -1,0 +1,191 @@
+{
+    "class_name": "Paladin",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Oath of Devotion": {
+            "name": "Oath of Devotion",
+            "bonus_spells": {
+                "3": [
+                    "Protection from Evil and Good",
+                    "Shield of Faith"
+                ],
+                "5": [
+                    "Aid",
+                    "Zone of Truth"
+                ],
+                "9": [
+                    "Beacon of Hope",
+                    "Dispel Magic"
+                ],
+                "13": [
+                    "Freedom of Movement",
+                    "Guardian of Faith"
+                ],
+                "17": [
+                    "Commune",
+                    "Flame Strike"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Sacred Weapon & Devotion Spells (Oath of Devotion)",
+                    "description": "Keep Devotion spells prepared and expend Channel Divinity as part of an attack to add your CHA modifier to weapon attack rolls and emit bright light."
+                },
+                "7": {
+                    "name": "Aura of Devotion (Oath of Devotion)",
+                    "description": "You and allies inside your Aura of Protection have Immunity to the Charmed condition."
+                },
+                "15": {
+                    "name": "Smite of Protection (Oath of Devotion)",
+                    "description": "Whenever you cast Divine Smite, you and allies in your Aura of Protection gain Half Cover until the start of your next turn."
+                },
+                "20": {
+                    "name": "Holy Nimbus (Oath of Devotion)",
+                    "description": "Emit Sunlight for 10 minutes as a Bonus Action, granting Advantage on saves against Fiend/Undead spells and dealing CHA mod + PB Radiant damage in your aura."
+                }
+            }
+        },
+        "Oath of Glory": {
+            "name": "Oath of Glory",
+            "bonus_spells": {
+                "3": [
+                    "Guiding Bolt",
+                    "Heroism"
+                ],
+                "5": [
+                    "Enhance Ability",
+                    "Magic Weapon"
+                ],
+                "9": [
+                    "Haste",
+                    "Protection from Energy"
+                ],
+                "13": [
+                    "Compulsion",
+                    "Freedom of Movement"
+                ],
+                "17": [
+                    "Legend Lore",
+                    "Yolande's Regal Presence"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Inspiring Smite & Peerless Athlete (Oath of Glory)",
+                    "description": "Keep Glory spells prepared and spend Channel Divinity for athletic prowess or to grant Temporary HP after casting Divine Smite."
+                },
+                "7": {
+                    "name": "Aura of Alacrity (Oath of Glory)",
+                    "description": "Your Speed increases by 10 feet, and any ally who enters your Aura of Protection gains +10 feet Speed until the end of their next turn."
+                },
+                "15": {
+                    "name": "Glorious Defense (Oath of Glory)",
+                    "description": "Use your Reaction to add CHA modifier to a nearby ally's AC against an attack and counterattack the attacker if it misses (CHA mod uses per Long Rest)."
+                },
+                "20": {
+                    "name": "Living Legend (Oath of Glory)",
+                    "description": "For 10 minutes as a Bonus Action, gain Advantage on CHA checks, turn missed weapon attacks into hits, and reroll failed saving throws via Reaction."
+                }
+            },
+            "scaling": {
+                "inspiring_smite": {
+                    "name": "Inspiring Smite",
+                    "kind": "heal",
+                    "hint": "Channel Divinity after Divine Smite: distribute 2d8 + Paladin level Temporary HP among allies within 30 ft.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Oath of the Ancients": {
+            "name": "Oath of the Ancients",
+            "bonus_spells": {
+                "3": [
+                    "Ensnaring Strike",
+                    "Speak with Animals"
+                ],
+                "5": [
+                    "Misty Step",
+                    "Moonbeam"
+                ],
+                "9": [
+                    "Plant Growth",
+                    "Protection from Energy"
+                ],
+                "13": [
+                    "Ice Storm",
+                    "Stoneskin"
+                ],
+                "17": [
+                    "Commune with Nature",
+                    "Tree Stride"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Nature's Wrath & Ancients Spells (Oath of the Ancients)",
+                    "description": "Keep Ancients spells prepared and expend Channel Divinity as a Magic action to conjure spectral vines that restrain nearby creatures."
+                },
+                "7": {
+                    "name": "Aura of Warding (Oath of the Ancients)",
+                    "description": "You and allies inside your Aura of Protection gain Resistance to Necrotic, Psychic, and Radiant damage."
+                },
+                "15": {
+                    "name": "Undying Sentinel (Oath of the Ancients)",
+                    "description": "When dropped to 0 HP (not killed outright), drop to 1 HP instead and regain HP equal to 3x Paladin level once per Long Rest, and stop aging magically."
+                },
+                "20": {
+                    "name": "Elder Champion (Oath of the Ancients)",
+                    "description": "For 1 minute as a Bonus Action, regain 10 HP per turn, cast action spells as Bonus Actions, and impose Disadvantage on saves vs Paladin spells in your aura."
+                }
+            }
+        },
+        "Oath of Vengeance": {
+            "name": "Oath of Vengeance",
+            "bonus_spells": {
+                "3": [
+                    "Bane",
+                    "Hunter's Mark"
+                ],
+                "5": [
+                    "Hold Person",
+                    "Misty Step"
+                ],
+                "9": [
+                    "Haste",
+                    "Protection from Energy"
+                ],
+                "13": [
+                    "Banishment",
+                    "Dimension Door"
+                ],
+                "17": [
+                    "Hold Monster",
+                    "Scrying"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Vow of Enmity & Vengeance Spells (Oath of Vengeance)",
+                    "description": "Keep Vengeance spells prepared and expend Channel Divinity when hitting an enemy to gain Advantage on attacks against it for 1 minute."
+                },
+                "7": {
+                    "name": "Relentless Avenger (Oath of Vengeance)",
+                    "description": "When you hit with an Opportunity Attack, reduce the target's Speed to 0 and move up to half your Speed without provoking Opportunity Attacks."
+                },
+                "15": {
+                    "name": "Soul of Vengeance (Oath of Vengeance)",
+                    "description": "Use your Reaction to make an attack when the creature targeted by your Vow of Enmity makes an attack roll."
+                },
+                "20": {
+                    "name": "Avenging Angel (Oath of Vengeance)",
+                    "description": "For 10 minutes as a Bonus Action, gain a 60-foot Fly Speed and a 30-foot Frightening aura granting Advantage on attacks against frightened foes."
+                }
+            }
+        }
+    }
+}

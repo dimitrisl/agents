@@ -330,6 +330,8 @@ def calculate_ac(
     has_monk_unarmored = (char_class or "").strip().lower() == "monk"
     has_barbarian_unarmored = (char_class or "").strip().lower() == "barbarian"
     has_draconic_resilience = "draconic" in str(subclass or "").lower()
+    is_2024_ac = "2024" in str(edition or "")
+    has_dance_unarmored = is_2024_ac and "college of dance" in str(subclass or "").lower()
     has_mage_armor = False
 
     if features:
@@ -346,6 +348,8 @@ def calculate_ac(
                     has_barbarian_unarmored = True
             elif "draconic resilience" in f_name or "draconic sorcery" in f_name:
                 has_draconic_resilience = True
+            elif is_2024_ac and "dazzling footwork" in f_name:
+                has_dance_unarmored = True
             elif "mage armor" in f_name:
                 has_mage_armor = True
 
@@ -363,9 +367,14 @@ def calculate_ac(
                 base_source = (
                     f"Unarmored Defense (Barbarian: 10 + CON {get_modifier(con_score):+d})"
                 )
+        if has_dance_unarmored and not has_shield and cha_score is not None:
+            cha_mod = get_modifier(cha_score)
+            dance_val = 10 + cha_mod
+            if dance_val > base_ac:
+                base_ac = dance_val
+                base_source = f"Dazzling Footwork (College of Dance: 10 + CHA {cha_mod:+d})"
         if has_draconic_resilience:
-            is_2024_drac = "2024" in str(edition or "")
-            if is_2024_drac and cha_score is not None:
+            if is_2024_ac and cha_score is not None:
                 cha_mod = get_modifier(cha_score)
                 drac_val = 10 + cha_mod
                 drac_label = f"Draconic Resilience (10 + CHA {cha_mod:+d})"
@@ -2126,6 +2135,30 @@ def sync_character_stats(
         half_prof_phys=(remarkable and not is_2024),
     )
 
+    # 2024 RAW: Cleric Divine Order (Thaumaturge) adds +max(1, WIS mod) to Arcana & Religion;
+    # Druid Primal Order (Magician) adds +max(1, WIS mod) to Arcana & Nature.
+    ft_names_low = [
+        (f.get("name") if isinstance(f, dict) else str(f)).strip().lower()
+        for f in (char_data.get("features_traits") or [])
+    ]
+    if is_2024_sheet:
+        order_wis_bonus = max(1, get_modifier(wis_score))
+        has_thaumaturge = any("thaumaturge" in fn for fn in ft_names_low)
+        has_magician = any(
+            "primal order: magician" in fn
+            or fn == "magician"
+            or ("magician" in fn and ("primal" in fn or "druid" in fn))
+            for fn in ft_names_low
+        )
+        if has_thaumaturge:
+            for sk in ("Arcana", "Religion"):
+                if sk in char_data["skills"]:
+                    char_data["skills"][sk] += order_wis_bonus
+        if has_magician:
+            for sk in ("Arcana", "Nature"):
+                if sk in char_data["skills"]:
+                    char_data["skills"][sk] += order_wis_bonus
+
     # Saving Throw Proficiencies & Passive Bonuses (Diamond Soul, Slippery Mind, Aura of Protection, Soul of Artifice)
     _save_alias_map = {
         "STRENGTH": "STR",
@@ -2149,10 +2182,6 @@ def sync_character_stats(
     paladin_lvl = _class_lvl("paladin")
     rogue_lvl_for_saves = _class_lvl("rogue")
     artificer_lvl = _class_lvl("artificer")
-    ft_names_low = [
-        (f.get("name") if isinstance(f, dict) else str(f)).strip().lower()
-        for f in (char_data.get("features_traits") or [])
-    ]
 
     norm_saves: list[str] = []
     for s in char_data.get("saving_throws", []) or []:

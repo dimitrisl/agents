@@ -204,6 +204,33 @@
           </div>
         </div>
 
+        @if (manualClassChoiceConfig; as choiceCfg) {
+          <div class="min-w-0">
+            <label
+              for="manual-class-choice"
+              class="mb-2 block text-label font-semibold text-muted"
+            >
+              {{ choiceCfg.label }}
+            </label>
+            <select
+              forgeSelect
+              id="manual-class-choice"
+              [(ngModel)]="manualClassChoice"
+              (ngModelChange)="manualClassChoiceChange.emit($event)"
+            >
+              <option value="">Choose {{ choiceCfg.label }}...</option>
+              @for (opt of choiceCfg.options; track opt.name) {
+                <option [value]="opt.name">{{ opt.name }}</option>
+              }
+            </select>
+            @if (selectedClassChoiceDescription; as choiceDesc) {
+              <p class="mt-2 text-micro text-muted">
+                {{ choiceDesc }}
+              </p>
+            }
+          </div>
+        }
+
         <div class="min-w-0">
           <label
             for="manual-concept"

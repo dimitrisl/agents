@@ -19,6 +19,7 @@ from backend.core.schemas import (
     RulesQueryResponse,
     RulesValidationResponse,
     SpellSchema,
+    WeaponMasterySchema,
 )
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.rules_service import (
@@ -169,11 +170,9 @@ async def get_class_scaling(
     scaling_dict = dict(data.get("scaling", {}))
 
     if subclass:
-        subclass_data = repo.get_subclass_mechanics(class_name, edition)
-        if subclass_data and "subclasses" in subclass_data:
-            specific_subclass = subclass_data["subclasses"].get(subclass, {})
-            subclass_scaling = specific_subclass.get("scaling", {})
-            scaling_dict.update(subclass_scaling)
+        specific_subclass = repo.get_subclass_entry(class_name, subclass, edition) or {}
+        subclass_scaling = specific_subclass.get("scaling", {})
+        scaling_dict.update(subclass_scaling)
 
     resolved_actions = []
     cantripTier = 4 if level >= 17 else 3 if level >= 11 else 2 if level >= 5 else 1
@@ -241,11 +240,12 @@ async def get_combat_profile(
         scaling_dict = dict(data.get("scaling", {}))
 
         if cls_entry.subclass:
-            subclass_data = repo.get_subclass_mechanics(cls_entry.class_name, payload.edition)
-            if subclass_data and "subclasses" in subclass_data:
-                specific_subclass = subclass_data["subclasses"].get(cls_entry.subclass, {})
-                subclass_scaling = specific_subclass.get("scaling", {})
-                scaling_dict.update(subclass_scaling)
+            specific_subclass = (
+                repo.get_subclass_entry(cls_entry.class_name, cls_entry.subclass, payload.edition)
+                or {}
+            )
+            subclass_scaling = specific_subclass.get("scaling", {})
+            scaling_dict.update(subclass_scaling)
 
         for action_id, action_def in scaling_dict.items():
             steps = action_def.get("steps", [])
@@ -359,3 +359,22 @@ async def get_backgrounds(
 async def get_items(current_user: dict = Depends(get_current_user)):
     repo = get_rules_repo()
     return repo.get_all_items()
+
+
+@router.get("/weapon-masteries", response_model=List[WeaponMasterySchema])
+async def get_weapon_masteries(
+    edition: str = Query(EDITION_2024, description="D&D Edition (defaults to 2024)"),
+    current_user: dict = Depends(get_current_user),
+):
+    repo = get_rules_repo()
+    resolved = parse_edition(edition)
+    return repo.get_all_weapon_masteries(resolved)
+
+
+@router.get("/class-choices", response_model=Dict[str, Any])
+async def get_class_choices(
+    edition: str = Depends(parse_edition),
+    current_user: dict = Depends(get_current_user),
+):
+    repo = get_rules_repo()
+    return repo.get_class_choices(edition)

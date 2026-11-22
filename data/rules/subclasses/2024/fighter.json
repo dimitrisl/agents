@@ -2,31 +2,30 @@
     "class_name": "Fighter",
     "edition": "2024 Edition",
     "subclasses": {
-        "Champion": {
-            "name": "Champion",
-            "scaling": {
-                "improved_critical": {
-                    "name": "Improved Critical",
-                    "kind": "utility",
-                    "rollable": false,
-                    "hint": "Widened crit range \u2014 the Attack button already flags these as crits.",
-                    "steps": [
-                        {
-                            "level": 3,
-                            "notation": "crit on 19\u201320",
-                            "value": 19
-                        },
-                        {
-                            "level": 15,
-                            "notation": "crit on 18\u201320",
-                            "value": 18
-                        }
-                    ]
-                }
-            }
-        },
         "Battle Master": {
             "name": "Battle Master",
+            "features": {
+                "3": {
+                    "name": "Combat Superiority & Student of War (Battle Master)",
+                    "description": "Gain 3 maneuvers and 4 Superiority Dice (d8), plus proficiency in one Artisan's Tool and one skill available to Fighters."
+                },
+                "7": {
+                    "name": "Know Your Enemy (Battle Master)",
+                    "description": "As a Bonus Action, learn whether a creature within 30 feet has Immunities, Resistances, or Vulnerabilities and what they are (recharges on Long Rest or by spending a Superiority Die)."
+                },
+                "10": {
+                    "name": "Improved Combat Superiority (Battle Master)",
+                    "description": "Your Superiority Dice increase to d10s."
+                },
+                "15": {
+                    "name": "Relentless (Battle Master)",
+                    "description": "Once per turn when you use a maneuver, you can roll 1d8 and use that roll instead of expending a Superiority Die."
+                },
+                "18": {
+                    "name": "Ultimate Combat Superiority (Battle Master)",
+                    "description": "Your Superiority Dice increase to d12s."
+                }
+            },
             "scaling": {
                 "superiority_dice": {
                     "name": "Superiority Die",
@@ -43,6 +42,155 @@
                         },
                         {
                             "level": 18,
+                            "notation": "1d12"
+                        }
+                    ]
+                }
+            }
+        },
+        "Champion": {
+            "name": "Champion",
+            "features": {
+                "3": {
+                    "name": "Improved Critical & Remarkable Athlete (Champion)",
+                    "description": "Critical hit on a roll of 19 or 20. In addition, thanks to athletic prowess, you have Advantage on Initiative rolls and Strength (Athletics) checks; running jump distance increases by STR modifier in feet."
+                },
+                "7": {
+                    "name": "Additional Fighting Style (Champion)",
+                    "description": "Choose a second option from the Fighting Style class feature."
+                },
+                "10": {
+                    "name": "Heroic Warrior (Champion)",
+                    "description": "Whenever you start your turn in combat with 0 Temporary Hit Points, you can give yourself Heroic Inspiration."
+                },
+                "15": {
+                    "name": "Superior Critical (Champion)",
+                    "description": "Your weapon attacks score a critical hit on a roll of 18-20."
+                },
+                "18": {
+                    "name": "Survivor (Champion)",
+                    "description": "At the start of each of your turns, you regain 5 + CON modifier HP if you have no more than half your HP left, and have Advantage on Death Saving Throws."
+                }
+            },
+            "scaling": {
+                "improved_critical": {
+                    "name": "Improved Critical",
+                    "kind": "utility",
+                    "rollable": false,
+                    "hint": "Widened crit range — the Attack button already flags these as crits.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "crit on 19–20",
+                            "value": 19
+                        },
+                        {
+                            "level": 15,
+                            "notation": "crit on 18–20",
+                            "value": 18
+                        }
+                    ]
+                }
+            }
+        },
+        "Eldritch Knight": {
+            "name": "Eldritch Knight",
+            "features": {
+                "3": {
+                    "name": "Spellcasting & War Bond (Eldritch Knight)",
+                    "description": "Augment martial prowess with Wizard spells (INT) and bond with up to two weapons so you cannot be disarmed and can summon them as a Bonus Action."
+                },
+                "7": {
+                    "name": "War Magic (Eldritch Knight)",
+                    "description": "When you take the Attack action on your turn, you can replace one of your attacks with a casting of one of your Wizard cantrips with a casting time of an action."
+                },
+                "10": {
+                    "name": "Eldritch Strike (Eldritch Knight)",
+                    "description": "When you hit a creature with an attack using a weapon, that creature has Disadvantage on the next saving throw it makes against a spell you cast before the end of your next turn."
+                },
+                "15": {
+                    "name": "Arcane Charge (Eldritch Knight)",
+                    "description": "When you use Action Surge, you can teleport up to 30 feet to an unoccupied space you can see before or after the additional action."
+                },
+                "18": {
+                    "name": "Improved War Magic (Eldritch Knight)",
+                    "description": "When you take the Attack action on your turn, you can replace two of your attacks with a casting of one of your Level 1 or Level 2 Wizard spells that has a casting time of an action."
+                }
+            }
+        },
+        "Psi Warrior": {
+            "name": "Psi Warrior",
+            "bonus_spells": {
+                "18": [
+                    "Telekinesis"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Psionic Power (Psi Warrior)",
+                    "description": "Gain a pool of Psionic Energy Dice (d6) to fuel Protective Field, Psionic Strike, and Telekinetic Movement."
+                },
+                "7": {
+                    "name": "Telekinetic Adept (Psi Warrior)",
+                    "description": "Gain Psi-Powered Leap (Fly Speed equal to double Speed until turn end) and Telekinetic Thrust (push or knock target Prone when dealing Psionic Strike damage)."
+                },
+                "10": {
+                    "name": "Guarded Mind (Psi Warrior)",
+                    "description": "Gain Resistance to Psychic damage, and expend a Psionic Energy Die at the start of your turn to end Charmed and Frightened conditions on yourself."
+                },
+                "15": {
+                    "name": "Bulwark of Force (Psi Warrior)",
+                    "description": "As a Bonus Action, grant Half Cover to yourself and allies within 30 feet (up to INT modifier creatures) for 1 minute."
+                },
+                "18": {
+                    "name": "Telekinetic Master (Psi Warrior)",
+                    "description": "Always have Telekinesis prepared, cast it once per Long Rest (or by spending a Psionic Energy Die), and make a weapon attack as a Bonus Action while concentrating on it."
+                }
+            },
+            "scaling": {
+                "psionic_strike": {
+                    "name": "Psionic Strike",
+                    "kind": "rider",
+                    "damage_type": "force",
+                    "hint": "Once per turn on a weapon hit within 30 ft: expend a Psionic Energy Die to add Die + INT mod Force damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 17,
+                            "notation": "1d12"
+                        }
+                    ]
+                },
+                "protective_field": {
+                    "name": "Protective Field",
+                    "kind": "defense",
+                    "hint": "Reaction reduces damage to yourself or an ally within 30 ft by Psionic Energy Die + INT mod.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 17,
                             "notation": "1d12"
                         }
                     ]

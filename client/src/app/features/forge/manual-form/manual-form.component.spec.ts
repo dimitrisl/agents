@@ -298,4 +298,27 @@ describe('ManualFormComponent', () => {
     component.toggleFeat('War Caster');
     expect(component.manualFeats).toEqual(['War Caster']);
   });
+
+  it('shows 2024 Divine Order / Primal Order pickers and grants +1 maxCantrips for Thaumaturge & Magician', () => {
+    component.is2024 = true;
+    component.manualLevel = 1;
+    component.manualClass = 'Cleric';
+    component.manualClassChoice = '';
+    expect(component.manualClassChoiceConfig?.label).toBe('Divine Order (Level 1)');
+    expect(component.maxCantrips).toBe(3);
+
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
+    expect(component.maxCantrips).toBe(4);
+    expect(component.selectedClassChoiceDescription).toContain('Arcana');
+
+    component.manualClass = 'Druid';
+    component.manualClassChoice = 'Primal Order: Magician';
+    expect(component.manualClassChoiceConfig?.label).toBe('Primal Order (Level 1)');
+    expect(component.maxCantrips).toBe(3);
+
+    // 2014 Cleric does not expose 2024 Divine Order picker
+    component.is2024 = false;
+    component.manualClass = 'Cleric';
+    expect(component.manualClassChoiceConfig).toBeNull();
+  });
 });

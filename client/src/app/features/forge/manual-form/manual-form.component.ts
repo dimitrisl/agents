@@ -77,8 +77,10 @@ export class ManualFormComponent {
   @Input() manualSkills: string[] = [];
   @Input() manualFeats: string[] = [];
   @Input() manualSpells: string[] = [];
+  @Input() manualClassChoice = '';
   @Input() availableFeats: any[] = [];
   @Input() availableSpells: any[] = [];
+  @Input() availableClassChoices: Record<string, any> = {};
 
   @Output() manualNameChange = new EventEmitter<string>();
   @Output() manualLevelChange = new EventEmitter<number>();
@@ -98,6 +100,7 @@ export class ManualFormComponent {
   @Output() manualSkillsChange = new EventEmitter<string[]>();
   @Output() manualFeatsChange = new EventEmitter<string[]>();
   @Output() manualSpellsChange = new EventEmitter<string[]>();
+  @Output() manualClassChoiceChange = new EventEmitter<string>();
 
   @Output() updateManualSubclasses = new EventEmitter<void>();
   @Output() rollStats = new EventEmitter<void>();
@@ -367,8 +370,79 @@ export class ManualFormComponent {
     return Math.floor((score - 10) / 2);
   }
 
+  get manualClassChoiceConfig(): {
+    label: string;
+    options: Array<{ name: string; description?: string }>;
+  } | null {
+    const c = (this.manualClass || '').trim().toLowerCase();
+    const cat = this.availableClassChoices || {};
+
+    if (this.is2024 && c === 'cleric') {
+      const opts =
+        Array.isArray(cat['divine_orders']) && cat['divine_orders'].length
+          ? cat['divine_orders']
+          : [
+              {
+                name: 'Divine Order: Protector',
+                description: 'Gain proficiency with Martial weapons and training with Heavy armor.',
+              },
+              {
+                name: 'Divine Order: Thaumaturge',
+                description: 'Know 1 extra Cleric cantrip and add WIS modifier (min +1) to Arcana & Religion checks.',
+              },
+            ];
+      return { label: 'Divine Order (Level 1)', options: opts };
+    }
+
+    if (this.is2024 && c === 'druid') {
+      const opts =
+        Array.isArray(cat['primal_orders']) && cat['primal_orders'].length
+          ? cat['primal_orders']
+          : [
+              {
+                name: 'Primal Order: Magician',
+                description: 'Know 1 extra Druid cantrip and add WIS modifier (min +1) to Arcana & Nature checks.',
+              },
+              {
+                name: 'Primal Order: Warden',
+                description: 'Gain proficiency with Martial weapons and training with Medium armor.',
+              },
+            ];
+      return { label: 'Primal Order (Level 1)', options: opts };
+    }
+
+    if (this.is2024 && c === 'warlock') {
+      const allInv = Array.isArray(cat['eldritch_invocations']) ? cat['eldritch_invocations'] : [];
+      const lvl1Inv = allInv.filter((item: any) => Number(item?.min_level ?? 1) <= 1);
+      if (lvl1Inv.length) {
+        return { label: 'Eldritch Invocation (Level 1)', options: lvl1Inv };
+      }
+    }
+
+    if (c === 'fighter') {
+      const styles = cat['fighting_styles']?.['fighter'];
+      if (Array.isArray(styles) && styles.length) {
+        return { label: 'Fighting Style (Level 1)', options: styles };
+      }
+    }
+
+    return null;
+  }
+
+  get selectedClassChoiceDescription(): string | null {
+    const cfg = this.manualClassChoiceConfig;
+    if (!cfg || !this.manualClassChoice) return null;
+    const found = cfg.options.find((o) => o.name === this.manualClassChoice);
+    return found?.description || null;
+  }
+
   get maxCantrips(): number {
-    return getMaxCantrips(this.manualClass, this.manualLevel, this.manualSubclass);
+    return getMaxCantrips(
+      this.manualClass,
+      this.manualLevel,
+      this.manualSubclass,
+      this.manualClassChoice ? [this.manualClassChoice] : []
+    );
   }
 
   get maxPreparedSpells(): number {

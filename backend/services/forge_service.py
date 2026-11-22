@@ -1128,12 +1128,17 @@ def forge_character_manual(
     chosen_spells: list = None,
     chosen_feats: list = None,
     chosen_equipment: list = None,
+    chosen_class_choices: list = None,
 ) -> dict:
     """Enriches and builds a manual character based on user selections and AI helper."""
     pref_instructions = []
     if custom_preferences and custom_preferences.strip():
         pref_instructions.append(
             f"USER CUSTOM BUILD PREFERENCES (FEATS, SPELLS, ASIs):\n{custom_preferences}"
+        )
+    if chosen_class_choices:
+        pref_instructions.append(
+            f"USER CHOSEN CLASS OPTIONS (STRICTLY INCLUDE THESE): {', '.join(str(c) for c in chosen_class_choices if c)}"
         )
     if chosen_spells:
         pref_instructions.append(
@@ -1223,6 +1228,42 @@ def forge_character_manual(
         if feat.get("name", "").lower() not in existing_feat_names:
             result.setdefault("features_traits", []).append(feat)
             existing_feat_names.add(feat.get("name", "").lower())
+
+    if chosen_class_choices:
+        choices_catalog = repo.get_class_choices(edition)
+        for raw_choice in chosen_class_choices:
+            clean_choice = str(raw_choice or "").strip()
+            if not clean_choice or clean_choice.lower() in existing_feat_names:
+                continue
+            choice_desc = None
+            for bucket_val in (choices_catalog or {}).values():
+                items_iter = (
+                    [item for sub_lst in bucket_val.values() for item in (sub_lst or [])]
+                    if isinstance(bucket_val, dict)
+                    else (bucket_val if isinstance(bucket_val, list) else [])
+                )
+                matched = next(
+                    (
+                        it
+                        for it in items_iter
+                        if isinstance(it, dict)
+                        and str(it.get("name") or "").strip().lower() == clean_choice.lower()
+                    ),
+                    None,
+                )
+                if matched:
+                    choice_desc = matched.get("description")
+                    clean_choice = str(matched.get("name") or clean_choice).strip()
+                    break
+            if clean_choice.lower() not in existing_feat_names:
+                result.setdefault("features_traits", []).append(
+                    {
+                        "name": clean_choice,
+                        "description": choice_desc or f"Selected class option: {clean_choice}",
+                        "source": "Class",
+                    }
+                )
+                existing_feat_names.add(clean_choice.lower())
 
     if chosen_spells is not None:
         all_rules_spells = {
@@ -2992,162 +3033,216 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             }
         )
 
-    # 5. Structured 2014 Class / Subclass Build Choices (Fighting Style, Pact Boon, Invocations, Metamagic, Maneuvers, Infusions, Hunter)
-    if not is_2024:
-        choices_catalog = rules_repo.get_class_choices(edition)
-        owned_ft_low = {
-            str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
-            for f in (char_data.get("features_traits") or [])
-        }
-        owned_pact = next((name for name in owned_ft_low if name.startswith("pact of the ")), None)
+    # 5. Structured Class / Subclass Build Choices (2014 & 2024: Divine/Primal Order, Fighting Style, Pact Boon, Invocations, Metamagic, Maneuvers, Infusions/Plans, Hunter)
+    choices_catalog = rules_repo.get_class_choices(edition)
+    owned_ft_low = {
+        str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+        for f in (char_data.get("features_traits") or [])
+    }
+    owned_pacts = {name for name in owned_ft_low if name.startswith("pact of the ")}
 
-        # Fighting Styles
-        if (
-            (c_lower == "fighter" and target_level == 1)
-            or (c_lower == "fighter" and "champion" in sub_lower and target_level == 10)
-            or (c_lower in ("paladin", "ranger") and target_level == 2)
-        ):
-            style_opts = [
-                opt["name"]
-                for opt in (choices_catalog.get("fighting_styles") or {}).get(c_lower, [])
-                if opt.get("name") and opt["name"].lower() not in owned_ft_low
-            ]
-            if style_opts:
+    # 2024 Cleric Level 1: Divine Order (Protector vs Thaumaturge)
+    if (
+        is_2024
+        and c_lower == "cleric"
+        and target_level == 1
+        and not any("divine order:" in fn or "thaumaturge" in fn for fn in owned_ft_low)
+    ):
+        order_opts = [
+            opt["name"] for opt in (choices_catalog.get("divine_orders") or []) if opt.get("name")
+        ]
+        if order_opts:
+            choices.append(
+                {
+                    "type": "divine_order",
+                    "label": "Choose your Divine Order",
+                    "options": order_opts,
+                    "ai_recommendation": "Protector grants Heavy Armor & Martial Weapons; Thaumaturge grants +1 Cantrip and +WIS to Arcana & Religion.",
+                }
+            )
+
+    # 2024 Druid Level 1: Primal Order (Magician vs Warden)
+    if (
+        is_2024
+        and c_lower == "druid"
+        and target_level == 1
+        and not any("primal order:" in fn for fn in owned_ft_low)
+    ):
+        primal_opts = [
+            opt["name"] for opt in (choices_catalog.get("primal_orders") or []) if opt.get("name")
+        ]
+        if primal_opts:
+            choices.append(
+                {
+                    "type": "primal_order",
+                    "label": "Choose your Primal Order",
+                    "options": primal_opts,
+                    "ai_recommendation": "Magician grants +1 Cantrip and +WIS to Arcana & Nature; Warden grants Medium Armor & Martial Weapons.",
+                }
+            )
+
+    # Fighting Styles (2014: Fighter L1, Champion L10, Paladin/Ranger L2; 2024: Fighter L1, Champion L7, Paladin/Ranger L2)
+    champion_extra_style_lvl = 7 if is_2024 else 10
+    if (
+        (c_lower == "fighter" and target_level == 1)
+        or (
+            c_lower == "fighter"
+            and "champion" in sub_lower
+            and target_level == champion_extra_style_lvl
+        )
+        or (c_lower in ("paladin", "ranger") and target_level == 2)
+    ):
+        style_opts = [
+            opt["name"]
+            for opt in (choices_catalog.get("fighting_styles") or {}).get(c_lower, [])
+            if opt.get("name") and opt["name"].lower() not in owned_ft_low
+        ]
+        if style_opts:
+            choices.append(
+                {
+                    "type": "fighting_style",
+                    "label": "Choose a Fighting Style",
+                    "options": style_opts,
+                    "ai_recommendation": f"Pick {style_opts[0]} to sharpen your martial combat role.",
+                }
+            )
+
+    # Warlock Pact Boon (2014 Level 3 only; in 2024 Pact Boons are Level 1 Eldritch Invocations)
+    if not is_2024 and c_lower == "warlock" and target_level == 3 and not owned_pacts:
+        boon_opts = [
+            opt["name"] for opt in (choices_catalog.get("pact_boons") or []) if opt.get("name")
+        ]
+        if boon_opts:
+            choices.append(
+                {
+                    "type": "pact_boon",
+                    "label": "Choose your Pact Boon",
+                    "options": boon_opts,
+                    "ai_recommendation": "Pact of the Tome (utility rituals/cantrips) or Pact of the Blade (Hexblade/melee).",
+                }
+            )
+
+    # Warlock Eldritch Invocations
+    # 2014: L2 (+2), L5/7/9/12/15/18 (+1)
+    # 2024: L1 (+1), L2 (+2), L5 (+2), L7/9/12/15/18 (+1)
+    inv_grants = (
+        {1: 1, 2: 2, 5: 2, 7: 1, 9: 1, 12: 1, 15: 1, 18: 1}
+        if is_2024
+        else {2: 2, 5: 1, 7: 1, 9: 1, 12: 1, 15: 1, 18: 1}
+    )
+    if c_lower == "warlock" and target_level in inv_grants:
+        inv_opts = [
+            opt["name"]
+            for opt in (choices_catalog.get("eldritch_invocations") or [])
+            if opt.get("name")
+            and opt["name"].lower() not in owned_ft_low
+            and int(opt.get("min_level", 1 if is_2024 else 2) or (1 if is_2024 else 2))
+            <= target_level
+            and (not opt.get("pact") or opt["pact"].lower() in owned_pacts)
+        ]
+        if inv_opts:
+            count_inv = inv_grants[target_level]
+            for idx_i in range(count_inv):
                 choices.append(
                     {
-                        "type": "fighting_style",
-                        "label": "Choose a Fighting Style",
-                        "options": style_opts,
-                        "ai_recommendation": f"Pick {style_opts[0]} to sharpen your martial combat role.",
+                        "type": "eldritch_invocation",
+                        "label": "Choose an Eldritch Invocation"
+                        if count_inv == 1
+                        else f"Choose Eldritch Invocation #{idx_i + 1}",
+                        "options": inv_opts,
+                        "ai_recommendation": "Pact of the Blade/Tome/Chain at L1 and Agonizing Blast / Eldritch Mind at L2+ are staples."
+                        if is_2024
+                        else "Agonizing Blast is staple for Eldritch Blast DPR; Devil's Sight and Eldritch Mind offer strong defense.",
                     }
                 )
 
-        # Warlock Pact Boon (Level 3)
-        if c_lower == "warlock" and target_level == 3 and not owned_pact:
-            boon_opts = [
-                opt["name"] for opt in (choices_catalog.get("pact_boons") or []) if opt.get("name")
-            ]
-            if boon_opts:
+    # Sorcerer Metamagic (2014: L3 +2, L10/17 +1; 2024: L2 +2, L10/17 +2)
+    mm_grants = {2: 2, 10: 2, 17: 2} if is_2024 else {3: 2, 10: 1, 17: 1}
+    if c_lower == "sorcerer" and target_level in mm_grants:
+        mm_opts = [
+            opt["name"]
+            for opt in (choices_catalog.get("metamagic") or [])
+            if opt.get("name") and opt["name"].lower() not in owned_ft_low
+        ]
+        if mm_opts:
+            count_mm = mm_grants[target_level]
+            for idx_m in range(count_mm):
                 choices.append(
                     {
-                        "type": "pact_boon",
-                        "label": "Choose your Pact Boon",
-                        "options": boon_opts,
-                        "ai_recommendation": "Pact of the Tome (utility rituals/cantrips) or Pact of the Blade (Hexblade/melee).",
+                        "type": "metamagic",
+                        "label": "Choose a Metamagic Option"
+                        if count_mm == 1
+                        else f"Choose Metamagic Option #{idx_m + 1}",
+                        "options": mm_opts,
+                        "ai_recommendation": "Quickened Spell, Subtle Spell, and Heightened Spell offer top versatility.",
                     }
                 )
 
-        # Warlock Eldritch Invocations (L2 gains 2; L5/7/9/12/15/18 gain 1 each)
-        inv_grants = {2: 2, 5: 1, 7: 1, 9: 1, 12: 1, 15: 1, 18: 1}
-        if c_lower == "warlock" and target_level in inv_grants:
-            inv_opts = [
-                opt["name"]
-                for opt in (choices_catalog.get("eldritch_invocations") or [])
-                if opt.get("name")
-                and opt["name"].lower() not in owned_ft_low
-                and int(opt.get("min_level", 2) or 2) <= target_level
-                and (not opt.get("pact") or opt["pact"].lower() == (owned_pact or ""))
-            ]
-            if inv_opts:
-                count_inv = inv_grants[target_level]
-                for idx_i in range(count_inv):
-                    choices.append(
-                        {
-                            "type": "eldritch_invocation",
-                            "label": "Choose an Eldritch Invocation"
-                            if count_inv == 1
-                            else f"Choose Eldritch Invocation #{idx_i + 1}",
-                            "options": inv_opts,
-                            "ai_recommendation": "Agonizing Blast is staple for Eldritch Blast DPR; Devil's Sight and Eldritch Mind offer strong defense.",
-                        }
-                    )
-
-        # Sorcerer Metamagic (L3 gains 2; L10/17 gain 1)
-        mm_grants = {3: 2, 10: 1, 17: 1}
-        if c_lower == "sorcerer" and target_level in mm_grants:
-            mm_opts = [
-                opt["name"]
-                for opt in (choices_catalog.get("metamagic") or [])
-                if opt.get("name") and opt["name"].lower() not in owned_ft_low
-            ]
-            if mm_opts:
-                count_mm = mm_grants[target_level]
-                for idx_m in range(count_mm):
-                    choices.append(
-                        {
-                            "type": "metamagic",
-                            "label": "Choose a Metamagic Option"
-                            if count_mm == 1
-                            else f"Choose Metamagic Option #{idx_m + 1}",
-                            "options": mm_opts,
-                            "ai_recommendation": "Quickened Spell and Twinned Spell offer top action economy.",
-                        }
-                    )
-
-        # Fighter (Battle Master) Maneuvers (L3 gains 3; L7/10/15 gain 2)
-        bm_grants = {3: 3, 7: 2, 10: 2, 15: 2}
-        if c_lower == "fighter" and "battle master" in sub_lower and target_level in bm_grants:
-            bm_opts = [
-                opt["name"]
-                for opt in (choices_catalog.get("maneuvers") or [])
-                if opt.get("name") and opt["name"].lower() not in owned_ft_low
-            ]
-            if bm_opts:
-                count_bm = bm_grants[target_level]
-                for idx_b in range(count_bm):
-                    choices.append(
-                        {
-                            "type": "maneuver",
-                            "label": f"Battle Master: Choose Maneuver #{idx_b + 1}",
-                            "options": bm_opts,
-                            "ai_recommendation": "Precision Attack, Trip Attack, and Riposte maximize accuracy and DPR.",
-                        }
-                    )
-
-        # Artificer Infusions Known (L2 gains 4; L6/10/14/18 each gain 2)
-        inf_grants = {2: 4, 6: 2, 10: 2, 14: 2, 18: 2}
-        if c_lower == "artificer" and target_level in inf_grants:
-            inf_opts = [
-                opt["name"]
-                for opt in (choices_catalog.get("artificer_infusions") or [])
-                if opt.get("name")
-                and opt["name"].lower() not in owned_ft_low
-                and int(opt.get("min_level", 2) or 2) <= target_level
-            ]
-            if inf_opts:
-                count_inf = inf_grants[target_level]
-                for idx_a in range(count_inf):
-                    choices.append(
-                        {
-                            "type": "infusion",
-                            "label": "Choose an Artificer Infusion"
-                            if count_inf == 1
-                            else f"Choose Artificer Infusion #{idx_a + 1}",
-                            "options": inf_opts,
-                            "ai_recommendation": "Enhanced Defense / Enhanced Weapon / Mind Sharpener boost party survivability.",
-                        }
-                    )
-
-        # Ranger (Hunter) archetype options (L3/7/11/15)
-        if (
-            c_lower == "ranger"
-            and "hunter" in sub_lower
-            and str(target_level) in (choices_catalog.get("hunter_choices") or {})
-        ):
-            h_opts = [
-                opt["name"]
-                for opt in (choices_catalog.get("hunter_choices") or {}).get(str(target_level), [])
-                if opt.get("name") and opt["name"].lower() not in owned_ft_low
-            ]
-            if h_opts:
+    # Fighter (Battle Master) Maneuvers (L3 gains 3; L7/10/15 gain 2)
+    bm_grants = {3: 3, 7: 2, 10: 2, 15: 2}
+    if c_lower == "fighter" and "battle master" in sub_lower and target_level in bm_grants:
+        bm_opts = [
+            opt["name"]
+            for opt in (choices_catalog.get("maneuvers") or [])
+            if opt.get("name") and opt["name"].lower() not in owned_ft_low
+        ]
+        if bm_opts:
+            count_bm = bm_grants[target_level]
+            for idx_b in range(count_bm):
                 choices.append(
                     {
-                        "type": "hunter_choice",
-                        "label": f"Hunter (Level {target_level}): Choose Archetype Option",
-                        "options": h_opts,
-                        "ai_recommendation": f"Consider {h_opts[0]} for reliable combat impact.",
+                        "type": "maneuver",
+                        "label": f"Battle Master: Choose Maneuver #{idx_b + 1}",
+                        "options": bm_opts,
+                        "ai_recommendation": "Precision Attack, Trip Attack, and Riposte maximize accuracy and DPR.",
                     }
                 )
+
+    # Artificer Infusions / 2024 Replicate Magic Item Plans (L2 gains 4; L6/10/14/18 each gain 2)
+    inf_grants = {2: 4, 6: 2, 10: 2, 14: 2, 18: 2}
+    if c_lower == "artificer" and target_level in inf_grants:
+        inf_opts = [
+            opt["name"]
+            for opt in (choices_catalog.get("artificer_infusions") or [])
+            if opt.get("name")
+            and opt["name"].lower() not in owned_ft_low
+            and int(opt.get("min_level", 2) or 2) <= target_level
+        ]
+        if inf_opts:
+            count_inf = inf_grants[target_level]
+            plan_label = "Artificer Magic Item Plan" if is_2024 else "Artificer Infusion"
+            for idx_a in range(count_inf):
+                choices.append(
+                    {
+                        "type": "infusion",
+                        "label": f"Choose an {plan_label}"
+                        if count_inf == 1
+                        else f"Choose {plan_label} #{idx_a + 1}",
+                        "options": inf_opts,
+                        "ai_recommendation": "Enhanced Defense / Enhanced Weapon / Mind Sharpener boost party survivability.",
+                    }
+                )
+
+    # Ranger (Hunter) archetype options (2014: L3/7/11/15; 2024: L3/7)
+    if (
+        c_lower == "ranger"
+        and "hunter" in sub_lower
+        and str(target_level) in (choices_catalog.get("hunter_choices") or {})
+    ):
+        h_opts = [
+            opt["name"]
+            for opt in (choices_catalog.get("hunter_choices") or {}).get(str(target_level), [])
+            if opt.get("name") and opt["name"].lower() not in owned_ft_low
+        ]
+        if h_opts:
+            choices.append(
+                {
+                    "type": "hunter_choice",
+                    "label": f"Hunter (Level {target_level}): Choose Archetype Option",
+                    "options": h_opts,
+                    "ai_recommendation": f"Consider {h_opts[0]} for reliable combat impact.",
+                }
+            )
 
     # Deterministically compute updated spell slots for the target level
     updated_classes = [dict(c) for c in classes] if classes else []

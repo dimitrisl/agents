@@ -1,0 +1,133 @@
+{
+    "class_name": "Wizard",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Abjurer": {
+            "name": "Abjurer",
+            "bonus_spells": {
+                "10": [
+                    "Counterspell",
+                    "Dispel Magic"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Abjuration Savant & Arcane Ward (Abjurer)",
+                    "description": "Gain two Abjuration spells in your spellbook and weave a magical Arcane Ward that absorbs damage whenever you cast Abjuration spells."
+                },
+                "6": {
+                    "name": "Projected Ward (Abjurer)",
+                    "description": "Use your Reaction when a creature within 30 feet takes damage to have your Arcane Ward absorb that damage instead."
+                },
+                "10": {
+                    "name": "Spell Breaker (Abjurer)",
+                    "description": "Always have Counterspell and Dispel Magic prepared, cast Dispel Magic as a Bonus Action adding PB to the check, and retain spell slots when a dispel/counter fails."
+                },
+                "14": {
+                    "name": "Spell Resistance (Abjurer)",
+                    "description": "You have Advantage on saving throws against spells and Resistance to the damage of spells."
+                }
+            },
+            "scaling": {
+                "arcane_ward": {
+                    "name": "Arcane Ward",
+                    "kind": "defense",
+                    "rollable": false,
+                    "hint": "Protective ward with max HP equal to 2 x Wizard level + INT mod; recharges when casting Abjuration spells.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2xLvl + INT"
+                        }
+                    ]
+                }
+            }
+        },
+        "Diviner": {
+            "name": "Diviner",
+            "features": {
+                "3": {
+                    "name": "Divination Savant & Portent (Diviner)",
+                    "description": "Gain two Divination spells in your spellbook and roll two d20 Portent dice after a Long Rest to replace d20 Tests made by you or visible creatures."
+                },
+                "6": {
+                    "name": "Expert Divination (Diviner)",
+                    "description": "Casting a Divination spell of Level 2 or higher with a spell slot regains an expended spell slot of lower level (up to Level 5)."
+                },
+                "10": {
+                    "name": "The Third Eye (Diviner)",
+                    "description": "As a Bonus Action, gain Darkvision (120 ft), Ethereal Sight, Greater Comprehension, or See Invisibility until your next rest."
+                },
+                "14": {
+                    "name": "Greater Portent (Diviner)",
+                    "description": "Roll three d20s for your Portent feature instead of two."
+                }
+            },
+            "scaling": {
+                "portent": {
+                    "name": "Portent",
+                    "kind": "utility",
+                    "hint": "Roll Portent d20s after each Long Rest (2 dice at L3, 3 dice at L14) to replace visible d20 Tests.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d20"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "3d20"
+                        }
+                    ]
+                }
+            }
+        },
+        "Evoker": {
+            "name": "Evoker",
+            "features": {
+                "3": {
+                    "name": "Evocation Savant & Potent Cantrip (Evoker)",
+                    "description": "Gain two Evocation spells in your spellbook, and when you miss with your cantrip attack roll or a target succeeds on its saving throw against your damaging cantrip, it still takes half damage."
+                },
+                "6": {
+                    "name": "Sculpt Spells (Evoker)",
+                    "description": "Create pockets of safety in your Evocation spells so chosen creatures automatically succeed on their saving throws and take no damage."
+                },
+                "10": {
+                    "name": "Empowered Evocation (Evoker)",
+                    "description": "Add your Intelligence modifier to one damage roll of any Wizard Evocation spell you cast."
+                },
+                "14": {
+                    "name": "Overchannel (Evoker)",
+                    "description": "Deal maximum damage with a Level 1–5 Wizard spell once per Long Rest (subsequent uses deal self-damage unless rested)."
+                }
+            }
+        },
+        "Illusionist": {
+            "name": "Illusionist",
+            "bonus_spells": {
+                "6": [
+                    "Summon Beast",
+                    "Summon Fey"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Illusion Savant & Improved Illusions (Illusionist)",
+                    "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, enhance Minor Illusion, and cast Summon Beast/Fey as illusions."
+                },
+                "6": {
+                    "name": "Phantasmal Creatures (Illusionist)",
+                    "description": "Always have Summon Beast and Summon Fey prepared, and cast either once per Long Rest without a spell slot (half HP, Illusion school)."
+                },
+                "10": {
+                    "name": "Illusory Self (Illusionist)",
+                    "description": "Use your Reaction when hit by an attack roll to force the attack to miss via an illusory double (recharges on Short/Long Rest or Level 2+ spell slot)."
+                },
+                "14": {
+                    "name": "Illusory Reality (Illusionist)",
+                    "description": "As a Bonus Action, make one inanimate, nonmagical object inside a Level 1+ Illusion spell you cast temporarily real for 1 minute."
+                }
+            }
+        }
+    }
+}

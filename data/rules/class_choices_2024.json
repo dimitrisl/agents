@@ -1,0 +1,157 @@
+{
+  "divine_orders": [
+    {
+      "name": "Divine Order: Protector",
+      "description": "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor."
+    },
+    {
+      "name": "Divine Order: Thaumaturge",
+      "description": "You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks equal to your Wisdom modifier (minimum of +1)."
+    }
+  ],
+  "primal_orders": [
+    {
+      "name": "Primal Order: Magician",
+      "description": "You know one extra cantrip from the Druid spell list. In addition, your mystical connection to nature gives you a bonus to your Intelligence (Arcana or Nature) checks equal to your Wisdom modifier (minimum of +1)."
+    },
+    {
+      "name": "Primal Order: Warden",
+      "description": "Trained for battle, you gain proficiency with Martial weapons and training with Medium armor."
+    }
+  ],
+  "fighting_styles": {
+    "fighter": [
+      {"name": "Fighting Style: Archery", "description": "You gain a +2 bonus to attack rolls you make with Ranged weapons."},
+      {"name": "Fighting Style: Blind Fighting", "description": "You have Blindsight with a range of 10 feet."},
+      {"name": "Fighting Style: Defense", "description": "While you're wearing Light, Medium, or Heavy armor, you gain a +1 bonus to Armor Class."},
+      {"name": "Fighting Style: Dueling", "description": "When you're holding a Melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."},
+      {"name": "Fighting Style: Great Weapon Fighting", "description": "When you roll damage for an attack you make with a Melee weapon that you are holding with two hands, you can treat any 1 or 2 on a damage die as a 3."},
+      {"name": "Fighting Style: Interception", "description": "Reaction when a creature hits an ally within 5 feet: reduce the damage by 1d10 plus your Proficiency Bonus (requires a Shield or a Simple or Martial weapon)."},
+      {"name": "Fighting Style: Protection", "description": "Reaction when an attacker makes an attack roll against an ally within 5 feet while you hold a Shield: impose Disadvantage on that roll and subsequent attacks against that ally until the start of your next turn."},
+      {"name": "Fighting Style: Thrown Weapon Fighting", "description": "When you hit with a ranged attack roll using a weapon that has the Thrown property, you gain a +2 bonus to the damage roll."},
+      {"name": "Fighting Style: Two-Weapon Fighting", "description": "When you make an extra attack as a result of using a weapon that has the Light property, you can add your ability modifier to the damage of that attack."},
+      {"name": "Fighting Style: Unarmed Fighting", "description": "Your Unarmed Strike deals 1d6 + STR Bludgeoning damage (1d8 if not holding weapons or a Shield), and at the start of your turn you deal 1d4 Bludgeoning damage to one creature grappled by you."}
+    ],
+    "paladin": [
+      {"name": "Fighting Style: Blessed Warrior", "description": "You learn two Cleric cantrips of your choice (Charisma spellcasting) and can replace one when you gain a Paladin level."},
+      {"name": "Fighting Style: Blind Fighting", "description": "You have Blindsight with a range of 10 feet."},
+      {"name": "Fighting Style: Defense", "description": "While you're wearing Light, Medium, or Heavy armor, you gain a +1 bonus to Armor Class."},
+      {"name": "Fighting Style: Dueling", "description": "When you're holding a Melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."},
+      {"name": "Fighting Style: Great Weapon Fighting", "description": "When you roll damage for an attack you make with a Melee weapon that you are holding with two hands, you can treat any 1 or 2 on a damage die as a 3."},
+      {"name": "Fighting Style: Interception", "description": "Reaction when a creature hits an ally within 5 feet: reduce the damage by 1d10 plus your Proficiency Bonus."},
+      {"name": "Fighting Style: Protection", "description": "Reaction when an attacker targets an ally within 5 feet while you hold a Shield: impose Disadvantage on attacks against that ally until the start of your next turn."}
+    ],
+    "ranger": [
+      {"name": "Fighting Style: Archery", "description": "You gain a +2 bonus to attack rolls you make with Ranged weapons."},
+      {"name": "Fighting Style: Blind Fighting", "description": "You have Blindsight with a range of 10 feet."},
+      {"name": "Fighting Style: Defense", "description": "While you're wearing Light, Medium, or Heavy armor, you gain a +1 bonus to Armor Class."},
+      {"name": "Fighting Style: Druidic Warrior", "description": "You learn two Druid cantrips of your choice (Wisdom spellcasting) and can replace one when you gain a Ranger level."},
+      {"name": "Fighting Style: Dueling", "description": "When you're holding a Melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."},
+      {"name": "Fighting Style: Thrown Weapon Fighting", "description": "When you hit with a ranged attack roll using a weapon that has the Thrown property, you gain a +2 bonus to the damage roll."},
+      {"name": "Fighting Style: Two-Weapon Fighting", "description": "When you make an extra attack as a result of using a weapon that has the Light property, you can add your ability modifier to the damage of that attack."}
+    ]
+  },
+  "eldritch_invocations": [
+    {"name": "Pact of the Blade", "min_level": 1, "description": "Bonus Action conjures or bonds a Simple or Martial Melee Pact Weapon you are proficient with; use Charisma for its attack and damage rolls and deal Necrotic, Psychic, or Radiant damage."},
+    {"name": "Pact of the Chain", "min_level": 1, "description": "Learn Find Familiar and cast it as a Magic action without a slot, choosing special forms (Imp, Pseudodragon, Quasit, Skeleton, Slaad Tadpole, Sphinx of Wonder, Sprite, or Venomous Snake)."},
+    {"name": "Pact of the Tome", "min_level": 1, "description": "Conjure a Book of Shadows granting three cantrips from any class's spell list and two Level 1 Ritual spells from any class's spell list."},
+    {"name": "Armor of Shadows", "min_level": 1, "description": "Cast Mage Armor on yourself without expending a spell slot."},
+    {"name": "Eldritch Mind", "min_level": 1, "description": "You have Advantage on Constitution saving throws that you make to maintain Concentration."},
+    {"name": "Lessons of the First Ones", "min_level": 2, "description": "Gain an Origin feat of your choice (repeatable for distinct Origin feats)."},
+    {"name": "Agonizing Blast", "min_level": 2, "description": "Choose one of your known Warlock cantrips that deals damage; add your Charisma modifier to that spell's damage rolls."},
+    {"name": "Devil's Sight", "min_level": 2, "description": "See normally in Dim Light and Darkness—both magical and nonmagical—within 120 feet of yourself."},
+    {"name": "Fiendish Vigor", "min_level": 2, "description": "Cast False Life on yourself without expending a spell slot, automatically receiving the maximum Temporary Hit Points."},
+    {"name": "Mask of Many Faces", "min_level": 2, "description": "Cast Disguise Self without expending a spell slot."},
+    {"name": "Misty Visions", "min_level": 2, "description": "Cast Silent Image without expending a spell slot."},
+    {"name": "Otherworldly Leap", "min_level": 2, "description": "Cast Jump on yourself without expending a spell slot."},
+    {"name": "Repelling Blast", "min_level": 2, "description": "Choose one of your known Warlock cantrips requiring an attack roll; on a hit against a Large or smaller creature, push it up to 10 feet straight away."},
+    {"name": "Eldritch Smite", "min_level": 5, "pact": "Pact of the Blade", "description": "Once per turn when you hit a creature with your pact weapon, expend a Pact Magic slot to deal an extra 1d8 Force damage (+1d8 per slot level) and knock a Huge or smaller target Prone."},
+    {"name": "Gaze of Two Minds", "min_level": 5, "description": "Bonus Action perceives through a willing creature's senses and lets you cast spells as if you were in its space."},
+    {"name": "Gift of the Depths", "min_level": 5, "description": "Breathe underwater, gain a Swim Speed equal to your Speed, and cast Water Breathing once per Long Rest without a slot."},
+    {"name": "Investment of the Chain Master", "min_level": 5, "pact": "Pact of the Chain", "description": "Empower your familiar with Fly/Swim Speed 40 ft, Bonus Action attack, Radiant/Necrotic damage, your Spell Save DC, and Reaction Resistance."},
+    {"name": "Master of Myriad Forms", "min_level": 5, "description": "Cast Alter Self without expending a spell slot."},
+    {"name": "One with Shadows", "min_level": 5, "description": "While in Dim Light or Darkness, cast Invisibility on yourself without expending a spell slot."},
+    {"name": "Thirsting Blade", "min_level": 5, "pact": "Pact of the Blade", "description": "Gain the Extra Attack feature for your pact weapon only: attack twice instead of once whenever you take the Attack action."},
+    {"name": "Whispers of the Grave", "min_level": 7, "description": "Cast Speak with Dead without expending a spell slot."},
+    {"name": "Ascendant Step", "min_level": 9, "description": "Cast Levitate on yourself without expending a spell slot."},
+    {"name": "Gift of the Protectors", "min_level": 9, "pact": "Pact of the Tome", "description": "Creatures who write their names in your Book of Shadows drop to 1 HP instead of 0 HP once per Long Rest."},
+    {"name": "Lifedrinker", "min_level": 9, "pact": "Pact of the Blade", "description": "Once per turn on a hit with your pact weapon, deal an extra 1d6 Necrotic, Psychic, or Radiant damage and optionally expend a Hit Point Die to regain HP."},
+    {"name": "Visions of Distant Realms", "min_level": 9, "description": "Cast Arcane Eye without expending a spell slot."},
+    {"name": "Devouring Blade", "min_level": 12, "pact": "Pact of the Blade", "description": "The Extra Attack of your Thirsting Blade invocation confers two extra attacks rather than one (three attacks total with your pact weapon)."},
+    {"name": "Witch Sight", "min_level": 15, "description": "You have Truesight with a range of 30 feet."}
+  ],
+  "metamagic": [
+    {"name": "Metamagic: Careful Spell", "description": "Spend 1 Sorcery Point to let up to CHA modifier chosen creatures automatically succeed on their saving throw against your spell and take no damage if it deals half damage on a success."},
+    {"name": "Metamagic: Distant Spell", "description": "Spend 1 Sorcery Point to double the range of a spell with a range of at least 5 feet, or change a Touch spell's range to 30 feet."},
+    {"name": "Metamagic: Empowered Spell", "description": "Spend 1 Sorcery Point to reroll up to CHA modifier damage dice of a spell (can combine with another Metamagic option)."},
+    {"name": "Metamagic: Extended Spell", "description": "Spend 1 Sorcery Point to double a spell's duration (up to 24 hours) and gain Advantage on Concentration saves to maintain it."},
+    {"name": "Metamagic: Heightened Spell", "description": "Spend 2 Sorcery Points to give one target Disadvantage on all saving throws made against your spell."},
+    {"name": "Metamagic: Quickened Spell", "description": "Spend 2 Sorcery Points to change a spell's casting time from 1 Action to 1 Bonus Action (cannot cast another leveled spell this turn)."},
+    {"name": "Metamagic: Seeking Spell", "description": "Spend 1 Sorcery Point when you miss with a spell attack roll to reroll the d20 (can combine with another Metamagic option)."},
+    {"name": "Metamagic: Subtle Spell", "description": "Spend 1 Sorcery Point to cast a spell without Verbal, Somatic, or non-consumed/non-costly Material components."},
+    {"name": "Metamagic: Transmuted Spell", "description": "Spend 1 Sorcery Point to change a spell's Acid, Cold, Fire, Lightning, Poison, or Thunder damage type to another type on that list."},
+    {"name": "Metamagic: Twinned Spell", "description": "Spend 1 Sorcery Point when casting a spell that can be upcast to target an additional creature to increase its effective spell level by 1 for targeting."}
+  ],
+  "maneuvers": [
+    {"name": "Maneuver: Ambush", "description": "Expend a Superiority Die to add it to a Dexterity (Stealth) check or an Initiative roll."},
+    {"name": "Maneuver: Bait and Switch", "description": "Swap spaces with a willing creature within 5 feet, adding a Superiority Die to either your or the ally's AC until the start of your next turn."},
+    {"name": "Maneuver: Commander's Strike", "description": "Forgo one attack during the Attack action to direct a nearby ally to make a Reaction weapon attack adding your Superiority Die to damage."},
+    {"name": "Maneuver: Commanding Presence", "description": "Expend a Superiority Die to add it to a Charisma (Intimidation, Performance, or Persuasion) check."},
+    {"name": "Maneuver: Disarming Attack", "description": "Add a Superiority Die to weapon damage and force a STR save or make the target drop one held object."},
+    {"name": "Maneuver: Distracting Strike", "description": "Add a Superiority Die to weapon damage and grant the next attack roll against the target by another creature Advantage."},
+    {"name": "Maneuver: Evasive Footwork", "description": "Bonus Action expends a Superiority Die, adding it to your AC until the start of your next turn when taking the Disengage action."},
+    {"name": "Maneuver: Feinting Attack", "description": "Bonus Action expends a Superiority Die for Advantage on your next attack roll against a creature within 5 feet, adding the die to damage on a hit."},
+    {"name": "Maneuver: Goading Attack", "description": "Add a Superiority Die to weapon damage and force a WIS save or give the target Disadvantage on attacks against targets other than you."},
+    {"name": "Maneuver: Lunging Attack", "description": "Bonus Action Dash and expend a Superiority Die to make a melee attack with extra damage."},
+    {"name": "Maneuver: Maneuvering Attack", "description": "Add a Superiority Die to weapon damage and let an ally use a Reaction to move up to half its Speed without provoking Opportunity Attacks from your target."},
+    {"name": "Maneuver: Menacing Attack", "description": "Add a Superiority Die to weapon damage and force a WIS save or Frighten the target until the end of your next turn."},
+    {"name": "Maneuver: Parry", "description": "Reaction when damaged by a melee attack: expend a Superiority Die to reduce the damage by the roll plus your STR or DEX modifier."},
+    {"name": "Maneuver: Precision Attack", "description": "Expend a Superiority Die and add it to a weapon attack roll before or after rolling."},
+    {"name": "Maneuver: Pushing Attack", "description": "Add a Superiority Die to weapon damage and force a Large or smaller target to pass a STR save or be pushed up to 15 feet away."},
+    {"name": "Maneuver: Rally", "description": "Bonus Action expends a Superiority Die to grant a visible ally Temporary HP equal to the roll plus half your Fighter level."},
+    {"name": "Maneuver: Riposte", "description": "Reaction when a creature misses you with a melee attack: expend a Superiority Die to make a melee attack adding the die to damage."},
+    {"name": "Maneuver: Sweeping Attack", "description": "Expend a Superiority Die on a melee hit to deal the die's damage to another creature within 5 feet if your original roll would hit it."},
+    {"name": "Maneuver: Tactical Assessment", "description": "Expend a Superiority Die to add it to an Intelligence (History or Investigation) or Wisdom (Insight) check."},
+    {"name": "Maneuver: Trip Attack", "description": "Add a Superiority Die to weapon damage and force a Large or smaller target to pass a STR save or have the Prone condition."}
+  ],
+  "artificer_infusions": [
+    {"name": "Plan: Bag of Holding", "min_level": 2, "description": "Replicate a magical Bag of Holding using Replicate Magic Item."},
+    {"name": "Plan: Enhanced Defense (+1 Armor/Shield)", "min_level": 2, "description": "Replicate +1 Armor or a +1 Shield (upgrading at higher Artificer levels)."},
+    {"name": "Plan: Enhanced Weapon (+1 Weapon)", "min_level": 2, "description": "Replicate a +1 Magic Weapon."},
+    {"name": "Plan: Wand of the War Mage (+1)", "min_level": 2, "description": "Replicate a +1 Wand of the War Mage granting +1 to spell attack rolls and ignoring Half Cover."},
+    {"name": "Plan: Repeating Shot", "min_level": 2, "description": "Replicate a +1 magic ranged weapon that ignores Loading and creates its own ammunition."},
+    {"name": "Plan: Returning Weapon", "min_level": 2, "description": "Replicate a +1 magic thrown weapon that flies back to your hand after a ranged attack."},
+    {"name": "Plan: Mind Sharpener", "min_level": 2, "description": "Replicate Mind Sharpener armor/robes with 4 charges to turn a failed Concentration save into a success as a Reaction."},
+    {"name": "Plan: Goggles of Night", "min_level": 2, "description": "Replicate Goggles of Night granting 60 ft Darkvision (+60 ft if already possessed)."},
+    {"name": "Plan: Alchemy Jug", "min_level": 2, "description": "Replicate an Alchemy Jug that produces useful mundane liquids daily."},
+    {"name": "Plan: Cloak of Protection", "min_level": 6, "description": "Replicate a Cloak of Protection (+1 AC and +1 to all Saving Throws)."},
+    {"name": "Plan: Boots of Elvenkind", "min_level": 6, "description": "Replicate Boots of Elvenkind granting Advantage on Stealth checks to move silently."},
+    {"name": "Plan: Radiant Weapon", "min_level": 6, "description": "Replicate a +1 luminous magic weapon with 4 charges to Blind melee attackers via Reaction."},
+    {"name": "Plan: Repulsion Shield", "min_level": 6, "description": "Replicate a +1 Shield with 4 charges to push melee attackers up to 15 feet via Reaction."},
+    {"name": "Plan: Spell-Refueling Ring", "min_level": 6, "description": "Replicate a ring that recovers one expended spell slot of 3rd level or lower once per dawn."},
+    {"name": "Plan: Gauntlets of Ogre Power", "min_level": 10, "description": "Replicate Gauntlets of Ogre Power setting your Strength score to 19."},
+    {"name": "Plan: Headband of Intellect", "min_level": 10, "description": "Replicate a Headband of Intellect setting your Intelligence score to 19."},
+    {"name": "Plan: Winged Boots", "min_level": 10, "description": "Replicate Winged Boots granting a Fly Speed equal to your Speed."},
+    {"name": "Plan: Amulet of Health", "min_level": 14, "description": "Replicate an Amulet of Health setting your Constitution score to 19."},
+    {"name": "Plan: Belt of Hill Giant Strength", "min_level": 14, "description": "Replicate a Belt of Hill Giant Strength setting your Strength score to 21."},
+    {"name": "Plan: Ring of Protection", "min_level": 14, "description": "Replicate a Ring of Protection (+1 AC and +1 to all Saving Throws)."}
+  ],
+  "hunter_choices": {
+    "3": [
+      {"name": "Hunter's Prey: Colossus Slayer", "description": "Once per turn when you hit a creature with a weapon, deal an extra 1d8 damage if it is missing any of its Hit Points."},
+      {"name": "Hunter's Prey: Horde Breaker", "description": "Once on each of your turns when you make a weapon attack, make another attack with the same weapon against a different creature within 5 feet of the original target."}
+    ],
+    "7": [
+      {"name": "Defensive Tactics: Escape the Horde", "description": "Opportunity Attacks have Disadvantage against you."},
+      {"name": "Defensive Tactics: Multiattack Defense", "description": "When a creature hits you with an attack roll, that creature has Disadvantage on all other attack rolls against you this turn."}
+    ]
+  },
+  "cunning_strikes": [
+    {"name": "Cunning Strike: Poison", "min_level": 5, "cost_dice": 1, "description": "Forgo 1d6 Sneak Attack: target makes a CON save or gains the Poisoned condition for 1 minute (requires Poisoner's Kit)."},
+    {"name": "Cunning Strike: Trip", "min_level": 5, "cost_dice": 1, "description": "Forgo 1d6 Sneak Attack: Large or smaller target makes a DEX save or falls Prone."},
+    {"name": "Cunning Strike: Withdraw", "min_level": 5, "cost_dice": 1, "description": "Forgo 1d6 Sneak Attack: move up to half your Speed without provoking Opportunity Attacks."},
+    {"name": "Devious Strike: Daze", "min_level": 14, "cost_dice": 2, "description": "Forgo 2d6 Sneak Attack: target makes a CON save or can only move, take an action, or take a Bonus Action on its next turn."},
+    {"name": "Devious Strike: Knock Out", "min_level": 14, "cost_dice": 6, "description": "Forgo 6d6 Sneak Attack: target makes a CON save or falls Unconscious for 1 minute (repeating save each turn or waking on damage)."},
+    {"name": "Devious Strike: Obscure", "min_level": 14, "cost_dice": 3, "description": "Forgo 3d6 Sneak Attack: target makes a DEX save or is Blinded until the end of its next turn."}
+  ]
+}

@@ -39,17 +39,23 @@ describe('ForgeComponent', () => {
     expect(reqSpells.request.method).toBe('GET');
     reqSpells.flush([{ name: 'Shield' }]);
 
+    const reqChoices = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+    expect(reqChoices.request.method).toBe('GET');
+    reqChoices.flush({ divine_orders: [{ name: 'Divine Order: Protector' }] });
+
     expect(component).toBeTruthy();
     expect(component.availableFeats.length).toBe(1);
     expect(component.availableSpells.length).toBe(1);
+    expect(component.availableClassChoices['divine_orders']?.length).toBe(1);
   });
 
-  it('should send chosen skills, feats, and spells in createManualCharacter payload', () => {
+  it('should send chosen skills, feats, spells, and class choices in createManualCharacter payload', () => {
     fixture.detectChanges();
 
     // Flush initial init requests
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.manualName = 'Mage Tester';
     component.manualClass = 'Wizard';
@@ -57,6 +63,7 @@ describe('ForgeComponent', () => {
     component.manualSkills = ['Arcana', 'Investigation'];
     component.manualFeats = ['Alert'];
     component.manualSpells = ['Fire Bolt', 'Shield'];
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
 
     component.createManualCharacter();
 
@@ -66,6 +73,7 @@ describe('ForgeComponent', () => {
     expect(enrichReq.request.body.skill_proficiencies).toEqual(['Arcana', 'Investigation']);
     expect(enrichReq.request.body.chosen_feats).toEqual(['Alert']);
     expect(enrichReq.request.body.chosen_spells).toEqual(['Fire Bolt', 'Shield']);
+    expect(enrichReq.request.body.chosen_class_choices).toEqual(['Divine Order: Thaumaturge']);
 
     enrichReq.flush({
       char_name: 'Mage Tester',
@@ -82,6 +90,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.manualSkills = ['Arcana', 'Investigation'];
     component.manualFeats = ['War Caster'];
@@ -111,6 +120,7 @@ describe('ForgeComponent', () => {
       { name: 'Shield', level: 1 },
       { name: 'Fireball', level: 3 },
     ]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.manualClass = 'Wizard';
     component.manualLevel = 5;
@@ -131,6 +141,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     expect(component.isForgingModalOpen).toBe(false);
     expect(component.loading).toBe(false);
@@ -184,6 +195,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.aiRace = 'Tiefling';
     component.aiClass = 'Warlock';
@@ -207,6 +219,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.generateAiCharacter();
     const genReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/generate`);
@@ -291,6 +304,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       component.manualName = 'Kael';
       component.manualClass = 'Fighter';
@@ -312,6 +326,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       const initialHero: any = {
         char_id: 'unsaved-2',
@@ -336,6 +351,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       localStorage.setItem(
         'phyrexian_forge_temp_hero',
@@ -370,6 +386,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       localStorage.setItem(
         'phyrexian_forge_ai_draft',
@@ -386,6 +403,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       // 2014 Edition: Variant Human & canonical subraces present, Warforged absent
       expect(component.raceOptions).toContain('Variant Human');
@@ -429,6 +447,7 @@ describe('ForgeComponent', () => {
       component.toggleEditionAndRefresh();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       expect(component.is2024).toBe(true);
       expect(component.raceOptions).toContain('Warforged');

@@ -1,0 +1,205 @@
+{
+    "class_name": "Monk",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Warrior of Mercy": {
+            "name": "Warrior of Mercy",
+            "features": {
+                "3": {
+                    "name": "Hand of Healing, Hand of Harm & Implements of Mercy (Warrior of Mercy)",
+                    "description": "Spend Focus Points to heal with Unarmed Strikes or deal extra Necrotic damage, and gain proficiency in Insight, Medicine, and Herbalism Kit."
+                },
+                "6": {
+                    "name": "Physician's Touch (Warrior of Mercy)",
+                    "description": "Hand of Healing also ends Blinded, Deafened, Paralyzed, Poisoned, or Stunned; Hand of Harm inflicts the Poisoned condition without a save."
+                },
+                "11": {
+                    "name": "Flurry of Healing and Harm (Warrior of Mercy)",
+                    "description": "Use Hand of Healing for free during Flurry of Blows and trigger Hand of Harm without spending extra Focus Points while Flurry is active."
+                },
+                "17": {
+                    "name": "Hand of Ultimate Mercy (Warrior of Mercy)",
+                    "description": "Spend 5 Focus Points to restore a creature that died within 24 hours to life with 4d10 + WIS modifier HP."
+                }
+            },
+            "scaling": {
+                "hand_of_harm": {
+                    "name": "Hand of Harm",
+                    "kind": "rider",
+                    "damage_type": "necrotic",
+                    "hint": "Once per turn on Unarmed Strike hit: spend 1 Focus Point to deal Martial Arts die + WIS mod extra Necrotic damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 17,
+                            "notation": "1d12"
+                        }
+                    ]
+                },
+                "hand_of_healing": {
+                    "name": "Hand of Healing",
+                    "kind": "heal",
+                    "hint": "Spend 1 Focus Point to restore Martial Arts die + WIS mod HP to a creature you touch.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 17,
+                            "notation": "1d12"
+                        }
+                    ]
+                }
+            }
+        },
+        "Warrior of Shadow": {
+            "name": "Warrior of Shadow",
+            "bonus_spells": {
+                "3": [
+                    "Darkness",
+                    "Minor Illusion"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Shadow Arts (Warrior of Shadow)",
+                    "description": "Gain Darkvision (or extend its range), learn Minor Illusion, and spend 1 Focus Point to cast Darkness that you can see through."
+                },
+                "6": {
+                    "name": "Shadow Step (Warrior of Shadow)",
+                    "description": "As a Bonus Action in Dim Light or Darkness, teleport up to 60 feet to another shadowy space and gain Advantage on your next melee attack."
+                },
+                "11": {
+                    "name": "Improved Shadow Step (Warrior of Shadow)",
+                    "description": "Spend 1 Focus Point when using Shadow Step to ignore the Dim Light or Darkness origin/destination requirement and follow immediately with an Unarmed Strike."
+                },
+                "17": {
+                    "name": "Cloak of Shadows (Warrior of Shadow)",
+                    "description": "Spend 3 Focus Points in Dim Light or Darkness to become Invisible and move through solid objects and creatures for 1 minute."
+                }
+            }
+        },
+        "Warrior of the Elements": {
+            "name": "Warrior of the Elements",
+            "bonus_spells": {
+                "3": [
+                    "Elementalism"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Elemental Attunement & Manipulate Elements (Warrior of the Elements)",
+                    "description": "Learn Elementalism and spend 1 Focus Point for 15-foot reach Unarmed Strikes dealing Acid, Cold, Fire, Lightning, or Thunder damage with forced movement."
+                },
+                "6": {
+                    "name": "Elemental Burst (Warrior of the Elements)",
+                    "description": "Spend 2 Focus Points to unleash a 20-foot-radius Elemental burst dealing 3 Martial Arts dice of Acid, Cold, Fire, Lightning, or Thunder damage."
+                },
+                "11": {
+                    "name": "Stride of the Elements (Warrior of the Elements)",
+                    "description": "While Elemental Attunement is active, gain a Fly Speed and Swim Speed equal to your Speed."
+                },
+                "17": {
+                    "name": "Elemental Epitome (Warrior of the Elements)",
+                    "description": "Gain Resistance to a chosen elemental type, +20 Speed during Step of the Wind leaving elemental bursts, and +1 Martial Arts die elemental damage once per turn."
+                }
+            },
+            "scaling": {
+                "elemental_burst": {
+                    "name": "Elemental Burst",
+                    "kind": "attack",
+                    "damage_type": "elemental",
+                    "hint": "Action + 2 Focus Points: 20-ft-radius sphere DEX save vs 3 Martial Arts dice of Acid, Cold, Fire, Lightning, or Thunder damage.",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "3d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "3d10"
+                        },
+                        {
+                            "level": 17,
+                            "notation": "3d12"
+                        }
+                    ]
+                }
+            }
+        },
+        "Warrior of the Open Hand": {
+            "name": "Warrior of the Open Hand",
+            "features": {
+                "3": {
+                    "name": "Open Hand Technique (Warrior of the Open Hand)",
+                    "description": "Whenever you hit with Flurry of Blows, impose Addle (preventing Opportunity Attacks), Push (15 ft on failed STR save), or Topple (Prone on failed DEX save)."
+                },
+                "6": {
+                    "name": "Wholeness of Body (Warrior of the Open Hand)",
+                    "description": "As a Bonus Action, regain HP equal to your Martial Arts die + WIS modifier (WIS modifier uses per Long Rest)."
+                },
+                "11": {
+                    "name": "Fleet Step (Warrior of the Open Hand)",
+                    "description": "Whenever you take a Bonus Action other than Step of the Wind, you can immediately take Step of the Wind as well."
+                },
+                "17": {
+                    "name": "Quivering Palm (Warrior of the Open Hand)",
+                    "description": "Spend 4 Focus Points on an Unarmed Strike to set lethal vibrations that deal 10d12 Force damage (half on CON save) when ended."
+                }
+            },
+            "scaling": {
+                "wholeness_of_body": {
+                    "name": "Wholeness of Body",
+                    "kind": "heal",
+                    "hint": "Bonus Action restores Martial Arts die + WIS mod HP (WIS mod uses per Long Rest).",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 17,
+                            "notation": "1d12"
+                        }
+                    ]
+                },
+                "quivering_palm": {
+                    "name": "Quivering Palm",
+                    "kind": "attack",
+                    "damage_type": "force",
+                    "hint": "End lethal vibrations for 10d12 Force damage (half on successful CON save).",
+                    "steps": [
+                        {
+                            "level": 17,
+                            "notation": "10d12"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
