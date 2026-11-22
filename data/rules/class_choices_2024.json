@@ -77,7 +77,7 @@
     {"name": "Gift of the Protectors", "min_level": 9, "pact": "Pact of the Tome", "description": "Creatures who write their names in your Book of Shadows drop to 1 HP instead of 0 HP once per Long Rest."},
     {"name": "Lifedrinker", "min_level": 9, "pact": "Pact of the Blade", "description": "Once per turn on a hit with your pact weapon, deal an extra 1d6 Necrotic, Psychic, or Radiant damage and optionally expend a Hit Point Die to regain HP."},
     {"name": "Visions of Distant Realms", "min_level": 9, "description": "Cast Arcane Eye without expending a spell slot."},
-    {"name": "Devouring Blade", "min_level": 12, "pact": "Pact of the Blade", "description": "The Extra Attack of your Thirsting Blade invocation confers two extra attacks rather than one (three attacks total with your pact weapon)."},
+    {"name": "Devouring Blade", "min_level": 12, "pact": "Pact of the Blade", "requires_invocation": "Thirsting Blade", "description": "The Extra Attack of your Thirsting Blade invocation confers two extra attacks rather than one (three attacks total with your pact weapon)."},
     {"name": "Witch Sight", "min_level": 15, "description": "You have Truesight with a range of 30 feet."}
   ],
   "metamagic": [

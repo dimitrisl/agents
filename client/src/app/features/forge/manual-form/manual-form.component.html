@@ -216,6 +216,7 @@
               forgeSelect
               id="manual-class-choice"
               [(ngModel)]="manualClassChoice"
+              [attr.aria-describedby]="selectedClassChoiceDescription ? 'manual-class-choice-desc' : null"
               (ngModelChange)="manualClassChoiceChange.emit($event)"
             >
               <option value="">Choose {{ choiceCfg.label }}...</option>
@@ -224,7 +225,7 @@
               }
             </select>
             @if (selectedClassChoiceDescription; as choiceDesc) {
-              <p class="mt-2 text-micro text-muted">
+              <p id="manual-class-choice-desc" class="mt-2 text-label text-muted">
                 {{ choiceDesc }}
               </p>
             }

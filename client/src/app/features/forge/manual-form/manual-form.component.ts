@@ -414,16 +414,47 @@ export class ManualFormComponent {
     if (this.is2024 && c === 'warlock') {
       const allInv = Array.isArray(cat['eldritch_invocations']) ? cat['eldritch_invocations'] : [];
       const lvl1Inv = allInv.filter((item: any) => Number(item?.min_level ?? 1) <= 1);
-      if (lvl1Inv.length) {
-        return { label: 'Eldritch Invocation (Level 1)', options: lvl1Inv };
-      }
+      const opts = lvl1Inv.length
+        ? lvl1Inv
+        : [
+            {
+              name: 'Pact of the Blade',
+              description: 'Conjure or bond a Simple or Martial Melee Pact Weapon using CHA for attacks and damage.',
+            },
+            {
+              name: 'Pact of the Chain',
+              description: 'Learn Find Familiar and cast it without a slot with expanded familiar forms.',
+            },
+            {
+              name: 'Pact of the Tome',
+              description: 'Conjure a Book of Shadows with three cantrips and two Level 1 Ritual spells.',
+            },
+            {
+              name: 'Armor of Shadows',
+              description: 'Cast Mage Armor on yourself without expending a spell slot.',
+            },
+            {
+              name: 'Eldritch Mind',
+              description: 'Gain Advantage on Constitution saving throws to maintain Concentration.',
+            },
+          ];
+      return { label: 'Eldritch Invocation (Level 1)', options: opts };
     }
 
     if (c === 'fighter') {
       const styles = cat['fighting_styles']?.['fighter'];
-      if (Array.isArray(styles) && styles.length) {
-        return { label: 'Fighting Style (Level 1)', options: styles };
-      }
+      const opts =
+        Array.isArray(styles) && styles.length
+          ? styles
+          : [
+              { name: 'Fighting Style: Archery', description: 'Gain a +2 bonus to attack rolls with Ranged weapons.' },
+              { name: 'Fighting Style: Defense', description: 'While wearing armor, gain a +1 bonus to Armor Class.' },
+              { name: 'Fighting Style: Dueling', description: 'Gain +2 damage with a one-handed melee weapon and no other weapons.' },
+              { name: 'Fighting Style: Great Weapon Fighting', description: 'Boost low damage rolls on two-handed melee weapons.' },
+              { name: 'Fighting Style: Protection', description: 'Use your Reaction with a Shield to impose Disadvantage on attacks against an adjacent ally.' },
+              { name: 'Fighting Style: Two-Weapon Fighting', description: 'Add your ability modifier to the damage of your off-hand Light weapon attack.' },
+            ];
+      return { label: 'Fighting Style (Level 1)', options: opts };
     }
 
     return null;
@@ -441,7 +472,8 @@ export class ManualFormComponent {
       this.manualClass,
       this.manualLevel,
       this.manualSubclass,
-      this.manualClassChoice ? [this.manualClassChoice] : []
+      this.manualClassChoice ? [this.manualClassChoice] : [],
+      this.is2024
     );
   }
 

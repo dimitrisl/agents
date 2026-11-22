@@ -1107,6 +1107,130 @@ def forge_character(
         return CharacterSchema.model_validate(fallback, strict=False).model_dump()
 
 
+def validate_manual_class_choices(
+    chosen_class_choices: list | None,
+    char_class: str,
+    target_level: int,
+    subclass: str | None = None,
+    edition: str = EDITION_2014,
+    repo=None,
+) -> list[dict[str, str]]:
+    """
+    Strictly validate and resolve manual-forge `chosen_class_choices` against an
+    edition-, class-, subclass-, and level-scoped allow-list from `class_choices_<ed>.json`.
+    Raises ValueError on any cross-class, over-level, duplicate, mutually exclusive,
+    unmet-prerequisite, or arbitrary non-catalog entry.
+    """
+    if not chosen_class_choices:
+        return []
+    if not isinstance(chosen_class_choices, list):
+        raise ValueError("chosen_class_choices must be a list of choice names.")
+
+    from backend.repositories.rules_repository import RulesRepository
+
+    rules_repo = repo or RulesRepository()
+    choices_catalog = rules_repo.get_class_choices(edition) or {}
+    is_2024 = "2024" in str(edition or "")
+    c_lower = str(char_class or "").strip().lower()
+    sub_lower = str(subclass or "").strip().lower()
+    lvl = max(1, int(target_level or 1))
+
+    allowed: dict[str, dict] = {}
+
+    def _register(items, bucket_name: str, check_min_level: bool = False):
+        for it in items or []:
+            if not isinstance(it, dict) or not it.get("name"):
+                continue
+            if check_min_level and int(it.get("min_level", 1) or 1) > lvl:
+                continue
+            name_clean = str(it["name"]).strip()
+            allowed[name_clean.lower()] = {
+                "name": name_clean,
+                "description": str(it.get("description") or "").strip(),
+                "bucket": bucket_name,
+                "pact": str(it.get("pact") or "").strip().lower() or None,
+                "requires_invocation": str(it.get("requires_invocation") or "").strip().lower()
+                or None,
+            }
+
+    if is_2024 and c_lower == "cleric":
+        _register(choices_catalog.get("divine_orders"), "divine_order")
+    if is_2024 and c_lower == "druid":
+        _register(choices_catalog.get("primal_orders"), "primal_order")
+    if (c_lower == "fighter" and lvl >= 1) or (c_lower in ("paladin", "ranger") and lvl >= 2):
+        _register(
+            (choices_catalog.get("fighting_styles") or {}).get(c_lower),
+            "fighting_style",
+        )
+    if not is_2024 and c_lower == "warlock" and lvl >= 3:
+        _register(choices_catalog.get("pact_boons"), "pact_boon")
+    if c_lower == "warlock" and lvl >= (1 if is_2024 else 2):
+        _register(
+            choices_catalog.get("eldritch_invocations"),
+            "eldritch_invocation",
+            check_min_level=True,
+        )
+    if c_lower == "sorcerer" and lvl >= (2 if is_2024 else 3):
+        _register(choices_catalog.get("metamagic"), "metamagic")
+    if c_lower == "fighter" and "battle master" in sub_lower and lvl >= 3:
+        _register(choices_catalog.get("maneuvers"), "maneuver")
+    if c_lower == "artificer" and lvl >= 2:
+        _register(
+            choices_catalog.get("artificer_infusions"),
+            "artificer_infusion",
+            check_min_level=True,
+        )
+    if c_lower == "ranger" and "hunter" in sub_lower:
+        for tier_str, tier_items in (choices_catalog.get("hunter_choices") or {}).items():
+            try:
+                if int(tier_str) <= lvl:
+                    _register(tier_items, f"hunter_choice_{tier_str}")
+            except (TypeError, ValueError):
+                continue
+
+    resolved: list[dict] = []
+    seen_names: set[str] = set()
+    bucket_counts: dict[str, int] = {}
+    single_pick_buckets = {"divine_order", "primal_order", "pact_boon"}
+
+    for raw in chosen_class_choices:
+        if not isinstance(raw, str):
+            raise ValueError("Invalid class choice entry: expected string.")
+        clean = raw.strip()
+        if not clean:
+            continue
+        key = clean.lower()
+        if key in seen_names:
+            raise ValueError(f"Duplicate class choice '{clean}'.")
+        entry = allowed.get(key)
+        if not entry:
+            raise ValueError(
+                f"Class choice '{clean}' is not permitted for a Level {lvl} {char_class} ({edition})."
+            )
+        bucket = entry["bucket"]
+        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+        if (bucket in single_pick_buckets or bucket.startswith("hunter_choice_")) and bucket_counts[
+            bucket
+        ] > 1:
+            raise ValueError(
+                f"Only one selection is allowed for '{bucket.replace('_', ' ')}' (got conflicting '{entry['name']}')."
+            )
+        seen_names.add(key)
+        resolved.append(entry)
+
+    # Validate invocation prerequisites (pact / requires_invocation)
+    selected_low = {item["name"].lower() for item in resolved}
+    for item in resolved:
+        if item["pact"] and item["pact"] not in selected_low:
+            raise ValueError(f"Class choice '{item['name']}' requires '{item['pact'].title()}'.")
+        if item["requires_invocation"] and item["requires_invocation"] not in selected_low:
+            raise ValueError(
+                f"Class choice '{item['name']}' requires '{item['requires_invocation'].title()}'."
+            )
+
+    return [{"name": it["name"], "description": it["description"]} for it in resolved]
+
+
 def forge_character_manual(
     target_level: int,
     race: str,
@@ -1131,14 +1255,26 @@ def forge_character_manual(
     chosen_class_choices: list = None,
 ) -> dict:
     """Enriches and builds a manual character based on user selections and AI helper."""
+    from backend.repositories.rules_repository import RulesRepository
+
+    repo = RulesRepository()
+    validated_class_choices = validate_manual_class_choices(
+        chosen_class_choices=chosen_class_choices,
+        char_class=char_class,
+        target_level=target_level,
+        subclass=subclass,
+        edition=edition,
+        repo=repo,
+    )
+
     pref_instructions = []
     if custom_preferences and custom_preferences.strip():
         pref_instructions.append(
             f"USER CUSTOM BUILD PREFERENCES (FEATS, SPELLS, ASIs):\n{custom_preferences}"
         )
-    if chosen_class_choices:
+    if validated_class_choices:
         pref_instructions.append(
-            f"USER CHOSEN CLASS OPTIONS (STRICTLY INCLUDE THESE): {', '.join(str(c) for c in chosen_class_choices if c)}"
+            f"USER CHOSEN CLASS OPTIONS (STRICTLY INCLUDE THESE): {', '.join(c['name'] for c in validated_class_choices)}"
         )
     if chosen_spells:
         pref_instructions.append(
@@ -1229,37 +1365,15 @@ def forge_character_manual(
             result.setdefault("features_traits", []).append(feat)
             existing_feat_names.add(feat.get("name", "").lower())
 
-    if chosen_class_choices:
-        choices_catalog = repo.get_class_choices(edition)
-        for raw_choice in chosen_class_choices:
-            clean_choice = str(raw_choice or "").strip()
-            if not clean_choice or clean_choice.lower() in existing_feat_names:
-                continue
-            choice_desc = None
-            for bucket_val in (choices_catalog or {}).values():
-                items_iter = (
-                    [item for sub_lst in bucket_val.values() for item in (sub_lst or [])]
-                    if isinstance(bucket_val, dict)
-                    else (bucket_val if isinstance(bucket_val, list) else [])
-                )
-                matched = next(
-                    (
-                        it
-                        for it in items_iter
-                        if isinstance(it, dict)
-                        and str(it.get("name") or "").strip().lower() == clean_choice.lower()
-                    ),
-                    None,
-                )
-                if matched:
-                    choice_desc = matched.get("description")
-                    clean_choice = str(matched.get("name") or clean_choice).strip()
-                    break
+    if validated_class_choices:
+        for choice_entry in validated_class_choices:
+            clean_choice = choice_entry["name"]
             if clean_choice.lower() not in existing_feat_names:
                 result.setdefault("features_traits", []).append(
                     {
                         "name": clean_choice,
-                        "description": choice_desc or f"Selected class option: {clean_choice}",
+                        "description": choice_entry["description"]
+                        or f"Selected class option: {clean_choice}",
                         "source": "Class",
                     }
                 )
@@ -2352,24 +2466,25 @@ def resolve_level_up_automatic_features(
     for feat in static_features:
         if is_subclass_placeholder_name(feat.get("name", "")):
             sub_detail = None
-            if is_2024:
+            # Single source of truth: consult data/rules/subclasses/<edition>/<class>.json first
+            # across both 2014 and 2024 editions, falling back to Python tables only if absent.
+            sub_entry = rules_repo.get_subclass_entry(char_class, subclass_to_use, edition)
+            if isinstance(sub_entry, dict):
+                raw_lvl_feat = (sub_entry.get("features") or {}).get(str(target_level))
+                if isinstance(raw_lvl_feat, dict) and raw_lvl_feat.get("name"):
+                    sub_detail = {
+                        "name": str(raw_lvl_feat["name"]),
+                        "description": str(raw_lvl_feat.get("description") or ""),
+                    }
+                elif isinstance(raw_lvl_feat, list):
+                    for item in raw_lvl_feat:
+                        if isinstance(item, dict) and item.get("name"):
+                            resolved_features.append({**item, "source": "Subclass"})
+                    continue
+            if not sub_detail and is_2024:
                 sub_detail = _lookup_subclass_detail(
                     SUBCLASS_FEATURES_DETAILS_2024, char_class, subclass_to_use, target_level
                 )
-            else:
-                sub_entry = rules_repo.get_subclass_entry(char_class, subclass_to_use, edition)
-                if isinstance(sub_entry, dict):
-                    raw_lvl_feat = (sub_entry.get("features") or {}).get(str(target_level))
-                    if isinstance(raw_lvl_feat, dict) and raw_lvl_feat.get("name"):
-                        sub_detail = {
-                            "name": str(raw_lvl_feat["name"]),
-                            "description": str(raw_lvl_feat.get("description") or ""),
-                        }
-                    elif isinstance(raw_lvl_feat, list):
-                        for item in raw_lvl_feat:
-                            if isinstance(item, dict) and item.get("name"):
-                                resolved_features.append({**item, "source": "Subclass"})
-                        continue
             if not sub_detail:
                 details_map = SUBCLASS_FEATURES_DETAILS
                 sub_detail = _lookup_subclass_detail(
@@ -2769,13 +2884,49 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     # 3. Spells (Full Casters, Half Casters, Pact Magic + Mystic Arcanum, 1/3 Casters, & Cantrip scaling)
 
-    def _expected_cantrips(cls_low: str, lvl: int, sub_low: str) -> int:
+    _owned_ft_names_low = {
+        str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+        for f in (char_data.get("features_traits") or [])
+    }
+    _pending_choice_vals_low = {
+        str(v or "").strip().lower()
+        for k, v in (user_choices or {}).items()
+        if isinstance(v, str) and not k.startswith(("spell_swap", "hp_"))
+    }
+
+    def _has_order_extra_cantrip(cls_low: str, names_low: set[str]) -> bool:
+        if not is_2024:
+            return False
+        if cls_low == "cleric":
+            return any("thaumaturge" in fn for fn in names_low)
+        if cls_low == "druid":
+            return any(
+                "primal order: magician" in fn
+                or fn == "magician"
+                or ("magician" in fn and ("primal" in fn or "druid" in fn))
+                for fn in names_low
+            )
+        return False
+
+    def _expected_cantrips(
+        cls_low: str, lvl: int, sub_low: str, include_pending: bool = False
+    ) -> int:
+        if lvl <= 0:
+            return 0
+        extra = 0
+        check_names = (
+            _owned_ft_names_low | _pending_choice_vals_low
+            if include_pending
+            else _owned_ft_names_low
+        )
+        if _has_order_extra_cantrip(cls_low, check_names):
+            extra = 1
         if cls_low in ("wizard", "cleric"):
-            return 3 if lvl < 4 else (4 if lvl < 10 else 5)
+            return (3 if lvl < 4 else (4 if lvl < 10 else 5)) + extra
         if cls_low == "sorcerer":
             return 4 if lvl < 4 else (5 if lvl < 10 else 6)
         if cls_low in ("bard", "druid", "warlock"):
-            return 2 if lvl < 4 else (3 if lvl < 10 else 4)
+            return (2 if lvl < 4 else (3 if lvl < 10 else 4)) + extra
         if cls_low == "artificer":
             return 2 if lvl < 10 else (3 if lvl < 14 else 4)
         if cls_low == "fighter" and "eldritch knight" in sub_low:
@@ -2844,12 +2995,12 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
         # Grant newly unlocked Cantrip choice(s) when expected cantrip count increases
         prev_cantrips = _expected_cantrips(
-            c_lower, class_current_level, str(current_subclass or "").lower()
+            c_lower, class_current_level, str(current_subclass or "").lower(), include_pending=False
         )
-        new_cantrips = _expected_cantrips(c_lower, target_level, sub_lower)
+        new_cantrips = _expected_cantrips(c_lower, target_level, sub_lower, include_pending=True)
         gained_cantrips = max(0, new_cantrips - prev_cantrips)
         if gained_cantrips > 0 and cantrip_options:
-            for idx_c in range(min(gained_cantrips, 3)):
+            for idx_c in range(min(gained_cantrips, 4)):
                 choices.append(
                     {
                         "type": "spell",
@@ -3139,6 +3290,10 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             and int(opt.get("min_level", 1 if is_2024 else 2) or (1 if is_2024 else 2))
             <= target_level
             and (not opt.get("pact") or opt["pact"].lower() in owned_pacts)
+            and (
+                not opt.get("requires_invocation")
+                or opt["requires_invocation"].lower() in owned_ft_low
+            )
         ]
         if inv_opts:
             count_inv = inv_grants[target_level]

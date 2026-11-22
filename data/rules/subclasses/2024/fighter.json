@@ -61,7 +61,7 @@
                 },
                 "10": {
                     "name": "Heroic Warrior (Champion)",
-                    "description": "Whenever you start your turn in combat with 0 Temporary Hit Points, you can give yourself Heroic Inspiration."
+                    "description": "Whenever you start your turn in combat without Heroic Inspiration, you can give yourself Heroic Inspiration."
                 },
                 "15": {
                     "name": "Superior Critical (Champion)",

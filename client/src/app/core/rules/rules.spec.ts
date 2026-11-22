@@ -1415,9 +1415,11 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       expect(skillModifier(mag, religion)).toBe(0);
 
       expect(getMaxCantrips('Cleric', 1, '', [])).toBe(3);
-      expect(getMaxCantrips('Cleric', 1, '', ['Divine Order: Thaumaturge'])).toBe(4);
+      expect(getMaxCantrips('Cleric', 1, '', ['Divine Order: Thaumaturge'], true)).toBe(4);
+      expect(getMaxCantrips('Cleric', 1, '', ['Divine Order: Thaumaturge'], false)).toBe(3);
       expect(getMaxCantrips('Druid', 1, '', [])).toBe(2);
-      expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'])).toBe(3);
+      expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'], true)).toBe(3);
+      expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'], false)).toBe(2);
     });
   });
 });

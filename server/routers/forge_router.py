@@ -1,12 +1,12 @@
 import copy
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.core.schemas import (
     CharacterSchema,
@@ -83,7 +83,7 @@ class ManualEnrichRequest(BaseModel):
     chosen_spells: Optional[list] = None
     chosen_feats: Optional[list] = None
     chosen_equipment: Optional[list] = None
-    chosen_class_choices: Optional[list] = None
+    chosen_class_choices: Optional[List[str]] = Field(default=None, max_length=12)
 
 
 class LevelUpRequest(BaseModel):
@@ -138,30 +138,33 @@ async def enrich_manual_character(
     payload: ManualEnrichRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    char_dict = await run_in_threadpool(
-        forge_character_manual,
-        target_level=payload.target_level,
-        race=payload.race,
-        char_class=payload.char_class,
-        background=payload.background,
-        subclass=payload.subclass,
-        alignment=payload.alignment,
-        gender=payload.gender,
-        name=payload.name,
-        base_stats=payload.base_stats,
-        skill_proficiencies=payload.skill_proficiencies,
-        saving_throws=payload.saving_throws,
-        spell_ability=payload.spell_ability,
-        concept=payload.concept,
-        edition=payload.edition,
-        custom_preferences=payload.custom_preferences,
-        auto_spells=payload.auto_spells,
-        auto_feats=payload.auto_feats,
-        chosen_spells=payload.chosen_spells,
-        chosen_feats=payload.chosen_feats,
-        chosen_equipment=payload.chosen_equipment,
-        chosen_class_choices=payload.chosen_class_choices,
-    )
+    try:
+        char_dict = await run_in_threadpool(
+            forge_character_manual,
+            target_level=payload.target_level,
+            race=payload.race,
+            char_class=payload.char_class,
+            background=payload.background,
+            subclass=payload.subclass,
+            alignment=payload.alignment,
+            gender=payload.gender,
+            name=payload.name,
+            base_stats=payload.base_stats,
+            skill_proficiencies=payload.skill_proficiencies,
+            saving_throws=payload.saving_throws,
+            spell_ability=payload.spell_ability,
+            concept=payload.concept,
+            edition=payload.edition,
+            custom_preferences=payload.custom_preferences,
+            auto_spells=payload.auto_spells,
+            auto_feats=payload.auto_feats,
+            chosen_spells=payload.chosen_spells,
+            chosen_feats=payload.chosen_feats,
+            chosen_equipment=payload.chosen_equipment,
+            chosen_class_choices=payload.chosen_class_choices,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if not char_dict:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

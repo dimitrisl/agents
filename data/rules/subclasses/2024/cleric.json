@@ -63,8 +63,8 @@
             },
             "features": {
                 "3": {
-                    "name": "Light Domain Spells & Radiance of the Dawn (Light Domain)",
-                    "description": "Always have Light Domain spells prepared, gain the Light cantrip, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation."
+                    "name": "Light Domain Spells, Warding Flare & Radiance of the Dawn (Light Domain)",
+                    "description": "Always have Light Domain spells prepared, use Warding Flare via Reaction to impose Disadvantage on an attacker within 30 feet, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation."
                 },
                 "6": {
                     "name": "Improved Warding Flare (Light Domain)",

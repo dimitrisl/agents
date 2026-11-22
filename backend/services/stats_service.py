@@ -276,6 +276,8 @@ def calculate_ac(
     char_class: str = None,
     dm_ac_bonus: int = 0,
     suppress_magic_items: bool = False,
+    classes: List[Dict[str, Any]] = None,
+    char_level: int = None,
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
@@ -331,7 +333,27 @@ def calculate_ac(
     has_barbarian_unarmored = (char_class or "").strip().lower() == "barbarian"
     has_draconic_resilience = "draconic" in str(subclass or "").lower()
     is_2024_ac = "2024" in str(edition or "")
-    has_dance_unarmored = is_2024_ac and "college of dance" in str(subclass or "").lower()
+    has_dance_unarmored = False
+    if is_2024_ac:
+        if classes:
+            for c_entry in classes:
+                if not isinstance(c_entry, dict):
+                    continue
+                cn = str(c_entry.get("class_name") or "").strip().lower()
+                csub = str(
+                    c_entry.get("subclass")
+                    or (subclass if cn == (char_class or "").strip().lower() else "")
+                ).lower()
+                clvl = int(c_entry.get("level") or 0)
+                if cn == "bard" and "college of dance" in csub and clvl >= 3:
+                    has_dance_unarmored = True
+                    break
+        elif (
+            (char_class or "").strip().lower() == "bard"
+            and "college of dance" in str(subclass or "").lower()
+            and (char_level is None or int(char_level) >= 3)
+        ):
+            has_dance_unarmored = True
     has_mage_armor = False
 
     if features:
@@ -2067,6 +2089,8 @@ def sync_character_stats(
         char_class=char_class,
         dm_ac_bonus=dm_ac_bonus,
         suppress_magic_items=magic_items_suppressed,
+        classes=classes,
+        char_level=level,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus on initial import/forge

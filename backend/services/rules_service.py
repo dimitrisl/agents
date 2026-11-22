@@ -736,6 +736,21 @@ def inject_mandatory_character_grants(
             elif class_lower == "rogue" and "arcane trickster" in sub_low and level >= 3:
                 expected_cantrips = 3 if level < 10 else 4
 
+            if is_2024:
+                ft_low = [
+                    str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+                    for f in (char_data.get("features_traits") or [])
+                ]
+                if class_lower == "cleric" and any("thaumaturge" in fn for fn in ft_low):
+                    expected_cantrips += 1
+                if class_lower == "druid" and any(
+                    "primal order: magician" in fn
+                    or fn == "magician"
+                    or ("magician" in fn and ("primal" in fn or "druid" in fn))
+                    for fn in ft_low
+                ):
+                    expected_cantrips += 1
+
             can_cast_at_lvl = bool(unlocked_tiers) or expected_cantrips > 0
 
             if not has_any_spells and can_cast_at_lvl:

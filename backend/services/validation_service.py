@@ -518,18 +518,24 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
             continue
         f_name = str(feat.get("name") or "").strip().lower()
         # Generic multi-option 2024 choice placeholders mention Protector/Warden in prose;
-        # only grant armor proficiency when the specific option was actually chosen.
-        if f_name in ("divine order", "primal order"):
-            continue
-        if "divine order: protector" in f_name or (
+        # only grant armor proficiency in 2024 when the specific order option was actually chosen.
+        is_protector_order = (
             "protector" in f_name and "divine" in f_name and "thaumaturge" not in f_name
-        ):
-            proficiencies.add("heavy armor")
+        )
+        is_warden_order = "warden" in f_name and "primal" in f_name and "magician" not in f_name
+        if is_protector_order:
+            if is_2024:
+                proficiencies.add("heavy armor")
             continue
-        if "primal order: warden" in f_name or (
-            "warden" in f_name and "primal" in f_name and "magician" not in f_name
+        if is_warden_order:
+            if is_2024:
+                proficiencies.add("medium armor")
+            continue
+        if (
+            f_name.startswith(("divine order", "primal order"))
+            or ("protector" in f_name and "thaumaturge" in f_name)
+            or ("warden" in f_name and "magician" in f_name)
         ):
-            proficiencies.add("medium armor")
             continue
         desc = (feat.get("description", "") + " " + feat.get("name", "")).lower()
         if "proficien" not in desc and "training" not in desc:
@@ -678,17 +684,19 @@ def get_character_weapon_proficiencies(
         if not isinstance(feat, dict):
             continue
         f_name = str(feat.get("name") or "").strip().lower()
-        if f_name in ("divine order", "primal order"):
-            continue
-        if "divine order: protector" in f_name or (
+        is_protector_order = (
             "protector" in f_name and "divine" in f_name and "thaumaturge" not in f_name
-        ):
-            profs.add("martial weapons")
+        )
+        is_warden_order = "warden" in f_name and "primal" in f_name and "magician" not in f_name
+        if is_protector_order or is_warden_order:
+            if is_2024:
+                profs.add("martial weapons")
             continue
-        if "primal order: warden" in f_name or (
-            "warden" in f_name and "primal" in f_name and "magician" not in f_name
+        if (
+            f_name.startswith(("divine order", "primal order"))
+            or ("protector" in f_name and "thaumaturge" in f_name)
+            or ("warden" in f_name and "magician" in f_name)
         ):
-            profs.add("martial weapons")
             continue
         f_desc = str(feat.get("description") or "").lower()
         combined = f"{f_name} {f_desc}"

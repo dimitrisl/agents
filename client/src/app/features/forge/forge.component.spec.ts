@@ -57,33 +57,69 @@ describe('ForgeComponent', () => {
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
-    component.manualName = 'Mage Tester';
-    component.manualClass = 'Wizard';
+    component.manualName = 'Cleric Tester';
+    component.manualClass = 'Cleric';
     component.manualLevel = 3;
-    component.manualSkills = ['Arcana', 'Investigation'];
+    component.manualSkills = ['Insight', 'Religion'];
     component.manualFeats = ['Alert'];
-    component.manualSpells = ['Fire Bolt', 'Shield'];
+    component.manualSpells = ['Sacred Flame', 'Bless'];
     component.manualClassChoice = 'Divine Order: Thaumaturge';
 
     component.createManualCharacter();
 
     const enrichReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/enrich-manual`);
     expect(enrichReq.request.method).toBe('POST');
-    expect(enrichReq.request.body.name).toBe('Mage Tester');
-    expect(enrichReq.request.body.skill_proficiencies).toEqual(['Arcana', 'Investigation']);
+    expect(enrichReq.request.body.name).toBe('Cleric Tester');
+    expect(enrichReq.request.body.skill_proficiencies).toEqual(['Insight', 'Religion']);
     expect(enrichReq.request.body.chosen_feats).toEqual(['Alert']);
-    expect(enrichReq.request.body.chosen_spells).toEqual(['Fire Bolt', 'Shield']);
+    expect(enrichReq.request.body.chosen_spells).toEqual(['Sacred Flame', 'Bless']);
     expect(enrichReq.request.body.chosen_class_choices).toEqual(['Divine Order: Thaumaturge']);
 
     enrichReq.flush({
-      char_name: 'Mage Tester',
-      char_class: 'Wizard',
+      char_name: 'Cleric Tester',
+      char_class: 'Cleric',
       char_level: 3,
-      skill_proficiencies: ['Arcana', 'Investigation'],
-      spells: { cantrips: ['Fire Bolt'], level_1: ['Shield'] },
+      skill_proficiencies: ['Insight', 'Religion'],
+      spells: { cantrips: ['Sacred Flame'], level_1: ['Bless'] },
     });
 
     expect(component.tempForgedChar).toBeTruthy();
+  });
+
+  it('trims excess cantrips when switching away from Thaumaturge and ignores stale edition class-choices responses', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    // Hold the 2014 class-choices response so we can test out-of-order resolution after toggling to 2024
+    const stale2014Choices = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+
+    component.toggleEditionAndRefresh();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    const fresh2024Choices = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+    fresh2024Choices.flush({
+      divine_orders: [{ name: 'Divine Order: Protector' }, { name: 'Divine Order: Thaumaturge' }],
+    });
+    // Late-arriving 2014 response must NOT overwrite 2024 choices
+    stale2014Choices.flush({ pact_boons: [{ name: 'Pact of the Blade' }] });
+    expect(component.availableClassChoices['divine_orders']?.length).toBe(2);
+    expect(component.availableClassChoices['pact_boons']).toBeUndefined();
+
+    // Selecting 4 cantrips under Thaumaturge, then switching to Protector prunes to 3 cantrips (preserving leveled spells)
+    component.manualClass = 'Cleric';
+    component.manualLevel = 1;
+    component.availableSpells = [
+      { name: 'Guidance', level: 0 },
+      { name: 'Light', level: 0 },
+      { name: 'Sacred Flame', level: 0 },
+      { name: 'Thaumaturgy', level: 0 },
+      { name: 'Bless', level: 1 },
+    ];
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
+    component.manualSpells = ['Guidance', 'Light', 'Sacred Flame', 'Thaumaturgy', 'Bless'];
+
+    component.onManualClassChoiceChange('Divine Order: Protector');
+    expect(component.manualSpells).toEqual(['Guidance', 'Light', 'Sacred Flame', 'Bless']);
   });
 
   it('should reset stale skills, feats, and spells when class changes and fetch Wizard spells for Eldritch Knight', () => {

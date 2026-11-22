@@ -27,6 +27,7 @@ import { CharacterImportPanelComponent } from '../../shared/components/character
 import { CharacterImportService, ImportedCharacter } from '../../core/services/character-import.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import {
+  getMaxCantrips,
   getMaxCastableSpellLevel,
   getSubclassUnlockLevel,
   isSpellcasterClass,
@@ -495,6 +496,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.manualFeats = [];
     this.manualSpells = [];
     this.manualClassChoice = '';
+    this.availableClassChoices = {};
     if (!['AI Choice', ...this.raceOptions].includes(this.aiRace)) {
       this.aiRace = 'AI Choice';
     }
@@ -563,13 +565,47 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.fetchSpells();
   }
 
-  fetchClassChoices() {
-    this.http.get<Record<string, any>>(`${environment.apiBaseUrl}/rules/class-choices`, {
-      params: { edition: this.charState.dndEdition() }
-    }).subscribe({
-      next: (choices) => this.availableClassChoices = choices || {},
-      error: () => this.availableClassChoices = {}
+  onManualClassChoiceChange(choice?: string) {
+    if (choice !== undefined) {
+      this.manualClassChoice = choice;
+    }
+    const maxCantrips = getMaxCantrips(
+      this.manualClass,
+      this.manualLevel,
+      this.manualSubclass,
+      this.manualClassChoice ? [this.manualClassChoice] : [],
+      this.is2024
+    );
+    let seenCantrips = 0;
+    this.manualSpells = (this.manualSpells || []).filter((spellName) => {
+      const found = this.availableSpells.find((s) => s.name === spellName);
+      if (found && (found.level ?? 0) === 0) {
+        seenCantrips += 1;
+        return seenCantrips <= maxCantrips;
+      }
+      return true;
     });
+  }
+
+  fetchClassChoices() {
+    const requestedEdition = this.charState.dndEdition();
+    this.http
+      .get<Record<string, any>>(`${environment.apiBaseUrl}/rules/class-choices`, {
+        params: { edition: requestedEdition },
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (choices) => {
+          if (this.charState.dndEdition() === requestedEdition) {
+            this.availableClassChoices = choices || {};
+          }
+        },
+        error: () => {
+          if (this.charState.dndEdition() === requestedEdition) {
+            this.availableClassChoices = {};
+          }
+        },
+      });
   }
 
   fetchFeats() {

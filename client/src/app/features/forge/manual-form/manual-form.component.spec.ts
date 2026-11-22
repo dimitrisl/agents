@@ -316,9 +316,22 @@ describe('ManualFormComponent', () => {
     expect(component.manualClassChoiceConfig?.label).toBe('Primal Order (Level 1)');
     expect(component.maxCantrips).toBe(3);
 
-    // 2014 Cleric does not expose 2024 Divine Order picker
+    // 2014 Cleric does not expose 2024 Divine Order picker or 2024 bonus cantrip
     component.is2024 = false;
     component.manualClass = 'Cleric';
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
     expect(component.manualClassChoiceConfig).toBeNull();
+    expect(component.maxCantrips).toBe(3);
+
+    // 2024 Warlock L1 Invocation and Fighter L1 Fighting Style pickers have immediate fallbacks
+    component.is2024 = true;
+    component.availableClassChoices = {};
+    component.manualClass = 'Warlock';
+    expect(component.manualClassChoiceConfig?.label).toBe('Eldritch Invocation (Level 1)');
+    expect(component.manualClassChoiceConfig?.options.some((o) => o.name === 'Pact of the Blade')).toBe(true);
+
+    component.manualClass = 'Fighter';
+    expect(component.manualClassChoiceConfig?.label).toBe('Fighting Style (Level 1)');
+    expect(component.manualClassChoiceConfig?.options.some((o) => o.name === 'Fighting Style: Defense')).toBe(true);
   });
 });
