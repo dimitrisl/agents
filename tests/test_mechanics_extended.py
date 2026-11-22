@@ -1,3 +1,5 @@
+import pytest
+
 from backend.services.mechanics_service import (
     calculate_ac,
     calculate_hp,
@@ -744,3 +746,67 @@ class TestHomebrewItemAc:
     def test_homebrew_armor_uses_ac_bonus_as_its_base(self):
         equipment = [{"name": "Dragonhide Coat", "equipped": True, "ac_bonus": 13}]
         assert calculate_ac(14, equipment, []) == 15  # 13 + DEX 2
+
+
+class TestEquipmentSaveAndMagicWeaponSync:
+    """Normalized Cloak/Ring save lookup, custom SAVES modifier, and weapon +X default 0 parity (2014 & 2024)."""
+
+    @pytest.mark.parametrize("edition", ["2014 Edition", "2024 Revision (5.5e)"])
+    def test_named_cloak_with_parenthetical_note_grants_ac_and_saves_without_double_counting(
+        self, edition
+    ):
+        base = {
+            "char_name": "Ulad Sync Test",
+            "char_class": "Ranger",
+            "char_level": 11,
+            "dnd_edition": edition,
+            "stats": {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12},
+            "base_stats": {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12},
+            "saving_throws": ["STR", "DEX"],
+            "equipment": [
+                {"name": "Leather Armor", "equipped": True},
+                {"name": "Cloak of Protection (+1 AC)", "equipped": True, "attuned": True},
+            ],
+            "features_traits": [
+                {"name": "Fighting Style: Archery", "description": "+2 ranged attack"}
+            ],
+            "weapons": [{"name": "Longbow +1", "magic_bonus": 0}],
+        }
+
+        synced = sync_character_stats(base)
+        # STR 8 (-1) + PB 4 + Cloak (+1) = +4; DEX 20 (+5) + PB 4 + Cloak (+1) = +10
+        assert synced["saving_throw_values"]["STR"] == 4
+        assert synced["saving_throw_values"]["DEX"] == 10
+        assert synced["saving_throw_values"]["CON"] == 3
+        assert synced["armor_class"] == 17  # Leather 11 + DEX 5 + Cloak 1
+
+        # Longbow +1 with schema-default magic_bonus=0 infers +1 matching client extractMagicBonus()
+        longbow = synced["weapons"][0]
+        assert longbow["magic_bonus"] == 1
+        assert longbow["attack_bonus"] == "+12"  # +5 DEX + 4 PB + 2 Archery + 1 Magic
+        assert longbow["damage"].lower() == "1d8 + 6 piercing"
+
+        # Setting explicit mod1=SAVES on Cloak of Protection must NOT double count catalog save_bonus
+        with_explicit = dict(base)
+        with_explicit["equipment"] = [
+            {"name": "Leather Armor", "equipped": True},
+            {
+                "name": "Cloak of Protection",
+                "equipped": True,
+                "attuned": True,
+                "ac_bonus": 1,
+                "mod1": "SAVES",
+                "val1": 1,
+            },
+        ]
+        explicit_synced = sync_character_stats(with_explicit)
+        assert explicit_synced["saving_throw_values"]["STR"] == 4
+        assert explicit_synced["armor_class"] == 17
+
+        # Athas / Antimagic suppression removes item saves, AC, and +1 weapon bonus non-destructively
+        suppressed_input = dict(explicit_synced, magic_items_suppressed=True)
+        suppressed = sync_character_stats(suppressed_input)
+        assert suppressed["saving_throw_values"]["STR"] == 3
+        assert suppressed["armor_class"] == 16
+        assert suppressed["weapons"][0]["attack_bonus"] == "+11"
+        assert suppressed["weapons"][0]["magic_bonus"] == 1

@@ -537,7 +537,7 @@
                       [attr.data-testid]="'mobile-item-row-' + row.index"
                       class="flex min-h-12 min-w-0 flex-1 flex-col justify-center px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                     >
-                      <span class="flex min-w-0 items-center gap-1.5">
+                      <span class="flex min-w-0 flex-wrap items-center gap-1.5">
                         <span class="truncate text-body font-medium text-ink">{{ row.item.name }}</span>
                         @if ((row.item.quantity ?? 1) > 1) {
                           <span class="shrink-0 text-micro font-semibold tabular-nums text-muted">×{{ row.item.quantity }}</span>
@@ -545,6 +545,11 @@
                         @if (row.item.ac_bonus) {
                           <forge-badge [tone]="row.item.equipped ? 'accent' : 'muted'" size="sm" class="shrink-0">
                             🛡️ {{ row.item.ac_bonus >= 10 ? row.item.ac_bonus : '+' + row.item.ac_bonus }}
+                          </forge-badge>
+                        }
+                        @if (displayedItemSaveBonus(row.item); as saveBonus) {
+                          <forge-badge [tone]="row.item.equipped ? 'accent' : 'muted'" size="sm" class="shrink-0">
+                            🎲 +{{ saveBonus }} Saves
                           </forge-badge>
                         }
                       </span>
@@ -1056,7 +1061,7 @@
             </div>
           </div>
 
-          <!-- AC Hint or Badge -->
+          <!-- AC & Saving Throw Bonuses / Hints -->
           @if (item.ac_bonus) {
             <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2">
               <span class="text-micro font-semibold uppercase text-muted">Armor Class Bonus</span>
@@ -1079,6 +1084,28 @@
             }
           }
 
+          @if (displayedItemSaveBonus(item); as saveBonus) {
+            <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2">
+              <span class="text-micro font-semibold uppercase text-muted">Saving Throw Bonus</span>
+              <forge-badge [tone]="item.equipped ? 'accent' : 'muted'" size="sm">
+                🎲 +{{ saveBonus }} Saves
+              </forge-badge>
+            </div>
+          } @else {
+            @if (saveHintFromNotes(item); as saveHint) {
+              <button
+                forgeButton
+                variant="secondary"
+                tone="accent"
+                size="sm"
+                type="button"
+                (click)="onItemSaveChange(item, saveHint)"
+              >
+                🎲 Apply +{{ saveHint }} Saves from Notes
+              </button>
+            }
+          }
+
           <!-- Notes / Description or Edit Fields -->
           @if (!editMode) {
             <div class="rounded-xl border border-hairline bg-panel p-3">
@@ -1089,19 +1116,32 @@
             </div>
           } @else {
             <div class="flex flex-col gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="save.emit()" />
+              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="onItemNameChange()" />
               <input forgeInput dense type="text" [(ngModel)]="item.description" placeholder="Notes" (change)="save.emit()" />
-              <label class="flex items-center gap-2 text-micro font-semibold uppercase text-muted">
-                AC Bonus / Base
-                <input
-                  forgeInput
-                  dense
-                  type="number"
-                  class="w-20 text-center"
-                  [ngModel]="item.ac_bonus || null"
-                  (ngModelChange)="onItemAcChange(item, $event)"
-                />
-              </label>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label class="flex items-center justify-between gap-2 text-micro font-semibold uppercase text-muted">
+                  AC Bonus / Base
+                  <input
+                    forgeInput
+                    dense
+                    type="number"
+                    class="w-20 text-center"
+                    [ngModel]="item.ac_bonus || null"
+                    (ngModelChange)="onItemAcChange(item, $event)"
+                  />
+                </label>
+                <label class="flex items-center justify-between gap-2 text-micro font-semibold uppercase text-muted">
+                  Saves Bonus
+                  <input
+                    forgeInput
+                    dense
+                    type="number"
+                    class="w-20 text-center"
+                    [ngModel]="itemSaveBonus(item) || null"
+                    (ngModelChange)="onItemSaveChange(item, $event)"
+                  />
+                </label>
+              </div>
               @if (inspectedItemIndex() !== null) {
                 <button
                   forgeButton
@@ -2313,7 +2353,7 @@
                 <!-- Name + the item's own notes (e.g. "+1 AC/saves") -->
                 <div class="min-w-0 flex-1 basis-full sm:basis-auto">
                   @if (!editMode) {
-                    <div class="flex min-w-0 items-center gap-2">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
                       <p class="min-w-0 truncate text-body font-medium text-ink" [title]="row.item.name">{{ row.item.name }}</p>
                       @if (row.item.ac_bonus) {
                         <forge-badge
@@ -2322,6 +2362,15 @@
                           [title]="row.item.equipped ? 'Counts toward your Armor Class' : 'Only counts while equipped'"
                         >
                           🛡️ {{ row.item.ac_bonus >= 10 ? 'AC ' + row.item.ac_bonus : '+' + row.item.ac_bonus + ' AC' }}
+                        </forge-badge>
+                      }
+                      @if (displayedItemSaveBonus(row.item); as saveBonus) {
+                        <forge-badge
+                          [tone]="row.item.equipped ? 'accent' : 'muted'"
+                          class="shrink-0"
+                          [title]="row.item.equipped ? 'Counts toward all Saving Throws' : 'Only counts while equipped'"
+                        >
+                          🎲 +{{ saveBonus }} Saves
                         </forge-badge>
                       }
                       @if (acHintFromNotes(row.item); as hint) {
@@ -2338,6 +2387,21 @@
                           (click)="onItemAcChange(row.item, hint)"
                         >
                           🛡️ Use +{{ hint }} AC
+                        </button>
+                      }
+                      @if (saveHintFromNotes(row.item); as saveHint) {
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="accent"
+                          size="sm"
+                          type="button"
+                          class="shrink-0"
+                          [title]="'Your notes mention +' + saveHint + ' to saving throws. Apply it (you can change it in Quick Edit).'"
+                          [attr.aria-label]="'Apply +' + saveHint + ' to saving throws from the notes of ' + row.item.name"
+                          (click)="onItemSaveChange(row.item, saveHint)"
+                        >
+                          🎲 Use +{{ saveHint }} Saves
                         </button>
                       }
                       <!-- 1-Tap Healing Potion Drink Button (#174), beside the name so the right-hand columns stay aligned -->
@@ -2369,14 +2433,14 @@
                         placeholder="Item name"
                         [(ngModel)]="row.item.name"
                         [attr.aria-label]="'Name of ' + row.item.name"
-                        (change)="save.emit()"
+                        (change)="onItemNameChange()"
                       />
-                      <div class="flex items-center gap-2">
+                      <div class="flex flex-wrap items-center gap-2">
                         <input
                           forgeInput
                           dense
                           type="text"
-                          class="min-w-0 flex-1"
+                          class="min-w-0 flex-1 basis-40"
                           placeholder="Notes, e.g. +1 AC and saving throws"
                           [(ngModel)]="row.item.description"
                           [attr.aria-label]="'Notes for ' + row.item.name"
@@ -2395,6 +2459,20 @@
                             [attr.aria-label]="'AC bonus of ' + row.item.name"
                             [ngModel]="row.item.ac_bonus || null"
                             (ngModelChange)="onItemAcChange(row.item, $event)"
+                          />
+                        </label>
+                        <label class="flex shrink-0 items-center gap-1.5 text-micro font-semibold uppercase text-muted">
+                          Saves
+                          <input
+                            forgeInput
+                            dense
+                            type="number"
+                            class="w-16 text-center"
+                            placeholder="0"
+                            title="Saving throw bonus while equipped (e.g. 1 for Cloak of Protection)"
+                            [attr.aria-label]="'Saving throw bonus of ' + row.item.name"
+                            [ngModel]="itemSaveBonus(row.item) || null"
+                            (ngModelChange)="onItemSaveChange(row.item, $event)"
                           />
                         </label>
                       </div>

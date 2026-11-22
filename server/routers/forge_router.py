@@ -1,3 +1,4 @@
+import copy
 import logging
 import uuid
 from typing import Any, Dict, Optional
@@ -19,6 +20,7 @@ from backend.core.schemas import (
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.forge_service import (
     analyze_level_up,
+    apply_level_up_spell_swap,
     forge_character,
     forge_character_manual,
     generate_level_up_build_recommendations,
@@ -537,13 +539,15 @@ async def apply_level_up(
     )
 
     # Process user choices (feats, spells, skills — subclass already applied above)
+    pre_level_spells = copy.deepcopy(char_doc.get("spells") or {})
     selected_structured_in_payload: set[str] = set()
     selected_spells_in_payload: set[str] = set()
     if payload.user_choices:
         for choice_key, choice_val in payload.user_choices.items():
             if (
                 not choice_val
-                or choice_key in ("custom_hp_increase", "hp_bonus_included")
+                or choice_key
+                in ("custom_hp_increase", "hp_bonus_included", "spell_swap_out", "spell_swap_in")
                 or "_stat1_" in choice_key
                 or "_stat2_" in choice_key
             ):
@@ -781,6 +785,28 @@ async def apply_level_up(
                         }
                     )
                     existing_features.add(clean_choice)
+
+    # Process optional 1-for-1 leveled spell swap during Level Up
+    if payload.user_choices:
+        swap_out = str(payload.user_choices.get("spell_swap_out") or "").strip()
+        swap_in = str(payload.user_choices.get("spell_swap_in") or "").strip()
+        if swap_out or swap_in:
+            try:
+                apply_level_up_spell_swap(
+                    char_doc=char_doc,
+                    pre_level_spells=pre_level_spells,
+                    target_class=target_class,
+                    chosen_subclass=chosen_subclass,
+                    new_class_level=new_class_level,
+                    swap_out=swap_out,
+                    swap_in=swap_in,
+                    selected_spells_in_payload=selected_spells_in_payload,
+                    edition=edition,
+                    rules_repo=RulesRepository(),
+                    pre_total_level=old_level,
+                )
+            except ValueError as e:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Grant any Domain/Oath/Circle/Patron bonus spells unlocked for the active subclass up to new_class_level
     if chosen_subclass:

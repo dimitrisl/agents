@@ -2005,6 +2005,258 @@ def test_level_up_apply_adds_learned_spells_to_prepared_spells(edition):
         limiter.reset()
 
 
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_ranger_level_up_revivify_and_spell_swap_validation(edition):
+    """2014 (TCE) & 2024 Rangers offer Revivify at L11+ and support validated 1-for-1 Spell Swap."""
+    from backend.services.forge_service import analyze_level_up
+
+    ranger_l11 = {
+        "char_id": f"ranger_swap_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Ulad Swap QA",
+        "char_class": "Ranger",
+        "subclass": "Horizon Walker",
+        "char_level": 11,
+        "classes": [{"class_name": "Ranger", "level": 11, "subclass": "Horizon Walker"}],
+        "race": "Half-Orc",
+        "background": "City Watch",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12},
+        "hp_max": 92,
+        "hp_current": 92,
+        "spells": {
+            "cantrips": [],
+            "level_1": ["Cure Wounds", "Speak with Animals", "Protection from Evil and Good"],
+            "level_2": ["Silence", "Misty Step"],
+            "level_3": ["Conjure Animals", "Haste"],
+        },
+        "prepared_spells": [
+            "Cure Wounds",
+            "Speak with Animals",
+            "Protection from Evil and Good",
+            "Silence",
+            "Misty Step",
+            "Conjure Animals",
+            "Haste",
+        ],
+        "version": 1,
+    }
+    analysis = analyze_level_up(ranger_l11, user_choices={"level_up_class": "Ranger"})
+
+    spell_choice = next(c for c in analysis["choices_required"] if c["type"] == "spell")
+    assert "Revivify" in spell_choice["options"]
+    assert "Revivify" in analysis["spell_swap_options"]
+    assert "Silence" in analysis["replaceable_spells"]
+    # Subclass always-prepared spells must not be swappable away
+    assert "Haste" not in analysis["replaceable_spells"]
+    assert "Misty Step" not in analysis["replaceable_spells"]
+    assert "Protection from Evil and Good" not in analysis["replaceable_spells"]
+
+    db = _AsyncDB(f"swap_spells_{'24' if '2024' in edition else '14'}")
+    db._db["characters"].insert_one(dict(ranger_l11))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+
+        # 1. Incomplete pair rejected with 400
+        bad_half = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {"level_up_class": "Ranger", "spell_swap_out": "Silence"},
+            },
+        )
+        assert bad_half.status_code == 400
+
+        # 2. Protected subclass spell swap rejected with 400
+        bad_sub = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_swap_out": "Haste",
+                    "spell_swap_in": "Revivify",
+                },
+            },
+        )
+        assert bad_sub.status_code == 400
+
+        # 3. Duplicate pick across spell_0 and spell_swap_in rejected with 400
+        bad_dup = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_0": "Revivify",
+                    "spell_swap_out": "Silence",
+                    "spell_swap_in": "Revivify",
+                },
+            },
+        )
+        assert bad_dup.status_code == 400
+
+        # 4. Non-Ranger spell rejected with 400
+        bad_cls = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_swap_out": "Silence",
+                    "spell_swap_in": "Fireball",
+                },
+            },
+        )
+        assert bad_cls.status_code == 400
+
+        # 5. Valid swap: Silence -> Revivify alongside learning Speak with Plants
+        ok = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_0": "Speak with Plants",
+                    "spell_swap_out": "Silence",
+                    "spell_swap_in": "Revivify",
+                },
+            },
+        )
+        assert ok.status_code == 200
+        body = ok.json()
+        assert body["char_level"] == 12
+        assert "Silence" not in body["spells"]["level_2"]
+        assert "Silence" not in body["prepared_spells"]
+        assert "Revivify" in body["spells"]["level_3"]
+        assert "Revivify" in body["prepared_spells"]
+        assert "Speak with Plants" in body["spells"]["level_3"]
+        assert "Haste" in body["spells"]["level_3"]
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_innate_racial_spells_protected_and_prepared_casters_reject_spell_swap(edition):
+    """Innate racial spells (Tiefling Hellish Rebuke/Darkness) stay protected and Wizard/Cleric reject swap in 2014 & 2024."""
+    from backend.services.forge_service import analyze_level_up
+
+    tiefling_warlock_l5 = {
+        "char_id": f"tief_lock_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Mephistos",
+        "char_class": "Warlock",
+        "subclass": "The Fiend" if "2014" in edition else "Fiend Patron",
+        "char_level": 5,
+        "classes": [
+            {
+                "class_name": "Warlock",
+                "level": 5,
+                "subclass": "The Fiend" if "2014" in edition else "Fiend Patron",
+            }
+        ],
+        "race": "Tiefling",
+        "background": "Charlatan",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+        "hp_max": 38,
+        "hp_current": 38,
+        "spells": {
+            "cantrips": ["Eldritch Blast", "Thaumaturgy"],
+            "level_1": ["Hex", "Hellish Rebuke"],
+            "level_2": ["Misty Step", "Darkness"],
+            "level_3": ["Counterspell"],
+        },
+        "prepared_spells": ["Hex", "Hellish Rebuke", "Misty Step", "Darkness", "Counterspell"],
+        "version": 1,
+    }
+    w_analysis = analyze_level_up(tiefling_warlock_l5, user_choices={"level_up_class": "Warlock"})
+    assert "Hex" in w_analysis["replaceable_spells"]
+    assert "Counterspell" in w_analysis["replaceable_spells"]
+    assert "Hellish Rebuke" not in w_analysis["replaceable_spells"]
+    assert "Darkness" not in w_analysis["replaceable_spells"]
+
+    wizard_l5 = {
+        "char_id": f"wiz_prep_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Elminster QA",
+        "char_class": "Wizard",
+        "subclass": "School of Evocation" if "2014" in edition else "Evoker",
+        "char_level": 5,
+        "classes": [
+            {
+                "class_name": "Wizard",
+                "level": 5,
+                "subclass": "School of Evocation" if "2014" in edition else "Evoker",
+            }
+        ],
+        "race": "Human",
+        "background": "Sage",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 18, "WIS": 12, "CHA": 10},
+        "hp_max": 32,
+        "hp_current": 32,
+        "spells": {"cantrips": ["Fire Bolt"], "level_1": ["Shield", "Mage Armor"]},
+        "prepared_spells": ["Shield", "Mage Armor"],
+        "version": 1,
+    }
+    wiz_analysis = analyze_level_up(wizard_l5, user_choices={"level_up_class": "Wizard"})
+    assert wiz_analysis["replaceable_spells"] == []
+    assert wiz_analysis["spell_swap_options"] == []
+
+    db = _AsyncDB(f"innate_prep_{'24' if '2024' in edition else '14'}")
+    db._db["characters"].insert_one(dict(tiefling_warlock_l5))
+    db._db["characters"].insert_one(dict(wizard_l5))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        bad_innate = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": tiefling_warlock_l5["char_id"],
+                "analysis": w_analysis,
+                "user_choices": {
+                    "level_up_class": "Warlock",
+                    "spell_swap_out": "Darkness",
+                    "spell_swap_in": "Hunger of Hadar",
+                },
+            },
+        )
+        assert bad_innate.status_code == 400
+
+        bad_wiz = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": wizard_l5["char_id"],
+                "analysis": wiz_analysis,
+                "user_choices": {
+                    "level_up_class": "Wizard",
+                    "spell_swap_out": "Mage Armor",
+                    "spell_swap_in": "Fireball",
+                },
+            },
+        )
+        assert bad_wiz.status_code == 400
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
 def test_all_2024_subclasses_resolve_concrete_higher_level_features():
     """Every 2024 subclass across all 13 classes resolves specific subclass feature names at every subclass level."""
     import glob
@@ -2891,3 +3143,192 @@ def test_custom_armor_type_parenthetical_homebrew_and_top_level_ek_fallback():
     assert ek_top["spell_slots"]["level_1"]["max"] == 4
     assert ek_top["spell_slots"]["pact"] == {"max": 2, "used": 0, "level": 2}
     assert ek_top["spell_slots"]["level_2"]["pact_max"] == 2
+
+
+def test_2024_lineage_spells_respect_actual_lineage_after_mandatory_grants():
+    """2024 lineage prompt text ('Choose High Elf, Wood Elf, or Drow...') must never misclassify innate protected spells."""
+    from backend.services.forge_service import analyze_level_up
+    from backend.services.rules_service import inject_mandatory_character_grants
+
+    # 1. 2024 Wood Elf Ranger L5 after mandatory grants: Pass without Trace/Longstrider protected, Detect Magic swappable
+    wood_elf_ranger = inject_mandatory_character_grants(
+        {
+            "char_id": "wood_elf_24",
+            "owner_id": "u_qa",
+            "char_name": "Sylvan",
+            "char_class": "Ranger",
+            "subclass": "Gloom Stalker",
+            "char_level": 5,
+            "classes": [{"class_name": "Ranger", "level": 5, "subclass": "Gloom Stalker"}],
+            "race": "Wood Elf",
+            "background": "Guide",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 10, "DEX": 18, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+            "hp_max": 44,
+            "hp_current": 44,
+            "spells": {
+                "cantrips": ["Druidcraft"],
+                "level_1": ["Longstrider", "Detect Magic"],
+                "level_2": ["Pass without Trace", "Silence"],
+            },
+            "prepared_spells": ["Longstrider", "Detect Magic", "Pass without Trace", "Silence"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    we_analysis = analyze_level_up(wood_elf_ranger, user_choices={"level_up_class": "Ranger"})
+    assert "Longstrider" not in we_analysis["replaceable_spells"]
+    assert "Pass without Trace" not in we_analysis["replaceable_spells"]
+    assert "Detect Magic" in we_analysis["replaceable_spells"]
+    assert "Silence" in we_analysis["replaceable_spells"]
+
+    # Wood Elf Sorcerer L5 with High Elf spells learned via class: Detect Magic & Misty Step remain swappable
+    wood_elf_sorc = inject_mandatory_character_grants(
+        {
+            "char_id": "wood_elf_sorc_24",
+            "owner_id": "u_qa",
+            "char_name": "Sylvan Caster",
+            "char_class": "Sorcerer",
+            "subclass": "Draconic Sorcery",
+            "char_level": 5,
+            "classes": [{"class_name": "Sorcerer", "level": 5, "subclass": "Draconic Sorcery"}],
+            "race": "Wood Elf",
+            "background": "Guide",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+            "hp_max": 32,
+            "hp_current": 32,
+            "spells": {
+                "cantrips": ["Druidcraft", "Fire Bolt"],
+                "level_1": ["Detect Magic"],
+                "level_2": ["Misty Step"],
+            },
+            "prepared_spells": ["Detect Magic", "Misty Step"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    we_sorc_analysis = analyze_level_up(wood_elf_sorc, user_choices={"level_up_class": "Sorcerer"})
+    assert "Detect Magic" in we_sorc_analysis["replaceable_spells"]
+    assert "Misty Step" in we_sorc_analysis["replaceable_spells"]
+
+    # 2. 2024 Drow Warlock L5 after mandatory grants: Faerie Fire/Darkness protected, Detect Magic/Misty Step swappable
+    drow_lock = inject_mandatory_character_grants(
+        {
+            "char_id": "drow_24",
+            "owner_id": "u_qa",
+            "char_name": "Jarlaxle",
+            "char_class": "Warlock",
+            "subclass": "Fiend Patron",
+            "char_level": 5,
+            "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Fiend Patron"}],
+            "race": "Drow",
+            "background": "Charlatan",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Dancing Lights", "Eldritch Blast"],
+                "level_1": ["Faerie Fire", "Detect Magic"],
+                "level_2": ["Darkness", "Misty Step"],
+            },
+            "prepared_spells": ["Faerie Fire", "Detect Magic", "Darkness", "Misty Step"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    drow_analysis = analyze_level_up(drow_lock, user_choices={"level_up_class": "Warlock"})
+    assert "Faerie Fire" not in drow_analysis["replaceable_spells"]
+    assert "Darkness" not in drow_analysis["replaceable_spells"]
+    assert "Detect Magic" in drow_analysis["replaceable_spells"]
+    assert "Misty Step" in drow_analysis["replaceable_spells"]
+
+    # 3. 2024 Rock Gnome Bard L5: Forest Gnome's Speak with Animals is NOT treated as innate Rock Gnome spell
+    rock_gnome_bard = inject_mandatory_character_grants(
+        {
+            "char_id": "rgnome_24",
+            "owner_id": "u_qa",
+            "char_name": "Bimpnottin",
+            "char_class": "Bard",
+            "subclass": "College of Lore",
+            "char_level": 5,
+            "classes": [{"class_name": "Bard", "level": 5, "subclass": "College of Lore"}],
+            "race": "Rock Gnome",
+            "background": "Sage",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 14, "WIS": 10, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Mending", "Prestidigitation", "Vicious Mockery"],
+                "level_1": ["Speak with Animals", "Healing Word"],
+            },
+            "prepared_spells": ["Speak with Animals", "Healing Word"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    rg_analysis = analyze_level_up(rock_gnome_bard, user_choices={"level_up_class": "Bard"})
+    assert "Speak with Animals" in rg_analysis["replaceable_spells"]
+
+    # 4. 2024 Abyssal & Infernal Tiefling Warlocks each protect only their chosen legacy spells
+    abyssal_lock = inject_mandatory_character_grants(
+        {
+            "char_id": "abyssal_24",
+            "owner_id": "u_qa",
+            "char_name": "Graz",
+            "char_class": "Warlock",
+            "subclass": "Archfey Patron",
+            "char_level": 5,
+            "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Archfey Patron"}],
+            "race": "Abyssal Tiefling",
+            "background": "Charlatan",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Poison Spray", "Eldritch Blast"],
+                "level_1": ["Ray of Sickness", "Hex"],
+                "level_2": ["Hold Person", "Misty Step"],
+            },
+            "prepared_spells": ["Ray of Sickness", "Hex", "Hold Person", "Misty Step"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    ab_analysis = analyze_level_up(abyssal_lock, user_choices={"level_up_class": "Warlock"})
+    assert "Ray of Sickness" not in ab_analysis["replaceable_spells"]
+    assert "Hold Person" not in ab_analysis["replaceable_spells"]
+    assert "Hex" in ab_analysis["replaceable_spells"]
+
+    infernal_lock = inject_mandatory_character_grants(
+        {
+            "char_id": "infernal_24",
+            "owner_id": "u_qa",
+            "char_name": "Asmodea",
+            "char_class": "Warlock",
+            "subclass": "Archfey Patron",
+            "char_level": 5,
+            "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Archfey Patron"}],
+            "race": "Infernal Tiefling",
+            "background": "Charlatan",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Fire Bolt", "Eldritch Blast"],
+                "level_1": ["Hellish Rebuke", "Hex"],
+                "level_2": ["Darkness", "Hold Person"],
+            },
+            "prepared_spells": ["Hellish Rebuke", "Hex", "Darkness", "Hold Person"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    inf_analysis = analyze_level_up(infernal_lock, user_choices={"level_up_class": "Warlock"})
+    assert "Hellish Rebuke" not in inf_analysis["replaceable_spells"]
+    assert "Darkness" not in inf_analysis["replaceable_spells"]
+    assert "Hold Person" in inf_analysis["replaceable_spells"]

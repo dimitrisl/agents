@@ -533,4 +533,133 @@ describe('LevelUpModalComponent', () => {
     fixture.detectChanges();
     expect(component.hasDuplicateSiblingChoices).toBe(true);
   });
+
+  it('supports optional Spell Swap while enforcing pair completeness and preventing duplicates with learned spells', () => {
+    fixture.componentRef.setInput('nextLevel', 12);
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      char_class: 'Ranger',
+      char_level: 11,
+      classes: [{ class_name: 'Ranger', level: 11, subclass: 'Horizon Walker' }],
+    });
+    const spellChoice = {
+      type: 'spell',
+      label: 'Learn/Prepare a Ranger Spell',
+      options: ['Revivify', 'Conjure Barrage', 'Pass without Trace'],
+    };
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 8,
+      new_total_hp: 100,
+      automatic_changes: [],
+      choices_required: [spellChoice],
+      replaceable_spells: ['Speak with Animals', 'Silence'],
+      spell_swap_options: ['Revivify', 'Conjure Barrage', 'Pass without Trace'],
+    });
+    fixture.componentRef.setInput('open', true);
+
+    // Optional by default: leaving both empty is valid
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Ranger', spell_0: 'Conjure Barrage' });
+    fixture.detectChanges();
+    expect(component.hasSpellSwapAvailable).toBe(true);
+    expect(component.hasIncompleteSpellSwap).toBe(false);
+    expect(component.filteredSwapInOptions).not.toContain('Conjure Barrage');
+    expect(component.filteredSwapInOptions).toContain('Revivify');
+
+    // Picking only spell_swap_out marks swap incomplete & disables Apply
+    component.onChoiceChange('spell_swap_out', 'Silence');
+    fixture.detectChanges();
+    expect(component.hasIncompleteSpellSwap).toBe(true);
+    let applyBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Apply Level Up')
+    ) as HTMLButtonElement | null;
+    expect(applyBtn?.disabled).toBe(true);
+
+    // Picking spell_swap_in completes swap and excludes it from spell_0 choice
+    component.onChoiceChange('spell_swap_in', 'Revivify');
+    fixture.detectChanges();
+    expect(component.hasIncompleteSpellSwap).toBe(false);
+    expect(component.availableOptionsFor(spellChoice, 0)).not.toContain('Revivify');
+    applyBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Apply Level Up')
+    ) as HTMLButtonElement | null;
+    expect(applyBtn?.disabled).toBe(false);
+
+    // Clearing spell_swap_out back to None resets both swap keys
+    component.onChoiceChange('spell_swap_out', '');
+    fixture.detectChanges();
+    expect(component.userChoices['spell_swap_out']).toBeUndefined();
+    expect(component.userChoices['spell_swap_in']).toBeUndefined();
+    expect(component.hasIncompleteSpellSwap).toBe(false);
+  });
+
+  it('clears stale spell swap and spell choices when changing subclass and blocks Magical Secrets swap duplicates', () => {
+    fixture.componentRef.setInput('nextLevel', 3);
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      char_class: 'Fighter',
+      char_level: 2,
+      classes: [{ class_name: 'Fighter', level: 2 }],
+    });
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 8,
+      new_total_hp: 28,
+      automatic_changes: [],
+      choices_required: [
+        { type: 'subclass', label: 'Subclass', options: ['Eldritch Knight', 'Champion'] },
+        { type: 'spell', label: 'Learn Spell', options: ['Shield', 'Magic Missile'] },
+      ],
+      replaceable_spells: ['Grease'],
+      spell_swap_options: ['Shield', 'Magic Missile'],
+    });
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      subclass_0: 'Eldritch Knight',
+      spell_1: 'Shield',
+      spell_swap_out: 'Grease',
+      spell_swap_in: 'Magic Missile',
+    });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    component.onChoiceChange('subclass_0', 'Champion');
+    fixture.detectChanges();
+    expect(component.userChoices['spell_swap_out']).toBeUndefined();
+    expect(component.userChoices['spell_swap_in']).toBeUndefined();
+    expect(component.userChoices['spell_1']).toBeUndefined();
+
+    // Bard Magical Secrets overlap with Spell Swap
+    const secretChoice = {
+      type: 'spell_secret_1',
+      label: 'Magical Secrets',
+      options: ['Counterspell', 'Fireball'],
+    };
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 7,
+      new_total_hp: 70,
+      automatic_changes: [],
+      choices_required: [secretChoice],
+      replaceable_spells: ['Bane'],
+      spell_swap_options: ['Counterspell', 'Hypnotic Pattern'],
+    });
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Bard',
+      spell_secret_1_0: 'Counterspell',
+      spell_swap_out: 'Bane',
+      spell_swap_in: 'Hypnotic Pattern',
+    });
+    fixture.detectChanges();
+
+    expect(component.filteredSwapInOptions).not.toContain('Counterspell');
+    expect(component.availableOptionsFor(secretChoice, 0)).not.toContain('Hypnotic Pattern');
+    expect(component.hasDuplicateSiblingChoices).toBe(false);
+
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Bard',
+      spell_secret_1_0: 'Counterspell',
+      spell_swap_out: 'Bane',
+      spell_swap_in: 'Counterspell',
+    });
+    fixture.detectChanges();
+    expect(component.hasDuplicateSiblingChoices).toBe(true);
+  });
 });

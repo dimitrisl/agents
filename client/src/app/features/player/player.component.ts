@@ -3375,11 +3375,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.equipment) return;
     char.equipment.splice(index, 1);
+    delete char.saving_throw_values;
     this.saveCurrentChar();
   }
 
   toggleEquipped(item: EquipmentItem) {
     item.equipped = !item.equipped;
+    const char = this.charState.activeCharacter();
+    if (char?.saving_throw_values) {
+      delete char.saving_throw_values;
+    }
     this.saveCurrentChar();
   }
 

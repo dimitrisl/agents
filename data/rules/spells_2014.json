@@ -246,6 +246,7 @@
     "level": 1,
     "school": "illusion",
     "classes": [
+      "bard",
       "sorcerer",
       "wizard"
     ],
@@ -270,6 +271,7 @@
     "level": 1,
     "school": "enchantment",
     "classes": [
+      "bard",
       "cleric",
       "paladin"
     ],
@@ -624,7 +626,8 @@
     "level": 1,
     "school": "conjuration",
     "classes": [
-      "druid"
+      "druid",
+      "ranger"
     ],
     "actionType": "action",
     "concentration": true,
@@ -860,6 +863,7 @@
     "level": 1,
     "school": "conjuration",
     "classes": [
+      "sorcerer",
       "wizard"
     ],
     "actionType": "action",
@@ -1430,6 +1434,7 @@
     "school": "abjuration",
     "classes": [
       "cleric",
+      "druid",
       "paladin",
       "warlock",
       "wizard"
@@ -1643,7 +1648,8 @@
     "level": 1,
     "school": "evocation",
     "classes": [
-      "paladin"
+      "paladin",
+      "ranger"
     ],
     "actionType": "bonusAction",
     "concentration": true,
@@ -2035,8 +2041,10 @@
     "level": 2,
     "school": "abjuration",
     "classes": [
+      "bard",
       "cleric",
-      "paladin"
+      "paladin",
+      "ranger"
     ],
     "actionType": "action",
     "concentration": false,
@@ -2108,7 +2116,9 @@
     "level": 2,
     "school": "divination",
     "classes": [
-      "cleric"
+      "cleric",
+      "druid",
+      "wizard"
     ],
     "actionType": "action",
     "concentration": false,
@@ -2208,7 +2218,8 @@
     "level": 2,
     "school": "evocation",
     "classes": [
-      "cleric"
+      "cleric",
+      "paladin"
     ],
     "actionType": "action",
     "concentration": false,
@@ -2275,7 +2286,8 @@
     "level": 2,
     "school": "abjuration",
     "classes": [
-      "cleric"
+      "cleric",
+      "paladin"
     ],
     "actionType": "action",
     "concentration": false,
@@ -2345,6 +2357,7 @@
     "level": 4,
     "school": "abjuration",
     "classes": [
+      "cleric",
       "paladin"
     ],
     "actionType": "action",
@@ -2366,6 +2379,7 @@
     "level": 4,
     "school": "abjuration",
     "classes": [
+      "cleric",
       "paladin"
     ],
     "actionType": "action",
@@ -2387,6 +2401,8 @@
     "level": 3,
     "school": "evocation",
     "classes": [
+      "cleric",
+      "druid",
       "paladin"
     ],
     "actionType": "action",
@@ -2813,7 +2829,9 @@
     "level": 3,
     "school": "transmutation",
     "classes": [
-      "paladin"
+      "druid",
+      "paladin",
+      "ranger"
     ],
     "actionType": "action",
     "concentration": true,
@@ -3084,6 +3102,7 @@
     "level": 3,
     "school": "evocation",
     "classes": [
+      "bard",
       "cleric"
     ],
     "actionType": "bonusAction",
@@ -3201,7 +3220,8 @@
     "school": "transmutation",
     "classes": [
       "cleric",
-      "druid"
+      "druid",
+      "ranger"
     ],
     "actionType": "action",
     "concentration": false,
@@ -3296,7 +3316,9 @@
     "school": "conjuration",
     "classes": [
       "cleric",
-      "paladin"
+      "druid",
+      "paladin",
+      "ranger"
     ],
     "actionType": "action",
     "concentration": false,
@@ -3369,6 +3391,7 @@
     "level": 3,
     "school": "transmutation",
     "classes": [
+      "bard",
       "sorcerer",
       "wizard"
     ],
@@ -3394,7 +3417,8 @@
     "school": "necromancy",
     "classes": [
       "bard",
-      "cleric"
+      "cleric",
+      "wizard"
     ],
     "actionType": "action",
     "concentration": false,
@@ -3870,6 +3894,7 @@
     "level": 8,
     "school": "enchantment",
     "classes": [
+      "bard",
       "druid",
       "wizard"
     ],
@@ -3967,6 +3992,7 @@
     "level": 8,
     "school": "conjuration",
     "classes": [
+      "sorcerer",
       "warlock",
       "wizard"
     ],
@@ -4093,6 +4119,7 @@
     "classes": [
       "cleric",
       "sorcerer",
+      "warlock",
       "wizard"
     ],
     "actionType": "action",
@@ -4185,6 +4212,7 @@
     "level": 8,
     "school": "conjuration",
     "classes": [
+      "druid",
       "sorcerer",
       "wizard"
     ],
@@ -4368,6 +4396,7 @@
     "level": 9,
     "school": "abjuration",
     "classes": [
+      "bard",
       "wizard"
     ],
     "actionType": "action",
@@ -4459,6 +4488,7 @@
     "level": 8,
     "school": "evocation",
     "classes": [
+      "cleric",
       "druid",
       "sorcerer",
       "wizard"
@@ -4577,6 +4607,7 @@
     "level": 9,
     "school": "illusion",
     "classes": [
+      "warlock",
       "wizard"
     ],
     "actionType": "action",
@@ -4835,6 +4866,7 @@
     "level": 7,
     "school": "evocation",
     "classes": [
+      "bard",
       "sorcerer",
       "wizard"
     ],
@@ -5031,6 +5063,7 @@
     "classes": [
       "bard",
       "cleric",
+      "druid",
       "wizard"
     ],
     "actionType": "action",
@@ -5404,6 +5437,7 @@
     "level": 5,
     "school": "evocation",
     "classes": [
+      "druid",
       "sorcerer",
       "wizard"
     ],
@@ -5592,6 +5626,7 @@
     "school": "evocation",
     "classes": [
       "cleric",
+      "druid",
       "wizard"
     ],
     "actionType": "action",
@@ -5684,7 +5719,9 @@
     "level": 4,
     "school": "divination",
     "classes": [
-      "cleric"
+      "cleric",
+      "druid",
+      "wizard"
     ],
     "actionType": "action",
     "concentration": false,
@@ -5732,6 +5769,7 @@
     "school": "enchantment",
     "classes": [
       "druid",
+      "ranger",
       "sorcerer"
     ],
     "actionType": "action",
@@ -5806,7 +5844,9 @@
       "bard",
       "cleric",
       "druid",
-      "sorcerer"
+      "ranger",
+      "sorcerer",
+      "wizard"
     ],
     "actionType": "action",
     "concentration": true,
@@ -5829,6 +5869,8 @@
     "level": 2,
     "school": "transmutation",
     "classes": [
+      "bard",
+      "druid",
       "sorcerer",
       "wizard"
     ],
@@ -5994,6 +6036,8 @@
     "level": 4,
     "school": "evocation",
     "classes": [
+      "druid",
+      "sorcerer",
       "wizard"
     ],
     "actionType": "action",
@@ -6017,7 +6061,8 @@
     "level": 2,
     "school": "evocation",
     "classes": [
-      "druid"
+      "druid",
+      "sorcerer"
     ],
     "actionType": "bonusAction",
     "concentration": true,
@@ -6064,6 +6109,7 @@
     "school": "conjuration",
     "classes": [
       "druid",
+      "sorcerer",
       "wizard"
     ],
     "actionType": "action",
@@ -6087,6 +6133,8 @@
     "level": 6,
     "school": "transmutation",
     "classes": [
+      "druid",
+      "sorcerer",
       "warlock",
       "wizard"
     ],
@@ -6186,6 +6234,7 @@
     "school": "necromancy",
     "classes": [
       "cleric",
+      "paladin",
       "wizard"
     ],
     "actionType": "action",
@@ -6327,9 +6376,10 @@
     "level": 5,
     "school": "abjuration",
     "classes": [
+      "bard",
       "cleric",
       "druid",
-      "bard"
+      "ranger"
     ],
     "actionType": "action",
     "concentration": false,
@@ -6397,9 +6447,10 @@
     "level": 2,
     "school": "evocation",
     "classes": [
+      "druid",
+      "ranger",
       "sorcerer",
-      "wizard",
-      "druid"
+      "wizard"
     ],
     "actionType": "action",
     "concentration": true,
@@ -6540,6 +6591,7 @@
     "level": 6,
     "school": "conjuration",
     "classes": [
+      "bard",
       "cleric",
       "druid"
     ],
@@ -6841,6 +6893,8 @@
     "school": "transmutation",
     "classes": [
       "paladin",
+      "ranger",
+      "sorcerer",
       "wizard"
     ],
     "actionType": "bonusAction",
@@ -6936,6 +6990,7 @@
     "level": 2,
     "school": "illusion",
     "classes": [
+      "bard",
       "sorcerer",
       "warlock",
       "wizard"
@@ -6961,6 +7016,7 @@
     "school": "illusion",
     "classes": [
       "bard",
+      "warlock",
       "wizard"
     ],
     "actionType": "action",
@@ -7123,6 +7179,7 @@
     "level": 4,
     "school": "illusion",
     "classes": [
+      "bard",
       "wizard"
     ],
     "actionType": "action",
@@ -7195,6 +7252,7 @@
       "bard",
       "cleric",
       "druid",
+      "warlock",
       "wizard"
     ],
     "actionType": "action",
@@ -7706,6 +7764,7 @@
     "classes": [
       "bard",
       "sorcerer",
+      "warlock",
       "wizard"
     ],
     "actionType": "action",
@@ -7800,6 +7859,7 @@
     "level": 3,
     "school": "necromancy",
     "classes": [
+      "sorcerer",
       "warlock",
       "wizard"
     ],
@@ -9017,6 +9077,7 @@
     "level": 5,
     "school": "evocation",
     "classes": [
+      "sorcerer",
       "wizard"
     ],
     "actionType": "action",

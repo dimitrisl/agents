@@ -585,6 +585,8 @@ class LevelUpAnalysisSchema(BaseModel):
     hp_bonus_per_level: int = 0
     new_total_hp: int
     choices_required: List[LevelUpChoice] = Field(default_factory=list)
+    replaceable_spells: List[str] = Field(default_factory=list)
+    spell_swap_options: List[str] = Field(default_factory=list)
     updated_proficiency_bonus: Optional[int] = None
     updated_spell_slots: Optional[Dict[str, int]] = None
     new_spells_known: List[str] = Field(default_factory=list)

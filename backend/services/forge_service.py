@@ -155,8 +155,383 @@ _SAVE_ALIAS_MAP: dict[str, str] = {
 }
 
 
+_FULL_HALF_PACT_CASTERS = frozenset(
+    {
+        "bard",
+        "cleric",
+        "druid",
+        "paladin",
+        "ranger",
+        "sorcerer",
+        "warlock",
+        "wizard",
+        "artificer",
+    }
+)
+_SPELL_SWAP_CASTERS = frozenset({"bard", "ranger", "sorcerer", "warlock"})
+
+
 def _norm_spell_key(name: Any) -> str:
     return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
+
+def resolve_spell_list_class(class_name: str, subclass_name: str | None = None) -> str | None:
+    """Resolve the spell-list class name (mapping 1/3 casters EK & AT to wizard)."""
+    c_low = str(class_name or "").strip().lower()
+    sub_low = str(subclass_name or "").strip().lower()
+    if (c_low == "fighter" and "eldritch knight" in sub_low) or (
+        c_low == "rogue" and "arcane trickster" in sub_low
+    ):
+        return "wizard"
+    return c_low if c_low in _FULL_HALF_PACT_CASTERS else None
+
+
+def supports_level_up_spell_swap(class_name: str, subclass_name: str | None = None) -> bool:
+    """True for known/level-up-swap spellcasters (Bard, Ranger, Sorcerer, Warlock, EK, AT)."""
+    c_low = str(class_name or "").strip().lower()
+    sub_low = str(subclass_name or "").strip().lower()
+    return c_low in _SPELL_SWAP_CASTERS or (
+        (c_low == "fighter" and "eldritch knight" in sub_low)
+        or (c_low == "rogue" and "arcane trickster" in sub_low)
+    )
+
+
+def _collect_protected_spell_keys(
+    char_data: dict,
+    target_class: str,
+    subclass_to_use: str | None,
+    target_level: int,
+    edition: str,
+    rules_repo,
+) -> set[str]:
+    """Return normalized names of always-prepared subclass & innate racial spells."""
+    protected: set[str] = set()
+    classes = list(char_data.get("classes") or [])
+    if not classes and char_data.get("char_class"):
+        classes = [
+            {
+                "class_name": char_data.get("char_class"),
+                "level": char_data.get("char_level", 1),
+                "subclass": char_data.get("subclass"),
+            }
+        ]
+
+    seen_target = False
+    for cls in classes:
+        if not isinstance(cls, dict):
+            continue
+        c_name = str(cls.get("class_name") or "").strip()
+        if not c_name:
+            continue
+        is_target = c_name.lower() == target_class.lower()
+        c_sub = (subclass_to_use or cls.get("subclass")) if is_target else cls.get("subclass")
+        c_lvl = target_level if is_target else int(cls.get("level") or 1)
+        if is_target:
+            seen_target = True
+        if c_sub:
+            sub_entry = rules_repo.get_subclass_entry(c_name, c_sub, edition)
+            for lvl_k, sp_names in ((sub_entry or {}).get("bonus_spells") or {}).items():
+                try:
+                    req_lvl = int(lvl_k)
+                except (TypeError, ValueError):
+                    continue
+                if c_lvl >= req_lvl:
+                    for raw_sp in sp_names or []:
+                        key = _norm_spell_key(raw_sp)
+                        if key:
+                            protected.add(key)
+
+    if not seen_target and subclass_to_use:
+        sub_entry = rules_repo.get_subclass_entry(target_class, subclass_to_use, edition)
+        for lvl_k, sp_names in ((sub_entry or {}).get("bonus_spells") or {}).items():
+            try:
+                req_lvl = int(lvl_k)
+            except (TypeError, ValueError):
+                continue
+            if target_level >= req_lvl:
+                for raw_sp in sp_names or []:
+                    key = _norm_spell_key(raw_sp)
+                    if key:
+                        protected.add(key)
+
+    def _extract_innate_block(block: Any, current_char_level: int) -> None:
+        if not isinstance(block, dict):
+            return
+        by_lvl = block.get("by_level")
+        if isinstance(by_lvl, dict):
+            for lvl_k, sp_names in by_lvl.items():
+                try:
+                    req_l = int(lvl_k)
+                except (TypeError, ValueError):
+                    continue
+                if current_char_level >= req_l and isinstance(sp_names, list):
+                    for raw_sp in sp_names:
+                        key = _norm_spell_key(raw_sp)
+                        if key:
+                            protected.add(key)
+        for k, val in block.items():
+            if (k == "always" or str(k).startswith("level_") or str(k).isdigit()) and isinstance(
+                val, list
+            ):
+                for raw_sp in val:
+                    key = _norm_spell_key(raw_sp)
+                    if key:
+                        protected.add(key)
+
+    char_total_level = max(1, int(char_data.get("char_level") or 1))
+    race_name = str(char_data.get("race") or "").strip()
+    race_data = rules_repo.get_race_data(race_name, edition) if race_name else None
+    innate = (race_data or {}).get("innate_spells")
+    if isinstance(innate, dict):
+        _extract_innate_block(innate, char_total_level)
+
+    lineage_map = (race_data or {}).get("lineage_spells")
+    if isinstance(lineage_map, dict) and lineage_map:
+        sorted_lineages = [
+            (lin_key, blk)
+            for lin_key, blk in sorted(lineage_map.items(), key=lambda kv: len(kv[0]), reverse=True)
+            if lin_key != "_default" and isinstance(blk, dict)
+        ]
+
+        def _match_lineage_text(text: str) -> dict | None:
+            lowered = text.lower()
+            return next(
+                (blk for lin_key, blk in sorted_lineages if lin_key.lower() in lowered),
+                None,
+            )
+
+        # Match specific subrace/lineage in race name first, then trait names, then
+        # unambiguous trait descriptions (skipping multi-option 2024 PHB prompt text).
+        matched_lineage = _match_lineage_text(race_name)
+        if matched_lineage is None:
+            trait_names = " ".join(
+                f.get("name", "") if isinstance(f, dict) else str(f or "").split(":", 1)[0]
+                for f in (char_data.get("features_traits") or [])
+            )
+            matched_lineage = _match_lineage_text(trait_names)
+        if matched_lineage is None:
+            for feat in char_data.get("features_traits") or []:
+                desc = (
+                    (feat.get("description") or "") if isinstance(feat, dict) else str(feat or "")
+                ).lower()
+                if not desc or "choose " in desc:
+                    continue
+                hits = [blk for lin_key, blk in sorted_lineages if lin_key.lower() in desc]
+                distinct_signatures = {
+                    tuple(sorted((str(k), str(v)) for k, v in blk.items())) for blk in hits
+                }
+                if len(distinct_signatures) == 1:
+                    matched_lineage = hits[0]
+                    break
+        if matched_lineage is None:
+            matched_lineage = lineage_map.get("_default")
+        if isinstance(matched_lineage, dict):
+            _extract_innate_block(matched_lineage, char_total_level)
+
+    if race_name and not isinstance(innate, dict) and not isinstance(lineage_map, dict):
+        fallback_race = rules_repo.get_race_data(race_name, "2014")
+        fallback_innate = (fallback_race or {}).get("innate_spells")
+        if isinstance(fallback_innate, dict):
+            _extract_innate_block(fallback_innate, char_total_level)
+
+    return protected
+
+
+def get_spell_swap_candidates(
+    char_data: dict,
+    target_class: str,
+    subclass_to_use: str | None,
+    target_level: int,
+    max_spell_level: int,
+    edition: str,
+    rules_repo,
+    all_spells: list[dict] | None = None,
+) -> tuple[list[str], set[str]]:
+    """Return (replaceable_leveled_spells, protected_keys) for an eligible Level-Up swap."""
+    if (
+        not supports_level_up_spell_swap(target_class, subclass_to_use)
+        or max_spell_level < 1
+        or target_level < 2
+    ):
+        return [], set()
+
+    spell_list_class = resolve_spell_list_class(target_class, subclass_to_use)
+    if not spell_list_class:
+        return [], set()
+
+    all_spells = all_spells if all_spells is not None else rules_repo.get_all_spells(edition)
+    spells_by_norm = {
+        _norm_spell_key(s.get("name")): s
+        for s in all_spells
+        if isinstance(s, dict) and s.get("name")
+    }
+    protected = _collect_protected_spell_keys(
+        char_data, target_class, subclass_to_use, target_level, edition, rules_repo
+    )
+
+    sp_dict = char_data.get("spells") or {}
+    if not isinstance(sp_dict, dict):
+        return [], protected
+
+    candidates: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for lvl_idx in range(1, 10):
+        bucket = sp_dict.get(f"level_{lvl_idx}")
+        if not isinstance(bucket, list):
+            continue
+        for entry in bucket:
+            raw_name = entry.get("name") if isinstance(entry, dict) else str(entry or "")
+            clean_name = str(raw_name).strip()
+            norm_key = _norm_spell_key(clean_name)
+            if not clean_name or norm_key in seen or norm_key in protected:
+                continue
+            catalog_sp = spells_by_norm.get(norm_key)
+            if catalog_sp is not None:
+                sp_lvl = int(catalog_sp.get("level", 0) or 0)
+                sp_classes = [str(c).lower() for c in (catalog_sp.get("classes") or [])]
+                if sp_lvl < 1 or sp_lvl > max_spell_level:
+                    continue
+                if sp_classes and spell_list_class not in sp_classes:
+                    continue
+                candidates.append((sp_lvl, str(catalog_sp.get("name") or clean_name)))
+            else:
+                if lvl_idx > max_spell_level:
+                    continue
+                candidates.append((lvl_idx, clean_name))
+            seen.add(norm_key)
+
+    candidates.sort(key=lambda pair: (-pair[0], pair[1]))
+    return [name for _, name in candidates], protected
+
+
+def apply_level_up_spell_swap(
+    char_doc: dict,
+    pre_level_spells: Any,
+    target_class: str,
+    chosen_subclass: str | None,
+    new_class_level: int,
+    swap_out: str,
+    swap_in: str,
+    selected_spells_in_payload: set[str],
+    edition: str,
+    rules_repo,
+    pre_total_level: int | None = None,
+) -> None:
+    """Validate and apply an optional 1-for-1 leveled spell replacement on Level Up."""
+    clean_out = str(swap_out or "").strip()
+    clean_in = str(swap_in or "").strip()
+    if not clean_out and not clean_in:
+        return
+    if bool(clean_out) != bool(clean_in):
+        raise ValueError(
+            "Both a spell to replace and a replacement spell must be selected to swap spells."
+        )
+
+    spell_list_class = resolve_spell_list_class(target_class, chosen_subclass)
+    if not spell_list_class or not supports_level_up_spell_swap(target_class, chosen_subclass):
+        raise ValueError(f"{target_class} does not support spell swapping on Level Up.")
+
+    from backend.services.stats_service import calculate_max_spell_slots
+
+    max_slots = calculate_max_spell_slots(
+        target_class, new_class_level, chosen_subclass, edition=edition
+    )
+    max_spell_level = max(
+        (i for i in range(1, 10) if max_slots.get(f"level_{i}", 0) > 0),
+        default=0,
+    )
+    if max_spell_level < 1 or new_class_level < 2:
+        raise ValueError("Character does not have eligible spell slots for spell swapping.")
+
+    all_spells = rules_repo.get_all_spells(edition)
+    snapshot = dict(char_doc)
+    snapshot["spells"] = pre_level_spells
+    if pre_total_level is not None:
+        snapshot["char_level"] = pre_total_level
+    candidates, protected = get_spell_swap_candidates(
+        snapshot,
+        target_class,
+        chosen_subclass,
+        new_class_level,
+        max_spell_level,
+        edition,
+        rules_repo,
+        all_spells=all_spells,
+    )
+
+    out_norm = _norm_spell_key(clean_out)
+    if out_norm in protected:
+        raise ValueError(
+            f"Subclass or innate trait spell '{clean_out}' cannot be replaced during Level Up."
+        )
+    if not any(_norm_spell_key(c) == out_norm for c in candidates):
+        raise ValueError(
+            f"Spell '{clean_out}' is not an eligible known spell to replace on Level Up."
+        )
+
+    in_norm = _norm_spell_key(clean_in)
+    if in_norm == out_norm:
+        raise ValueError("Replacement spell must differ from the spell being replaced.")
+    if in_norm in selected_spells_in_payload:
+        raise ValueError(
+            f"Duplicate spell selection '{clean_in}': already chosen for this Level Up."
+        )
+
+    matched_in = next(
+        (
+            s
+            for s in all_spells
+            if isinstance(s, dict) and s.get("name") and _norm_spell_key(s["name"]) == in_norm
+        ),
+        None,
+    )
+    if matched_in is None:
+        raise ValueError(f"Unknown replacement spell '{clean_in}' for {edition}.")
+
+    in_level = int(matched_in.get("level", 0) or 0)
+    if in_level < 1 or in_level > max_spell_level:
+        raise ValueError(
+            f"Replacement spell '{matched_in['name']}' (Level {in_level}) exceeds maximum castable spell level ({max_spell_level})."
+        )
+    in_classes = [str(c).lower() for c in (matched_in.get("classes") or [])]
+    if in_classes and spell_list_class not in in_classes:
+        raise ValueError(
+            f"Replacement spell '{matched_in['name']}' is not on the {spell_list_class.title()} spell list."
+        )
+
+    pre_known: set[str] = set()
+    if isinstance(pre_level_spells, dict):
+        for lst in pre_level_spells.values():
+            if isinstance(lst, list):
+                for s in lst:
+                    pre_known.add(_norm_spell_key(s.get("name") if isinstance(s, dict) else s))
+    if in_norm in pre_known:
+        raise ValueError(f"Character already knows replacement spell '{matched_in['name']}'.")
+
+    def _entry_key(entry: Any) -> str:
+        return _norm_spell_key(entry.get("name") if isinstance(entry, dict) else entry)
+
+    # Perform replacement across spells buckets and prepared_spells
+    spells_dict = char_doc.setdefault("spells", {})
+    if isinstance(spells_dict, dict):
+        for lvl_idx in range(1, 10):
+            key = f"level_{lvl_idx}"
+            if isinstance(spells_dict.get(key), list):
+                spells_dict[key] = [s for s in spells_dict[key] if _entry_key(s) != out_norm]
+        canon_in = str(matched_in.get("name") or clean_in)
+        target_bucket = spells_dict.setdefault(f"level_{in_level}", [])
+        if not any(_entry_key(x) == _norm_spell_key(canon_in) for x in target_bucket):
+            target_bucket.append(canon_in)
+
+    prep_list = char_doc.get("prepared_spells")
+    if isinstance(prep_list, list):
+        filtered_prep = [p for p in prep_list if _entry_key(p) != out_norm]
+    else:
+        filtered_prep = []
+    canon_in = str(matched_in.get("name") or clean_in)
+    if not any(_entry_key(p) == _norm_spell_key(canon_in) for p in filtered_prep):
+        filtered_prep.append(canon_in)
+    char_doc["prepared_spells"] = filtered_prep
 
 
 def _extract_resilient_stat(feat_label: str) -> str | None:
@@ -2233,25 +2608,11 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     is_asi_level = any(is_asi_or_epic_boon_feature(f.get("name", "")) for f in static_features)
 
-    full_half_pact_casters = {
-        "bard",
-        "cleric",
-        "druid",
-        "paladin",
-        "ranger",
-        "sorcerer",
-        "warlock",
-        "wizard",
-        "artificer",
-    }
     c_lower = char_class.lower()
     sub_lower = str(subclass_to_use or "").lower()
-    is_third_caster = (c_lower == "fighter" and "eldritch knight" in sub_lower) or (
-        c_lower == "rogue" and "arcane trickster" in sub_lower
-    )
-    spell_list_class = (
-        "wizard" if is_third_caster else (c_lower if c_lower in full_half_pact_casters else None)
-    )
+    spell_list_class = resolve_spell_list_class(char_class, subclass_to_use)
+    replaceable_spells: list[str] = []
+    spell_swap_options: list[str] = []
 
     if is_asi_level:
         from backend.services.validation_service import (
@@ -2523,6 +2884,20 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "ai_recommendation": ai_spell_rec,
                 }
             )
+
+        if max_spell_level >= 1 and spells:
+            replaceable_spells, _ = get_spell_swap_candidates(
+                char_data,
+                char_class,
+                subclass_to_use,
+                target_level,
+                max_spell_level,
+                edition,
+                rules_repo,
+                all_spells=all_spells,
+            )
+            if replaceable_spells:
+                spell_swap_options = list(spells)
 
     # 4. Expertise
     skills = [
@@ -2812,6 +3187,8 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "hp_bonus_per_level": hp_bonus_per_level,
         "new_total_hp": preview_new_total_hp,
         "choices_required": choices,
+        "replaceable_spells": replaceable_spells,
+        "spell_swap_options": spell_swap_options,
         "updated_proficiency_bonus": updated_pb,
         "updated_spell_slots": updated_spell_slots,
         "new_spells_known": [],

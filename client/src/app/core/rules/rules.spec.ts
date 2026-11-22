@@ -1302,4 +1302,67 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
     expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 6, dnd_edition: '2024 Revision' }))).toBe(false);
     expect(hasReliableTalent(hero({ char_class: 'Rogue', char_level: 7, dnd_edition: '2024 Revision' }))).toBe(true);
   });
+
+  it('applies equipment save bonuses (mod1 SAVES, STR_SAVE, Cloak of Protection) across 2014 & 2024 with suppression and attunement caps', () => {
+    for (const edition of ['2014 Edition', '2024 Revision (5.5e)']) {
+      const ranger = hero({
+        char_class: 'Ranger',
+        char_level: 11,
+        dnd_edition: edition,
+        proficiency_bonus: 4,
+        stats: { STR: 8, DEX: 20, CON: 14, INT: 10, WIS: 14, CHA: 12 },
+        saving_throws: ['STR', 'DEX'],
+        equipment: [
+          {
+            name: 'Cloak of Protection (+1 AC)',
+            equipped: true,
+            attuned: true,
+            mod1: 'SAVES',
+            val1: 1,
+          },
+          {
+            name: 'Ring of Warmth',
+            equipped: false,
+            attuned: true,
+            mod1: 'SAVES',
+            val1: 2,
+          },
+          {
+            name: 'Belt Tag',
+            equipped: true,
+            attuned: false,
+            mod1: 'STR_SAVE',
+            val1: 1,
+          },
+        ],
+      });
+
+      // Base STR save (-1 + 4 = +3) + Cloak (+1) + Belt STR_SAVE (+1) = +5; unequipped Ring (+2) ignored
+      expect(savingThrowModifier(ranger, 'STR')).toBe(5);
+      // DEX save (+5 + 4 + 1 = +10)
+      expect(savingThrowModifier(ranger, 'DEX')).toBe(10);
+
+      // Cloak named without mod1 still resolves normalized catalog +1 save without double counting
+      const namedCloakRanger = hero({
+        ...ranger,
+        equipment: [{ name: 'Cloak of Protection (+1 AC)', equipped: true, attuned: true }],
+      });
+      expect(savingThrowModifier(namedCloakRanger, 'STR')).toBe(4);
+
+      // Athas / Antimagic suppresses item save bonuses cleanly
+      expect(savingThrowModifier({ ...ranger, magic_items_suppressed: true }, 'STR')).toBe(3);
+
+      // 4th attuned+equipped item exceeds 3-slot cap and is ignored
+      const overAttuned = hero({
+        ...ranger,
+        equipment: [
+          { name: 'Item 1', equipped: true, attuned: true },
+          { name: 'Item 2', equipped: true, attuned: true },
+          { name: 'Item 3', equipped: true, attuned: true },
+          { name: 'Cloak of Protection', equipped: true, attuned: true, mod1: 'SAVES', val1: 1 },
+        ],
+      });
+      expect(savingThrowModifier(overAttuned, 'STR')).toBe(3);
+    }
+  });
 });
