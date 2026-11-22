@@ -77,8 +77,10 @@ export class ManualFormComponent {
   @Input() manualSkills: string[] = [];
   @Input() manualFeats: string[] = [];
   @Input() manualSpells: string[] = [];
+  @Input() manualClassChoice = '';
   @Input() availableFeats: any[] = [];
   @Input() availableSpells: any[] = [];
+  @Input() availableClassChoices: Record<string, any> = {};
 
   @Output() manualNameChange = new EventEmitter<string>();
   @Output() manualLevelChange = new EventEmitter<number>();
@@ -98,6 +100,7 @@ export class ManualFormComponent {
   @Output() manualSkillsChange = new EventEmitter<string[]>();
   @Output() manualFeatsChange = new EventEmitter<string[]>();
   @Output() manualSpellsChange = new EventEmitter<string[]>();
+  @Output() manualClassChoiceChange = new EventEmitter<string>();
 
   @Output() updateManualSubclasses = new EventEmitter<void>();
   @Output() rollStats = new EventEmitter<void>();
@@ -367,8 +370,115 @@ export class ManualFormComponent {
     return Math.floor((score - 10) / 2);
   }
 
+  get manualClassChoiceConfig(): {
+    label: string;
+    options: Array<{ name: string; description?: string }>;
+  } | null {
+    const c = (this.manualClass || '').trim().toLowerCase();
+    const cat = this.availableClassChoices || {};
+
+    if (this.is2024 && c === 'cleric') {
+      const opts =
+        Array.isArray(cat['divine_orders']) && cat['divine_orders'].length
+          ? cat['divine_orders']
+          : [
+              {
+                name: 'Divine Order: Protector',
+                description: 'Gain proficiency with Martial weapons and training with Heavy armor.',
+              },
+              {
+                name: 'Divine Order: Thaumaturge',
+                description: 'Know 1 extra Cleric cantrip and add WIS modifier (min +1) to Arcana & Religion checks.',
+              },
+            ];
+      return { label: 'Divine Order (Level 1)', options: opts };
+    }
+
+    if (this.is2024 && c === 'druid') {
+      const opts =
+        Array.isArray(cat['primal_orders']) && cat['primal_orders'].length
+          ? cat['primal_orders']
+          : [
+              {
+                name: 'Primal Order: Magician',
+                description: 'Know 1 extra Druid cantrip and add WIS modifier (min +1) to Arcana & Nature checks.',
+              },
+              {
+                name: 'Primal Order: Warden',
+                description: 'Gain proficiency with Martial weapons and training with Medium armor.',
+              },
+            ];
+      return { label: 'Primal Order (Level 1)', options: opts };
+    }
+
+    if (this.is2024 && c === 'warlock') {
+      const allInv = Array.isArray(cat['eldritch_invocations']) ? cat['eldritch_invocations'] : [];
+      const lvl1Inv = allInv.filter((item: any) => Number(item?.min_level ?? 1) <= 1);
+      const opts = lvl1Inv.length
+        ? lvl1Inv
+        : [
+            {
+              name: 'Pact of the Blade',
+              description: 'Conjure or bond a Simple or Martial Melee Pact Weapon using CHA for attacks and damage.',
+            },
+            {
+              name: 'Pact of the Chain',
+              description: 'Learn Find Familiar and cast it without a slot with expanded familiar forms.',
+            },
+            {
+              name: 'Pact of the Tome',
+              description: 'Conjure a Book of Shadows with three cantrips and two Level 1 Ritual spells.',
+            },
+            {
+              name: 'Armor of Shadows',
+              description: 'Cast Mage Armor on yourself without expending a spell slot.',
+            },
+            {
+              name: 'Eldritch Mind',
+              description: 'Gain Advantage on Constitution saving throws to maintain Concentration.',
+            },
+            {
+              name: 'Lessons of the First Ones',
+              description: 'Gain an Origin feat of your choice (repeatable for distinct Origin feats).',
+            },
+          ];
+      return { label: 'Eldritch Invocation (Level 1)', options: opts };
+    }
+
+    if (c === 'fighter') {
+      const styles = cat['fighting_styles']?.['fighter'];
+      const opts =
+        Array.isArray(styles) && styles.length
+          ? styles
+          : [
+              { name: 'Fighting Style: Archery', description: 'Gain a +2 bonus to attack rolls with Ranged weapons.' },
+              { name: 'Fighting Style: Defense', description: 'While wearing armor, gain a +1 bonus to Armor Class.' },
+              { name: 'Fighting Style: Dueling', description: 'Gain +2 damage with a one-handed melee weapon and no other weapons.' },
+              { name: 'Fighting Style: Great Weapon Fighting', description: 'Boost low damage rolls on two-handed melee weapons.' },
+              { name: 'Fighting Style: Protection', description: 'Use your Reaction with a Shield to impose Disadvantage on attacks against an adjacent ally.' },
+              { name: 'Fighting Style: Two-Weapon Fighting', description: 'Add your ability modifier to the damage of your off-hand Light weapon attack.' },
+            ];
+      return { label: 'Fighting Style (Level 1)', options: opts };
+    }
+
+    return null;
+  }
+
+  get selectedClassChoiceDescription(): string | null {
+    const cfg = this.manualClassChoiceConfig;
+    if (!cfg || !this.manualClassChoice) return null;
+    const found = cfg.options.find((o) => o.name === this.manualClassChoice);
+    return found?.description || null;
+  }
+
   get maxCantrips(): number {
-    return getMaxCantrips(this.manualClass, this.manualLevel, this.manualSubclass);
+    return getMaxCantrips(
+      this.manualClass,
+      this.manualLevel,
+      this.manualSubclass,
+      this.manualClassChoice ? [this.manualClassChoice] : [],
+      this.is2024
+    );
   }
 
   get maxPreparedSpells(): number {

@@ -207,7 +207,10 @@ export class LevelUpModalComponent {
       delete nextChoices['spell_swap_out'];
       delete nextChoices['spell_swap_in'];
       for (const k of Object.keys(nextChoices)) {
-        if (/^spell(?:_secret_\d+)?_\d+$/.test(k)) {
+        if (
+          /^spell(?:_secret_\d+)?_\d+$/.test(k) ||
+          /^(?:maneuver|hunter_choice|fighting_style|pact_boon|eldritch_invocation|metamagic|infusion|divine_order|primal_order)(?:_\d+)?$/.test(k)
+        ) {
           delete nextChoices[k];
         }
       }

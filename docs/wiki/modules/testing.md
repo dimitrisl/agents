@@ -22,6 +22,7 @@ tests/
 ├── test_deterministic_character_math.py # Multi-class (Fighter, Wizard, Rogue, Draconic Sorcerer) Level 3 & 8 2014/2024 deterministic math, Forge/Level-Up anti-hallucination, PDF bounds, and SRD encounter hydration/fallback
 ├── test_code_review_fixes.py         # Full-stack security & correctness regression suite (XFF right-to-left proxy IP, magic-byte image validation, production JWT enforcement, VTT fog bounds, rules parity, level-up server authority, safe script queries)
 ├── test_2014_qa_fixes.py             # 2014 Edition QA regression & 2024 parity suite (Paladin/Monk/Rogue/Artificer saves, Resilient half-feat, weapon profs, feat prereqs, all 13 subclass progressions & domain/innate spells, 2014 choice pickers + Agonizing Blast, Sorcerous Restoration & racial resource pools, senses/resistances/save advantages)
+├── test_2024_rules_parity.py         # Ticket #259 2024 Revision parity suite (all 13 subclass mechanics JSONs & bonus_spells validation, Divine Order / Primal Order proficiencies & Thaumaturge/Magician skill bonuses, College of Dance/Valor Bard, 2024 vs 2014 structured level-up & Manual Forge choices, /rules/weapon-masteries, /rules/class-choices, and /rules/combat-profile)
 ├── test_mechanics*.py                # AC math, spell slots, saving throws, and conditions
 ├── test_dnd_rules_audit_fixes*.py    # 2014 vs. 2024 rule audit verifications
 ├── test_audit_critical_p0_p1_fixes.py # Regression suite for 17 code review & security audit fixes

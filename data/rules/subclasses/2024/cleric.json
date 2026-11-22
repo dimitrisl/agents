@@ -4,36 +4,87 @@
     "subclasses": {
         "Life Domain": {
             "name": "Life Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "radiant",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
+            "bonus_spells": {
+                "3": [
+                    "Aid",
+                    "Bless",
+                    "Cure Wounds",
+                    "Lesser Restoration"
+                ],
+                "5": [
+                    "Mass Healing Word",
+                    "Revivify"
+                ],
+                "7": [
+                    "Aura of Life",
+                    "Death Ward"
+                ],
+                "9": [
+                    "Greater Restoration",
+                    "Mass Cure Wounds"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Disciple of Life & Preserve Life (Life Domain)",
+                    "description": "Healing spells you cast with a spell slot restore an additional 2 + spell slot level HP on the turn cast, and you can use Channel Divinity to distribute 5x Cleric level healing."
+                },
+                "6": {
+                    "name": "Blessed Healer (Life Domain)",
+                    "description": "When you cast a healing spell with a spell slot on another creature, you also regain 2 + spell slot level HP."
+                },
+                "17": {
+                    "name": "Supreme Healing (Life Domain)",
+                    "description": "Instead of rolling dice to heal with a spell or Channel Divinity, use the highest number possible for each die."
                 }
             }
         },
         "Light Domain": {
             "name": "Light Domain",
+            "bonus_spells": {
+                "3": [
+                    "Burning Hands",
+                    "Faerie Fire",
+                    "Scorching Ray",
+                    "See Invisibility"
+                ],
+                "5": [
+                    "Daylight",
+                    "Fireball"
+                ],
+                "7": [
+                    "Arcane Eye",
+                    "Wall of Fire"
+                ],
+                "9": [
+                    "Flame Strike",
+                    "Scrying"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Light Domain Spells, Warding Flare & Radiance of the Dawn (Light Domain)",
+                    "description": "Always have Light Domain spells prepared, use Warding Flare via Reaction to impose Disadvantage on an attacker within 30 feet, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation."
+                },
+                "6": {
+                    "name": "Improved Warding Flare (Light Domain)",
+                    "description": "Regain expended uses of Warding Flare on a Short Rest, and grant the target Temporary HP equal to 2d6 + WIS modifier when Warding Flare triggers."
+                },
+                "17": {
+                    "name": "Corona of Light (Light Domain)",
+                    "description": "Emit Sunlight in a 60-foot radius as a Magic action for 1 minute; enemies in the bright light have Disadvantage on saves against your Radiance of the Dawn and Fire/Radiant spells."
+                }
+            },
             "scaling": {
-                "potent_spellcasting": {
-                    "name": "Potent Spellcasting",
-                    "kind": "utility",
-                    "hint": "Add your Wisdom modifier to the damage you deal with any cleric cantrip.",
+                "radiance_of_the_dawn": {
+                    "name": "Radiance of the Dawn",
+                    "kind": "attack",
+                    "damage_type": "radiant",
+                    "hint": "Channel Divinity 30-ft Emanation dealing 2d10 + Cleric level Radiant damage (CON save for half).",
                     "steps": [
                         {
-                            "level": 8,
-                            "notation": ""
+                            "level": 3,
+                            "notation": "2d10"
                         }
                     ]
                 }
@@ -41,43 +92,75 @@
         },
         "Trickery Domain": {
             "name": "Trickery Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "poison",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
+            "bonus_spells": {
+                "3": [
+                    "Charm Person",
+                    "Disguise Self",
+                    "Invisibility",
+                    "Pass without Trace"
+                ],
+                "5": [
+                    "Hypnotic Pattern",
+                    "Nondetection"
+                ],
+                "7": [
+                    "Confusion",
+                    "Dimension Door"
+                ],
+                "9": [
+                    "Dominate Person",
+                    "Modify Memory"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Blessing of the Trickster & Invoke Duplicity (Trickery Domain)",
+                    "description": "Always have Trickery Domain spells prepared, grant Advantage on Stealth checks, and create an illusory duplicate with Channel Divinity to cast from its space."
+                },
+                "6": {
+                    "name": "Trickster's Transposition (Trickery Domain)",
+                    "description": "When creating or moving your Invoke Duplicity illusion as a Bonus Action, you can teleport to swap spaces with it."
+                },
+                "17": {
+                    "name": "Improved Duplicity (Trickery Domain)",
+                    "description": "Grant nearby allies Advantage on attack rolls against foes near your illusion, and heal yourself for Cleric level HP when the illusion ends."
                 }
             }
         },
         "War Domain": {
             "name": "War Domain",
-            "scaling": {
-                "divine_strike": {
-                    "name": "Divine Strike",
-                    "kind": "rider",
-                    "damage_type": "same as weapon",
-                    "hint": "Once on each of your turns when you hit a creature with a weapon attack.",
-                    "steps": [
-                        {
-                            "level": 8,
-                            "notation": "1d8"
-                        },
-                        {
-                            "level": 14,
-                            "notation": "2d8"
-                        }
-                    ]
+            "bonus_spells": {
+                "3": [
+                    "Guiding Bolt",
+                    "Magic Weapon",
+                    "Shield of Faith",
+                    "Spiritual Weapon"
+                ],
+                "5": [
+                    "Crusader's Mantle",
+                    "Spirit Guardians"
+                ],
+                "7": [
+                    "Fire Shield",
+                    "Freedom of Movement"
+                ],
+                "9": [
+                    "Hold Monster",
+                    "Steel Wind Strike"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Guided Strike & War Priest (War Domain)",
+                    "description": "Always have War Domain spells prepared, make Bonus Action weapon attacks WIS mod times per rest, and spend Channel Divinity for +10 to a missed attack roll."
+                },
+                "6": {
+                    "name": "War God's Blessing (War Domain)",
+                    "description": "Expend Channel Divinity to cast Shield of Faith or Spiritual Weapon without a spell slot and without requiring Concentration for 1 minute."
+                },
+                "17": {
+                    "name": "Avatar of Battle (War Domain)",
+                    "description": "Gain Resistance to Bludgeoning, Piercing, and Slashing damage."
                 }
             }
         }

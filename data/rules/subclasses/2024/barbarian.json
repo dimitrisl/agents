@@ -4,15 +4,159 @@
     "subclasses": {
         "Path of the Berserker": {
             "name": "Path of the Berserker",
+            "features": {
+                "3": {
+                    "name": "Frenzy (Path of the Berserker)",
+                    "description": "While Raging, hitting with a Strength-based attack while using Reckless Attack deals extra damage on your first hit each turn."
+                },
+                "6": {
+                    "name": "Mindless Rage (Path of the Berserker)",
+                    "description": "You have Immunity to the Charmed and Frightened conditions while your Rage is active, and entering a Rage ends those conditions on you."
+                },
+                "10": {
+                    "name": "Retaliation (Path of the Berserker)",
+                    "description": "When you take damage from a creature within 5 feet, use your Reaction to make one melee attack against that creature."
+                },
+                "14": {
+                    "name": "Intimidating Presence (Path of the Berserker)",
+                    "description": "As a Bonus Action, frighten creatures of your choice within a 30-foot Emanation on a failed WIS save (DC 8 + STR mod + PB) for 1 minute."
+                }
+            },
             "scaling": {
                 "frenzy": {
                     "name": "Frenzy",
                     "kind": "rider",
-                    "hint": "Extra damage on the first hit of your turn while raging.",
+                    "hint": "Extra d6s equal to your Rage Damage bonus on your first Reckless Attack hit each turn while Raging.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 9,
+                            "notation": "3d6"
+                        },
+                        {
+                            "level": 16,
+                            "notation": "4d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Path of the Wild Heart": {
+            "name": "Path of the Wild Heart",
+            "bonus_spells": {
+                "3": [
+                    "Beast Sense",
+                    "Speak with Animals"
+                ],
+                "10": [
+                    "Commune with Nature"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Animal Speaker & Rage of the Wilds (Path of the Wild Heart)",
+                    "description": "Learn Beast Sense and Speak with Animals as rituals, and choose Bear, Eagle, or Wolf prowess whenever you enter a Rage."
+                },
+                "6": {
+                    "name": "Aspect of the Wilds (Path of the Wild Heart)",
+                    "description": "Gain Owl Darkvision, Panther Climb Speed, or Salmon Swim Speed (changeable after a Long Rest)."
+                },
+                "10": {
+                    "name": "Nature Speaker (Path of the Wild Heart)",
+                    "description": "You always have Commune with Nature prepared and can cast it as a ritual."
+                },
+                "14": {
+                    "name": "Power of the Wilds (Path of the Wild Heart)",
+                    "description": "Whenever you enter Rage, gain Falcon Fly Speed, Lion imposing Disadvantage on adjacent foes' attacks against allies, or Ram knocking Large or smaller targets Prone on melee hits."
+                }
+            }
+        },
+        "Path of the World Tree": {
+            "name": "Path of the World Tree",
+            "features": {
+                "3": {
+                    "name": "Vitality of the Tree (Path of the World Tree)",
+                    "description": "Gain Temporary Hit Points equal to your Barbarian level upon entering Rage and grant Temporary HP to nearby allies at the start of each turn."
+                },
+                "6": {
+                    "name": "Branches of the Tree (Path of the World Tree)",
+                    "description": "While Raging, use your Reaction to summon spectral branches that teleport a creature within 30 feet toward you and can reduce its Speed to 0."
+                },
+                "10": {
+                    "name": "Battering Roots (Path of the World Tree)",
+                    "description": "Your reach increases by 10 feet with Heavy or Versatile melee weapons, and you can apply Push or Topple Weapon Mastery properties on hits."
+                },
+                "14": {
+                    "name": "Travel Along the Tree (Path of the World Tree)",
+                    "description": "Teleport up to 60 feet as a Bonus Action upon entering Rage or at the start of your turns while Raging, optionally bringing up to six willing allies up to 500 feet once per Rage."
+                }
+            },
+            "scaling": {
+                "vitality_of_the_tree": {
+                    "name": "Vitality of the Tree",
+                    "kind": "heal",
+                    "hint": "At the start of each turn while Raging, grant an ally within 10 ft d6s of Temporary HP equal to your Rage Damage bonus.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 9,
+                            "notation": "3d6"
+                        },
+                        {
+                            "level": 16,
+                            "notation": "4d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Path of the Zealot": {
+            "name": "Path of the Zealot",
+            "features": {
+                "3": {
+                    "name": "Divine Fury & Warrior of the Gods (Path of the Zealot)",
+                    "description": "Deal extra Radiant or Necrotic damage on your first hit each turn while Raging, and gain a pool of d12 healing dice usable as a Bonus Action."
+                },
+                "6": {
+                    "name": "Fanatical Focus (Path of the Zealot)",
+                    "description": "Once per Rage, when you fail a saving throw, you can reroll it with a bonus equal to your Rage Damage bonus."
+                },
+                "10": {
+                    "name": "Zealous Presence (Path of the Zealot)",
+                    "description": "As a Bonus Action, grant up to 10 allies within 60 feet Advantage on attack rolls and saving throws until the start of your next turn."
+                },
+                "14": {
+                    "name": "Rage of the Gods (Path of the Zealot)",
+                    "description": "While Raging, assume a divine avatar granting Fly Speed equal to your Speed, Resistance to Necrotic, Psychic, and Radiant damage, and Reaction revivification to 1 HP for nearby allies."
+                }
+            },
+            "scaling": {
+                "divine_fury": {
+                    "name": "Divine Fury",
+                    "kind": "rider",
+                    "damage_type": "radiant or necrotic",
+                    "hint": "First creature you hit on each of your turns while Raging takes 1d6 + half your Barbarian level extra Radiant or Necrotic damage.",
                     "steps": [
                         {
                             "level": 3,
                             "notation": "1d6"
+                        }
+                    ]
+                },
+                "warrior_of_the_gods": {
+                    "name": "Warrior of the Gods",
+                    "kind": "heal",
+                    "hint": "Bonus Action expends d12 dice from your divine healing pool (pool scales at L6/L12/L17).",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d12"
                         }
                     ]
                 }

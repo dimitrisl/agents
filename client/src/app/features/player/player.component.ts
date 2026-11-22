@@ -446,6 +446,85 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
               tap((analysis) => {
                 this.levelUpLoading.set(false);
                 this.levelUpAnalysis = analysis;
+                const choicesReq = analysis?.choices_required || [];
+                const syncedChoices: Record<string, any> = { ...this.levelUpUserChoices };
+                let choicesUpdated = false;
+                for (const orderType of ['divine_order', 'primal_order'] as const) {
+                  const existingOrderKeys = Object.keys(syncedChoices).filter(
+                    (k) => k === orderType || k.startsWith(`${orderType}_`)
+                  );
+                  if (!existingOrderKeys.length) continue;
+                  const targetIdx = choicesReq.findIndex((c) => c.type === orderType);
+                  if (targetIdx === -1) {
+                    for (const k of existingOrderKeys) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                  } else {
+                    const targetKey = `${orderType}_${targetIdx}`;
+                    const preservedVal =
+                      syncedChoices[targetKey] ??
+                      syncedChoices[existingOrderKeys[existingOrderKeys.length - 1]];
+                    for (const k of existingOrderKeys) {
+                      if (k !== targetKey) {
+                        delete syncedChoices[k];
+                        choicesUpdated = true;
+                      }
+                    }
+                    if (preservedVal && syncedChoices[targetKey] !== preservedVal) {
+                      syncedChoices[targetKey] = preservedVal;
+                      choicesUpdated = true;
+                    }
+                  }
+                }
+                const bareStructuredTypes = new Set([
+                  'maneuver',
+                  'hunter_choice',
+                  'fighting_style',
+                  'pact_boon',
+                  'eldritch_invocation',
+                  'metamagic',
+                  'infusion',
+                ]);
+                for (const k of Object.keys(syncedChoices)) {
+                  if (bareStructuredTypes.has(k)) {
+                    if (!choicesReq.some((c) => c.type === k)) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                    continue;
+                  }
+                  const statSubMatch = /^(.+)_stat[12]_(\d+)$/.exec(k);
+                  if (statSubMatch) {
+                    const [, parentType, idxStr] = statSubMatch;
+                    const slot = choicesReq[Number(idxStr)];
+                    if (!slot || slot.type !== parentType) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                    continue;
+                  }
+                  const indexedMatch = /^(.+)_(\d+)$/.exec(k);
+                  if (indexedMatch) {
+                    const [, choiceType, idxStr] = indexedMatch;
+                    const slot = choicesReq[Number(idxStr)];
+                    const val = syncedChoices[k];
+                    const optionInvalid =
+                      slot &&
+                      Array.isArray(slot.options) &&
+                      slot.options.length > 0 &&
+                      val !== undefined &&
+                      val !== '' &&
+                      !slot.options.includes(String(val));
+                    if (!slot || slot.type !== choiceType || optionInvalid) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                  }
+                }
+                if (choicesUpdated) {
+                  this.levelUpUserChoices = syncedChoices;
+                }
                 if (this.levelUpUserChoices['hp_method'] === 'average' && analysis?.hp_increase) {
                   this.levelUpUserChoices = {
                     ...this.levelUpUserChoices,
@@ -3523,23 +3602,74 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return subKey && choices[subKey] ? String(choices[subKey]) : '';
   }
 
+  private extractChosenOrder(choices: Record<string, any> | undefined): { key: string; value: string } | null {
+    if (!choices) return null;
+    const orderKeys = Object.keys(choices).filter(
+      (k) =>
+        k === 'divine_order' ||
+        k === 'primal_order' ||
+        k.startsWith('divine_order_') ||
+        k.startsWith('primal_order_')
+    );
+    const activeKey = [...orderKeys].reverse().find((k) => Boolean(choices[k]));
+    if (!activeKey) return null;
+    return { key: activeKey, value: String(choices[activeKey]) };
+  }
+
   onLevelUpChoicesChange(choices: Record<string, any>) {
     const oldClass = this.levelUpUserChoices['level_up_class'];
     const newClass = choices['level_up_class'];
     const oldSubclass = this.extractChosenSubclass(this.levelUpUserChoices);
     const newSubclass = this.extractChosenSubclass(choices);
-    this.levelUpUserChoices = choices;
+    const oldOrder = this.extractChosenOrder(this.levelUpUserChoices);
+    const newOrder = this.extractChosenOrder(choices);
+    const orderChanged = (oldOrder?.value || '') !== (newOrder?.value || '');
+    const subclassChanged = oldSubclass !== newSubclass;
+    if (orderChanged || subclassChanged) {
+      // Drop stale spell_* selections, subclass-dependent structured choices, and duplicate order keys
+      const cleaned = { ...choices };
+      for (const k of Object.keys(cleaned)) {
+        if (/^spell(?:_secret_\d+)?_\d+$/.test(k)) {
+          delete cleaned[k];
+        } else if (
+          subclassChanged &&
+          /^(?:maneuver|hunter_choice|fighting_style|pact_boon|eldritch_invocation|metamagic|infusion)(?:_\d+)?$/.test(k)
+        ) {
+          delete cleaned[k];
+        } else if (
+          orderChanged &&
+          newOrder &&
+          k !== newOrder.key &&
+          (k === 'divine_order' ||
+            k === 'primal_order' ||
+            k.startsWith('divine_order_') ||
+            k.startsWith('primal_order_'))
+        ) {
+          delete cleaned[k];
+        }
+      }
+      if (subclassChanged) {
+        delete cleaned['spell_swap_out'];
+        delete cleaned['spell_swap_in'];
+      }
+      this.levelUpUserChoices = cleaned;
+    } else {
+      this.levelUpUserChoices = choices;
+    }
 
-    if ((newClass && oldClass !== newClass) || oldSubclass !== newSubclass) {
+    if ((newClass && oldClass !== newClass) || oldSubclass !== newSubclass || orderChanged) {
       const char = this.charState.activeCharacter();
       if (!char) return;
-      // Forward only class/subclass/HP baseline keys so feat/CON deltas aren't baked into
+      // Forward only class/subclass/order/HP baseline keys so feat/CON deltas aren't baked into
       // server `levelUpAnalysis` and double-counted by `LevelUpModalComponent.previewNewTotalHp`.
       const baselineChoices: Record<string, any> = {
         level_up_class: newClass || oldClass,
       };
       if (newSubclass) {
         baselineChoices['subclass'] = newSubclass;
+      }
+      if (newOrder) {
+        baselineChoices[newOrder.key] = newOrder.value;
       }
       if (choices['hp_method']) {
         baselineChoices['hp_method'] = choices['hp_method'];

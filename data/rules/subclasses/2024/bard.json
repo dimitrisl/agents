@@ -1,0 +1,116 @@
+{
+    "class_name": "Bard",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "College of Dance": {
+            "name": "College of Dance",
+            "features": {
+                "3": {
+                    "name": "Dazzling Footwork (College of Dance)",
+                    "description": "Calculate unarmored AC as 10 + DEX + CHA modifiers and make an Unarmed Strike using your Bardic Inspiration die when expending Bardic Inspiration."
+                },
+                "6": {
+                    "name": "Inspiring Movement & Tandem Footwork (College of Dance)",
+                    "description": "Expend Bardic Inspiration as a Reaction when an enemy moves within 5 feet to move and let an ally move, and add your Bardic Inspiration die to Initiative for yourself and nearby allies."
+                },
+                "14": {
+                    "name": "Leading Evasion (College of Dance)",
+                    "description": "Take no damage on a successful DEX save and half damage on a failure, and share that Evasion benefit with allies within 5 feet who aren't Incapacitated."
+                }
+            },
+            "scaling": {
+                "dazzling_footwork": {
+                    "name": "Agile Strikes",
+                    "kind": "attack",
+                    "damage_type": "bludgeoning",
+                    "hint": "Unarmed Strike damage die when expending Bardic Inspiration (uses DEX + Bardic Inspiration die).",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        },
+                        {
+                            "level": 5,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "1d10"
+                        },
+                        {
+                            "level": 15,
+                            "notation": "1d12"
+                        }
+                    ]
+                }
+            }
+        },
+        "College of Glamour": {
+            "name": "College of Glamour",
+            "bonus_spells": {
+                "3": [
+                    "Charm Person",
+                    "Mirror Image"
+                ],
+                "6": [
+                    "Command"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Beguiling Magic & Mantle of Inspiration (College of Glamour)",
+                    "description": "Always have Charm Person and Mirror Image prepared, and spend Bardic Inspiration as a Bonus Action to grant allies Temporary HP and reaction movement."
+                },
+                "6": {
+                    "name": "Mantle of Majesty (College of Glamour)",
+                    "description": "Always have Command prepared and cast it as a Bonus Action every turn for 1 minute without expending a spell slot (auto-failing Charmed foes)."
+                },
+                "14": {
+                    "name": "Unbreakable Majesty (College of Glamour)",
+                    "description": "As a Bonus Action, force creatures attacking you for the next minute to pass a CHA save or miss entirely on the first attack each turn."
+                }
+            }
+        },
+        "College of Lore": {
+            "name": "College of Lore",
+            "features": {
+                "3": {
+                    "name": "Bonus Proficiencies & Cutting Words (College of Lore)",
+                    "description": "Gain proficiency in three skills of your choice, and spend Bardic Inspiration as a Reaction to subtract from an enemy's attack roll, ability check, or damage."
+                },
+                "6": {
+                    "name": "Magical Discoveries (College of Lore)",
+                    "description": "Learn and always have prepared two spells of your choice from the Cleric, Druid, or Wizard spell lists of a level for which you have spell slots."
+                },
+                "14": {
+                    "name": "Peerless Skill (College of Lore)",
+                    "description": "When you make an ability check or attack roll and fail, expend a Bardic Inspiration die and add it to the roll without expending the die if it still fails."
+                }
+            }
+        },
+        "College of Valor": {
+            "name": "College of Valor",
+            "armor_proficiencies": [
+                "Medium armor",
+                "Shields"
+            ],
+            "weapon_proficiencies": [
+                "Martial weapons"
+            ],
+            "features": {
+                "3": {
+                    "name": "Combat Inspiration & Martial Training (College of Valor)",
+                    "description": "Gain proficiency with Medium Armor, Shields, and Martial Weapons, use weapons as Spellcasting Focuses, and empower allies' damage or AC with Bardic Inspiration."
+                },
+                "6": {
+                    "name": "Extra Attack (College of Valor)",
+                    "description": "Attack twice when taking the Attack action, and optionally replace one of those attacks with a casting of one of your cantrips."
+                },
+                "14": {
+                    "name": "Battle Magic (College of Valor)",
+                    "description": "After casting a spell that has a casting time of an action, make one weapon attack as a Bonus Action."
+                }
+            }
+        }
+    }
+}

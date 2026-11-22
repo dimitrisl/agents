@@ -276,6 +276,8 @@ def calculate_ac(
     char_class: str = None,
     dm_ac_bonus: int = 0,
     suppress_magic_items: bool = False,
+    classes: List[Dict[str, Any]] = None,
+    char_level: int = None,
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """Calculates AC based on DEX and equipped items from KB, optionally returning breakdown."""
     from backend.repositories.rules_repository import RulesRepository
@@ -330,6 +332,28 @@ def calculate_ac(
     has_monk_unarmored = (char_class or "").strip().lower() == "monk"
     has_barbarian_unarmored = (char_class or "").strip().lower() == "barbarian"
     has_draconic_resilience = "draconic" in str(subclass or "").lower()
+    is_2024_ac = "2024" in str(edition or "")
+    has_dance_unarmored = False
+    if is_2024_ac:
+        if classes:
+            for c_entry in classes:
+                if not isinstance(c_entry, dict):
+                    continue
+                cn = str(c_entry.get("class_name") or "").strip().lower()
+                csub = str(
+                    c_entry.get("subclass")
+                    or (subclass if cn == (char_class or "").strip().lower() else "")
+                ).lower()
+                clvl = int(c_entry.get("level") or 0)
+                if cn == "bard" and "college of dance" in csub and clvl >= 3:
+                    has_dance_unarmored = True
+                    break
+        elif (
+            (char_class or "").strip().lower() == "bard"
+            and "college of dance" in str(subclass or "").lower()
+            and (char_level is None or int(char_level) >= 3)
+        ):
+            has_dance_unarmored = True
     has_mage_armor = False
 
     if features:
@@ -346,6 +370,8 @@ def calculate_ac(
                     has_barbarian_unarmored = True
             elif "draconic resilience" in f_name or "draconic sorcery" in f_name:
                 has_draconic_resilience = True
+            elif is_2024_ac and "dazzling footwork" in f_name:
+                has_dance_unarmored = True
             elif "mage armor" in f_name:
                 has_mage_armor = True
 
@@ -363,9 +389,14 @@ def calculate_ac(
                 base_source = (
                     f"Unarmored Defense (Barbarian: 10 + CON {get_modifier(con_score):+d})"
                 )
+        if has_dance_unarmored and not has_shield and cha_score is not None:
+            cha_mod = get_modifier(cha_score)
+            dance_val = 10 + cha_mod
+            if dance_val > base_ac:
+                base_ac = dance_val
+                base_source = f"Dazzling Footwork (College of Dance: 10 + CHA {cha_mod:+d})"
         if has_draconic_resilience:
-            is_2024_drac = "2024" in str(edition or "")
-            if is_2024_drac and cha_score is not None:
+            if is_2024_ac and cha_score is not None:
                 cha_mod = get_modifier(cha_score)
                 drac_val = 10 + cha_mod
                 drac_label = f"Draconic Resilience (10 + CHA {cha_mod:+d})"
@@ -1469,13 +1500,15 @@ def sync_character_stats(
             if k not in normalized_spells:
                 if isinstance(val, list):
                     normalized_spells[k] = [
-                        (
-                            item.get("name") or item.get("spell_name")
-                            if isinstance(item, dict)
-                            else str(item)
-                        ).strip()
+                        s_name
                         for item in val
-                        if item
+                        if (
+                            s_name := str(
+                                (item.get("name") or item.get("spell_name") or "")
+                                if isinstance(item, dict)
+                                else ("" if item is None else item)
+                            ).strip()
+                        )
                     ]
         char_data["spells"] = normalized_spells
     elif isinstance(raw_spells, list):
@@ -1520,9 +1553,15 @@ def sync_character_stats(
 
     if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
         char_data["prepared_spells"] = [
-            (ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)).strip()
+            ps_name
             for ps in char_data["prepared_spells"]
-            if ps
+            if (
+                ps_name := str(
+                    (ps.get("name") or ps.get("spell_name") or "")
+                    if isinstance(ps, dict)
+                    else ("" if ps is None else ps)
+                ).strip()
+            )
         ]
 
     is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
@@ -2058,6 +2097,8 @@ def sync_character_stats(
         char_class=char_class,
         dm_ac_bonus=dm_ac_bonus,
         suppress_magic_items=magic_items_suppressed,
+        classes=classes,
+        char_level=level,
     )
 
     # Skill Proficiencies Synchronization: Ensure skill_proficiencies contains Perception if Passive Perception or Perception skill has proficiency bonus on initial import/forge
@@ -2126,6 +2167,33 @@ def sync_character_stats(
         half_prof_phys=(remarkable and not is_2024),
     )
 
+    # 2024 RAW: Cleric Divine Order (Thaumaturge) adds +max(1, WIS mod) to Arcana & Religion;
+    # Druid Primal Order (Magician) adds +max(1, WIS mod) to Arcana & Nature.
+    ft_names_low = [
+        (f.get("name") if isinstance(f, dict) else str(f)).strip().lower()
+        for f in (char_data.get("features_traits") or [])
+    ]
+    if is_2024_sheet:
+        order_wis_bonus = max(1, get_modifier(wis_score))
+        has_thaumaturge = any("thaumaturge" in fn and "protector" not in fn for fn in ft_names_low)
+        has_magician = any(
+            "warden" not in fn
+            and (
+                "primal order: magician" in fn
+                or fn == "magician"
+                or ("magician" in fn and ("primal" in fn or "druid" in fn))
+            )
+            for fn in ft_names_low
+        )
+        if has_thaumaturge:
+            for sk in ("Arcana", "Religion"):
+                if sk in char_data["skills"]:
+                    char_data["skills"][sk] += order_wis_bonus
+        if has_magician:
+            for sk in ("Arcana", "Nature"):
+                if sk in char_data["skills"]:
+                    char_data["skills"][sk] += order_wis_bonus
+
     # Saving Throw Proficiencies & Passive Bonuses (Diamond Soul, Slippery Mind, Aura of Protection, Soul of Artifice)
     _save_alias_map = {
         "STRENGTH": "STR",
@@ -2149,10 +2217,6 @@ def sync_character_stats(
     paladin_lvl = _class_lvl("paladin")
     rogue_lvl_for_saves = _class_lvl("rogue")
     artificer_lvl = _class_lvl("artificer")
-    ft_names_low = [
-        (f.get("name") if isinstance(f, dict) else str(f)).strip().lower()
-        for f in (char_data.get("features_traits") or [])
-    ]
 
     norm_saves: list[str] = []
     for s in char_data.get("saving_throws", []) or []:
@@ -2649,40 +2713,87 @@ def sync_character_stats(
         # Allow innate/racial spells (up to level 3) for characters with few/no slots
         max_spell_level = max(max_spell_level, min(3, math.ceil(level / 2)))
 
+        # Exempt unlocked subclass bonus spells (e.g. Wild Heart L10 Commune with Nature,
+        # Psi Warrior L18 Telekinesis) from max_spell_level hallucination stripping.
+        exempt_subclass_spells: set[str] = set()
+        _sub_check_entries = [
+            (
+                str(c.get("class_name") or "").strip(),
+                str(
+                    c.get("subclass")
+                    or (
+                        subclass
+                        if str(c.get("class_name") or "").strip().lower()
+                        == str(char_class or "").strip().lower()
+                        else ""
+                    )
+                ).strip(),
+                int(c.get("level") or 1),
+            )
+            for c in (classes or [])
+            if isinstance(c, dict) and c.get("class_name")
+        ]
+        if not _sub_check_entries and char_class:
+            _sub_check_entries = [(str(char_class).strip(), str(subclass or "").strip(), level)]
+
+        def _extract_spell_name(item: Any) -> str:
+            if isinstance(item, dict):
+                raw = item.get("name") or item.get("spell_name") or ""
+            elif item is None:
+                raw = ""
+            else:
+                raw = str(item)
+            return str(raw).strip()
+
+        def _norm_spell_key(name: str) -> str:
+            return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
+        for _sc_cls, _sc_sub, _sc_lvl in _sub_check_entries:
+            if not _sc_cls or not _sc_sub:
+                continue
+            _sc_entry = repo.get_subclass_entry(_sc_cls, _sc_sub, edition) or {}
+            for _req_str, _sp_list in (_sc_entry.get("bonus_spells") or {}).items():
+                try:
+                    _req_lvl = int(_req_str)
+                except (TypeError, ValueError):
+                    continue
+                if _sc_lvl >= _req_lvl:
+                    for _sp in _sp_list or []:
+                        _sp_norm = _norm_spell_key(_extract_spell_name(_sp))
+                        if _sp_norm:
+                            exempt_subclass_spells.add(_sp_norm)
+
         for i in range(max_spell_level + 1, 10):
             lvl_key = f"level_{i}"
             if spells_dict.get(lvl_key):
-                logger.info(
-                    f"Removing hallucinated {lvl_key} spells (max allowed for this build is {max_spell_level})"
-                )
-                spells_dict[lvl_key] = []
+                kept_exempt = [
+                    s
+                    for s in spells_dict[lvl_key]
+                    if _norm_spell_key(_extract_spell_name(s)) in exempt_subclass_spells
+                ]
+                if len(kept_exempt) < len(spells_dict[lvl_key]):
+                    logger.info(
+                        f"Removing hallucinated {lvl_key} spells (max allowed for this build is {max_spell_level})"
+                    )
+                spells_dict[lvl_key] = kept_exempt
 
         # Update prepared_spells as well to remove spells we just deleted (case-insensitive)
         valid_spell_names = set()
         for s in spells_dict.get("cantrips", []) or []:
-            s_name = (
-                s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
-            ).strip()
-            if s_name:
-                valid_spell_names.add(s_name.lower())
-        for i in range(1, max_spell_level + 1):
+            s_norm = _norm_spell_key(_extract_spell_name(s))
+            if s_norm:
+                valid_spell_names.add(s_norm)
+        for i in range(1, 10):
             for s in spells_dict.get(f"level_{i}", []) or []:
-                s_name = (
-                    s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
-                ).strip()
-                if s_name:
-                    valid_spell_names.add(s_name.lower())
+                s_norm = _norm_spell_key(_extract_spell_name(s))
+                if s_norm:
+                    valid_spell_names.add(s_norm)
 
         if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
             char_data["prepared_spells"] = [
-                (
-                    ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)
-                ).strip()
+                _extract_spell_name(ps)
                 for ps in char_data["prepared_spells"]
-                if (ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps))
-                .strip()
-                .lower()
-                in valid_spell_names
+                if _norm_spell_key(_extract_spell_name(ps)) in valid_spell_names
             ]
 
     rogue_level = 0

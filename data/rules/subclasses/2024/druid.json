@@ -1,0 +1,216 @@
+{
+    "class_name": "Druid",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Circle of the Land": {
+            "name": "Circle of the Land",
+            "features": {
+                "3": {
+                    "name": "Circle of the Land Spells & Land's Aid (Circle of the Land)",
+                    "description": "Attune to an Arid, Polar, Temperate, or Tropical land for prepared spells, and expend Wild Shape to deal Necrotic damage and restore HP in a 10-foot sphere."
+                },
+                "6": {
+                    "name": "Natural Recovery (Circle of the Land)",
+                    "description": "Cast one of your Circle Spells once per Long Rest without a spell slot, and recover expended spell slots totaling up to half your Druid level on a Short Rest."
+                },
+                "10": {
+                    "name": "Nature's Ward (Circle of the Land)",
+                    "description": "Gain Immunity to the Poisoned condition and Resistance to the damage type tied to your chosen Land."
+                },
+                "14": {
+                    "name": "Nature's Sanctuary (Circle of the Land)",
+                    "description": "Expend Wild Shape to create a 15-foot Cube granting allies Half Cover and Resistance matching your chosen Land."
+                }
+            },
+            "scaling": {
+                "lands_aid": {
+                    "name": "Land's Aid",
+                    "kind": "attack",
+                    "damage_type": "necrotic",
+                    "hint": "Expend Wild Shape: 10-ft sphere CON save vs Necrotic damage and restore the same dice of HP to one ally.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "3d6"
+                        },
+                        {
+                            "level": 14,
+                            "notation": "4d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Circle of the Moon": {
+            "name": "Circle of the Moon",
+            "bonus_spells": {
+                "3": [
+                    "Cure Wounds",
+                    "Moonbeam",
+                    "Starry Wisp"
+                ],
+                "5": [
+                    "Conjure Animals"
+                ],
+                "7": [
+                    "Fount of Moonlight"
+                ],
+                "9": [
+                    "Mass Cure Wounds"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Circle Forms & Moon Spells (Circle of the Moon)",
+                    "description": "Assume higher-CR Beast shapes (up to Druid level / 3) with AC equal to 13 + WIS modifier and Temporary HP equal to 3x Druid level."
+                },
+                "6": {
+                    "name": "Improved Circle Forms (Circle of the Moon)",
+                    "description": "Your Beast attacks can deal Radiant damage, and you add your WIS modifier to Constitution saving throws while in Wild Shape."
+                },
+                "10": {
+                    "name": "Moonlight Step (Circle of the Moon)",
+                    "description": "Teleport up to 30 feet as a Bonus Action WIS modifier times per Long Rest and gain Advantage on your next attack roll."
+                },
+                "14": {
+                    "name": "Lunar Form (Circle of the Moon)",
+                    "description": "Add +2d10 Radiant damage once per turn in Wild Shape and bring a willing ally when using Moonlight Step."
+                }
+            },
+            "scaling": {
+                "lunar_form": {
+                    "name": "Lunar Radiance",
+                    "kind": "rider",
+                    "damage_type": "radiant",
+                    "hint": "Once per turn in Wild Shape, deal extra Radiant damage on a hit.",
+                    "steps": [
+                        {
+                            "level": 14,
+                            "notation": "2d10"
+                        }
+                    ]
+                }
+            }
+        },
+        "Circle of the Sea": {
+            "name": "Circle of the Sea",
+            "bonus_spells": {
+                "3": [
+                    "Fog Cloud",
+                    "Gust of Wind",
+                    "Ray of Frost",
+                    "Shatter",
+                    "Thunderwave"
+                ],
+                "5": [
+                    "Lightning Bolt",
+                    "Water Breathing"
+                ],
+                "7": [
+                    "Control Water",
+                    "Ice Storm"
+                ],
+                "9": [
+                    "Conjure Elemental",
+                    "Hold Monster"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Circle of the Sea Spells & Wrath of the Sea (Circle of the Sea)",
+                    "description": "Always have Sea spells prepared, and expend Wild Shape as a Bonus Action to create a 5-foot Emanation dealing Cold damage and pushing targets."
+                },
+                "6": {
+                    "name": "Aquatic Affinity (Circle of the Sea)",
+                    "description": "Your Wrath of the Sea Emanation grows to 10 feet and grants you a Swim Speed equal to your Speed."
+                },
+                "10": {
+                    "name": "Stormborn (Circle of the Sea)",
+                    "description": "While Wrath of the Sea is active, gain a Fly Speed equal to your Speed and Resistance to Cold, Lightning, and Thunder damage."
+                },
+                "14": {
+                    "name": "Oceanic Gift (Circle of the Sea)",
+                    "description": "Instead of centering Wrath of the Sea on yourself, surround a willing creature within 60 feet (or split between yourself and an ally with two Wild Shape uses)."
+                }
+            },
+            "scaling": {
+                "wrath_of_the_sea": {
+                    "name": "Wrath of the Sea",
+                    "kind": "attack",
+                    "damage_type": "cold",
+                    "hint": "Bonus Action in your Emanation: CON save vs Cold damage equal to WIS modifier d6s and 15-ft push.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Circle of the Stars": {
+            "name": "Circle of the Stars",
+            "bonus_spells": {
+                "3": [
+                    "Guidance",
+                    "Guiding Bolt"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Star Map & Starry Form (Circle of the Stars)",
+                    "description": "Gain Guidance, Guiding Bolt, and a Star Map focus, and expend Wild Shape as a Bonus Action to assume Archer, Chalice, or Dragon Starry Form."
+                },
+                "6": {
+                    "name": "Cosmic Omen (Circle of the Stars)",
+                    "description": "Roll a die after each Long Rest to grant Weal (+1d6) or Woe (-1d6) via Reaction to d20 Tests within 30 feet (PB uses per Long Rest)."
+                },
+                "10": {
+                    "name": "Twinkling Constellations (Circle of the Stars)",
+                    "description": "Archer and Chalice scale to 2d8, Dragon grants a 20-foot Fly Speed, and you can switch your Starry Form at the start of each turn."
+                },
+                "14": {
+                    "name": "Full of Stars (Circle of the Stars)",
+                    "description": "While in Starry Form, you become partially incorporeal and gain Resistance to Bludgeoning, Piercing, and Slashing damage."
+                }
+            },
+            "scaling": {
+                "starry_form_archer": {
+                    "name": "Starry Form: Archer",
+                    "kind": "attack",
+                    "damage_type": "radiant",
+                    "hint": "Bonus Action ranged spell attack (60 ft) dealing 1d8 + WIS mod Radiant damage (2d8 at L10).",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "2d8"
+                        }
+                    ]
+                },
+                "starry_form_chalice": {
+                    "name": "Starry Form: Chalice",
+                    "kind": "heal",
+                    "hint": "When you cast a healing spell with a slot, restore an extra 1d8 + WIS mod HP (2d8 at L10) within 30 ft.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d8"
+                        },
+                        {
+                            "level": 10,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

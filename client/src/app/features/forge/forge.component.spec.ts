@@ -39,49 +39,134 @@ describe('ForgeComponent', () => {
     expect(reqSpells.request.method).toBe('GET');
     reqSpells.flush([{ name: 'Shield' }]);
 
+    const reqChoices = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+    expect(reqChoices.request.method).toBe('GET');
+    reqChoices.flush({ divine_orders: [{ name: 'Divine Order: Protector' }] });
+
     expect(component).toBeTruthy();
     expect(component.availableFeats.length).toBe(1);
     expect(component.availableSpells.length).toBe(1);
+    expect(component.availableClassChoices['divine_orders']?.length).toBe(1);
   });
 
-  it('should send chosen skills, feats, and spells in createManualCharacter payload', () => {
+  it('should send chosen skills, feats, spells, and class choices in createManualCharacter payload', () => {
+    component.charState.dndEdition.set('2024 Revision (5.5e)');
     fixture.detectChanges();
 
     // Flush initial init requests
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
-    component.manualName = 'Mage Tester';
-    component.manualClass = 'Wizard';
+    component.manualName = 'Cleric Tester';
+    component.manualClass = 'Cleric';
     component.manualLevel = 3;
-    component.manualSkills = ['Arcana', 'Investigation'];
+    component.manualSkills = ['Insight', 'Religion'];
     component.manualFeats = ['Alert'];
-    component.manualSpells = ['Fire Bolt', 'Shield'];
+    component.manualSpells = ['Sacred Flame', 'Bless'];
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
 
     component.createManualCharacter();
 
     const enrichReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/enrich-manual`);
     expect(enrichReq.request.method).toBe('POST');
-    expect(enrichReq.request.body.name).toBe('Mage Tester');
-    expect(enrichReq.request.body.skill_proficiencies).toEqual(['Arcana', 'Investigation']);
+    expect(enrichReq.request.body.name).toBe('Cleric Tester');
+    expect(enrichReq.request.body.skill_proficiencies).toEqual(['Insight', 'Religion']);
     expect(enrichReq.request.body.chosen_feats).toEqual(['Alert']);
-    expect(enrichReq.request.body.chosen_spells).toEqual(['Fire Bolt', 'Shield']);
+    expect(enrichReq.request.body.chosen_spells).toEqual(['Sacred Flame', 'Bless']);
+    expect(enrichReq.request.body.chosen_class_choices).toEqual(['Divine Order: Thaumaturge']);
 
     enrichReq.flush({
-      char_name: 'Mage Tester',
-      char_class: 'Wizard',
+      char_name: 'Cleric Tester',
+      char_class: 'Cleric',
       char_level: 3,
-      skill_proficiencies: ['Arcana', 'Investigation'],
-      spells: { cantrips: ['Fire Bolt'], level_1: ['Shield'] },
+      skill_proficiencies: ['Insight', 'Religion'],
+      spells: { cantrips: ['Sacred Flame'], level_1: ['Bless'] },
     });
 
     expect(component.tempForgedChar).toBeTruthy();
+  });
+
+  it('trims excess cantrips when switching away from Thaumaturge and ignores stale edition class-choices responses', () => {
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    // Hold the 2014 class-choices response so we can test out-of-order resolution after toggling to 2024
+    const stale2014Choices = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+
+    component.toggleEditionAndRefresh();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    const fresh2024Choices = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+    fresh2024Choices.flush({
+      divine_orders: [{ name: 'Divine Order: Protector' }, { name: 'Divine Order: Thaumaturge' }],
+    });
+    // Late-arriving 2014 response must NOT overwrite 2024 choices
+    stale2014Choices.flush({ pact_boons: [{ name: 'Pact of the Blade' }] });
+    expect(component.availableClassChoices['divine_orders']?.length).toBe(2);
+    expect(component.availableClassChoices['pact_boons']).toBeUndefined();
+
+    // Selecting 4 cantrips under Thaumaturge, then switching to Protector prunes to 3 cantrips (preserving leveled spells)
+    component.manualClass = 'Cleric';
+    component.manualLevel = 1;
+    component.availableSpells = [
+      { name: 'Guidance', level: 0 },
+      { name: 'Light', level: 0 },
+      { name: 'Sacred Flame', level: 0 },
+      { name: 'Thaumaturgy', level: 0 },
+      { name: 'Bless', level: 1 },
+    ];
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
+    component.manualSpells = ['Guidance', 'Light', 'Sacred Flame', 'Thaumaturgy', 'Bless'];
+
+    component.onManualClassChoiceChange('Divine Order: Protector');
+    expect(component.manualSpells).toEqual(['Guidance', 'Light', 'Sacred Flame', 'Bless']);
+  });
+
+  it('should reset 2024-only manualClassChoice and refresh catalogs when sidebar navbar toggles edition externally', () => {
+    component.charState.dndEdition.set('2024 Revision (5.5e)');
+
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({
+      divine_orders: [
+        { name: 'Divine Order: Protector', description: 'Heavy armor' },
+        { name: 'Divine Order: Thaumaturge', description: 'Extra cantrip' },
+      ],
+    });
+
+    component.manualClass = 'Cleric';
+    component.manualLevel = 1;
+    component.onManualClassChoiceChange('Divine Order: Thaumaturge');
+    expect(component.manualClassChoice).toBe('Divine Order: Thaumaturge');
+
+    // Simulate global Sidebar Navbar toggling edition directly on CharacterStateService
+    component.charState.toggleEdition();
+    fixture.detectChanges();
+
+    expect(component.is2024).toBe(false);
+    expect(component.manualClassChoice).toBe('');
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    const cc2014Req = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+    expect(cc2014Req.request.params.get('edition')).toBe('2014 Edition');
+    cc2014Req.flush({});
+
+    // Defense-in-depth: even if stale manualClassChoice were set, 2014 Cleric submission omits chosen_class_choices
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
+    component.createManualCharacter();
+    const enrichReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/enrich-manual`);
+    expect(enrichReq.request.body.edition).toBe('2014 Edition');
+    expect(enrichReq.request.body.chosen_class_choices).toBeNull();
+    enrichReq.flush({ char_name: 'OldSchoolCleric', char_class: 'Cleric', char_level: 1 });
   });
 
   it('should reset stale skills, feats, and spells when class changes and fetch Wizard spells for Eldritch Knight', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.manualSkills = ['Arcana', 'Investigation'];
     component.manualFeats = ['War Caster'];
@@ -111,6 +196,7 @@ describe('ForgeComponent', () => {
       { name: 'Shield', level: 1 },
       { name: 'Fireball', level: 3 },
     ]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.manualClass = 'Wizard';
     component.manualLevel = 5;
@@ -131,6 +217,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     expect(component.isForgingModalOpen).toBe(false);
     expect(component.loading).toBe(false);
@@ -184,6 +271,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.aiRace = 'Tiefling';
     component.aiClass = 'Warlock';
@@ -207,6 +295,7 @@ describe('ForgeComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
     httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
     component.generateAiCharacter();
     const genReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/generate`);
@@ -291,6 +380,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       component.manualName = 'Kael';
       component.manualClass = 'Fighter';
@@ -312,6 +402,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       const initialHero: any = {
         char_id: 'unsaved-2',
@@ -336,6 +427,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       localStorage.setItem(
         'phyrexian_forge_temp_hero',
@@ -370,6 +462,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       localStorage.setItem(
         'phyrexian_forge_ai_draft',
@@ -386,6 +479,7 @@ describe('ForgeComponent', () => {
       fixture.detectChanges();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       // 2014 Edition: Variant Human & canonical subraces present, Warforged absent
       expect(component.raceOptions).toContain('Variant Human');
@@ -429,6 +523,7 @@ describe('ForgeComponent', () => {
       component.toggleEditionAndRefresh();
       httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
       httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+      httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({});
 
       expect(component.is2024).toBe(true);
       expect(component.raceOptions).toContain('Warforged');

@@ -134,6 +134,44 @@ export function hasAthleticsAdvantage(char: CharacterSchema | null | undefined):
  * read the proficiency list, and adding a lone `+3` beside a blank ability would
  * be a worse answer than nothing.
  */
+/**
+ * 2024 Revision Cleric Divine Order (Thaumaturge: +max(1, WIS mod) to Arcana & Religion)
+ * and Druid Primal Order (Magician: +max(1, WIS mod) to Arcana & Nature).
+ */
+export function orderSkillBonus(
+  char: CharacterSchema | null | undefined,
+  skillName: string
+): number {
+  if (!char || !is2024Edition(char)) return 0;
+  const features = char.features_traits || [];
+  if (!features.length) return 0;
+
+  const namesLow = features.map((f) =>
+    String(typeof f === 'string' ? f : f?.name || '')
+      .trim()
+      .toLowerCase()
+  );
+  const wisBonus = Math.max(1, abilityModifier(abilityScore(char, 'WIS')));
+  let bonus = 0;
+
+  const hasThaumaturge = namesLow.some((fn) => fn.includes('thaumaturge') && !fn.includes('protector'));
+  const hasMagician = namesLow.some(
+    (fn) =>
+      !fn.includes('warden') &&
+      (fn.includes('primal order: magician') ||
+        fn === 'magician' ||
+        (fn.includes('magician') && (fn.includes('primal') || fn.includes('druid'))))
+  );
+
+  if (hasThaumaturge && (skillName === 'Arcana' || skillName === 'Religion')) {
+    bonus += wisBonus;
+  }
+  if (hasMagician && (skillName === 'Arcana' || skillName === 'Nature')) {
+    bonus += wisBonus;
+  }
+  return bonus;
+}
+
 export function skillModifier(
   char: CharacterSchema | null | undefined,
   skill: SkillDefinition
@@ -165,7 +203,13 @@ export function skillModifier(
   }
 
   const dmCheckBonus = char.dm_modifiers?.ability_checks_bonus ?? 0;
-  return abilityModifier(abilityScore(char, skill.ability)) + bonus - exhaustionD20Penalty(char) + dmCheckBonus;
+  return (
+    abilityModifier(abilityScore(char, skill.ability)) +
+    bonus +
+    orderSkillBonus(char, skill.name) -
+    exhaustionD20Penalty(char) +
+    dmCheckBonus
+  );
 }
 
 /**

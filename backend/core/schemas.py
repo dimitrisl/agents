@@ -864,6 +864,12 @@ class ItemSchema(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class WeaponMasterySchema(BaseModel):
+    name: str
+    description: str
+    model_config = {"extra": "allow"}
+
+
 # ==========================================
 # Campaign Entities (Lore, NPCs, Factions)
 # ==========================================

@@ -8157,5 +8157,395 @@
     "duration": "Instantaneous",
     "description": "You brandish the weapon used in the spell\u2019s casting and make a melee attack with it against one creature...",
     "edition": "2024"
+  },
+  {
+    "name": "Mind Sliver",
+    "level": 0,
+    "school": "enchantment",
+    "classes": [
+      "sorcerer",
+      "warlock",
+      "wizard"
+    ],
+    "actionType": "action",
+    "concentration": false,
+    "ritual": false,
+    "range": "60 feet",
+    "components": [
+      "v"
+    ],
+    "material": null,
+    "duration": "1 round",
+    "description": "You try to temporarily sliver the mind of one creature you can see within range. The target must succeed on an Intelligence saving throw or take 1d6 Psychic damage and subtract 1d4 from the next saving throw it makes before the end of your next turn.",
+    "higherLevelSlot": "The damage increases by 1d6 when you reach levels 5 (2d6), 11 (3d6), and 17 (4d6).",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Arms of Hadar",
+    "level": 1,
+    "school": "conjuration",
+    "classes": [
+      "warlock"
+    ],
+    "actionType": "action",
+    "concentration": false,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v",
+      "s"
+    ],
+    "material": null,
+    "duration": "Instantaneous",
+    "description": "Invoking Hadar, you cause tendrils to erupt from yourself in a 10-foot Emanation. Each creature in that area makes a Strength saving throw, taking 2d6 Necrotic damage and being unable to take Reactions until its next turn on a failure, or half damage on a success.",
+    "higherLevelSlot": "The damage increases by 1d6 for each spell slot level above 1.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Beast Sense",
+    "level": 2,
+    "school": "divination",
+    "classes": [
+      "druid",
+      "ranger"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": true,
+    "range": "Touch",
+    "components": [
+      "s"
+    ],
+    "material": null,
+    "duration": "Concentration, up to 1 hour",
+    "description": "You touch a willing Beast. For the duration, you can perceive through the Beast's senses as well as your own.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Summon Beast",
+    "level": 2,
+    "school": "conjuration",
+    "classes": [
+      "druid",
+      "ranger"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a feather, tuft of fur, and fish tail inside a gilded acorn worth 200+ GP",
+    "duration": "Concentration, up to 1 hour",
+    "description": "You call forth a bestial spirit in an unoccupied space you can see within range. Choose Land, Air, or Water; it manifests as a Bestial Spirit ally obeying your commands.",
+    "higherLevelSlot": "Use the spell slot's level for the spell's level in the stat block.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Aura of Vitality",
+    "level": 3,
+    "school": "abjuration",
+    "classes": [
+      "druid",
+      "paladin"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v"
+    ],
+    "material": null,
+    "duration": "Concentration, up to 1 minute",
+    "description": "An aura radiates from you in a 30-foot Emanation. Until the spell ends, you can use a Bonus Action to restore 2d6 Hit Points to one creature in the aura (including yourself).",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Conjure Barrage",
+    "level": 3,
+    "school": "conjuration",
+    "classes": [
+      "ranger"
+    ],
+    "actionType": "action",
+    "concentration": false,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a Melee or Ranged weapon worth at least 1 CP",
+    "duration": "Instantaneous",
+    "description": "You brandish the weapon used to cast the spell and conjure similar spectral weapons in a 60-foot Cone. Each creature of your choice in the Cone makes a Dexterity saving throw, taking 5d8 Force damage on a failed save or half as much on a success.",
+    "higherLevelSlot": "The damage increases by 1d8 for each spell slot level above 3.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Crusader's Mantle",
+    "level": 3,
+    "school": "evocation",
+    "classes": [
+      "paladin"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v"
+    ],
+    "material": null,
+    "duration": "Concentration, up to 1 minute",
+    "description": "You radiate a 30-foot Emanation of holy power. While in the aura, you and your allies deal an extra 1d4 Radiant damage on hits with weapons or Unarmed Strikes.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Hunger of Hadar",
+    "level": 3,
+    "school": "conjuration",
+    "classes": [
+      "warlock"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "150 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a pickled tentacle",
+    "duration": "Concentration, up to 1 minute",
+    "description": "You open a gateway to the Far Realm creating a 20-foot-radius Sphere of Darkness and Difficult Terrain. Creatures starting their turn inside take 2d6 Cold damage, and creatures ending their turn inside make a Dexterity save or take 2d6 Acid damage.",
+    "higherLevelSlot": "The Cold or Acid damage (your choice) increases by 1d6 for each spell slot level above 3.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Summon Fey",
+    "level": 3,
+    "school": "conjuration",
+    "classes": [
+      "druid",
+      "ranger",
+      "warlock",
+      "wizard"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a gilded flower worth 300+ GP",
+    "duration": "Concentration, up to 1 hour",
+    "description": "You call forth a Fey spirit in an unoccupied space you can see within range, choosing Fuming, Mirthful, or Tricksy mood.",
+    "higherLevelSlot": "Use the spell slot's level for the spell's level in the stat block.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Aura of Purity",
+    "level": 4,
+    "school": "abjuration",
+    "classes": [
+      "cleric",
+      "paladin"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v"
+    ],
+    "material": null,
+    "duration": "Concentration, up to 10 minutes",
+    "description": "A purifying 30-foot Emanation radiates from you. You and allies in the aura have Resistance to Poison damage, cannot become diseased, and have Advantage on saves against Blinded, Charmed, Deafened, Frightened, Paralyzed, Poisoned, and Stunned.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Fount of Moonlight",
+    "level": 4,
+    "school": "evocation",
+    "classes": [
+      "bard",
+      "druid"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v",
+      "s"
+    ],
+    "material": null,
+    "duration": "Concentration, up to 10 minutes",
+    "description": "Cool light wreathes your body: you shed Bright Light (20 ft), gain Resistance to Radiant damage, deal +2d6 Radiant damage with melee attacks, and can use your Reaction when damaged within 60 ft to force a CON save or Blind the attacker.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Summon Aberration",
+    "level": 4,
+    "school": "conjuration",
+    "classes": [
+      "warlock",
+      "wizard"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a pickled tentacle and an eyeball in a platinum-inlaid vial worth 400+ GP",
+    "duration": "Concentration, up to 1 hour",
+    "description": "You call forth an aberrant spirit in an unoccupied space you can see within range, choosing Beholderkin, Mind Flayer, or Slaad form.",
+    "higherLevelSlot": "Use the spell slot's level for the spell's level in the stat block.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Summon Construct",
+    "level": 4,
+    "school": "conjuration",
+    "classes": [
+      "wizard",
+      "artificer"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a lockbox worth 400+ GP",
+    "duration": "Concentration, up to 1 hour",
+    "description": "You animate a Construct spirit in an unoccupied space you can see within range, choosing Clay, Metal, or Stone material.",
+    "higherLevelSlot": "Use the spell slot's level for the spell's level in the stat block.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Banishing Smite",
+    "level": 5,
+    "school": "conjuration",
+    "classes": [
+      "paladin"
+    ],
+    "actionType": "bonus_action",
+    "concentration": true,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v"
+    ],
+    "material": null,
+    "duration": "Concentration, up to 1 minute",
+    "description": "Taken immediately after hitting with a melee weapon or Unarmed Strike: deal an extra 5d10 Force damage. If this reduces the target to 50 Hit Points or fewer, it must succeed on a Charisma saving throw or be banished until the spell ends.",
+    "higherLevelSlot": null,
+    "castingTime": "1 bonus action",
+    "edition": "2024"
+  },
+  {
+    "name": "Steel Wind Strike",
+    "level": 5,
+    "school": "conjuration",
+    "classes": [
+      "ranger",
+      "wizard"
+    ],
+    "actionType": "action",
+    "concentration": false,
+    "ritual": false,
+    "range": "30 feet",
+    "components": [
+      "s",
+      "m"
+    ],
+    "material": "a Melee weapon worth 1+ SP",
+    "duration": "Instantaneous",
+    "description": "Flourish the weapon and vanish to strike up to five creatures you can see within range. Make a melee spell attack against each target dealing 6d10 Force damage on a hit, then teleport within 5 feet of one target.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Summon Celestial",
+    "level": 5,
+    "school": "conjuration",
+    "classes": [
+      "cleric",
+      "paladin"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "90 feet",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a reliquary worth 500+ GP",
+    "duration": "Concentration, up to 1 hour",
+    "description": "You call forth a Celestial spirit in an unoccupied space you can see within range, choosing Avenger or Defender form.",
+    "higherLevelSlot": "Use the spell slot's level for the spell's level in the stat block.",
+    "castingTime": "1 action",
+    "edition": "2024"
+  },
+  {
+    "name": "Yolande's Regal Presence",
+    "level": 5,
+    "school": "enchantment",
+    "classes": [
+      "bard"
+    ],
+    "actionType": "action",
+    "concentration": true,
+    "ritual": false,
+    "range": "Self",
+    "components": [
+      "v",
+      "s",
+      "m"
+    ],
+    "material": "a miniature tiara",
+    "duration": "Concentration, up to 1 minute",
+    "description": "You surround yourself with unearthly majesty in a 10-foot Emanation. Creatures of your choice entering or ending their turn in the Emanation make a Wisdom save, taking 4d6 Psychic damage and falling Prone (pushed 10 ft) on a failure, or half damage on a success.",
+    "higherLevelSlot": null,
+    "castingTime": "1 action",
+    "edition": "2024"
   }
 ]

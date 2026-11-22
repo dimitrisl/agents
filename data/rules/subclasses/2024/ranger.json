@@ -2,8 +2,162 @@
     "class_name": "Ranger",
     "edition": "2024 Edition",
     "subclasses": {
+        "Beast Master": {
+            "name": "Beast Master",
+            "features": {
+                "3": {
+                    "name": "Primal Companion (Beast Master)",
+                    "description": "Bond with a Beast of the Land, Sea, or Sky that acts on your turn and strikes when you command it with a Bonus Action or Attack sacrifice."
+                },
+                "7": {
+                    "name": "Exceptional Training (Beast Master)",
+                    "description": "Your Primal Companion can Dash, Disengage, Dodge, or Help as a Bonus Action, and its strikes deal Force or normal damage."
+                },
+                "11": {
+                    "name": "Bestial Fury (Beast Master)",
+                    "description": "Your Primal Companion makes two Beast's Strike attacks when commanded and deals bonus Hunter's Mark force damage once per turn."
+                },
+                "15": {
+                    "name": "Share Spells (Beast Master)",
+                    "description": "Spells you cast targeting yourself also affect your Primal Companion if within 30 feet."
+                }
+            }
+        },
+        "Fey Wanderer": {
+            "name": "Fey Wanderer",
+            "bonus_spells": {
+                "3": [
+                    "Charm Person"
+                ],
+                "5": [
+                    "Misty Step"
+                ],
+                "9": [
+                    "Dispel Magic"
+                ],
+                "11": [
+                    "Summon Fey"
+                ],
+                "13": [
+                    "Dimension Door"
+                ],
+                "17": [
+                    "Mislead"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Dreadful Strikes & Otherworldly Glamour (Fey Wanderer)",
+                    "description": "Deal an extra 1d4 Psychic damage once per turn per target on weapon hits, add your WIS modifier to Charisma checks, and prepare Fey Wanderer spells."
+                },
+                "7": {
+                    "name": "Beguiling Twist (Fey Wanderer)",
+                    "description": "Gain Advantage on saves vs Charmed/Frightened, and use your Reaction when a nearby creature saves against those conditions to bounce it to another creature."
+                },
+                "11": {
+                    "name": "Fey Reinforcements (Fey Wanderer)",
+                    "description": "Always have Summon Fey prepared, cast it once per Long Rest without a slot, and optionally cast it without Concentration lasting 1 minute."
+                },
+                "15": {
+                    "name": "Misty Wanderer (Fey Wanderer)",
+                    "description": "Always have Misty Step prepared, cast it WIS modifier times per Long Rest, and bring one willing ally within 5 feet with you."
+                }
+            },
+            "scaling": {
+                "dreadful_strikes": {
+                    "name": "Dreadful Strikes",
+                    "kind": "rider",
+                    "damage_type": "psychic",
+                    "hint": "Once per turn per target on a weapon hit: deal extra Psychic damage.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d4"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "1d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Gloom Stalker": {
+            "name": "Gloom Stalker",
+            "bonus_spells": {
+                "3": [
+                    "Disguise Self"
+                ],
+                "5": [
+                    "Rope Trick"
+                ],
+                "9": [
+                    "Fear"
+                ],
+                "13": [
+                    "Greater Invisibility"
+                ],
+                "17": [
+                    "Seeming"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Dread Ambusher & Umbral Sight (Gloom Stalker)",
+                    "description": "Add your WIS modifier to Initiative, gain Darkvision (and invisibility to Darkvision in darkness), keep Gloom Stalker spells prepared, and empower Dread Ambusher strikes."
+                },
+                "7": {
+                    "name": "Iron Mind (Gloom Stalker)",
+                    "description": "Gain proficiency in Wisdom saving throws (or INT/CHA if already proficient)."
+                },
+                "11": {
+                    "name": "Stalker's Flurry (Gloom Stalker)",
+                    "description": "Dreadful Strike scales to 2d8 Psychic damage and triggers Sudden Strike (additional attack) or Mass Fear around the target."
+                },
+                "15": {
+                    "name": "Shadowy Dodge (Gloom Stalker)",
+                    "description": "Use your Reaction to impose Disadvantage on an incoming attack roll against you and teleport 30 feet if the attack misses."
+                }
+            },
+            "scaling": {
+                "dread_ambusher": {
+                    "name": "Dreadful Strike",
+                    "kind": "rider",
+                    "damage_type": "psychic",
+                    "hint": "Once per turn on a weapon hit (WIS mod uses per Long Rest): deal extra Psychic damage (scales to 2d8 at L11).",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "2d6"
+                        },
+                        {
+                            "level": 11,
+                            "notation": "2d8"
+                        }
+                    ]
+                }
+            }
+        },
         "Hunter": {
             "name": "Hunter",
+            "features": {
+                "3": {
+                    "name": "Hunter's Lore & Hunter's Prey (Hunter)",
+                    "description": "Learn a Hunter's Mark target's immunities, resistances, and vulnerabilities, and choose Colossus Slayer or Horde Breaker."
+                },
+                "7": {
+                    "name": "Defensive Tactics (Hunter)",
+                    "description": "Choose Escape the Horde (Opportunity Attacks have Disadvantage against you) or Multiattack Defense (when a creature hits you, it has Disadvantage on all other attack rolls against you this turn); you can change your choice after a Short or Long Rest."
+                },
+                "11": {
+                    "name": "Superior Hunter's Prey (Hunter)",
+                    "description": "Once per turn when dealing Hunter's Prey damage to a marked target, deal equal damage to another creature within 30 feet of it."
+                },
+                "15": {
+                    "name": "Superior Hunter's Defense (Hunter)",
+                    "description": "When you take damage, use your Reaction to give yourself Resistance to that damage and to any other damage of the same type until the end of the current turn."
+                }
+            },
             "scaling": {
                 "colossus_slayer": {
                     "name": "Colossus Slayer",
@@ -20,6 +174,24 @@
         },
         "Horizon Walker": {
             "name": "Horizon Walker",
+            "features": {
+                "3": {
+                    "name": "Detect Portal & Planar Warrior (Horizon Walker)",
+                    "description": "Sense nearby planar portals and use a Bonus Action to convert your next weapon hit's damage to Force plus +1d8 Force (+2d8 at Level 11)."
+                },
+                "7": {
+                    "name": "Ethereal Step (Horizon Walker)",
+                    "description": "Bonus Action casts Etherealness until the end of your current turn (1/Short or Long Rest)."
+                },
+                "11": {
+                    "name": "Distant Strike (Horizon Walker)",
+                    "description": "Teleport up to 10 feet before each weapon attack and gain a 3rd attack if you target two different creatures."
+                },
+                "15": {
+                    "name": "Spectral Defense (Horizon Walker)",
+                    "description": "Use your Reaction when damaged by an attack to grant yourself Resistance to all of that attack's damage."
+                }
+            },
             "scaling": {
                 "planar_warrior": {
                     "name": "Planar Warrior",
@@ -58,22 +230,6 @@
                         {
                             "level": 15,
                             "notation": "Reaction Resistance"
-                        }
-                    ]
-                }
-            }
-        },
-        "Gloom Stalker": {
-            "name": "Gloom Stalker",
-            "scaling": {
-                "dread_ambusher": {
-                    "name": "Dread Ambusher",
-                    "kind": "rider",
-                    "hint": "First turn of combat: +10ft walking speed, one extra weapon attack that deals extra weapon damage on hit.",
-                    "steps": [
-                        {
-                            "level": 3,
-                            "notation": "1d8"
                         }
                     ]
                 }

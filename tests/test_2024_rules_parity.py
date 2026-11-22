@@ -1,0 +1,1408 @@
+"""Comprehensive tests for Ticket #259: 2024 Rules & Subclass Parity (alongside 2014 parity)."""
+
+import json
+import os
+from unittest.mock import patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.core.constants import EDITION_2014, EDITION_2024
+from backend.repositories.rules_repository import RulesRepository
+from backend.services.forge_service import (
+    analyze_level_up,
+    apply_level_up_spell_swap,
+    forge_character_manual,
+)
+from backend.services.rules_service import grant_subclass_bonus_spells
+from backend.services.stats_service import sync_character_stats
+from backend.services.validation_service import (
+    get_character_armor_proficiencies,
+    get_character_weapon_proficiencies,
+)
+from server.dependencies.auth import get_current_user
+from server.main import app
+from server.rate_limiter import limiter
+
+DATA_RULES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "rules")
+
+
+@pytest.fixture
+def rules_client():
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "u_rules_2024",
+        "username": "arbiter",
+        "is_admin": False,
+    }
+    yield TestClient(app)
+    app.dependency_overrides = orig
+    limiter.reset()
+
+
+def test_all_13_classes_have_2014_and_2024_subclass_mechanics_and_valid_bonus_spells():
+    repo = RulesRepository()
+    subclasses_master = json.load(open(os.path.join(DATA_RULES_DIR, "subclasses.json")))
+    spells_2024 = {
+        s["name"].strip().lower()
+        for s in json.load(open(os.path.join(DATA_RULES_DIR, "spells_2024.json")))
+    }
+
+    for edition_key, edition_const in [
+        ("2014 Edition", EDITION_2014),
+        ("2024 Edition", EDITION_2024),
+    ]:
+        class_map = subclasses_master[edition_key]
+        assert len(class_map) == 13
+        for cls_name, sub_list in class_map.items():
+            mech = repo.get_subclass_mechanics(cls_name, edition_const)
+            assert mech and isinstance(mech.get("subclasses"), dict), (
+                f"Missing subclass mechanics JSON for {edition_key} {cls_name}"
+            )
+            for sub_name in sub_list:
+                entry = repo.get_subclass_entry(cls_name, sub_name, edition_const)
+                assert entry is not None, (
+                    f"Subclass '{sub_name}' missing from {edition_key} {cls_name} JSON"
+                )
+                if edition_const == EDITION_2024:
+                    assert entry.get("features"), (
+                        f"2024 {cls_name}/{sub_name} must declare progression features"
+                    )
+                    for req_lvl, sp_list in (entry.get("bonus_spells") or {}).items():
+                        for sp_name in sp_list:
+                            assert sp_name.strip().lower() in spells_2024, (
+                                f"2024 {cls_name}/{sub_name} L{req_lvl} bonus spell '{sp_name}' missing from spells_2024.json"
+                            )
+
+
+def test_2024_subclass_bonus_spells_granted_and_protected_from_level_up_spell_swap():
+    repo = RulesRepository()
+    # 2024 Warlock (Fiend Patron) L5 gets Fiend Patron always-prepared bonus spells
+    char = {
+        "char_name": "Kaelen",
+        "char_class": "Warlock",
+        "subclass": "Fiend Patron",
+        "char_level": 5,
+        "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Fiend Patron"}],
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+        "spells": {"cantrips": ["Eldritch Blast"], "level_1": ["Hex"], "level_3": ["Counterspell"]},
+        "prepared_spells": ["Eldritch Blast", "Hex", "Counterspell"],
+        "features_traits": [],
+    }
+    grant_subclass_bonus_spells(char, "Warlock", "Fiend Patron", 5, EDITION_2024, repo=repo)
+    assert "Burning Hands" in char["spells"].get("level_1", [])
+    assert "Scorching Ray" in char["spells"].get("level_2", [])
+    assert "Fireball" in char["spells"].get("level_3", [])
+    assert "Fireball" in char["prepared_spells"]
+
+    # Fireball (Fiend Patron bonus spell) must NOT be replaceable via Level-Up Spell Swap
+    analysis = analyze_level_up(char)
+    assert "Fireball" not in analysis["replaceable_spells"]
+    assert "Burning Hands" not in analysis["replaceable_spells"]
+    assert "Hex" in analysis["replaceable_spells"]
+
+    with pytest.raises(ValueError, match="cannot be replaced"):
+        apply_level_up_spell_swap(
+            char_doc=char,
+            pre_level_spells=char["spells"],
+            target_class="Warlock",
+            chosen_subclass="Fiend Patron",
+            new_class_level=6,
+            swap_out="Fireball",
+            swap_in="Fly",
+            selected_spells_in_payload=set(),
+            edition=EDITION_2024,
+            rules_repo=repo,
+            pre_total_level=5,
+        )
+
+    # 2024 Paladin (Oath of Vengeance) L9 grants Haste & Protection from Energy in level_3
+    pal = {
+        "char_name": "Vex",
+        "char_class": "Paladin",
+        "subclass": "Oath of Vengeance",
+        "char_level": 9,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(pal, "Paladin", "Oath of Vengeance", 9, EDITION_2024, repo=repo)
+    assert "Hunter's Mark" in pal["spells"].get("level_1", [])
+    assert "Misty Step" in pal["spells"].get("level_2", [])
+    assert "Haste" in pal["spells"].get("level_3", [])
+
+    # 2024 Artificer (Battle Smith) L9 grants Aura of Vitality & Conjure Barrage in level_3 (NOT level_5)
+    art = {
+        "char_name": "Tinker",
+        "char_class": "Artificer",
+        "subclass": "Battle Smith",
+        "char_level": 9,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(art, "Artificer", "Battle Smith", 9, EDITION_2024, repo=repo)
+    assert "Shield" in art["spells"].get("level_1", [])
+    assert "Shining Smite" in art["spells"].get("level_2", [])
+    assert "Aura of Vitality" in art["spells"].get("level_3", [])
+    assert "Conjure Barrage" in art["spells"].get("level_3", [])
+    assert "Aura of Vitality" not in art["spells"].get("level_5", [])
+
+
+def test_2024_divine_order_and_primal_order_proficiencies_and_skill_bonuses():
+    # 1. Generic "Divine Order" placeholder prose must NOT grant Heavy Armor / Martial Weapons
+    base_cleric = {
+        "char_name": "Generic Cleric",
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+        "skill_proficiencies": [],
+        "features_traits": [
+            {
+                "name": "Divine Order",
+                "description": "You choose Protector (gain proficiency with Heavy Armor and Martial Weapons) or Thaumaturge.",
+                "source": "Class",
+            }
+        ],
+    }
+    assert "heavy armor" not in get_character_armor_proficiencies(base_cleric, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(base_cleric)
+    synced_generic = sync_character_stats(dict(base_cleric))
+    assert synced_generic["skills"]["Arcana"] == 0
+    assert synced_generic["skills"]["Religion"] == 0
+
+    # 2. Divine Order: Protector grants Heavy Armor + Martial Weapons, no Thaumaturge skill bonus
+    protector = dict(base_cleric)
+    protector["features_traits"] = list(base_cleric["features_traits"]) + [
+        {
+            "name": "Divine Order: Protector",
+            "description": "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.",
+            "source": "Class",
+        }
+    ]
+    assert "heavy armor" in get_character_armor_proficiencies(protector, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(protector)
+    synced_prot = sync_character_stats(dict(protector))
+    assert synced_prot["skills"]["Arcana"] == 0
+    assert synced_prot["skills"]["Religion"] == 0
+
+    # 3. Divine Order: Thaumaturge adds +max(1, WIS mod) to Arcana & Religion (2024 ONLY)
+    thaum = dict(base_cleric)
+    thaum["features_traits"] = list(base_cleric["features_traits"]) + [
+        {
+            "name": "Divine Order: Thaumaturge",
+            "description": "Bonus to Arcana & Religion equal to WIS modifier (minimum +1).",
+            "source": "Class",
+        }
+    ]
+    assert "heavy armor" not in get_character_armor_proficiencies(thaum, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(thaum)
+    synced_thaum = sync_character_stats(dict(thaum))
+    assert synced_thaum["skills"]["Arcana"] == 3  # INT 0 + WIS +3
+    assert synced_thaum["skills"]["Religion"] == 3
+    assert synced_thaum["skills"]["Nature"] == 0
+    # Re-syncing must stay idempotent (must NOT infer Arcana proficiency!)
+    resynced_thaum = sync_character_stats(dict(synced_thaum))
+    assert resynced_thaum["skills"]["Arcana"] == 3
+    assert "Arcana" not in resynced_thaum["skill_proficiencies"]
+
+    # Minimum +1 floor when WIS mod <= 0
+    low_wis_thaum = dict(thaum)
+    low_wis_thaum["stats"] = {"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 8, "CHA": 10}
+    synced_low = sync_character_stats(low_wis_thaum)
+    assert synced_low["skills"]["Arcana"] == 1
+    assert synced_low["skills"]["Religion"] == 1
+
+    # 2014 Edition must NOT apply 2024 Thaumaturge bonus
+    thaum_2014 = dict(thaum)
+    thaum_2014["dnd_edition"] = EDITION_2014
+    synced_2014 = sync_character_stats(thaum_2014)
+    assert synced_2014["skills"]["Arcana"] == 0
+
+    # 4. Druid Primal Order: Warden (Medium Armor + Martial Weapons) vs Magician (+WIS to Arcana & Nature)
+    base_druid = {
+        "char_name": "Sylvia",
+        "char_class": "Druid",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 10, "DEX": 14, "CON": 12, "INT": 10, "WIS": 18, "CHA": 10},
+        "skill_proficiencies": [],
+        "features_traits": [
+            {
+                "name": "Primal Order",
+                "description": "Magician or Warden (gain proficiency with Martial Weapons and Medium Armor).",
+                "source": "Class",
+            }
+        ],
+    }
+    assert "medium armor" not in get_character_armor_proficiencies(base_druid, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(base_druid)
+
+    warden = dict(base_druid)
+    warden["features_traits"] = list(base_druid["features_traits"]) + [
+        {
+            "name": "Primal Order: Warden",
+            "description": "Medium armor & Martial weapons.",
+            "source": "Class",
+        }
+    ]
+    assert "medium armor" in get_character_armor_proficiencies(warden, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(warden)
+
+    magician = dict(base_druid)
+    magician["features_traits"] = list(base_druid["features_traits"]) + [
+        {
+            "name": "Primal Order: Magician",
+            "description": "+WIS to Arcana & Nature.",
+            "source": "Class",
+        }
+    ]
+    assert "medium armor" not in get_character_armor_proficiencies(magician, None)
+    synced_mag = sync_character_stats(magician)
+    assert synced_mag["skills"]["Arcana"] == 4  # INT 0 + WIS +4
+    assert synced_mag["skills"]["Nature"] == 4
+    assert synced_mag["skills"]["Religion"] == 0
+
+
+def test_2024_bard_college_of_dance_and_valor_mechanics():
+    # College of Dance (2024): unarmored AC = 10 + DEX + CHA (no shield)
+    dancer = {
+        "char_name": "Lyra",
+        "char_class": "Bard",
+        "subclass": "College of Dance",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 16, "CON": 12, "INT": 10, "WIS": 10, "CHA": 18},
+        "equipment": [],
+        "features_traits": [],
+    }
+    synced = sync_character_stats(dict(dancer))
+    assert synced["armor_class"] == 17  # 10 + 3 DEX + 4 CHA
+
+    # Wearing a shield disables Dazzling Footwork unarmored AC
+    dancer_shield = dict(dancer)
+    dancer_shield["equipment"] = [{"name": "Shield", "ac_bonus": 2, "equipped": True}]
+    synced_shield = sync_character_stats(dancer_shield)
+    assert synced_shield["armor_class"] == 15  # Base 10 + 3 DEX + 2 Shield (not 19!)
+
+    # College of Valor (2024): Medium armor, Shields, Martial weapons
+    valor = {
+        "char_name": "Skald",
+        "char_class": "Bard",
+        "subclass": "College of Valor",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 14, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+        "features_traits": [],
+    }
+    assert "medium armor" in get_character_armor_proficiencies(valor, None)
+    assert "shields" in get_character_armor_proficiencies(valor, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(valor)
+
+
+def test_2024_vs_2014_structured_level_up_choices():
+    # 2024 Sorcerer gets 2 Metamagic choices at Level 2 (whereas 2014 gets them at Level 3)
+    sorc_2024 = {
+        "char_name": "Ignis",
+        "char_class": "Sorcerer",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+        "features_traits": [],
+    }
+    analysis_2024_l2 = analyze_level_up(sorc_2024)
+    mm_2024 = [c for c in analysis_2024_l2["choices_required"] if c["type"] == "metamagic"]
+    assert len(mm_2024) == 2
+    assert "Metamagic: Seeking Spell" in mm_2024[0]["options"]
+
+    sorc_2014 = dict(sorc_2024, dnd_edition=EDITION_2014)
+    analysis_2014_l2 = analyze_level_up(sorc_2014)
+    assert not [c for c in analysis_2014_l2["choices_required"] if c["type"] == "metamagic"]
+
+    # 2024 Warlock L2 -> gains 2 Eldritch Invocations (with L2 options like Agonizing Blast);
+    # 2024 Warlock L3 -> NO separate pact_boon picker (Pact Boons are L1 Invocations in 2024)
+    lock_2024_l1 = {
+        "char_name": "Malakor",
+        "char_class": "Warlock",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+        "features_traits": [{"name": "Pact of the Blade", "description": "Pact weapon"}],
+    }
+    analysis_lock_l2 = analyze_level_up(lock_2024_l1)
+    inv_l2 = [c for c in analysis_lock_l2["choices_required"] if c["type"] == "eldritch_invocation"]
+    assert len(inv_l2) == 2
+    assert "Agonizing Blast" in inv_l2[0]["options"]
+    assert "Pact of the Blade" not in inv_l2[0]["options"]
+
+    lock_2024_l2 = dict(lock_2024_l1, char_level=2)
+    analysis_lock_l3 = analyze_level_up(lock_2024_l2)
+    assert not [c for c in analysis_lock_l3["choices_required"] if c["type"] == "pact_boon"]
+
+    # 2014 Warlock L3 STILL offers Pact Boon
+    lock_2014_l2 = {
+        "char_name": "OldLock",
+        "char_class": "Warlock",
+        "char_level": 2,
+        "dnd_edition": EDITION_2014,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+        "features_traits": [],
+    }
+    analysis_2014_lock_l3 = analyze_level_up(lock_2014_l2)
+    assert (
+        len([c for c in analysis_2014_lock_l3["choices_required"] if c["type"] == "pact_boon"]) == 1
+    )
+
+    # 2024 Champion Fighter gets Additional Fighting Style at Level 7 (2014 gets it at Level 10)
+    champ_2024_l6 = {
+        "char_name": "Garrick",
+        "char_class": "Fighter",
+        "subclass": "Champion",
+        "char_level": 6,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 18, "DEX": 14, "CON": 16, "INT": 10, "WIS": 10, "CHA": 10},
+        "features_traits": [{"name": "Fighting Style: Defense", "description": "+1 AC"}],
+    }
+    analysis_champ_l7 = analyze_level_up(champ_2024_l6)
+    fs_l7 = [c for c in analysis_champ_l7["choices_required"] if c["type"] == "fighting_style"]
+    assert len(fs_l7) == 1
+    assert "Fighting Style: Defense" not in fs_l7[0]["options"]
+    assert "Fighting Style: Dueling" in fs_l7[0]["options"]
+
+
+def test_manual_forge_injects_chosen_2024_divine_order():
+    with patch("backend.services.forge_service.generate_ai_json", return_value=None):
+        hero = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Cleric",
+            background="Acolyte",
+            subclass="",
+            alignment="Lawful Good",
+            gender="Female",
+            name="Seraphina",
+            base_stats={"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 12},
+            skill_proficiencies=["Insight", "Religion"],
+            saving_throws=["WIS", "CHA"],
+            spell_ability="WIS",
+            concept="Scholarly divine mystic",
+            edition=EDITION_2024,
+            chosen_class_choices=["Divine Order: Thaumaturge"],
+        )
+    ft_names = [f["name"] for f in hero["features_traits"]]
+    assert "Divine Order: Thaumaturge" in ft_names
+    assert hero["skills"]["Arcana"] == 3  # INT 0 + Thaumaturge WIS +3
+    assert hero["skills"]["Religion"] == 5  # INT 0 + PB +2 + Thaumaturge WIS +3
+
+
+def test_rules_endpoints_weapon_masteries_class_choices_and_2024_combat_profile(rules_client):
+    # 1. GET /api/v1/rules/weapon-masteries
+    res_wm = rules_client.get("/api/v1/rules/weapon-masteries")
+    assert res_wm.status_code == 200
+    masteries = res_wm.json()
+    assert len(masteries) == 8
+    assert {m["name"] for m in masteries} == {
+        "Cleave",
+        "Graze",
+        "Nick",
+        "Push",
+        "Sap",
+        "Slow",
+        "Topple",
+        "Vex",
+    }
+
+    res_wm_bad = rules_client.get("/api/v1/rules/weapon-masteries?edition=invalid")
+    assert res_wm_bad.status_code == 400
+
+    # 2. GET /api/v1/rules/class-choices for 2024 vs 2014
+    res_cc_2024 = rules_client.get("/api/v1/rules/class-choices?edition=2024")
+    assert res_cc_2024.status_code == 200
+    cc_2024 = res_cc_2024.json()
+    assert "divine_orders" in cc_2024
+    assert "primal_orders" in cc_2024
+    assert "cunning_strikes" in cc_2024
+    assert any(
+        o["name"] == "Pact of the Blade" and o["min_level"] == 1
+        for o in cc_2024["eldritch_invocations"]
+    )
+
+    res_cc_2014 = rules_client.get("/api/v1/rules/class-choices?edition=2014")
+    assert res_cc_2014.status_code == 200
+    cc_2014 = res_cc_2014.json()
+    assert "pact_boons" in cc_2014
+    assert "divine_orders" not in cc_2014
+
+    # 3. POST /api/v1/rules/combat-profile resolves new 2024 subclass scaling & base Cleric L7 Blessed Strikes
+    res_stars = rules_client.post(
+        "/api/v1/rules/combat-profile",
+        json={
+            "classes": [{"class_name": "Druid", "level": 10, "subclass": "circle of the stars"}],
+            "edition": "2024 Edition",
+        },
+    )
+    assert res_stars.status_code == 200
+    star_actions = {a["id"]: a for a in res_stars.json()["actions"]}
+    assert star_actions["starry-form-archer"]["notation"] == "2d8"
+
+    res_cleric = rules_client.post(
+        "/api/v1/rules/combat-profile",
+        json={
+            "classes": [{"class_name": "Cleric", "level": 7, "subclass": "Life Domain"}],
+            "edition": "2024 Edition",
+        },
+    )
+    assert res_cleric.status_code == 200
+    cleric_actions = {a["id"]: a for a in res_cleric.json()["actions"]}
+    # 2024 Cleric Blessed Strikes unlocks at Level 7 (no longer overwritten by stale 2014 L8 subclass override!)
+    assert cleric_actions["divine-strike"]["notation"] == "1d8"
+
+    res_bs = rules_client.post(
+        "/api/v1/rules/combat-profile",
+        json={
+            "classes": [{"class_name": "Artificer", "level": 14, "subclass": "Battle Smith"}],
+            "edition": "2024 Edition",
+        },
+    )
+    assert res_bs.status_code == 200
+    bs_actions = {a["id"]: a for a in res_bs.json()["actions"]}
+    assert bs_actions["arcane-jolt"]["notation"] == "4d6"
+
+
+def test_manual_forge_rejects_cross_class_arbitrary_and_conflicting_class_choices(rules_client):
+    # Level 1 Wizard attempting cross-class spoofing / prompt injection / L12 invocation MUST fail with 400
+    bad_payload = {
+        "target_level": 1,
+        "race": "Human",
+        "char_class": "Wizard",
+        "background": "Sage",
+        "name": "SpoofWizard",
+        "base_stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 16, "WIS": 12, "CHA": 18},
+        "skill_proficiencies": ["Arcana", "History"],
+        "saving_throws": ["INT", "WIS"],
+        "edition": EDITION_2024,
+        "chosen_class_choices": [
+            "Divine Order: Protector",
+            "Divine Order: Thaumaturge",
+            "Dazzling Footwork",
+            "Devouring Blade",
+        ],
+    }
+    res = rules_client.post("/api/v1/forge/enrich-manual", json=bad_payload)
+    assert res.status_code == 400
+    assert "not permitted" in res.json()["detail"].lower()
+
+    # Conflicting Cleric orders (both Protector AND Thaumaturge) rejected with 400
+    conflict_payload = {
+        **bad_payload,
+        "char_class": "Cleric",
+        "chosen_class_choices": ["Divine Order: Protector", "Divine Order: Thaumaturge"],
+    }
+    res_conflict = rules_client.post("/api/v1/forge/enrich-manual", json=conflict_payload)
+    assert res_conflict.status_code == 400
+    assert "maximum 1 allowed" in res_conflict.json()["detail"].lower()
+
+    # Over-level Warlock invocation (Devouring Blade at L1) rejected with 400
+    over_level_payload = {
+        **bad_payload,
+        "char_class": "Warlock",
+        "chosen_class_choices": ["Devouring Blade"],
+    }
+    res_over = rules_client.post("/api/v1/forge/enrich-manual", json=over_level_payload)
+    assert res_over.status_code == 400
+
+    # 2014 Cleric cannot select 2024 Divine Order
+    legacy_payload = {
+        **bad_payload,
+        "char_class": "Cleric",
+        "edition": EDITION_2014,
+        "chosen_class_choices": ["Divine Order: Protector"],
+    }
+    res_legacy = rules_client.post("/api/v1/forge/enrich-manual", json=legacy_payload)
+    assert res_legacy.status_code == 400
+
+
+def test_2024_extra_cantrip_parity_devouring_blade_prereq_aura_of_vitality_and_edge_cases():
+    repo = RulesRepository()
+
+    # 1. Aura of Vitality belongs to Druid & Paladin in 2024 PHB; Yolande's Regal Presence is Bard-only
+    aura = next(s for s in repo.get_all_spells(EDITION_2024) if s["name"] == "Aura of Vitality")
+    assert set(aura["classes"]) == {"druid", "paladin"}
+    yolande = next(
+        s for s in repo.get_all_spells(EDITION_2024) if s["name"] == "Yolande's Regal Presence"
+    )
+    assert set(yolande["classes"]) == {"bard"}
+
+    # 2. 2024 Thaumaturge Cleric & Magician Druid receive +1 automatic cantrip (4 & 3 instead of 3 & 2)
+    with patch("backend.services.forge_service.generate_ai_json", return_value=None):
+        cleric_thaum = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Cleric",
+            background="Acolyte",
+            subclass="",
+            alignment="Lawful Good",
+            gender="Female",
+            name="CantripCleric",
+            base_stats={"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 12},
+            skill_proficiencies=["Insight", "Religion"],
+            saving_throws=["WIS", "CHA"],
+            spell_ability="WIS",
+            concept="Divine scholar",
+            edition=EDITION_2024,
+            chosen_class_choices=["Divine Order: Thaumaturge"],
+        )
+        druid_mag = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Druid",
+            background="Guide",
+            subclass="",
+            alignment="Neutral Good",
+            gender="Male",
+            name="CantripDruid",
+            base_stats={"STR": 10, "DEX": 14, "CON": 12, "INT": 10, "WIS": 16, "CHA": 10},
+            skill_proficiencies=["Nature", "Perception"],
+            saving_throws=["INT", "WIS"],
+            spell_ability="WIS",
+            concept="Arcane grove keeper",
+            edition=EDITION_2024,
+            chosen_class_choices=["Primal Order: Magician"],
+        )
+    assert len(cleric_thaum["spells"].get("cantrips", [])) == 4
+    assert len(druid_mag["spells"].get("cantrips", [])) == 3
+
+    # 3. Devouring Blade requires Thirsting Blade at Warlock L12
+    lock_no_thirst = {
+        "char_name": "BladeLock",
+        "char_class": "Warlock",
+        "char_level": 11,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 20},
+        "features_traits": [{"name": "Pact of the Blade", "description": "Pact weapon"}],
+    }
+    a_no = analyze_level_up(lock_no_thirst)
+    inv_no = [c for c in a_no["choices_required"] if c["type"] == "eldritch_invocation"]
+    assert len(inv_no) == 1
+    assert "Devouring Blade" not in inv_no[0]["options"]
+    assert "Thirsting Blade" in inv_no[0]["options"]
+
+    lock_with_thirst = dict(
+        lock_no_thirst,
+        features_traits=[
+            {"name": "Pact of the Blade", "description": "Pact weapon"},
+            {"name": "Thirsting Blade", "description": "Extra Attack"},
+        ],
+    )
+    a_yes = analyze_level_up(lock_with_thirst)
+    inv_yes = [c for c in a_yes["choices_required"] if c["type"] == "eldritch_invocation"]
+    assert "Devouring Blade" in inv_yes[0]["options"]
+
+    # 4. Combined placeholder & 2014 Protector non-leak in validation_service
+    combined_placeholder = {
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "features_traits": [
+            {
+                "name": "Divine Order (Protector or Thaumaturge)",
+                "description": "Protector grants Heavy Armor and Martial Weapons.",
+            }
+        ],
+    }
+    assert "heavy armor" not in get_character_armor_proficiencies(combined_placeholder, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(combined_placeholder)
+
+    prot_2014 = {
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2014,
+        "features_traits": [
+            {"name": "Divine Order: Protector", "description": "Heavy Armor and Martial Weapons."}
+        ],
+    }
+    assert "heavy armor" not in get_character_armor_proficiencies(prot_2014, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(prot_2014)
+
+    # 5. College of Dance AC gated on Bard level >= 3 and works for multiclass Bard 3+
+    l2_bard = {
+        "char_name": "YoungDancer",
+        "char_class": "Bard",
+        "subclass": "College of Dance",
+        "char_level": 2,
+        "classes": [{"class_name": "Bard", "level": 2, "subclass": "College of Dance"}],
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 12, "INT": 10, "WIS": 10, "CHA": 18},
+        "equipment": [],
+        "features_traits": [],
+    }
+    assert sync_character_stats(dict(l2_bard))["armor_class"] == 12  # Base 10 + DEX 2 only
+
+    mc_dancer = {
+        "char_name": "RogueDancer",
+        "char_class": "Rogue",
+        "subclass": "Thief",
+        "char_level": 6,
+        "classes": [
+            {"class_name": "Rogue", "level": 3, "subclass": "Thief"},
+            {"class_name": "Bard", "level": 3, "subclass": "College of Dance"},
+        ],
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 16, "CON": 12, "INT": 10, "WIS": 10, "CHA": 16},
+        "equipment": [],
+        "features_traits": [],
+    }
+    assert sync_character_stats(dict(mc_dancer))["armor_class"] == 16  # 10 + 3 DEX + 3 CHA
+
+
+def test_level_up_apply_persists_2024_structured_choices_end_to_end():
+    import mongomock
+
+    from server.db_async import get_database
+
+    class _AsyncColl:
+        def __init__(self, coll):
+            self._coll = coll
+
+        async def find_one(self, *a, **kw):
+            return self._coll.find_one(*a, **kw)
+
+        async def find_one_and_update(self, *a, **kw):
+            return self._coll.find_one_and_update(*a, **kw)
+
+        async def update_one(self, *a, **kw):
+            return self._coll.update_one(*a, **kw)
+
+        def find(self, *a, **kw):
+            items = list(self._coll.find(*a, **kw))
+
+            class _Cursor:
+                def __init__(self):
+                    self._idx = 0
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    if self._idx >= len(items):
+                        raise StopAsyncIteration
+                    val = items[self._idx]
+                    self._idx += 1
+                    return val
+
+                async def to_list(self, length=None):
+                    return items
+
+            return _Cursor()
+
+    class _AsyncDB:
+        def __init__(self):
+            self._db = mongomock.MongoClient()["test_2024_lu"]
+
+        def __getitem__(self, name):
+            return _AsyncColl(self._db[name])
+
+    mock_db = _AsyncDB()
+    # Solo 2024 Sorcerer L1 leveling up to L2 picking 2 Metamagic options
+    mock_db["characters"]._coll.insert_one(
+        {
+            "char_id": "sorc_2024_lu",
+            "owner_id": "u_lu_2024",
+            "char_name": "Pyra",
+            "char_class": "Sorcerer",
+            "char_level": 1,
+            "classes": [{"class_name": "Sorcerer", "level": 1}],
+            "race": "Human",
+            "background": "Sage",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+            "hp_max": 8,
+            "hp_current": 8,
+            "armor_class": 12,
+            "version": 1,
+            "features_traits": [],
+            "spells": {"cantrips": ["Fire Bolt"], "level_1": ["Shield", "Magic Missile"]},
+            "prepared_spells": ["Fire Bolt", "Shield", "Magic Missile"],
+        }
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "u_lu_2024",
+        "username": "pyra_player",
+        "is_admin": False,
+    }
+    try:
+        client = TestClient(app)
+        sorc_doc = mock_db["characters"]._coll.find_one({"char_id": "sorc_2024_lu"})
+        sorc_analysis = analyze_level_up(sorc_doc)
+        user_choices = {"level_up_class": "Sorcerer", "hp_method": "average"}
+        mm_picks = ["Metamagic: Quickened Spell", "Metamagic: Seeking Spell"]
+        mm_i = 0
+        for idx, ch in enumerate(sorc_analysis["choices_required"]):
+            if ch["type"] == "metamagic" and mm_i < len(mm_picks):
+                user_choices[f"metamagic_{idx}"] = mm_picks[mm_i]
+                mm_i += 1
+            elif ch["type"] == "spell" and ch.get("options"):
+                user_choices[f"spell_{idx}"] = ch["options"][0]
+        res = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sorc_2024_lu",
+                "analysis": sorc_analysis,
+                "user_choices": user_choices,
+            },
+        )
+        assert res.status_code == 200, res.text
+        updated = res.json()
+        assert updated["char_level"] == 2
+        ft_names = [f["name"] for f in updated["features_traits"]]
+        assert "Metamagic: Quickened Spell" in ft_names
+        assert "Metamagic: Seeking Spell" in ft_names
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_manual_class_choices_enforce_progression_cardinality_caps(rules_client):
+    base_payload = {
+        "target_level": 1,
+        "race": "Human",
+        "background": "Soldier",
+        "name": "CapTester",
+        "base_stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+        "skill_proficiencies": ["Athletics", "Perception"],
+        "saving_throws": ["STR", "CON"],
+        "edition": EDITION_2024,
+    }
+
+    # L1 Fighter cannot stack 2 Fighting Styles
+    res_f = rules_client.post(
+        "/api/v1/forge/enrich-manual",
+        json={
+            **base_payload,
+            "char_class": "Fighter",
+            "chosen_class_choices": ["Fighting Style: Defense", "Fighting Style: Dueling"],
+        },
+    )
+    assert res_f.status_code == 400
+    assert "too many" in res_f.json()["detail"].lower()
+
+    # L1 2024 Warlock is capped at 1 Invocation (cannot pick 2)
+    res_w = rules_client.post(
+        "/api/v1/forge/enrich-manual",
+        json={
+            **base_payload,
+            "char_class": "Warlock",
+            "chosen_class_choices": ["Pact of the Blade", "Armor of Shadows"],
+        },
+    )
+    assert res_w.status_code == 400
+    assert "too many" in res_w.json()["detail"].lower()
+
+    # L2 2024 Sorcerer is capped at 2 Metamagic options (cannot pick 3)
+    res_s = rules_client.post(
+        "/api/v1/forge/enrich-manual",
+        json={
+            **base_payload,
+            "char_class": "Sorcerer",
+            "target_level": 2,
+            "chosen_class_choices": [
+                "Metamagic: Quickened Spell",
+                "Metamagic: Subtle Spell",
+                "Metamagic: Twinned Spell",
+            ],
+        },
+    )
+    assert res_s.status_code == 400
+    assert "too many" in res_s.json()["detail"].lower()
+
+    # L7 2024 Champion Fighter IS allowed 2 Fighting Styles (L1 + L7 Additional Fighting Style)
+    from backend.services.forge_service import validate_manual_class_choices
+
+    valid_champ = validate_manual_class_choices(
+        ["Fighting Style: Defense", "Fighting Style: Dueling"],
+        char_class="Fighter",
+        target_level=7,
+        subclass="Champion",
+        edition=EDITION_2024,
+    )
+    assert len(valid_champ) == 2
+
+    # L2 2024 Warlock IS allowed 3 Invocations (1 at L1 + 2 at L2)
+    valid_lock = validate_manual_class_choices(
+        ["Pact of the Blade", "Agonizing Blast", "Eldritch Mind"],
+        char_class="Warlock",
+        target_level=2,
+        edition=EDITION_2024,
+    )
+    assert len(valid_lock) == 3
+
+
+def test_2024_cantrip_bonus_spells_fallback_seeding_and_martial_level5_bonus_spells():
+    from backend.services.rules_service import inject_mandatory_character_grants
+
+    repo = RulesRepository()
+
+    # 1. Subclass cantrip bonus_spells MUST land in spells['cantrips'], never spells['level_1']
+    celestial = {
+        "char_name": "Sol",
+        "char_class": "Warlock",
+        "subclass": "Celestial Patron",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(
+        celestial, "Warlock", "Celestial Patron", 3, EDITION_2024, repo=repo
+    )
+    assert "Light" in celestial["spells"].get("cantrips", [])
+    assert "Sacred Flame" in celestial["spells"].get("cantrips", [])
+    assert "Light" not in celestial["spells"].get("level_1", [])
+    assert "Sacred Flame" not in celestial["spells"].get("level_1", [])
+    assert "Cure Wounds" in celestial["spells"].get("level_1", [])
+    assert "Aid" in celestial["spells"].get("level_2", [])
+
+    elem_monk = {
+        "char_name": "Aang",
+        "char_class": "Monk",
+        "subclass": "Warrior of the Elements",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(
+        elem_monk, "Monk", "Warrior of the Elements", 3, EDITION_2024, repo=repo
+    )
+    assert "Elementalism" in elem_monk["spells"].get("cantrips", [])
+    assert "Elementalism" not in elem_monk["spells"].get("level_1", [])
+
+    # 2. Level 3 Celestial Warlock fallback forge still seeds base Warlock cantrips & spells BEFORE bonus spells
+    forged_celestial = {
+        "char_name": "Dawn",
+        "char_class": "Warlock",
+        "subclass": "Celestial Patron",
+        "char_level": 3,
+        "race": "Human",
+        "background": "Acolyte",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+        "spells": {},
+        "prepared_spells": [],
+        "features_traits": [],
+    }
+    inject_mandatory_character_grants(
+        forged_celestial, edition=EDITION_2024, is_forge=True, auto_spells=True
+    )
+    assert "Eldritch Blast" in forged_celestial["spells"].get("cantrips", [])
+    assert "Light" in forged_celestial["spells"].get("cantrips", [])
+    assert "Sacred Flame" in forged_celestial["spells"].get("cantrips", [])
+    assert "Hex" in forged_celestial["spells"].get("level_1", [])
+    assert "Cure Wounds" in forged_celestial["spells"].get("level_1", [])
+
+    # 3. Level-5 martial subclass bonus spells survive sync_character_stats(), while hallucinated L5 spells are stripped
+    wild_heart = {
+        "char_name": "Bram",
+        "char_class": "Barbarian",
+        "subclass": "Path of the Wild Heart",
+        "char_level": 10,
+        "race": "Human",
+        "background": "Guide",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 18, "DEX": 14, "CON": 16, "INT": 8, "WIS": 12, "CHA": 10},
+        "spells": {"level_5": ["Wall of Force"]},  # hallucinated spell to strip
+        "prepared_spells": ["Wall of Force"],
+        "features_traits": [],
+    }
+    inject_mandatory_character_grants(wild_heart, edition=EDITION_2024, is_forge=False)
+    synced_wh = sync_character_stats(wild_heart)
+    assert "Commune with Nature" in synced_wh["spells"].get("level_5", [])
+    assert "Commune with Nature" in synced_wh["prepared_spells"]
+    assert "Wall of Force" not in synced_wh["spells"].get("level_5", [])
+    assert "Wall of Force" not in synced_wh["prepared_spells"]
+
+    psi_warrior = {
+        "char_name": "Kael",
+        "char_class": "Fighter",
+        "subclass": "Psi Warrior",
+        "char_level": 18,
+        "race": "Human",
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 20, "DEX": 14, "CON": 16, "INT": 16, "WIS": 10, "CHA": 10},
+        "spells": {},
+        "prepared_spells": [],
+        "features_traits": [],
+    }
+    inject_mandatory_character_grants(psi_warrior, edition=EDITION_2024, is_forge=False)
+    synced_pw = sync_character_stats(psi_warrior)
+    assert "Telekinesis" in synced_pw["spells"].get("level_5", [])
+    assert "Telekinesis" in synced_pw["prepared_spells"]
+
+    # 4. Combined placeholder ("Divine Order (Protector or Thaumaturge)") must NOT grant
+    # Thaumaturge skill bonus OR suppress the divine_order level-up picker
+    combined_cleric = {
+        "char_name": "Unchosen",
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+        "skill_proficiencies": [],
+        "features_traits": [{"name": "Divine Order (Protector or Thaumaturge)", "description": ""}],
+    }
+    synced_comb = sync_character_stats(dict(combined_cleric))
+    assert synced_comb["skills"]["Arcana"] == 0
+    assert synced_comb["skills"]["Religion"] == 0
+
+    mc_to_cleric = {
+        "char_name": "FighterToCleric",
+        "char_class": "Fighter",
+        "char_level": 1,
+        "classes": [{"class_name": "Fighter", "level": 1}],
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+        "features_traits": [{"name": "Divine Order (Protector or Thaumaturge)", "description": ""}],
+    }
+    lu_cleric = analyze_level_up(mc_to_cleric, {"level_up_class": "Cleric"})
+    divine_idx_initial = next(
+        i for i, c in enumerate(lu_cleric["choices_required"]) if c["type"] == "divine_order"
+    )
+    assert divine_idx_initial == 0
+    # Picking Thaumaturge in user_choices adds +1 cantrip (4 total instead of 3)
+    # WITHOUT shifting divine_order's index!
+    lu_thaum = analyze_level_up(
+        mc_to_cleric,
+        {"level_up_class": "Cleric", "divine_order_0": "Divine Order: Thaumaturge"},
+    )
+    divine_idx_after = next(
+        i for i, c in enumerate(lu_thaum["choices_required"]) if c["type"] == "divine_order"
+    )
+    assert divine_idx_after == divine_idx_initial == 0
+    cantrip_choices = [
+        c
+        for c in lu_thaum["choices_required"]
+        if c["type"] == "spell" and "cantrip" in c["label"].lower()
+    ]
+    assert len(cantrip_choices) == 4
+
+    # Same index invariance for 2024 Druid L1 Primal Order (Magician adds 3rd cantrip without shifting primal_order_0)
+    lu_druid = analyze_level_up(mc_to_cleric, {"level_up_class": "Druid"})
+    primal_idx_initial = next(
+        i for i, c in enumerate(lu_druid["choices_required"]) if c["type"] == "primal_order"
+    )
+    assert primal_idx_initial == 0
+    lu_mag = analyze_level_up(
+        mc_to_cleric,
+        {"level_up_class": "Druid", "primal_order_0": "Primal Order: Magician"},
+    )
+    primal_idx_after = next(
+        i for i, c in enumerate(lu_mag["choices_required"]) if c["type"] == "primal_order"
+    )
+    assert primal_idx_after == primal_idx_initial == 0
+    druid_cantrips = [
+        c
+        for c in lu_mag["choices_required"]
+        if c["type"] == "spell" and "cantrip" in c["label"].lower()
+    ]
+    assert len(druid_cantrips) == 3
+
+
+def test_level_up_apply_validates_structured_choices_and_rejects_spoofing():
+    import mongomock
+
+    from server.db_async import get_database
+
+    class _AsyncColl:
+        def __init__(self, coll):
+            self._coll = coll
+
+        async def find_one(self, *a, **kw):
+            return self._coll.find_one(*a, **kw)
+
+        async def find_one_and_update(self, *a, **kw):
+            return self._coll.find_one_and_update(*a, **kw)
+
+        async def update_one(self, *a, **kw):
+            return self._coll.update_one(*a, **kw)
+
+        def find(self, *a, **kw):
+            items = list(self._coll.find(*a, **kw))
+
+            class _Cursor:
+                def __init__(self):
+                    self._idx = 0
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    if self._idx >= len(items):
+                        raise StopAsyncIteration
+                    val = items[self._idx]
+                    self._idx += 1
+                    return val
+
+                async def to_list(self, length=None):
+                    return items
+
+            return _Cursor()
+
+    class _AsyncDB:
+        def __init__(self):
+            self._db = mongomock.MongoClient()["test_2024_lu_sec"]
+
+        def __getitem__(self, name):
+            return _AsyncColl(self._db[name])
+
+    mock_db = _AsyncDB()
+    base_hero = {
+        "owner_id": "u_sec_2024",
+        "race": "Human",
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 16, "CHA": 16},
+        "hp_max": 12,
+        "hp_current": 12,
+        "armor_class": 14,
+        "version": 1,
+        "features_traits": [],
+        "spells": {},
+        "prepared_spells": [],
+    }
+    mock_db["characters"]._coll.insert_many(
+        [
+            {
+                **base_hero,
+                "char_id": "sec_fighter",
+                "char_name": "SecFighter",
+                "char_class": "Fighter",
+                "char_level": 1,
+                "classes": [{"class_name": "Fighter", "level": 1}],
+            },
+            {
+                **base_hero,
+                "char_id": "sec_warlock",
+                "char_name": "SecWarlock",
+                "char_class": "Warlock",
+                "char_level": 1,
+                "classes": [{"class_name": "Warlock", "level": 1}],
+            },
+            {
+                **base_hero,
+                "char_id": "sec_sorc",
+                "char_name": "SecSorc",
+                "char_class": "Sorcerer",
+                "char_level": 1,
+                "classes": [{"class_name": "Sorcerer", "level": 1}],
+            },
+        ]
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "u_sec_2024",
+        "username": "sec_player",
+        "is_admin": False,
+    }
+    try:
+        client = TestClient(app)
+        fighter_doc = mock_db["characters"]._coll.find_one({"char_id": "sec_fighter"})
+        f_analysis = analyze_level_up(fighter_doc)
+
+        # 1. Cross-class Divine Order on Fighter L2 -> 400
+        res_cross = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "hp_method": "average",
+                    "divine_order_0": "Divine Order: Protector",
+                },
+            },
+        )
+        assert res_cross.status_code == 400, res_cross.text
+
+        # 2. Arbitrary spoofed feature ('Dazzling Footwork') -> 400
+        res_arb = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "hp_method": "average",
+                    "other_0": "Dazzling Footwork",
+                },
+            },
+        )
+        assert res_arb.status_code == 400, res_arb.text
+
+        # 3. Mutually exclusive Divine Orders on Fighter multiclassing to Cleric L1 -> 400
+        f_to_c_analysis = analyze_level_up(fighter_doc, {"level_up_class": "Cleric"})
+        res_excl = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_to_c_analysis,
+                "user_choices": {
+                    "level_up_class": "Cleric",
+                    "hp_method": "average",
+                    "divine_order_0": "Divine Order: Protector",
+                    "divine_order_1": "Divine Order: Thaumaturge",
+                },
+            },
+        )
+        assert res_excl.status_code == 400, res_excl.text
+        assert "maximum 1 allowed" in res_excl.json()["detail"].lower()
+
+        # 4. Over-level invocation (Devouring Blade min_level=12) on Warlock L2 -> 400
+        warlock_doc = mock_db["characters"]._coll.find_one({"char_id": "sec_warlock"})
+        w_analysis = analyze_level_up(warlock_doc)
+        res_over_lvl = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_warlock",
+                "analysis": w_analysis,
+                "user_choices": {
+                    "level_up_class": "Warlock",
+                    "hp_method": "average",
+                    "eldritch_invocation_0": "Devouring Blade",
+                },
+            },
+        )
+        assert res_over_lvl.status_code == 400, res_over_lvl.text
+
+        # 5. Over-cap Metamagic (3 choices at Sorcerer L2, cap is 2) -> 400
+        sorc_doc = mock_db["characters"]._coll.find_one({"char_id": "sec_sorc"})
+        s_analysis = analyze_level_up(sorc_doc)
+        res_over_cap = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_sorc",
+                "analysis": s_analysis,
+                "user_choices": {
+                    "level_up_class": "Sorcerer",
+                    "hp_method": "average",
+                    "metamagic_0": "Metamagic: Quickened Spell",
+                    "metamagic_1": "Metamagic: Subtle Spell",
+                    "metamagic_2": "Metamagic: Twinned Spell",
+                },
+            },
+        )
+        assert res_over_cap.status_code == 400, res_over_cap.text
+        assert "maximum 2 allowed" in res_over_cap.json()["detail"].lower()
+
+        # 6. Legal multiclass Cleric L1 with single Divine Order: Thaumaturge -> 200
+        res_ok = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_to_c_analysis,
+                "user_choices": {
+                    "level_up_class": "Cleric",
+                    "hp_method": "average",
+                    "divine_order_0": "Divine Order: Thaumaturge",
+                },
+            },
+        )
+        assert res_ok.status_code == 200, res_ok.text
+        assert any(
+            f["name"] == "Divine Order: Thaumaturge" for f in res_ok.json()["features_traits"]
+        )
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_smart_quote_null_safe_spells_legacy_string_orders_and_2024_phb_data_fixes():
+    repo = RulesRepository()
+
+    # 1. stats_service handles smart-quote subclass bonus spells & malformed dict spell entries without crashing
+    wild_heart_curly = {
+        "char_name": "NullSafeBram",
+        "char_class": "Barbarian",
+        "subclass": "Path of the Wild Heart",
+        "char_level": 10,
+        "race": "Human",
+        "background": "Guide",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 18, "DEX": 14, "CON": 16, "INT": 8, "WIS": 12, "CHA": 10},
+        "spells": {
+            "cantrips": [{"name": None}],
+            "level_5": [{"name": None}, {"name": "Commune with Nature"}, "Wall of Force"],
+        },
+        "prepared_spells": [{"name": None}, "Commune with Nature", "Wall of Force"],
+        "features_traits": [],
+    }
+    synced_ns = sync_character_stats(wild_heart_curly)
+    assert any(
+        (s.get("name") if isinstance(s, dict) else s) == "Commune with Nature"
+        for s in synced_ns["spells"].get("level_5", [])
+    )
+    assert "Wall of Force" not in synced_ns["spells"].get("level_5", [])
+    assert "Commune with Nature" in synced_ns["prepared_spells"]
+
+    # Smart-quote apostrophe matching on Hunter's Mark / Yolande's Regal Presence in prepared_spells
+    glamour_bard = {
+        "char_name": "CurlyBard",
+        "char_class": "Bard",
+        "subclass": "College of Glamour",
+        "char_level": 9,
+        "race": "Human",
+        "background": "Entertainer",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 12, "INT": 10, "WIS": 10, "CHA": 18},
+        "spells": {"level_5": ["Yolande\u2019s Regal Presence"]},
+        "prepared_spells": ["Yolande's Regal Presence"],
+        "features_traits": [],
+    }
+    synced_gb = sync_character_stats(glamour_bard)
+    assert synced_gb["prepared_spells"] == ["Yolande's Regal Presence"]
+
+    # 2. validation_service handles legacy string entries & bare 'Protector'/'Warden' consistently with forge_service
+    str_prot_cleric = {
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "features_traits": ["Protector"],
+    }
+    assert "heavy armor" in get_character_armor_proficiencies(str_prot_cleric, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(str_prot_cleric)
+
+    str_warden_druid = {
+        "char_class": "Druid",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "features_traits": ["Warden"],
+    }
+    assert "medium armor" in get_character_armor_proficiencies(str_warden_druid, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(str_warden_druid)
+
+    # Gift of the Protectors must NOT falsely trigger Protector armor/weapon profs
+    warlock_gotp = {
+        "char_class": "Warlock",
+        "char_level": 9,
+        "dnd_edition": EDITION_2024,
+        "features_traits": ["Gift of the Protectors"],
+    }
+    assert "heavy armor" not in get_character_armor_proficiencies(warlock_gotp, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(warlock_gotp)
+
+    # 3. 2024 PHB static data fixes: Illusionist L3 Minor Illusion, GOO L10 Hex, Lessons of the First Ones min_level=1
+    illusionist = {
+        "char_name": "Mirage",
+        "char_class": "Wizard",
+        "subclass": "Illusionist",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(illusionist, "Wizard", "Illusionist", 3, EDITION_2024, repo=repo)
+    assert "Minor Illusion" in illusionist["spells"].get("cantrips", [])
+    assert "Minor Illusion" not in illusionist["spells"].get("level_1", [])
+
+    goo_l10 = {
+        "char_name": "Cthulu",
+        "char_class": "Warlock",
+        "subclass": "Great Old One Patron",
+        "char_level": 10,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(
+        goo_l10, "Warlock", "Great Old One Patron", 10, EDITION_2024, repo=repo
+    )
+    assert "Hex" in goo_l10["spells"].get("level_1", [])
+
+    lessons = next(
+        inv
+        for inv in repo.get_class_choices(EDITION_2024)["eldritch_invocations"]
+        if inv["name"] == "Lessons of the First Ones"
+    )
+    assert lessons["min_level"] == 1
+
+    # 4. Manual forge prunes LLM-hallucinated competing Divine/Primal Order when user chooses explicitly
+    hallucinated_cleric = {
+        "features_traits": [
+            {
+                "name": "Divine Order: Protector",
+                "description": "Heavy Armor and Martial Weapons",
+                "source": "Class",
+            }
+        ],
+        "equipment": [],
+        "weapons": [],
+        "spells": {},
+    }
+    with patch(
+        "backend.services.forge_service.generate_ai_json", return_value=dict(hallucinated_cleric)
+    ):
+        forged_thaum = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Cleric",
+            background="Acolyte",
+            subclass="",
+            alignment="Neutral Good",
+            gender="Female",
+            name="PrunedCleric",
+            base_stats={"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+            skill_proficiencies=["Religion", "Insight"],
+            saving_throws=["WIS", "CHA"],
+            spell_ability="WIS",
+            concept="Divine scholar",
+            edition=EDITION_2024,
+            chosen_class_choices=["Divine Order: Thaumaturge"],
+        )
+    ft_cleric_low = [f["name"].lower() for f in forged_thaum["features_traits"]]
+    assert "divine order: thaumaturge" in ft_cleric_low
+    assert "divine order: protector" not in ft_cleric_low
+    assert "heavy armor" not in get_character_armor_proficiencies(forged_thaum, None)
+
+    hallucinated_druid = {
+        "features_traits": [
+            {
+                "name": "Primal Order: Warden",
+                "description": "Medium Armor and Martial Weapons",
+                "source": "Class",
+            }
+        ],
+        "equipment": [],
+        "weapons": [],
+        "spells": {},
+    }
+    with patch(
+        "backend.services.forge_service.generate_ai_json", return_value=dict(hallucinated_druid)
+    ):
+        forged_mag = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Druid",
+            background="Guide",
+            subclass="",
+            alignment="Neutral",
+            gender="Male",
+            name="PrunedDruid",
+            base_stats={"STR": 10, "DEX": 14, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+            skill_proficiencies=["Nature", "Perception"],
+            saving_throws=["INT", "WIS"],
+            spell_ability="WIS",
+            concept="Arcane naturalist",
+            edition=EDITION_2024,
+            chosen_class_choices=["Primal Order: Magician"],
+        )
+    ft_druid_low = [f["name"].lower() for f in forged_mag["features_traits"]]
+    assert "primal order: magician" in ft_druid_low
+    assert "primal order: warden" not in ft_druid_low
+    assert "medium armor" not in get_character_armor_proficiencies(forged_druid := forged_mag, None)
+    assert forged_druid["skills"]["Nature"] == 5  # INT 0 + PB +2 + WIS +3

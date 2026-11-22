@@ -1,0 +1,177 @@
+{
+    "class_name": "Sorcerer",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Aberrant Sorcery": {
+            "name": "Aberrant Sorcery",
+            "bonus_spells": {
+                "3": [
+                    "Arms of Hadar",
+                    "Calm Emotions",
+                    "Detect Thoughts",
+                    "Dissonant Whispers",
+                    "Mind Sliver"
+                ],
+                "5": [
+                    "Hunger of Hadar",
+                    "Sending"
+                ],
+                "7": [
+                    "Black Tentacles",
+                    "Summon Aberration"
+                ],
+                "9": [
+                    "Telepathic Bond",
+                    "Telekinesis"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Psionic Spells & Telepathic Speech (Aberrant Sorcery)",
+                    "description": "Always have Aberrant psionic spells prepared, and link minds as a Bonus Action to communicate telepathically within 30 feet."
+                },
+                "6": {
+                    "name": "Psionic Sorcery (Aberrant Sorcery)",
+                    "description": "Cast Psionic Spells by spending Sorcery Points equal to the spell's level, ignoring Verbal/Somatic and non-consumed Material components."
+                },
+                "14": {
+                    "name": "Revelation in Flesh (Aberrant Sorcery)",
+                    "description": "Spend Sorcery Points as a Bonus Action for 10 minutes to gain See Invisibility, Fly Speed with hover, Swim Speed/water breathing, or squeeze through 1-inch spaces."
+                },
+                "18": {
+                    "name": "Warping Implosion (Aberrant Sorcery)",
+                    "description": "Teleport up to 120 feet as a Magic action, creating a gravity anomaly that pulls nearby creatures in for 3d10 Force damage (once per Long Rest or 5 Sorcery Points)."
+                }
+            }
+        },
+        "Clockwork Sorcery": {
+            "name": "Clockwork Sorcery",
+            "bonus_spells": {
+                "3": [
+                    "Aid",
+                    "Alarm",
+                    "Lesser Restoration",
+                    "Protection from Evil and Good"
+                ],
+                "5": [
+                    "Dispel Magic",
+                    "Protection from Energy"
+                ],
+                "7": [
+                    "Freedom of Movement",
+                    "Summon Construct"
+                ],
+                "9": [
+                    "Greater Restoration",
+                    "Wall of Force"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Clockwork Spells & Restore Balance (Clockwork Sorcery)",
+                    "description": "Always have Clockwork spells prepared, and use your Reaction to cancel Advantage or Disadvantage on a d20 Test within 60 feet."
+                },
+                "6": {
+                    "name": "Bastion of Law (Clockwork Sorcery)",
+                    "description": "Spend 1 to 5 Sorcery Points as a Magic action to create a ward of d8s that a creature can spend as a Reaction to reduce incoming damage."
+                },
+                "14": {
+                    "name": "Trance of Order (Clockwork Sorcery)",
+                    "description": "For 1 minute as a Bonus Action, attacks against you cannot benefit from Advantage and your d20 Tests treat any roll of 9 or lower as a 10."
+                },
+                "18": {
+                    "name": "Clockwork Cavalcade (Clockwork Sorcery)",
+                    "description": "Restore up to 100 total HP, repair objects, and end Level 6 or lower spells in a 30-foot Cube as a Magic action (once per Long Rest or 7 Sorcery Points)."
+                }
+            },
+            "scaling": {
+                "bastion_of_law": {
+                    "name": "Bastion of Law",
+                    "kind": "defense",
+                    "hint": "Spend 1–5 Sorcery Points for a ward of d8s reducing incoming damage via Reaction.",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "1d8"
+                        }
+                    ]
+                }
+            }
+        },
+        "Draconic Sorcery": {
+            "name": "Draconic Sorcery",
+            "bonus_spells": {
+                "3": [
+                    "Alter Self",
+                    "Chromatic Orb",
+                    "Command",
+                    "Dragon's Breath"
+                ],
+                "5": [
+                    "Fear",
+                    "Fly"
+                ],
+                "7": [
+                    "Arcane Eye",
+                    "Charm Monster"
+                ],
+                "9": [
+                    "Legend Lore",
+                    "Summon Dragon"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Draconic Resilience & Draconic Spells (Draconic Sorcery)",
+                    "description": "Your HP maximum increases by 3 (and by 1 whenever you gain another Sorcerer level), your unarmored AC equals 10 + DEX + CHA modifiers, and you always have your Draconic Spells prepared."
+                },
+                "6": {
+                    "name": "Elemental Affinity (Draconic Sorcery)",
+                    "description": "Gain Resistance to the damage type of your Draconic Ancestry, and add your CHA modifier to one damage roll of any spell you cast that deals that damage type."
+                },
+                "14": {
+                    "name": "Dragon Wings (Draconic Sorcery)",
+                    "description": "As a Bonus Action, manifest spectral dragon wings granting a Fly Speed of 60 feet for 1 hour (once per Long Rest or by spending 3 Sorcery Points)."
+                },
+                "18": {
+                    "name": "Dragon Companion (Draconic Sorcery)",
+                    "description": "Cast Summon Dragon once per Long Rest without material components, optionally removing Concentration for a 1-minute duration."
+                }
+            }
+        },
+        "Wild Magic Sorcery": {
+            "name": "Wild Magic Sorcery",
+            "features": {
+                "3": {
+                    "name": "Wild Magic Surge & Tides of Chaos (Wild Magic Sorcery)",
+                    "description": "Trigger Wild Magic Surge effects after leveled Sorcerer spells and claim Advantage on one d20 Test via Tides of Chaos."
+                },
+                "6": {
+                    "name": "Bend Luck (Wild Magic Sorcery)",
+                    "description": "Use your Reaction and spend 1 Sorcery Point to roll 1d4 and add or subtract it from another creature's d20 Test within 30 feet."
+                },
+                "14": {
+                    "name": "Controlled Chaos (Wild Magic Sorcery)",
+                    "description": "Roll twice on the Wild Magic Surge table whenever you trigger a surge and choose either outcome."
+                },
+                "18": {
+                    "name": "Tamed Surge (Wild Magic Sorcery)",
+                    "description": "Once per Long Rest, pick any non-self-buff effect from the Wild Magic Surge table immediately after casting a Sorcerer spell with a spell slot."
+                }
+            },
+            "scaling": {
+                "bend_luck": {
+                    "name": "Bend Luck",
+                    "kind": "utility",
+                    "hint": "Reaction + 1 Sorcery Point: add or subtract 1d4 from another creature's d20 Test within 30 ft.",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "1d4"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

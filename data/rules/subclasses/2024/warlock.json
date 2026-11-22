@@ -1,0 +1,228 @@
+{
+    "class_name": "Warlock",
+    "edition": "2024 Edition",
+    "subclasses": {
+        "Archfey Patron": {
+            "name": "Archfey Patron",
+            "bonus_spells": {
+                "3": [
+                    "Calm Emotions",
+                    "Faerie Fire",
+                    "Misty Step",
+                    "Phantasmal Force",
+                    "Sleep"
+                ],
+                "5": [
+                    "Blink",
+                    "Plant Growth"
+                ],
+                "7": [
+                    "Dominate Beast",
+                    "Greater Invisibility"
+                ],
+                "9": [
+                    "Dominate Person",
+                    "Seeming"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Archfey Spells & Steps of the Fey (Archfey Patron)",
+                    "description": "Always have Archfey spells prepared and cast Misty Step CHA modifier times per Long Rest with fey teleportation effects."
+                },
+                "6": {
+                    "name": "Misty Escape (Archfey Patron)",
+                    "description": "Cast Misty Step as a Reaction when taking damage, adding Disappearing Step (invisible) or Dreadful Step (2d10 Psychic damage)."
+                },
+                "10": {
+                    "name": "Beguiling Defenses (Archfey Patron)",
+                    "description": "Gain Immunity to Charmed, and use your Reaction to grant Resistance to incoming damage while bouncing 2d10 Psychic damage back at the attacker."
+                },
+                "14": {
+                    "name": "Bewitching Magic (Archfey Patron)",
+                    "description": "Immediately cast Misty Step without a slot after casting an Enchantment or Illusion spell with a spell slot."
+                }
+            },
+            "scaling": {
+                "dreadful_step": {
+                    "name": "Dreadful Step",
+                    "kind": "attack",
+                    "damage_type": "psychic",
+                    "hint": "When teleporting with Steps of the Fey / Misty Escape, creatures within 5 ft take 2d10 Psychic damage (WIS save).",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "2d10"
+                        }
+                    ]
+                }
+            }
+        },
+        "Celestial Patron": {
+            "name": "Celestial Patron",
+            "bonus_spells": {
+                "3": [
+                    "Aid",
+                    "Cure Wounds",
+                    "Guiding Bolt",
+                    "Lesser Restoration",
+                    "Light",
+                    "Sacred Flame"
+                ],
+                "5": [
+                    "Daylight",
+                    "Revivify"
+                ],
+                "7": [
+                    "Guardian of Faith",
+                    "Wall of Fire"
+                ],
+                "9": [
+                    "Greater Restoration",
+                    "Summon Celestial"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Celestial Spells & Healing Light (Celestial Patron)",
+                    "description": "Gain Sacred Flame and Light, keep Celestial spells prepared, and spend d6s from a Healing Light pool as a Bonus Action."
+                },
+                "6": {
+                    "name": "Radiant Soul (Celestial Patron)",
+                    "description": "Gain Resistance to Radiant damage, and once per turn add your CHA modifier to Fire or Radiant spell damage."
+                },
+                "10": {
+                    "name": "Celestial Resilience (Celestial Patron)",
+                    "description": "After a Short or Long Rest (or Magical Cunning), grant yourself Temporary HP equal to Warlock level + CHA mod and up to 5 allies half Warlock level + CHA mod."
+                },
+                "14": {
+                    "name": "Searing Vengeance (Celestial Patron)",
+                    "description": "When making a Death Save, regain half your HP max, stand up, and deal 2d8 + CHA mod Radiant damage plus Blindness to nearby foes (once per Long Rest)."
+                }
+            },
+            "scaling": {
+                "healing_light": {
+                    "name": "Healing Light",
+                    "kind": "heal",
+                    "hint": "Bonus Action spends d6s from a pool of (1 + Warlock level) dice to heal a creature within 60 ft.",
+                    "steps": [
+                        {
+                            "level": 3,
+                            "notation": "1d6"
+                        }
+                    ]
+                }
+            }
+        },
+        "Fiend Patron": {
+            "name": "Fiend Patron",
+            "bonus_spells": {
+                "3": [
+                    "Burning Hands",
+                    "Command",
+                    "Scorching Ray",
+                    "Suggestion"
+                ],
+                "5": [
+                    "Fireball",
+                    "Stinking Cloud"
+                ],
+                "7": [
+                    "Fire Shield",
+                    "Wall of Fire"
+                ],
+                "9": [
+                    "Geas",
+                    "Insect Plague"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Dark One's Blessing & Fiend Spells (Fiend Patron)",
+                    "description": "Always have Fiend spells prepared and gain Temporary HP equal to CHA modifier + Warlock level when a nearby enemy falls to 0 HP."
+                },
+                "6": {
+                    "name": "Dark One's Own Luck (Fiend Patron)",
+                    "description": "Add 1d10 to an ability check or saving throw after seeing the roll (CHA modifier uses per Long Rest)."
+                },
+                "10": {
+                    "name": "Fiendish Resilience (Fiend Patron)",
+                    "description": "Choose one damage type other than Force after each Short or Long Rest and gain Resistance to it."
+                },
+                "14": {
+                    "name": "Hurl Through Hell (Fiend Patron)",
+                    "description": "Once per Long Rest (or by expending a Pact slot), banish a hit target through the lower planes for 8d10 Psychic damage and Incapacitation."
+                }
+            },
+            "scaling": {
+                "dark_ones_own_luck": {
+                    "name": "Dark One's Own Luck",
+                    "kind": "utility",
+                    "hint": "Add 1d10 to an ability check or saving throw after seeing the roll (CHA mod uses per Long Rest).",
+                    "steps": [
+                        {
+                            "level": 6,
+                            "notation": "1d10"
+                        }
+                    ]
+                },
+                "hurl_through_hell": {
+                    "name": "Hurl Through Hell",
+                    "kind": "rider",
+                    "damage_type": "psychic",
+                    "hint": "On hit (1/Long Rest or Pact Slot): banish target through the lower planes for 8d10 Psychic damage (CHA save).",
+                    "steps": [
+                        {
+                            "level": 14,
+                            "notation": "8d10"
+                        }
+                    ]
+                }
+            }
+        },
+        "Great Old One Patron": {
+            "name": "Great Old One Patron",
+            "bonus_spells": {
+                "3": [
+                    "Detect Thoughts",
+                    "Dissonant Whispers",
+                    "Hideous Laughter",
+                    "Phantasmal Force"
+                ],
+                "5": [
+                    "Clairvoyance",
+                    "Hunger of Hadar"
+                ],
+                "7": [
+                    "Confusion",
+                    "Summon Aberration"
+                ],
+                "9": [
+                    "Modify Memory",
+                    "Telekinesis"
+                ],
+                "10": [
+                    "Hex"
+                ]
+            },
+            "features": {
+                "3": {
+                    "name": "Awakened Mind & Psychic Spells (Great Old One Patron)",
+                    "description": "Always have Great Old One spells prepared, communicate telepathically, omit Verbal/Somatic components on Illusion/Enchantment spells, and swap spell damage to Psychic."
+                },
+                "6": {
+                    "name": "Clairvoyant Combatant (Great Old One Patron)",
+                    "description": "A creature linked via Awakened Mind suffers Disadvantage on attacks against you while you gain Advantage on attacks against it (once per Short/Long Rest)."
+                },
+                "10": {
+                    "name": "Eldritch Hex & Thought Shield (Great Old One Patron)",
+                    "description": "Gain Resistance to Psychic damage, prevent mind-reading, and impose Disadvantage on one ability's saving throws via Hex."
+                },
+                "14": {
+                    "name": "Create Thrall (Great Old One Patron)",
+                    "description": "Always have Summon Aberration prepared and summon an Aberration without Concentration (with bonus Temporary HP) for 1 minute."
+                }
+            }
+        }
+    }
+}

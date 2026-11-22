@@ -14,7 +14,7 @@ SUBCLASS_FEATURES_DETAILS_2024: dict[tuple[str, str, int], dict[str, str]] = {
     },
     ("Fighter", "Champion", 10): {
         "name": "Heroic Warrior (Champion)",
-        "description": "Whenever you start your turn in combat with 0 Temporary Hit Points, you can give yourself Heroic Inspiration.",
+        "description": "Whenever you start your turn in combat without Heroic Inspiration, you can give yourself Heroic Inspiration.",
     },
     ("Fighter", "Champion", 15): {
         "name": "Superior Critical (Champion)",
@@ -218,8 +218,8 @@ SUBCLASS_FEATURES_DETAILS_2024: dict[tuple[str, str, int], dict[str, str]] = {
         "description": "Instead of rolling dice to heal with a spell or Channel Divinity, use the highest number possible for each die.",
     },
     ("Cleric", "Light Domain", 3): {
-        "name": "Light Domain Spells & Radiance of the Dawn (Light Domain)",
-        "description": "Always have Light Domain spells prepared, gain the Light cantrip, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation.",
+        "name": "Light Domain Spells, Warding Flare & Radiance of the Dawn (Light Domain)",
+        "description": "Always have Light Domain spells prepared, use Warding Flare via Reaction to impose Disadvantage on an attacker within 30 feet, and expend Channel Divinity to dispel magical darkness and deal Radiant damage in a 30-foot Emanation.",
     },
     ("Cleric", "Light Domain", 6): {
         "name": "Improved Warding Flare (Light Domain)",
@@ -511,7 +511,7 @@ SUBCLASS_FEATURES_DETAILS_2024: dict[tuple[str, str, int], dict[str, str]] = {
     },
     ("Ranger", "Hunter", 7): {
         "name": "Defensive Tactics (Hunter)",
-        "description": "Gain Escape the Horde (Opportunity Attacks have Disadvantage against you) or Multiattack Defense (+4 AC against subsequent attacks from the same attacker).",
+        "description": "Choose Escape the Horde (Opportunity Attacks have Disadvantage against you) or Multiattack Defense (when a creature hits you, it has Disadvantage on all other attack rolls against you this turn); you can change your choice after a Short or Long Rest.",
     },
     ("Ranger", "Hunter", 11): {
         "name": "Superior Hunter's Prey (Hunter)",
@@ -519,7 +519,7 @@ SUBCLASS_FEATURES_DETAILS_2024: dict[tuple[str, str, int], dict[str, str]] = {
     },
     ("Ranger", "Hunter", 15): {
         "name": "Superior Hunter's Defense (Hunter)",
-        "description": "Gain Evasion to negate or halve DEX save damage and Uncanny Dodge to halve attack damage with a Reaction.",
+        "description": "When you take damage, use your Reaction to give yourself Resistance to that damage and to any other damage of the same type until the end of the current turn.",
     },
     # ==========================================
     # Rogue (3, 9, 13, 17)
@@ -807,7 +807,7 @@ SUBCLASS_FEATURES_DETAILS_2024: dict[tuple[str, str, int], dict[str, str]] = {
     },
     ("Wizard", "Illusionist", 3): {
         "name": "Illusion Savant & Improved Illusions (Illusionist)",
-        "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, enhance Minor Illusion, and cast Summon Beast/Fey as illusions.",
+        "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, extend their range by 60 feet, and enhance Minor Illusion to create both sound and image.",
     },
     ("Wizard", "Illusionist", 6): {
         "name": "Phantasmal Creatures (Illusionist)",
