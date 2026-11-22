@@ -57,7 +57,7 @@
     {"name": "Pact of the Tome", "min_level": 1, "description": "Conjure a Book of Shadows granting three cantrips from any class's spell list and two Level 1 Ritual spells from any class's spell list."},
     {"name": "Armor of Shadows", "min_level": 1, "description": "Cast Mage Armor on yourself without expending a spell slot."},
     {"name": "Eldritch Mind", "min_level": 1, "description": "You have Advantage on Constitution saving throws that you make to maintain Concentration."},
-    {"name": "Lessons of the First Ones", "min_level": 2, "description": "Gain an Origin feat of your choice (repeatable for distinct Origin feats)."},
+    {"name": "Lessons of the First Ones", "min_level": 1, "description": "Gain an Origin feat of your choice (repeatable for distinct Origin feats)."},
     {"name": "Agonizing Blast", "min_level": 2, "description": "Choose one of your known Warlock cantrips that deals damage; add your Charisma modifier to that spell's damage rolls."},
     {"name": "Devil's Sight", "min_level": 2, "description": "See normally in Dim Light and Darkness—both magical and nonmagical—within 120 feet of yourself."},
     {"name": "Fiendish Vigor", "min_level": 2, "description": "Cast False Life on yourself without expending a spell slot, automatically receiving the maximum Temporary Hit Points."},

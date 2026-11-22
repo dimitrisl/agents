@@ -513,16 +513,27 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
 
     # 2. Features and Traits
     # e.g., "Bonus Proficiency: Heavy Armor" or "Training in War and Song" (Light armor)
-    for feat in char_data.get("features_traits", []):
-        if not isinstance(feat, dict):
+    for feat in char_data.get("features_traits", []) or []:
+        if isinstance(feat, dict):
+            f_name = str(feat.get("name") or "").strip().lower()
+            f_desc = str(feat.get("description") or "").lower()
+        elif isinstance(feat, str):
+            f_name = feat.strip().lower()
+            f_desc = ""
+        else:
             continue
-        f_name = str(feat.get("name") or "").strip().lower()
         # Generic multi-option 2024 choice placeholders mention Protector/Warden in prose;
         # only grant armor proficiency in 2024 when the specific order option was actually chosen.
         is_protector_order = (
-            "protector" in f_name and "divine" in f_name and "thaumaturge" not in f_name
+            "protector" in f_name
+            and "thaumaturge" not in f_name
+            and ("divine" in f_name or f_name == "protector")
         )
-        is_warden_order = "warden" in f_name and "primal" in f_name and "magician" not in f_name
+        is_warden_order = (
+            "warden" in f_name
+            and "magician" not in f_name
+            and ("primal" in f_name or f_name == "warden")
+        )
         if is_protector_order:
             if is_2024:
                 proficiencies.add("heavy armor")
@@ -537,7 +548,7 @@ def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dic
             or ("warden" in f_name and "magician" in f_name)
         ):
             continue
-        desc = (feat.get("description", "") + " " + feat.get("name", "")).lower()
+        desc = f"{f_desc} {f_name}".strip()
         if "proficien" not in desc and "training" not in desc:
             continue
         if re.search(r"\blight(?:\s*(?:,|and)\s*(?:medium|heavy))*\s+armor\b", desc):
@@ -681,13 +692,24 @@ def get_character_weapon_proficiencies(
         "firearms",
     )
     for feat in char_data.get("features_traits", []) or []:
-        if not isinstance(feat, dict):
+        if isinstance(feat, dict):
+            f_name = str(feat.get("name") or "").strip().lower()
+            f_desc = str(feat.get("description") or "").lower()
+        elif isinstance(feat, str):
+            f_name = feat.strip().lower()
+            f_desc = ""
+        else:
             continue
-        f_name = str(feat.get("name") or "").strip().lower()
         is_protector_order = (
-            "protector" in f_name and "divine" in f_name and "thaumaturge" not in f_name
+            "protector" in f_name
+            and "thaumaturge" not in f_name
+            and ("divine" in f_name or f_name == "protector")
         )
-        is_warden_order = "warden" in f_name and "primal" in f_name and "magician" not in f_name
+        is_warden_order = (
+            "warden" in f_name
+            and "magician" not in f_name
+            and ("primal" in f_name or f_name == "warden")
+        )
         if is_protector_order or is_warden_order:
             if is_2024:
                 profs.add("martial weapons")
@@ -698,7 +720,6 @@ def get_character_weapon_proficiencies(
             or ("warden" in f_name and "magician" in f_name)
         ):
             continue
-        f_desc = str(feat.get("description") or "").lower()
         combined = f"{f_name} {f_desc}"
         if "gunner" in f_name:
             profs.add("firearms")

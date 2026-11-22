@@ -965,15 +965,364 @@ def test_2024_cantrip_bonus_spells_fallback_seeding_and_martial_level5_bonus_spe
         "features_traits": [{"name": "Divine Order (Protector or Thaumaturge)", "description": ""}],
     }
     lu_cleric = analyze_level_up(mc_to_cleric, {"level_up_class": "Cleric"})
-    assert any(c["type"] == "divine_order" for c in lu_cleric["choices_required"])
+    divine_idx_initial = next(
+        i for i, c in enumerate(lu_cleric["choices_required"]) if c["type"] == "divine_order"
+    )
+    assert divine_idx_initial == 0
     # Picking Thaumaturge in user_choices adds +1 cantrip (4 total instead of 3)
+    # WITHOUT shifting divine_order's index!
     lu_thaum = analyze_level_up(
         mc_to_cleric,
         {"level_up_class": "Cleric", "divine_order_0": "Divine Order: Thaumaturge"},
     )
+    divine_idx_after = next(
+        i for i, c in enumerate(lu_thaum["choices_required"]) if c["type"] == "divine_order"
+    )
+    assert divine_idx_after == divine_idx_initial == 0
     cantrip_choices = [
         c
         for c in lu_thaum["choices_required"]
         if c["type"] == "spell" and "cantrip" in c["label"].lower()
     ]
     assert len(cantrip_choices) == 4
+
+    # Same index invariance for 2024 Druid L1 Primal Order (Magician adds 3rd cantrip without shifting primal_order_0)
+    lu_druid = analyze_level_up(mc_to_cleric, {"level_up_class": "Druid"})
+    primal_idx_initial = next(
+        i for i, c in enumerate(lu_druid["choices_required"]) if c["type"] == "primal_order"
+    )
+    assert primal_idx_initial == 0
+    lu_mag = analyze_level_up(
+        mc_to_cleric,
+        {"level_up_class": "Druid", "primal_order_0": "Primal Order: Magician"},
+    )
+    primal_idx_after = next(
+        i for i, c in enumerate(lu_mag["choices_required"]) if c["type"] == "primal_order"
+    )
+    assert primal_idx_after == primal_idx_initial == 0
+    druid_cantrips = [
+        c
+        for c in lu_mag["choices_required"]
+        if c["type"] == "spell" and "cantrip" in c["label"].lower()
+    ]
+    assert len(druid_cantrips) == 3
+
+
+def test_level_up_apply_validates_structured_choices_and_rejects_spoofing():
+    import mongomock
+
+    from server.db_async import get_database
+
+    class _AsyncColl:
+        def __init__(self, coll):
+            self._coll = coll
+
+        async def find_one(self, *a, **kw):
+            return self._coll.find_one(*a, **kw)
+
+        async def find_one_and_update(self, *a, **kw):
+            return self._coll.find_one_and_update(*a, **kw)
+
+        async def update_one(self, *a, **kw):
+            return self._coll.update_one(*a, **kw)
+
+        def find(self, *a, **kw):
+            items = list(self._coll.find(*a, **kw))
+
+            class _Cursor:
+                def __init__(self):
+                    self._idx = 0
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    if self._idx >= len(items):
+                        raise StopAsyncIteration
+                    val = items[self._idx]
+                    self._idx += 1
+                    return val
+
+                async def to_list(self, length=None):
+                    return items
+
+            return _Cursor()
+
+    class _AsyncDB:
+        def __init__(self):
+            self._db = mongomock.MongoClient()["test_2024_lu_sec"]
+
+        def __getitem__(self, name):
+            return _AsyncColl(self._db[name])
+
+    mock_db = _AsyncDB()
+    base_hero = {
+        "owner_id": "u_sec_2024",
+        "race": "Human",
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 16, "CHA": 16},
+        "hp_max": 12,
+        "hp_current": 12,
+        "armor_class": 14,
+        "version": 1,
+        "features_traits": [],
+        "spells": {},
+        "prepared_spells": [],
+    }
+    mock_db["characters"]._coll.insert_many(
+        [
+            {
+                **base_hero,
+                "char_id": "sec_fighter",
+                "char_name": "SecFighter",
+                "char_class": "Fighter",
+                "char_level": 1,
+                "classes": [{"class_name": "Fighter", "level": 1}],
+            },
+            {
+                **base_hero,
+                "char_id": "sec_warlock",
+                "char_name": "SecWarlock",
+                "char_class": "Warlock",
+                "char_level": 1,
+                "classes": [{"class_name": "Warlock", "level": 1}],
+            },
+            {
+                **base_hero,
+                "char_id": "sec_sorc",
+                "char_name": "SecSorc",
+                "char_class": "Sorcerer",
+                "char_level": 1,
+                "classes": [{"class_name": "Sorcerer", "level": 1}],
+            },
+        ]
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "u_sec_2024",
+        "username": "sec_player",
+        "is_admin": False,
+    }
+    try:
+        client = TestClient(app)
+        fighter_doc = mock_db["characters"]._coll.find_one({"char_id": "sec_fighter"})
+        f_analysis = analyze_level_up(fighter_doc)
+
+        # 1. Cross-class Divine Order on Fighter L2 -> 400
+        res_cross = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "hp_method": "average",
+                    "divine_order_0": "Divine Order: Protector",
+                },
+            },
+        )
+        assert res_cross.status_code == 400, res_cross.text
+
+        # 2. Arbitrary spoofed feature ('Dazzling Footwork') -> 400
+        res_arb = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_analysis,
+                "user_choices": {
+                    "level_up_class": "Fighter",
+                    "hp_method": "average",
+                    "other_0": "Dazzling Footwork",
+                },
+            },
+        )
+        assert res_arb.status_code == 400, res_arb.text
+
+        # 3. Mutually exclusive Divine Orders on Fighter multiclassing to Cleric L1 -> 400
+        f_to_c_analysis = analyze_level_up(fighter_doc, {"level_up_class": "Cleric"})
+        res_excl = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_to_c_analysis,
+                "user_choices": {
+                    "level_up_class": "Cleric",
+                    "hp_method": "average",
+                    "divine_order_0": "Divine Order: Protector",
+                    "divine_order_1": "Divine Order: Thaumaturge",
+                },
+            },
+        )
+        assert res_excl.status_code == 400, res_excl.text
+        assert "maximum 1 allowed" in res_excl.json()["detail"].lower()
+
+        # 4. Over-level invocation (Devouring Blade min_level=12) on Warlock L2 -> 400
+        warlock_doc = mock_db["characters"]._coll.find_one({"char_id": "sec_warlock"})
+        w_analysis = analyze_level_up(warlock_doc)
+        res_over_lvl = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_warlock",
+                "analysis": w_analysis,
+                "user_choices": {
+                    "level_up_class": "Warlock",
+                    "hp_method": "average",
+                    "eldritch_invocation_0": "Devouring Blade",
+                },
+            },
+        )
+        assert res_over_lvl.status_code == 400, res_over_lvl.text
+
+        # 5. Over-cap Metamagic (3 choices at Sorcerer L2, cap is 2) -> 400
+        sorc_doc = mock_db["characters"]._coll.find_one({"char_id": "sec_sorc"})
+        s_analysis = analyze_level_up(sorc_doc)
+        res_over_cap = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_sorc",
+                "analysis": s_analysis,
+                "user_choices": {
+                    "level_up_class": "Sorcerer",
+                    "hp_method": "average",
+                    "metamagic_0": "Metamagic: Quickened Spell",
+                    "metamagic_1": "Metamagic: Subtle Spell",
+                    "metamagic_2": "Metamagic: Twinned Spell",
+                },
+            },
+        )
+        assert res_over_cap.status_code == 400, res_over_cap.text
+        assert "maximum 2 allowed" in res_over_cap.json()["detail"].lower()
+
+        # 6. Legal multiclass Cleric L1 with single Divine Order: Thaumaturge -> 200
+        res_ok = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": "sec_fighter",
+                "analysis": f_to_c_analysis,
+                "user_choices": {
+                    "level_up_class": "Cleric",
+                    "hp_method": "average",
+                    "divine_order_0": "Divine Order: Thaumaturge",
+                },
+            },
+        )
+        assert res_ok.status_code == 200, res_ok.text
+        assert any(
+            f["name"] == "Divine Order: Thaumaturge" for f in res_ok.json()["features_traits"]
+        )
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
+def test_smart_quote_null_safe_spells_legacy_string_orders_and_2024_phb_data_fixes():
+    repo = RulesRepository()
+
+    # 1. stats_service handles smart-quote subclass bonus spells & malformed dict spell entries without crashing
+    wild_heart_curly = {
+        "char_name": "NullSafeBram",
+        "char_class": "Barbarian",
+        "subclass": "Path of the Wild Heart",
+        "char_level": 10,
+        "race": "Human",
+        "background": "Guide",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 18, "DEX": 14, "CON": 16, "INT": 8, "WIS": 12, "CHA": 10},
+        "spells": {
+            "cantrips": [{"name": None}],
+            "level_5": [{"name": None}, {"name": "Commune with Nature"}, "Wall of Force"],
+        },
+        "prepared_spells": [{"name": None}, "Commune with Nature", "Wall of Force"],
+        "features_traits": [],
+    }
+    synced_ns = sync_character_stats(wild_heart_curly)
+    assert any(
+        (s.get("name") if isinstance(s, dict) else s) == "Commune with Nature"
+        for s in synced_ns["spells"].get("level_5", [])
+    )
+    assert "Wall of Force" not in synced_ns["spells"].get("level_5", [])
+    assert "Commune with Nature" in synced_ns["prepared_spells"]
+
+    # Smart-quote apostrophe matching on Hunter's Mark / Yolande's Regal Presence in prepared_spells
+    glamour_bard = {
+        "char_name": "CurlyBard",
+        "char_class": "Bard",
+        "subclass": "College of Glamour",
+        "char_level": 9,
+        "race": "Human",
+        "background": "Entertainer",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 12, "INT": 10, "WIS": 10, "CHA": 18},
+        "spells": {"level_5": ["Yolande\u2019s Regal Presence"]},
+        "prepared_spells": ["Yolande's Regal Presence"],
+        "features_traits": [],
+    }
+    synced_gb = sync_character_stats(glamour_bard)
+    assert synced_gb["prepared_spells"] == ["Yolande's Regal Presence"]
+
+    # 2. validation_service handles legacy string entries & bare 'Protector'/'Warden' consistently with forge_service
+    str_prot_cleric = {
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "features_traits": ["Protector"],
+    }
+    assert "heavy armor" in get_character_armor_proficiencies(str_prot_cleric, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(str_prot_cleric)
+
+    str_warden_druid = {
+        "char_class": "Druid",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "features_traits": ["Warden"],
+    }
+    assert "medium armor" in get_character_armor_proficiencies(str_warden_druid, None)
+    assert "martial weapons" in get_character_weapon_proficiencies(str_warden_druid)
+
+    # Gift of the Protectors must NOT falsely trigger Protector armor/weapon profs
+    warlock_gotp = {
+        "char_class": "Warlock",
+        "char_level": 9,
+        "dnd_edition": EDITION_2024,
+        "features_traits": ["Gift of the Protectors"],
+    }
+    assert "heavy armor" not in get_character_armor_proficiencies(warlock_gotp, None)
+    assert "martial weapons" not in get_character_weapon_proficiencies(warlock_gotp)
+
+    # 3. 2024 PHB static data fixes: Illusionist L3 Minor Illusion, GOO L10 Hex, Lessons of the First Ones min_level=1
+    illusionist = {
+        "char_name": "Mirage",
+        "char_class": "Wizard",
+        "subclass": "Illusionist",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(illusionist, "Wizard", "Illusionist", 3, EDITION_2024, repo=repo)
+    assert "Minor Illusion" in illusionist["spells"].get("cantrips", [])
+    assert "Minor Illusion" not in illusionist["spells"].get("level_1", [])
+
+    goo_l10 = {
+        "char_name": "Cthulu",
+        "char_class": "Warlock",
+        "subclass": "Great Old One Patron",
+        "char_level": 10,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(
+        goo_l10, "Warlock", "Great Old One Patron", 10, EDITION_2024, repo=repo
+    )
+    assert "Hex" in goo_l10["spells"].get("level_1", [])
+
+    lessons = next(
+        inv
+        for inv in repo.get_class_choices(EDITION_2024)["eldritch_invocations"]
+        if inv["name"] == "Lessons of the First Ones"
+    )
+    assert lessons["min_level"] == 1

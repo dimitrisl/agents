@@ -105,6 +105,9 @@
         "Illusionist": {
             "name": "Illusionist",
             "bonus_spells": {
+                "3": [
+                    "Minor Illusion"
+                ],
                 "6": [
                     "Summon Beast",
                     "Summon Fey"

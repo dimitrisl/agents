@@ -1428,6 +1428,142 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     http.verify();
     fixture.destroy();
   });
+
+  it('toggles 2024 Divine Order / Primal Order cleanly, re-keys shifted order indices, and drops stale cantrip picks', () => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'mc_cleric_l1',
+      char_name: 'Aelric',
+      char_class: 'Fighter',
+      char_level: 1,
+      classes: [{ class_name: 'Fighter', level: 1 }],
+      dnd_edition: '2024 Revision (5.5e)',
+      dm_level_up_unlocked: true,
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    const comp = fixture.componentInstance;
+
+    comp.onLevelUp();
+    http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis')).flush({
+      automatic_changes: [],
+      hp_increase: 7,
+      hp_bonus_per_level: 0,
+      new_total_hp: 19,
+      choices_required: [],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+
+    // Multiclass into Cleric L1 (divine_order at index 0 before 3 cantrips)
+    comp.onLevelUpChoicesChange({ level_up_class: 'Cleric' });
+    http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis')).flush({
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 18,
+      choices_required: [
+        { type: 'divine_order', label: 'Choose your Divine Order', options: ['Divine Order: Protector', 'Divine Order: Thaumaturge'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #1', options: ['Guidance', 'Sacred Flame', 'Thaumaturgy', 'Toll the Dead'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #2', options: ['Guidance', 'Sacred Flame', 'Thaumaturgy', 'Toll the Dead'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #3', options: ['Guidance', 'Sacred Flame', 'Thaumaturgy', 'Toll the Dead'] },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: { level_1: 2 },
+    });
+
+    // Pick Thaumaturge + stale cantrips: must drop stale spell_* keys and re-query with divine_order_0
+    comp.onLevelUpChoicesChange({
+      level_up_class: 'Cleric',
+      divine_order_0: 'Divine Order: Thaumaturge',
+      spell_1: 'Guidance',
+      spell_2: 'Sacred Flame',
+    });
+    expect(comp.levelUpUserChoices['spell_1']).toBeUndefined();
+    expect(comp.levelUpUserChoices['spell_2']).toBeUndefined();
+
+    const thaumReq = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    expect(thaumReq.request.body.user_choices).toEqual({
+      level_up_class: 'Cleric',
+      divine_order_0: 'Divine Order: Thaumaturge',
+    });
+    // Even if a server response placed divine_order at a shifted index (e.g. 4), tap() re-keys cleanly
+    thaumReq.flush({
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 18,
+      choices_required: [
+        { type: 'spell', label: 'Learn Cleric Cantrip #1', options: ['Guidance', 'Sacred Flame'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #2', options: ['Guidance', 'Sacred Flame'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #3', options: ['Guidance', 'Sacred Flame'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #4', options: ['Guidance', 'Sacred Flame'] },
+        { type: 'divine_order', label: 'Choose your Divine Order', options: ['Divine Order: Protector', 'Divine Order: Thaumaturge'] },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: { level_1: 2 },
+    });
+    expect(comp.levelUpUserChoices['divine_order_0']).toBeUndefined();
+    expect(comp.levelUpUserChoices['divine_order_4']).toBe('Divine Order: Thaumaturge');
+
+    // Switch back to Protector: only one divine_order key remains and new index is aligned cleanly
+    comp.onLevelUpChoicesChange({
+      ...comp.levelUpUserChoices,
+      divine_order_4: 'Divine Order: Protector',
+      spell_3: 'Toll the Dead',
+    });
+    expect(comp.levelUpUserChoices['spell_3']).toBeUndefined();
+    const protReq = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    expect(protReq.request.body.user_choices).toEqual({
+      level_up_class: 'Cleric',
+      divine_order_4: 'Divine Order: Protector',
+    });
+    protReq.flush({
+      automatic_changes: [],
+      hp_increase: 6,
+      hp_bonus_per_level: 0,
+      new_total_hp: 18,
+      choices_required: [
+        { type: 'divine_order', label: 'Choose your Divine Order', options: ['Divine Order: Protector', 'Divine Order: Thaumaturge'] },
+        { type: 'spell', label: 'Learn Cleric Cantrip #1', options: ['Guidance', 'Sacred Flame'] },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: { level_1: 2 },
+    });
+    expect(comp.levelUpUserChoices['divine_order_4']).toBeUndefined();
+    expect(comp.levelUpUserChoices['divine_order_0']).toBe('Divine Order: Protector');
+    expect(
+      Object.keys(comp.levelUpUserChoices).filter((k) => k.startsWith('divine_order'))
+    ).toEqual(['divine_order_0']);
+
+    http.verify();
+    fixture.destroy();
+  });
 });
 
 describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas Sync', () => {

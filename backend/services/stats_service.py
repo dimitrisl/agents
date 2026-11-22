@@ -1500,13 +1500,15 @@ def sync_character_stats(
             if k not in normalized_spells:
                 if isinstance(val, list):
                     normalized_spells[k] = [
-                        (
-                            item.get("name") or item.get("spell_name")
-                            if isinstance(item, dict)
-                            else str(item)
-                        ).strip()
+                        s_name
                         for item in val
-                        if item
+                        if (
+                            s_name := str(
+                                (item.get("name") or item.get("spell_name") or "")
+                                if isinstance(item, dict)
+                                else ("" if item is None else item)
+                            ).strip()
+                        )
                     ]
         char_data["spells"] = normalized_spells
     elif isinstance(raw_spells, list):
@@ -1551,9 +1553,15 @@ def sync_character_stats(
 
     if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
         char_data["prepared_spells"] = [
-            (ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)).strip()
+            ps_name
             for ps in char_data["prepared_spells"]
-            if ps
+            if (
+                ps_name := str(
+                    (ps.get("name") or ps.get("spell_name") or "")
+                    if isinstance(ps, dict)
+                    else ("" if ps is None else ps)
+                ).strip()
+            )
         ]
 
     is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
@@ -2727,6 +2735,19 @@ def sync_character_stats(
         ]
         if not _sub_check_entries and char_class:
             _sub_check_entries = [(str(char_class).strip(), str(subclass or "").strip(), level)]
+
+        def _extract_spell_name(item: Any) -> str:
+            if isinstance(item, dict):
+                raw = item.get("name") or item.get("spell_name") or ""
+            elif item is None:
+                raw = ""
+            else:
+                raw = str(item)
+            return str(raw).strip()
+
+        def _norm_spell_key(name: str) -> str:
+            return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
         for _sc_cls, _sc_sub, _sc_lvl in _sub_check_entries:
             if not _sc_cls or not _sc_sub:
                 continue
@@ -2738,7 +2759,7 @@ def sync_character_stats(
                     continue
                 if _sc_lvl >= _req_lvl:
                     for _sp in _sp_list or []:
-                        _sp_norm = str(_sp or "").strip().lower()
+                        _sp_norm = _norm_spell_key(_extract_spell_name(_sp))
                         if _sp_norm:
                             exempt_subclass_spells.add(_sp_norm)
 
@@ -2748,10 +2769,7 @@ def sync_character_stats(
                 kept_exempt = [
                     s
                     for s in spells_dict[lvl_key]
-                    if ((s.get("name") or s.get("spell_name")) if isinstance(s, dict) else str(s))
-                    .strip()
-                    .lower()
-                    in exempt_subclass_spells
+                    if _norm_spell_key(_extract_spell_name(s)) in exempt_subclass_spells
                 ]
                 if len(kept_exempt) < len(spells_dict[lvl_key]):
                     logger.info(
@@ -2762,29 +2780,20 @@ def sync_character_stats(
         # Update prepared_spells as well to remove spells we just deleted (case-insensitive)
         valid_spell_names = set()
         for s in spells_dict.get("cantrips", []) or []:
-            s_name = (
-                s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
-            ).strip()
-            if s_name:
-                valid_spell_names.add(s_name.lower())
+            s_norm = _norm_spell_key(_extract_spell_name(s))
+            if s_norm:
+                valid_spell_names.add(s_norm)
         for i in range(1, 10):
             for s in spells_dict.get(f"level_{i}", []) or []:
-                s_name = (
-                    s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)
-                ).strip()
-                if s_name:
-                    valid_spell_names.add(s_name.lower())
+                s_norm = _norm_spell_key(_extract_spell_name(s))
+                if s_norm:
+                    valid_spell_names.add(s_norm)
 
         if "prepared_spells" in char_data and isinstance(char_data["prepared_spells"], list):
             char_data["prepared_spells"] = [
-                (
-                    ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps)
-                ).strip()
+                _extract_spell_name(ps)
                 for ps in char_data["prepared_spells"]
-                if (ps.get("name") or ps.get("spell_name") if isinstance(ps, dict) else str(ps))
-                .strip()
-                .lower()
-                in valid_spell_names
+                if _norm_spell_key(_extract_spell_name(ps)) in valid_spell_names
             ]
 
     rogue_level = 0

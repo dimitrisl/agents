@@ -25,6 +25,7 @@ from backend.services.forge_service import (
     forge_character_manual,
     generate_level_up_build_recommendations,
     generate_playstyle_guide,
+    validate_level_up_structured_choices,
 )
 from backend.services.rest_service import is_deceased_by_exhaustion
 from backend.services.stats_service import restore_base_hp_max
@@ -379,7 +380,10 @@ async def apply_level_up(
         for choice_key, choice_val in payload.user_choices.items():
             if not choice_val:
                 continue
-            base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
+            key_parts = choice_key.rsplit("_", 1)
+            base_type = (
+                key_parts[0] if (len(key_parts) == 2 and key_parts[1].isdigit()) else choice_key
+            )
             if base_type == "subclass":
                 chosen_subclass = choice_val
                 for cls in char_doc["classes"]:
@@ -517,6 +521,10 @@ async def apply_level_up(
             _bump_stat("DEX", 4, cap_override=25)
             _bump_stat("WIS", 4, cap_override=25)
 
+    # Snapshot pre-level-up features before automatic features are injected so structured choice
+    # validation matches analyze_level_up's authoritative allow-list and prerequisites.
+    pre_features_traits = copy.deepcopy(char_doc.get("features_traits") or [])
+
     # Inject authoritative automatic features from static RulesRepository only (never trust client list)
     static_auto_features = resolve_level_up_automatic_features(
         target_class, new_class_level, chosen_subclass, edition
@@ -545,7 +553,7 @@ async def apply_level_up(
 
     # Process user choices (feats, spells, skills — subclass already applied above)
     pre_level_spells = copy.deepcopy(char_doc.get("spells") or {})
-    selected_structured_in_payload: set[str] = set()
+    structured_entries: list[tuple[str, str, str]] = []
     selected_spells_in_payload: set[str] = set()
     if payload.user_choices:
         for choice_key, choice_val in payload.user_choices.items():
@@ -558,27 +566,48 @@ async def apply_level_up(
             ):
                 continue
 
-            # choice_key is now something like "subclass_0", "spell_1", "other_2"
-            base_type = choice_key.rsplit("_", 1)[0] if "_" in choice_key else choice_key
+            # choice_key is now something like "subclass_0", "spell_1", "divine_order_0"
+            key_parts = choice_key.rsplit("_", 1)
+            base_type = (
+                key_parts[0] if (len(key_parts) == 2 and key_parts[1].isdigit()) else choice_key
+            )
 
             if base_type == "subclass":
                 continue
+
+            # Structured class choice types are routed authoritatively and cannot be hijacked via client analysis labels
+            structured_choice_types = {
+                "divine_order",
+                "primal_order",
+                "fighting_style",
+                "pact_boon",
+                "eldritch_invocation",
+                "metamagic",
+                "maneuver",
+                "infusion",
+                "hunter_choice",
+            }
 
             # Check the type of choice from the analysis to know how to apply it
             choice_type = base_type
             choice_label = choice_key
 
-            # Extract index if present to get the exact label
+            # Extract index if present to get the exact label (only when analysis entry type matches base_type)
             if "_" in choice_key:
                 try:
                     idx = int(choice_key.rsplit("_", 1)[1])
-                    if idx < len(payload.analysis.choices_required):
+                    if 0 <= idx < len(payload.analysis.choices_required):
                         req = payload.analysis.choices_required[idx]
-                        choice_label = req.label
+                        if req.type == base_type:
+                            choice_label = req.label
                 except ValueError:
                     pass
 
-            if choice_type == "spell" or "spell" in choice_label.lower():
+            if choice_type in structured_choice_types:
+                clean_choice = str(choice_val).strip()
+                if clean_choice and clean_choice.lower() not in ("roll", "average", "manual"):
+                    structured_entries.append((base_type, choice_label, clean_choice))
+            elif choice_type == "spell" or "spell" in choice_label.lower():
                 clean_val = str(choice_val).strip()
                 norm_val = clean_val.lower().replace("\u2019", "'").replace("\u2018", "'")
                 if norm_val in selected_spells_in_payload:
@@ -749,47 +778,29 @@ async def apply_level_up(
                 # Metadata / mechanical level-up choices: do not append to features_traits
                 pass
             else:
-                # Structured class choice options (Fighting Style, Invocation, Metamagic, Maneuver, Pact Boon, Infusion, Hunter)
+                # Structured class choice options (Divine/Primal Order, Fighting Style, Invocation, Metamagic, Maneuver, Pact Boon, Infusion, Hunter)
                 if choice_val and str(choice_val).lower() not in ("roll", "average", "manual"):
                     clean_choice = str(choice_val).strip()
-                    clean_low = clean_choice.lower()
-                    if clean_low in selected_structured_in_payload or clean_low in {
-                        s.lower() for s in existing_features if s
-                    }:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Duplicate selection '{clean_choice}' for '{choice_label}'. Please choose distinct options.",
-                        )
-                    selected_structured_in_payload.add(clean_low)
-                    rules_repo_choices = RulesRepository().get_class_choices(edition)
-                    choice_desc = None
-                    for bucket_val in (rules_repo_choices or {}).values():
-                        items_iter = (
-                            [item for sub_lst in bucket_val.values() for item in (sub_lst or [])]
-                            if isinstance(bucket_val, dict)
-                            else (bucket_val if isinstance(bucket_val, list) else [])
-                        )
-                        matched_item = next(
-                            (
-                                it
-                                for it in items_iter
-                                if isinstance(it, dict)
-                                and str(it.get("name") or "").strip().lower()
-                                == clean_choice.lower()
-                            ),
-                            None,
-                        )
-                        if matched_item:
-                            choice_desc = matched_item.get("description")
-                            break
-                    char_doc.setdefault("features_traits", []).append(
-                        {
-                            "name": clean_choice,
-                            "description": choice_desc or f"Selected for {choice_label}",
-                            "source": "Class",
-                        }
-                    )
-                    existing_features.add(clean_choice)
+                    if clean_choice:
+                        structured_entries.append((base_type, choice_label, clean_choice))
+
+    if structured_entries:
+        try:
+            validated_structured = validate_level_up_structured_choices(
+                structured_entries=structured_entries,
+                pre_features_traits=pre_features_traits,
+                target_class=target_class,
+                new_class_level=new_class_level,
+                chosen_subclass=chosen_subclass,
+                edition=edition,
+                repo=RulesRepository(),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        for feat_entry in validated_structured:
+            if feat_entry["name"] not in existing_features:
+                char_doc.setdefault("features_traits", []).append(feat_entry)
+                existing_features.add(feat_entry["name"])
 
     # Process optional 1-for-1 leveled spell swap during Level Up
     if payload.user_choices:

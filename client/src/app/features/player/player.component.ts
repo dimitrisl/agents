@@ -446,6 +446,40 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
               tap((analysis) => {
                 this.levelUpLoading.set(false);
                 this.levelUpAnalysis = analysis;
+                const choicesReq = analysis?.choices_required || [];
+                const syncedChoices: Record<string, any> = { ...this.levelUpUserChoices };
+                let choicesUpdated = false;
+                for (const orderType of ['divine_order', 'primal_order'] as const) {
+                  const existingOrderKeys = Object.keys(syncedChoices).filter(
+                    (k) => k === orderType || k.startsWith(`${orderType}_`)
+                  );
+                  if (!existingOrderKeys.length) continue;
+                  const targetIdx = choicesReq.findIndex((c) => c.type === orderType);
+                  if (targetIdx === -1) {
+                    for (const k of existingOrderKeys) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                  } else {
+                    const targetKey = `${orderType}_${targetIdx}`;
+                    const preservedVal =
+                      syncedChoices[targetKey] ??
+                      syncedChoices[existingOrderKeys[existingOrderKeys.length - 1]];
+                    for (const k of existingOrderKeys) {
+                      if (k !== targetKey) {
+                        delete syncedChoices[k];
+                        choicesUpdated = true;
+                      }
+                    }
+                    if (preservedVal && syncedChoices[targetKey] !== preservedVal) {
+                      syncedChoices[targetKey] = preservedVal;
+                      choicesUpdated = true;
+                    }
+                  }
+                }
+                if (choicesUpdated) {
+                  this.levelUpUserChoices = syncedChoices;
+                }
                 if (this.levelUpUserChoices['hp_method'] === 'average' && analysis?.hp_increase) {
                   this.levelUpUserChoices = {
                     ...this.levelUpUserChoices,
@@ -3525,11 +3559,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private extractChosenOrder(choices: Record<string, any> | undefined): { key: string; value: string } | null {
     if (!choices) return null;
-    const orderKey = Object.keys(choices).find(
-      (k) => k.startsWith('divine_order_') || k.startsWith('primal_order_')
+    const orderKeys = Object.keys(choices).filter(
+      (k) =>
+        k === 'divine_order' ||
+        k === 'primal_order' ||
+        k.startsWith('divine_order_') ||
+        k.startsWith('primal_order_')
     );
-    if (!orderKey || !choices[orderKey]) return null;
-    return { key: orderKey, value: String(choices[orderKey]) };
+    const activeKey = [...orderKeys].reverse().find((k) => Boolean(choices[k]));
+    if (!activeKey) return null;
+    return { key: activeKey, value: String(choices[activeKey]) };
   }
 
   onLevelUpChoicesChange(choices: Record<string, any>) {
@@ -3541,10 +3580,19 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const newOrder = this.extractChosenOrder(choices);
     const orderChanged = (oldOrder?.value || '') !== (newOrder?.value || '');
     if (orderChanged) {
-      // Drop stale spell_* selections so excess bonus cantrip picks don't linger when toggling orders
+      // Drop stale spell_* selections and any duplicate order keys so excess cantrips or conflicting orders never linger
       const cleaned = { ...choices };
       for (const k of Object.keys(cleaned)) {
-        if (/^spell_\d+$/.test(k)) {
+        if (/^spell(?:_secret_\d+)?_\d+$/.test(k)) {
+          delete cleaned[k];
+        } else if (
+          newOrder &&
+          k !== newOrder.key &&
+          (k === 'divine_order' ||
+            k === 'primal_order' ||
+            k.startsWith('divine_order_') ||
+            k.startsWith('primal_order_'))
+        ) {
           delete cleaned[k];
         }
       }
