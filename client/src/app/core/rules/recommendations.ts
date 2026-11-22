@@ -326,10 +326,10 @@ export function getMaxCantrips(
   const choicesLow = (classChoices || []).map((ch) => String(ch || '').trim().toLowerCase());
   let extraCantrips = 0;
   if (is2024) {
-    if (c === 'cleric' && choicesLow.some((ch) => ch.includes('thaumaturge'))) {
+    if (c === 'cleric' && choicesLow.some((ch) => ch.includes('thaumaturge') && !ch.includes('protector'))) {
       extraCantrips += 1;
     }
-    if (c === 'druid' && choicesLow.some((ch) => ch.includes('magician'))) {
+    if (c === 'druid' && choicesLow.some((ch) => ch.includes('magician') && !ch.includes('warden'))) {
       extraCantrips += 1;
     }
   }

@@ -807,7 +807,7 @@ SUBCLASS_FEATURES_DETAILS_2024: dict[tuple[str, str, int], dict[str, str]] = {
     },
     ("Wizard", "Illusionist", 3): {
         "name": "Illusion Savant & Improved Illusions (Illusionist)",
-        "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, enhance Minor Illusion, and cast Summon Beast/Fey as illusions.",
+        "description": "Gain two Illusion spells in your spellbook, cast Illusion spells without Verbal components, extend their range by 60 feet, and enhance Minor Illusion to create both sound and image.",
     },
     ("Wizard", "Illusionist", 6): {
         "name": "Phantasmal Creatures (Illusionist)",

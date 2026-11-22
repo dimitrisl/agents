@@ -502,7 +502,7 @@ def test_manual_forge_rejects_cross_class_arbitrary_and_conflicting_class_choice
     }
     res_conflict = rules_client.post("/api/v1/forge/enrich-manual", json=conflict_payload)
     assert res_conflict.status_code == 400
-    assert "only one" in res_conflict.json()["detail"].lower()
+    assert "maximum 1 allowed" in res_conflict.json()["detail"].lower()
 
     # Over-level Warlock invocation (Devouring Blade at L1) rejected with 400
     over_level_payload = {
@@ -761,3 +761,219 @@ def test_level_up_apply_persists_2024_structured_choices_end_to_end():
     finally:
         app.dependency_overrides = orig
         limiter.reset()
+
+
+def test_manual_class_choices_enforce_progression_cardinality_caps(rules_client):
+    base_payload = {
+        "target_level": 1,
+        "race": "Human",
+        "background": "Soldier",
+        "name": "CapTester",
+        "base_stats": {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 10, "CHA": 16},
+        "skill_proficiencies": ["Athletics", "Perception"],
+        "saving_throws": ["STR", "CON"],
+        "edition": EDITION_2024,
+    }
+
+    # L1 Fighter cannot stack 2 Fighting Styles
+    res_f = rules_client.post(
+        "/api/v1/forge/enrich-manual",
+        json={
+            **base_payload,
+            "char_class": "Fighter",
+            "chosen_class_choices": ["Fighting Style: Defense", "Fighting Style: Dueling"],
+        },
+    )
+    assert res_f.status_code == 400
+    assert "too many" in res_f.json()["detail"].lower()
+
+    # L1 2024 Warlock is capped at 1 Invocation (cannot pick 2)
+    res_w = rules_client.post(
+        "/api/v1/forge/enrich-manual",
+        json={
+            **base_payload,
+            "char_class": "Warlock",
+            "chosen_class_choices": ["Pact of the Blade", "Armor of Shadows"],
+        },
+    )
+    assert res_w.status_code == 400
+    assert "too many" in res_w.json()["detail"].lower()
+
+    # L2 2024 Sorcerer is capped at 2 Metamagic options (cannot pick 3)
+    res_s = rules_client.post(
+        "/api/v1/forge/enrich-manual",
+        json={
+            **base_payload,
+            "char_class": "Sorcerer",
+            "target_level": 2,
+            "chosen_class_choices": [
+                "Metamagic: Quickened Spell",
+                "Metamagic: Subtle Spell",
+                "Metamagic: Twinned Spell",
+            ],
+        },
+    )
+    assert res_s.status_code == 400
+    assert "too many" in res_s.json()["detail"].lower()
+
+    # L7 2024 Champion Fighter IS allowed 2 Fighting Styles (L1 + L7 Additional Fighting Style)
+    from backend.services.forge_service import validate_manual_class_choices
+
+    valid_champ = validate_manual_class_choices(
+        ["Fighting Style: Defense", "Fighting Style: Dueling"],
+        char_class="Fighter",
+        target_level=7,
+        subclass="Champion",
+        edition=EDITION_2024,
+    )
+    assert len(valid_champ) == 2
+
+    # L2 2024 Warlock IS allowed 3 Invocations (1 at L1 + 2 at L2)
+    valid_lock = validate_manual_class_choices(
+        ["Pact of the Blade", "Agonizing Blast", "Eldritch Mind"],
+        char_class="Warlock",
+        target_level=2,
+        edition=EDITION_2024,
+    )
+    assert len(valid_lock) == 3
+
+
+def test_2024_cantrip_bonus_spells_fallback_seeding_and_martial_level5_bonus_spells():
+    from backend.services.rules_service import inject_mandatory_character_grants
+
+    repo = RulesRepository()
+
+    # 1. Subclass cantrip bonus_spells MUST land in spells['cantrips'], never spells['level_1']
+    celestial = {
+        "char_name": "Sol",
+        "char_class": "Warlock",
+        "subclass": "Celestial Patron",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(
+        celestial, "Warlock", "Celestial Patron", 3, EDITION_2024, repo=repo
+    )
+    assert "Light" in celestial["spells"].get("cantrips", [])
+    assert "Sacred Flame" in celestial["spells"].get("cantrips", [])
+    assert "Light" not in celestial["spells"].get("level_1", [])
+    assert "Sacred Flame" not in celestial["spells"].get("level_1", [])
+    assert "Cure Wounds" in celestial["spells"].get("level_1", [])
+    assert "Aid" in celestial["spells"].get("level_2", [])
+
+    elem_monk = {
+        "char_name": "Aang",
+        "char_class": "Monk",
+        "subclass": "Warrior of the Elements",
+        "char_level": 3,
+        "dnd_edition": EDITION_2024,
+        "spells": {},
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(
+        elem_monk, "Monk", "Warrior of the Elements", 3, EDITION_2024, repo=repo
+    )
+    assert "Elementalism" in elem_monk["spells"].get("cantrips", [])
+    assert "Elementalism" not in elem_monk["spells"].get("level_1", [])
+
+    # 2. Level 3 Celestial Warlock fallback forge still seeds base Warlock cantrips & spells BEFORE bonus spells
+    forged_celestial = {
+        "char_name": "Dawn",
+        "char_class": "Warlock",
+        "subclass": "Celestial Patron",
+        "char_level": 3,
+        "race": "Human",
+        "background": "Acolyte",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+        "spells": {},
+        "prepared_spells": [],
+        "features_traits": [],
+    }
+    inject_mandatory_character_grants(
+        forged_celestial, edition=EDITION_2024, is_forge=True, auto_spells=True
+    )
+    assert "Eldritch Blast" in forged_celestial["spells"].get("cantrips", [])
+    assert "Light" in forged_celestial["spells"].get("cantrips", [])
+    assert "Sacred Flame" in forged_celestial["spells"].get("cantrips", [])
+    assert "Hex" in forged_celestial["spells"].get("level_1", [])
+    assert "Cure Wounds" in forged_celestial["spells"].get("level_1", [])
+
+    # 3. Level-5 martial subclass bonus spells survive sync_character_stats(), while hallucinated L5 spells are stripped
+    wild_heart = {
+        "char_name": "Bram",
+        "char_class": "Barbarian",
+        "subclass": "Path of the Wild Heart",
+        "char_level": 10,
+        "race": "Human",
+        "background": "Guide",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 18, "DEX": 14, "CON": 16, "INT": 8, "WIS": 12, "CHA": 10},
+        "spells": {"level_5": ["Wall of Force"]},  # hallucinated spell to strip
+        "prepared_spells": ["Wall of Force"],
+        "features_traits": [],
+    }
+    inject_mandatory_character_grants(wild_heart, edition=EDITION_2024, is_forge=False)
+    synced_wh = sync_character_stats(wild_heart)
+    assert "Commune with Nature" in synced_wh["spells"].get("level_5", [])
+    assert "Commune with Nature" in synced_wh["prepared_spells"]
+    assert "Wall of Force" not in synced_wh["spells"].get("level_5", [])
+    assert "Wall of Force" not in synced_wh["prepared_spells"]
+
+    psi_warrior = {
+        "char_name": "Kael",
+        "char_class": "Fighter",
+        "subclass": "Psi Warrior",
+        "char_level": 18,
+        "race": "Human",
+        "background": "Soldier",
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 20, "DEX": 14, "CON": 16, "INT": 16, "WIS": 10, "CHA": 10},
+        "spells": {},
+        "prepared_spells": [],
+        "features_traits": [],
+    }
+    inject_mandatory_character_grants(psi_warrior, edition=EDITION_2024, is_forge=False)
+    synced_pw = sync_character_stats(psi_warrior)
+    assert "Telekinesis" in synced_pw["spells"].get("level_5", [])
+    assert "Telekinesis" in synced_pw["prepared_spells"]
+
+    # 4. Combined placeholder ("Divine Order (Protector or Thaumaturge)") must NOT grant
+    # Thaumaturge skill bonus OR suppress the divine_order level-up picker
+    combined_cleric = {
+        "char_name": "Unchosen",
+        "char_class": "Cleric",
+        "char_level": 1,
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+        "skill_proficiencies": [],
+        "features_traits": [{"name": "Divine Order (Protector or Thaumaturge)", "description": ""}],
+    }
+    synced_comb = sync_character_stats(dict(combined_cleric))
+    assert synced_comb["skills"]["Arcana"] == 0
+    assert synced_comb["skills"]["Religion"] == 0
+
+    mc_to_cleric = {
+        "char_name": "FighterToCleric",
+        "char_class": "Fighter",
+        "char_level": 1,
+        "classes": [{"class_name": "Fighter", "level": 1}],
+        "dnd_edition": EDITION_2024,
+        "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+        "features_traits": [{"name": "Divine Order (Protector or Thaumaturge)", "description": ""}],
+    }
+    lu_cleric = analyze_level_up(mc_to_cleric, {"level_up_class": "Cleric"})
+    assert any(c["type"] == "divine_order" for c in lu_cleric["choices_required"])
+    # Picking Thaumaturge in user_choices adds +1 cantrip (4 total instead of 3)
+    lu_thaum = analyze_level_up(
+        mc_to_cleric,
+        {"level_up_class": "Cleric", "divine_order_0": "Divine Order: Thaumaturge"},
+    )
+    cantrip_choices = [
+        c
+        for c in lu_thaum["choices_required"]
+        if c["type"] == "spell" and "cantrip" in c["label"].lower()
+    ]
+    assert len(cantrip_choices) == 4

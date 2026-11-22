@@ -2167,11 +2167,14 @@ def sync_character_stats(
     ]
     if is_2024_sheet:
         order_wis_bonus = max(1, get_modifier(wis_score))
-        has_thaumaturge = any("thaumaturge" in fn for fn in ft_names_low)
+        has_thaumaturge = any("thaumaturge" in fn and "protector" not in fn for fn in ft_names_low)
         has_magician = any(
-            "primal order: magician" in fn
-            or fn == "magician"
-            or ("magician" in fn and ("primal" in fn or "druid" in fn))
+            "warden" not in fn
+            and (
+                "primal order: magician" in fn
+                or fn == "magician"
+                or ("magician" in fn and ("primal" in fn or "druid" in fn))
+            )
             for fn in ft_names_low
         )
         if has_thaumaturge:
@@ -2702,13 +2705,59 @@ def sync_character_stats(
         # Allow innate/racial spells (up to level 3) for characters with few/no slots
         max_spell_level = max(max_spell_level, min(3, math.ceil(level / 2)))
 
+        # Exempt unlocked subclass bonus spells (e.g. Wild Heart L10 Commune with Nature,
+        # Psi Warrior L18 Telekinesis) from max_spell_level hallucination stripping.
+        exempt_subclass_spells: set[str] = set()
+        _sub_check_entries = [
+            (
+                str(c.get("class_name") or "").strip(),
+                str(
+                    c.get("subclass")
+                    or (
+                        subclass
+                        if str(c.get("class_name") or "").strip().lower()
+                        == str(char_class or "").strip().lower()
+                        else ""
+                    )
+                ).strip(),
+                int(c.get("level") or 1),
+            )
+            for c in (classes or [])
+            if isinstance(c, dict) and c.get("class_name")
+        ]
+        if not _sub_check_entries and char_class:
+            _sub_check_entries = [(str(char_class).strip(), str(subclass or "").strip(), level)]
+        for _sc_cls, _sc_sub, _sc_lvl in _sub_check_entries:
+            if not _sc_cls or not _sc_sub:
+                continue
+            _sc_entry = repo.get_subclass_entry(_sc_cls, _sc_sub, edition) or {}
+            for _req_str, _sp_list in (_sc_entry.get("bonus_spells") or {}).items():
+                try:
+                    _req_lvl = int(_req_str)
+                except (TypeError, ValueError):
+                    continue
+                if _sc_lvl >= _req_lvl:
+                    for _sp in _sp_list or []:
+                        _sp_norm = str(_sp or "").strip().lower()
+                        if _sp_norm:
+                            exempt_subclass_spells.add(_sp_norm)
+
         for i in range(max_spell_level + 1, 10):
             lvl_key = f"level_{i}"
             if spells_dict.get(lvl_key):
-                logger.info(
-                    f"Removing hallucinated {lvl_key} spells (max allowed for this build is {max_spell_level})"
-                )
-                spells_dict[lvl_key] = []
+                kept_exempt = [
+                    s
+                    for s in spells_dict[lvl_key]
+                    if ((s.get("name") or s.get("spell_name")) if isinstance(s, dict) else str(s))
+                    .strip()
+                    .lower()
+                    in exempt_subclass_spells
+                ]
+                if len(kept_exempt) < len(spells_dict[lvl_key]):
+                    logger.info(
+                        f"Removing hallucinated {lvl_key} spells (max allowed for this build is {max_spell_level})"
+                    )
+                spells_dict[lvl_key] = kept_exempt
 
         # Update prepared_spells as well to remove spells we just deleted (case-insensitive)
         valid_spell_names = set()
@@ -2718,7 +2767,7 @@ def sync_character_stats(
             ).strip()
             if s_name:
                 valid_spell_names.add(s_name.lower())
-        for i in range(1, max_spell_level + 1):
+        for i in range(1, 10):
             for s in spells_dict.get(f"level_{i}", []) or []:
                 s_name = (
                     s.get("name") or s.get("spell_name") if isinstance(s, dict) else str(s)

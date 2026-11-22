@@ -146,16 +146,21 @@ export function orderSkillBonus(
   const features = char.features_traits || [];
   if (!features.length) return 0;
 
-  const namesLow = features.map((f) => String(f?.name || '').trim().toLowerCase());
+  const namesLow = features.map((f) =>
+    String(typeof f === 'string' ? f : f?.name || '')
+      .trim()
+      .toLowerCase()
+  );
   const wisBonus = Math.max(1, abilityModifier(abilityScore(char, 'WIS')));
   let bonus = 0;
 
-  const hasThaumaturge = namesLow.some((fn) => fn.includes('thaumaturge'));
+  const hasThaumaturge = namesLow.some((fn) => fn.includes('thaumaturge') && !fn.includes('protector'));
   const hasMagician = namesLow.some(
     (fn) =>
-      fn.includes('primal order: magician') ||
-      fn === 'magician' ||
-      (fn.includes('magician') && (fn.includes('primal') || fn.includes('druid')))
+      !fn.includes('warden') &&
+      (fn.includes('primal order: magician') ||
+        fn === 'magician' ||
+        (fn.includes('magician') && (fn.includes('primal') || fn.includes('druid'))))
   );
 
   if (hasThaumaturge && (skillName === 'Arcana' || skillName === 'Religion')) {

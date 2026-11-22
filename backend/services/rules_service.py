@@ -240,7 +240,7 @@ def grant_subclass_bonus_spells(
     spell_lvl_lookup = {
         _norm_spell_key(sp.get("name")): (
             str(sp.get("name") or "").strip(),
-            int(sp.get("level", 1) or 1),
+            int(sp["level"]) if sp.get("level") is not None else 1,
         )
         for sp in all_ed_spells
         if isinstance(sp, dict) and sp.get("name")
@@ -401,6 +401,7 @@ def inject_mandatory_character_grants(
     if not class_entries and char_class and level >= 1:
         class_entries = [(char_class, max(1, min(20, level)), subclass)]
 
+    pending_subclass_bonus_spells: list[tuple[str, str, int]] = []
     if class_entries:
         from backend.services.forge_service import (
             is_subclass_placeholder_name,
@@ -460,10 +461,8 @@ def inject_mandatory_character_grants(
                         s_desc = f"{hint} ({notation})".strip(" ()") if notation else hint
                         _add_feature(s_name, s_desc, "Subclass")
 
-                # Grant Domain/Oath/Circle/Patron bonus spells up to current class level
-                grant_subclass_bonus_spells(
-                    char_data, cname, effective_sub, clvl, edition_str, repo=repo
-                )
+                # Queue Domain/Oath/Circle/Patron bonus spells so base-class auto-spells seed first
+                pending_subclass_bonus_spells.append((cname, effective_sub, clvl))
 
     # 3. Mandatory Background Features, Tools & Skills
     bg_mandatory_skills: list[str] = []
@@ -741,12 +740,17 @@ def inject_mandatory_character_grants(
                     str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
                     for f in (char_data.get("features_traits") or [])
                 ]
-                if class_lower == "cleric" and any("thaumaturge" in fn for fn in ft_low):
+                if class_lower == "cleric" and any(
+                    "thaumaturge" in fn and "protector" not in fn for fn in ft_low
+                ):
                     expected_cantrips += 1
                 if class_lower == "druid" and any(
-                    "primal order: magician" in fn
-                    or fn == "magician"
-                    or ("magician" in fn and ("primal" in fn or "druid" in fn))
+                    "warden" not in fn
+                    and (
+                        "primal order: magician" in fn
+                        or fn == "magician"
+                        or ("magician" in fn and ("primal" in fn or "druid" in fn))
+                    )
                     for fn in ft_low
                 ):
                     expected_cantrips += 1
@@ -761,8 +765,12 @@ def inject_mandatory_character_grants(
 
             # If fallback or high-level caster lacks spells at newly unlocked tiers (or lacks cantrips),
             # fill deterministically from static rules without discarding existing picks.
+            current_cantrip_count = (
+                len(current_spells.get("cantrips") or []) if isinstance(current_spells, dict) else 0
+            )
             if can_cast_at_lvl and (
                 not has_any_spells
+                or current_cantrip_count < expected_cantrips
                 or not any(current_spells.get(f"level_{t}") for t in unlocked_tiers if t >= 2)
             ):
                 spells_dict = (
@@ -823,6 +831,10 @@ def inject_mandatory_character_grants(
                             if s_name not in prepared:
                                 prepared.append(s_name)
                 char_data["prepared_spells"] = prepared
+
+    # Grant Domain/Oath/Circle/Patron/Specialist bonus spells AFTER base-class auto-spell seeding
+    for cname, effective_sub, clvl in pending_subclass_bonus_spells:
+        grant_subclass_bonus_spells(char_data, cname, effective_sub, clvl, edition_str, repo=repo)
 
         # Populate structured innate racial spells (High Elf cantrip, Drow Magic, Forest Gnome, Tiefling)
     if auto_spells and race_data and isinstance(race_data.get("innate_spells"), dict):

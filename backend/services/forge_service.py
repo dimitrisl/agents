@@ -1191,7 +1191,33 @@ def validate_manual_class_choices(
     resolved: list[dict] = []
     seen_names: set[str] = set()
     bucket_counts: dict[str, int] = {}
-    single_pick_buckets = {"divine_order", "primal_order", "pact_boon"}
+
+    # Compute exact class-, subclass-, level-, and edition-scoped cardinality caps
+    inv_schedule = (
+        {1: 1, 2: 2, 5: 2, 7: 1, 9: 1, 12: 1, 15: 1, 18: 1}
+        if is_2024
+        else {2: 2, 5: 1, 7: 1, 9: 1, 12: 1, 15: 1, 18: 1}
+    )
+    mm_schedule = {2: 2, 10: 2, 17: 2} if is_2024 else {3: 2, 10: 1, 17: 1}
+    bm_schedule = {3: 3, 7: 2, 10: 2, 15: 2}
+    inf_schedule = {2: 4, 6: 2, 10: 2, 14: 2, 18: 2}
+    champ_extra_style_lvl = 7 if is_2024 else 10
+    max_fighting_styles = (
+        2
+        if (c_lower == "fighter" and "champion" in sub_lower and lvl >= champ_extra_style_lvl)
+        else 1
+    )
+
+    bucket_limits: dict[str, int] = {
+        "divine_order": 1,
+        "primal_order": 1,
+        "pact_boon": 1,
+        "fighting_style": max_fighting_styles,
+        "eldritch_invocation": sum(cnt for req_l, cnt in inv_schedule.items() if req_l <= lvl),
+        "metamagic": sum(cnt for req_l, cnt in mm_schedule.items() if req_l <= lvl),
+        "maneuver": sum(cnt for req_l, cnt in bm_schedule.items() if req_l <= lvl),
+        "artificer_infusion": sum(cnt for req_l, cnt in inf_schedule.items() if req_l <= lvl),
+    }
 
     for raw in chosen_class_choices:
         if not isinstance(raw, str):
@@ -1209,11 +1235,11 @@ def validate_manual_class_choices(
             )
         bucket = entry["bucket"]
         bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
-        if (bucket in single_pick_buckets or bucket.startswith("hunter_choice_")) and bucket_counts[
-            bucket
-        ] > 1:
+        max_for_bucket = 1 if bucket.startswith("hunter_choice_") else bucket_limits.get(bucket, 1)
+        if bucket_counts[bucket] > max_for_bucket:
             raise ValueError(
-                f"Only one selection is allowed for '{bucket.replace('_', ' ')}' (got conflicting '{entry['name']}')."
+                f"Too many selections for '{bucket.replace('_', ' ')}' at Level {lvl} "
+                f"(maximum {max_for_bucket} allowed, got '{entry['name']}')."
             )
         seen_names.add(key)
         resolved.append(entry)
@@ -2898,12 +2924,15 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         if not is_2024:
             return False
         if cls_low == "cleric":
-            return any("thaumaturge" in fn for fn in names_low)
+            return any("thaumaturge" in fn and "protector" not in fn for fn in names_low)
         if cls_low == "druid":
             return any(
-                "primal order: magician" in fn
-                or fn == "magician"
-                or ("magician" in fn and ("primal" in fn or "druid" in fn))
+                "warden" not in fn
+                and (
+                    "primal order: magician" in fn
+                    or fn == "magician"
+                    or ("magician" in fn and ("primal" in fn or "druid" in fn))
+                )
                 for fn in names_low
             )
         return False
@@ -3193,12 +3222,12 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     owned_pacts = {name for name in owned_ft_low if name.startswith("pact of the ")}
 
     # 2024 Cleric Level 1: Divine Order (Protector vs Thaumaturge)
-    if (
-        is_2024
-        and c_lower == "cleric"
-        and target_level == 1
-        and not any("divine order:" in fn or "thaumaturge" in fn for fn in owned_ft_low)
-    ):
+    has_concrete_divine_order = any(
+        ("protector" in fn and "thaumaturge" not in fn and ("divine" in fn or fn == "protector"))
+        or ("thaumaturge" in fn and "protector" not in fn)
+        for fn in owned_ft_low
+    )
+    if is_2024 and c_lower == "cleric" and target_level == 1 and not has_concrete_divine_order:
         order_opts = [
             opt["name"] for opt in (choices_catalog.get("divine_orders") or []) if opt.get("name")
         ]
@@ -3213,12 +3242,16 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             )
 
     # 2024 Druid Level 1: Primal Order (Magician vs Warden)
-    if (
-        is_2024
-        and c_lower == "druid"
-        and target_level == 1
-        and not any("primal order:" in fn for fn in owned_ft_low)
-    ):
+    has_concrete_primal_order = any(
+        ("warden" in fn and "magician" not in fn and ("primal" in fn or fn == "warden"))
+        or (
+            "magician" in fn
+            and "warden" not in fn
+            and ("primal" in fn or "druid" in fn or fn == "magician")
+        )
+        for fn in owned_ft_low
+    )
+    if is_2024 and c_lower == "druid" and target_level == 1 and not has_concrete_primal_order:
         primal_opts = [
             opt["name"] for opt in (choices_catalog.get("primal_orders") or []) if opt.get("name")
         ]

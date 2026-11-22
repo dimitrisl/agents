@@ -1392,9 +1392,21 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       expect(orderSkillBonus(lowWis, 'Arcana')).toBe(1);
       expect(skillModifier(lowWis, arcana)).toBe(1);
 
-      // Generic placeholder "Divine Order" does not apply bonus
+      // Generic or combined placeholder "Divine Order (Protector or Thaumaturge)" does not apply bonus
       const generic = hero({ ...thaum, features_traits: [{ name: 'Divine Order', description: 'Protector or Thaumaturge' }] });
       expect(orderSkillBonus(generic, 'Arcana')).toBe(0);
+      const combined = hero({
+        ...thaum,
+        features_traits: [{ name: 'Divine Order (Protector or Thaumaturge)', description: '' }],
+      });
+      expect(orderSkillBonus(combined, 'Arcana')).toBe(0);
+
+      // Legacy string entries in features_traits are normalized safely
+      const legacyStringFeat = hero({
+        ...thaum,
+        features_traits: ['Divine Order: Thaumaturge' as any],
+      });
+      expect(orderSkillBonus(legacyStringFeat, 'Arcana')).toBe(3);
 
       // 2014 Edition ignores 2024 Thaumaturge bonus
       const legacy = hero({ ...thaum, dnd_edition: '2014 Edition' });

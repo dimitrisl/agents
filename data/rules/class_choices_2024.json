@@ -73,7 +73,7 @@
     {"name": "One with Shadows", "min_level": 5, "description": "While in Dim Light or Darkness, cast Invisibility on yourself without expending a spell slot."},
     {"name": "Thirsting Blade", "min_level": 5, "pact": "Pact of the Blade", "description": "Gain the Extra Attack feature for your pact weapon only: attack twice instead of once whenever you take the Attack action."},
     {"name": "Whispers of the Grave", "min_level": 7, "description": "Cast Speak with Dead without expending a spell slot."},
-    {"name": "Ascendant Step", "min_level": 9, "description": "Cast Levitate on yourself without expending a spell slot."},
+    {"name": "Ascendant Step", "min_level": 5, "description": "Cast Levitate on yourself without expending a spell slot."},
     {"name": "Gift of the Protectors", "min_level": 9, "pact": "Pact of the Tome", "description": "Creatures who write their names in your Book of Shadows drop to 1 HP instead of 0 HP once per Long Rest."},
     {"name": "Lifedrinker", "min_level": 9, "pact": "Pact of the Blade", "description": "Once per turn on a hit with your pact weapon, deal an extra 1d6 Necrotic, Psychic, or Radiant damage and optionally expend a Hit Point Die to regain HP."},
     {"name": "Visions of Distant Realms", "min_level": 9, "description": "Cast Arcane Eye without expending a spell slot."},

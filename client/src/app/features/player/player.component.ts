@@ -3523,23 +3523,49 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return subKey && choices[subKey] ? String(choices[subKey]) : '';
   }
 
+  private extractChosenOrder(choices: Record<string, any> | undefined): { key: string; value: string } | null {
+    if (!choices) return null;
+    const orderKey = Object.keys(choices).find(
+      (k) => k.startsWith('divine_order_') || k.startsWith('primal_order_')
+    );
+    if (!orderKey || !choices[orderKey]) return null;
+    return { key: orderKey, value: String(choices[orderKey]) };
+  }
+
   onLevelUpChoicesChange(choices: Record<string, any>) {
     const oldClass = this.levelUpUserChoices['level_up_class'];
     const newClass = choices['level_up_class'];
     const oldSubclass = this.extractChosenSubclass(this.levelUpUserChoices);
     const newSubclass = this.extractChosenSubclass(choices);
-    this.levelUpUserChoices = choices;
+    const oldOrder = this.extractChosenOrder(this.levelUpUserChoices);
+    const newOrder = this.extractChosenOrder(choices);
+    const orderChanged = (oldOrder?.value || '') !== (newOrder?.value || '');
+    if (orderChanged) {
+      // Drop stale spell_* selections so excess bonus cantrip picks don't linger when toggling orders
+      const cleaned = { ...choices };
+      for (const k of Object.keys(cleaned)) {
+        if (/^spell_\d+$/.test(k)) {
+          delete cleaned[k];
+        }
+      }
+      this.levelUpUserChoices = cleaned;
+    } else {
+      this.levelUpUserChoices = choices;
+    }
 
-    if ((newClass && oldClass !== newClass) || oldSubclass !== newSubclass) {
+    if ((newClass && oldClass !== newClass) || oldSubclass !== newSubclass || orderChanged) {
       const char = this.charState.activeCharacter();
       if (!char) return;
-      // Forward only class/subclass/HP baseline keys so feat/CON deltas aren't baked into
+      // Forward only class/subclass/order/HP baseline keys so feat/CON deltas aren't baked into
       // server `levelUpAnalysis` and double-counted by `LevelUpModalComponent.previewNewTotalHp`.
       const baselineChoices: Record<string, any> = {
         level_up_class: newClass || oldClass,
       };
       if (newSubclass) {
         baselineChoices['subclass'] = newSubclass;
+      }
+      if (newOrder) {
+        baselineChoices[newOrder.key] = newOrder.value;
       }
       if (choices['hp_method']) {
         baselineChoices['hp_method'] = choices['hp_method'];
