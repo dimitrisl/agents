@@ -287,23 +287,42 @@ def _collect_protected_spell_keys(
 
     lineage_map = (race_data or {}).get("lineage_spells")
     if isinstance(lineage_map, dict) and lineage_map:
-        trait_text = " ".join(
-            f"{f.get('name', '')} {f.get('description', '')}"
-            if isinstance(f, dict)
-            else str(f or "")
-            for f in (char_data.get("features_traits") or [])
-        )
-        search_text = f"{race_name} {trait_text}".lower()
-        matched_lineage = next(
-            (
-                blk
-                for lin_key, blk in sorted(
-                    lineage_map.items(), key=lambda kv: len(kv[0]), reverse=True
-                )
-                if lin_key != "_default" and lin_key.lower() in search_text
-            ),
-            None,
-        )
+        sorted_lineages = [
+            (lin_key, blk)
+            for lin_key, blk in sorted(lineage_map.items(), key=lambda kv: len(kv[0]), reverse=True)
+            if lin_key != "_default" and isinstance(blk, dict)
+        ]
+
+        def _match_lineage_text(text: str) -> dict | None:
+            lowered = text.lower()
+            return next(
+                (blk for lin_key, blk in sorted_lineages if lin_key.lower() in lowered),
+                None,
+            )
+
+        # Match specific subrace/lineage in race name first, then trait names, then
+        # unambiguous trait descriptions (skipping multi-option 2024 PHB prompt text).
+        matched_lineage = _match_lineage_text(race_name)
+        if matched_lineage is None:
+            trait_names = " ".join(
+                f.get("name", "") if isinstance(f, dict) else str(f or "").split(":", 1)[0]
+                for f in (char_data.get("features_traits") or [])
+            )
+            matched_lineage = _match_lineage_text(trait_names)
+        if matched_lineage is None:
+            for feat in char_data.get("features_traits") or []:
+                desc = (
+                    (feat.get("description") or "") if isinstance(feat, dict) else str(feat or "")
+                ).lower()
+                if not desc or "choose " in desc:
+                    continue
+                hits = [blk for lin_key, blk in sorted_lineages if lin_key.lower() in desc]
+                distinct_signatures = {
+                    tuple(sorted((str(k), str(v)) for k, v in blk.items())) for blk in hits
+                }
+                if len(distinct_signatures) == 1:
+                    matched_lineage = hits[0]
+                    break
         if matched_lineage is None:
             matched_lineage = lineage_map.get("_default")
         if isinstance(matched_lineage, dict):

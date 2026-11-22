@@ -206,6 +206,15 @@ function normalizeCatalogItemName(rawName: string | undefined): string {
     .trim();
 }
 
+/**
+ * Default flat saving-throw bonus implied by a catalog item's base name
+ * (e.g. `Cloak of Protection` / `Ring of Protection` -> `+1`) when no explicit
+ * `SAVES`/`<STAT>_SAVE` modifier is configured on the item.
+ */
+export function catalogDefaultSaveBonus(itemName: string | undefined): number {
+  return CATALOG_SAVE_BONUS_ITEMS[normalizeCatalogItemName(itemName)] ?? 0;
+}
+
 function maxAttunementSlots(char: CharacterSchema | null | undefined): number {
   let slots = 3;
   for (const f of char?.features_traits || []) {
@@ -258,9 +267,9 @@ export function equipmentSaveBonusForAbility(
     }
 
     if (!hasExplicitSave) {
-      const catalogBonus = CATALOG_SAVE_BONUS_ITEMS[normalizeCatalogItemName(eq.name)];
+      const catalogBonus = catalogDefaultSaveBonus(eq.name);
       const itemSave = Number((eq as { save_bonus?: number }).save_bonus ?? 0) || 0;
-      total += catalogBonus ?? itemSave;
+      total += catalogBonus || itemSave;
     }
   }
   return total;

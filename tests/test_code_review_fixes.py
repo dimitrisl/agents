@@ -3143,3 +3143,192 @@ def test_custom_armor_type_parenthetical_homebrew_and_top_level_ek_fallback():
     assert ek_top["spell_slots"]["level_1"]["max"] == 4
     assert ek_top["spell_slots"]["pact"] == {"max": 2, "used": 0, "level": 2}
     assert ek_top["spell_slots"]["level_2"]["pact_max"] == 2
+
+
+def test_2024_lineage_spells_respect_actual_lineage_after_mandatory_grants():
+    """2024 lineage prompt text ('Choose High Elf, Wood Elf, or Drow...') must never misclassify innate protected spells."""
+    from backend.services.forge_service import analyze_level_up
+    from backend.services.rules_service import inject_mandatory_character_grants
+
+    # 1. 2024 Wood Elf Ranger L5 after mandatory grants: Pass without Trace/Longstrider protected, Detect Magic swappable
+    wood_elf_ranger = inject_mandatory_character_grants(
+        {
+            "char_id": "wood_elf_24",
+            "owner_id": "u_qa",
+            "char_name": "Sylvan",
+            "char_class": "Ranger",
+            "subclass": "Gloom Stalker",
+            "char_level": 5,
+            "classes": [{"class_name": "Ranger", "level": 5, "subclass": "Gloom Stalker"}],
+            "race": "Wood Elf",
+            "background": "Guide",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 10, "DEX": 18, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+            "hp_max": 44,
+            "hp_current": 44,
+            "spells": {
+                "cantrips": ["Druidcraft"],
+                "level_1": ["Longstrider", "Detect Magic"],
+                "level_2": ["Pass without Trace", "Silence"],
+            },
+            "prepared_spells": ["Longstrider", "Detect Magic", "Pass without Trace", "Silence"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    we_analysis = analyze_level_up(wood_elf_ranger, user_choices={"level_up_class": "Ranger"})
+    assert "Longstrider" not in we_analysis["replaceable_spells"]
+    assert "Pass without Trace" not in we_analysis["replaceable_spells"]
+    assert "Detect Magic" in we_analysis["replaceable_spells"]
+    assert "Silence" in we_analysis["replaceable_spells"]
+
+    # Wood Elf Sorcerer L5 with High Elf spells learned via class: Detect Magic & Misty Step remain swappable
+    wood_elf_sorc = inject_mandatory_character_grants(
+        {
+            "char_id": "wood_elf_sorc_24",
+            "owner_id": "u_qa",
+            "char_name": "Sylvan Caster",
+            "char_class": "Sorcerer",
+            "subclass": "Draconic Sorcery",
+            "char_level": 5,
+            "classes": [{"class_name": "Sorcerer", "level": 5, "subclass": "Draconic Sorcery"}],
+            "race": "Wood Elf",
+            "background": "Guide",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+            "hp_max": 32,
+            "hp_current": 32,
+            "spells": {
+                "cantrips": ["Druidcraft", "Fire Bolt"],
+                "level_1": ["Detect Magic"],
+                "level_2": ["Misty Step"],
+            },
+            "prepared_spells": ["Detect Magic", "Misty Step"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    we_sorc_analysis = analyze_level_up(wood_elf_sorc, user_choices={"level_up_class": "Sorcerer"})
+    assert "Detect Magic" in we_sorc_analysis["replaceable_spells"]
+    assert "Misty Step" in we_sorc_analysis["replaceable_spells"]
+
+    # 2. 2024 Drow Warlock L5 after mandatory grants: Faerie Fire/Darkness protected, Detect Magic/Misty Step swappable
+    drow_lock = inject_mandatory_character_grants(
+        {
+            "char_id": "drow_24",
+            "owner_id": "u_qa",
+            "char_name": "Jarlaxle",
+            "char_class": "Warlock",
+            "subclass": "Fiend Patron",
+            "char_level": 5,
+            "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Fiend Patron"}],
+            "race": "Drow",
+            "background": "Charlatan",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Dancing Lights", "Eldritch Blast"],
+                "level_1": ["Faerie Fire", "Detect Magic"],
+                "level_2": ["Darkness", "Misty Step"],
+            },
+            "prepared_spells": ["Faerie Fire", "Detect Magic", "Darkness", "Misty Step"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    drow_analysis = analyze_level_up(drow_lock, user_choices={"level_up_class": "Warlock"})
+    assert "Faerie Fire" not in drow_analysis["replaceable_spells"]
+    assert "Darkness" not in drow_analysis["replaceable_spells"]
+    assert "Detect Magic" in drow_analysis["replaceable_spells"]
+    assert "Misty Step" in drow_analysis["replaceable_spells"]
+
+    # 3. 2024 Rock Gnome Bard L5: Forest Gnome's Speak with Animals is NOT treated as innate Rock Gnome spell
+    rock_gnome_bard = inject_mandatory_character_grants(
+        {
+            "char_id": "rgnome_24",
+            "owner_id": "u_qa",
+            "char_name": "Bimpnottin",
+            "char_class": "Bard",
+            "subclass": "College of Lore",
+            "char_level": 5,
+            "classes": [{"class_name": "Bard", "level": 5, "subclass": "College of Lore"}],
+            "race": "Rock Gnome",
+            "background": "Sage",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 14, "WIS": 10, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Mending", "Prestidigitation", "Vicious Mockery"],
+                "level_1": ["Speak with Animals", "Healing Word"],
+            },
+            "prepared_spells": ["Speak with Animals", "Healing Word"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    rg_analysis = analyze_level_up(rock_gnome_bard, user_choices={"level_up_class": "Bard"})
+    assert "Speak with Animals" in rg_analysis["replaceable_spells"]
+
+    # 4. 2024 Abyssal & Infernal Tiefling Warlocks each protect only their chosen legacy spells
+    abyssal_lock = inject_mandatory_character_grants(
+        {
+            "char_id": "abyssal_24",
+            "owner_id": "u_qa",
+            "char_name": "Graz",
+            "char_class": "Warlock",
+            "subclass": "Archfey Patron",
+            "char_level": 5,
+            "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Archfey Patron"}],
+            "race": "Abyssal Tiefling",
+            "background": "Charlatan",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Poison Spray", "Eldritch Blast"],
+                "level_1": ["Ray of Sickness", "Hex"],
+                "level_2": ["Hold Person", "Misty Step"],
+            },
+            "prepared_spells": ["Ray of Sickness", "Hex", "Hold Person", "Misty Step"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    ab_analysis = analyze_level_up(abyssal_lock, user_choices={"level_up_class": "Warlock"})
+    assert "Ray of Sickness" not in ab_analysis["replaceable_spells"]
+    assert "Hold Person" not in ab_analysis["replaceable_spells"]
+    assert "Hex" in ab_analysis["replaceable_spells"]
+
+    infernal_lock = inject_mandatory_character_grants(
+        {
+            "char_id": "infernal_24",
+            "owner_id": "u_qa",
+            "char_name": "Asmodea",
+            "char_class": "Warlock",
+            "subclass": "Archfey Patron",
+            "char_level": 5,
+            "classes": [{"class_name": "Warlock", "level": 5, "subclass": "Archfey Patron"}],
+            "race": "Infernal Tiefling",
+            "background": "Charlatan",
+            "dnd_edition": EDITION_2024,
+            "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+            "hp_max": 38,
+            "hp_current": 38,
+            "spells": {
+                "cantrips": ["Fire Bolt", "Eldritch Blast"],
+                "level_1": ["Hellish Rebuke", "Hex"],
+                "level_2": ["Darkness", "Hold Person"],
+            },
+            "prepared_spells": ["Hellish Rebuke", "Hex", "Darkness", "Hold Person"],
+            "features_traits": [],
+        },
+        edition=EDITION_2024,
+    )
+    inf_analysis = analyze_level_up(infernal_lock, user_choices={"level_up_class": "Warlock"})
+    assert "Hellish Rebuke" not in inf_analysis["replaceable_spells"]
+    assert "Darkness" not in inf_analysis["replaceable_spells"]
+    assert "Hold Person" in inf_analysis["replaceable_spells"]

@@ -547,7 +547,7 @@
                             🛡️ {{ row.item.ac_bonus >= 10 ? row.item.ac_bonus : '+' + row.item.ac_bonus }}
                           </forge-badge>
                         }
-                        @if (itemSaveBonus(row.item); as saveBonus) {
+                        @if (displayedItemSaveBonus(row.item); as saveBonus) {
                           <forge-badge [tone]="row.item.equipped ? 'accent' : 'muted'" size="sm" class="shrink-0">
                             🎲 +{{ saveBonus }} Saves
                           </forge-badge>
@@ -1084,7 +1084,7 @@
             }
           }
 
-          @if (itemSaveBonus(item); as saveBonus) {
+          @if (displayedItemSaveBonus(item); as saveBonus) {
             <div class="flex items-center justify-between rounded-xl bg-tile px-3 py-2">
               <span class="text-micro font-semibold uppercase text-muted">Saving Throw Bonus</span>
               <forge-badge [tone]="item.equipped ? 'accent' : 'muted'" size="sm">
@@ -2364,7 +2364,7 @@
                           🛡️ {{ row.item.ac_bonus >= 10 ? 'AC ' + row.item.ac_bonus : '+' + row.item.ac_bonus + ' AC' }}
                         </forge-badge>
                       }
-                      @if (itemSaveBonus(row.item); as saveBonus) {
+                      @if (displayedItemSaveBonus(row.item); as saveBonus) {
                         <forge-badge
                           [tone]="row.item.equipped ? 'accent' : 'muted'"
                           class="shrink-0"

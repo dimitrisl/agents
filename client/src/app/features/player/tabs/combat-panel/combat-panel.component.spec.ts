@@ -285,6 +285,41 @@ describe('CombatPanelComponent', () => {
       ).toBe(1);
       expect(
         component.saveHintFromNotes({
+          name: 'Protective Cloak',
+          equipped: true,
+          description: '+1 AC/saves while attuned',
+        })
+      ).toBe(1);
+      expect(
+        component.displayedItemSaveBonus({
+          name: 'Cloak of Protection',
+          equipped: true,
+          attuned: true,
+          mod1: 'None',
+          val1: 0,
+        })
+      ).toBe(1);
+      expect(
+        component.itemSaveBonus({
+          name: 'Cloak of Protection',
+          equipped: true,
+          attuned: true,
+          mod1: 'None',
+          val1: 0,
+        })
+      ).toBe(0);
+      expect(
+        component.saveHintFromNotes({
+          name: 'Cloak of Protection',
+          equipped: true,
+          attuned: true,
+          mod1: 'None',
+          val1: 0,
+          description: '+1 AC and saving throws',
+        })
+      ).toBeNull();
+      expect(
+        component.saveHintFromNotes({
           name: 'Rod of the Pact Keeper',
           equipped: true,
           description: '+1 to spell attack rolls and to spell save DC',
@@ -294,6 +329,7 @@ describe('CombatPanelComponent', () => {
 
     it('sets and clears item saving throw bonuses in mod1/mod2 without overwriting unrelated modifiers', () => {
       const saveSpy = jest.spyOn(component.save, 'emit');
+      const toastSpy = jest.spyOn(toast, 'showMessage');
       component.char.saving_throw_values = { STR: 3, DEX: 9 };
       const cloak: any = {
         name: 'Cloak of Prot',
@@ -316,6 +352,24 @@ describe('CombatPanelComponent', () => {
       expect(cloak.mod2).toBe('None');
       expect(cloak.val2).toBe(0);
       expect(component.itemSaveBonus(cloak)).toBe(0);
+
+      // Refuses to overwrite when both mod1 and mod2 already carry unrelated non-save modifiers
+      saveSpy.mockClear();
+      const fullSlotsItem: any = {
+        name: 'Belt of Stormy Speed',
+        equipped: true,
+        mod1: 'SPEED',
+        val1: 10,
+        mod2: 'INITIATIVE',
+        val2: 2,
+      };
+      component.onItemSaveChange(fullSlotsItem, '1');
+      expect(fullSlotsItem.mod1).toBe('SPEED');
+      expect(fullSlotsItem.val1).toBe(10);
+      expect(fullSlotsItem.mod2).toBe('INITIATIVE');
+      expect(fullSlotsItem.val2).toBe(2);
+      expect(toastSpy).toHaveBeenCalled();
+      expect(saveSpy).not.toHaveBeenCalled();
 
       // Deduplicates legacy duplicate SAVES slots and clears cached saving_throw_values on rename
       const legacyDup: any = { name: 'Old Cloak', equipped: true, mod1: 'SAVES', val1: 1, mod2: 'SAVES', val2: 1 };

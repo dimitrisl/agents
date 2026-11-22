@@ -49,6 +49,7 @@ import {
 } from '../../../../core/rules/weapon-calc';
 import {
   abilityModifier,
+  catalogDefaultSaveBonus,
   describeDmModifiers,
   exhaustionD20Penalty,
   hasExhaustionDisadvantage,
@@ -1048,6 +1049,11 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     return total;
   }
 
+  /** Effective flat saving-throw bonus shown in read-only inventory badges (explicit `mod1`/`mod2` or catalog default). */
+  displayedItemSaveBonus(item: EquipmentItem): number {
+    return this.itemSaveBonus(item) || catalogDefaultSaveBonus(item.name);
+  }
+
   /** "+1 AC …" in an item's notes, when the item has no AC of its own yet. */
   acHintFromNotes(item: EquipmentItem): number | null {
     if (item.ac_bonus) return null;
@@ -1057,11 +1063,11 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
 
   /** "+1 saving throws" / "+1 AC and saving throws" in an item's notes, when no Saves bonus is set yet. */
   saveHintFromNotes(item: EquipmentItem): number | null {
-    if (this.itemSaveBonus(item)) return null;
+    if (this.displayedItemSaveBonus(item)) return null;
     const notes = item.description || '';
     const directMatch = /\+\s*(\d)\s*(?:to\s+)?(?:all\s+)?sav(?:ing\s+throws?|es)\b(?!\s*DC)/i.exec(notes);
     if (directMatch) return Number(directMatch[1]);
-    const combinedMatch = /\+\s*(\d)\s*AC\b[^.\n,;]*?\b(?:and|&)\s*(?:to\s+)?(?:all\s+)?sav(?:ing\s+throws?|es)\b(?!\s*DC)/i.exec(notes);
+    const combinedMatch = /\+\s*(\d)\s*AC\b[^.\n,;]*?(?:and|&|\/)\s*(?:to\s+)?(?:all\s+)?sav(?:ing\s+throws?|es)\b(?!\s*DC)/i.exec(notes);
     return combinedMatch ? Number(combinedMatch[1]) : null;
   }
 
@@ -1081,6 +1087,8 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     const val = Math.max(0, Math.trunc(Number(value) || 0));
     const m1Save = CombatPanelComponent.isSaveModifierKey(item.mod1);
     const m2Save = CombatPanelComponent.isSaveModifierKey(item.mod2);
+    const m1Empty = !item.mod1 || item.mod1.trim().toUpperCase() === 'NONE';
+    const m2Empty = !item.mod2 || item.mod2.trim().toUpperCase() === 'NONE';
 
     if (val === 0) {
       if (m1Save) {
@@ -1101,12 +1109,18 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     } else if (m2Save) {
       item.mod2 = 'SAVES';
       item.val2 = val;
-    } else if (!item.mod1 || item.mod1.trim().toUpperCase() === 'NONE') {
+    } else if (m1Empty) {
       item.mod1 = 'SAVES';
       item.val1 = val;
-    } else {
+    } else if (m2Empty) {
       item.mod2 = 'SAVES';
       item.val2 = val;
+    } else {
+      this.rollToast.showMessage(
+        '⚠️ MODIFIER SLOTS FULL',
+        'Both modifier slots on this item are already in use; clear a modifier before adding a save bonus.'
+      );
+      return;
     }
 
     if (this.char?.saving_throw_values) {
