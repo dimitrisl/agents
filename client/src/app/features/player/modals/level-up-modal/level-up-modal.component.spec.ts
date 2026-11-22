@@ -591,4 +591,75 @@ describe('LevelUpModalComponent', () => {
     expect(component.userChoices['spell_swap_in']).toBeUndefined();
     expect(component.hasIncompleteSpellSwap).toBe(false);
   });
+
+  it('clears stale spell swap and spell choices when changing subclass and blocks Magical Secrets swap duplicates', () => {
+    fixture.componentRef.setInput('nextLevel', 3);
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      char_class: 'Fighter',
+      char_level: 2,
+      classes: [{ class_name: 'Fighter', level: 2 }],
+    });
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 8,
+      new_total_hp: 28,
+      automatic_changes: [],
+      choices_required: [
+        { type: 'subclass', label: 'Subclass', options: ['Eldritch Knight', 'Champion'] },
+        { type: 'spell', label: 'Learn Spell', options: ['Shield', 'Magic Missile'] },
+      ],
+      replaceable_spells: ['Grease'],
+      spell_swap_options: ['Shield', 'Magic Missile'],
+    });
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Fighter',
+      subclass_0: 'Eldritch Knight',
+      spell_1: 'Shield',
+      spell_swap_out: 'Grease',
+      spell_swap_in: 'Magic Missile',
+    });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    component.onChoiceChange('subclass_0', 'Champion');
+    fixture.detectChanges();
+    expect(component.userChoices['spell_swap_out']).toBeUndefined();
+    expect(component.userChoices['spell_swap_in']).toBeUndefined();
+    expect(component.userChoices['spell_1']).toBeUndefined();
+
+    // Bard Magical Secrets overlap with Spell Swap
+    const secretChoice = {
+      type: 'spell_secret_1',
+      label: 'Magical Secrets',
+      options: ['Counterspell', 'Fireball'],
+    };
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 7,
+      new_total_hp: 70,
+      automatic_changes: [],
+      choices_required: [secretChoice],
+      replaceable_spells: ['Bane'],
+      spell_swap_options: ['Counterspell', 'Hypnotic Pattern'],
+    });
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Bard',
+      spell_secret_1_0: 'Counterspell',
+      spell_swap_out: 'Bane',
+      spell_swap_in: 'Hypnotic Pattern',
+    });
+    fixture.detectChanges();
+
+    expect(component.filteredSwapInOptions).not.toContain('Counterspell');
+    expect(component.availableOptionsFor(secretChoice, 0)).not.toContain('Hypnotic Pattern');
+    expect(component.hasDuplicateSiblingChoices).toBe(false);
+
+    fixture.componentRef.setInput('userChoices', {
+      level_up_class: 'Bard',
+      spell_secret_1_0: 'Counterspell',
+      spell_swap_out: 'Bane',
+      spell_swap_in: 'Counterspell',
+    });
+    fixture.detectChanges();
+    expect(component.hasDuplicateSiblingChoices).toBe(true);
+  });
 });

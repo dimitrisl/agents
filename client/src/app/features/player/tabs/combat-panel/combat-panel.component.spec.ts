@@ -316,6 +316,18 @@ describe('CombatPanelComponent', () => {
       expect(cloak.mod2).toBe('None');
       expect(cloak.val2).toBe(0);
       expect(component.itemSaveBonus(cloak)).toBe(0);
+
+      // Deduplicates legacy duplicate SAVES slots and clears cached saving_throw_values on rename
+      const legacyDup: any = { name: 'Old Cloak', equipped: true, mod1: 'SAVES', val1: 1, mod2: 'SAVES', val2: 1 };
+      component.onItemSaveChange(legacyDup, '2');
+      expect(legacyDup.mod1).toBe('SAVES');
+      expect(legacyDup.val1).toBe(2);
+      expect(legacyDup.mod2).toBe('None');
+      expect(legacyDup.val2).toBe(0);
+
+      component.char.saving_throw_values = { STR: 3 };
+      component.onItemNameChange();
+      expect(component.char.saving_throw_values).toBeUndefined();
     });
 
     // mockChar: [0] Potion (pack), [1] Cloak (equipped, attuned), [2] Ring (equipped, attuned)

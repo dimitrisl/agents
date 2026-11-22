@@ -136,7 +136,37 @@
         ],
         "save_advantages": [
             "Advantage on saving throws to avoid or end Charmed (Fey Ancestry)"
-        ]
+        ],
+        "lineage_spells": {
+            "high elf": {
+                "by_level": {
+                    "1": ["Prestidigitation"],
+                    "3": ["Detect Magic"],
+                    "5": ["Misty Step"]
+                }
+            },
+            "wood elf": {
+                "by_level": {
+                    "1": ["Druidcraft"],
+                    "3": ["Longstrider"],
+                    "5": ["Pass without Trace"]
+                }
+            },
+            "drow": {
+                "by_level": {
+                    "1": ["Dancing Lights"],
+                    "3": ["Faerie Fire"],
+                    "5": ["Darkness"]
+                }
+            },
+            "dark elf": {
+                "by_level": {
+                    "1": ["Dancing Lights"],
+                    "3": ["Faerie Fire"],
+                    "5": ["Darkness"]
+                }
+            }
+        }
     },
     {
         "name": "Gnome",
@@ -162,7 +192,20 @@
         ],
         "save_advantages": [
             "Advantage on INT, WIS, CHA saving throws (Gnomish Cunning)"
-        ]
+        ],
+        "lineage_spells": {
+            "forest gnome": {
+                "by_level": {
+                    "1": ["Minor Illusion"],
+                    "3": ["Speak with Animals"]
+                }
+            },
+            "rock gnome": {
+                "by_level": {
+                    "1": ["Mending", "Prestidigitation"]
+                }
+            }
+        }
     },
     {
         "name": "Goliath",
@@ -278,7 +321,37 @@
         ],
         "damage_resistances": [
             "Fiendish Legacy Element (e.g. Fire)"
-        ]
+        ],
+        "lineage_spells": {
+            "abyssal": {
+                "by_level": {
+                    "1": ["Poison Spray"],
+                    "3": ["Ray of Sickness"],
+                    "5": ["Hold Person"]
+                }
+            },
+            "chthonic": {
+                "by_level": {
+                    "1": ["Chill Touch"],
+                    "3": ["False Life"],
+                    "5": ["Ray of Enfeeblement"]
+                }
+            },
+            "infernal": {
+                "by_level": {
+                    "1": ["Fire Bolt"],
+                    "3": ["Hellish Rebuke"],
+                    "5": ["Darkness"]
+                }
+            },
+            "_default": {
+                "by_level": {
+                    "1": ["Fire Bolt", "Thaumaturgy"],
+                    "3": ["Hellish Rebuke"],
+                    "5": ["Darkness"]
+                }
+            }
+        }
     },
     {
         "name": "Warforged",

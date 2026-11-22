@@ -1116,9 +1116,9 @@
             </div>
           } @else {
             <div class="flex flex-col gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="save.emit()" />
+              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="onItemNameChange()" />
               <input forgeInput dense type="text" [(ngModel)]="item.description" placeholder="Notes" (change)="save.emit()" />
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label class="flex items-center justify-between gap-2 text-micro font-semibold uppercase text-muted">
                   AC Bonus / Base
                   <input
@@ -2433,7 +2433,7 @@
                         placeholder="Item name"
                         [(ngModel)]="row.item.name"
                         [attr.aria-label]="'Name of ' + row.item.name"
-                        (change)="save.emit()"
+                        (change)="onItemNameChange()"
                       />
                       <div class="flex flex-wrap items-center gap-2">
                         <input

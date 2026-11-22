@@ -2147,6 +2147,116 @@ def test_ranger_level_up_revivify_and_spell_swap_validation(edition):
         limiter.reset()
 
 
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_innate_racial_spells_protected_and_prepared_casters_reject_spell_swap(edition):
+    """Innate racial spells (Tiefling Hellish Rebuke/Darkness) stay protected and Wizard/Cleric reject swap in 2014 & 2024."""
+    from backend.services.forge_service import analyze_level_up
+
+    tiefling_warlock_l5 = {
+        "char_id": f"tief_lock_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Mephistos",
+        "char_class": "Warlock",
+        "subclass": "The Fiend" if "2014" in edition else "Fiend Patron",
+        "char_level": 5,
+        "classes": [
+            {
+                "class_name": "Warlock",
+                "level": 5,
+                "subclass": "The Fiend" if "2014" in edition else "Fiend Patron",
+            }
+        ],
+        "race": "Tiefling",
+        "background": "Charlatan",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 18},
+        "hp_max": 38,
+        "hp_current": 38,
+        "spells": {
+            "cantrips": ["Eldritch Blast", "Thaumaturgy"],
+            "level_1": ["Hex", "Hellish Rebuke"],
+            "level_2": ["Misty Step", "Darkness"],
+            "level_3": ["Counterspell"],
+        },
+        "prepared_spells": ["Hex", "Hellish Rebuke", "Misty Step", "Darkness", "Counterspell"],
+        "version": 1,
+    }
+    w_analysis = analyze_level_up(tiefling_warlock_l5, user_choices={"level_up_class": "Warlock"})
+    assert "Hex" in w_analysis["replaceable_spells"]
+    assert "Counterspell" in w_analysis["replaceable_spells"]
+    assert "Hellish Rebuke" not in w_analysis["replaceable_spells"]
+    assert "Darkness" not in w_analysis["replaceable_spells"]
+
+    wizard_l5 = {
+        "char_id": f"wiz_prep_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Elminster QA",
+        "char_class": "Wizard",
+        "subclass": "School of Evocation" if "2014" in edition else "Evoker",
+        "char_level": 5,
+        "classes": [
+            {
+                "class_name": "Wizard",
+                "level": 5,
+                "subclass": "School of Evocation" if "2014" in edition else "Evoker",
+            }
+        ],
+        "race": "Human",
+        "background": "Sage",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 14, "CON": 14, "INT": 18, "WIS": 12, "CHA": 10},
+        "hp_max": 32,
+        "hp_current": 32,
+        "spells": {"cantrips": ["Fire Bolt"], "level_1": ["Shield", "Mage Armor"]},
+        "prepared_spells": ["Shield", "Mage Armor"],
+        "version": 1,
+    }
+    wiz_analysis = analyze_level_up(wizard_l5, user_choices={"level_up_class": "Wizard"})
+    assert wiz_analysis["replaceable_spells"] == []
+    assert wiz_analysis["spell_swap_options"] == []
+
+    db = _AsyncDB(f"innate_prep_{'24' if '2024' in edition else '14'}")
+    db._db["characters"].insert_one(dict(tiefling_warlock_l5))
+    db._db["characters"].insert_one(dict(wizard_l5))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+        bad_innate = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": tiefling_warlock_l5["char_id"],
+                "analysis": w_analysis,
+                "user_choices": {
+                    "level_up_class": "Warlock",
+                    "spell_swap_out": "Darkness",
+                    "spell_swap_in": "Hunger of Hadar",
+                },
+            },
+        )
+        assert bad_innate.status_code == 400
+
+        bad_wiz = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": wizard_l5["char_id"],
+                "analysis": wiz_analysis,
+                "user_choices": {
+                    "level_up_class": "Wizard",
+                    "spell_swap_out": "Mage Armor",
+                    "spell_swap_in": "Fireball",
+                },
+            },
+        )
+        assert bad_wiz.status_code == 400
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
 def test_all_2024_subclasses_resolve_concrete_higher_level_features():
     """Every 2024 subclass across all 13 classes resolves specific subclass feature names at every subclass level."""
     import glob

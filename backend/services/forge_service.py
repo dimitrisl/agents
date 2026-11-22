@@ -254,11 +254,22 @@ def _collect_protected_spell_keys(
                     if key:
                         protected.add(key)
 
-    race_name = str(char_data.get("race") or "").strip()
-    race_data = rules_repo.get_race_data(race_name, edition) if race_name else None
-    innate = (race_data or {}).get("innate_spells")
-    if isinstance(innate, dict):
-        for k, val in innate.items():
+    def _extract_innate_block(block: Any, current_char_level: int) -> None:
+        if not isinstance(block, dict):
+            return
+        by_lvl = block.get("by_level")
+        if isinstance(by_lvl, dict):
+            for lvl_k, sp_names in by_lvl.items():
+                try:
+                    req_l = int(lvl_k)
+                except (TypeError, ValueError):
+                    continue
+                if current_char_level >= req_l and isinstance(sp_names, list):
+                    for raw_sp in sp_names:
+                        key = _norm_spell_key(raw_sp)
+                        if key:
+                            protected.add(key)
+        for k, val in block.items():
             if (k == "always" or str(k).startswith("level_") or str(k).isdigit()) and isinstance(
                 val, list
             ):
@@ -266,6 +277,44 @@ def _collect_protected_spell_keys(
                     key = _norm_spell_key(raw_sp)
                     if key:
                         protected.add(key)
+
+    char_total_level = max(1, int(char_data.get("char_level") or 1))
+    race_name = str(char_data.get("race") or "").strip()
+    race_data = rules_repo.get_race_data(race_name, edition) if race_name else None
+    innate = (race_data or {}).get("innate_spells")
+    if isinstance(innate, dict):
+        _extract_innate_block(innate, char_total_level)
+
+    lineage_map = (race_data or {}).get("lineage_spells")
+    if isinstance(lineage_map, dict) and lineage_map:
+        trait_text = " ".join(
+            f"{f.get('name', '')} {f.get('description', '')}"
+            if isinstance(f, dict)
+            else str(f or "")
+            for f in (char_data.get("features_traits") or [])
+        )
+        search_text = f"{race_name} {trait_text}".lower()
+        matched_lineage = next(
+            (
+                blk
+                for lin_key, blk in sorted(
+                    lineage_map.items(), key=lambda kv: len(kv[0]), reverse=True
+                )
+                if lin_key != "_default" and lin_key.lower() in search_text
+            ),
+            None,
+        )
+        if matched_lineage is None:
+            matched_lineage = lineage_map.get("_default")
+        if isinstance(matched_lineage, dict):
+            _extract_innate_block(matched_lineage, char_total_level)
+
+    if race_name and not isinstance(innate, dict) and not isinstance(lineage_map, dict):
+        fallback_race = rules_repo.get_race_data(race_name, "2014")
+        fallback_innate = (fallback_race or {}).get("innate_spells")
+        if isinstance(fallback_innate, dict):
+            _extract_innate_block(fallback_innate, char_total_level)
+
     return protected
 
 
@@ -347,6 +396,7 @@ def apply_level_up_spell_swap(
     selected_spells_in_payload: set[str],
     edition: str,
     rules_repo,
+    pre_total_level: int | None = None,
 ) -> None:
     """Validate and apply an optional 1-for-1 leveled spell replacement on Level Up."""
     clean_out = str(swap_out or "").strip()
@@ -377,6 +427,8 @@ def apply_level_up_spell_swap(
     all_spells = rules_repo.get_all_spells(edition)
     snapshot = dict(char_doc)
     snapshot["spells"] = pre_level_spells
+    if pre_total_level is not None:
+        snapshot["char_level"] = pre_total_level
     candidates, protected = get_spell_swap_candidates(
         snapshot,
         target_class,
@@ -437,29 +489,28 @@ def apply_level_up_spell_swap(
     if in_norm in pre_known:
         raise ValueError(f"Character already knows replacement spell '{matched_in['name']}'.")
 
+    def _entry_key(entry: Any) -> str:
+        return _norm_spell_key(entry.get("name") if isinstance(entry, dict) else entry)
+
     # Perform replacement across spells buckets and prepared_spells
     spells_dict = char_doc.setdefault("spells", {})
     if isinstance(spells_dict, dict):
         for lvl_idx in range(1, 10):
             key = f"level_{lvl_idx}"
             if isinstance(spells_dict.get(key), list):
-                spells_dict[key] = [
-                    s
-                    for s in spells_dict[key]
-                    if _norm_spell_key(s.get("name") if isinstance(s, dict) else s) != out_norm
-                ]
+                spells_dict[key] = [s for s in spells_dict[key] if _entry_key(s) != out_norm]
         canon_in = str(matched_in.get("name") or clean_in)
         target_bucket = spells_dict.setdefault(f"level_{in_level}", [])
-        if not any(_norm_spell_key(x) == _norm_spell_key(canon_in) for x in target_bucket):
+        if not any(_entry_key(x) == _norm_spell_key(canon_in) for x in target_bucket):
             target_bucket.append(canon_in)
 
     prep_list = char_doc.get("prepared_spells")
     if isinstance(prep_list, list):
-        filtered_prep = [p for p in prep_list if _norm_spell_key(p) != out_norm]
+        filtered_prep = [p for p in prep_list if _entry_key(p) != out_norm]
     else:
         filtered_prep = []
     canon_in = str(matched_in.get("name") or clean_in)
-    if not any(_norm_spell_key(p) == _norm_spell_key(canon_in) for p in filtered_prep):
+    if not any(_entry_key(p) == _norm_spell_key(canon_in) for p in filtered_prep):
         filtered_prep.append(canon_in)
     char_doc["prepared_spells"] = filtered_prep
 

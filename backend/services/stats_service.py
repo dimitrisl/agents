@@ -1001,7 +1001,7 @@ def calculate_weapon_stats(
     if parsed_explicit_magic is not None and parsed_explicit_magic != 0:
         raw_magic_bonus = parsed_explicit_magic
     else:
-        name_match = re.search(r"\+([1-9])\b", weapon.get("name", ""))
+        name_match = re.search(r"\+([1-9])\b", str(weapon.get("name") or ""))
         raw_magic_bonus = int(name_match.group(1)) if name_match else 0
         # Persist name-inferred +X magic bonus when schema default 0/None was saved,
         # matching client extractMagicBonus() while keeping suppressed combat math at 0 under Athas.
@@ -1719,7 +1719,10 @@ def sync_character_stats(
                 else equip.get("save_bonus")
             )
             if raw_save:
-                equip_save_bonus += int(raw_save or 0)
+                try:
+                    equip_save_bonus += int(raw_save or 0)
+                except (ValueError, TypeError):
+                    pass
 
     char_data["equip_stat_bonuses"] = {
         k: stats.get(k, 10) - base_stats.get(k, 10)

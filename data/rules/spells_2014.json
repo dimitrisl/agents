@@ -3612,8 +3612,7 @@
     "school": "abjuration",
     "classes": [
       "cleric",
-      "paladin",
-      "ranger"
+      "paladin"
     ],
     "actionType": "action",
     "concentration": false,

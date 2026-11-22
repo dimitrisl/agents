@@ -1065,6 +1065,13 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     return combinedMatch ? Number(combinedMatch[1]) : null;
   }
 
+  onItemNameChange(): void {
+    if (this.char?.saving_throw_values) {
+      delete this.char.saving_throw_values;
+    }
+    this.save.emit();
+  }
+
   onItemAcChange(item: EquipmentItem, value: string | number | null) {
     item.ac_bonus = Math.max(0, Math.trunc(Number(value) || 0));
     this.save.emit();
@@ -1087,6 +1094,10 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     } else if (m1Save) {
       item.mod1 = 'SAVES';
       item.val1 = val;
+      if (m2Save) {
+        item.mod2 = 'None';
+        item.val2 = 0;
+      }
     } else if (m2Save) {
       item.mod2 = 'SAVES';
       item.val2 = val;

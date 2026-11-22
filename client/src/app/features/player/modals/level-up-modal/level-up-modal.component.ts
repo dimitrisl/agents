@@ -203,6 +203,15 @@ export class LevelUpModalComponent {
 
   onChoiceChange(choiceKey: string, val: string) {
     const nextChoices: Record<string, any> = { ...this.userChoices, [choiceKey]: val };
+    if (/^subclass_\d+$/.test(choiceKey)) {
+      delete nextChoices['spell_swap_out'];
+      delete nextChoices['spell_swap_in'];
+      for (const k of Object.keys(nextChoices)) {
+        if (/^spell(?:_secret_\d+)?_\d+$/.test(k)) {
+          delete nextChoices[k];
+        }
+      }
+    }
     if (choiceKey === 'spell_swap_out') {
       if (!val) {
         delete nextChoices['spell_swap_out'];
@@ -346,11 +355,15 @@ export class LevelUpModalComponent {
     return Boolean(this.swapOutSpell) !== Boolean(this.swapInSpell);
   }
 
+  private isSpellChoiceGroup(group: string): boolean {
+    return group === 'spell' || group === 'spell_secret';
+  }
+
   private selectedSpellChoicesLower(excludeIndex?: number): Set<string> {
     const choices = this.levelUpAnalysis?.choices_required ?? [];
     const selected = new Set<string>();
     choices.forEach((c, idx) => {
-      if (idx === excludeIndex || this.siblingGroup(c.type) !== 'spell') return;
+      if (idx === excludeIndex || !this.isSpellChoiceGroup(this.siblingGroup(c.type))) return;
       const val = this.userChoices[`${c.type}_${idx}`];
       if (val && typeof val === 'string') {
         const norm = val.trim().toLowerCase();
@@ -388,7 +401,7 @@ export class LevelUpModalComponent {
         }
       }
     });
-    if (targetGroup === 'spell' && this.swapInSpell) {
+    if (this.isSpellChoiceGroup(targetGroup) && this.swapInSpell) {
       const swapInNorm = this.swapInSpell.trim().toLowerCase();
       if (swapInNorm && swapInNorm !== currentNorm) {
         takenBySiblings.add(swapInNorm);
@@ -419,7 +432,10 @@ export class LevelUpModalComponent {
       bucket.add(norm);
     }
     const swapInNorm = this.swapInSpell.trim().toLowerCase();
-    if (swapInNorm && seenByGroup.get('spell')?.has(swapInNorm)) {
+    if (
+      swapInNorm &&
+      (seenByGroup.get('spell')?.has(swapInNorm) || seenByGroup.get('spell_secret')?.has(swapInNorm))
+    ) {
       return true;
     }
     return false;

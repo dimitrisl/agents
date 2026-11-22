@@ -803,6 +803,7 @@ async def apply_level_up(
                     selected_spells_in_payload=selected_spells_in_payload,
                     edition=edition,
                     rules_repo=RulesRepository(),
+                    pre_total_level=old_level,
                 )
             except ValueError as e:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
