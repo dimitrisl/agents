@@ -968,6 +968,9 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     item.attuned = !item.attuned;
+    if (this.char?.saving_throw_values) {
+      delete this.char.saving_throw_values;
+    }
     this.save.emit();
   }
 
@@ -1026,15 +1029,78 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
    * Below 10 it's a bonus (+2), 10 and up it's the armor's base AC; the server
    * recalculates Armor Class on save.
    */
-  /** "+2 AC …" in an item's notes, when the item has no AC of its own yet. */
+  private static isSaveModifierKey(raw: string | undefined): boolean {
+    const up = String(raw || '')
+      .trim()
+      .toUpperCase();
+    return up === 'SAVES' || up === 'SAVE';
+  }
+
+  /** Total saving-throw bonus stored in `mod1`/`mod2` (`SAVES`). */
+  itemSaveBonus(item: EquipmentItem): number {
+    let total = 0;
+    if (CombatPanelComponent.isSaveModifierKey(item.mod1)) {
+      total += Math.trunc(Number(item.val1 ?? 0) || 0);
+    }
+    if (CombatPanelComponent.isSaveModifierKey(item.mod2)) {
+      total += Math.trunc(Number(item.val2 ?? 0) || 0);
+    }
+    return total;
+  }
+
+  /** "+1 AC …" in an item's notes, when the item has no AC of its own yet. */
   acHintFromNotes(item: EquipmentItem): number | null {
     if (item.ac_bonus) return null;
     const match = /\+\s*(\d)\s*AC\b/i.exec(item.description || '');
     return match ? Number(match[1]) : null;
   }
 
+  /** "+1 saving throws" / "+1 AC and saving throws" in an item's notes, when no Saves bonus is set yet. */
+  saveHintFromNotes(item: EquipmentItem): number | null {
+    if (this.itemSaveBonus(item)) return null;
+    const notes = item.description || '';
+    const directMatch = /\+\s*(\d)\s*(?:to\s+)?(?:all\s+)?sav(?:ing\s+throws?|es)\b(?!\s*DC)/i.exec(notes);
+    if (directMatch) return Number(directMatch[1]);
+    const combinedMatch = /\+\s*(\d)\s*AC\b[^.\n,;]*?\b(?:and|&)\s*(?:to\s+)?(?:all\s+)?sav(?:ing\s+throws?|es)\b(?!\s*DC)/i.exec(notes);
+    return combinedMatch ? Number(combinedMatch[1]) : null;
+  }
+
   onItemAcChange(item: EquipmentItem, value: string | number | null) {
     item.ac_bonus = Math.max(0, Math.trunc(Number(value) || 0));
+    this.save.emit();
+  }
+
+  onItemSaveChange(item: EquipmentItem, value: string | number | null) {
+    const val = Math.max(0, Math.trunc(Number(value) || 0));
+    const m1Save = CombatPanelComponent.isSaveModifierKey(item.mod1);
+    const m2Save = CombatPanelComponent.isSaveModifierKey(item.mod2);
+
+    if (val === 0) {
+      if (m1Save) {
+        item.mod1 = 'None';
+        item.val1 = 0;
+      }
+      if (m2Save) {
+        item.mod2 = 'None';
+        item.val2 = 0;
+      }
+    } else if (m1Save) {
+      item.mod1 = 'SAVES';
+      item.val1 = val;
+    } else if (m2Save) {
+      item.mod2 = 'SAVES';
+      item.val2 = val;
+    } else if (!item.mod1 || item.mod1.trim().toUpperCase() === 'NONE') {
+      item.mod1 = 'SAVES';
+      item.val1 = val;
+    } else {
+      item.mod2 = 'SAVES';
+      item.val2 = val;
+    }
+
+    if (this.char?.saving_throw_values) {
+      delete this.char.saving_throw_values;
+    }
     this.save.emit();
   }
 

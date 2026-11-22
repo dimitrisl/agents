@@ -263,6 +263,51 @@
       </div>
     </div>
 
+    @if (hasSpellSwapAvailable) {
+      <div class="flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-4" data-testid="level-up-spell-swap">
+        <div>
+          <h3 class="font-display text-body font-bold text-ink">🔄 Spell Swap (Optional)</h3>
+          <p class="text-micro text-muted">
+            Replace 1 spell you already know with another {{ levelUpClass }} spell up to your highest slot level.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label for="spell-swap-out" class="text-label font-semibold text-muted">Replace Spell (Drop)</label>
+            <select
+              forgeSelect
+              id="spell-swap-out"
+              [ngModel]="swapOutSpell"
+              (ngModelChange)="onChoiceChange('spell_swap_out', $event)">
+              <option value="">None — keep current spells</option>
+              @for (sp of levelUpAnalysis!.replaceable_spells!; track sp) {
+                <option [value]="sp">{{ sp }}</option>
+              }
+            </select>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="spell-swap-in" class="text-label font-semibold text-muted">Replacement Spell (Learn)</label>
+            <select
+              forgeSelect
+              id="spell-swap-in"
+              [disabled]="!swapOutSpell"
+              [ngModel]="swapInSpell"
+              (ngModelChange)="onChoiceChange('spell_swap_in', $event)">
+              <option value="" disabled>{{ swapOutSpell ? 'Select replacement spell...' : 'Pick a spell to replace first' }}</option>
+              @for (sp of filteredSwapInOptions; track sp) {
+                <option [value]="sp">{{ sp }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        @if (hasIncompleteSpellSwap) {
+          <p class="text-label font-semibold text-accent">
+            Select a replacement spell or set "Replace Spell" back to None.
+          </p>
+        }
+      </div>
+    }
+
     <div *ngIf="levelUpAnalysis.automatic_changes?.length">
       <h3 class="mb-2 font-display text-body font-bold text-ink">✨ New Class Features</h3>
       <ul class="max-h-52 list-disc space-y-2 overflow-y-auto pl-5">
@@ -282,6 +327,6 @@
 
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
     <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices || hasDuplicateSiblingChoices" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
+    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices || hasDuplicateSiblingChoices || hasIncompleteSpellSwap" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
   </div>
 </forge-modal>

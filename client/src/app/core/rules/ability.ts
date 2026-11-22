@@ -191,19 +191,96 @@ export function isSaveProficient(
   return false;
 }
 
-/** Ability modifier, plus proficiency when trained, minus exhaustion, plus Aura/Soul/DM save bonuses. */
+const CATALOG_SAVE_BONUS_ITEMS: Record<string, number> = {
+  'cloak of protection': 1,
+  'ring of protection': 1,
+};
+
+function normalizeCatalogItemName(rawName: string | undefined): string {
+  return String(rawName || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\+\s*\d+/g, ' ')
+    .replace(/\barmou?r\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function maxAttunementSlots(char: CharacterSchema | null | undefined): number {
+  let slots = 3;
+  for (const f of char?.features_traits || []) {
+    const name = (typeof f === 'string' ? f : f?.name || '').toLowerCase();
+    if (name.includes('magic item master')) slots = Math.max(slots, 6);
+    else if (name.includes('magic item savant')) slots = Math.max(slots, 5);
+    else if (name.includes('magic item adept')) slots = Math.max(slots, 4);
+  }
+  return slots;
+}
+
+/**
+ * Saving throw bonus contributed by equipped (and attuned within slot cap) equipment,
+ * mirroring backend `stats_service.py`: explicit `mod1`/`mod2` (`SAVES` or `<STAT>_SAVE`)
+ * takes precedence over catalog defaults (`Cloak of Protection`, `Ring of Protection`).
+ */
+export function equipmentSaveBonusForAbility(
+  char: CharacterSchema | null | undefined,
+  ability: string
+): number {
+  if (!char || char.magic_items_suppressed) return 0;
+  const targetCode = ability.trim().toUpperCase();
+  const maxAttuned = maxAttunementSlots(char);
+  let attunedCount = 0;
+  let total = 0;
+
+  for (const eq of char.equipment || []) {
+    if (!eq || !eq.equipped) continue;
+    if (eq.attuned) {
+      attunedCount++;
+      if (attunedCount > maxAttuned) continue;
+    }
+
+    let hasExplicitSave = false;
+    for (const [modKey, valKey] of [
+      ['mod1', 'val1'],
+      ['mod2', 'val2'],
+    ] as const) {
+      const attr = String(eq[modKey] || '')
+        .trim()
+        .toUpperCase();
+      const val = Math.trunc(Number(eq[valKey] ?? 0) || 0);
+      if (!attr || attr === 'NONE' || val === 0) continue;
+      if (attr === 'SAVES' || attr === 'SAVE') {
+        total += val;
+        hasExplicitSave = true;
+      } else if (attr.endsWith('_SAVE') && attr.split('_')[0] === targetCode) {
+        total += val;
+      }
+    }
+
+    if (!hasExplicitSave) {
+      const catalogBonus = CATALOG_SAVE_BONUS_ITEMS[normalizeCatalogItemName(eq.name)];
+      const itemSave = Number((eq as { save_bonus?: number }).save_bonus ?? 0) || 0;
+      total += catalogBonus ?? itemSave;
+    }
+  }
+  return total;
+}
+
+/** Ability modifier, plus proficiency when trained, minus exhaustion, plus Aura/Soul/Gear/DM save bonuses. */
 export function savingThrowModifier(
   char: CharacterSchema | null | undefined,
   ability: string
 ): number {
   if (!char?.stats) return 0;
+  const code = ability.trim().toUpperCase();
 
   // Prefer backend-computed values
-  if (char.saving_throw_values && char.saving_throw_values[ability] !== undefined) {
-    return char.saving_throw_values[ability];
+  const cached = char.saving_throw_values?.[code] ?? char.saving_throw_values?.[ability];
+  if (cached !== undefined) {
+    return cached;
   }
 
-  let extraSaveBonus = 0;
+  let extraSaveBonus = equipmentSaveBonusForAbility(char, code);
   // Paladin 6+ Aura of Protection: +CHA modifier (minimum +1)
   const hasAura =
     classLevelFor(char, 'paladin') >= 6 ||
@@ -229,8 +306,8 @@ export function savingThrowModifier(
 
   const dmSave = char.dm_modifiers?.saving_throws_bonus ?? 0;
   return (
-    abilityModifierOf(char, ability) +
-    (isSaveProficient(char, ability) ? proficiencyBonus(char) : 0) -
+    abilityModifierOf(char, code) +
+    (isSaveProficient(char, code) ? proficiencyBonus(char) : 0) -
     exhaustionD20Penalty(char) +
     extraSaveBonus +
     dmSave

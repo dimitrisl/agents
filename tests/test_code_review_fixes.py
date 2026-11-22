@@ -2005,6 +2005,148 @@ def test_level_up_apply_adds_learned_spells_to_prepared_spells(edition):
         limiter.reset()
 
 
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_ranger_level_up_revivify_and_spell_swap_validation(edition):
+    """2014 (TCE) & 2024 Rangers offer Revivify at L11+ and support validated 1-for-1 Spell Swap."""
+    from backend.services.forge_service import analyze_level_up
+
+    ranger_l11 = {
+        "char_id": f"ranger_swap_{'24' if '2024' in edition else '14'}",
+        "owner_id": "u_qa",
+        "char_name": "Ulad Swap QA",
+        "char_class": "Ranger",
+        "subclass": "Horizon Walker",
+        "char_level": 11,
+        "classes": [{"class_name": "Ranger", "level": 11, "subclass": "Horizon Walker"}],
+        "race": "Half-Orc",
+        "background": "City Watch",
+        "dnd_edition": edition,
+        "stats": {"STR": 8, "DEX": 20, "CON": 14, "INT": 10, "WIS": 14, "CHA": 12},
+        "hp_max": 92,
+        "hp_current": 92,
+        "spells": {
+            "cantrips": [],
+            "level_1": ["Cure Wounds", "Speak with Animals", "Protection from Evil and Good"],
+            "level_2": ["Silence", "Misty Step"],
+            "level_3": ["Conjure Animals", "Haste"],
+        },
+        "prepared_spells": [
+            "Cure Wounds",
+            "Speak with Animals",
+            "Protection from Evil and Good",
+            "Silence",
+            "Misty Step",
+            "Conjure Animals",
+            "Haste",
+        ],
+        "version": 1,
+    }
+    analysis = analyze_level_up(ranger_l11, user_choices={"level_up_class": "Ranger"})
+
+    spell_choice = next(c for c in analysis["choices_required"] if c["type"] == "spell")
+    assert "Revivify" in spell_choice["options"]
+    assert "Revivify" in analysis["spell_swap_options"]
+    assert "Silence" in analysis["replaceable_spells"]
+    # Subclass always-prepared spells must not be swappable away
+    assert "Haste" not in analysis["replaceable_spells"]
+    assert "Misty Step" not in analysis["replaceable_spells"]
+    assert "Protection from Evil and Good" not in analysis["replaceable_spells"]
+
+    db = _AsyncDB(f"swap_spells_{'24' if '2024' in edition else '14'}")
+    db._db["characters"].insert_one(dict(ranger_l11))
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {"id": "u_qa", "username": "qa"}
+    limiter.reset()
+    try:
+        client = TestClient(app)
+
+        # 1. Incomplete pair rejected with 400
+        bad_half = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {"level_up_class": "Ranger", "spell_swap_out": "Silence"},
+            },
+        )
+        assert bad_half.status_code == 400
+
+        # 2. Protected subclass spell swap rejected with 400
+        bad_sub = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_swap_out": "Haste",
+                    "spell_swap_in": "Revivify",
+                },
+            },
+        )
+        assert bad_sub.status_code == 400
+
+        # 3. Duplicate pick across spell_0 and spell_swap_in rejected with 400
+        bad_dup = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_0": "Revivify",
+                    "spell_swap_out": "Silence",
+                    "spell_swap_in": "Revivify",
+                },
+            },
+        )
+        assert bad_dup.status_code == 400
+
+        # 4. Non-Ranger spell rejected with 400
+        bad_cls = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_swap_out": "Silence",
+                    "spell_swap_in": "Fireball",
+                },
+            },
+        )
+        assert bad_cls.status_code == 400
+
+        # 5. Valid swap: Silence -> Revivify alongside learning Speak with Plants
+        ok = client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": ranger_l11["char_id"],
+                "analysis": analysis,
+                "user_choices": {
+                    "level_up_class": "Ranger",
+                    "spell_0": "Speak with Plants",
+                    "spell_swap_out": "Silence",
+                    "spell_swap_in": "Revivify",
+                },
+            },
+        )
+        assert ok.status_code == 200
+        body = ok.json()
+        assert body["char_level"] == 12
+        assert "Silence" not in body["spells"]["level_2"]
+        assert "Silence" not in body["prepared_spells"]
+        assert "Revivify" in body["spells"]["level_3"]
+        assert "Revivify" in body["prepared_spells"]
+        assert "Speak with Plants" in body["spells"]["level_3"]
+        assert "Haste" in body["spells"]["level_3"]
+    finally:
+        app.dependency_overrides = orig
+        limiter.reset()
+
+
 def test_all_2024_subclasses_resolve_concrete_higher_level_features():
     """Every 2024 subclass across all 13 classes resolves specific subclass feature names at every subclass level."""
     import glob

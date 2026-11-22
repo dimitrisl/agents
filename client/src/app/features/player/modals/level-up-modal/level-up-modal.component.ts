@@ -203,6 +203,16 @@ export class LevelUpModalComponent {
 
   onChoiceChange(choiceKey: string, val: string) {
     const nextChoices: Record<string, any> = { ...this.userChoices, [choiceKey]: val };
+    if (choiceKey === 'spell_swap_out') {
+      if (!val) {
+        delete nextChoices['spell_swap_out'];
+        delete nextChoices['spell_swap_in'];
+      } else if (
+        String(nextChoices['spell_swap_in'] || '').trim().toLowerCase() === val.trim().toLowerCase()
+      ) {
+        delete nextChoices['spell_swap_in'];
+      }
+    }
     const topMatch = /^(feat)_(\d+)$/.exec(choiceKey);
     if (topMatch) {
       const [, baseType, idx] = topMatch;
@@ -218,6 +228,7 @@ export class LevelUpModalComponent {
     }
     this.userChoices = nextChoices;
     this.userChoicesChange.emit(this.userChoices);
+    this.cdr.markForCheck();
   }
 
   selectedFeatMeta(choice: LevelUpChoice, choiceVal: string | undefined): LevelUpFeatMetadata | null {
@@ -316,6 +327,50 @@ export class LevelUpModalComponent {
     return choiceType.replace(/_\d+$/, '');
   }
 
+  get hasSpellSwapAvailable(): boolean {
+    return Boolean(
+      this.levelUpAnalysis?.replaceable_spells?.length &&
+        this.levelUpAnalysis?.spell_swap_options?.length
+    );
+  }
+
+  get swapOutSpell(): string {
+    return String(this.userChoices['spell_swap_out'] || '');
+  }
+
+  get swapInSpell(): string {
+    return String(this.userChoices['spell_swap_in'] || '');
+  }
+
+  get hasIncompleteSpellSwap(): boolean {
+    return Boolean(this.swapOutSpell) !== Boolean(this.swapInSpell);
+  }
+
+  private selectedSpellChoicesLower(excludeIndex?: number): Set<string> {
+    const choices = this.levelUpAnalysis?.choices_required ?? [];
+    const selected = new Set<string>();
+    choices.forEach((c, idx) => {
+      if (idx === excludeIndex || this.siblingGroup(c.type) !== 'spell') return;
+      const val = this.userChoices[`${c.type}_${idx}`];
+      if (val && typeof val === 'string') {
+        const norm = val.trim().toLowerCase();
+        if (norm) selected.add(norm);
+      }
+    });
+    return selected;
+  }
+
+  get filteredSwapInOptions(): string[] {
+    const options = this.levelUpAnalysis?.spell_swap_options ?? [];
+    if (!options.length) return [];
+    const dropNorm = this.swapOutSpell.trim().toLowerCase();
+    const chosenSpells = this.selectedSpellChoicesLower();
+    return options.filter((opt) => {
+      const norm = String(opt).trim().toLowerCase();
+      return norm !== dropNorm && !chosenSpells.has(norm);
+    });
+  }
+
   availableOptionsFor(choice: LevelUpChoice, idx: number): string[] {
     const choices = this.levelUpAnalysis?.choices_required ?? [];
     const targetGroup = this.siblingGroup(choice.type);
@@ -333,6 +388,12 @@ export class LevelUpModalComponent {
         }
       }
     });
+    if (targetGroup === 'spell' && this.swapInSpell) {
+      const swapInNorm = this.swapInSpell.trim().toLowerCase();
+      if (swapInNorm && swapInNorm !== currentNorm) {
+        takenBySiblings.add(swapInNorm);
+      }
+    }
     if (takenBySiblings.size === 0) return choice.options;
     return choice.options.filter((opt) => !takenBySiblings.has(String(opt).trim().toLowerCase()));
   }
@@ -356,6 +417,10 @@ export class LevelUpModalComponent {
         return true;
       }
       bucket.add(norm);
+    }
+    const swapInNorm = this.swapInSpell.trim().toLowerCase();
+    if (swapInNorm && seenByGroup.get('spell')?.has(swapInNorm)) {
+      return true;
     }
     return false;
   }

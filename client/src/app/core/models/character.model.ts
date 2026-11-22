@@ -245,6 +245,8 @@ export interface LevelUpAnalysis {
   hp_bonus_per_level?: number;
   new_total_hp: number;
   choices_required: LevelUpChoice[];
+  replaceable_spells?: string[];
+  spell_swap_options?: string[];
   updated_proficiency_bonus?: number;
   updated_spell_slots?: Record<string, number>;
   new_spells_known?: string[];

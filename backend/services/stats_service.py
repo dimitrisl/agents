@@ -992,14 +992,21 @@ def calculate_weapon_stats(
     import re
 
     magic_bonus_raw = weapon.get("magic_bonus")
+    parsed_explicit_magic: Optional[int] = None
     if magic_bonus_raw is not None and str(magic_bonus_raw).strip() != "":
         try:
-            raw_magic_bonus = int(magic_bonus_raw)
+            parsed_explicit_magic = int(magic_bonus_raw)
         except (ValueError, TypeError):
-            raw_magic_bonus = 0
+            parsed_explicit_magic = 0
+    if parsed_explicit_magic is not None and parsed_explicit_magic != 0:
+        raw_magic_bonus = parsed_explicit_magic
     else:
         name_match = re.search(r"\+([1-9])\b", weapon.get("name", ""))
         raw_magic_bonus = int(name_match.group(1)) if name_match else 0
+        # Persist name-inferred +X magic bonus when schema default 0/None was saved,
+        # matching client extractMagicBonus() while keeping suppressed combat math at 0 under Athas.
+        if raw_magic_bonus > 0:
+            weapon["magic_bonus"] = raw_magic_bonus
 
     is_custom_flag = weapon.get("is_custom", False)
     if is_custom_flag is True or str(is_custom_flag).lower() == "true":
@@ -1655,7 +1662,7 @@ def sync_character_stats(
     attuned_equip_count = 0
 
     for equip in [] if magic_items_suppressed else char_data["equipment"]:
-        if not equip.get("equipped", False):
+        if not isinstance(equip, dict) or not equip.get("equipped", False):
             continue
         if equip.get("attuned", False):
             attuned_equip_count += 1
@@ -1669,7 +1676,10 @@ def sync_character_stats(
                 continue
 
             attr_key = str(raw_mod).upper().strip()
-            bonus_val = int(equip.get(f"val{i}", 0))
+            try:
+                bonus_val = int(equip.get(f"val{i}") or 0)
+            except (ValueError, TypeError):
+                bonus_val = 0
 
             if not attr_key or attr_key == "NONE" or bonus_val == 0:
                 continue
@@ -1694,8 +1704,7 @@ def sync_character_stats(
                 if stat_save in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
                     equip_save_bonuses[stat_save] = equip_save_bonuses.get(stat_save, 0) + bonus_val
 
-        item_name = equip.get("name", "").lower()
-        item_data = next((i for i in all_items if i["name"].lower() == item_name), None)
+        item_data = _find_catalog_item(equip.get("name", ""), all_items)
 
         if item_data and "stat_set" in item_data:
             for stat, val in item_data["stat_set"].items():
