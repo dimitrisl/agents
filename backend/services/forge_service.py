@@ -1715,9 +1715,6 @@ def forge_character_manual(
         pass
 
     # Add missing static class & subclass features (Bug 7 + L15+ concrete subclass resolution)
-    from backend.repositories.rules_repository import RulesRepository
-
-    repo = RulesRepository()
     all_static_features = []
     for lvl in range(1, target_level + 1):
         all_static_features.extend(
@@ -1729,13 +1726,60 @@ def forge_character_manual(
             )
         )
 
-    existing_feat_names = {f.get("name", "").lower() for f in result.get("features_traits", [])}
+    existing_feat_names = {
+        str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+        for f in (result.get("features_traits") or [])
+    }
     for feat in all_static_features:
         if feat.get("name", "").lower() not in existing_feat_names:
             result.setdefault("features_traits", []).append(feat)
             existing_feat_names.add(feat.get("name", "").lower())
 
     if validated_class_choices:
+        chosen_names_low = {c["name"].strip().lower() for c in validated_class_choices}
+        chose_divine_order = any(n.startswith("divine order:") for n in chosen_names_low)
+        chose_primal_order = any(n.startswith("primal order:") for n in chosen_names_low)
+        if chose_divine_order or chose_primal_order:
+            pruned_ft = []
+            for ft in result.get("features_traits") or []:
+                fn = str((ft.get("name") if isinstance(ft, dict) else ft) or "").strip().lower()
+                if (
+                    chose_divine_order
+                    and fn not in chosen_names_low
+                    and (
+                        (
+                            "protector" in fn
+                            and "thaumaturge" not in fn
+                            and ("divine" in fn or fn == "protector")
+                        )
+                        or ("thaumaturge" in fn and "protector" not in fn)
+                    )
+                ):
+                    continue
+                if (
+                    chose_primal_order
+                    and fn not in chosen_names_low
+                    and (
+                        (
+                            "warden" in fn
+                            and "magician" not in fn
+                            and ("primal" in fn or fn == "warden")
+                        )
+                        or (
+                            "magician" in fn
+                            and "warden" not in fn
+                            and ("primal" in fn or "druid" in fn or fn == "magician")
+                        )
+                    )
+                ):
+                    continue
+                pruned_ft.append(ft)
+            result["features_traits"] = pruned_ft
+            existing_feat_names = {
+                str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
+                for f in result["features_traits"]
+            }
+
         for choice_entry in validated_class_choices:
             clean_choice = choice_entry["name"]
             if clean_choice.lower() not in existing_feat_names:

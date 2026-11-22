@@ -477,6 +477,51 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
                     }
                   }
                 }
+                const bareStructuredTypes = new Set([
+                  'maneuver',
+                  'hunter_choice',
+                  'fighting_style',
+                  'pact_boon',
+                  'eldritch_invocation',
+                  'metamagic',
+                  'infusion',
+                ]);
+                for (const k of Object.keys(syncedChoices)) {
+                  if (bareStructuredTypes.has(k)) {
+                    if (!choicesReq.some((c) => c.type === k)) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                    continue;
+                  }
+                  const statSubMatch = /^(.+)_stat[12]_(\d+)$/.exec(k);
+                  if (statSubMatch) {
+                    const [, parentType, idxStr] = statSubMatch;
+                    const slot = choicesReq[Number(idxStr)];
+                    if (!slot || slot.type !== parentType) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                    continue;
+                  }
+                  const indexedMatch = /^(.+)_(\d+)$/.exec(k);
+                  if (indexedMatch) {
+                    const [, choiceType, idxStr] = indexedMatch;
+                    const slot = choicesReq[Number(idxStr)];
+                    const val = syncedChoices[k];
+                    const optionInvalid =
+                      slot &&
+                      Array.isArray(slot.options) &&
+                      slot.options.length > 0 &&
+                      val !== undefined &&
+                      val !== '' &&
+                      !slot.options.includes(String(val));
+                    if (!slot || slot.type !== choiceType || optionInvalid) {
+                      delete syncedChoices[k];
+                      choicesUpdated = true;
+                    }
+                  }
+                }
                 if (choicesUpdated) {
                   this.levelUpUserChoices = syncedChoices;
                 }
@@ -3579,13 +3624,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const oldOrder = this.extractChosenOrder(this.levelUpUserChoices);
     const newOrder = this.extractChosenOrder(choices);
     const orderChanged = (oldOrder?.value || '') !== (newOrder?.value || '');
-    if (orderChanged) {
-      // Drop stale spell_* selections and any duplicate order keys so excess cantrips or conflicting orders never linger
+    const subclassChanged = oldSubclass !== newSubclass;
+    if (orderChanged || subclassChanged) {
+      // Drop stale spell_* selections, subclass-dependent structured choices, and duplicate order keys
       const cleaned = { ...choices };
       for (const k of Object.keys(cleaned)) {
         if (/^spell(?:_secret_\d+)?_\d+$/.test(k)) {
           delete cleaned[k];
         } else if (
+          subclassChanged &&
+          /^(?:maneuver|hunter_choice|fighting_style|pact_boon|eldritch_invocation|metamagic|infusion)(?:_\d+)?$/.test(k)
+        ) {
+          delete cleaned[k];
+        } else if (
+          orderChanged &&
           newOrder &&
           k !== newOrder.key &&
           (k === 'divine_order' ||
@@ -3595,6 +3647,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         ) {
           delete cleaned[k];
         }
+      }
+      if (subclassChanged) {
+        delete cleaned['spell_swap_out'];
+        delete cleaned['spell_swap_in'];
       }
       this.levelUpUserChoices = cleaned;
     } else {

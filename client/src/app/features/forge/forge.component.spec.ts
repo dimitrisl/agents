@@ -50,6 +50,7 @@ describe('ForgeComponent', () => {
   });
 
   it('should send chosen skills, feats, spells, and class choices in createManualCharacter payload', () => {
+    component.charState.dndEdition.set('2024 Revision (5.5e)');
     fixture.detectChanges();
 
     // Flush initial init requests
@@ -120,6 +121,45 @@ describe('ForgeComponent', () => {
 
     component.onManualClassChoiceChange('Divine Order: Protector');
     expect(component.manualSpells).toEqual(['Guidance', 'Light', 'Sacred Flame', 'Bless']);
+  });
+
+  it('should reset 2024-only manualClassChoice and refresh catalogs when sidebar navbar toggles edition externally', () => {
+    component.charState.dndEdition.set('2024 Revision (5.5e)');
+
+    fixture.detectChanges();
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/class-choices')).flush({
+      divine_orders: [
+        { name: 'Divine Order: Protector', description: 'Heavy armor' },
+        { name: 'Divine Order: Thaumaturge', description: 'Extra cantrip' },
+      ],
+    });
+
+    component.manualClass = 'Cleric';
+    component.manualLevel = 1;
+    component.onManualClassChoiceChange('Divine Order: Thaumaturge');
+    expect(component.manualClassChoice).toBe('Divine Order: Thaumaturge');
+
+    // Simulate global Sidebar Navbar toggling edition directly on CharacterStateService
+    component.charState.toggleEdition();
+    fixture.detectChanges();
+
+    expect(component.is2024).toBe(false);
+    expect(component.manualClassChoice).toBe('');
+    httpMock.expectOne((req) => req.url.includes('/rules/feats')).flush([]);
+    httpMock.expectOne((req) => req.url.includes('/rules/spells')).flush([]);
+    const cc2014Req = httpMock.expectOne((req) => req.url.includes('/rules/class-choices'));
+    expect(cc2014Req.request.params.get('edition')).toBe('2014 Edition');
+    cc2014Req.flush({});
+
+    // Defense-in-depth: even if stale manualClassChoice were set, 2014 Cleric submission omits chosen_class_choices
+    component.manualClassChoice = 'Divine Order: Thaumaturge';
+    component.createManualCharacter();
+    const enrichReq = httpMock.expectOne(`${environment.apiBaseUrl}/forge/enrich-manual`);
+    expect(enrichReq.request.body.edition).toBe('2014 Edition');
+    expect(enrichReq.request.body.chosen_class_choices).toBeNull();
+    enrichReq.flush({ char_name: 'OldSchoolCleric', char_class: 'Cleric', char_level: 1 });
   });
 
   it('should reset stale skills, feats, and spells when class changes and fetch Wizard spells for Eldritch Knight', () => {

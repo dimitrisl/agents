@@ -437,6 +437,10 @@ export class ManualFormComponent {
               name: 'Eldritch Mind',
               description: 'Gain Advantage on Constitution saving throws to maintain Concentration.',
             },
+            {
+              name: 'Lessons of the First Ones',
+              description: 'Gain an Origin feat of your choice (repeatable for distinct Origin feats).',
+            },
           ];
       return { label: 'Eldritch Invocation (Level 1)', options: opts };
     }

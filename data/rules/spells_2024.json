@@ -8254,7 +8254,6 @@
     "level": 3,
     "school": "abjuration",
     "classes": [
-      "bard",
       "druid",
       "paladin"
     ],
@@ -8531,8 +8530,7 @@
     "level": 5,
     "school": "enchantment",
     "classes": [
-      "bard",
-      "wizard"
+      "bard"
     ],
     "actionType": "action",
     "concentration": true,

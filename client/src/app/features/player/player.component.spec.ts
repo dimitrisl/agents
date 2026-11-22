@@ -1564,6 +1564,117 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     http.verify();
     fixture.destroy();
   });
+
+  it('prunes stale subclass-dependent structured choices (Battle Master -> Champion, Hunter -> Gloom Stalker) so Apply Level Up never deadlocks', () => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'fighter_l2_bm',
+      char_name: 'Marcus',
+      char_class: 'Fighter',
+      char_level: 2,
+      classes: [{ class_name: 'Fighter', level: 2 }],
+      dnd_edition: '2024 Revision (5.5e)',
+      dm_level_up_unlocked: true,
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    const comp = fixture.componentInstance;
+
+    comp.onLevelUp();
+    http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis')).flush({
+      automatic_changes: [],
+      hp_increase: 7,
+      hp_bonus_per_level: 0,
+      new_total_hp: 25,
+      choices_required: [
+        { type: 'subclass', label: 'Choose your Fighter Subclass', options: ['Battle Master', 'Champion'] },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+
+    // Pick Battle Master -> server returns 3 maneuver pickers
+    comp.onLevelUpChoicesChange({ level_up_class: 'Fighter', subclass_0: 'Battle Master', hp_method: 'average' });
+    http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis')).flush({
+      automatic_changes: [],
+      hp_increase: 7,
+      hp_bonus_per_level: 0,
+      new_total_hp: 25,
+      choices_required: [
+        { type: 'subclass', label: 'Choose your Fighter Subclass', options: ['Battle Master', 'Champion'] },
+        { type: 'maneuver', label: 'Battle Master: Choose Maneuver #1', options: ['Maneuver: Precision Attack', 'Maneuver: Trip Attack', 'Maneuver: Riposte'] },
+        { type: 'maneuver', label: 'Battle Master: Choose Maneuver #2', options: ['Maneuver: Precision Attack', 'Maneuver: Trip Attack', 'Maneuver: Riposte'] },
+        { type: 'maneuver', label: 'Battle Master: Choose Maneuver #3', options: ['Maneuver: Precision Attack', 'Maneuver: Trip Attack', 'Maneuver: Riposte'] },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+
+    // User selects maneuvers, then switches to Champion
+    comp.onLevelUpChoicesChange({
+      ...comp.levelUpUserChoices,
+      maneuver_1: 'Maneuver: Precision Attack',
+      maneuver_2: 'Maneuver: Trip Attack',
+      maneuver_3: 'Maneuver: Riposte',
+    });
+    expect(comp.levelUpUserChoices['maneuver_1']).toBe('Maneuver: Precision Attack');
+
+    comp.onLevelUpChoicesChange({
+      ...comp.levelUpUserChoices,
+      subclass_0: 'Champion',
+    });
+    // Immediate cleanup in onLevelUpChoicesChange + reconciliation on response flush
+    expect(comp.levelUpUserChoices['maneuver_1']).toBeUndefined();
+    expect(comp.levelUpUserChoices['maneuver_2']).toBeUndefined();
+    expect(comp.levelUpUserChoices['maneuver_3']).toBeUndefined();
+
+    // Even if a stale hunter_choice_1 somehow lingered, tap() prunes any indexed key absent from choices_required
+    comp.levelUpUserChoices = { ...comp.levelUpUserChoices, hunter_choice_1: "Hunter's Prey: Colossus Slayer" };
+    http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis')).flush({
+      automatic_changes: [],
+      hp_increase: 7,
+      hp_bonus_per_level: 0,
+      new_total_hp: 25,
+      choices_required: [
+        { type: 'subclass', label: 'Choose your Fighter Subclass', options: ['Battle Master', 'Champion'] },
+      ],
+      updated_proficiency_bonus: 2,
+      updated_spell_slots: {},
+    });
+
+    expect(comp.levelUpUserChoices['subclass_0']).toBe('Champion');
+    expect(comp.levelUpUserChoices['hp_method']).toBe('average');
+    expect(comp.levelUpUserChoices['hunter_choice_1']).toBeUndefined();
+    expect(comp.levelUpUserChoices['maneuver_1']).toBeUndefined();
+
+    http.verify();
+    fixture.destroy();
+  });
 });
 
 describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas Sync', () => {

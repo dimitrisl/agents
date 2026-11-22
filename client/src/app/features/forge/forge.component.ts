@@ -1,4 +1,4 @@
-import { Component, DestroyRef, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnDestroy, OnInit, effect, inject, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Observable, Subject, of } from 'rxjs';
@@ -213,6 +213,8 @@ export class ForgeComponent implements OnInit, OnDestroy {
     'Ranger': ['DEX', 'WIS'], 'Rogue': ['DEX'], 'Sorcerer': ['CHA'], 'Warlock': ['CHA'], 'Wizard': ['INT']
   };
 
+  private lastHandledEdition: string;
+
   constructor(
     public charState: CharacterStateService,
     private dice: DiceService,
@@ -220,7 +222,16 @@ export class ForgeComponent implements OnInit, OnDestroy {
     private router: Router,
     private importer: CharacterImportService,
     private rollToast: RollToastService
-  ) {}
+  ) {
+    this.lastHandledEdition = this.charState.dndEdition();
+    effect(() => {
+      const currentEdition = this.charState.dndEdition();
+      if (currentEdition !== this.lastHandledEdition) {
+        this.lastHandledEdition = currentEdition;
+        untracked(() => this.refreshForEditionChange());
+      }
+    });
+  }
 
   // ---------------------------------------------------------------- import
 
@@ -274,6 +285,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.lastHandledEdition = this.charState.dndEdition();
     this.restoreAiDraft();
     this.restoreTempHero();
     this.checkPendingGenerationRecovery();
@@ -491,8 +503,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleEditionAndRefresh() {
-    this.charState.toggleEdition();
+  private refreshForEditionChange() {
     this.manualFeats = [];
     this.manualSpells = [];
     this.manualClassChoice = '';
@@ -516,6 +527,15 @@ export class ForgeComponent implements OnInit, OnDestroy {
     this.fetchFeats();
     this.fetchSpells();
     this.fetchClassChoices();
+  }
+
+  toggleEditionAndRefresh() {
+    this.charState.toggleEdition();
+    const currentEdition = this.charState.dndEdition();
+    if (currentEdition !== this.lastHandledEdition) {
+      this.lastHandledEdition = currentEdition;
+      this.refreshForEditionChange();
+    }
   }
 
   onManualClassChange(newClass?: string) {
@@ -953,6 +973,55 @@ export class ForgeComponent implements OnInit, OnDestroy {
     });
   }
 
+  private isManualClassChoiceValidForCurrentSelection(): boolean {
+    const choice = (this.manualClassChoice || '').trim();
+    if (!choice) return false;
+    const cls = (this.manualClass || '').trim().toLowerCase();
+    const cat = this.availableClassChoices || {};
+    let allowedList: Array<{ name: string; min_level?: number }> = [];
+    if (this.is2024 && cls === 'cleric') {
+      allowedList =
+        Array.isArray(cat['divine_orders']) && cat['divine_orders'].length
+          ? cat['divine_orders']
+          : [{ name: 'Divine Order: Protector' }, { name: 'Divine Order: Thaumaturge' }];
+    } else if (this.is2024 && cls === 'druid') {
+      allowedList =
+        Array.isArray(cat['primal_orders']) && cat['primal_orders'].length
+          ? cat['primal_orders']
+          : [{ name: 'Primal Order: Magician' }, { name: 'Primal Order: Warden' }];
+    } else if (this.is2024 && cls === 'warlock') {
+      const allInv = Array.isArray(cat['eldritch_invocations']) ? cat['eldritch_invocations'] : [];
+      const lvl1Inv = allInv.filter((item: any) => Number(item?.min_level ?? 1) <= 1);
+      allowedList = lvl1Inv.length
+        ? lvl1Inv
+        : [
+            { name: 'Pact of the Blade' },
+            { name: 'Pact of the Chain' },
+            { name: 'Pact of the Tome' },
+            { name: 'Armor of Shadows' },
+            { name: 'Eldritch Mind' },
+            { name: 'Lessons of the First Ones' },
+          ];
+    } else if (cls === 'fighter') {
+      const styles = cat['fighting_styles']?.['fighter'];
+      allowedList =
+        Array.isArray(styles) && styles.length
+          ? styles
+          : [
+              { name: 'Fighting Style: Archery' },
+              { name: 'Fighting Style: Defense' },
+              { name: 'Fighting Style: Dueling' },
+              { name: 'Fighting Style: Great Weapon Fighting' },
+              { name: 'Fighting Style: Protection' },
+              { name: 'Fighting Style: Two-Weapon Fighting' },
+            ];
+    } else {
+      return false;
+    }
+    const low = choice.toLowerCase();
+    return allowedList.some((opt) => (opt?.name || '').trim().toLowerCase() === low);
+  }
+
   createManualCharacter() {
     if (this.loading) return;
     this.loading = true;
@@ -976,7 +1045,7 @@ export class ForgeComponent implements OnInit, OnDestroy {
       skill_proficiencies: this.manualSkills,
       chosen_feats: this.manualFeats.length > 0 ? this.manualFeats : null,
       chosen_spells: this.manualSpells.length > 0 ? this.manualSpells : null,
-      chosen_class_choices: this.manualClassChoice ? [this.manualClassChoice] : null,
+      chosen_class_choices: this.isManualClassChoiceValidForCurrentSelection() ? [this.manualClassChoice] : null,
     }).subscribe({
       next: (char) => {
         char.char_portrait = sanitizePortraitUrl(char.char_portrait);

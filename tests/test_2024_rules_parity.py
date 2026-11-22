@@ -527,9 +527,13 @@ def test_manual_forge_rejects_cross_class_arbitrary_and_conflicting_class_choice
 def test_2024_extra_cantrip_parity_devouring_blade_prereq_aura_of_vitality_and_edge_cases():
     repo = RulesRepository()
 
-    # 1. Aura of Vitality belongs to Bard, Druid, Paladin in 2024 PHB (NOT base Cleric)
+    # 1. Aura of Vitality belongs to Druid & Paladin in 2024 PHB; Yolande's Regal Presence is Bard-only
     aura = next(s for s in repo.get_all_spells(EDITION_2024) if s["name"] == "Aura of Vitality")
-    assert set(aura["classes"]) == {"bard", "druid", "paladin"}
+    assert set(aura["classes"]) == {"druid", "paladin"}
+    yolande = next(
+        s for s in repo.get_all_spells(EDITION_2024) if s["name"] == "Yolande's Regal Presence"
+    )
+    assert set(yolande["classes"]) == {"bard"}
 
     # 2. 2024 Thaumaturge Cleric & Magician Druid receive +1 automatic cantrip (4 & 3 instead of 3 & 2)
     with patch("backend.services.forge_service.generate_ai_json", return_value=None):
@@ -1326,3 +1330,79 @@ def test_smart_quote_null_safe_spells_legacy_string_orders_and_2024_phb_data_fix
         if inv["name"] == "Lessons of the First Ones"
     )
     assert lessons["min_level"] == 1
+
+    # 4. Manual forge prunes LLM-hallucinated competing Divine/Primal Order when user chooses explicitly
+    hallucinated_cleric = {
+        "features_traits": [
+            {
+                "name": "Divine Order: Protector",
+                "description": "Heavy Armor and Martial Weapons",
+                "source": "Class",
+            }
+        ],
+        "equipment": [],
+        "weapons": [],
+        "spells": {},
+    }
+    with patch(
+        "backend.services.forge_service.generate_ai_json", return_value=dict(hallucinated_cleric)
+    ):
+        forged_thaum = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Cleric",
+            background="Acolyte",
+            subclass="",
+            alignment="Neutral Good",
+            gender="Female",
+            name="PrunedCleric",
+            base_stats={"STR": 10, "DEX": 12, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+            skill_proficiencies=["Religion", "Insight"],
+            saving_throws=["WIS", "CHA"],
+            spell_ability="WIS",
+            concept="Divine scholar",
+            edition=EDITION_2024,
+            chosen_class_choices=["Divine Order: Thaumaturge"],
+        )
+    ft_cleric_low = [f["name"].lower() for f in forged_thaum["features_traits"]]
+    assert "divine order: thaumaturge" in ft_cleric_low
+    assert "divine order: protector" not in ft_cleric_low
+    assert "heavy armor" not in get_character_armor_proficiencies(forged_thaum, None)
+
+    hallucinated_druid = {
+        "features_traits": [
+            {
+                "name": "Primal Order: Warden",
+                "description": "Medium Armor and Martial Weapons",
+                "source": "Class",
+            }
+        ],
+        "equipment": [],
+        "weapons": [],
+        "spells": {},
+    }
+    with patch(
+        "backend.services.forge_service.generate_ai_json", return_value=dict(hallucinated_druid)
+    ):
+        forged_mag = forge_character_manual(
+            target_level=1,
+            race="Human",
+            char_class="Druid",
+            background="Guide",
+            subclass="",
+            alignment="Neutral",
+            gender="Male",
+            name="PrunedDruid",
+            base_stats={"STR": 10, "DEX": 14, "CON": 14, "INT": 10, "WIS": 16, "CHA": 10},
+            skill_proficiencies=["Nature", "Perception"],
+            saving_throws=["INT", "WIS"],
+            spell_ability="WIS",
+            concept="Arcane naturalist",
+            edition=EDITION_2024,
+            chosen_class_choices=["Primal Order: Magician"],
+        )
+    ft_druid_low = [f["name"].lower() for f in forged_mag["features_traits"]]
+    assert "primal order: magician" in ft_druid_low
+    assert "primal order: warden" not in ft_druid_low
+    assert "medium armor" not in get_character_armor_proficiencies(forged_druid := forged_mag, None)
+    assert forged_druid["skills"]["Nature"] == 5  # INT 0 + PB +2 + WIS +3
