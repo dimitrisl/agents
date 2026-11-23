@@ -145,4 +145,82 @@ describe('Weapon Bonus Calculations and Breakdown', () => {
     expect(breakdownCha.damage.totalBonus).toBe(4);
     expect(breakdownCha.damage.formulaText).not.toContain('(Agonizing)');
   });
+
+  it.each(['2014 Edition', '2024 Revision (5.5e)'])(
+    'adds +2 bow damage for Bracers of Archery in %s on Longbow/Shortbow only and suppresses under Athas',
+    (edition) => {
+      const archer: CharacterSchema = {
+        ...uladBhor,
+        dnd_edition: edition,
+        equipment: [{ name: 'Bracers of Archery', equipped: true, attuned: true } as any],
+      };
+      const longbow: Weapon = {
+        name: 'Longbow',
+        attack_bonus: '+9',
+        damage_dice: '1d8 piercing',
+        range: '150/600',
+      };
+      const shortbow: Weapon = {
+        name: 'Shortbow',
+        attack_bonus: '+9',
+        damage_dice: '1d6 piercing',
+        range: '80/320',
+      };
+      const longsword: Weapon = {
+        name: 'Longsword',
+        attack_bonus: '+8',
+        damage_dice: '1d8 slashing',
+      };
+
+      const bowBd = calculateWeaponBreakdown(longbow, archer);
+      expect(bowBd.damage.totalBonus).toBe(7); // 5 DEX + 2 Bracers
+      expect(bowBd.damage.formulaText).toContain('+2 (Bracers of Archery)');
+
+      const shortbowBd = calculateWeaponBreakdown(shortbow, archer);
+      expect(shortbowBd.damage.totalBonus).toBe(7);
+
+      const swordBd = calculateWeaponBreakdown(longsword, archer);
+      expect(swordBd.damage.totalBonus).toBe(4); // 4 STR only (Bracers do not apply to melee weapons)
+      expect(swordBd.damage.formulaText).not.toContain('Bracers of Archery');
+
+      const suppBd = calculateWeaponBreakdown(longbow, { ...archer, magic_items_suppressed: true });
+      expect(suppBd.damage.totalBonus).toBe(5);
+      expect(suppBd.damage.formulaText).not.toContain('Bracers of Archery');
+    },
+  );
+
+  it('prevents duplicate Bracers of Archery stacking, supports custom bow_damage_bonus, and enforces attunement cap', () => {
+    const longbow: Weapon = {
+      name: 'Longbow',
+      attack_bonus: '+9',
+      damage_dice: '1d8 piercing',
+      range: '150/600',
+    };
+
+    const dupArcher: CharacterSchema = {
+      ...uladBhor,
+      equipment: [
+        { name: 'Bracers of Archery', equipped: true, attuned: true } as any,
+        { name: 'Bracers of Archery (Attuned)', equipped: true, attuned: true } as any,
+      ],
+    };
+    expect(calculateWeaponBreakdown(longbow, dupArcher).damage.totalBonus).toBe(7);
+
+    const customBowBonus: CharacterSchema = {
+      ...uladBhor,
+      equipment: [{ name: 'Quiver of Precision', equipped: true, bow_damage_bonus: 3 } as any],
+    };
+    expect(calculateWeaponBreakdown(longbow, customBowBonus).damage.totalBonus).toBe(8);
+
+    const cappedArcher: CharacterSchema = {
+      ...uladBhor,
+      equipment: [
+        { name: 'Item 1', equipped: true, attuned: true } as any,
+        { name: 'Item 2', equipped: true, attuned: true } as any,
+        { name: 'Item 3', equipped: true, attuned: true } as any,
+        { name: 'Bracers of Archery', equipped: true, attuned: true } as any,
+      ],
+    };
+    expect(calculateWeaponBreakdown(longbow, cappedArcher).damage.totalBonus).toBe(5);
+  });
 });

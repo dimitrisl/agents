@@ -14,6 +14,7 @@ import {
   currentHp,
   describeDmModifiers,
   effectiveExhaustionLevel,
+  equipmentAbilityCheckBonus,
   exhaustionD20Penalty,
   findSkill,
   formatClassSummary,
@@ -1432,6 +1433,95 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       expect(getMaxCantrips('Druid', 1, '', [])).toBe(2);
       expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'], true)).toBe(3);
       expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'], false)).toBe(2);
+    });
+  });
+
+  describe('2014 & 2024 expanded magic items (Luckstone, Staff of Power, Sentinel Shield)', () => {
+    it.each(['2014 Edition', '2024 Revision (5.5e)'])(
+      'adds +1 to ability checks, all skills, passive scores, and saving throws for Stone of Good Luck in %s (and respects Athas)',
+      (edition) => {
+        const wiz = hero({
+          char_class: 'Wizard',
+          char_level: 5,
+          proficiency_bonus: 3,
+          dnd_edition: edition,
+          stats: { STR: 10, DEX: 14, CON: 14, INT: 18, WIS: 12, CHA: 10 },
+          skill_proficiencies: ['Arcana', 'Perception'],
+          saving_throws: ['INT', 'WIS'],
+          skills: undefined,
+          passive_perception: undefined,
+          saving_throw_values: undefined,
+          equipment: [
+            { name: 'Stone of Good Luck (Luckstone)', equipped: true, attuned: true } as any,
+            { name: 'Staff of Power', equipped: true, attuned: true } as any,
+          ],
+        });
+
+        expect(equipmentAbilityCheckBonus(wiz)).toBe(1);
+        expect(abilityCheckModifier(wiz, 'STR')).toBe(1); // 0 STR + 1 Luckstone
+        expect(skillModifier(wiz, skill('Arcana', 'INT'))).toBe(8); // +4 INT + 3 PB + 1 Luckstone
+        expect(passivePerceptionOf(wiz)).toBe(15); // 10 + 1 WIS + 3 PB + 1 Luckstone
+        expect(savingThrowModifier(wiz, 'CON')).toBe(5); // +2 CON + 1 Luckstone + 2 Staff of Power
+
+        const suppressed = { ...wiz, magic_items_suppressed: true };
+        expect(equipmentAbilityCheckBonus(suppressed)).toBe(0);
+        expect(abilityCheckModifier(suppressed, 'STR')).toBe(0);
+        expect(skillModifier(suppressed, skill('Arcana', 'INT'))).toBe(7);
+        expect(savingThrowModifier(suppressed, 'CON')).toBe(2);
+      },
+    );
+
+    it.each(['2014 Edition', '2024 Revision (5.5e)'])(
+      'grants initiative advantage from Sentinel Shield in %s and suppresses it under Athas',
+      (edition) => {
+        const cleric = hero({
+          char_class: 'Cleric',
+          dnd_edition: edition,
+          equipment: [{ name: 'Sentinel Shield', equipped: true } as any],
+        });
+        expect(hasInitiativeAdvantage(cleric)).toBe(true);
+        expect(hasInitiativeAdvantage({ ...cleric, magic_items_suppressed: true })).toBe(false);
+      },
+    );
+
+    it('enforces attunement cap on Weapon of Warning in hasInitiativeAdvantage', () => {
+      const capped = hero({
+        char_class: 'Fighter',
+        char_level: 5,
+        equipment: [
+          { name: 'Ring A', equipped: true, attuned: true } as any,
+          { name: 'Ring B', equipped: true, attuned: true } as any,
+          { name: 'Ring C', equipped: true, attuned: true } as any,
+          { name: 'Weapon of Warning', equipped: true, attuned: true } as any,
+        ],
+      });
+      expect(hasInitiativeAdvantage(capped)).toBe(false);
+
+      const artificer10 = hero({
+        char_class: 'Artificer',
+        char_level: 10,
+        equipment: capped.equipment,
+      });
+      expect(hasInitiativeAdvantage(artificer10)).toBe(true);
+    });
+
+    it('supports comma-separated "+N" catalog names and omits flat Scarab of Protection save bonus', () => {
+      const commaHero = hero({
+        char_class: 'Wizard',
+        char_level: 5,
+        proficiency_bonus: 3,
+        stats: { STR: 10, DEX: 14, CON: 14, INT: 18, WIS: 12, CHA: 10 },
+        saving_throws: ['INT', 'WIS'],
+        skills: undefined,
+        saving_throw_values: undefined,
+        equipment: [
+          { name: 'Stone of Good Luck, +1', equipped: true, attuned: true } as any,
+          { name: 'Cloak of Protection, +1', equipped: true, attuned: true } as any,
+          { name: 'Scarab of Protection', equipped: true, attuned: true } as any,
+        ],
+      });
+      expect(equipmentAbilityCheckBonus(commaHero)).toBe(1);
+      expect(savingThrowModifier(commaHero, 'CON')).toBe(4); // +2 CON + 1 Luckstone + 1 Cloak (Scarab adds +0)
     });
   });
 });

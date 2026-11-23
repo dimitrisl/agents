@@ -268,7 +268,7 @@ _NON_HEAVY_EQUIP_TYPES = (
 
 
 def _strip_armor_modifiers(raw_name: str) -> str:
-    """Normalize '+1/+2/+3' enhancements and punctuation for catalog and keyword matching."""
+    """Normalize '+1/+2/+3' enhancements and punctuation for catalog matching."""
     cleaned = re.sub(r"(?:\s*,\s*|\s+)\+[1-3]\b", "", str(raw_name or "").lower())
     cleaned = re.sub(r"[(),]", " ", cleaned)
     return " ".join(cleaned.split())
@@ -730,6 +730,29 @@ def get_character_weapon_proficiencies(
                 if tok in combined or tok.rstrip("s") in combined:
                     profs.add(tok)
 
+    if not bool(char_data.get("magic_items_suppressed", False)):
+        items_lookup = build_armor_items_lookup()
+        max_attuned = get_max_attunement_slots(char_data)
+        attuned_count = 0
+        for equip in char_data.get("equipment", []) or []:
+            if not isinstance(equip, dict) or not equip.get("equipped"):
+                continue
+            if equip.get("attuned"):
+                attuned_count += 1
+                if attuned_count > max_attuned:
+                    continue
+            raw_eq = str(equip.get("name") or "").strip().lower()
+            no_parens = _strip_armor_modifiers(re.sub(r"\([^)]*\)", " ", raw_eq))
+            item_db = (
+                items_lookup.get(raw_eq)
+                or items_lookup.get(_strip_armor_modifiers(raw_eq))
+                or items_lookup.get(no_parens)
+            )
+            for wp in (item_db or {}).get("weapon_proficiencies") or []:
+                norm = _normalize_weapon_prof_token(wp)
+                if norm:
+                    profs.add(norm)
+
     return profs
 
 
@@ -1013,7 +1036,12 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
                     req_prof = "shields"
 
                 if req_prof:
-                    if req_prof not in armor_profs and "all armor" not in armor_profs:
+                    if (
+                        not item_db.get("ignore_proficiency")
+                        and "elven chain" not in item_name
+                        and req_prof not in armor_profs
+                        and "all armor" not in armor_profs
+                    ):
                         issue_msg = f"Character lacks proficiency for {item_name} ({req_prof}). Wearing it imposes disadvantage on STR/DEX checks, saves, and attacks, and prevents spellcasting."
                         logger.warning(issue_msg)
                         issues.append(issue_msg)

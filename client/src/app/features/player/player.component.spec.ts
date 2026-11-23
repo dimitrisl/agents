@@ -2212,4 +2212,81 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush({}));
     fixture.destroy();
   }));
+
+  it('invalidates derived equipment caches on toggleEquipped and deleteEquipment', () => {
+    const luckstone = { name: 'Stone of Good Luck (Luckstone)', equipped: true, attuned: true } as any;
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'equip-cache-1',
+      skills: { Perception: 6, Arcana: 8 },
+      passive_perception: 16,
+      initiative_advantage: true,
+      saving_throw_values: { CON: 4 },
+      equipment: [luckstone],
+      active_campaign: undefined,
+    });
+
+    comp.toggleEquipped(luckstone);
+    expect(charState.activeCharacter()?.skills).toBeUndefined();
+    expect(charState.activeCharacter()?.passive_perception).toBeUndefined();
+    expect(charState.activeCharacter()?.initiative_advantage).toBeUndefined();
+    expect(charState.activeCharacter()?.saving_throw_values).toBeUndefined();
+
+    // Repopulate stale caches and verify deleteEquipment also clears all derived caches
+    charState.activeCharacter.update((c) =>
+      c
+        ? {
+            ...c,
+            skills: { Perception: 6 },
+            passive_perception: 16,
+            initiative_advantage: true,
+            saving_throw_values: { CON: 4 },
+          }
+        : null,
+    );
+    comp.deleteEquipment(0);
+    expect(charState.activeCharacter()?.skills).toBeUndefined();
+    expect(charState.activeCharacter()?.passive_perception).toBeUndefined();
+    expect(charState.activeCharacter()?.initiative_advantage).toBeUndefined();
+    expect(charState.activeCharacter()?.saving_throw_values).toBeUndefined();
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
+
+  it('derives healing spell modifier from spell_ability rather than spell_save_dc so DC items do not inflate Cure Wounds', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'cleric-heal-1',
+      char_class: 'Cleric',
+      char_level: 5,
+      proficiency_bonus: 3,
+      spell_ability: 'WIS',
+      stats: { STR: 14, DEX: 10, CON: 14, INT: 10, WIS: 18, CHA: 10 },
+      spell_save_dc: 17, // Base 15 (8 + 3 PB + 4 WIS) + 2 Amulet of the Devout +2
+      spell_slots: { level_1: { max: 4, used: 0 } },
+      active_campaign: undefined,
+    });
+    const toastService = TestBed.inject(RollToastService);
+    jest.spyOn(TestBed.inject(SpellRulesService), 'profile').mockReturnValue(
+      of(
+        analyzeSpell({
+          name: 'Cure Wounds',
+          level: 1,
+          concentration: 'False',
+          duration: 'Instantaneous',
+          description: 'A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier.',
+        }),
+      ),
+    );
+
+    comp.onCastSpell({ spellName: 'Cure Wounds', level: 1, isRitual: false });
+    const roll = toastService.activeRoll();
+    expect(roll).toBeTruthy();
+    // True WIS modifier is +4, NOT saveDc(17) - 8 - PB(3) = +6
+    expect(roll?.modifier).toBe(4);
+    expect(roll?.damageParts?.[1]?.label).toBe('Spellcasting modifier');
+    expect(roll?.damageParts?.[1]?.total).toBe(4);
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
 });

@@ -44,6 +44,7 @@ import { CombatDicePanelComponent } from './combat-dice-panel/combat-dice-panel.
 import {
   calculateWeaponBreakdown,
   extractMagicBonus,
+  getBracersOfArcheryBonus,
   resolveWeaponStat,
   WeaponBreakdown,
 } from '../../../../core/rules/weapon-calc';
@@ -53,6 +54,7 @@ import {
   describeDmModifiers,
   exhaustionD20Penalty,
   hasExhaustionDisadvantage,
+  maxAttunementSlots,
   removeClassResourceAt,
   resolveRollMode,
   resourceEditedMax,
@@ -672,7 +674,18 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       const total = this.customDamageBonus(weapon);
       return `${parsed.numDice}d${parsed.sides}${total !== 0 ? this.dice.signed(total) : ''}`;
     }
-    if (this.char?.magic_items_suppressed || (this.char?.dm_modifiers?.damage_bonus ?? 0) !== 0) {
+    const wName = (weapon.name || '').toLowerCase();
+    const isBow = wName.includes('longbow') || wName.includes('shortbow');
+    const hasBowItem =
+      isBow &&
+      (this.equipmentMutated ||
+        getBracersOfArcheryBonus(weapon, this.char) > 0 ||
+        (this.char?.equipment || []).some(
+          (eq) =>
+            String(eq?.name || '').toLowerCase().includes('bracers of archery') ||
+            (eq?.bow_damage_bonus ?? 0) !== 0
+        ));
+    if (this.char?.magic_items_suppressed || (this.char?.dm_modifiers?.damage_bonus ?? 0) !== 0 || hasBowItem) {
       return this.getWeaponBreakdown(weapon).damage.notation;
     }
 
@@ -946,9 +959,13 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   // --- Attunement & Equipment ---
-  // Table rule: any number of items may be attuned, but only 3 attuned items can
-  // be equipped at once. (RAW 5e caps attunement itself at 3, equipped or not.)
-  readonly maxActiveAttunements = 3;
+  // Table rule: any number of items may be attuned, but only maxActiveAttunements attuned items can
+  // be equipped at once (3 default, or 4/5/6 for Artificers via Magic Item Adept/Savant/Master).
+  private equipmentMutated = false;
+
+  get maxActiveAttunements(): number {
+    return maxAttunementSlots(this.char);
+  }
 
   /** Attuned items that are also equipped — the ones the limit applies to. */
   get attunedCount(): number {
@@ -962,6 +979,15 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     );
   }
 
+  private invalidateEquipmentDerivedCache(): void {
+    this.equipmentMutated = true;
+    if (!this.char) return;
+    delete this.char.saving_throw_values;
+    delete this.char.skills;
+    delete this.char.passive_perception;
+    delete this.char.initiative_advantage;
+  }
+
   toggleAttuned(item: EquipmentItem) {
     // Attuning an equipped item makes it count; attuning one in the inventory doesn't.
     if (!item.attuned && item.equipped && this.attunedCount >= this.maxActiveAttunements) {
@@ -969,9 +995,8 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     item.attuned = !item.attuned;
-    if (this.char?.saving_throw_values) {
-      delete this.char.saving_throw_values;
-    }
+    this.invalidateEquipmentDerivedCache();
+    this.cdr.markForCheck();
     this.save.emit();
   }
 
@@ -980,6 +1005,8 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       this.showAttunementLimit();
       return;
     }
+    this.equipmentMutated = true;
+    this.cdr.markForCheck();
     this.toggleEquipped.emit(item);
   }
 
@@ -1072,9 +1099,8 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onItemNameChange(): void {
-    if (this.char?.saving_throw_values) {
-      delete this.char.saving_throw_values;
-    }
+    this.invalidateEquipmentDerivedCache();
+    this.cdr.markForCheck();
     this.save.emit();
   }
 

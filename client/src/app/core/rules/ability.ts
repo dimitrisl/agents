@@ -127,14 +127,19 @@ export function resolveRollMode(
   return { mode: 'normal', cancelled: false };
 }
 
-/** Ability Check modifier including 2024 Exhaustion penalty and DM ability-check modifier. */
+/** Ability Check modifier including 2024 Exhaustion penalty, Luckstone/Gear check bonuses, and DM modifiers. */
 export function abilityCheckModifier(
   char: CharacterSchema | null | undefined,
   ability: string
 ): number {
   if (!char?.stats) return 0;
   const dmCheck = char.dm_modifiers?.ability_checks_bonus ?? 0;
-  return abilityModifierOf(char, ability) - exhaustionD20Penalty(char) + dmCheck;
+  return (
+    abilityModifierOf(char, ability) +
+    equipmentAbilityCheckBonus(char) -
+    exhaustionD20Penalty(char) +
+    dmCheck
+  );
 }
 
 const SAVE_FULL_TO_CODE: Record<string, string> = {
@@ -194,6 +199,15 @@ export function isSaveProficient(
 const CATALOG_SAVE_BONUS_ITEMS: Record<string, number> = {
   'cloak of protection': 1,
   'ring of protection': 1,
+  'stone of good luck': 1,
+  'luckstone': 1,
+  'staff of power': 2,
+  'robe of stars': 1,
+};
+
+const CATALOG_ABILITY_CHECK_BONUS_ITEMS: Record<string, number> = {
+  'stone of good luck': 1,
+  'luckstone': 1,
 };
 
 function normalizeCatalogItemName(rawName: string | undefined): string {
@@ -201,6 +215,7 @@ function normalizeCatalogItemName(rawName: string | undefined): string {
     .toLowerCase()
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\+\s*\d+/g, ' ')
+    .replace(/,/g, ' ')
     .replace(/\barmou?r\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -208,22 +223,85 @@ function normalizeCatalogItemName(rawName: string | undefined): string {
 
 /**
  * Default flat saving-throw bonus implied by a catalog item's base name
- * (e.g. `Cloak of Protection` / `Ring of Protection` -> `+1`) when no explicit
- * `SAVES`/`<STAT>_SAVE` modifier is configured on the item.
+ * (e.g. `Cloak of Protection`, `Ring of Protection`, `Stone of Good Luck`, `Staff of Power`)
+ * when no explicit `SAVES`/`<STAT>_SAVE` modifier is configured on the item.
  */
 export function catalogDefaultSaveBonus(itemName: string | undefined): number {
   return CATALOG_SAVE_BONUS_ITEMS[normalizeCatalogItemName(itemName)] ?? 0;
 }
 
-function maxAttunementSlots(char: CharacterSchema | null | undefined): number {
-  let slots = 3;
-  for (const f of char?.features_traits || []) {
+/**
+ * Default flat ability-check / skill / initiative bonus implied by a catalog item's base name
+ * (e.g. `Stone of Good Luck (Luckstone)` -> `+1`) when no explicit `CHECKS` modifier is configured.
+ */
+export function catalogDefaultAbilityCheckBonus(itemName: string | undefined): number {
+  return CATALOG_ABILITY_CHECK_BONUS_ITEMS[normalizeCatalogItemName(itemName)] ?? 0;
+}
+
+export function maxAttunementSlots(char: CharacterSchema | null | undefined): number {
+  if (!char) return 3;
+  let artificerLevel = 0;
+  for (const cls of char.classes || []) {
+    if ((cls?.class_name || '').toLowerCase() === 'artificer') {
+      artificerLevel = Math.max(artificerLevel, Number(cls?.level || 0) || 0);
+    }
+  }
+  if (artificerLevel === 0 && (char.char_class || '').toLowerCase() === 'artificer') {
+    artificerLevel = Number(char.char_level || 1) || 1;
+  }
+  let slots = artificerLevel >= 18 ? 6 : artificerLevel >= 14 ? 5 : artificerLevel >= 10 ? 4 : 3;
+  for (const f of char.features_traits || []) {
     const name = (typeof f === 'string' ? f : f?.name || '').toLowerCase();
     if (name.includes('magic item master')) slots = Math.max(slots, 6);
     else if (name.includes('magic item savant')) slots = Math.max(slots, 5);
     else if (name.includes('magic item adept')) slots = Math.max(slots, 4);
   }
   return slots;
+}
+
+/**
+ * Ability check bonus (skills, ability checks, initiative, passives) contributed by equipped
+ * (and attuned within slot cap) equipment, mirroring backend `stats_service.py`:
+ * explicit `mod1`/`mod2` (`CHECKS`, `CHECK`, `ABILITY_CHECKS`, `SKILLS`) takes precedence over catalog defaults.
+ */
+export function equipmentAbilityCheckBonus(
+  char: CharacterSchema | null | undefined
+): number {
+  if (!char || char.magic_items_suppressed) return 0;
+  const maxAttuned = maxAttunementSlots(char);
+  let attunedCount = 0;
+  let total = 0;
+
+  for (const eq of char.equipment || []) {
+    if (!eq || !eq.equipped) continue;
+    if (eq.attuned) {
+      attunedCount++;
+      if (attunedCount > maxAttuned) continue;
+    }
+
+    let hasExplicitCheck = false;
+    for (const [modKey, valKey] of [
+      ['mod1', 'val1'],
+      ['mod2', 'val2'],
+    ] as const) {
+      const attr = String(eq[modKey] || '')
+        .trim()
+        .toUpperCase();
+      const val = Math.trunc(Number(eq[valKey] ?? 0) || 0);
+      if (!attr || attr === 'NONE' || val === 0) continue;
+      if (attr === 'CHECKS' || attr === 'CHECK' || attr === 'ABILITY_CHECKS' || attr === 'SKILLS') {
+        total += val;
+        hasExplicitCheck = true;
+      }
+    }
+
+    if (!hasExplicitCheck) {
+      const catalogBonus = catalogDefaultAbilityCheckBonus(eq.name);
+      const itemCheck = Number((eq as { ability_check_bonus?: number }).ability_check_bonus ?? 0) || 0;
+      total += catalogBonus || itemCheck;
+    }
+  }
+  return total;
 }
 
 /**

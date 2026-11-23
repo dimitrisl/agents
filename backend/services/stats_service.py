@@ -196,24 +196,43 @@ def _parse_item_name(raw_name: str) -> Tuple[str, int]:
     """Normalises an equipment name for catalog lookup and reads its magic bonus.
 
     "Studded Leather Armor +1 (13 + Dex)" -> ("studded leather", 1)
+    "Wand of the War Mage (+2)" -> ("wand of the war mage", 2)
     "Shield +2" -> ("shield", 2); "Leather Armor" -> ("leather", 0)
-    Notes in parentheses are ignored, so "(+2 DEX)" is never read as a bonus.
+    Notes containing letters in parentheses are ignored, so "(+2 DEX)" is never read as a bonus.
     """
-    name = re.sub(r"\([^)]*\)", " ", (raw_name or "").lower())
+    text = (raw_name or "").lower()
+    # Promote bare bonus parentheticals like "(+2)" while keeping "(+2 DEX)" ignored
+    text = re.sub(r"\(\s*\+\s*([1-3])\s*\)", r" +\1 ", text)
+    name = re.sub(r"\([^)]*\)", " ", text)
     magic = re.search(r"\+\s*([1-3])\b", name)
     name = re.sub(r"\+\s*\d+", " ", name)
+    name = re.sub(r"[(),]", " ", name)
     name = re.sub(r"\barmou?r\b", " ", name)
     return re.sub(r"\s+", " ", name).strip(), int(magic.group(1)) if magic else 0
 
 
 def _find_catalog_item(raw_name: str, all_items: List[Dict[str, Any]]) -> Dict[str, Any] | None:
-    """Exact name first, then the normalised name, so "Studded Leather Armor +1"
-    finds the catalog's "Studded Leather"."""
-    lowered = (raw_name or "").lower()
-    exact = next((i for i in all_items if i.get("name", "").lower() == lowered), None)
+    """Exact name first, then (normalised, magic_num), then normalised base name."""
+    lowered = (raw_name or "").strip().lower()
+    if not lowered:
+        return None
+    exact = next(
+        (i for i in all_items if str(i.get("name") or "").strip().lower() == lowered), None
+    )
     if exact:
         return exact
-    normalised, _ = _parse_item_name(raw_name)
+    normalised, magic_num = _parse_item_name(raw_name)
+    if magic_num > 0:
+        tier_match = next(
+            (
+                i
+                for i in all_items
+                if _parse_item_name(i.get("name", "")) == (normalised, magic_num)
+            ),
+            None,
+        )
+        if tier_match:
+            return tier_match
     if not normalised:
         return None
     return next(
@@ -323,7 +342,9 @@ def calculate_ac(
             val = 0
 
         if item_data:
-            if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
+            if not item_data.get("unarmored_only") and (
+                (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data
+            ):
                 has_armor = True
         else:
             if val >= 10:
@@ -455,27 +476,53 @@ def calculate_ac(
             continue
 
         if item_data:
-            if (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
-                if suppress_magic_items and "ac_base" in item_data:
-                    item_base = item_data.get("ac_base", 10)
+            if item_data.get("unarmored_only"):
+                if suppress_magic_items:
+                    continue
+                if "ac_base" in item_data:
+                    if not has_armor:
+                        item_base = val if val >= 10 else int(item_data.get("ac_base", 10) or 10)
+                        if item_base > base_ac:
+                            base_ac = item_base
+                            base_source = f"{item_data.get('name', raw_item_name)} ({base_ac})"
+                            if "dex_limit" in item_data:
+                                max_dex = min(max_dex, item_data["dex_limit"])
                 else:
-                    item_base = val if val >= 10 else item_data.get("ac_base", 10)
-                if item_base >= base_ac:
-                    base_ac = item_base
-                    armor_name = item_data.get("name", raw_item_name)
-                    armor_type = item_data.get("type", "Armor")
-                    base_source = f"{armor_name} ({base_ac})"
+                    if not has_armor and not has_shield:
+                        item_bonus = val if val != 0 else int(item_data.get("ac_bonus", 0) or 0)
+                        if item_bonus != 0:
+                            bonus_ac += item_bonus
+                            other_bonuses.append((raw_item_name, item_bonus))
+            elif (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
+                if "ac_base" in item_data:
+                    if suppress_magic_items:
+                        item_base = item_data.get("ac_base", 10)
+                    else:
+                        item_base = val if val >= 10 else item_data.get("ac_base", 10)
+                    if item_base >= base_ac:
+                        base_ac = item_base
+                        armor_name = item_data.get("name", raw_item_name)
+                        armor_type = item_data.get("type", "Armor")
+                        base_source = f"{armor_name} ({base_ac})"
+                elif val >= 10:
+                    item_base = val
+                    if item_base >= base_ac:
+                        base_ac = item_base
+                        armor_name = item_data.get("name", raw_item_name)
+                        armor_type = item_data.get("type", "Armor")
+                        base_source = f"{raw_item_name} ({base_ac})"
 
                 if "dex_limit" in item_data:
                     max_dex = min(max_dex, item_data["dex_limit"])
 
+                armor_magic = name_magic or int(item_data.get("magic_bonus", 0) or 0)
                 if not suppress_magic_items:
                     if val != 0 and val < 10:
                         bonus_ac += val
                         other_bonuses.append((f"{raw_item_name} bonus", val))
-                    elif val == 0 and name_magic:
-                        bonus_ac += name_magic
-                        other_bonuses.append((f"Magic armor +{name_magic}", name_magic))
+                    elif (val == 0 or ("ac_base" not in item_data and val >= 10)) and armor_magic:
+                        bonus_ac += armor_magic
+                        other_bonuses.append((f"Magic armor +{armor_magic}", armor_magic))
             else:
                 item_bonus = (
                     0
@@ -1017,6 +1064,7 @@ def calculate_weapon_stats(
     martial_arts_die: Optional[str] = None,
     use_martial_arts: bool = False,
     weapon_proficiencies: Optional[set[str] | list[str]] = None,
+    bow_damage_bonus: int = 0,
 ) -> Dict[str, Any]:
     """Calculates attack bonus and damage modifier for a weapon."""
     weapon = copy.copy(weapon)
@@ -1230,7 +1278,16 @@ def calculate_weapon_stats(
         type_match = re.search(r"([a-zA-Z][a-zA-Z\s]*)$", damage_raw)
         dmg_type = type_match.group(1).strip() if type_match else ""
 
-        total_dmg_mod = mod + magic_bonus + dueling_bonus + agonizing_bonus + misc_dmg
+        bow_bonus = (
+            int(bow_damage_bonus or 0)
+            if (
+                not suppress_magic_items
+                and bow_damage_bonus
+                and ("longbow" in name or "shortbow" in name)
+            )
+            else 0
+        )
+        total_dmg_mod = mod + magic_bonus + dueling_bonus + agonizing_bonus + bow_bonus + misc_dmg
 
         weapon["damage_dice"] = f"{dice_part} {dmg_type}".strip()
         weapon["damage_bonus"] = f"+{total_dmg_mod}" if total_dmg_mod >= 0 else str(total_dmg_mod)
@@ -1424,7 +1481,11 @@ def sync_character_stats(
                 elif any(k in lower_name for k in ("leather", "padded")):
                     req_prof = "light armor"
 
-            if req_prof and (req_prof in armor_profs or "all armor" in armor_profs):
+            if req_prof and (
+                req_prof in armor_profs
+                or "all armor" in armor_profs
+                or (item_data and item_data.get("ignore_proficiency"))
+            ):
                 base_ac = item_data.get("ac_base", 10) if item_data else 10
                 if base_ac == 10:
                     try:
@@ -1698,7 +1759,14 @@ def sync_character_stats(
     equip_dmg_bonus = 0
     equip_save_bonus = 0
     equip_save_bonuses = {}
+    equip_check_bonus = 0
+    equip_spell_atk_bonus = 0
+    equip_spell_dc_bonus = 0
+    equip_bow_dmg_bonus = 0
     attuned_equip_count = 0
+    seen_bow_bonus_names: set[str] = set()
+    pending_stat_bonuses: list[tuple[str, int, Optional[int]]] = []
+    pending_stat_sets: list[tuple[str, int]] = []
 
     for equip in [] if magic_items_suppressed else char_data["equipment"]:
         if not isinstance(equip, dict) or not equip.get("equipped", False):
@@ -1709,6 +1777,9 @@ def sync_character_stats(
                 continue
 
         item_has_explicit_save = False
+        item_has_explicit_check = False
+        item_has_explicit_spell_atk = False
+        item_has_explicit_spell_dc = False
         for i in [1, 2]:
             raw_mod = equip.get(f"mod{i}")
             if not raw_mod:
@@ -1724,7 +1795,7 @@ def sync_character_stats(
                 continue
 
             if attr_key in stats:
-                stats[attr_key] += bonus_val
+                pending_stat_bonuses.append((attr_key, bonus_val, None))
             elif attr_key == "HP":
                 equip_hp_bonus += bonus_val
             elif attr_key in ["SPD", "SPEED"]:
@@ -1738,6 +1809,15 @@ def sync_character_stats(
             elif attr_key in ["SAVES", "SAVE"]:
                 equip_save_bonus += bonus_val
                 item_has_explicit_save = True
+            elif attr_key in ["CHECKS", "CHECK", "ABILITY_CHECKS", "SKILLS"]:
+                equip_check_bonus += bonus_val
+                item_has_explicit_check = True
+            elif attr_key in ["SPELL_ATK", "SPELL_ATTACK"]:
+                equip_spell_atk_bonus += bonus_val
+                item_has_explicit_spell_atk = True
+            elif attr_key in ["SPELL_DC", "SPELL_SAVE_DC"]:
+                equip_spell_dc_bonus += bonus_val
+                item_has_explicit_spell_dc = True
             elif attr_key.endswith("_SAVE"):
                 stat_save = attr_key.split("_")[0]
                 if stat_save in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]:
@@ -1747,10 +1827,12 @@ def sync_character_stats(
 
         if item_data and "stat_set" in item_data:
             for stat, val in item_data["stat_set"].items():
-                stats[stat] = max(stats.get(stat, 10), val)
+                pending_stat_sets.append((stat, int(val)))
         if item_data and "stat_bonus" in item_data:
+            raw_stat_max = item_data.get("stat_max")
+            stat_max_cap = int(raw_stat_max) if raw_stat_max is not None else None
             for stat, val in item_data["stat_bonus"].items():
-                stats[stat] = stats.get(stat, 10) + val
+                pending_stat_bonuses.append((stat, int(val), stat_max_cap))
         if not item_has_explicit_save:
             raw_save = (
                 item_data.get("save_bonus")
@@ -1762,6 +1844,67 @@ def sync_character_stats(
                     equip_save_bonus += int(raw_save or 0)
                 except (ValueError, TypeError):
                     pass
+        if not item_has_explicit_check:
+            raw_check = (
+                item_data.get("ability_check_bonus")
+                if item_data and item_data.get("ability_check_bonus")
+                else equip.get("ability_check_bonus")
+            )
+            if raw_check:
+                try:
+                    equip_check_bonus += int(raw_check or 0)
+                except (ValueError, TypeError):
+                    pass
+        if not item_has_explicit_spell_atk:
+            raw_s_atk = (
+                item_data.get("spell_attack_bonus")
+                if item_data and item_data.get("spell_attack_bonus")
+                else equip.get("spell_attack_bonus")
+            )
+            if raw_s_atk:
+                try:
+                    equip_spell_atk_bonus += int(raw_s_atk or 0)
+                except (ValueError, TypeError):
+                    pass
+        if not item_has_explicit_spell_dc:
+            raw_s_dc = (
+                item_data.get("spell_save_dc_bonus")
+                if item_data and item_data.get("spell_save_dc_bonus")
+                else equip.get("spell_save_dc_bonus")
+            )
+            if raw_s_dc:
+                try:
+                    equip_spell_dc_bonus += int(raw_s_dc or 0)
+                except (ValueError, TypeError):
+                    pass
+        raw_bow_dmg = (
+            item_data.get("bow_damage_bonus")
+            if item_data and item_data.get("bow_damage_bonus")
+            else equip.get("bow_damage_bonus")
+        )
+        if raw_bow_dmg:
+            norm_bow_key = (
+                str((item_data or {}).get("name") or equip.get("name") or "").strip().lower()
+            )
+            if norm_bow_key not in seen_bow_bonus_names:
+                try:
+                    equip_bow_dmg_bonus += int(raw_bow_dmg or 0)
+                    if norm_bow_key:
+                        seen_bow_bonus_names.add(norm_bow_key)
+                except (ValueError, TypeError):
+                    pass
+
+    # Apply stat_max-capped bonuses (e.g. Belt of Dwarvenkind / Ioun Stones) before uncapped ones (Manuals/Tomes),
+    # and apply all additive stat_bonus items BEFORE stat_set overrides for order-independence.
+    for stat, val, stat_max_cap in sorted(pending_stat_bonuses, key=lambda item: item[2] is None):
+        cur_val = stats.get(stat, 10)
+        if stat_max_cap is not None:
+            if cur_val < stat_max_cap:
+                stats[stat] = min(stat_max_cap, cur_val + val)
+        else:
+            stats[stat] = cur_val + val
+    for stat, val in pending_stat_sets:
+        stats[stat] = max(stats.get(stat, 10), val)
 
     char_data["equip_stat_bonuses"] = {
         k: stats.get(k, 10) - base_stats.get(k, 10)
@@ -1819,7 +1962,9 @@ def sync_character_stats(
             has_equipped_shield = True
             continue
         item_type = str((item_db or {}).get("type") or eq.get("type") or "").lower()
-        if item_type.endswith("armor") or (item_db and "ac_base" in item_db):
+        if not (item_db and item_db.get("unarmored_only")) and (
+            item_type.endswith("armor") or (item_db and "ac_base" in item_db)
+        ):
             has_equipped_armor = True
             if "heavy armor" in item_type:
                 has_equipped_heavy_armor = True
@@ -2150,7 +2295,7 @@ def sync_character_stats(
         char_data["skill_proficiencies"],
         char_data.get("skill_expertise", []),
         half_prof=jack,
-        bonus_modifier=passive_bonus,
+        bonus_modifier=passive_bonus + equip_check_bonus,
         exhaustion_penalty=exhaustion_penalty,
         disadvantage_penalty=disadv_passive_penalty,
         dm_bonus=dm_check_bonus + dm_passive_bonus,
@@ -2262,9 +2407,9 @@ def sync_character_stats(
                 char_data["saving_throw_values"][s] = (
                     char_data["saving_throw_values"].get(s, 0) + bonus_to_add
                 )
-    if exhaustion_penalty > 0 or dm_check_bonus != 0:
+    if exhaustion_penalty > 0 or dm_check_bonus != 0 or equip_check_bonus != 0:
         for sk in char_data["skills"]:
-            char_data["skills"][sk] += dm_check_bonus - exhaustion_penalty
+            char_data["skills"][sk] += equip_check_bonus + dm_check_bonus - exhaustion_penalty
     if exhaustion_penalty > 0 or dm_save_bonus != 0:
         for st in char_data["saving_throw_values"]:
             char_data["saving_throw_values"][st] += dm_save_bonus - exhaustion_penalty
@@ -2310,6 +2455,7 @@ def sync_character_stats(
         get_modifier(dex_score)
         + init_bonus
         + char_data.get("initiative_bonus", 0)
+        + equip_check_bonus
         + dm_check_bonus
         - exhaustion_penalty
     )
@@ -2331,11 +2477,22 @@ def sync_character_stats(
                 has_ath_adv = True
 
     if not magic_items_suppressed:
+        init_attuned_count = 0
         for eq in char_data.get("equipment", []) or []:
-            if isinstance(eq, dict) and eq.get("equipped", False):
-                eq_name = (eq.get("name") or "").lower()
-                if "weapon of warning" in eq_name:
-                    has_init_adv = True
+            if not isinstance(eq, dict) or not eq.get("equipped", False):
+                continue
+            if eq.get("attuned", False):
+                init_attuned_count += 1
+                if init_attuned_count > max_attuned:
+                    continue
+            eq_name = (eq.get("name") or "").lower()
+            eq_db = _find_catalog_item(eq_name, all_items)
+            if (
+                "weapon of warning" in eq_name
+                or "sentinel shield" in eq_name
+                or (eq_db and eq_db.get("initiative_advantage"))
+            ):
+                has_init_adv = True
 
     char_data["initiative_advantage"] = has_init_adv
     char_data["athletics_advantage"] = has_ath_adv
@@ -2405,6 +2562,7 @@ def sync_character_stats(
                 martial_arts_die=martial_arts_die,
                 use_martial_arts=use_martial_arts,
                 weapon_proficiencies=weapon_profs,
+                bow_damage_bonus=equip_bow_dmg_bonus,
             )
         )
 
@@ -2437,6 +2595,7 @@ def sync_character_stats(
                 martial_arts_die=martial_arts_die,
                 use_martial_arts=use_martial_arts,
                 weapon_proficiencies=weapon_profs,
+                bow_damage_bonus=equip_bow_dmg_bonus,
             )
             updated_weapons.append(new_w)
 
@@ -2600,10 +2759,12 @@ def sync_character_stats(
     if spell_ability and spell_ability != "None":
         char_data["spell_ability"] = spell_ability
         spell_stats = calculate_spell_stats(spell_ability, stats, prof_bonus)
-        char_data["spell_save_dc"] = spell_stats["spell_save_dc"] + dm_spell_dc_bonus
+        char_data["spell_save_dc"] = (
+            spell_stats["spell_save_dc"] + equip_spell_dc_bonus + dm_spell_dc_bonus
+        )
         try:
             s_atk = int(str(spell_stats["spell_attack_bonus"]).replace("+", "").strip())
-            s_atk = s_atk - exhaustion_penalty + dm_atk_bonus
+            s_atk = s_atk + equip_spell_atk_bonus - exhaustion_penalty + dm_atk_bonus
             char_data["spell_attack_bonus"] = f"+{s_atk}" if s_atk >= 0 else str(s_atk)
         except (ValueError, TypeError):
             char_data["spell_attack_bonus"] = spell_stats["spell_attack_bonus"]

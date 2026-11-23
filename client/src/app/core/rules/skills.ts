@@ -3,9 +3,11 @@ import {
   abilityModifier,
   abilityScore,
   effectiveExhaustionLevel,
+  equipmentAbilityCheckBonus,
   exhaustionD20Penalty,
   formatModifier,
   is2024Edition,
+  maxAttunementSlots,
   proficiencyBonus,
 } from './ability';
 
@@ -96,6 +98,21 @@ export function hasInitiativeAdvantage(char: CharacterSchema | null | undefined)
   if (!char) return false;
   if (char.initiative_advantage) return true;
   if (is2024Edition(char) && hasRemarkableAthlete(char)) return true;
+  if (!char.magic_items_suppressed) {
+    const maxAttuned = maxAttunementSlots(char);
+    let attunedCount = 0;
+    for (const eq of char.equipment || []) {
+      if (!eq || !eq.equipped) continue;
+      if (eq.attuned) {
+        attunedCount++;
+        if (attunedCount > maxAttuned) continue;
+      }
+      const eqName = String(eq.name || '').toLowerCase();
+      if (eqName.includes('weapon of warning') || eqName.includes('sentinel shield')) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 
@@ -206,7 +223,8 @@ export function skillModifier(
   return (
     abilityModifier(abilityScore(char, skill.ability)) +
     bonus +
-    orderSkillBonus(char, skill.name) -
+    orderSkillBonus(char, skill.name) +
+    equipmentAbilityCheckBonus(char) -
     exhaustionD20Penalty(char) +
     dmCheckBonus
   );

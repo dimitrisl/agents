@@ -5,6 +5,10 @@
         "ac_base": 18,
         "dex_limit": 0,
         "min_str": 15,
+        "stealth_disadvantage": true,
+        "weight": 65,
+        "cost_gp": 1500,
+        "rarity": "Common",
         "description": "Heavy interlocking plates of metal."
     },
     {
@@ -13,6 +17,10 @@
         "ac_base": 16,
         "dex_limit": 0,
         "min_str": 13,
+        "stealth_disadvantage": true,
+        "weight": 55,
+        "cost_gp": 75,
+        "rarity": "Common",
         "description": "Interlocking metal rings."
     },
     {
@@ -21,6 +29,10 @@
         "ac_base": 17,
         "dex_limit": 0,
         "min_str": 15,
+        "stealth_disadvantage": true,
+        "weight": 60,
+        "cost_gp": 200,
+        "rarity": "Common",
         "description": "Vertical strips of metal riveted to a backing of leather."
     },
     {
@@ -29,6 +41,10 @@
         "ac_base": 14,
         "dex_limit": 0,
         "min_str": 0,
+        "stealth_disadvantage": true,
+        "weight": 40,
+        "cost_gp": 30,
+        "rarity": "Common",
         "description": "Leather armor with heavy rings sewn into it."
     },
     {
@@ -36,6 +52,10 @@
         "type": "Medium Armor",
         "ac_base": 14,
         "dex_limit": 2,
+        "stealth_disadvantage": true,
+        "weight": 45,
+        "cost_gp": 50,
+        "rarity": "Common",
         "description": "Overlapping pieces of metal like scales."
     },
     {
@@ -43,6 +63,9 @@
         "type": "Medium Armor",
         "ac_base": 14,
         "dex_limit": 2,
+        "weight": 20,
+        "cost_gp": 400,
+        "rarity": "Common",
         "description": "A fitted metal chest piece."
     },
     {
@@ -50,6 +73,9 @@
         "type": "Medium Armor",
         "ac_base": 13,
         "dex_limit": 2,
+        "weight": 20,
+        "cost_gp": 50,
+        "rarity": "Common",
         "description": "Made of interlocking metal rings, lighter than chain mail."
     },
     {
@@ -57,13 +83,30 @@
         "type": "Medium Armor",
         "ac_base": 15,
         "dex_limit": 2,
+        "stealth_disadvantage": true,
+        "weight": 40,
+        "cost_gp": 750,
+        "rarity": "Common",
         "description": "Shaped metal plates covering most of the body."
+    },
+    {
+        "name": "Hide Armor",
+        "type": "Medium Armor",
+        "ac_base": 12,
+        "dex_limit": 2,
+        "weight": 12,
+        "cost_gp": 10,
+        "rarity": "Common",
+        "description": "Crude armor consisting of thick furs and pelts."
     },
     {
         "name": "Studded Leather",
         "type": "Light Armor",
         "ac_base": 12,
         "dex_limit": 10,
+        "weight": 13,
+        "cost_gp": 45,
+        "rarity": "Common",
         "description": "Leather reinforced with metal studs."
     },
     {
@@ -71,44 +114,1026 @@
         "type": "Light Armor",
         "ac_base": 11,
         "dex_limit": 10,
+        "weight": 10,
+        "cost_gp": 10,
+        "rarity": "Common",
         "description": "Toughened leather."
+    },
+    {
+        "name": "Padded Armor",
+        "type": "Light Armor",
+        "ac_base": 11,
+        "dex_limit": 10,
+        "stealth_disadvantage": true,
+        "weight": 8,
+        "cost_gp": 5,
+        "rarity": "Common",
+        "description": "Quilted layers of cloth and batting; light but imposes Disadvantage on Stealth."
+    },
+    {
+        "name": "Elven Chain",
+        "type": "Medium Armor",
+        "ac_base": 13,
+        "dex_limit": 2,
+        "magic_bonus": 1,
+        "ignore_proficiency": true,
+        "weight": 20,
+        "rarity": "Rare",
+        "description": "Fine magical Chain Shirt granting a +1 bonus to AC; even non-proficient wearers are considered proficient."
+    },
+    {
+        "name": "Dwarven Plate",
+        "type": "Heavy Armor",
+        "ac_base": 18,
+        "dex_limit": 0,
+        "min_str": 15,
+        "magic_bonus": 2,
+        "stealth_disadvantage": true,
+        "weight": 65,
+        "rarity": "Very Rare",
+        "description": "Masterwork magical Plate Armor granting +2 AC and Reaction resistance against forced movement."
+    },
+    {
+        "name": "Dragon Scale Mail",
+        "type": "Medium Armor",
+        "ac_base": 14,
+        "dex_limit": 2,
+        "magic_bonus": 1,
+        "stealth_disadvantage": true,
+        "requires_attunement": true,
+        "weight": 45,
+        "rarity": "Very Rare",
+        "description": "Magical Scale Mail made from dragon scales (+1 AC, Advantage vs dragon Frightful Presence/Breath, and damage resistance)."
+    },
+    {
+        "name": "Armor +1",
+        "type": "Armor",
+        "magic_bonus": 1,
+        "rarity": "Rare",
+        "description": "Magical armor reinforced with arcane wards (+1 bonus to AC)."
+    },
+    {
+        "name": "Armor +2",
+        "type": "Armor",
+        "magic_bonus": 2,
+        "rarity": "Very Rare",
+        "description": "Magical armor reinforced with potent wards (+2 bonus to AC)."
+    },
+    {
+        "name": "Armor +3",
+        "type": "Armor",
+        "magic_bonus": 3,
+        "rarity": "Legendary",
+        "description": "Legendary enchanted armor granting an exceptional +3 bonus to AC."
     },
     {
         "name": "Shield",
         "type": "Shield",
         "ac_bonus": 2,
+        "weight": 6,
+        "cost_gp": 10,
+        "rarity": "Common",
         "description": "A sturdy wooden or metal shield."
+    },
+    {
+        "name": "Shield +1",
+        "type": "Shield",
+        "ac_bonus": 2,
+        "magic_bonus": 1,
+        "weight": 6,
+        "rarity": "Uncommon",
+        "description": "An enchanted shield granting +1 bonus to AC in addition to its normal +2 Shield bonus (+3 total)."
+    },
+    {
+        "name": "Shield +2",
+        "type": "Shield",
+        "ac_bonus": 2,
+        "magic_bonus": 2,
+        "weight": 6,
+        "rarity": "Rare",
+        "description": "An enchanted shield granting +2 bonus to AC in addition to its normal +2 Shield bonus (+4 total)."
+    },
+    {
+        "name": "Shield +3",
+        "type": "Shield",
+        "ac_bonus": 2,
+        "magic_bonus": 3,
+        "weight": 6,
+        "rarity": "Very Rare",
+        "description": "A supreme enchanted shield granting +3 bonus to AC in addition to its normal +2 Shield bonus (+5 total)."
+    },
+    {
+        "name": "Sentinel Shield",
+        "type": "Shield",
+        "ac_bonus": 2,
+        "initiative_advantage": true,
+        "weight": 6,
+        "rarity": "Uncommon",
+        "description": "While holding this shield, you have Advantage on Initiative rolls and Wisdom (Perception) checks."
+    },
+    {
+        "name": "Spellguard Shield",
+        "type": "Shield",
+        "ac_bonus": 2,
+        "requires_attunement": true,
+        "weight": 6,
+        "rarity": "Very Rare",
+        "description": "While holding this shield, you have Advantage on saving throws against spells and magical effects, and spell attacks have Disadvantage against you."
     },
     {
         "name": "Cloak of Protection",
         "type": "Wondrous Item",
         "ac_bonus": 1,
         "save_bonus": 1,
-        "description": "A shimmering cloak that protects the wearer."
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "A shimmering cloak that protects the wearer (+1 AC and +1 to all Saving Throws)."
     },
     {
         "name": "Ring of Protection",
         "type": "Wondrous Item",
         "ac_bonus": 1,
         "save_bonus": 1,
-        "description": "A magical ring."
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "A magical ring granting a +1 bonus to AC and all Saving Throws."
+    },
+    {
+        "name": "Stone of Good Luck (Luckstone)",
+        "type": "Wondrous Item",
+        "ability_check_bonus": 1,
+        "save_bonus": 1,
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "A polished agate granting a +1 bonus to all Ability Checks (including Skills and Initiative) and Saving Throws while attuned."
+    },
+    {
+        "name": "Luckstone",
+        "type": "Wondrous Item",
+        "ability_check_bonus": 1,
+        "save_bonus": 1,
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Stone of Good Luck: grants a +1 bonus to all Ability Checks and Saving Throws while attuned."
+    },
+    {
+        "name": "Bracers of Defense",
+        "type": "Wondrous Item",
+        "ac_bonus": 2,
+        "unarmored_only": true,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Rare",
+        "description": "While wearing these bracers, you gain a +2 bonus to AC if you are wearing no armor and using no shield."
+    },
+    {
+        "name": "Robe of the Archmagi",
+        "type": "Wondrous Item",
+        "ac_base": 15,
+        "dex_limit": 10,
+        "unarmored_only": true,
+        "spell_save_dc_bonus": 2,
+        "spell_attack_bonus": 2,
+        "requires_attunement": true,
+        "weight": 4,
+        "rarity": "Legendary",
+        "description": "Sets unarmored base AC to 15 + DEX mod, grants +2 to Spell Save DC and Spell Attack bonus, and Advantage on saves against spells."
+    },
+    {
+        "name": "Robe of Stars",
+        "type": "Wondrous Item",
+        "save_bonus": 1,
+        "requires_attunement": true,
+        "weight": 4,
+        "rarity": "Very Rare",
+        "description": "Grants +1 to all Saving Throws, 6 stars for 5th-level Magic Missile, and Astral Plane entry."
+    },
+    {
+        "name": "Scarab of Protection",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "rarity": "Legendary",
+        "description": "Grants Advantage on saving throws against spells and has 12 charges to absorb necromancy/undead effects."
+    },
+    {
+        "name": "Ioun Stone of Protection",
+        "type": "Wondrous Item",
+        "ac_bonus": 1,
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "An orbiting dusty rose prism granting a +1 bonus to AC."
     },
     {
         "name": "Gauntlets of Ogre Power",
         "type": "Wondrous Item",
         "stat_set": {"STR": 19},
-        "description": "Iron gauntlets that grant the strength of an ogre."
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Uncommon",
+        "description": "Iron gauntlets that grant the strength of an ogre (STR becomes 19 if lower)."
     },
     {
         "name": "Amulet of Health",
         "type": "Wondrous Item",
         "stat_set": {"CON": 19},
-        "description": "An amulet that grants unnatural health."
+        "requires_attunement": true,
+        "weight": 0.5,
+        "rarity": "Rare",
+        "description": "An amulet that grants unnatural health (CON becomes 19 if lower)."
+    },
+    {
+        "name": "Headband of Intellect",
+        "type": "Wondrous Item",
+        "stat_set": {"INT": 19},
+        "requires_attunement": true,
+        "weight": 0.5,
+        "rarity": "Uncommon",
+        "description": "Your Intelligence score becomes 19 while wearing this headband (no effect if INT is already 19 or higher)."
     },
     {
         "name": "Belt of Hill Giant Strength",
         "type": "Wondrous Item",
         "stat_set": {"STR": 21},
-        "description": "A belt that grants the strength of a hill giant."
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Rare",
+        "description": "A belt that grants the strength of a hill giant (STR becomes 21 if lower)."
+    },
+    {
+        "name": "Belt of Stone Giant Strength",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 23},
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Very Rare",
+        "description": "Your Strength score becomes 23 while wearing this belt."
+    },
+    {
+        "name": "Belt of Frost Giant Strength",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 23},
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Very Rare",
+        "description": "Your Strength score becomes 23 while wearing this belt."
+    },
+    {
+        "name": "Belt of Fire Giant Strength",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 25},
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Very Rare",
+        "description": "Your Strength score becomes 25 while wearing this belt."
+    },
+    {
+        "name": "Belt of Cloud Giant Strength",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 27},
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Legendary",
+        "description": "Your Strength score becomes 27 while wearing this belt."
+    },
+    {
+        "name": "Belt of Storm Giant Strength",
+        "type": "Wondrous Item",
+        "stat_set": {"STR": 29},
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Legendary",
+        "description": "Your Strength score becomes 29 while wearing this belt."
+    },
+    {
+        "name": "Belt of Dwarvenkind",
+        "type": "Wondrous Item",
+        "stat_bonus": {"CON": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Rare",
+        "description": "Grants +2 Constitution (max 20), Advantage vs poison & Resistance to Poison damage, Darkvision 60 ft, and Dwarvish."
+    },
+    {
+        "name": "Ioun Stone of Strength",
+        "type": "Wondrous Item",
+        "stat_bonus": {"STR": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "A pale blue rhomboid granting +2 Strength (max 20)."
+    },
+    {
+        "name": "Ioun Stone of Agility",
+        "type": "Wondrous Item",
+        "stat_bonus": {"DEX": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "A deep red sphere granting +2 Dexterity (max 20)."
+    },
+    {
+        "name": "Ioun Stone of Fortitude",
+        "type": "Wondrous Item",
+        "stat_bonus": {"CON": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "A pink rhomboid granting +2 Constitution (max 20)."
+    },
+    {
+        "name": "Ioun Stone of Intellect",
+        "type": "Wondrous Item",
+        "stat_bonus": {"INT": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "A marbled scarlet and blue sphere granting +2 Intelligence (max 20)."
+    },
+    {
+        "name": "Ioun Stone of Insight",
+        "type": "Wondrous Item",
+        "stat_bonus": {"WIS": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "An incandescent blue sphere granting +2 Wisdom (max 20)."
+    },
+    {
+        "name": "Ioun Stone of Leadership",
+        "type": "Wondrous Item",
+        "stat_bonus": {"CHA": 2},
+        "stat_max": 20,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "A pink and green sphere granting +2 Charisma (max 20)."
+    },
+    {
+        "name": "Manual of Gainful Exercise",
+        "type": "Wondrous Item",
+        "stat_bonus": {"STR": 2},
+        "weight": 5,
+        "rarity": "Very Rare",
+        "description": "Increases Strength score and maximum by 2."
+    },
+    {
+        "name": "Manual of Quickness of Action",
+        "type": "Wondrous Item",
+        "stat_bonus": {"DEX": 2},
+        "weight": 5,
+        "rarity": "Very Rare",
+        "description": "Increases Dexterity score and maximum by 2."
+    },
+    {
+        "name": "Manual of Bodily Health",
+        "type": "Wondrous Item",
+        "stat_bonus": {"CON": 2},
+        "weight": 5,
+        "rarity": "Very Rare",
+        "description": "Increases Constitution score and maximum by 2."
+    },
+    {
+        "name": "Tome of Clear Thought",
+        "type": "Wondrous Item",
+        "stat_bonus": {"INT": 2},
+        "weight": 5,
+        "rarity": "Very Rare",
+        "description": "Increases Intelligence score and maximum by 2."
+    },
+    {
+        "name": "Tome of Understanding",
+        "type": "Wondrous Item",
+        "stat_bonus": {"WIS": 2},
+        "weight": 5,
+        "rarity": "Very Rare",
+        "description": "Increases Wisdom score and maximum by 2."
+    },
+    {
+        "name": "Tome of Leadership and Influence",
+        "type": "Wondrous Item",
+        "stat_bonus": {"CHA": 2},
+        "weight": 5,
+        "rarity": "Very Rare",
+        "description": "Increases Charisma score and maximum by 2."
+    },
+    {
+        "name": "Staff of Power",
+        "type": "Staff",
+        "ac_bonus": 2,
+        "save_bonus": 2,
+        "spell_attack_bonus": 2,
+        "requires_attunement": true,
+        "weight": 4,
+        "rarity": "Very Rare",
+        "description": "Grants +2 bonus to AC, Saving Throws, and Spell Attack rolls while held (20 charges of arcane spells)."
+    },
+    {
+        "name": "Staff of the Magi",
+        "type": "Staff",
+        "spell_attack_bonus": 2,
+        "requires_attunement": true,
+        "weight": 4,
+        "rarity": "Legendary",
+        "description": "Grants +2 bonus to Spell Attack rolls, Advantage on saves against spells, and 50 charges of archmage magic."
+    },
+    {
+        "name": "Wand of the War Mage +1",
+        "type": "Wand",
+        "spell_attack_bonus": 1,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Grants a +1 bonus to spell attack rolls and ignores Half Cover on spell attacks."
+    },
+    {
+        "name": "Wand of the War Mage +2",
+        "type": "Wand",
+        "spell_attack_bonus": 2,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Rare",
+        "description": "Grants a +2 bonus to spell attack rolls and ignores Half Cover on spell attacks."
+    },
+    {
+        "name": "Wand of the War Mage +3",
+        "type": "Wand",
+        "spell_attack_bonus": 3,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Very Rare",
+        "description": "Grants a +3 bonus to spell attack rolls and ignores Half Cover on spell attacks."
+    },
+    {
+        "name": "Rod of the Pact Keeper +1",
+        "type": "Rod",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Uncommon",
+        "description": "Grants a +1 bonus to spell attack rolls and Spell Save DC of your Warlock spells, plus 1/Long Rest Pact Slot recovery."
+    },
+    {
+        "name": "Rod of the Pact Keeper +2",
+        "type": "Rod",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Rare",
+        "description": "Grants a +2 bonus to spell attack rolls and Spell Save DC of your Warlock spells, plus 1/Long Rest Pact Slot recovery."
+    },
+    {
+        "name": "Rod of the Pact Keeper +3",
+        "type": "Rod",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Very Rare",
+        "description": "Grants a +3 bonus to spell attack rolls and Spell Save DC of your Warlock spells, plus 1/Long Rest Pact Slot recovery."
+    },
+    {
+        "name": "Amulet of the Devout +1",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Grants +1 to Spell Attack rolls and Spell Save DC, and allows one extra Channel Divinity use per Long Rest."
+    },
+    {
+        "name": "Amulet of the Devout +2",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "Grants +2 to Spell Attack rolls and Spell Save DC, and allows one extra Channel Divinity use per Long Rest."
+    },
+    {
+        "name": "Amulet of the Devout +3",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "Grants +3 to Spell Attack rolls and Spell Save DC, and allows one extra Channel Divinity use per Long Rest."
+    },
+    {
+        "name": "Arcane Grimoire +1",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Uncommon",
+        "description": "Wizard spellbook focus granting +1 to spell attack rolls and Spell Save DC and enhancing Arcane Recovery by +1 slot level."
+    },
+    {
+        "name": "Arcane Grimoire +2",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Rare",
+        "description": "Wizard spellbook focus granting +2 to spell attack rolls and Spell Save DC and enhancing Arcane Recovery by +1 slot level."
+    },
+    {
+        "name": "Arcane Grimoire +3",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Very Rare",
+        "description": "Wizard spellbook focus granting +3 to spell attack rolls and Spell Save DC and enhancing Arcane Recovery by +1 slot level."
+    },
+    {
+        "name": "Bloodwell Vial +1",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Sorcerer focus granting +1 to spell attack rolls and Spell Save DC, and recovering 5 Sorcery Points when rolling Hit Dice once per dawn."
+    },
+    {
+        "name": "Bloodwell Vial +2",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "Sorcerer focus granting +2 to spell attack rolls and Spell Save DC, and recovering 5 Sorcery Points when rolling Hit Dice once per dawn."
+    },
+    {
+        "name": "Bloodwell Vial +3",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "rarity": "Very Rare",
+        "description": "Sorcerer focus granting +3 to spell attack rolls and Spell Save DC, and recovering 5 Sorcery Points when rolling Hit Dice once per dawn."
+    },
+    {
+        "name": "Moon Sickle +1",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Uncommon",
+        "description": "Silvered Druid/Ranger sickle focus (+1 spell attack rolls and Spell Save DC, +1d4 to healing spells)."
+    },
+    {
+        "name": "Moon Sickle +2",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Rare",
+        "description": "Silvered Druid/Ranger sickle focus (+2 spell attack rolls and Spell Save DC, +1d4 to healing spells)."
+    },
+    {
+        "name": "Moon Sickle +3",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "weight": 2,
+        "rarity": "Very Rare",
+        "description": "Silvered Druid/Ranger sickle focus (+3 spell attack rolls and Spell Save DC, +1d4 to healing spells)."
+    },
+    {
+        "name": "Rhythm-Maker's Drum +1",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Uncommon",
+        "description": "Bardic focus granting +1 to spell attack rolls and Spell Save DC, plus 1/dawn Bardic Inspiration recovery."
+    },
+    {
+        "name": "Rhythm-Maker's Drum +2",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Rare",
+        "description": "Bardic focus granting +2 to spell attack rolls and Spell Save DC, plus 1/dawn Bardic Inspiration recovery."
+    },
+    {
+        "name": "Rhythm-Maker's Drum +3",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "weight": 3,
+        "rarity": "Very Rare",
+        "description": "Bardic focus granting +3 to spell attack rolls and Spell Save DC, plus 1/dawn Bardic Inspiration recovery."
+    },
+    {
+        "name": "All-Purpose Tool +1",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 1,
+        "spell_save_dc_bonus": 1,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Artificer multi-tool focus granting +1 to spell attack rolls and Spell Save DC and any cantrip for 8 hours."
+    },
+    {
+        "name": "All-Purpose Tool +2",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 2,
+        "spell_save_dc_bonus": 2,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Rare",
+        "description": "Artificer multi-tool focus granting +2 to spell attack rolls and Spell Save DC and any cantrip for 8 hours."
+    },
+    {
+        "name": "All-Purpose Tool +3",
+        "type": "Wondrous Item",
+        "spell_attack_bonus": 3,
+        "spell_save_dc_bonus": 3,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Very Rare",
+        "description": "Artificer multi-tool focus granting +3 to spell attack rolls and Spell Save DC and any cantrip for 8 hours."
+    },
+    {
+        "name": "Bracers of Archery",
+        "type": "Wondrous Item",
+        "weapon_proficiencies": ["longbows", "shortbows"],
+        "bow_damage_bonus": 2,
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Grants proficiency with Longbows and Shortbows and adds a +2 bonus to damage rolls made with ranged attacks using those weapons."
+    },
+    {
+        "name": "Boots of Speed",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Rare",
+        "description": "Click heels as a Bonus Action to double walking speed and impose Disadvantage on Opportunity Attacks against you (10 min/Long Rest)."
+    },
+    {
+        "name": "Boots of Striding and Springing",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Walking speed becomes 30 ft minimum (unreduced by Heavy Armor or encumbrance), and jump distance triples."
+    },
+    {
+        "name": "Boots of Elvenkind",
+        "type": "Wondrous Item",
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Your steps make no sound and you have Advantage on Dexterity (Stealth) checks to move silently."
+    },
+    {
+        "name": "Winged Boots",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Grants a Fly Speed equal to your walking speed for up to 4 hours."
+    },
+    {
+        "name": "Cloak of Elvenkind",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Uncommon",
+        "description": "Wisdom (Perception) checks to see you have Disadvantage, and you have Advantage on Dexterity (Stealth) checks to hide."
+    },
+    {
+        "name": "Cloak of Displacement",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Rare",
+        "description": "Projects an illusion imposing Disadvantage on attack rolls against you until you take damage."
+    },
+    {
+        "name": "Cloak of the Bat",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 1,
+        "rarity": "Rare",
+        "description": "Grants Advantage on Stealth checks, flight in Dim Light or Darkness, and 1/dawn Polymorph into a bat."
+    },
+    {
+        "name": "Goggles of Night",
+        "type": "Wondrous Item",
+        "weight": 0.5,
+        "rarity": "Uncommon",
+        "description": "Grants Darkvision 60 feet (or extends existing Darkvision by 60 feet)."
+    },
+    {
+        "name": "Eyes of the Eagle",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Grants Advantage on Wisdom (Perception) checks that rely on sight."
+    },
+    {
+        "name": "Gloves of Missile Snaring",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "weight": 0.5,
+        "rarity": "Uncommon",
+        "description": "Reaction reduces ranged weapon damage by 1d10 + DEX modifier and catches missiles reduced to 0 damage."
+    },
+    {
+        "name": "Gloves of Thievery",
+        "type": "Wondrous Item",
+        "rarity": "Uncommon",
+        "description": "Grants a +5 bonus to Dexterity (Sleight of Hand) checks and Thieves' Tools checks to pick locks."
+    },
+    {
+        "name": "Periapt of Wound Closure",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Automatically stabilizes you when dying and doubles HP regained from Hit Dice."
+    },
+    {
+        "name": "Periapt of Proof against Poison",
+        "type": "Wondrous Item",
+        "rarity": "Rare",
+        "description": "Grants Immunity to the Poisoned condition and Poison damage."
+    },
+    {
+        "name": "Ring of Free Action",
+        "type": "Ring",
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "Difficult Terrain costs no extra movement, and magic can neither reduce your speed nor paralyze/restrain you."
+    },
+    {
+        "name": "Ring of Evasion",
+        "type": "Ring",
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "Has 3 charges; spend 1 charge as a Reaction to turn a failed DEX save into a success."
+    },
+    {
+        "name": "Ring of Spell Storing",
+        "type": "Ring",
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "Stores up to 5 levels worth of cast spells that the wearer can cast using the original caster's slot/DC."
+    },
+    {
+        "name": "Ring of Invisibility",
+        "type": "Ring",
+        "requires_attunement": true,
+        "rarity": "Legendary",
+        "description": "Become Invisible at will as an Action until the ring is removed or you end the effect."
+    },
+    {
+        "name": "Pearl of Power",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Once per dawn, regain one expended spell slot of 3rd level or lower."
+    },
+    {
+        "name": "Necklace of Fireballs",
+        "type": "Wondrous Item",
+        "rarity": "Rare",
+        "description": "Carries detachable beads that detonate as 3rd-level (or higher) Fireball spells (8d6 fire, DC 15 DEX)."
+    },
+    {
+        "name": "Mind Sharpener",
+        "type": "Wondrous Item",
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Infused robes/armor with 4 charges: use Reaction when failing a Concentration save to succeed instead."
+    },
+    {
+        "name": "Spell-Refueling Ring",
+        "type": "Ring",
+        "requires_attunement": true,
+        "rarity": "Rare",
+        "description": "Action recovers one expended spell slot of 3rd level or lower once per dawn."
+    },
+    {
+        "name": "Alchemy Jug",
+        "type": "Wondrous Item",
+        "weight": 12,
+        "rarity": "Uncommon",
+        "description": "Magical ceramic jug that produces daily quantities of mundane liquids (acid, poison, wine, water, oil, etc.)."
+    },
+    {
+        "name": "Weapon of Warning",
+        "type": "Wondrous Item",
+        "initiative_advantage": true,
+        "requires_attunement": true,
+        "rarity": "Uncommon",
+        "description": "Grants Advantage on Initiative rolls and prevents you and nearby companions from being Surprised."
+    },
+    {
+        "name": "Potion of Healing",
+        "type": "Potion",
+        "heal_dice": "2d4+2",
+        "weight": 0.5,
+        "cost_gp": 50,
+        "rarity": "Common",
+        "description": "Regain 2d4 + 2 Hit Points when consumed."
+    },
+    {
+        "name": "Potion of Greater Healing",
+        "type": "Potion",
+        "heal_dice": "4d4+4",
+        "weight": 0.5,
+        "cost_gp": 150,
+        "rarity": "Uncommon",
+        "description": "Regain 4d4 + 4 Hit Points when consumed."
+    },
+    {
+        "name": "Potion of Superior Healing",
+        "type": "Potion",
+        "heal_dice": "8d4+8",
+        "weight": 0.5,
+        "cost_gp": 500,
+        "rarity": "Rare",
+        "description": "Regain 8d4 + 8 Hit Points when consumed."
+    },
+    {
+        "name": "Potion of Supreme Healing",
+        "type": "Potion",
+        "heal_dice": "10d4+20",
+        "weight": 0.5,
+        "cost_gp": 1500,
+        "rarity": "Very Rare",
+        "description": "Regain 10d4 + 20 Hit Points when consumed."
+    },
+    {
+        "name": "Potion of Invisibility",
+        "type": "Potion",
+        "weight": 0.5,
+        "rarity": "Very Rare",
+        "description": "Become Invisible for 1 hour (ends if you attack or cast a spell)."
+    },
+    {
+        "name": "Potion of Flying",
+        "type": "Potion",
+        "weight": 0.5,
+        "rarity": "Very Rare",
+        "description": "Gain a Fly Speed equal to your walking speed and hover for 1 hour."
+    },
+    {
+        "name": "Potion of Speed",
+        "type": "Potion",
+        "weight": 0.5,
+        "rarity": "Very Rare",
+        "description": "Gain the effects of the Haste spell for 1 minute (no Concentration required)."
+    },
+    {
+        "name": "Potion of Heroism",
+        "type": "Potion",
+        "weight": 0.5,
+        "rarity": "Rare",
+        "description": "Gain 10 Temporary Hit Points and the effect of the Bless spell for 1 hour."
+    },
+    {
+        "name": "Antitoxin",
+        "type": "Adventuring Gear",
+        "weight": 0.1,
+        "cost_gp": 50,
+        "rarity": "Common",
+        "description": "Grants Advantage on saving throws against poison for 1 hour."
+    },
+    {
+        "name": "Spell Scroll (Cantrip)",
+        "type": "Scroll",
+        "rarity": "Common",
+        "description": "A single-use scroll containing a Cantrip (Save DC 13, +5 attack bonus)."
+    },
+    {
+        "name": "Spell Scroll (1st Level)",
+        "type": "Scroll",
+        "rarity": "Common",
+        "description": "A single-use scroll containing a Level 1 spell (Save DC 13, +5 attack bonus)."
+    },
+    {
+        "name": "Spell Scroll (2nd Level)",
+        "type": "Scroll",
+        "rarity": "Uncommon",
+        "description": "A single-use scroll containing a Level 2 spell (Save DC 13, +5 attack bonus)."
+    },
+    {
+        "name": "Spell Scroll (3rd Level)",
+        "type": "Scroll",
+        "rarity": "Uncommon",
+        "description": "A single-use scroll containing a Level 3 spell (Save DC 15, +7 attack bonus)."
+    },
+    {
+        "name": "Spell Scroll (4th Level)",
+        "type": "Scroll",
+        "rarity": "Rare",
+        "description": "A single-use scroll containing a Level 4 spell (Save DC 15, +7 attack bonus)."
+    },
+    {
+        "name": "Spell Scroll (5th Level)",
+        "type": "Scroll",
+        "rarity": "Rare",
+        "description": "A single-use scroll containing a Level 5 spell (Save DC 17, +9 attack bonus)."
+    },
+    {
+        "name": "Bag of Holding",
+        "type": "Wondrous Item",
+        "weight": 15,
+        "rarity": "Uncommon",
+        "description": "Extradimensional bag holding up to 500 pounds / 64 cubic feet while always weighing 15 pounds."
+    },
+    {
+        "name": "Handy Haversack",
+        "type": "Wondrous Item",
+        "weight": 5,
+        "rarity": "Rare",
+        "description": "Heward's Handy Haversack: three extradimensional compartments holding up to 120 pounds while always weighing 5 pounds."
+    },
+    {
+        "name": "Portable Hole",
+        "type": "Wondrous Item",
+        "rarity": "Rare",
+        "description": "Fine cloth unfolding into an extradimensional 6-foot-diameter, 10-foot-deep cylindrical space."
+    },
+    {
+        "name": "Thieves' Tools",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 25,
+        "rarity": "Common",
+        "description": "Small file, lock picks, mirror, narrow-bladed scissors, and pliers for disarming traps and opening locks."
+    },
+    {
+        "name": "Healer's Kit",
+        "type": "Adventuring Gear",
+        "weight": 3,
+        "cost_gp": 5,
+        "rarity": "Common",
+        "description": "10 uses: stabilize a creature at 0 Hit Points without a Medicine check (or heal 1d6+4+maxHD with Healer feat)."
+    },
+    {
+        "name": "Component Pouch",
+        "type": "Adventuring Gear",
+        "weight": 2,
+        "cost_gp": 25,
+        "rarity": "Common",
+        "description": "Watertight leather belt pouch containing compartments for all free Material spellcasting components."
+    },
+    {
+        "name": "Arcane Focus",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 10,
+        "rarity": "Common",
+        "description": "Crystal, orb, rod, staff, or wand crafted to channel arcane spells."
+    },
+    {
+        "name": "Druidic Focus",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 5,
+        "rarity": "Common",
+        "description": "Sprig of mistletoe, totem, yew wand, or wooden staff for primal Druid and Ranger spells."
+    },
+    {
+        "name": "Holy Symbol",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 5,
+        "rarity": "Common",
+        "description": "Amulet, emblem, or reliquary representing a deity or pantheon for Cleric and Paladin spells."
+    },
+    {
+        "name": "Explorer's Pack",
+        "type": "Adventuring Gear",
+        "weight": 59,
+        "cost_gp": 10,
+        "rarity": "Common",
+        "description": "Backpack, bedroll, mess kit, tinderbox, 10 torches, 10 days of rations, waterskin, and 50 ft hempen rope."
+    },
+    {
+        "name": "Dungeoneer's Pack",
+        "type": "Adventuring Gear",
+        "weight": 61.5,
+        "cost_gp": 12,
+        "rarity": "Common",
+        "description": "Backpack, crowbar, hammer, 10 pitons, 10 torches, tinderbox, 10 days of rations, waterskin, and 50 ft hempen rope."
     }
 ]

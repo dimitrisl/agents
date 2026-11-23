@@ -1,5 +1,5 @@
 import { CharacterSchema, Weapon } from '../models/character.model';
-import { abilityModifier, exhaustionD20Penalty } from './ability';
+import { abilityModifier, exhaustionD20Penalty, maxAttunementSlots } from './ability';
 
 export interface WeaponAttackBreakdown {
   statName: string;
@@ -135,6 +135,36 @@ export function getAgonizingBlastBonus(
   return hasAgonizing ? abilityModifier(char.stats?.CHA ?? 10) : 0;
 }
 
+/** Checks for Bracers of Archery (or explicit bow_damage_bonus) on Longbow/Shortbow when equipped & not suppressed. */
+export function getBracersOfArcheryBonus(weapon: Weapon, char?: CharacterSchema | null): number {
+  if (!char || char.magic_items_suppressed) return 0;
+  const wName = (weapon.name || '').toLowerCase();
+  if (!wName.includes('longbow') && !wName.includes('shortbow')) return 0;
+
+  const maxAttuned = maxAttunementSlots(char);
+  let attunedCount = 0;
+  let total = 0;
+  const seenNames = new Set<string>();
+  for (const eq of char.equipment || []) {
+    if (!eq || !eq.equipped) continue;
+    if (eq.attuned) {
+      attunedCount++;
+      if (attunedCount > maxAttuned) continue;
+    }
+    const rawName = String(eq.name || '').trim().toLowerCase();
+    const normName = rawName.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+    const explicitBow = Math.trunc(Number((eq as { bow_damage_bonus?: number }).bow_damage_bonus ?? 0) || 0);
+    const catalogBow = rawName.includes('bracers of archery') ? 2 : 0;
+    const itemBow = explicitBow || catalogBow;
+    const dedupeKey = catalogBow > 0 ? 'bracers of archery' : normName;
+    if (itemBow > 0 && (!dedupeKey || !seenNames.has(dedupeKey))) {
+      total += itemBow;
+      if (dedupeKey) seenNames.add(dedupeKey);
+    }
+  }
+  return total;
+}
+
 /** Computes full breakdown for a weapon's to-hit and damage. */
 export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema | null): WeaponBreakdown {
   const stats = char?.stats || { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 };
@@ -152,10 +182,11 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   // 3. Magic Bonus (non-destructively suppressed when DM activates Athas / Antimagic)
   const magicBonus = char?.magic_items_suppressed ? 0 : extractMagicBonus(weapon);
 
-  // 4. Fighting Styles & Invocations
+  // 4. Fighting Styles, Invocations & Magic Gear
   const archery = getArcheryBonus(weapon, char);
   const dueling = getDuelingBonus(weapon, char);
   const agonizing = getAgonizingBlastBonus(weapon, char, statName);
+  const bracersOfArchery = getBracersOfArcheryBonus(weapon, char);
 
   // 5. Misc, Gear & DM Modifiers
   const miscAttack = weapon.misc_attack_bonus ?? 0;
@@ -192,12 +223,14 @@ export function calculateWeaponBreakdown(weapon: Weapon, char?: CharacterSchema 
   const typeMatch = /\d\s*([a-zA-Z][a-zA-Z ]*)$/.exec(rawDice);
   const damageType = weapon.damage_type || (typeMatch ? typeMatch[1].trim() : '');
 
-  const totalDamageBonus = statMod + magicBonus + dueling + agonizing + miscDamage + globalDamage + dmDamage;
+  const totalDamageBonus =
+    statMod + magicBonus + dueling + agonizing + bracersOfArchery + miscDamage + globalDamage + dmDamage;
   const damageParts: string[] = [baseDice];
   if (statName !== 'NONE' && statMod !== 0) damageParts.push(`${statMod >= 0 ? '+' + statMod : statMod} (${statName})`);
   if (magicBonus > 0) damageParts.push(`+${magicBonus} (Magic)`);
   if (dueling > 0) damageParts.push(`+${dueling} (Dueling)`);
   if (agonizing !== 0) damageParts.push(`${agonizing > 0 ? '+' + agonizing : agonizing} (Agonizing)`);
+  if (bracersOfArchery > 0) damageParts.push(`+${bracersOfArchery} (Bracers of Archery)`);
   if (globalDamage !== 0) damageParts.push(`${globalDamage > 0 ? '+' + globalDamage : globalDamage} (Gear)`);
   if (dmDamage !== 0) damageParts.push(`${dmDamage > 0 ? '+' + dmDamage : dmDamage} (DM)`);
   if (miscDamage !== 0) damageParts.push(`${miscDamage > 0 ? '+' + miscDamage : miscDamage} (Misc)`);

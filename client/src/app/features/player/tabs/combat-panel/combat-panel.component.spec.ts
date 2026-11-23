@@ -815,5 +815,80 @@ describe('CombatPanelComponent', () => {
       component.deleteMobileResource(component.classResources.length - 1, new MouseEvent('click'));
       expect(component.classResources.some((r) => r.name === 'Superiority Dice')).toBe(false);
     });
+
+    it('clears derived skill, passive, initiative, and save caches on toggleAttuned and onItemNameChange', () => {
+      const luckstone = { name: 'Stone of Good Luck (Luckstone)', equipped: true, attuned: true } as any;
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        skills: { Perception: 6, Arcana: 8 },
+        passive_perception: 16,
+        initiative_advantage: true,
+        saving_throw_values: { CON: 4 },
+        equipment: [luckstone],
+      });
+      fixture.detectChanges();
+
+      component.toggleAttuned(component.char.equipment![0]);
+      expect(component.char.skills).toBeUndefined();
+      expect(component.char.passive_perception).toBeUndefined();
+      expect(component.char.initiative_advantage).toBeUndefined();
+      expect(component.char.saving_throw_values).toBeUndefined();
+
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        skills: { Perception: 6 },
+        passive_perception: 16,
+        initiative_advantage: true,
+        saving_throw_values: { CON: 4 },
+      });
+      fixture.detectChanges();
+
+      component.onItemNameChange();
+      expect(component.char.skills).toBeUndefined();
+      expect(component.char.passive_perception).toBeUndefined();
+      expect(component.char.initiative_advantage).toBeUndefined();
+      expect(component.char.saving_throw_values).toBeUndefined();
+    });
+
+    it('uses dynamic Artificer attunement cap and updates bow weaponNotation immediately when toggling Bracers of Archery', () => {
+      const toggleSpy = jest.spyOn(component.toggleEquipped, 'emit');
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        char_class: 'Artificer',
+        char_level: 10,
+        classes: [{ class_name: 'Artificer', level: 10 }],
+        proficiency_bonus: 4,
+        stats: { STR: 10, DEX: 20, CON: 14, INT: 18, WIS: 10, CHA: 10 },
+        equipment: [
+          { name: 'Item 1', equipped: true, attuned: true } as any,
+          { name: 'Item 2', equipped: true, attuned: true } as any,
+          { name: 'Item 3', equipped: true, attuned: true } as any,
+          { name: 'Bracers of Archery', equipped: false, attuned: true } as any,
+        ],
+        weapons: [{ name: 'Longbow', attack_bonus: '+9', damage_dice: '1d8+5 piercing', damage_bonus: '+5' } as any],
+      });
+      fixture.detectChanges();
+
+      expect(component.maxActiveAttunements).toBe(4);
+      component.onToggleEquipped(component.char.equipment![3]);
+      expect(toggleSpy).toHaveBeenCalledWith(component.char.equipment![3]);
+
+      // Simulate Bracers of Archery equipped & attuned on a bow (server notation +7), then immediately rename/change via onItemNameChange
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        equipment: [{ name: 'Bracers of Archery', equipped: true, attuned: true } as any],
+        weapons: [{ name: 'Longbow', attack_bonus: '+9', damage_dice: '1d8+7 piercing', damage_bonus: '+7' } as any],
+      });
+      fixture.detectChanges();
+      expect(component.weaponNotation(component.char.weapons![0])).toBe('1d8+7');
+
+      component.char.equipment![0].name = 'Leather Bracers';
+      component.onItemNameChange();
+      expect(component.weaponNotation(component.char.weapons![0])).toBe('1d8+5');
+
+      component.char.equipment![0].name = 'Bracers of Archery';
+      component.onItemNameChange();
+      expect(component.weaponNotation(component.char.weapons![0])).toBe('1d8+7');
+    });
   });
 });
