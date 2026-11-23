@@ -259,6 +259,9 @@ class PDFMappingProvider:
         prepared_spells = set(
             str(s).strip().lower() for s in char_data.get("prepared_spells", []) if s
         )
+        always_prepared_spells = set(
+            str(s).strip().lower() for s in char_data.get("always_prepared_spells", []) if s
+        )
         spell_mapping = self.mapping.get("spells", {})
         spell_checks = self.mapping.get("spell_checks", {})
 
@@ -273,12 +276,13 @@ class PDFMappingProvider:
 
                         cb_key = spell_checks.get(pdf_key)
                         if cb_key:
-                            # If explicitly in prepared_spells or no explicit prepared_spells set
+                            # If explicitly in prepared_spells/always_prepared_spells or no explicit prepared_spells set
                             # (for known casters like Ranger, Bard, Sorcerer, all known spells are prepared)
+                            s_low = s_name.strip().lower()
                             is_prep = (
                                 True
                                 if not prepared_spells
-                                else (s_name.strip().lower() in prepared_spells)
+                                else (s_low in prepared_spells or s_low in always_prepared_spells)
                             )
                             field_data[cb_key] = "Yes" if is_prep else "/Off"
 

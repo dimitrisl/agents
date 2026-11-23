@@ -1,7 +1,8 @@
 import { CharacterSchema, ClassResource } from '../models/character.model';
 import { hitDieSidesFor } from '../data/class-combat.data';
-import { abilityModifierOf, is2024Edition } from './ability';
+import { abilityModifierOf, is2024Edition, proficiencyBonus } from './ability';
 import { currentHp } from './hit-points';
+import { SpellSlots, regainSpellSlot } from './spell-slots';
 
 /**
  * Short and long rests: what a hero gets back, and what it costs them.
@@ -104,9 +105,10 @@ export function planShortRest(
   const conMod = conModifier(char);
   const resolvedDieSize = overrideDieSize && overrideDieSize > 0 ? overrideDieSize : hitDieSize(char);
   const pact = warlockPactDetails(char);
+  const canRecoverSlots = !!pact || hasShortRestSlotRecovery(char);
 
   if (available <= 0 || requestedDice <= 0) {
-    if (pact && (available <= 0 || requestedDice === 0)) {
+    if (canRecoverSlots && (available <= 0 || requestedDice === 0)) {
       return {
         diceSpent: 0,
         dieSize: resolvedDieSize,
@@ -346,4 +348,122 @@ export function rechargeShortRestResources(
     }
     return { ...r };
   });
+}
+
+function classLevelForRest(
+  char: Pick<CharacterSchema, 'char_class' | 'char_level' | 'classes'> | null | undefined,
+  target: string
+): number {
+  if (!char) return 0;
+  let lvl = 0;
+  for (const c of char.classes || []) {
+    if ((c.class_name || '').trim().toLowerCase() === target) {
+      lvl += Math.max(0, Number(c.level || 0));
+    }
+  }
+  if (lvl === 0 && (char.char_class || '').trim().toLowerCase() === target) {
+    lvl = Math.max(1, Number(char.char_level || 1));
+  }
+  return lvl;
+}
+
+function hasAvailableResourcePool(
+  char: Pick<CharacterSchema, 'class_resources'> | null | undefined,
+  poolName: string
+): boolean {
+  const target = poolName.trim().toLowerCase();
+  return (char?.class_resources || []).some(
+    (r) => (r.name || '').trim().toLowerCase() === target && Number(r.current ?? 0) >= 1
+  );
+}
+
+/** Combined spell-level recovery budget (1..5th level slots only) for Arcane Recovery / Natural Recovery, or 0 if unavailable. */
+export function shortRestRecoveryBudget(
+  char: CharacterSchema | null | undefined,
+  kind: 'arcane_recovery' | 'natural_recovery'
+): number {
+  if (!char) return 0;
+  if (kind === 'arcane_recovery') {
+    const wizLvl = classLevelForRest(char, 'wizard');
+    if (wizLvl <= 0 || !hasAvailableResourcePool(char, 'Arcane Recovery')) return 0;
+    return Math.ceil(wizLvl / 2);
+  }
+  const druidLvl = classLevelForRest(char, 'druid');
+  if (druidLvl <= 0 || !hasAvailableResourcePool(char, 'Natural Recovery')) return 0;
+  const hasLandSubclass =
+    (char.classes || []).some(
+      (c) =>
+        (c.class_name || '').trim().toLowerCase() === 'druid' &&
+        (c.subclass || '').toLowerCase().includes('land')
+    ) || (char.subclass || '').toLowerCase().includes('land');
+  const hasFeature = (char.features_traits || []).some((f) =>
+    (typeof f === 'string' ? f : f?.name || '').toLowerCase().includes('natural recovery')
+  );
+  const minLvl = !is2024Edition(char) || hasFeature ? 2 : 6;
+  if (!hasLandSubclass && !hasFeature) return 0;
+  return druidLvl >= minLvl ? Math.ceil(druidLvl / 2) : 0;
+}
+
+/** Max spell slot level recoverable by Harness Divine Power (Cleric 2+ / Paladin 3+ with Channel Divinity), or 0 if unavailable. */
+export function harnessDivinePowerMaxSlotLevel(char: CharacterSchema | null | undefined): number {
+  if (!char) return 0;
+  const clericLvl = classLevelForRest(char, 'cleric');
+  const paladinLvl = classLevelForRest(char, 'paladin');
+  if (clericLvl < 2 && paladinLvl < 3) return 0;
+  if (!hasAvailableResourcePool(char, 'Channel Divinity')) return 0;
+  return Math.ceil(proficiencyBonus(char) / 2);
+}
+
+export function hasShortRestSlotRecovery(char: CharacterSchema | null | undefined): boolean {
+  return (
+    shortRestRecoveryBudget(char, 'arcane_recovery') > 0 ||
+    shortRestRecoveryBudget(char, 'natural_recovery') > 0 ||
+    harnessDivinePowerMaxSlotLevel(char) > 0
+  );
+}
+
+export function applyShortRestSlotRecovery(
+  slots: SpellSlots | undefined,
+  resources: ClassResource[] | undefined,
+  selection: {
+    arcaneRecoverySlots?: Record<number, number>;
+    naturalRecoverySlots?: Record<number, number>;
+    harnessDivinePowerSlot?: number | null;
+  }
+): { spell_slots: SpellSlots; class_resources: ClassResource[] } {
+  let nextSlots: SpellSlots = { ...(slots ?? {}) };
+  let nextResources: ClassResource[] = (resources ?? []).map((r) => ({ ...r }));
+
+  const consumePool = (name: string) => {
+    const target = name.trim().toLowerCase();
+    const idx = nextResources.findIndex((r) => (r.name || '').trim().toLowerCase() === target);
+    if (idx >= 0 && nextResources[idx].current > 0) {
+      nextResources[idx] = { ...nextResources[idx], current: nextResources[idx].current - 1 };
+    }
+  };
+
+  const applyMap = (map: Record<number, number> | undefined, poolName: string) => {
+    if (!map) return;
+    let spent = false;
+    for (const [lvlStr, rawCount] of Object.entries(map)) {
+      const lvl = Number(lvlStr);
+      const count = Math.max(0, Math.trunc(Number(rawCount) || 0));
+      if (!lvl || lvl >= 6 || count <= 0) continue;
+      spent = true;
+      for (let i = 0; i < count; i++) {
+        nextSlots = regainSpellSlot(nextSlots, lvl);
+      }
+    }
+    if (spent) consumePool(poolName);
+  };
+
+  applyMap(selection.arcaneRecoverySlots, 'Arcane Recovery');
+  applyMap(selection.naturalRecoverySlots, 'Natural Recovery');
+
+  if (selection.harnessDivinePowerSlot && selection.harnessDivinePowerSlot >= 1) {
+    nextSlots = regainSpellSlot(nextSlots, selection.harnessDivinePowerSlot);
+    consumePool('Channel Divinity');
+  }
+
+  return { spell_slots: nextSlots, class_resources: nextResources };
 }

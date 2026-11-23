@@ -18,12 +18,19 @@ import { RollToastService } from '../../../../core/services/roll-toast.service';
 import {
   MetamagicOption,
   SLOT_CREATION_COST,
+  SpellCastProfile,
+  canCastAsRitual,
   canCreateSlot,
+  isAlwaysPreparedSpell,
+  isRitualSpell,
   knownMetamagic,
+  maxPreparedSpells,
   metamagicCost,
   metamagicEdition,
   metamagicKnownLimit,
   metamagicOptions,
+  normalizeSpellKey,
+  preparedSpellsCount,
   removeClassResourceAt,
   resourceEditedMax,
   resourceRulesMax,
@@ -76,6 +83,8 @@ export class SpellsPanelComponent implements OnInit, OnChanges {
   @Input() compactMobile = false;
   /** Dice a spell rolls at a slot level ("9d6"), or null when unknown. */
   @Input() castPreview: (spellName: string, slotLevel: number) => string | null = () => null;
+  /** Optional spell rules profile lookup for custom/homebrew ritual checks. */
+  @Input() spellProfile: (spellName: string) => SpellCastProfile | null = () => null;
 
   @Output() useSpellSlot = new EventEmitter<number>();
   @Output() restoreSpellSlot = new EventEmitter<number>();
@@ -133,6 +142,13 @@ export class SpellsPanelComponent implements OnInit, OnChanges {
 
   castFromDetail(spellName: string, level: number): void {
     this.castNow(spellName, level);
+    this.selectedSpell.set(null);
+  }
+
+  castRitualFromDetail(spellName: string, level: number): void {
+    if (!this.canRitualCast(spellName)) return;
+    this.haptics.lightTap();
+    this.castSpell.emit({ spellName, level: Math.max(1, level), isRitual: true });
     this.selectedSpell.set(null);
   }
 
@@ -492,9 +508,74 @@ export class SpellsPanelComponent implements OnInit, OnChanges {
       .filter(group => group.spells.length > 0 || (this.editMode && !query && filter === 'all'));
   }
 
+  get maxPreparedCount(): number | null {
+    return maxPreparedSpells(this.char);
+  }
+
+  get preparedCount(): number {
+    return preparedSpellsCount(this.char);
+  }
+
+  get overPreparedLimit(): boolean {
+    return this.maxPreparedCount !== null && this.preparedCount > this.maxPreparedCount;
+  }
+
+  get canPrepareToggle(): boolean {
+    return this.maxPreparedCount !== null || this.editMode;
+  }
+
+  isAlwaysPrepared(spellName: string): boolean {
+    return isAlwaysPreparedSpell(this.char, spellName);
+  }
+
   isPrepared(spellName: string): boolean {
-    if (!this.char.prepared_spells) return false;
-    return this.char.prepared_spells.includes(spellName);
+    if (this.isAlwaysPrepared(spellName)) return true;
+    const key = normalizeSpellKey(spellName);
+    if (!key || !this.char.prepared_spells) return false;
+    return this.char.prepared_spells.some((s) => normalizeSpellKey(s) === key);
+  }
+
+  isRitual(spellName: string): boolean {
+    return isRitualSpell(spellName, this.char?.dnd_edition, this.spellProfile(spellName));
+  }
+
+  canRitualCast(spellName: string): boolean {
+    return canCastAsRitual(this.char, spellName, this.spellProfile(spellName));
+  }
+
+  togglePrepared(spellName: string, level: number, event?: Event): void {
+    event?.stopPropagation();
+    if (level <= 0) return;
+    if (this.isAlwaysPrepared(spellName)) {
+      this.toast.showMessage(
+        '🔒 ALWAYS PREPARED',
+        `${spellName} is always prepared by your subclass or species and does not count against your prepared limit.`
+      );
+      return;
+    }
+
+    this.haptics.lightTap();
+    const key = normalizeSpellKey(spellName);
+    const current = this.char.prepared_spells || [];
+    const currentlyPrepared = current.some((s) => normalizeSpellKey(s) === key);
+
+    if (currentlyPrepared) {
+      this.char.prepared_spells = current.filter((s) => normalizeSpellKey(s) !== key);
+      this.save.emit();
+      return;
+    }
+
+    const max = this.maxPreparedCount;
+    if (max !== null && this.preparedCount >= max) {
+      this.toast.showMessage(
+        '⚠️ PREPARED LIMIT REACHED',
+        `You already have ${this.preparedCount}/${max} daily spells prepared. Unprepare one first.`
+      );
+      return;
+    }
+
+    this.char.prepared_spells = [...current, spellName];
+    this.save.emit();
   }
 
   // --- Spell Casting (#173) ---

@@ -824,12 +824,32 @@ def inject_mandatory_character_grants(
                         spells_dict[tier_key] = tier_picks
 
                 char_data["spells"] = spells_dict
+                from backend.services.stats_service import calculate_max_prepared_spells
+
+                prep_cap = calculate_max_prepared_spells(
+                    classes=(char_data.get("classes") or []),
+                    char_class=char_data.get("char_class"),
+                    subclass=char_data.get("subclass"),
+                    level=level,
+                    stats=char_data.get("stats") or {},
+                    edition=edition_str,
+                )
                 prepared = list(char_data.get("prepared_spells") or [])
-                for s_list in spells_dict.values():
-                    if isinstance(s_list, list):
-                        for s_name in s_list:
-                            if s_name not in prepared:
-                                prepared.append(s_name)
+                leveled_seeded = 0
+                for s_key, s_list in spells_dict.items():
+                    if not isinstance(s_list, list):
+                        continue
+                    for s_name in s_list:
+                        if (
+                            s_key != "cantrips"
+                            and prep_cap is not None
+                            and leveled_seeded >= prep_cap
+                        ):
+                            continue
+                        if s_name not in prepared:
+                            prepared.append(s_name)
+                        if s_key != "cantrips":
+                            leveled_seeded += 1
                 char_data["prepared_spells"] = prepared
 
     # Grant Domain/Oath/Circle/Patron/Specialist bonus spells AFTER base-class auto-spell seeding

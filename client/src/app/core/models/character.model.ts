@@ -175,6 +175,8 @@ export interface CharacterSchema {
   features_traits?: FeatureTrait[];
   spells?: SpellList;
   prepared_spells?: string[];
+  always_prepared_spells?: string[];
+  max_prepared_spells?: number | null;
   spell_slots?: Record<
     string,
     { max: number; used: number; level?: number; pact_max?: number; pact_used?: number }

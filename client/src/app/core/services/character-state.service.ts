@@ -290,7 +290,15 @@ export class CharacterStateService {
 
   applyShortRest(
     id: string,
-    payload: { dice_to_spend: number; die_size?: number; hp_healed: number; expected_version?: number }
+    payload: {
+      dice_to_spend: number;
+      die_size?: number;
+      hp_healed: number;
+      arcane_recovery_slots?: Record<string, number>;
+      natural_recovery_slots?: Record<string, number>;
+      harness_divine_power_slot?: number | null;
+      expected_version?: number;
+    }
   ): Observable<CharacterSchema> {
     return this.http.post<CharacterSchema>(`${this.API_URL}/${id}/short-rest`, payload).pipe(
       tap((updated) => {

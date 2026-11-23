@@ -24,9 +24,25 @@
         </div>
       </div>
 
-      <!-- Compact Pact Magic / Sorcery Points Chips -->
-      @if (pactPool || sorceryPool) {
+      <!-- Compact Pact Magic / Sorcery Points / Prepared Limit Chips -->
+      @if (pactPool || sorceryPool || maxPreparedCount !== null) {
         <div class="mt-2 flex flex-wrap items-center gap-1.5">
+          @if (maxPreparedCount !== null) {
+            <span
+              data-testid="mobile-prepared-counter"
+              class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-micro font-semibold tabular-nums"
+              [ngClass]="
+                overPreparedLimit
+                  ? 'border-red/50 bg-red/15 text-red'
+                  : preparedCount >= maxPreparedCount
+                    ? 'border-gold/50 bg-gold/15 text-gold'
+                    : 'border-hairline bg-tile text-ink'
+              "
+              title="Daily prepared leveled spells (Always Prepared subclass/species spells and cantrips do not count)"
+            >
+              📖 Prep {{ preparedCount }}/{{ maxPreparedCount }}
+            </span>
+          }
           @if (pactPool; as pact) {
             <span
               class="inline-flex items-center gap-1 rounded-full border border-cobalt/40 bg-cobalt/10 px-2.5 py-1 text-micro font-semibold text-cobalt"
@@ -243,17 +259,32 @@
             @if (group.spells.length > 0) {
               <ul class="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-panel">
                 @for (spell of group.spells; track spell + '-' + $index; let idx = $index) {
-                  <li class="flex min-h-11 items-center gap-2 pr-2 transition-colors hover:bg-tile">
+                  <li class="flex min-h-11 items-center gap-1.5 pr-2 transition-colors hover:bg-tile">
+                    @if (group.level > 0 && canPrepareToggle) {
+                      <button
+                        type="button"
+                        (click)="togglePrepared(spell, group.level, $event)"
+                        [attr.aria-pressed]="isPrepared(spell)"
+                        [attr.aria-label]="isAlwaysPrepared(spell) ? spell + ' is always prepared' : (isPrepared(spell) ? 'Unprepare ' : 'Prepare ') + spell"
+                        class="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-label transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        [ngClass]="isAlwaysPrepared(spell) ? 'text-accent' : isPrepared(spell) ? 'text-gold' : 'text-muted'"
+                      >
+                        {{ isAlwaysPrepared(spell) ? '🔒' : isPrepared(spell) ? '★' : '☆' }}
+                      </button>
+                    }
                     <button
                       type="button"
                       (click)="openSpellDetail(spell, group.level)"
                       [attr.aria-label]="'Inspect ' + spell + ' details'"
-                      class="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                      class="flex min-h-11 min-w-0 flex-1 items-center gap-1.5 px-2.5 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                     >
-                      @if (group.level > 0 && isPrepared(spell)) {
+                      @if (group.level > 0 && !canPrepareToggle && isPrepared(spell)) {
                         <span class="shrink-0 text-label text-gold" title="Prepared" aria-label="Prepared">★</span>
                       }
                       <span class="min-w-0 flex-1 truncate text-body font-medium text-ink">{{ spell }}</span>
+                      @if (group.level > 0 && isRitual(spell)) {
+                        <span class="shrink-0 text-micro font-semibold text-cobalt" title="Ritual spell">🕯️</span>
+                      }
                     </button>
 
                     <div class="flex shrink-0 items-center" role="group" [attr.aria-label]="'Cast ' + spell">
@@ -883,7 +914,22 @@
   <section class="flex flex-col gap-3" aria-labelledby="known-spells-heading" *ngIf="rawSpellGroups.length > 0 || editMode">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 id="known-spells-heading" class="font-display text-title text-ink">Known Spells</h3>
+      <div *ngIf="maxPreparedCount !== null" class="flex items-center gap-2">
+        <forge-badge
+          data-testid="desktop-prepared-counter"
+          [tone]="overPreparedLimit ? 'danger' : preparedCount >= maxPreparedCount ? 'gold' : 'accent'"
+          title="Daily prepared leveled spells (Always Prepared spells and cantrips do not count)"
+        >
+          📖 Prepared: {{ preparedCount }} / {{ maxPreparedCount }}
+        </forge-badge>
+      </div>
     </div>
+    <p
+      *ngIf="overPreparedLimit"
+      class="rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-label text-red"
+    >
+      ⚠️ You have {{ preparedCount }} / {{ maxPreparedCount }} daily spells prepared. Unprepare {{ preparedCount - maxPreparedCount! }} spell(s) before finishing preparation.
+    </p>
 
     <!-- Search & Filter Bar (#173) -->
     <div class="flex flex-col sm:flex-row gap-2 bg-tile/50 p-2 rounded-xl border border-hairline">
@@ -951,10 +997,24 @@
 
         <div class="flex flex-col gap-1.5">
           <div *ngFor="let spell of group.spells; let idx = index" class="rounded-xl overflow-hidden flex flex-wrap sm:flex-nowrap items-center justify-between gap-1 bg-panel border border-hairline/60 hover:border-accent/40 transition-colors p-1">
+            <button
+              *ngIf="group.level > 0 && canPrepareToggle"
+              type="button"
+              (click)="togglePrepared(spell, group.level, $event)"
+              [attr.aria-pressed]="isPrepared(spell)"
+              [attr.aria-label]="isAlwaysPrepared(spell) ? spell + ' is always prepared' : (isPrepared(spell) ? 'Unprepare ' : 'Prepare ') + spell"
+              [title]="isAlwaysPrepared(spell) ? 'Always Prepared (subclass or species grant)' : (isPrepared(spell) ? 'Prepared — click to unprepare' : 'Not prepared — click to prepare')"
+              class="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-body transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="isAlwaysPrepared(spell) ? 'text-accent cursor-default' : isPrepared(spell) ? 'text-gold cursor-pointer' : 'text-muted cursor-pointer'"
+            >
+              {{ isAlwaysPrepared(spell) ? '🔒' : isPrepared(spell) ? '★' : '☆' }}
+            </button>
             <div class="w-full sm:w-auto sm:flex-1 min-w-0">
               <forge-list-row [title]="spell" actionLabel="Details" (onClick)="openSpellDetail(spell, group.level)">
                 <ng-container trailing>
-                  <forge-badge *ngIf="isPrepared(spell)" tone="accent" size="sm">Prepared</forge-badge>
+                  <forge-badge *ngIf="group.level > 0 && isAlwaysPrepared(spell)" tone="accent" size="sm">🔒 Always Prepared</forge-badge>
+                  <forge-badge *ngIf="group.level > 0 && isPrepared(spell) && !isAlwaysPrepared(spell)" tone="gold" size="sm">Prepared</forge-badge>
+                  <forge-badge *ngIf="group.level > 0 && isRitual(spell)" tone="muted" size="sm">🕯️ Ritual</forge-badge>
                 </ng-container>
               </forge-list-row>
             </div>
@@ -1215,18 +1275,23 @@
       </ul>
 
       <div class="flex items-center justify-between border-t border-hairline pt-3">
-        <button
-          forgeButton
-          variant="ghost"
-          size="sm"
-          type="button"
-          class="text-gold"
-          title="Rituals take 10 minutes longer and spend no slot (only spells with the ritual tag)"
-          [disabled]="!canPayCastMetamagic(target.baseLevel)"
-          (click)="confirmUpcast(target.baseLevel, true)"
-        >
-          🕯️ Cast as ritual (no slot)
-        </button>
+        @if (canRitualCast(target.spellName)) {
+          <button
+            forgeButton
+            variant="ghost"
+            size="sm"
+            type="button"
+            class="text-gold"
+            data-testid="cast-as-ritual-btn"
+            title="Rituals take 10 minutes longer and spend no spell slot"
+            [disabled]="!canPayCastMetamagic(target.baseLevel)"
+            (click)="confirmUpcast(target.baseLevel, true)"
+          >
+            🕯️ Cast as ritual (+10m · no slot)
+          </button>
+        } @else {
+          <span></span>
+        }
         <button forgeButton variant="ghost" size="sm" type="button" (click)="closeUpcast()">Cancel</button>
       </div>
     </div>
@@ -1239,8 +1304,11 @@
     [spellName]="spell"
     [spellLevel]="selectedSpellLevel()"
     [isPrepared]="isPrepared(spell)"
+    [isAlwaysPrepared]="isAlwaysPrepared(spell)"
     [canCast]="true"
+    [canCastAsRitual]="canRitualCast(spell)"
     (cast)="castFromDetail(spell, selectedSpellLevel())"
+    (castRitual)="castRitualFromDetail(spell, selectedSpellLevel())"
     (openUpcast)="openUpcastFromDetail(spell, selectedSpellLevel())"
     (close)="selectedSpell.set(null)"
   ></app-spell-detail-modal>

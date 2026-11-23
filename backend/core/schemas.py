@@ -402,6 +402,8 @@ class CharacterSchema(BaseModel):
     features_traits: List[FeatureTrait] = Field(default_factory=list)
     spells: SpellList = Field(default_factory=SpellList)
     prepared_spells: List[str] = Field(default_factory=list)
+    always_prepared_spells: List[str] = Field(default_factory=list)
+    max_prepared_spells: Optional[int] = None
     spell_slots: Dict[str, Dict[str, int]] = Field(default_factory=dict)
     concentrating_on: Optional[str] = None
     conditions: List[str] = Field(default_factory=list)

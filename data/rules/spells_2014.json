@@ -1466,7 +1466,7 @@
     ],
     "actionType": "action",
     "concentration": false,
-    "ritual": false,
+    "ritual": true,
     "range": "10 feet",
     "components": [
       "v",
@@ -2173,7 +2173,7 @@
     ],
     "actionType": "action",
     "concentration": true,
-    "ritual": true,
+    "ritual": false,
     "range": "60 feet",
     "components": [
       "v",

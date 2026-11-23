@@ -678,6 +678,7 @@
           (metamagic)="onMetamagic($event)"
           (castSpell)="onCastSpell($event)"
           [castPreview]="spellCastPreview"
+          [spellProfile]="getSpellProfile"
           (save)="saveCurrentChar()"
         ></app-spells-panel>
       </div>
@@ -1153,6 +1154,7 @@
               (metamagic)="onMetamagic($event)"
                 (castSpell)="onCastSpell($event)"
               [castPreview]="spellCastPreview"
+                [spellProfile]="getSpellProfile"
                 (save)="saveCurrentChar()"
               ></app-spells-panel>
 
@@ -1744,6 +1746,13 @@
     [characterLevel]="charState.activeCharacter()?.char_level"
     [(shortRestDiceToSpend)]="shortRestDiceToSpend"
     [(manualHp)]="shortRestManualHp"
+    [arcaneRecoveryBudget]="getArcaneRecoveryBudget()"
+    [naturalRecoveryBudget]="getNaturalRecoveryBudget()"
+    [harnessMaxSlotLevel]="getHarnessDivinePowerMaxLevel()"
+    [spellSlots]="charState.activeCharacter()?.spell_slots"
+    [(arcaneRecoverySlots)]="shortRestArcaneRecovery"
+    [(naturalRecoverySlots)]="shortRestNaturalRecovery"
+    [(harnessDivinePowerSlot)]="shortRestHarnessSlot"
     (executeShortRest)="executeShortRest()"
   ></app-short-rest-modal>
 

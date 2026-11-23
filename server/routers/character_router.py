@@ -7,7 +7,7 @@ import re
 import urllib.parse
 import uuid
 from functools import partial
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import (
     APIRouter,
@@ -244,6 +244,9 @@ class ShortRestRequest(BaseModel):
     dice_to_spend: int = Field(default=0, ge=0, le=20)
     die_size: Optional[int] = Field(default=None, ge=4, le=12)
     hp_healed: int = Field(default=0, ge=0, le=2000)
+    arcane_recovery_slots: Dict[str, int] = Field(default_factory=dict)
+    natural_recovery_slots: Dict[str, int] = Field(default_factory=dict)
+    harness_divine_power_slot: Optional[int] = Field(default=None, ge=1, le=3)
     expected_version: Optional[int] = None
 
 
@@ -379,6 +382,9 @@ async def player_short_rest(
                 existing,
                 dice_to_spend=payload.dice_to_spend,
                 hp_healed=payload.hp_healed,
+                arcane_recovery_slots=payload.arcane_recovery_slots,
+                natural_recovery_slots=payload.natural_recovery_slots,
+                harness_divine_power_slot=payload.harness_divine_power_slot,
                 homebrew_content=homebrew_items,
             )
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import re
 from typing import Any, Dict, List, Optional
 
@@ -166,11 +167,93 @@ def _sync_character(
     return synced
 
 
+def _class_level_for(char_doc: Dict[str, Any], target: str) -> int:
+    lvl = 0
+    for c in char_doc.get("classes") or []:
+        if isinstance(c, dict) and str(c.get("class_name") or "").strip().lower() == target:
+            try:
+                lvl += max(0, int(c.get("level") or 0))
+            except (TypeError, ValueError):
+                pass
+    if lvl == 0 and str(char_doc.get("char_class") or "").strip().lower() == target:
+        try:
+            lvl = max(1, int(char_doc.get("char_level") or 1))
+        except (TypeError, ValueError):
+            lvl = 1
+    return lvl
+
+
+def _find_resource(resources: Optional[List[Any]], *aliases: str) -> Optional[Dict[str, Any]]:
+    wanted = {a.strip().lower() for a in aliases}
+    for res in resources or []:
+        if isinstance(res, dict) and str(res.get("name") or "").strip().lower() in wanted:
+            return res
+    return None
+
+
+def _normalize_recovery_map(raw_slots: Optional[Dict[str, int]], label: str) -> Dict[int, int]:
+    cleaned: Dict[int, int] = {}
+    for raw_k, raw_v in (raw_slots or {}).items():
+        key_str = str(raw_k).strip().lower().removeprefix("level_")
+        try:
+            lvl = int(key_str)
+            cnt = int(raw_v or 0)
+        except (TypeError, ValueError) as err:
+            raise ValueError(f"Invalid {label} slot specification: {raw_k}: {raw_v}") from err
+        if cnt < 0:
+            raise ValueError(f"{label} slot count cannot be negative.")
+        if cnt == 0:
+            continue
+        cleaned[lvl] = cleaned.get(lvl, 0) + cnt
+    return cleaned
+
+
+def _recover_spell_slots_map(
+    spell_slots: Dict[str, Any],
+    resources: List[Any],
+    counts_by_level: Dict[int, int],
+    *,
+    class_level: int,
+    feature_name: str,
+) -> None:
+    if not counts_by_level:
+        return
+    if class_level <= 0:
+        raise ValueError(f"{feature_name} requires levels in the corresponding class.")
+    budget = math.ceil(class_level / 2)
+    total_cost = 0
+    for lvl, cnt in counts_by_level.items():
+        if lvl < 1 or lvl >= 6:
+            raise ValueError(f"{feature_name} cannot recover spell slots of 6th level or higher.")
+        total_cost += lvl * cnt
+    if total_cost > budget:
+        raise ValueError(
+            f"{feature_name} budget exceeded ({total_cost} requested, max {budget} combined slot levels)."
+        )
+
+    res = _find_resource(resources, feature_name.lower())
+    if not res or int(res.get("current") or 0) < 1:
+        raise ValueError(f"No {feature_name} uses remaining until you finish a Long Rest.")
+
+    for lvl, cnt in counts_by_level.items():
+        slot_entry = spell_slots.get(f"level_{lvl}")
+        if not isinstance(slot_entry, dict) or int(slot_entry.get("used") or 0) < cnt:
+            raise ValueError(f"Not enough expended Level {lvl} spell slots to recover.")
+
+    res["current"] = int(res["current"]) - 1
+    for lvl, cnt in counts_by_level.items():
+        slot_entry = spell_slots[f"level_{lvl}"]
+        slot_entry["used"] = max(0, int(slot_entry.get("used") or 0) - cnt)
+
+
 def apply_short_rest(
     char_doc: Dict[str, Any],
     dice_to_spend: int = 0,
     hp_healed: int = 0,
     homebrew_content: Optional[List[Dict[str, Any]]] = None,
+    arcane_recovery_slots: Optional[Dict[str, int]] = None,
+    natural_recovery_slots: Optional[Dict[str, int]] = None,
+    harness_divine_power_slot: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Applies a deterministic Short Rest, clearing the 1-shot DM unlock."""
     if is_deceased_by_exhaustion(char_doc):
@@ -186,16 +269,27 @@ def apply_short_rest(
     updated = copy.deepcopy(char_doc)
     is_2024 = is_2024_edition(updated)
 
+    arcane_map = _normalize_recovery_map(arcane_recovery_slots, "Arcane Recovery")
+    natural_map = _normalize_recovery_map(natural_recovery_slots, "Natural Recovery")
+
+    # Pre-check Harness Divine Power Channel Divinity availability BEFORE short-rest recharge
+    if harness_divine_power_slot is not None:
+        cleric_lvl = _class_level_for(updated, "cleric")
+        paladin_lvl = _class_level_for(updated, "paladin")
+        if cleric_lvl < 2 and paladin_lvl < 3:
+            raise ValueError("Harness Divine Power requires Cleric level 2+ or Paladin level 3+.")
+        total_lvl = max(1, int(updated.get("char_level") or 1))
+        pb = math.ceil(total_lvl / 4) + 1
+        max_hdp = math.ceil(pb / 2)
+        if harness_divine_power_slot < 1 or harness_divine_power_slot > max_hdp:
+            raise ValueError(f"Harness Divine Power can only recover slots up to level {max_hdp}.")
+        cd_before = _find_resource(updated.get("class_resources"), "channel divinity")
+        if not cd_before or int(cd_before.get("current") or 0) < 1:
+            raise ValueError("No Channel Divinity uses remaining for Harness Divine Power.")
+
     updated["hit_dice_used"] = max(0, int(updated.get("hit_dice_used") or 0)) + spent
     updated["spell_slots"] = _restore_pact_magic_slots(updated, updated.get("spell_slots"))
-    classes = updated.get("classes") or []
-    sorc_lvl = sum(
-        int(c.get("level", 0) or 0)
-        for c in classes
-        if isinstance(c, dict) and str(c.get("class_name") or "").lower() == "sorcerer"
-    )
-    if sorc_lvl == 0 and str(updated.get("char_class") or "").lower() == "sorcerer":
-        sorc_lvl = int(updated.get("char_level") or 1)
+    sorc_lvl = _class_level_for(updated, "sorcerer")
     has_sorc_restoration = any(
         isinstance(f, dict) and "sorcerous restoration" in str(f.get("name") or "").lower()
         for f in (updated.get("features_traits") or [])
@@ -206,6 +300,63 @@ def apply_short_rest(
         sorcerer_level=sorc_lvl,
         has_sorcerous_restoration=has_sorc_restoration,
     )
+
+    # Apply Arcane Recovery, Natural Recovery, and Harness Divine Power on spell slots & pools
+    if arcane_map or natural_map or harness_divine_power_slot is not None:
+        if not isinstance(updated.get("spell_slots"), dict):
+            updated["spell_slots"] = {}
+        resources_list = updated.get("class_resources") or []
+        if not isinstance(resources_list, list):
+            resources_list = []
+            updated["class_resources"] = resources_list
+
+        if arcane_map:
+            _recover_spell_slots_map(
+                updated["spell_slots"],
+                resources_list,
+                arcane_map,
+                class_level=_class_level_for(updated, "wizard"),
+                feature_name="Arcane Recovery",
+            )
+        if natural_map:
+            druid_lvl = _class_level_for(updated, "druid")
+            has_land = (
+                any(
+                    isinstance(c, dict)
+                    and str(c.get("class_name") or "").strip().lower() == "druid"
+                    and "land" in str(c.get("subclass") or "").lower()
+                    for c in (updated.get("classes") or [])
+                )
+                or "land" in str(updated.get("subclass") or "").lower()
+            )
+            has_nr_feat = any(
+                isinstance(f, dict) and "natural recovery" in str(f.get("name") or "").lower()
+                for f in (updated.get("features_traits") or [])
+            )
+            min_druid_lvl = 2 if (not is_2024 or has_nr_feat) else 6
+            if not (has_land or has_nr_feat) or druid_lvl < min_druid_lvl:
+                raise ValueError(
+                    "Natural Recovery requires Circle of the Land Druid (Level 2+ in 2014 / Level 6+ in 2024)."
+                )
+            _recover_spell_slots_map(
+                updated["spell_slots"],
+                resources_list,
+                natural_map,
+                class_level=druid_lvl,
+                feature_name="Natural Recovery",
+            )
+        if harness_divine_power_slot is not None:
+            cd_after = _find_resource(resources_list, "channel divinity")
+            hdp_entry = updated["spell_slots"].get(f"level_{harness_divine_power_slot}")
+            if not isinstance(hdp_entry, dict) or int(hdp_entry.get("used") or 0) < 1:
+                raise ValueError(
+                    f"No expended Level {harness_divine_power_slot} spell slots to recover via Harness Divine Power."
+                )
+            if not cd_after or int(cd_after.get("current") or 0) < 1:
+                raise ValueError("No Channel Divinity uses remaining for Harness Divine Power.")
+            cd_after["current"] = int(cd_after["current"]) - 1
+            hdp_entry["used"] = max(0, int(hdp_entry.get("used") or 0) - 1)
+
     updated["dm_short_rest_unlocked"] = False
 
     synced = _sync_character(updated, homebrew_content)

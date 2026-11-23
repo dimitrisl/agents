@@ -24,7 +24,7 @@
 
   <div *ngIf="availableHitDice > 0" class="mt-4">
     <label for="short-rest-dice" class="mb-1 block text-label font-semibold text-muted">Number of Hit Dice to Spend:</label>
-    <input forgeInput id="short-rest-dice" type="number" [(ngModel)]="shortRestDiceToSpend" (ngModelChange)="shortRestDiceToSpendChange.emit($event)" [min]="hasPactSlots ? 0 : 1" [max]="selectedClassMaxDice" />
+    <input forgeInput id="short-rest-dice" type="number" [(ngModel)]="shortRestDiceToSpend" (ngModelChange)="shortRestDiceToSpendChange.emit($event)" [min]="canRecoverWithoutDice ? 0 : 1" [max]="selectedClassMaxDice" />
   </div>
 
   <div *ngIf="availableHitDice > 0" class="mt-4">
@@ -48,12 +48,123 @@
 
   <div *ngIf="availableHitDice === 0" class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body text-red">
     ⚠️ You have no available Hit Dice remaining! Take a Long Rest to recover Hit Dice.
+    @if (canRecoverWithoutDice) {
+      <span class="block text-label text-ink/90 mt-1">You can still take this Short Rest to recover eligible spell slots.</span>
+    }
   </div>
+
+  @for (sec of recoverySections; track sec.kind) {
+    <div class="mt-4 rounded-lg border border-hairline bg-black/20 p-3">
+      <div class="flex items-center justify-between gap-2">
+        <strong class="text-body text-accent">{{ sec.title }}</strong>
+        <span class="rounded border border-hairline bg-tile px-2 py-0.5 text-label font-semibold text-gold">
+          {{ sec.spent }} / {{ sec.budget }} slot levels
+        </span>
+      </div>
+      <p class="mt-1 text-label text-muted">
+        Recover expended 1st–5th level spell slots whose combined levels do not exceed {{ sec.budget }}.
+      </p>
+      @if (!hasExpendedSlots(5)) {
+        <p class="mt-2 text-label text-muted italic">No expended 1st–5th level spell slots to recover.</p>
+      } @else {
+        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          @for (lvl of recoveryLevels; track lvl) {
+            @if (expendedCount(lvl) > 0 || recoveryCount(sec.kind, lvl) > 0) {
+              <div class="flex items-center justify-between rounded border border-hairline bg-tile px-2.5 py-1.5">
+                <div>
+                  <span class="text-label font-semibold text-ink">Level {{ lvl }}</span>
+                  <span class="ml-1.5 text-micro text-muted">({{ expendedCount(lvl) }} used)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    [disabled]="recoveryCount(sec.kind, lvl) <= 0"
+                    (click)="adjustRecovery(sec.kind, lvl, -1)"
+                  >−</button>
+                  <span class="min-w-[1.25rem] text-center text-body font-bold text-ink">
+                    {{ recoveryCount(sec.kind, lvl) }}
+                  </span>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    [disabled]="!canIncrementRecovery(sec.kind, lvl)"
+                    (click)="adjustRecovery(sec.kind, lvl, 1)"
+                  >+</button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (harnessMaxSlotLevel > 0) {
+    <div class="mt-4 rounded-lg border border-hairline bg-black/20 p-3">
+      <div class="flex items-center justify-between gap-2">
+        <strong class="text-body text-cobalt">✨ Harness Divine Power</strong>
+        <span class="rounded border border-hairline bg-tile px-2 py-0.5 text-label font-semibold text-muted">
+          1 Channel Divinity · Max Level {{ harnessMaxSlotLevel }}
+        </span>
+      </div>
+      <p class="mt-1 text-label text-muted">
+        Expend 1 Channel Divinity use to regain one expended spell slot of level {{ harnessMaxSlotLevel }} or lower.
+      </p>
+      @if (!hasExpendedSlots(harnessMaxSlotLevel)) {
+        <p class="mt-2 text-label text-muted italic">
+          No expended Level 1–{{ harnessMaxSlotLevel }} spell slots to recover.
+        </p>
+      } @else {
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          @for (lvl of harnessLevels; track lvl) {
+            @if (expendedCount(lvl) > 0 || harnessDivinePowerSlot === lvl) {
+              <button
+                forgeButton
+                [variant]="harnessDivinePowerSlot === lvl ? 'primary' : 'secondary'"
+                size="sm"
+                type="button"
+                [disabled]="!canSelectHarnessSlot(lvl)"
+                (click)="selectHarnessSlot(lvl)"
+              >
+                Level {{ lvl }} ({{ expendedCount(lvl) }} used)
+              </button>
+            }
+          }
+          @if (harnessDivinePowerSlot !== null) {
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="selectHarnessSlot(null)"
+            >Clear</button>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (recoveryBudgetInvalid) {
+    <div class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body text-red">
+      ⚠️ Selected spell slot recovery exceeds your recovery budget or expended slots.
+    </div>
+  }
 
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
     <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button *ngIf="availableHitDice > 0 || hasPactSlots" forgeButton variant="primary" type="button" (click)="executeShortRest.emit()">
-      {{ availableHitDice > 0 ? '⛺ Spend Hit Dice & Heal' : '⛺ Take Short Rest (Recover Pact Slots)' }}
+    <button
+      *ngIf="(availableHitDice > 0 || canRecoverWithoutDice) && !recoveryBudgetInvalid"
+      forgeButton
+      variant="primary"
+      type="button"
+      (click)="executeShortRest.emit()"
+    >
+      {{ primaryActionLabel }}
     </button>
   </div>
 </forge-modal>

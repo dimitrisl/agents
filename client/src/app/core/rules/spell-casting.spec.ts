@@ -1,4 +1,16 @@
-import { analyzeSpell, cantripDiceMultiplier, diceForCast } from './index';
+import {
+  analyzeSpell,
+  cantripDiceMultiplier,
+  canCastAsRitual,
+  diceForCast,
+  isAlwaysPreparedSpell,
+  isRitualSpell,
+  maxPreparedSpells,
+  preparedSpellsCount,
+  RITUAL_SPELLS_2014,
+  RITUAL_SPELLS_2024,
+} from './index';
+import { CharacterSchema } from '../models/character.model';
 
 // Excerpts of the real texts in data/rules/spells_2014.json (OCR slips included).
 const FIREBALL = {
@@ -117,5 +129,164 @@ describe('spell casting rolls', () => {
 
   it('reads "must succeed on" saves; Sacred Flame has no half damage', () => {
     expect(analyzeSpell(SACRED_FLAME).save).toEqual({ ability: 'DEX', halfOnSuccess: false });
+  });
+});
+
+describe('prepared caps, always-prepared split, and 2014 vs 2024 ritual casting (#261)', () => {
+  function caster(overrides: Partial<CharacterSchema> = {}): CharacterSchema {
+    return {
+      char_id: 'c1',
+      char_name: 'Lyra',
+      char_class: 'Wizard',
+      char_level: 5,
+      race: 'Human',
+      background: 'Sage',
+      armor_class: 12,
+      hp_max: 30,
+      speed: 30,
+      proficiency_bonus: 3,
+      dnd_edition: '2014 Edition',
+      stats: { STR: 8, DEX: 14, CON: 14, INT: 18, WIS: 16, CHA: 14 },
+      spells: {
+        cantrips: ['Fire Bolt'],
+        level_1: ['Detect Magic', 'Mage Armor', 'Bless'],
+        level_2: ['Hold Person'],
+      },
+      prepared_spells: ['Mage Armor'],
+      always_prepared_spells: [],
+      ...overrides,
+    };
+  }
+
+  it('tracks ritual tag in analyzeSpell and canonical 2014/2024 ritual sets', () => {
+    expect(analyzeSpell({ name: 'Detect Magic', level: 1, ritual: 'True' }).ritual).toBe(true);
+    expect(analyzeSpell({ name: 'Detect Magic', level: 1, ritual: true }).ritual).toBe(true);
+    expect(analyzeSpell({ name: 'Hold Person', level: 2, ritual: false }).ritual).toBe(false);
+
+    expect(RITUAL_SPELLS_2014.has('purify food and drink')).toBe(true);
+    expect(RITUAL_SPELLS_2024.has('purify food and drink')).toBe(true);
+    expect(RITUAL_SPELLS_2014.has('hold person')).toBe(false);
+    expect(RITUAL_SPELLS_2024.has('hold person')).toBe(false);
+    expect(isRitualSpell('Purify Food and Drink', '2014 Edition')).toBe(true);
+    expect(isRitualSpell('Hold Person', '2024 Revision (5.5e)')).toBe(false);
+  });
+
+  it('computes prepared spell caps across 2014, 2024, and multiclass builds', () => {
+    expect(maxPreparedSpells(caster({ char_class: 'Wizard', char_level: 5 }))).toBe(9);
+    expect(maxPreparedSpells(caster({ char_class: 'Cleric', char_level: 5 }))).toBe(8);
+    expect(maxPreparedSpells(caster({ char_class: 'Paladin', char_level: 1 }))).toBeNull();
+    expect(maxPreparedSpells(caster({ char_class: 'Sorcerer', char_level: 5 }))).toBeNull();
+
+    expect(
+      maxPreparedSpells(caster({ char_class: 'Bard', char_level: 5, dnd_edition: '2024 Revision (5.5e)' }))
+    ).toBe(9);
+    expect(
+      maxPreparedSpells(
+        caster({ char_class: 'Paladin', char_level: 1, dnd_edition: '2024 Revision (5.5e)' })
+      )
+    ).toBe(2);
+    expect(
+      maxPreparedSpells(
+        caster({
+          char_class: 'Fighter',
+          subclass: 'Eldritch Knight',
+          char_level: 3,
+          dnd_edition: '2024 Revision (5.5e)',
+        })
+      )
+    ).toBe(3);
+  });
+
+  it('excludes cantrips and always_prepared_spells from preparedSpellsCount', () => {
+    const c = caster({
+      prepared_spells: ['Fire Bolt', 'Mage Armor', 'Bless', 'Mage Armor'],
+      always_prepared_spells: ['Bless'],
+    });
+    expect(isAlwaysPreparedSpell(c, 'bless')).toBe(true);
+    expect(preparedSpellsCount(c)).toBe(1);
+  });
+
+  it('enforces 2014 vs 2024 Ritual Casting eligibility rules', () => {
+    // 2014 Wizard can cast unprepared Detect Magic directly from spellbook
+    expect(canCastAsRitual(caster({ char_class: 'Wizard', dnd_edition: '2014 Edition' }), 'Detect Magic')).toBe(
+      true
+    );
+    expect(canCastAsRitual(caster({ char_class: 'Wizard', dnd_edition: '2014 Edition' }), 'Hold Person')).toBe(
+      false
+    );
+
+    // 2014 Cleric must have it prepared (or always prepared)
+    expect(
+      canCastAsRitual(
+        caster({ char_class: 'Cleric', dnd_edition: '2014 Edition', prepared_spells: [] }),
+        'Detect Magic'
+      )
+    ).toBe(false);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Cleric',
+          dnd_edition: '2014 Edition',
+          prepared_spells: ['Detect Magic'],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(true);
+
+    // 2014 Bard can ritual cast known spells; 2014 Sorcerer needs Ritual Caster feat
+    expect(
+      canCastAsRitual(
+        caster({ char_class: 'Bard', dnd_edition: '2014 Edition', prepared_spells: [] }),
+        'Detect Magic'
+      )
+    ).toBe(true);
+    expect(
+      canCastAsRitual(
+        caster({ char_class: 'Sorcerer', dnd_edition: '2014 Edition', prepared_spells: ['Detect Magic'] }),
+        'Detect Magic'
+      )
+    ).toBe(false);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Sorcerer',
+          dnd_edition: '2014 Edition',
+          features_traits: [{ name: 'Ritual Caster', description: 'Can cast rituals' }],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(true);
+
+    // 2024 Revision: any caster with a prepared ritual spell can ritual cast it; Wizard also casts from book
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Sorcerer',
+          dnd_edition: '2024 Revision (5.5e)',
+          prepared_spells: ['Detect Magic'],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(true);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Sorcerer',
+          dnd_edition: '2024 Revision (5.5e)',
+          prepared_spells: [],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(false);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Wizard',
+          dnd_edition: '2024 Revision (5.5e)',
+          prepared_spells: [],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(true);
   });
 });

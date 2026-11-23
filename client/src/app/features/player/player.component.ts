@@ -92,6 +92,9 @@ import {
   restoreAllSpellSlots,
   restorePactSpellSlots,
   savingThrowModifier,
+  shortRestRecoveryBudget,
+  harnessDivinePowerMaxSlotLevel,
+  applyShortRestSlotRecovery,
   skillModifier,
   skillModifierString,
   songOfRestDie,
@@ -281,6 +284,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   shortRestDiceToSpend = 1;
   shortRestDieSize = 8;
   shortRestManualHp: number | null = null;
+  shortRestArcaneRecovery: Record<number, number> = {};
+  shortRestNaturalRecovery: Record<number, number> = {};
+  shortRestHarnessSlot: number | null = null;
   promptManualRoll: number | null = null;
   joinInviteCode = '';
   rollMode: RollMode = 'normal';
@@ -1247,6 +1253,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return songOfRestDie(this.charState.activeCharacter());
   }
 
+  getArcaneRecoveryBudget(): number {
+    return shortRestRecoveryBudget(this.charState.activeCharacter(), 'arcane_recovery');
+  }
+
+  getNaturalRecoveryBudget(): number {
+    return shortRestRecoveryBudget(this.charState.activeCharacter(), 'natural_recovery');
+  }
+
+  getHarnessDivinePowerMaxLevel(): number {
+    return harnessDivinePowerMaxSlotLevel(this.charState.activeCharacter());
+  }
+
   hasReliableTalent(char: CharacterSchema | null | undefined): boolean {
     return hasReliableTalent(char);
   }
@@ -1272,6 +1290,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.shortRestDiceToSpend = this.getAvailableHitDice() > 0 ? 1 : 0;
     this.shortRestDieSize = this.getHitDieOptions()[0]?.dieSize ?? this.getClassHitDieSize();
     this.shortRestManualHp = null;
+    this.shortRestArcaneRecovery = {};
+    this.shortRestNaturalRecovery = {};
+    this.shortRestHarnessSlot = null;
     this.showShortRestModal.set(true);
   }
 
@@ -1306,9 +1327,29 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
     const rest = resolveShortRest(char, plan, healedAmount);
 
+    const arcaneRecoverySlots = { ...this.shortRestArcaneRecovery };
+    const naturalRecoverySlots = { ...this.shortRestNaturalRecovery };
+    const harnessMaxLevel = harnessDivinePowerMaxSlotLevel(char);
+    const harnessSlot =
+      this.shortRestHarnessSlot &&
+      this.shortRestHarnessSlot >= 1 &&
+      this.shortRestHarnessSlot <= harnessMaxLevel
+        ? this.shortRestHarnessSlot
+        : null;
+
+    const countSelected = (m: Record<number, number>) =>
+      Object.values(m).reduce((sum, v) => sum + Math.max(0, Math.trunc(Number(v) || 0)), 0);
+    const arcCount = countSelected(arcaneRecoverySlots);
+    const natCount = countSelected(naturalRecoverySlots);
+    const recoveryNotes: string[] = [];
+    if (arcCount > 0) recoveryNotes.push(`Arcane Recovery (${arcCount} slot${arcCount === 1 ? '' : 's'})`);
+    if (natCount > 0) recoveryNotes.push(`Natural Recovery (${natCount} slot${natCount === 1 ? '' : 's'})`);
+    if (harnessSlot) recoveryNotes.push(`Harness Divine Power (Level ${harnessSlot} slot)`);
+
     const announceShortRest = () => {
       if (roll && diceSpent > 0) {
         const songExpr = songRoll && songDie ? ` + ${songDie} (${songRoll.raw}) [Song of Rest]` : '';
+        const recoverySuffix = recoveryNotes.length ? ` · Restored ${recoveryNotes.join(', ')}` : '';
         this.rollToast.showRoll({
           title: `⛺ SHORT REST HEAL (${diceSpent}d${dieSize})`,
           expression: `${diceSpent}d${dieSize} (${roll.rolls.join(', ')}) ${this.dice.signed(conBonus)}${songExpr}`,
@@ -1318,12 +1359,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           modifier: conBonus + (songRoll ? songRoll.total : 0),
           total: rest.rolled,
           rollType: 'healing',
-          message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})`
+          message: `Healed for +${rest.hpGained} HP! (${rest.hpBefore} ➡️ ${rest.hpAfter})${recoverySuffix}`
         });
-      } else if (rest.restoresPactSlots) {
+      } else if (rest.restoresPactSlots || recoveryNotes.length > 0) {
+        const parts: string[] = [];
+        if (rest.restoresPactSlots) parts.push('Warlock Pact Magic slots');
+        parts.push(...recoveryNotes);
         this.rollToast.showMessage(
           '⛺ SHORT REST COMPLETED',
-          `Warlock Pact Magic spell slots restored for ${char.char_name}.`
+          `Restored ${parts.join(' · ')} for ${char.char_name}.`
         );
       } else {
         this.rollToast.showMessage(
@@ -1339,6 +1383,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
           dice_to_spend: diceSpent,
           die_size: dieSize,
           hp_healed: Math.max(0, Math.round(healedAmount)),
+          ...(arcCount > 0 ? { arcane_recovery_slots: arcaneRecoverySlots } : {}),
+          ...(natCount > 0 ? { natural_recovery_slots: naturalRecoverySlots } : {}),
+          ...(harnessSlot ? { harness_divine_power_slot: harnessSlot } : {}),
           expected_version: char.version,
         })
         .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1375,6 +1422,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         char.dnd_edition || this.charState.dndEdition(),
         char
       );
+    }
+
+    if (arcCount > 0 || natCount > 0 || harnessSlot) {
+      const recovered = applyShortRestSlotRecovery(char.spell_slots, char.class_resources, {
+        arcaneRecoverySlots: arcCount > 0 ? arcaneRecoverySlots : undefined,
+        naturalRecoverySlots: natCount > 0 ? naturalRecoverySlots : undefined,
+        harnessDivinePowerSlot: harnessSlot,
+      });
+      char.spell_slots = recovered.spell_slots;
+      char.class_resources = recovered.class_resources;
     }
 
     this.saveCurrentChar();
@@ -3202,11 +3259,17 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return previous;
   }
 
+  readonly getSpellProfile = (spellName: string): SpellCastProfile | null => {
+    const char = this.charState.activeCharacter();
+    if (!char) return null;
+    return this.spellRules.profileNow(spellName, char.dnd_edition || this.charState.dndEdition());
+  };
+
   /** Dice the spell rolls at this slot level ("9d6"), for the upcast menu. */
   readonly spellCastPreview = (spellName: string, slotLevel: number): string | null => {
     const char = this.charState.activeCharacter();
     if (!char) return null;
-    const profile = this.spellRules.profileNow(spellName, char.dnd_edition || this.charState.dndEdition());
+    const profile = this.getSpellProfile(spellName);
     return profile?.rollsOnCast ? diceForCast(profile, slotLevel, char.char_level || 1) : null;
   };
 
@@ -3221,7 +3284,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     profile: SpellCastProfile | null,
     endedConcentration: string | null = null
   ) {
-    const slotText = event.level === 0 ? 'Cantrip' : event.isRitual ? 'Ritual' : `Level ${event.level}`;
+    const slotText = event.level === 0 ? 'Cantrip' : event.isRitual ? 'Ritual · +10 min · 0 Slots' : `Level ${event.level}`;
     const concentrationText = profile?.concentration
       ? ` 🧠 Concentrating${endedConcentration ? ` — ${endedConcentration} ended` : ''}.`
       : '';
