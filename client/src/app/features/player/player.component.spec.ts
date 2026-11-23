@@ -2212,4 +2212,44 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush({}));
     fixture.destroy();
   }));
+
+  it('invalidates derived equipment caches on toggleEquipped and deleteEquipment', () => {
+    const luckstone = { name: 'Stone of Good Luck (Luckstone)', equipped: true, attuned: true } as any;
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'equip-cache-1',
+      skills: { Perception: 6, Arcana: 8 },
+      passive_perception: 16,
+      initiative_advantage: true,
+      saving_throw_values: { CON: 4 },
+      equipment: [luckstone],
+      active_campaign: undefined,
+    });
+
+    comp.toggleEquipped(luckstone);
+    expect(charState.activeCharacter()?.skills).toBeUndefined();
+    expect(charState.activeCharacter()?.passive_perception).toBeUndefined();
+    expect(charState.activeCharacter()?.initiative_advantage).toBeUndefined();
+    expect(charState.activeCharacter()?.saving_throw_values).toBeUndefined();
+
+    // Repopulate stale caches and verify deleteEquipment also clears all derived caches
+    charState.activeCharacter.update((c) =>
+      c
+        ? {
+            ...c,
+            skills: { Perception: 6 },
+            passive_perception: 16,
+            initiative_advantage: true,
+            saving_throw_values: { CON: 4 },
+          }
+        : null,
+    );
+    comp.deleteEquipment(0);
+    expect(charState.activeCharacter()?.skills).toBeUndefined();
+    expect(charState.activeCharacter()?.passive_perception).toBeUndefined();
+    expect(charState.activeCharacter()?.initiative_advantage).toBeUndefined();
+    expect(charState.activeCharacter()?.saving_throw_values).toBeUndefined();
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
 });

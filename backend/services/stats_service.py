@@ -221,8 +221,6 @@ def _find_catalog_item(raw_name: str, all_items: List[Dict[str, Any]]) -> Dict[s
     if exact:
         return exact
     normalised, magic_num = _parse_item_name(raw_name)
-    if not normalised:
-        return None
     if magic_num > 0:
         tier_match = next(
             (
@@ -234,6 +232,8 @@ def _find_catalog_item(raw_name: str, all_items: List[Dict[str, Any]]) -> Dict[s
         )
         if tier_match:
             return tier_match
+    if not normalised:
+        return None
     return next(
         (i for i in all_items if _parse_item_name(i.get("name", ""))[0] == normalised), None
     )
@@ -493,17 +493,23 @@ def calculate_ac(
                             bonus_ac += item_bonus
                             other_bonuses.append((raw_item_name, item_bonus))
             elif (item_data.get("type") or "").endswith("Armor") or "ac_base" in item_data:
-                if suppress_magic_items and "ac_base" in item_data:
-                    item_base = item_data.get("ac_base", 10)
-                elif "ac_base" in item_data:
-                    item_base = val if val >= 10 else item_data.get("ac_base", 10)
-                else:
-                    item_base = 0
-                if item_base >= base_ac and "ac_base" in item_data:
-                    base_ac = item_base
-                    armor_name = item_data.get("name", raw_item_name)
-                    armor_type = item_data.get("type", "Armor")
-                    base_source = f"{armor_name} ({base_ac})"
+                if "ac_base" in item_data:
+                    if suppress_magic_items:
+                        item_base = item_data.get("ac_base", 10)
+                    else:
+                        item_base = val if val >= 10 else item_data.get("ac_base", 10)
+                    if item_base >= base_ac:
+                        base_ac = item_base
+                        armor_name = item_data.get("name", raw_item_name)
+                        armor_type = item_data.get("type", "Armor")
+                        base_source = f"{armor_name} ({base_ac})"
+                elif val >= 10:
+                    item_base = val
+                    if item_base >= base_ac:
+                        base_ac = item_base
+                        armor_name = item_data.get("name", raw_item_name)
+                        armor_type = item_data.get("type", "Armor")
+                        base_source = f"{raw_item_name} ({base_ac})"
 
                 if "dex_limit" in item_data:
                     max_dex = min(max_dex, item_data["dex_limit"])
@@ -513,7 +519,7 @@ def calculate_ac(
                     if val != 0 and val < 10:
                         bonus_ac += val
                         other_bonuses.append((f"{raw_item_name} bonus", val))
-                    elif val == 0 and armor_magic:
+                    elif (val == 0 or ("ac_base" not in item_data and val >= 10)) and armor_magic:
                         bonus_ac += armor_magic
                         other_bonuses.append((f"Magic armor +{armor_magic}", armor_magic))
             else:
@@ -1474,7 +1480,11 @@ def sync_character_stats(
                 elif any(k in lower_name for k in ("leather", "padded")):
                     req_prof = "light armor"
 
-            if req_prof and (req_prof in armor_profs or "all armor" in armor_profs):
+            if req_prof and (
+                req_prof in armor_profs
+                or "all armor" in armor_profs
+                or (item_data and item_data.get("ignore_proficiency"))
+            ):
                 base_ac = item_data.get("ac_base", 10) if item_data else 10
                 if base_ac == 10:
                     try:
@@ -1753,6 +1763,9 @@ def sync_character_stats(
     equip_spell_dc_bonus = 0
     equip_bow_dmg_bonus = 0
     attuned_equip_count = 0
+    seen_bow_bonus_names: set[str] = set()
+    pending_stat_bonuses: list[tuple[str, int, Optional[int]]] = []
+    pending_stat_sets: list[tuple[str, int]] = []
 
     for equip in [] if magic_items_suppressed else char_data["equipment"]:
         if not isinstance(equip, dict) or not equip.get("equipped", False):
@@ -1781,7 +1794,7 @@ def sync_character_stats(
                 continue
 
             if attr_key in stats:
-                stats[attr_key] += bonus_val
+                pending_stat_bonuses.append((attr_key, bonus_val, None))
             elif attr_key == "HP":
                 equip_hp_bonus += bonus_val
             elif attr_key in ["SPD", "SPEED"]:
@@ -1813,10 +1826,12 @@ def sync_character_stats(
 
         if item_data and "stat_set" in item_data:
             for stat, val in item_data["stat_set"].items():
-                stats[stat] = max(stats.get(stat, 10), val)
+                pending_stat_sets.append((stat, int(val)))
         if item_data and "stat_bonus" in item_data:
+            raw_stat_max = item_data.get("stat_max")
+            stat_max_cap = int(raw_stat_max) if raw_stat_max is not None else None
             for stat, val in item_data["stat_bonus"].items():
-                stats[stat] = stats.get(stat, 10) + val
+                pending_stat_bonuses.append((stat, int(val), stat_max_cap))
         if not item_has_explicit_save:
             raw_save = (
                 item_data.get("save_bonus")
@@ -1867,10 +1882,28 @@ def sync_character_stats(
             else equip.get("bow_damage_bonus")
         )
         if raw_bow_dmg:
-            try:
-                equip_bow_dmg_bonus += int(raw_bow_dmg or 0)
-            except (ValueError, TypeError):
-                pass
+            norm_bow_key = (
+                str((item_data or {}).get("name") or equip.get("name") or "").strip().lower()
+            )
+            if norm_bow_key not in seen_bow_bonus_names:
+                try:
+                    equip_bow_dmg_bonus += int(raw_bow_dmg or 0)
+                    if norm_bow_key:
+                        seen_bow_bonus_names.add(norm_bow_key)
+                except (ValueError, TypeError):
+                    pass
+
+    # Apply additive stat_bonus items BEFORE stat_set overrides so equipment array order never inflates stats,
+    # and enforce per-item stat_max caps (e.g. Belt of Dwarvenkind & Ioun Stones cap at 20, never reducing >=20).
+    for stat, val, stat_max_cap in pending_stat_bonuses:
+        cur_val = stats.get(stat, 10)
+        if stat_max_cap is not None:
+            if cur_val < stat_max_cap:
+                stats[stat] = min(stat_max_cap, cur_val + val)
+        else:
+            stats[stat] = cur_val + val
+    for stat, val in pending_stat_sets:
+        stats[stat] = max(stats.get(stat, 10), val)
 
     char_data["equip_stat_bonuses"] = {
         k: stats.get(k, 10) - base_stats.get(k, 10)

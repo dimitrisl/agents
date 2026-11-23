@@ -962,6 +962,14 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     );
   }
 
+  private invalidateEquipmentDerivedCache(): void {
+    if (!this.char) return;
+    delete this.char.saving_throw_values;
+    delete this.char.skills;
+    delete this.char.passive_perception;
+    delete this.char.initiative_advantage;
+  }
+
   toggleAttuned(item: EquipmentItem) {
     // Attuning an equipped item makes it count; attuning one in the inventory doesn't.
     if (!item.attuned && item.equipped && this.attunedCount >= this.maxActiveAttunements) {
@@ -969,9 +977,7 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     item.attuned = !item.attuned;
-    if (this.char?.saving_throw_values) {
-      delete this.char.saving_throw_values;
-    }
+    this.invalidateEquipmentDerivedCache();
     this.save.emit();
   }
 
@@ -1072,9 +1078,7 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onItemNameChange(): void {
-    if (this.char?.saving_throw_values) {
-      delete this.char.saving_throw_values;
-    }
+    this.invalidateEquipmentDerivedCache();
     this.save.emit();
   }
 

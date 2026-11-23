@@ -1,11 +1,15 @@
 import copy
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.constants import EDITION_2014, EDITION_2024
 from backend.repositories.rules_repository import RulesRepository
 from backend.services.stats_service import calculate_ac, sync_character_stats
-from backend.services.validation_service import get_character_weapon_proficiencies
+from backend.services.validation_service import (
+    deterministic_validate_build,
+    get_character_weapon_proficiencies,
+)
 from server.dependencies.auth import get_current_user
 from server.main import app
 
@@ -206,11 +210,13 @@ def test_stone_of_good_luck_skills_saves_passives_and_initiative():
         assert suppressed["initiative_modifier"] == plain["initiative_modifier"]
 
 
-def test_caster_focus_items_staff_of_power_and_athas_suppression():
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_caster_focus_items_staff_of_power_and_athas_suppression(edition: str):
     # Wand of the War Mage +2 (test both "+2" and "(+2)" parenthetical lookup!)
     for wand_name in ("Wand of the War Mage +2", "Wand of the War Mage (+2)"):
         wiz = sync_character_stats(
             _base_char(
+                dnd_edition=edition,
                 equipment=[{"name": wand_name, "equipped": True, "attuned": True}],
             )
         )
@@ -221,6 +227,7 @@ def test_caster_focus_items_staff_of_power_and_athas_suppression():
     # Rod of the Pact Keeper +3 boosts BOTH Spell Attack and Spell Save DC
     warlock = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             char_class="Warlock",
             classes=[{"class_name": "Warlock", "level": 9}],
             char_level=9,
@@ -236,6 +243,7 @@ def test_caster_focus_items_staff_of_power_and_athas_suppression():
     # Amulet of the Devout +1 boosts Cleric DC & Attack
     cleric = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             char_class="Cleric",
             classes=[{"class_name": "Cleric", "level": 5}],
             char_level=5,
@@ -250,6 +258,7 @@ def test_caster_focus_items_staff_of_power_and_athas_suppression():
     # Staff of Power grants +2 AC, +2 Saves, +2 Spell Atk (not +2 Spell DC)
     staff_wiz = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             equipment=[{"name": "Staff of Power", "equipped": True, "attuned": True}],
         )
     )
@@ -261,6 +270,7 @@ def test_caster_focus_items_staff_of_power_and_athas_suppression():
     # Athas suppresses all focus/staff bonuses
     suppressed_lock = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             char_class="Warlock",
             classes=[{"class_name": "Warlock", "level": 9}],
             char_level=9,
@@ -274,10 +284,12 @@ def test_caster_focus_items_staff_of_power_and_athas_suppression():
     assert suppressed_lock["spell_attack_bonus"] == "+9"
 
 
-def test_stat_items_sentinel_shield_magic_armors_and_bracers_of_archery():
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_stat_items_sentinel_shield_magic_armors_and_bracers_of_archery(edition: str):
     # 1. Headband of Intellect, Belts of Giant Strength, Belt of Dwarvenkind, Ioun Stone
     fighter = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             char_class="Fighter",
             classes=[{"class_name": "Fighter", "level": 5}],
             stats={"STR": 12, "DEX": 14, "CON": 14, "INT": 8, "WIS": 10, "CHA": 10},
@@ -299,6 +311,7 @@ def test_stat_items_sentinel_shield_magic_armors_and_bracers_of_archery():
     # 2. Sentinel Shield grants +2 AC and Initiative Advantage; Athas preserves +2 physical AC while losing Initiative Advantage
     sent = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             char_class="Cleric",
             classes=[{"class_name": "Cleric", "level": 5}],
             equipment=[{"name": "Sentinel Shield", "equipped": True}],
@@ -309,6 +322,7 @@ def test_stat_items_sentinel_shield_magic_armors_and_bracers_of_archery():
 
     sent_athas = sync_character_stats(
         _base_char(
+            dnd_edition=edition,
             char_class="Cleric",
             classes=[{"class_name": "Cleric", "level": 5}],
             magic_items_suppressed=True,
@@ -328,6 +342,7 @@ def test_stat_items_sentinel_shield_magic_armors_and_bracers_of_archery():
 
     # 4. Bracers of Archery: grants Longbow & Shortbow proficiency +2 bow damage on a Wizard
     bow_wiz = _base_char(
+        dnd_edition=edition,
         stats={"STR": 10, "DEX": 16, "CON": 12, "INT": 16, "WIS": 10, "CHA": 10},
         equipment=[{"name": "Bracers of Archery", "equipped": True, "attuned": True}],
         weapons=[
@@ -355,3 +370,91 @@ def test_stat_items_sentinel_shield_magic_armors_and_bracers_of_archery():
     assert supp_lb["proficient"] is False
     assert supp_lb["attack_bonus"] == "+3"
     assert supp_lb["damage_bonus"] == "+3"
+
+
+@pytest.mark.parametrize("edition", [EDITION_2014, EDITION_2024])
+def test_magic_item_caps_order_independence_armor_and_duplicate_guards(edition: str):
+    # 1. Ioun Stone & Belt of Dwarvenkind respect stat_max: 20 and never reduce >= 20,
+    #    while Manuals/Tomes raise stats past 20 up to 30.
+    capped_hero = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            stats={"STR": 20, "DEX": 12, "CON": 20, "INT": 14, "WIS": 10, "CHA": 10},
+            equipment=[
+                {"name": "Ioun Stone of Strength", "equipped": True, "attuned": True},
+                {"name": "Belt of Dwarvenkind", "equipped": True, "attuned": True},
+            ],
+        )
+    )
+    assert capped_hero["stats"]["STR"] == 20
+    assert capped_hero["stats"]["CON"] == 20
+
+    barb_20 = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            char_class="Barbarian",
+            char_level=20,
+            classes=[{"class_name": "Barbarian", "level": 20}],
+            stats={"STR": 24, "DEX": 14, "CON": 24, "INT": 8, "WIS": 10, "CHA": 10},
+            saving_throws=["STR", "CON"],
+            equipment=[
+                {"name": "Ioun Stone of Strength", "equipped": True, "attuned": True},
+            ],
+        )
+    )
+    assert barb_20["stats"]["STR"] == 24
+
+    manual_hero = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            stats={"STR": 20, "DEX": 12, "CON": 14, "INT": 14, "WIS": 10, "CHA": 10},
+            equipment=[{"name": "Manual of Gainful Exercise", "equipped": True}],
+        )
+    )
+    assert manual_hero["stats"]["STR"] == 22
+
+    # 2. Order-independence between stat_set (Gauntlets of Ogre Power -> 19) and stat_bonus (Ioun Stone +2)
+    gauntlets = {"name": "Gauntlets of Ogre Power", "equipped": True, "attuned": True}
+    ioun_str = {"name": "Ioun Stone of Strength", "equipped": True, "attuned": True}
+    order_a = sync_character_stats(
+        _base_char(
+            dnd_edition=edition, equipment=[copy.deepcopy(gauntlets), copy.deepcopy(ioun_str)]
+        )
+    )
+    order_b = sync_character_stats(
+        _base_char(
+            dnd_edition=edition, equipment=[copy.deepcopy(ioun_str), copy.deepcopy(gauntlets)]
+        )
+    )
+    assert order_a["stats"]["STR"] == 19
+    assert order_b["stats"]["STR"] == 19
+
+    # 3. Elven Chain works even for Wizards without Medium Armor proficiency
+    elven_wiz = _base_char(
+        dnd_edition=edition,
+        equipment=[{"name": "Elven Chain", "equipped": True}],
+    )
+    _, issues = deterministic_validate_build(copy.deepcopy(elven_wiz))
+    assert issues == [], f"Unexpected validation errors for Elven Chain: {issues}"
+    synced_elven = sync_character_stats(elven_wiz)
+    assert synced_elven["armor_class"] == 16  # 13 + 2 DEX + 1 magic
+
+    # 4. Generic Armor +1 / Armor (+1) lookup & custom ac_bonus preservation
+    assert calculate_ac(14, [{"name": "Armor +1", "equipped": True, "ac_bonus": 16}]) == 19
+    assert calculate_ac(14, [{"name": "Armor (+1)", "equipped": True}]) == 13
+
+    # 5. Bracers of Archery parenthetical "(Attuned)" proficiency and non-stacking duplicates
+    parenthetical_wiz = _base_char(
+        dnd_edition=edition,
+        stats={"STR": 10, "DEX": 16, "CON": 12, "INT": 16, "WIS": 10, "CHA": 10},
+        equipment=[
+            {"name": "Bracers of Archery (Attuned)", "equipped": True, "attuned": True},
+            {"name": "Bracers of Archery", "equipped": True, "attuned": True},
+        ],
+        weapons=[{"name": "Longbow", "damage_dice": "1d8 piercing"}],
+    )
+    assert "longbows" in get_character_weapon_proficiencies(parenthetical_wiz)
+    synced_dup = sync_character_stats(parenthetical_wiz)
+    lb = next(w for w in synced_dup["weapons"] if w["name"] == "Longbow")
+    assert lb["proficient"] is True
+    assert lb["damage_bonus"] == "+5"  # +3 DEX + 2 (must not stack to +4)

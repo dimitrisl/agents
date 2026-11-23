@@ -815,5 +815,39 @@ describe('CombatPanelComponent', () => {
       component.deleteMobileResource(component.classResources.length - 1, new MouseEvent('click'));
       expect(component.classResources.some((r) => r.name === 'Superiority Dice')).toBe(false);
     });
+
+    it('clears derived skill, passive, initiative, and save caches on toggleAttuned and onItemNameChange', () => {
+      const luckstone = { name: 'Stone of Good Luck (Luckstone)', equipped: true, attuned: true } as any;
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        skills: { Perception: 6, Arcana: 8 },
+        passive_perception: 16,
+        initiative_advantage: true,
+        saving_throw_values: { CON: 4 },
+        equipment: [luckstone],
+      });
+      fixture.detectChanges();
+
+      component.toggleAttuned(component.char.equipment![0]);
+      expect(component.char.skills).toBeUndefined();
+      expect(component.char.passive_perception).toBeUndefined();
+      expect(component.char.initiative_advantage).toBeUndefined();
+      expect(component.char.saving_throw_values).toBeUndefined();
+
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        skills: { Perception: 6 },
+        passive_perception: 16,
+        initiative_advantage: true,
+        saving_throw_values: { CON: 4 },
+      });
+      fixture.detectChanges();
+
+      component.onItemNameChange();
+      expect(component.char.skills).toBeUndefined();
+      expect(component.char.passive_perception).toBeUndefined();
+      expect(component.char.initiative_advantage).toBeUndefined();
+      expect(component.char.saving_throw_values).toBeUndefined();
+    });
   });
 });

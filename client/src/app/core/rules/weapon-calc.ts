@@ -1,5 +1,5 @@
 import { CharacterSchema, Weapon } from '../models/character.model';
-import { abilityModifier, exhaustionD20Penalty } from './ability';
+import { abilityModifier, exhaustionD20Penalty, maxAttunementSlots } from './ability';
 
 export interface WeaponAttackBreakdown {
   statName: string;
@@ -135,32 +135,34 @@ export function getAgonizingBlastBonus(
   return hasAgonizing ? abilityModifier(char.stats?.CHA ?? 10) : 0;
 }
 
-/** Checks for Bracers of Archery (+2 damage on Longbow/Shortbow when equipped & not suppressed). */
+/** Checks for Bracers of Archery (or explicit bow_damage_bonus) on Longbow/Shortbow when equipped & not suppressed. */
 export function getBracersOfArcheryBonus(weapon: Weapon, char?: CharacterSchema | null): number {
   if (!char || char.magic_items_suppressed) return 0;
   const wName = (weapon.name || '').toLowerCase();
   if (!wName.includes('longbow') && !wName.includes('shortbow')) return 0;
 
-  let maxAttuned = 3;
-  for (const f of char.features_traits || []) {
-    const fname = (typeof f === 'string' ? f : f?.name || '').toLowerCase();
-    if (fname.includes('magic item master')) maxAttuned = Math.max(maxAttuned, 6);
-    else if (fname.includes('magic item savant')) maxAttuned = Math.max(maxAttuned, 5);
-    else if (fname.includes('magic item adept')) maxAttuned = Math.max(maxAttuned, 4);
-  }
-
+  const maxAttuned = maxAttunementSlots(char);
   let attunedCount = 0;
+  let total = 0;
+  const seenNames = new Set<string>();
   for (const eq of char.equipment || []) {
     if (!eq || !eq.equipped) continue;
     if (eq.attuned) {
       attunedCount++;
       if (attunedCount > maxAttuned) continue;
     }
-    if (String(eq.name || '').toLowerCase().includes('bracers of archery')) {
-      return 2;
+    const rawName = String(eq.name || '').trim().toLowerCase();
+    const normName = rawName.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+    const explicitBow = Math.trunc(Number((eq as { bow_damage_bonus?: number }).bow_damage_bonus ?? 0) || 0);
+    const catalogBow = rawName.includes('bracers of archery') ? 2 : 0;
+    const itemBow = explicitBow || catalogBow;
+    const dedupeKey = catalogBow > 0 ? 'bracers of archery' : normName;
+    if (itemBow > 0 && (!dedupeKey || !seenNames.has(dedupeKey))) {
+      total += itemBow;
+      if (dedupeKey) seenNames.add(dedupeKey);
     }
   }
-  return 0;
+  return total;
 }
 
 /** Computes full breakdown for a weapon's to-hit and damage. */

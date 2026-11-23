@@ -136,6 +136,7 @@
         "ac_base": 13,
         "dex_limit": 2,
         "magic_bonus": 1,
+        "ignore_proficiency": true,
         "weight": 20,
         "rarity": "Rare",
         "description": "Fine magical Chain Shirt granting a +1 bonus to AC; even non-proficient wearers are considered proficient."
@@ -409,6 +410,7 @@
         "name": "Belt of Dwarvenkind",
         "type": "Wondrous Item",
         "stat_bonus": {"CON": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "weight": 3,
         "rarity": "Rare",
@@ -418,6 +420,7 @@
         "name": "Ioun Stone of Strength",
         "type": "Wondrous Item",
         "stat_bonus": {"STR": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "rarity": "Very Rare",
         "description": "A pale blue rhomboid granting +2 Strength (max 20)."
@@ -426,6 +429,7 @@
         "name": "Ioun Stone of Agility",
         "type": "Wondrous Item",
         "stat_bonus": {"DEX": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "rarity": "Very Rare",
         "description": "A deep red sphere granting +2 Dexterity (max 20)."
@@ -434,6 +438,7 @@
         "name": "Ioun Stone of Fortitude",
         "type": "Wondrous Item",
         "stat_bonus": {"CON": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "rarity": "Very Rare",
         "description": "A pink rhomboid granting +2 Constitution (max 20)."
@@ -442,6 +447,7 @@
         "name": "Ioun Stone of Intellect",
         "type": "Wondrous Item",
         "stat_bonus": {"INT": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "rarity": "Very Rare",
         "description": "A marbled scarlet and blue sphere granting +2 Intelligence (max 20)."
@@ -450,6 +456,7 @@
         "name": "Ioun Stone of Insight",
         "type": "Wondrous Item",
         "stat_bonus": {"WIS": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "rarity": "Very Rare",
         "description": "An incandescent blue sphere granting +2 Wisdom (max 20)."
@@ -458,6 +465,7 @@
         "name": "Ioun Stone of Leadership",
         "type": "Wondrous Item",
         "stat_bonus": {"CHA": 2},
+        "stat_max": 20,
         "requires_attunement": true,
         "rarity": "Very Rare",
         "description": "A pink and green sphere granting +2 Charisma (max 20)."

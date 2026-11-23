@@ -238,9 +238,19 @@ export function catalogDefaultAbilityCheckBonus(itemName: string | undefined): n
   return CATALOG_ABILITY_CHECK_BONUS_ITEMS[normalizeCatalogItemName(itemName)] ?? 0;
 }
 
-function maxAttunementSlots(char: CharacterSchema | null | undefined): number {
-  let slots = 3;
-  for (const f of char?.features_traits || []) {
+export function maxAttunementSlots(char: CharacterSchema | null | undefined): number {
+  if (!char) return 3;
+  let artificerLevel = 0;
+  for (const cls of char.classes || []) {
+    if ((cls?.class_name || '').toLowerCase() === 'artificer') {
+      artificerLevel = Math.max(artificerLevel, Number(cls?.level || 0) || 0);
+    }
+  }
+  if (artificerLevel === 0 && (char.char_class || '').toLowerCase() === 'artificer') {
+    artificerLevel = Number(char.char_level || 1) || 1;
+  }
+  let slots = artificerLevel >= 18 ? 6 : artificerLevel >= 14 ? 5 : artificerLevel >= 10 ? 4 : 3;
+  for (const f of char.features_traits || []) {
     const name = (typeof f === 'string' ? f : f?.name || '').toLowerCase();
     if (name.includes('magic item master')) slots = Math.max(slots, 6);
     else if (name.includes('magic item savant')) slots = Math.max(slots, 5);
