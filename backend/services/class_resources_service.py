@@ -83,10 +83,10 @@ def rules_pools(
         for f in (features_traits or [])
     )
 
-    for entry in classes:
+    for idx, entry in enumerate(classes):
         class_name = _norm(entry.get("class_name"))
         class_level = int(entry.get("level") or 1)
-        entry_sub = _norm(entry.get("subclass") or subclass)
+        entry_sub = _norm(entry.get("subclass") or (subclass if idx == 0 else None))
         for rule in by_class.get(class_name, []):
             maximum = _pool_max(rule, class_level, stats)
             if maximum <= 0:

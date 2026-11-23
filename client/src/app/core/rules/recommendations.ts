@@ -366,11 +366,13 @@ export function getMaxPreparedSpells(
   }
 
   if (is2024) {
+    const wizard2024 = [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 18, 19, 21, 22, 23, 24, 25];
     const fullCaster = [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22];
     const warlock = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15];
     const halfCaster = [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15];
 
-    if (['wizard', 'cleric', 'druid', 'bard', 'sorcerer'].includes(c)) return fullCaster[idx];
+    if (c === 'wizard') return wizard2024[idx];
+    if (['cleric', 'druid', 'bard', 'sorcerer'].includes(c)) return fullCaster[idx];
     if (c === 'warlock') return warlock[idx];
     if (['paladin', 'ranger', 'artificer'].includes(c)) return halfCaster[idx];
     return 0;

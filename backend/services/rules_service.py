@@ -898,6 +898,11 @@ def inject_mandatory_character_grants(
                 if not (sp_dict.get("cantrips") or []):
                     _grant_innate("Prestidigitation")
 
+    if auto_spells:
+        from backend.services.stats_service import cap_prepared_leveled_spells
+
+        cap_prepared_leveled_spells(char_data, edition_str, repo=repo)
+
     return char_data
 
 

@@ -1005,7 +1005,7 @@
               [attr.aria-label]="isAlwaysPrepared(spell) ? spell + ' is always prepared' : (isPrepared(spell) ? 'Unprepare ' : 'Prepare ') + spell"
               [title]="isAlwaysPrepared(spell) ? 'Always Prepared (subclass or species grant)' : (isPrepared(spell) ? 'Prepared — click to unprepare' : 'Not prepared — click to prepare')"
               class="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-body transition-colors hover:bg-tile focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              [ngClass]="isAlwaysPrepared(spell) ? 'text-accent cursor-default' : isPrepared(spell) ? 'text-gold cursor-pointer' : 'text-muted cursor-pointer'"
+              [ngClass]="isAlwaysPrepared(spell) ? 'text-accent' : isPrepared(spell) ? 'text-gold' : 'text-muted'"
             >
               {{ isAlwaysPrepared(spell) ? '🔒' : isPrepared(spell) ? '★' : '☆' }}
             </button>

@@ -158,8 +158,8 @@ describe('ShortRestModalComponent', () => {
     expect(document.body.textContent).toContain('Arcane Recovery');
     expect(document.body.textContent).toContain('0 / 3 slot levels');
 
-    const plusBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).filter(
-      (b) => b.textContent?.trim() === '+'
+    const plusBtns = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).filter((b) =>
+      b.getAttribute('aria-label')?.startsWith('Increase ')
     );
     expect(plusBtns.length).toBe(2);
     plusBtns[1].click(); // +1 Level 2 slot (cost 2)
@@ -198,5 +198,21 @@ describe('ShortRestModalComponent', () => {
     expect(hdpLvl2Btn).toBeDefined();
     hdpLvl2Btn!.click();
     expect(component.harnessDivinePowerSlotChange.emit).toHaveBeenCalledWith(2);
+  });
+
+  it('subtracts Warlock pact_used from expended slot counts and hides manual HP input when 0 Hit Dice are spent', () => {
+    fixture.componentRef.setInput('availableHitDice', 3);
+    fixture.componentRef.setInput('shortRestDiceToSpend', 0);
+    fixture.componentRef.setInput('arcaneRecoveryBudget', 3);
+    fixture.componentRef.setInput('spellSlots', {
+      level_1: { max: 6, used: 2, pact_max: 2, pact_used: 2 },
+      level_2: { max: 3, used: 1 },
+    });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    expect(component.expendedCount(1)).toBe(0);
+    expect(component.expendedCount(2)).toBe(1);
+    expect(document.querySelector('#short-rest-manual-hp')).toBeNull();
   });
 });

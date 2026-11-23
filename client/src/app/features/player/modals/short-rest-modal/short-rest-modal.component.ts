@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
+  ForgeBadgeComponent,
   ForgeButtonDirective,
+  ForgeIconComponent,
   ForgeInputDirective,
   ForgeModalComponent,
   ForgeSelectDirective,
@@ -25,7 +27,9 @@ export interface RecoverySectionConfig {
   imports: [
     CommonModule,
     FormsModule,
+    ForgeBadgeComponent,
     ForgeButtonDirective,
+    ForgeIconComponent,
     ForgeInputDirective,
     ForgeModalComponent,
     ForgeSelectDirective,
@@ -148,13 +152,33 @@ export class ShortRestModalComponent {
     ) {
       return '⛺ Take Short Rest (Recover Pact Slots)';
     }
+    const maxCheckLevel = Math.max(
+      this.arcaneRecoveryBudget > 0 || this.naturalRecoveryBudget > 0 ? 5 : 0,
+      this.harnessMaxSlotLevel || 0
+    );
+    if (!this.hasPactSlots && !this.hasExpendedSlots(maxCheckLevel)) {
+      return '⛺ Complete Short Rest';
+    }
     return '⛺ Take Short Rest (Recover Spell Slots)';
   }
 
   expendedCount(level: number): number {
-    const slots = this.spellSlots as Record<string, { max?: number; used?: number }> | null | undefined;
+    const slots = this.spellSlots as
+      | Record<string, { max?: number; used?: number; level?: number; pact_used?: number }>
+      | null
+      | undefined;
     const pool = slots?.[`level_${level}`] ?? slots?.[String(level)];
-    return Math.max(0, Math.trunc(Number(pool?.used ?? 0) || 0));
+    const rawUsed = Math.max(0, Math.trunc(Number(pool?.used ?? 0) || 0));
+    const pactUsed = Math.max(
+      0,
+      Math.trunc(
+        Number(
+          pool?.pact_used ??
+            (Number(slots?.['pact']?.level) === level ? (slots?.['pact']?.used ?? 0) : 0)
+        ) || 0
+      )
+    );
+    return Math.max(0, rawUsed - pactUsed);
   }
 
   hasExpendedSlots(maxLevel: number): boolean {

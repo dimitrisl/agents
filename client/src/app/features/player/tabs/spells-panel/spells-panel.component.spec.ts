@@ -486,5 +486,43 @@ describe('SpellsPanelComponent', () => {
       expect(component.canRitualCast('Detect Magic')).toBe(true);
       expect(component.canRitualCast('Hold Person')).toBe(false);
     });
+
+    it('renders mobile prepared counter in 2024 Revision and resets filters on hero switch', () => {
+      fixture.componentRef.setInput('compactMobile', true);
+      fixture.componentRef.setInput(
+        'char',
+        buildPreparedHero({
+          char_class: 'Ranger',
+          dnd_edition: '2024 Revision (5.5e)',
+          prepared_spells: ['Detect Magic'],
+          always_prepared_spells: ["Hunter's Mark"],
+          max_prepared_spells: 4,
+        })
+      );
+      component.selectedFilter.set('prepared');
+      component.searchQuery.set('Detect');
+      fixture.detectChanges();
+
+      const badge = (fixture.nativeElement as HTMLElement).querySelector(
+        '[data-testid="mobile-prepared-counter"]'
+      );
+      expect(badge?.textContent).toContain('Prep 1/4');
+      expect(component.canRitualCast('Detect Magic')).toBe(true);
+
+      // Switching hero resets searchQuery & selectedFilter
+      fixture.componentRef.setInput(
+        'char',
+        buildPreparedHero({
+          char_id: 'other-hero',
+          char_name: 'Kael',
+          dnd_edition: '2014 Edition',
+          char_class: 'Bard',
+          max_prepared_spells: null,
+        })
+      );
+      fixture.detectChanges();
+      expect(component.selectedFilter()).toBe('all');
+      expect(component.searchQuery()).toBe('');
+    });
   });
 });

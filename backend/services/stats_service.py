@@ -1145,7 +1145,19 @@ def collect_always_prepared_spells(
             seen.add(canon_key)
             collected.append(canon)
 
+    is_2024 = "2024" in str(edition or "")
     for sc_cls, sc_sub, sc_lvl in sub_entries:
+        cls_low = sc_cls.lower()
+        if is_2024:
+            if cls_low == "ranger" and sc_lvl >= 1:
+                _add_if_leveled("Hunter's Mark")
+            elif cls_low == "paladin" and sc_lvl >= 2:
+                _add_if_leveled("Divine Smite")
+            if cls_low == "paladin" and sc_lvl >= 5:
+                _add_if_leveled("Find Steed")
+            if cls_low == "bard" and sc_lvl >= 20:
+                _add_if_leveled("Power Word Heal")
+                _add_if_leveled("Power Word Kill")
         if not sc_cls or not sc_sub:
             continue
         sc_entry = repo.get_subclass_entry(sc_cls, sc_sub, edition) or {}
@@ -1229,6 +1241,76 @@ def collect_always_prepared_spells(
             _collect_innate_block(matched_lineage)
 
     return collected
+
+
+def cap_prepared_leveled_spells(
+    char_data: Dict[str, Any], edition: str, repo: Any = None
+) -> List[str]:
+    """Keep cantrips and always-prepared spells intact while capping daily prepared leveled spells."""
+    if repo is None:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+    classes = char_data.get("classes") or []
+    char_class = char_data.get("char_class")
+    subclass = char_data.get("subclass")
+    level = int(char_data.get("char_level") or 1)
+    stats = char_data.get("stats") or {}
+
+    prep_cap = calculate_max_prepared_spells(
+        classes=classes,
+        char_class=char_class,
+        subclass=subclass,
+        level=level,
+        stats=stats,
+        edition=edition,
+    )
+    existing_prep = list(char_data.get("prepared_spells") or [])
+    if prep_cap is None:
+        return existing_prep
+
+    always_keys = {
+        _norm_spell_key(s)
+        for s in collect_always_prepared_spells(
+            char_data=char_data,
+            classes=classes,
+            char_class=char_class,
+            subclass=subclass,
+            level=level,
+            edition=edition,
+            repo=repo,
+        )
+    }
+    spells_dict = char_data.get("spells") or {}
+    cantrip_keys = {
+        _norm_spell_key(_extract_spell_name(c))
+        for c in (spells_dict.get("cantrips") if isinstance(spells_dict, dict) else []) or []
+    }
+    for sp in repo.get_all_spells(edition) or []:
+        if isinstance(sp, dict) and sp.get("name") and int(sp.get("level") or 0) == 0:
+            cantrip_keys.add(_norm_spell_key(sp["name"]))
+    cantrip_keys.discard("")
+
+    capped: List[str] = []
+    seen_all: set[str] = set()
+    leveled_kept = 0
+    for raw in existing_prep:
+        name = _extract_spell_name(raw)
+        key = _norm_spell_key(name)
+        if not key or key in seen_all:
+            continue
+        if key in cantrip_keys or key in always_keys:
+            capped.append(name)
+            seen_all.add(key)
+            continue
+        if leveled_kept >= prep_cap:
+            continue
+        capped.append(name)
+        seen_all.add(key)
+        leveled_kept += 1
+
+    char_data["prepared_spells"] = capped
+    return capped
 
 
 def restore_base_hp_max(

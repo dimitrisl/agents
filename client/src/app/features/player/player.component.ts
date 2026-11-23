@@ -1,6 +1,7 @@
 import { LevelUpAnalysis, LevelUpApplyRequest, LevelUpChoice } from '../../core/models/character.model';
 import {
   AfterViewChecked,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   ElementRef,
@@ -306,6 +307,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   };
 
   readonly skillAttributes = ['STR', 'DEX', 'INT', 'WIS', 'CHA'];
+  private readonly cdr = inject(ChangeDetectorRef);
 
   // Snapshot of `openGroups` taken when the proficiency filter is switched on,
   // so switching it back off returns the sheet to the user's own layout.
@@ -589,7 +591,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       this.stickyPortraitError.set(false);
       const hasSpells = Object.values(char?.spells || {}).some((list) => Array.isArray(list) && list.length > 0);
       if (char && hasSpells) {
-        this.spellRules.load(char.dnd_edition || this.charState.dndEdition()).subscribe();
+        this.spellRules.load(char.dnd_edition || this.charState.dndEdition()).subscribe(() => {
+          this.getSpellProfile = this.createSpellProfileLookup();
+          this.cdr.markForCheck();
+        });
       }
     });
 
@@ -622,6 +627,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.showQuickDiceDrawer.set(false);
         this.showMobileHeaderActions.set(false);
         this.showConcentrationPrompt.set(false);
+        this.showShortRestModal.set(false);
+        this.shortRestArcaneRecovery = {};
+        this.shortRestNaturalRecovery = {};
+        this.shortRestHarnessSlot = null;
+        this.shortRestManualHp = null;
         this.editMode.set(false);
         this.mobileTableSubTab.set(char?.active_campaign ? 'chat' : 'lore');
       }
@@ -1316,7 +1326,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     let healedAmount = 0;
     let roll: any = null;
     let songRoll: DiceRoll | null = null;
-    if (this.shortRestManualHp !== null && this.shortRestManualHp !== undefined && `${this.shortRestManualHp}`.trim() !== '') {
+    if (
+      diceSpent > 0 &&
+      this.shortRestManualHp !== null &&
+      this.shortRestManualHp !== undefined &&
+      `${this.shortRestManualHp}`.trim() !== ''
+    ) {
       healedAmount = Math.max(0, Number(this.shortRestManualHp));
     } else {
       roll = diceSpent > 0
@@ -3259,11 +3274,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return previous;
   }
 
-  readonly getSpellProfile = (spellName: string): SpellCastProfile | null => {
-    const char = this.charState.activeCharacter();
-    if (!char) return null;
-    return this.spellRules.profileNow(spellName, char.dnd_edition || this.charState.dndEdition());
-  };
+  private createSpellProfileLookup(): (spellName: string) => SpellCastProfile | null {
+    return (spellName: string): SpellCastProfile | null => {
+      const char = this.charState.activeCharacter();
+      if (!char) return null;
+      return this.spellRules.profileNow(spellName, char.dnd_edition || this.charState.dndEdition());
+    };
+  }
+
+  getSpellProfile = this.createSpellProfileLookup();
 
   /** Dice the spell rolls at this slot level ("9d6"), for the upcast menu. */
   readonly spellCastPreview = (spellName: string, slotLevel: number): string | null => {

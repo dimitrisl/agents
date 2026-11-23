@@ -320,14 +320,16 @@ def apply_short_rest(
             )
         if natural_map:
             druid_lvl = _class_level_for(updated, "druid")
-            has_land = (
-                any(
-                    isinstance(c, dict)
-                    and str(c.get("class_name") or "").strip().lower() == "druid"
-                    and "land" in str(c.get("subclass") or "").lower()
-                    for c in (updated.get("classes") or [])
-                )
-                or "land" in str(updated.get("subclass") or "").lower()
+            classes_list = updated.get("classes") or []
+            primary_class_low = str(updated.get("char_class") or "").strip().lower()
+            has_land = any(
+                isinstance(c, dict)
+                and str(c.get("class_name") or "").strip().lower() == "druid"
+                and "land" in str(c.get("subclass") or "").lower()
+                for c in classes_list
+            ) or (
+                (not classes_list or primary_class_low == "druid")
+                and "land" in str(updated.get("subclass") or "").lower()
             )
             has_nr_feat = any(
                 isinstance(f, dict) and "natural recovery" in str(f.get("name") or "").lower()

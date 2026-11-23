@@ -241,7 +241,7 @@ export function isAlwaysPreparedSpell(
 
 export function maxPreparedSpells(char: CharacterSchema | null | undefined): number | null {
   if (!char) return null;
-  if (char.max_prepared_spells !== undefined) {
+  if (typeof char.max_prepared_spells === 'number') {
     return char.max_prepared_spells;
   }
 
@@ -326,13 +326,37 @@ export function preparedSpellsCount(char: CharacterSchema | null | undefined): n
   return unique.size;
 }
 
+const EPONYMOUS_RITUAL_PREFIXES = [
+  "leomund's ",
+  "tenser's ",
+  "rary's ",
+  "drawmij's ",
+  "melan's ",
+  "otto's ",
+];
+
+export function normalizeRitualLookupKey(name: string | null | undefined): string {
+  const key = normalizeSpellKey(name);
+  if (!key) return '';
+  if (RITUAL_SPELLS_2014.has(key) || RITUAL_SPELLS_2024.has(key)) return key;
+  for (const prefix of EPONYMOUS_RITUAL_PREFIXES) {
+    if (key.startsWith(prefix)) {
+      const stripped = key.slice(prefix.length).trim();
+      if (RITUAL_SPELLS_2014.has(stripped) || RITUAL_SPELLS_2024.has(stripped)) {
+        return stripped;
+      }
+    }
+  }
+  return key;
+}
+
 export function isRitualSpell(
   spellName: string,
   edition?: string | null,
   profile?: SpellCastProfile | null
 ): boolean {
   if (profile) return !!profile.ritual;
-  const key = normalizeSpellKey(spellName);
+  const key = normalizeRitualLookupKey(spellName);
   if (!key) return false;
   return String(edition || '').includes('2024')
     ? RITUAL_SPELLS_2024.has(key)
@@ -400,7 +424,7 @@ export function canCastAsRitual(
       fn.includes('ritual caster') ||
       fn.includes('book of ancient secrets') ||
       fn.includes('ritual adept') ||
-      fn.includes('ritual casting')
+      fn.includes('pact of the tome')
   );
 
   if (is2024Edition(char)) {

@@ -127,6 +127,8 @@ export class SpellsPanelComponent implements OnInit, OnChanges {
     if (!changes['char']) return;
     const heroKey = this.char ? (this.char.char_id || this.char.char_name) : '';
     if (this.lastHeroKey !== undefined && heroKey !== this.lastHeroKey) {
+      this.selectedFilter.set('all');
+      this.searchQuery.set('');
       this.mobileLevelFilter.set('all');
       this.selectedSpell.set(null);
       this.upcastTarget.set(null);

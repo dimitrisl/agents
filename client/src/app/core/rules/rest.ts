@@ -395,7 +395,9 @@ export function shortRestRecoveryBudget(
       (c) =>
         (c.class_name || '').trim().toLowerCase() === 'druid' &&
         (c.subclass || '').toLowerCase().includes('land')
-    ) || (char.subclass || '').toLowerCase().includes('land');
+    ) ||
+    ((!(char.classes?.length) || (char.char_class || '').trim().toLowerCase() === 'druid') &&
+      (char.subclass || '').toLowerCase().includes('land'));
   const hasFeature = (char.features_traits || []).some((f) =>
     (typeof f === 'string' ? f : f?.name || '').toLowerCase().includes('natural recovery')
   );
@@ -442,13 +444,24 @@ export function applyShortRestSlotRecovery(
     }
   };
 
+  const recoverableForLevel = (lvl: number): number => {
+    const entry = nextSlots[`level_${lvl}`];
+    if (!entry) return 0;
+    const pactUsed =
+      entry.pact_used ??
+      (Number(nextSlots['pact']?.level) === lvl ? Number(nextSlots['pact']?.used ?? 0) : 0);
+    return Math.max(0, Math.trunc(Number(entry.used ?? 0) || 0) - Math.max(0, Math.trunc(Number(pactUsed) || 0)));
+  };
+
   const applyMap = (map: Record<number, number> | undefined, poolName: string) => {
     if (!map) return;
     let spent = false;
     for (const [lvlStr, rawCount] of Object.entries(map)) {
       const lvl = Number(lvlStr);
-      const count = Math.max(0, Math.trunc(Number(rawCount) || 0));
-      if (!lvl || lvl >= 6 || count <= 0) continue;
+      const requested = Math.max(0, Math.trunc(Number(rawCount) || 0));
+      if (!lvl || lvl >= 6 || requested <= 0) continue;
+      const count = Math.min(requested, recoverableForLevel(lvl));
+      if (count <= 0) continue;
       spent = true;
       for (let i = 0; i < count; i++) {
         nextSlots = regainSpellSlot(nextSlots, lvl);
@@ -460,7 +473,11 @@ export function applyShortRestSlotRecovery(
   applyMap(selection.arcaneRecoverySlots, 'Arcane Recovery');
   applyMap(selection.naturalRecoverySlots, 'Natural Recovery');
 
-  if (selection.harnessDivinePowerSlot && selection.harnessDivinePowerSlot >= 1) {
+  if (
+    selection.harnessDivinePowerSlot &&
+    selection.harnessDivinePowerSlot >= 1 &&
+    recoverableForLevel(selection.harnessDivinePowerSlot) >= 1
+  ) {
     nextSlots = regainSpellSlot(nextSlots, selection.harnessDivinePowerSlot);
     consumePool('Channel Divinity');
   }

@@ -608,3 +608,121 @@ def test_harness_divine_power_short_rest_2014_and_2024(auth_client, mock_db, edi
     paladin["spell_slots"]["level_1"]["used"] = 1
     rested_pal = apply_short_rest(paladin, dice_to_spend=0, harness_divine_power_slot=1)
     assert rested_pal["spell_slots"]["level_1"]["used"] == 0
+
+
+def test_2024_base_class_always_prepared_and_cap_enforced_and_known_caster_pdf():
+    from backend.services.rules_service import (
+        grant_subclass_bonus_spells,
+        inject_mandatory_character_grants,
+    )
+    from backend.utils.pdf_exporter import PDFMappingProvider
+
+    # 1. 2024 Base-class always-prepared spells: Ranger (Hunter's Mark), Paladin (Divine Smite, Find Steed), Bard L20
+    ranger_24 = sync_character_stats(
+        _base_char(
+            char_class="Ranger",
+            char_level=1,
+            classes=[{"class_name": "Ranger", "level": 1}],
+            dnd_edition=EDITION_2024,
+        )
+    )
+    assert "Hunter's Mark" in ranger_24["always_prepared_spells"]
+
+    paladin_24 = sync_character_stats(
+        _base_char(
+            char_class="Paladin",
+            char_level=5,
+            classes=[{"class_name": "Paladin", "level": 5}],
+            dnd_edition=EDITION_2024,
+        )
+    )
+    assert {"Divine Smite", "Find Steed"}.issubset(set(paladin_24["always_prepared_spells"]))
+
+    bard_24 = sync_character_stats(
+        _base_char(
+            char_class="Bard",
+            char_level=20,
+            classes=[{"class_name": "Bard", "level": 20}],
+            dnd_edition=EDITION_2024,
+        )
+    )
+    assert {"Power Word Heal", "Power Word Kill"}.issubset(set(bard_24["always_prepared_spells"]))
+
+    # 2. inject_mandatory_character_grants caps newly forged L1 Wizard prepared_spells to max_prepared_spells
+    # even when the input sheet started with 6 L1 spellbook spells flattened into prepared_spells.
+    wiz_l1_spells = [
+        "Detect Magic",
+        "Mage Armor",
+        "Shield",
+        "Magic Missile",
+        "Sleep",
+        "Find Familiar",
+    ]
+    wiz_forged = inject_mandatory_character_grants(
+        _base_char(
+            char_class="Wizard",
+            char_level=1,
+            classes=[{"class_name": "Wizard", "level": 1}],
+            dnd_edition=EDITION_2024,
+            stats={"STR": 8, "DEX": 14, "CON": 14, "INT": 16, "WIS": 12, "CHA": 10},
+            spells={
+                "cantrips": ["Fire Bolt", "Mage Hand", "Prestidigitation"],
+                "level_1": wiz_l1_spells,
+            },
+            prepared_spells=["Fire Bolt", "Mage Hand", *wiz_l1_spells],
+        ),
+        edition=EDITION_2024,
+        is_forge=True,
+    )
+    # 2024 L1 Wizard max prepared = 4 (cantrips excluded from cap)
+    non_cantrip_prep = [
+        s
+        for s in wiz_forged["prepared_spells"]
+        if s not in ("Fire Bolt", "Mage Hand", "Prestidigitation")
+    ]
+    assert len(non_cantrip_prep) == 4
+
+    # 3. Known Caster PDF export after grant_subclass_bonus_spells: non-bonus known spells still export 'Yes'
+    repo = RulesRepository()
+    hw_ranger = {
+        "char_name": "Ulad",
+        "char_class": "Ranger",
+        "subclass": "Horizon Walker",
+        "char_level": 5,
+        "classes": [{"class_name": "Ranger", "subclass": "Horizon Walker", "level": 5}],
+        "dnd_edition": EDITION_2014,
+        "stats": {"STR": 12, "DEX": 18, "CON": 14, "INT": 10, "WIS": 14, "CHA": 10},
+        "spells": {
+            "level_1": ["Cure Wounds", "Protection from Evil and Good"],
+            "level_2": ["Misty Step"],
+        },
+        "prepared_spells": [],
+    }
+    grant_subclass_bonus_spells(hw_ranger, "Ranger", "Horizon Walker", 5, EDITION_2014, repo=repo)
+    synced_hw = sync_character_stats(hw_ranger)
+    fields = PDFMappingProvider("standard_5e").get_field_data(synced_hw)
+    assert fields.get("Spells 1015") == "Cure Wounds"
+    assert fields.get("Check Box 251") == "Yes"
+
+
+def test_multiclass_subclass_does_not_leak_natural_recovery():
+    mc_classes = [
+        {"class_name": "Fighter", "subclass": "Highlander", "level": 3},
+        {"class_name": "Druid", "subclass": "Circle of the Moon", "level": 4},
+    ]
+    pools = rules_pools(mc_classes, {"WIS": 18}, EDITION_2014, subclass="Highlander")
+    assert not any(p["name"] == "Natural Recovery" for p in pools)
+
+    mc_doc = sync_character_stats(
+        _base_char(
+            char_class="Fighter",
+            subclass="Highlander",
+            char_level=7,
+            classes=mc_classes,
+            dnd_edition=EDITION_2014,
+            stats={"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 18, "CHA": 10},
+        )
+    )
+    mc_doc["spell_slots"]["level_1"]["used"] = 1
+    with pytest.raises(ValueError, match="Circle of the Land"):
+        apply_short_rest(mc_doc, dice_to_spend=0, natural_recovery_slots={"1": 1})

@@ -289,4 +289,56 @@ describe('prepared caps, always-prepared split, and 2014 vs 2024 ritual casting 
       )
     ).toBe(true);
   });
+
+  it('falls back cleanly when max_prepared_spells is null (pre-#261 DB docs), supports PHB aliases, and guards Ritual Casting trait name', () => {
+    // Pre-#261 MongoDB document with max_prepared_spells: null
+    expect(
+      maxPreparedSpells(
+        caster({
+          char_class: 'Wizard',
+          char_level: 5,
+          max_prepared_spells: null,
+        })
+      )
+    ).toBe(9);
+
+    // Eponymous PHB alias support
+    expect(isRitualSpell("Leomund's Tiny Hut", '2014 Edition')).toBe(true);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Wizard',
+          spells: { level_3: ["Leomund's Tiny Hut"] },
+          prepared_spells: [],
+        }),
+        "Leomund's Tiny Hut"
+      )
+    ).toBe(true);
+
+    // Generic 2014 Cleric "Ritual Casting" sub-trait must NOT bypass preparation requirement
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Cleric',
+          dnd_edition: '2014 Edition',
+          prepared_spells: [],
+          features_traits: [{ name: 'Ritual Casting', description: 'You can cast prepared cleric spells as rituals.' }],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(false);
+
+    // 2024 Pact of the Tome grants ritual book casting
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Warlock',
+          dnd_edition: '2024 Revision (5.5e)',
+          prepared_spells: [],
+          features_traits: [{ name: 'Pact of the Tome', description: 'Book of Shadows rituals' }],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(true);
+  });
 });
