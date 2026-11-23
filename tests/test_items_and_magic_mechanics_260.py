@@ -1,5 +1,6 @@
 import copy
 
+import mongomock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,6 +11,7 @@ from backend.services.validation_service import (
     deterministic_validate_build,
     get_character_weapon_proficiencies,
 )
+from server.db_async import get_database
 from server.dependencies.auth import get_current_user
 from server.main import app
 
@@ -458,3 +460,144 @@ def test_magic_item_caps_order_independence_armor_and_duplicate_guards(edition: 
     lb = next(w for w in synced_dup["weapons"] if w["name"] == "Longbow")
     assert lb["proficient"] is True
     assert lb["damage_bonus"] == "+5"  # +3 DEX + 2 (must not stack to +4)
+
+    # 6. Comma-separated "+1/+2/+3" item naming (5e DMG / D&D Beyond format)
+    comma_wiz = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            equipment=[
+                {"name": "Wand of the War Mage, +2", "equipped": True, "attuned": True},
+                {"name": "Cloak of Protection, +1", "equipped": True, "attuned": True},
+            ],
+        )
+    )
+    assert comma_wiz["spell_attack_bonus"] == "+9"
+    assert comma_wiz["armor_class"] == 13  # 10 + 2 DEX + 1 Cloak
+    assert comma_wiz["saving_throw_values"]["CON"] == 3  # +2 CON + 1 Cloak
+
+    # 7. Scarab of Protection RAW does NOT grant flat +1 to all saves
+    scarab_hero = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            equipment=[{"name": "Scarab of Protection", "equipped": True, "attuned": True}],
+        )
+    )
+    assert scarab_hero["saving_throw_values"]["CON"] == 2  # +2 CON only
+
+    # 8. Order-independence between stat_max: 20 item (Ioun Stone) and uncapped item (Manual/Tome) on STR 18
+    manual = {"name": "Manual of Gainful Exercise", "equipped": True}
+    cap_a = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            stats={"STR": 18, "DEX": 12, "CON": 14, "INT": 14, "WIS": 10, "CHA": 10},
+            equipment=[copy.deepcopy(manual), copy.deepcopy(ioun_str)],
+        )
+    )
+    cap_b = sync_character_stats(
+        _base_char(
+            dnd_edition=edition,
+            stats={"STR": 18, "DEX": 12, "CON": 14, "INT": 14, "WIS": 10, "CHA": 10},
+            equipment=[copy.deepcopy(ioun_str), copy.deepcopy(manual)],
+        )
+    )
+    assert cap_a["stats"]["STR"] == 22
+    assert cap_b["stats"]["STR"] == 22
+
+
+def test_http_put_preserves_custom_equipment_bonus_fields():
+    class _LocalAsyncColl:
+        def __init__(self, coll):
+            self._coll = coll
+
+        async def find_one(self, query=None, *args, **kwargs):
+            return self._coll.find_one(query or {}, *args, **kwargs)
+
+        async def insert_one(self, doc):
+            return self._coll.insert_one(doc)
+
+        async def update_one(self, query, update, upsert=False):
+            class Res:
+                def __init__(self, r):
+                    self.matched_count = r.matched_count
+                    self.modified_count = r.modified_count
+
+            return Res(self._coll.update_one(query, update, upsert=upsert))
+
+        async def find_one_and_update(self, *args, **kwargs):
+            return self._coll.find_one_and_update(*args, **kwargs)
+
+    class _LocalAsyncDB:
+        def __init__(self):
+            self._db = mongomock.MongoClient().test_items_260_db
+            self._colls = {}
+
+        def __getitem__(self, item):
+            if item not in self._colls:
+                self._colls[item] = _LocalAsyncColl(self._db[item])
+            return self._colls[item]
+
+    db = _LocalAsyncDB()
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": "gear-tester",
+        "username": "gear-tester",
+    }
+    try:
+        client = TestClient(app)
+        create_resp = client.post(
+            "/api/v1/characters",
+            json={
+                "char_name": "Gear Tester",
+                "char_class": "Ranger",
+                "level": 5,
+                "char_level": 5,
+                "race": "Human",
+                "background": "Soldier",
+                "dnd_edition": EDITION_2024,
+                "stats": {"STR": 10, "DEX": 16, "CON": 14, "INT": 12, "WIS": 14, "CHA": 10},
+                "spell_ability": "WIS",
+                "saving_throws": ["STR", "DEX"],
+                "skill_proficiencies": ["Perception", "Athletics"],
+                "weapons": [{"name": "Longbow", "damage_dice": "1d8 piercing"}],
+                "equipment": [],
+            },
+        )
+        assert create_resp.status_code == 201, create_resp.text
+        char_data = create_resp.json()
+        char_id = char_data["char_id"]
+
+        custom_item = {
+            "name": "Quiver of Arcane Wardens",
+            "quantity": 1,
+            "equipped": True,
+            "attuned": True,
+            "ac_bonus": 1,
+            "save_bonus": 2,
+            "ability_check_bonus": 1,
+            "spell_attack_bonus": 2,
+            "spell_save_dc_bonus": 1,
+            "bow_damage_bonus": 3,
+        }
+        put_resp = client.put(
+            f"/api/v1/characters/{char_id}",
+            json={**char_data, "equipment": [custom_item]},
+        )
+        assert put_resp.status_code == 200, put_resp.text
+        saved = put_resp.json()
+        saved_item = saved["equipment"][0]
+        assert saved_item["save_bonus"] == 2
+        assert saved_item["ability_check_bonus"] == 1
+        assert saved_item["spell_attack_bonus"] == 2
+        assert saved_item["spell_save_dc_bonus"] == 1
+        assert saved_item["bow_damage_bonus"] == 3
+
+        assert saved["armor_class"] == 14  # 10 + 3 DEX + 1 custom ac_bonus
+        assert saved["saving_throw_values"]["CON"] == 4  # +2 CON + 2 save_bonus
+        assert saved["skills"]["Perception"] == 6  # +2 WIS + 3 PB + 1 ability_check_bonus
+        assert saved["spell_save_dc"] == 14  # 8 + 3 PB + 2 WIS + 1 spell_save_dc_bonus
+        assert saved["spell_attack_bonus"] == "+7"  # +3 PB + 2 WIS + 2 spell_attack_bonus
+        lb = next(w for w in saved["weapons"] if w["name"] == "Longbow")
+        assert lb["damage_bonus"] == "+6"  # +3 DEX + 3 bow_damage_bonus
+    finally:
+        app.dependency_overrides = orig

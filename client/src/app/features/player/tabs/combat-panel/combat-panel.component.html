@@ -2297,7 +2297,7 @@
         <!-- Attunement Tracker Counter (#174) -->
         <forge-badge
           [tone]="attunedCount >= maxActiveAttunements ? 'gold' : 'muted'"
-          title="Attuned items that are also equipped count toward the limit of 3"
+          [attr.title]="'Attuned items that are also equipped count toward the limit of ' + maxActiveAttunements"
         >
           <span aria-hidden="true">🔮</span> Attuned &amp; equipped {{ attunedCount }}/{{ maxActiveAttunements }}
         </forge-badge>

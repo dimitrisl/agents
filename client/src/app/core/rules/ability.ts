@@ -203,7 +203,6 @@ const CATALOG_SAVE_BONUS_ITEMS: Record<string, number> = {
   'luckstone': 1,
   'staff of power': 2,
   'robe of stars': 1,
-  'scarab of protection': 1,
 };
 
 const CATALOG_ABILITY_CHECK_BONUS_ITEMS: Record<string, number> = {
@@ -216,6 +215,7 @@ function normalizeCatalogItemName(rawName: string | undefined): string {
     .toLowerCase()
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\+\s*\d+/g, ' ')
+    .replace(/,/g, ' ')
     .replace(/\barmou?r\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

@@ -312,10 +312,9 @@
     {
         "name": "Scarab of Protection",
         "type": "Wondrous Item",
-        "save_bonus": 1,
         "requires_attunement": true,
         "rarity": "Legendary",
-        "description": "Grants +1 to all Saving Throws and Advantage on saves against spells."
+        "description": "Grants Advantage on saving throws against spells and has 12 charges to absorb necromancy/undead effects."
     },
     {
         "name": "Ioun Stone of Protection",

@@ -3249,8 +3249,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       notation,
       saveHalf,
     }));
-    if (profile.healing && profile.addsAbilityModifier && saveDc) {
-      const abilityMod = saveDc - 8 - proficiencyBonus(char);
+    if (profile.healing && profile.addsAbilityModifier && (char.spell_ability || saveDc)) {
+      const abilityMod =
+        char.spell_ability && char.spell_ability !== 'None'
+          ? abilityModifierOf(char, char.spell_ability as any)
+          : (saveDc ?? 0) - 8 - proficiencyBonus(char);
       if (abilityMod) parts.push({ label: 'Spellcasting modifier', notation: this.dice.signed(abilityMod) });
     }
     // Spell attacks crit on a natural 20 and double their damage dice (PHB);

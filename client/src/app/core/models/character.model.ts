@@ -68,6 +68,11 @@ export interface EquipmentItem {
   equipped?: boolean;
   attuned?: boolean;
   ac_bonus?: number;
+  save_bonus?: number;
+  ability_check_bonus?: number;
+  spell_attack_bonus?: number;
+  spell_save_dc_bonus?: number;
+  bow_damage_bonus?: number;
   mod1?: string;
   val1?: number;
   mod2?: string;

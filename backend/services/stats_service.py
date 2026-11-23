@@ -206,6 +206,7 @@ def _parse_item_name(raw_name: str) -> Tuple[str, int]:
     name = re.sub(r"\([^)]*\)", " ", text)
     magic = re.search(r"\+\s*([1-3])\b", name)
     name = re.sub(r"\+\s*\d+", " ", name)
+    name = re.sub(r"[(),]", " ", name)
     name = re.sub(r"\barmou?r\b", " ", name)
     return re.sub(r"\s+", " ", name).strip(), int(magic.group(1)) if magic else 0
 
@@ -484,8 +485,8 @@ def calculate_ac(
                         if item_base > base_ac:
                             base_ac = item_base
                             base_source = f"{item_data.get('name', raw_item_name)} ({base_ac})"
-                        if "dex_limit" in item_data:
-                            max_dex = min(max_dex, item_data["dex_limit"])
+                            if "dex_limit" in item_data:
+                                max_dex = min(max_dex, item_data["dex_limit"])
                 else:
                     if not has_armor and not has_shield:
                         item_bonus = val if val != 0 else int(item_data.get("ac_bonus", 0) or 0)
@@ -1893,9 +1894,9 @@ def sync_character_stats(
                 except (ValueError, TypeError):
                     pass
 
-    # Apply additive stat_bonus items BEFORE stat_set overrides so equipment array order never inflates stats,
-    # and enforce per-item stat_max caps (e.g. Belt of Dwarvenkind & Ioun Stones cap at 20, never reducing >=20).
-    for stat, val, stat_max_cap in pending_stat_bonuses:
+    # Apply stat_max-capped bonuses (e.g. Belt of Dwarvenkind / Ioun Stones) before uncapped ones (Manuals/Tomes),
+    # and apply all additive stat_bonus items BEFORE stat_set overrides for order-independence.
+    for stat, val, stat_max_cap in sorted(pending_stat_bonuses, key=lambda item: item[2] is None):
         cur_val = stats.get(stat, 10)
         if stat_max_cap is not None:
             if cur_val < stat_max_cap:

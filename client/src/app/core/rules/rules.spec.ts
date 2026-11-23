@@ -1504,5 +1504,24 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       });
       expect(hasInitiativeAdvantage(artificer10)).toBe(true);
     });
+
+    it('supports comma-separated "+N" catalog names and omits flat Scarab of Protection save bonus', () => {
+      const commaHero = hero({
+        char_class: 'Wizard',
+        char_level: 5,
+        proficiency_bonus: 3,
+        stats: { STR: 10, DEX: 14, CON: 14, INT: 18, WIS: 12, CHA: 10 },
+        saving_throws: ['INT', 'WIS'],
+        skills: undefined,
+        saving_throw_values: undefined,
+        equipment: [
+          { name: 'Stone of Good Luck, +1', equipped: true, attuned: true } as any,
+          { name: 'Cloak of Protection, +1', equipped: true, attuned: true } as any,
+          { name: 'Scarab of Protection', equipped: true, attuned: true } as any,
+        ],
+      });
+      expect(equipmentAbilityCheckBonus(commaHero)).toBe(1);
+      expect(savingThrowModifier(commaHero, 'CON')).toBe(4); // +2 CON + 1 Luckstone + 1 Cloak (Scarab adds +0)
+    });
   });
 });

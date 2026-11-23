@@ -230,6 +230,11 @@ class EquipmentItem(BaseModel):
     equipped: bool = False
     attuned: bool = False
     ac_bonus: int = 0
+    save_bonus: int = 0
+    ability_check_bonus: int = 0
+    spell_attack_bonus: int = 0
+    spell_save_dc_bonus: int = 0
+    bow_damage_bonus: int = 0
     mod1: str = "None"
     val1: int = 0
     mod2: str = "None"
