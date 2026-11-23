@@ -1434,4 +1434,48 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       expect(getMaxCantrips('Druid', 1, '', ['Primal Order: Magician'], false)).toBe(2);
     });
   });
+
+  describe('2014 & 2024 expanded magic items (Luckstone, Staff of Power, Sentinel Shield)', () => {
+    const { equipmentAbilityCheckBonus } = require('./ability');
+
+    it('adds +1 to ability checks, all skills, passive scores, and saving throws for Stone of Good Luck (and respects Athas)', () => {
+      const wiz = hero({
+        char_class: 'Wizard',
+        char_level: 5,
+        proficiency_bonus: 3,
+        dnd_edition: '2024 Revision (5.5e)',
+        stats: { STR: 10, DEX: 14, CON: 14, INT: 18, WIS: 12, CHA: 10 },
+        skill_proficiencies: ['Arcana', 'Perception'],
+        saving_throws: ['INT', 'WIS'],
+        skills: undefined,
+        passive_perception: undefined,
+        saving_throw_values: undefined,
+        equipment: [
+          { name: 'Stone of Good Luck (Luckstone)', equipped: true, attuned: true } as any,
+          { name: 'Staff of Power', equipped: true, attuned: true } as any,
+        ],
+      });
+
+      expect(equipmentAbilityCheckBonus(wiz)).toBe(1);
+      expect(abilityCheckModifier(wiz, 'STR')).toBe(1); // 0 STR + 1 Luckstone
+      expect(skillModifier(wiz, skill('Arcana', 'INT'))).toBe(8); // +4 INT + 3 PB + 1 Luckstone
+      expect(passivePerceptionOf(wiz)).toBe(15); // 10 + 1 WIS + 3 PB + 1 Luckstone
+      expect(savingThrowModifier(wiz, 'CON')).toBe(5); // +2 CON + 1 Luckstone + 2 Staff of Power
+
+      const suppressed = { ...wiz, magic_items_suppressed: true };
+      expect(equipmentAbilityCheckBonus(suppressed)).toBe(0);
+      expect(abilityCheckModifier(suppressed, 'STR')).toBe(0);
+      expect(skillModifier(suppressed, skill('Arcana', 'INT'))).toBe(7);
+      expect(savingThrowModifier(suppressed, 'CON')).toBe(2);
+    });
+
+    it('grants initiative advantage from Sentinel Shield and suppresses it under Athas', () => {
+      const cleric = hero({
+        char_class: 'Cleric',
+        equipment: [{ name: 'Sentinel Shield', equipped: true } as any],
+      });
+      expect(hasInitiativeAdvantage(cleric)).toBe(true);
+      expect(hasInitiativeAdvantage({ ...cleric, magic_items_suppressed: true })).toBe(false);
+    });
+  });
 });

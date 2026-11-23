@@ -730,6 +730,24 @@ def get_character_weapon_proficiencies(
                 if tok in combined or tok.rstrip("s") in combined:
                     profs.add(tok)
 
+    if not bool(char_data.get("magic_items_suppressed", False)):
+        items_lookup = build_armor_items_lookup()
+        max_attuned = get_max_attunement_slots(char_data)
+        attuned_count = 0
+        for equip in char_data.get("equipment", []) or []:
+            if not isinstance(equip, dict) or not equip.get("equipped"):
+                continue
+            if equip.get("attuned"):
+                attuned_count += 1
+                if attuned_count > max_attuned:
+                    continue
+            raw_eq = str(equip.get("name") or "").strip().lower()
+            item_db = items_lookup.get(raw_eq) or items_lookup.get(_strip_armor_modifiers(raw_eq))
+            for wp in (item_db or {}).get("weapon_proficiencies") or []:
+                norm = _normalize_weapon_prof_token(wp)
+                if norm:
+                    profs.add(norm)
+
     return profs
 
 

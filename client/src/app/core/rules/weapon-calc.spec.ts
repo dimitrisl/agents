@@ -145,4 +145,34 @@ describe('Weapon Bonus Calculations and Breakdown', () => {
     expect(breakdownCha.damage.totalBonus).toBe(4);
     expect(breakdownCha.damage.formulaText).not.toContain('(Agonizing)');
   });
+
+  it('adds +2 bow damage for Bracers of Archery on Longbow/Shortbow only and suppresses under Athas', () => {
+    const archer: CharacterSchema = {
+      ...uladBhor,
+      equipment: [{ name: 'Bracers of Archery', equipped: true, attuned: true } as any],
+    };
+    const longbow: Weapon = {
+      name: 'Longbow',
+      attack_bonus: '+9',
+      damage_dice: '1d8 piercing',
+      range: '150/600',
+    };
+    const longsword: Weapon = {
+      name: 'Longsword',
+      attack_bonus: '+8',
+      damage_dice: '1d8 slashing',
+    };
+
+    const bowBd = calculateWeaponBreakdown(longbow, archer);
+    expect(bowBd.damage.totalBonus).toBe(7); // 5 DEX + 2 Bracers
+    expect(bowBd.damage.formulaText).toContain('+2 (Bracers of Archery)');
+
+    const swordBd = calculateWeaponBreakdown(longsword, archer);
+    expect(swordBd.damage.totalBonus).toBe(4); // 4 STR only (Bracers do not apply to melee weapons)
+    expect(swordBd.damage.formulaText).not.toContain('Bracers of Archery');
+
+    const suppBd = calculateWeaponBreakdown(longbow, { ...archer, magic_items_suppressed: true });
+    expect(suppBd.damage.totalBonus).toBe(5);
+    expect(suppBd.damage.formulaText).not.toContain('Bracers of Archery');
+  });
 });

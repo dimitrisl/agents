@@ -19,7 +19,7 @@ The `data/rules/` directory stores static JSON datasets for the **2014 5th Editi
 | `races_2014.json` / `races_2024.json` | 2014 / 2024 | Species traits, speed, structured `senses`, `damage_resistances`, `save_advantages`, `weapon_proficiencies`, `innate_spells` (`by_level`), `lineage_spells` (2024 Elf/Gnome/Tiefling sub-lineage spells), and ancestral mechanics. |
 | `weapons.json` & `weapon_masteries_2024.json` | Both / 2024 | Weapon properties, damage dice, and 2024 mastery definitions (Topple, Nick, Vex, Slow, Sap, Push, Graze, Cleave) exposed via `GET /api/v1/rules/weapon-masteries`. |
 | `monsters_2014.json` / `monsters_2024.json` | 2014 / 2024 | Official SRD monster statblocks (`srd_2014:<slug>`, `srd_2024:<slug>`) with ability scores, AC, HP, CR, traits, and structured attack/damage actions. |
-| `items.json`, `skills.json`, `languages.json` | Both | Standard items (including armor `min_str` Strength requirements), skills with associated ability scores, and languages. |
+| `items.json`, `skills.json`, `languages.json` | Both | Expanded SRD equipment & magic items catalog (`items.json`: 100+ items covering all Light/Medium/Heavy Armors incl. `min_str` & named magic armors *Elven Chain*/*Dwarven Plate*/*Dragon Scale Mail*, Shields `+1/+2/+3`/`Sentinel`/`Spellguard`, *Bracers of Defense*, *Robe of the Archmagi*, *Stone of Good Luck*, *Bracers of Archery*, *Headband of Intellect*, *Belts of Giant Strength*, *Ioun Stones*/Tomes, *Staff of Power*/*Magi*, *Wand of the War Mage*/*Rod of the Pact Keeper*/*Amulet of the Devout* `+1/+2/+3` & TCoE foci, Potions, Scrolls, and Containers), skills with associated ability scores, and languages. |
 
 ---
 
