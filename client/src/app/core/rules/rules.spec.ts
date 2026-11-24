@@ -20,6 +20,7 @@ import {
   formatClassSummary,
   formatModifier,
   formatSubclassSummary,
+  getMulticlassEligibility,
   hasExhaustionDisadvantage,
   hasJackOfAllTrades,
   hasRemarkableAthlete,
@@ -1522,6 +1523,74 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
       });
       expect(equipmentAbilityCheckBonus(commaHero)).toBe(1);
       expect(savingThrowModifier(commaHero, 'CON')).toBe(4); // +2 CON + 1 Luckstone + 1 Cloak (Scarab adds +0)
+    });
+  });
+
+  describe('Multiclass Eligibility & 2014/2024 Proficiencies (#264)', () => {
+    it('evaluates 13+ rules (Fighter OR vs Paladin AND) and current-class gatekeeper lock', () => {
+      const fighter = hero({
+        char_class: 'Fighter',
+        char_level: 3,
+        stats: { STR: 16, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 10 },
+        classes: [{ class_name: 'Fighter', level: 3 }],
+      });
+      const options = getMulticlassEligibility(fighter);
+      expect(options).toHaveLength(13);
+
+      const byName = new Map(options.map((o) => [o.class_name, o]));
+      expect(byName.get('Fighter')?.is_existing).toBe(true);
+      expect(byName.get('Fighter')?.eligible).toBe(true);
+      expect(byName.get('Rogue')?.eligible).toBe(true);
+      expect(byName.get('Barbarian')?.eligible).toBe(true);
+      expect(byName.get('Wizard')?.eligible).toBe(false);
+      expect(byName.get('Paladin')?.eligible).toBe(false); // STR 16 ok, CHA 10 fails
+      expect(byName.get('Ranger')?.eligible).toBe(false); // DEX 14 ok, WIS 12 fails
+
+      // Fighter missing STR/DEX 13 cannot multiclass into anything, but still levels Fighter
+      const weakFighter = hero({
+        char_class: 'Fighter',
+        char_level: 3,
+        stats: { STR: 10, DEX: 10, CON: 14, INT: 16, WIS: 16, CHA: 16 },
+        classes: [{ class_name: 'Fighter', level: 3 }],
+      });
+      const weakMap = new Map(getMulticlassEligibility(weakFighter).map((o) => [o.class_name, o]));
+      expect(weakMap.get('Fighter')?.eligible).toBe(true);
+      expect(weakMap.get('Wizard')?.eligible).toBe(false);
+      expect(weakMap.get('Wizard')?.missing_prerequisites[0]).toContain('Current class Fighter requires STR 13 or DEX 13');
+    });
+
+    it('matches 2014 vs 2024 PHB multiclass proficiency grants for Druid, Monk, Warlock, and Rogue', () => {
+      const proStats = { STR: 14, DEX: 14, CON: 14, INT: 14, WIS: 14, CHA: 14 };
+      const hero2014 = hero({
+        char_class: 'Fighter',
+        char_level: 4,
+        dnd_edition: '2014 Edition',
+        stats: proStats,
+      });
+      const hero2024 = hero({
+        char_class: 'Fighter',
+        char_level: 4,
+        dnd_edition: '2024 Revision (5.5e)',
+        stats: proStats,
+      });
+
+      const map2014 = new Map(getMulticlassEligibility(hero2014).map((o) => [o.class_name, o]));
+      const map2024 = new Map(getMulticlassEligibility(hero2024).map((o) => [o.class_name, o]));
+
+      expect(map2014.get('Druid')?.granted_proficiencies).toEqual(['Light Armor', 'Medium Armor', 'Shields']);
+      expect(map2024.get('Druid')?.granted_proficiencies).toEqual(['Light Armor', 'Shields']);
+
+      expect(map2014.get('Monk')?.granted_proficiencies).toEqual(['Simple Weapons', 'Shortswords']);
+      expect(map2024.get('Monk')?.granted_proficiencies).toEqual([]);
+
+      expect(map2014.get('Warlock')?.granted_proficiencies).toEqual(['Light Armor', 'Simple Weapons']);
+      expect(map2024.get('Warlock')?.granted_proficiencies).toEqual(['Light Armor']);
+
+      expect(map2024.get('Rogue')?.granted_proficiencies).toEqual([
+        'Light Armor',
+        "Thieves' Tools",
+        '1 Rogue Skill',
+      ]);
     });
   });
 });

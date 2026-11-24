@@ -662,4 +662,114 @@ describe('LevelUpModalComponent', () => {
     fixture.detectChanges();
     expect(component.hasDuplicateSiblingChoices).toBe(true);
   });
+
+  it('locks ineligible multiclass options, prevents switching to locked classes, and renders Level 1 summary & 13-class matrix', () => {
+    // Thorin: Fighter 3, STR 16, DEX 12, CON 16, INT 10, WIS 12, CHA 8
+    // Meets STR 13 -> Barbarian (STR 13) is eligible; Rogue (DEX 13), Wizard (INT 13), Paladin (STR 13 & CHA 13) are locked
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      classes: [{ class_name: 'Fighter', level: 3 }],
+      saving_throws: ['STR', 'CON'],
+    });
+    fixture.componentRef.setInput('nextLevel', 4);
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Fighter' });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const options = Array.from(
+      document.body.querySelectorAll('select option')
+    ) as HTMLOptionElement[];
+    const wizardOpt = options.find((o) => o.value === 'Wizard');
+    const barbOpt = options.find((o) => o.value === 'Barbarian');
+    const paladinOpt = options.find((o) => o.value === 'Paladin');
+
+    expect(wizardOpt?.disabled).toBe(true);
+    expect(wizardOpt?.textContent).toContain('🔒 Wizard');
+    expect(wizardOpt?.textContent).toContain('INT 13');
+    expect(paladinOpt?.disabled).toBe(true);
+    expect(barbOpt?.disabled).toBe(false);
+    expect(barbOpt?.textContent).toContain('✓ Barbarian');
+
+    // Guard blocks switching directly to an ineligible class
+    const emitSpy = jest.spyOn(component.userChoicesChange, 'emit');
+    component.onClassChange('Wizard');
+    expect(emitSpy).not.toHaveBeenCalled();
+
+    // Expand 13-Class Matrix
+    const matrixToggle = document.body.querySelector(
+      '[data-testid="toggle-multiclass-matrix"]'
+    ) as HTMLButtonElement | null;
+    expect(matrixToggle).not.toBeNull();
+    matrixToggle!.click();
+    fixture.detectChanges();
+
+    const matrix = document.body.querySelector('[data-testid="multiclass-eligibility-matrix"]');
+    expect(matrix?.textContent).toContain('Multiclass Eligibility Overview (13 Classes)');
+    expect(matrix?.textContent).toContain('INT 13');
+
+    // Select eligible Barbarian from matrix -> switches level_up_class and shows Level 1 summary card
+    const matrixButtons = Array.from(
+      matrix!.querySelectorAll('button')
+    ) as HTMLButtonElement[];
+    const barbMatrixBtn = matrixButtons.find((b) => b.textContent?.includes('Barbarian'));
+    expect(barbMatrixBtn?.disabled).toBe(false);
+    barbMatrixBtn!.click();
+    fixture.detectChanges();
+
+    expect(emitSpy).toHaveBeenCalledWith({ level_up_class: 'Barbarian' });
+    const summaryCard = document.body.querySelector('[data-testid="multiclass-summary-card"]');
+    expect(summaryCard?.textContent).toContain('Multiclassing into Barbarian (Level 1)');
+    expect(summaryCard?.textContent).toContain('Hit Die d12');
+    expect(summaryCard?.textContent).toContain('Shields');
+    expect(summaryCard?.textContent).toContain('Simple Weapons');
+    expect(summaryCard?.textContent).toContain('Martial Weapons');
+    expect(summaryCard?.textContent).toContain('STR, CON');
+  });
+
+  it('requires PHB multiclass bonus skill selection before enabling Apply Level Up and warns when current class lacks 13+', () => {
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      stats: { STR: 10, DEX: 10, CON: 14, INT: 16, WIS: 14, CHA: 14 },
+      classes: [{ class_name: 'Fighter', level: 3 }],
+    });
+    fixture.componentRef.setInput('nextLevel', 4);
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    const warning = document.body.querySelector('[data-testid="multiclass-current-warning"]');
+    expect(warning?.textContent).toContain('Fighter requires STR 13 or DEX 13');
+
+    // Now test eligible Fighter -> Rogue L1 requiring a bonus skill pick
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      stats: { STR: 16, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 8 },
+      classes: [{ class_name: 'Fighter', level: 4 }],
+    });
+    fixture.componentRef.setInput('nextLevel', 5);
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 7,
+      new_total_hp: 45,
+      automatic_changes: ['Multiclass Proficiencies (Rogue): Light Armor, Thieves\' Tools'],
+      choices_required: [
+        { type: 'skill', label: 'Multiclass Bonus Skill (Rogue)', options: ['Acrobatics', 'Stealth'] },
+      ],
+    });
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Rogue' });
+    fixture.detectChanges();
+
+    let applyBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Apply Level Up')
+    ) as HTMLButtonElement | null;
+    expect(component.hasIncompleteMulticlassSkillChoice).toBe(true);
+    expect(applyBtn?.disabled).toBe(true);
+
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Rogue', skill_0: 'Acrobatics' });
+    fixture.detectChanges();
+
+    applyBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Apply Level Up')
+    ) as HTMLButtonElement | null;
+    expect(component.hasIncompleteMulticlassSkillChoice).toBe(false);
+    expect(applyBtn?.disabled).toBe(false);
+  });
 });

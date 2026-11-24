@@ -3025,11 +3025,16 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     import math
 
     from backend.repositories.rules_repository import RulesRepository
+    from backend.services.validation_service import (
+        get_multiclass_eligibility,
+        get_multiclass_skill_options,
+        validate_multiclass_target,
+    )
 
     classes = char_data.get("classes", [])
     user_choices = user_choices or {}
 
-    target_class = user_choices.get("level_up_class", char_data.get("char_class", "Fighter"))
+    target_class = user_choices.get("level_up_class") or char_data.get("char_class") or "Fighter"
 
     # Calculate the current level of the TARGET class
     class_current_level = 0
@@ -3049,8 +3054,17 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     if target_total_level > 20:
         raise ValueError("Character cannot exceed level 20.")
 
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     is_2024 = "2024" in str(edition)
+
+    has_existing_class = bool(classes) or bool(str(char_data.get("char_class") or "").strip())
+    is_new_multiclass = has_existing_class and class_current_level == 0
+    multiclass_options = get_multiclass_eligibility(char_data, edition=edition)
+    mc_target_info = (
+        validate_multiclass_target(char_data, target_class, edition=edition)
+        if is_new_multiclass
+        else None
+    )
 
     # Override char_class to target_class for the rest of this function
     char_class = target_class
@@ -3152,6 +3166,24 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     static_features = resolve_level_up_automatic_features(
         char_class, target_level, subclass_to_use, edition
     )
+    if is_new_multiclass and mc_target_info is not None:
+        granted_list = mc_target_info.get("granted_proficiencies") or []
+        prof_summary = (
+            ", ".join(granted_list)
+            if granted_list
+            else "No additional armor, weapon, or tool proficiencies"
+        )
+        static_features = [
+            {
+                "name": f"Multiclass Proficiencies ({char_class})",
+                "description": (
+                    f"PHB Multiclassing grants: {prof_summary}. "
+                    f"(Does not grant {char_class} saving throw proficiencies.)"
+                ),
+                "source": "Class",
+            },
+            *static_features,
+        ]
 
     if not current_subclass:
         subclasses = rules_repo.get_subclasses(char_class, edition)
@@ -3515,6 +3547,20 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
             if replaceable_spells:
                 spell_swap_options = list(spells)
 
+    if is_new_multiclass and char_class.strip().lower() in ("bard", "ranger", "rogue"):
+        mc_skills = get_multiclass_skill_options(
+            char_class, char_data.get("skill_proficiencies") or []
+        )
+        if mc_skills:
+            choices.append(
+                {
+                    "type": "skill",
+                    "label": f"Multiclass {char_class}: Choose 1 Bonus Skill Proficiency",
+                    "options": mc_skills,
+                    "ai_recommendation": f"Choose {mc_skills[0]} to complement your multiclass build.",
+                }
+            )
+
     # 4. Expertise
     skills = [
         "Acrobatics",
@@ -3655,6 +3701,7 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
         "choices_required": choices,
         "replaceable_spells": replaceable_spells,
         "spell_swap_options": spell_swap_options,
+        "multiclass_options": multiclass_options,
         "updated_proficiency_bonus": updated_pb,
         "updated_spell_slots": updated_spell_slots,
         "new_spells_known": [],

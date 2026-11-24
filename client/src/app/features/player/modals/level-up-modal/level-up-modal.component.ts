@@ -4,24 +4,33 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { EMPTY, Subject, catchError, switchMap } from 'rxjs';
-import { ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent } from '../../../../shared/ui';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent } from '../../../../shared/ui';
 import {
   LevelUpAnalysis,
   LevelUpBuildRecommendation,
   LevelUpChoice,
   LevelUpFeatMetadata,
   LevelUpRecommendationsResponse,
+  MulticlassOption,
   CharacterSchema,
 } from '../../../../core/models/character.model';
 import { DiceService } from '../../../../core/services/dice.service';
-import { abilityModifier, is2024Edition } from '../../../../core/rules';
+import { abilityModifier, getMulticlassEligibility, is2024Edition } from '../../../../core/rules';
 import { hitDieSidesFor } from '../../../../core/data/class-combat.data';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-level-up-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ForgeBadgeComponent,
+    ForgeButtonDirective,
+    ForgeModalComponent,
+    ForgeSelectDirective,
+    ForgeSpinnerComponent,
+  ],
   templateUrl: './level-up-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -77,6 +86,7 @@ export class LevelUpModalComponent {
   isLoadingRecommendations = false;
   recommendationsError: string | null = null;
   showRecommendations = false;
+  showMulticlassMatrix = false;
   planningLevel: number | null = null;
 
   readonly abilityStatOptions = [
@@ -101,24 +111,78 @@ export class LevelUpModalComponent {
     ];
   }
 
-  get availableClasses() {
-    const all = [
-      "Artificer",
-      "Barbarian",
-      "Bard",
-      "Cleric",
-      "Druid",
-      "Fighter",
-      "Monk",
-      "Paladin",
-      "Ranger",
-      "Rogue",
-      "Sorcerer",
-      "Warlock",
-      "Wizard",
-    ];
-    const current = this.characterClasses.map((c) => (c.class_name || '').toLowerCase());
-    return all.filter((c) => !current.includes(c.toLowerCase()));
+  get multiclassOptions(): MulticlassOption[] {
+    if (this.levelUpAnalysis?.multiclass_options?.length) {
+      return this.levelUpAnalysis.multiclass_options;
+    }
+    return getMulticlassEligibility(this.character);
+  }
+
+  get existingClassOptions(): MulticlassOption[] {
+    return this.multiclassOptions.filter((opt) => opt.is_existing);
+  }
+
+  get newMulticlassOptions(): MulticlassOption[] {
+    return this.multiclassOptions.filter((opt) => !opt.is_existing);
+  }
+
+  get eligibleNewClassCount(): number {
+    return this.newMulticlassOptions.filter((opt) => opt.eligible).length;
+  }
+
+  get selectedClassOption(): MulticlassOption | null {
+    const target = (this.levelUpClass || '').trim().toLowerCase();
+    return (
+      this.multiclassOptions.find(
+        (opt) => opt.class_name.trim().toLowerCase() === target,
+      ) ?? null
+    );
+  }
+
+  get isMulticlassingIntoNewClass(): boolean {
+    const selected = this.selectedClassOption;
+    if (selected) {
+      return !selected.is_existing;
+    }
+    const target = (this.levelUpClass || '').trim().toLowerCase();
+    return !this.characterClasses.some(
+      (c) => (c.class_name || '').trim().toLowerCase() === target,
+    );
+  }
+
+  get currentClassPrereqWarning(): string | null {
+    const existingNames = new Set(
+      this.existingClassOptions.map((c) => c.class_name.trim().toLowerCase()),
+    );
+    const reasons = new Set<string>();
+    for (const opt of this.newMulticlassOptions) {
+      for (const reason of opt.missing_prerequisites || []) {
+        const beforeReq = (reason.split(' requires ')[0] || '').trim().toLowerCase();
+        const normalized = beforeReq.replace(/^current class\s+/, '');
+        if (beforeReq.startsWith('current class ') || existingNames.has(normalized)) {
+          reasons.add(reason);
+        }
+      }
+    }
+    if (reasons.size === 0) return null;
+    return `Multiclassing out is locked until existing class prerequisites are met: ${Array.from(reasons).join('; ')}.`;
+  }
+
+  get availableClasses(): string[] {
+    return this.newMulticlassOptions.map((opt) => opt.class_name);
+  }
+
+  hitDieFor(className: string): number {
+    return hitDieSidesFor(className);
+  }
+
+  toggleMulticlassMatrix(): void {
+    this.showMulticlassMatrix = !this.showMulticlassMatrix;
+  }
+
+  selectClassFromMatrix(opt: MulticlassOption): void {
+    if (!opt.eligible) return;
+    this.onClassChange(opt.class_name);
   }
 
   get levelUpClass() {
@@ -190,6 +254,12 @@ export class LevelUpModalComponent {
   }
 
   onClassChange(val: string) {
+    const targetOption = this.multiclassOptions.find(
+      (o) => o.class_name.trim().toLowerCase() === (val || '').trim().toLowerCase(),
+    );
+    if (targetOption && !targetOption.is_existing && !targetOption.eligible) {
+      return;
+    }
     // When changing class, reset other choices like hp_method to avoid mismatched hp increases
     this.planningLevel = null;
     this.userChoices = { 'level_up_class': val };
@@ -465,6 +535,13 @@ export class LevelUpModalComponent {
       }
       return false;
     });
+  }
+
+  get hasIncompleteMulticlassSkillChoice(): boolean {
+    const required = this.levelUpAnalysis?.choices_required || [];
+    return required.some(
+      (choice, i) => choice.type === 'skill' && !this.userChoices[`skill_${i}`],
+    );
   }
 
   selectHpAverage() {
