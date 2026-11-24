@@ -627,6 +627,42 @@ def test_multiclass_edge_cases_subclass_isolation_skill_abuse_and_legacy_slots(a
     )
     assert arbitrary_skill_resp.status_code == 400
 
+    # 2b. Hero already proficient in every Rogue skill: no skill pick is offered, and any
+    # crafted skill_* value must still be rejected (no unvalidated bypass when options are empty)
+    all_rogue_skills = [
+        "Acrobatics",
+        "Athletics",
+        "Deception",
+        "Insight",
+        "Intimidation",
+        "Investigation",
+        "Perception",
+        "Performance",
+        "Persuasion",
+        "Sleight of Hand",
+        "Stealth",
+    ]
+    skilled_hero = _hero(char_id="char-all-rogue-skills", skill_proficiencies=all_rogue_skills)
+    raw_db["characters"].insert_one(skilled_hero.copy())
+    skilled_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": skilled_hero, "user_choices": {"level_up_class": "Rogue"}},
+    ).json()
+    assert not [c for c in skilled_analysis["choices_required"] if c["type"] == "skill"]
+    crafted_resp = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": skilled_hero["char_id"],
+            "analysis": skilled_analysis,
+            "user_choices": {
+                "level_up_class": "Rogue",
+                "hp_method": "average",
+                "skill_0": "Arcana",
+            },
+        },
+    )
+    assert crafted_resp.status_code == 400
+
     # 3. Legacy character without `classes` array computes Level 1 Wizard slots (not Level 5 slots)
     legacy_fighter = _hero(
         char_id="char-legacy-noclasses",

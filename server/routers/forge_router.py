@@ -816,7 +816,7 @@ async def apply_level_up(
                 canon_skill = next(
                     (s for s in allowed_mc_skills if s.lower() == clean_skill.lower()), None
                 )
-                if allowed_mc_skills and canon_skill is None:
+                if canon_skill is None:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Skill '{clean_skill}' is not a valid multiclass skill option for {target_class}.",
