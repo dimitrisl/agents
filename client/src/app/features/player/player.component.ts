@@ -3913,4 +3913,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   getModifierString = (val: number): string => {
     return formatModifier(abilityModifier(val));
   }
+
+  syncOfflineVault(): void {
+    this.charState
+      .loadCharacters()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.rollToast.showMessage('📡 VAULT SYNCED', 'Reconnected and refreshed your character vault.');
+        },
+        error: () => {
+          this.rollToast.showMessage('📡 STILL OFFLINE', 'Could not reach the server. Staying in offline read/dice mode.');
+        },
+      });
+  }
 }

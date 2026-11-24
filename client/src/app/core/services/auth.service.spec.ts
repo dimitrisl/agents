@@ -233,4 +233,46 @@ describe('AuthService', () => {
       expect(localStorage.getItem('currentUser')).toContain('new_hero');
     });
   });
+
+  describe('offline Service Worker cache cleanup (#267)', () => {
+    it('deletes :data: CacheStorage buckets on logout while keeping app shell caches intact', async () => {
+      const originalCachesDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+      const deletedKeys: string[] = [];
+      const mockCaches = {
+        keys: jest.fn().mockResolvedValue([
+          'ngsw:/:1:assets:app:cache',
+          'ngsw:/:data:dynamic:characters-api:cache',
+          'ngsw:/:data:dynamic:rules-api:cache',
+        ]),
+        delete: jest.fn((key: string) => {
+          deletedKeys.push(key);
+          return Promise.resolve(true);
+        }),
+      };
+      Object.defineProperty(globalThis, 'caches', {
+        value: mockCaches,
+        configurable: true,
+        writable: true,
+      });
+
+      try {
+        service.logout();
+        // Flush microtask queue from caches.keys().then(...)
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(mockCaches.keys).toHaveBeenCalledTimes(1);
+        expect(deletedKeys).toEqual([
+          'ngsw:/:data:dynamic:characters-api:cache',
+          'ngsw:/:data:dynamic:rules-api:cache',
+        ]);
+      } finally {
+        if (originalCachesDescriptor) {
+          Object.defineProperty(globalThis, 'caches', originalCachesDescriptor);
+        } else {
+          delete (globalThis as any).caches;
+        }
+      }
+    });
+  });
 });

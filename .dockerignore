@@ -1,0 +1,35 @@
+# Git & VCS
+.git
+.github
+.gitignore
+
+# Secrets & local environment
+.env
+.env.*
+!.env_example
+
+# Python local caches & virtualenvs
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Node & Angular build artifacts
+client/node_modules
+client/dist
+client/.angular
+client/coverage
+
+# Tests & QA artifacts
+tests
+**/*.spec.ts
+
+# Runtime mutable media/data (persisted via Docker volumes; keep data/rules/)
+data/portraits/*
+data/uploads/*
+data/module_pics/*
+data/audio/*
+*.log

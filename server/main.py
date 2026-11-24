@@ -4,13 +4,15 @@ import sys
 from contextlib import asynccontextmanager
 
 import slowapi.middleware
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from slowapi.errors import RateLimitExceeded
 
 from server.config import settings
-from server.db_async import close_mongo_connection, connect_to_mongo
+from server.db_async import close_mongo_connection, connect_to_mongo, get_database
 from server.rate_limiter import (
     PhyrexianSlowAPIMiddleware,
     custom_find_route_handler,
@@ -127,6 +129,29 @@ async def root():
         "version": settings.VERSION,
         "docs": "/docs",
     }
+
+
+@app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
+@limiter.exempt
+async def health_check(db: AsyncIOMotorDatabase = Depends(get_database)):
+    """Liveness and database connectivity probe for container/orchestrator healthchecks."""
+    try:
+        await db.command("ping")
+        return {
+            "status": "healthy",
+            "database": "ok",
+            "version": settings.VERSION,
+        }
+    except Exception as exc:
+        logger.warning("Healthcheck database ping failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": "unreachable",
+                "version": settings.VERSION,
+            },
+        )
 
 
 def main():

@@ -2473,4 +2473,43 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();
   });
+
+  it('displays offline cached vault banner and triggers vault resync on button click (#267)', () => {
+    const { http, charState, fixture } = setupPlayer({
+      char_id: 'offline-hero-267',
+      char_name: 'Kaelen',
+      active_campaign: undefined,
+    });
+
+    charState.isOfflineCached.set(true);
+    charState.isOnline.set(false);
+    fixture.detectChanges();
+
+    const banner: HTMLElement | null = fixture.nativeElement.querySelector(
+      '[data-testid="offline-cache-banner"]'
+    );
+    expect(banner).toBeTruthy();
+    expect(banner?.textContent).toContain('Offline Read/Dice Mode');
+
+    const syncBtn: HTMLButtonElement | null = fixture.nativeElement.querySelector(
+      '[data-testid="sync-offline-vault-btn"]'
+    );
+    expect(syncBtn).toBeTruthy();
+
+    charState.isOnline.set(true);
+    syncBtn!.click();
+    fixture.detectChanges();
+
+    const resyncReq = http.expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters'));
+    resyncReq.flush({ characters: [charState.activeCharacter()], unreadable: [] });
+    fixture.detectChanges();
+
+    expect(charState.isOfflineCached()).toBe(false);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="offline-cache-banner"]')
+    ).toBeNull();
+
+    http.match(() => true).forEach((r) => r.flush({}));
+    fixture.destroy();
+  });
 });

@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, shareReplay, tap } from 'rxjs';
 import { CharacterSchema } from '../models/character.model';
@@ -8,13 +8,23 @@ import { environment } from '../../../environments/environment';
 /** The hero the player last had open, restored after a page refresh. */
 const ACTIVE_CHARACTER_KEY = 'phyrexian_forge_active_char';
 const ACTIVE_CHARACTER_SNAPSHOT_KEY = 'phyrexian_forge_active_char_snapshot';
+const VAULT_SNAPSHOT_KEY = 'phyrexian_forge_vault_snapshot';
 const ACTIVE_EDITION_KEY = 'phyrexian_forge_active_edition';
+const USER_STORAGE_KEY = 'currentUser';
+
+interface VaultSnapshot {
+  ownerId: string | null;
+  savedAt: string;
+  characters: CharacterSchema[];
+  unreadable?: any[];
+}
 
 @Injectable({
   providedIn: 'root',
 })
 export class CharacterStateService {
   private readonly API_URL = `${environment.apiBaseUrl}/characters`;
+  private readonly destroyRef = inject(DestroyRef);
 
   // Signals
   readonly characters = signal<CharacterSchema[]>([]);
@@ -61,6 +71,10 @@ export class CharacterStateService {
    */
   readonly vaultStatus = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   readonly isOfflineCached = signal<boolean>(false);
+  readonly isOnline = signal<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine !== false : true
+  );
+  readonly cachedAt = signal<string | null>(null);
 
   constructor(private http: HttpClient) {
     // Remember whichever hero becomes active, however it got selected
@@ -68,9 +82,18 @@ export class CharacterStateService {
     effect(() => {
       const char = this.activeCharacter();
       const id = char?.char_id;
-      if (id && id !== 'default_paladin') {
+      if (id && id !== 'default_paladin' && !this.isOfflineCached()) {
         this.storeActiveId(id);
         this.storeActiveSnapshot(char);
+      }
+    });
+
+    // Persist full vault snapshot whenever live server state updates
+    effect(() => {
+      const list = this.characters();
+      const unreadable = this.unreadableCharacters();
+      if (this.loaded && !this.isOfflineCached()) {
+        this.storeVaultSnapshot(list, unreadable);
       }
     });
 
@@ -84,6 +107,24 @@ export class CharacterStateService {
         );
       }
     });
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      const onOnline = () => {
+        this.isOnline.set(true);
+        if (this.isOfflineCached() || this.vaultStatus() === 'error') {
+          this.loadCharacters().subscribe({ error: () => {} });
+        }
+      };
+      const onOffline = () => {
+        this.isOnline.set(false);
+      };
+      window.addEventListener('online', onOnline);
+      window.addEventListener('offline', onOffline);
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener('online', onOnline);
+        window.removeEventListener('offline', onOffline);
+      });
+    }
   }
 
   /**
@@ -110,10 +151,14 @@ export class CharacterStateService {
           this.loaded = true;
           this.vaultStatus.set('loaded');
           this.isOfflineCached.set(false);
+          this.isOnline.set(true);
+          this.cachedAt.set(null);
           this.inFlight$ = null;
           const chars = resp.characters || [];
-          this.unreadableCharacters.set(resp.unreadable || []);
+          const unreadable = resp.unreadable || [];
+          this.unreadableCharacters.set(unreadable);
           this.characters.set(chars);
+          this.storeVaultSnapshot(chars, unreadable);
           const available = this.filteredCharacters();
           const currentActive = this.activeCharacter();
 
@@ -136,17 +181,42 @@ export class CharacterStateService {
             }
           }
         },
-        error: () => {
+        error: (err) => {
           this.inFlight$ = null;
-          const cached = this.readActiveSnapshot();
-          if (cached) {
+          const status = err?.status;
+          if (status === 401 || status === 403) {
+            this.loaded = false;
+            this.vaultStatus.set('error');
+            this.isOfflineCached.set(false);
+            this.cachedAt.set(null);
+            this.characters.set([]);
+            this.activeCharacter.set(null);
+            return;
+          }
+          if (status === 0 && (typeof navigator === 'undefined' || navigator.onLine === false)) {
+            this.isOnline.set(false);
+          }
+          const snapshot = this.readVaultSnapshot();
+          if (snapshot && snapshot.characters.length > 0) {
             this.vaultStatus.set('loaded');
             this.isOfflineCached.set(true);
-            this.characters.set([cached]);
-            this.activeCharacter.set(cached);
+            this.cachedAt.set(snapshot.savedAt || null);
+            this.unreadableCharacters.set(snapshot.unreadable || []);
+            this.characters.set(snapshot.characters);
+            const available = this.filteredCharacters();
+            const currentActive = this.activeCharacter();
+            if (currentActive && available.some((c) => c.char_id === currentActive.char_id)) {
+              const matched = available.find((c) => c.char_id === currentActive.char_id) || null;
+              this.activeCharacter.set(matched);
+            } else {
+              this.activeCharacter.set(
+                this.preferredActive(available.length > 0 ? available : snapshot.characters)
+              );
+            }
           } else {
             this.vaultStatus.set('error');
             this.isOfflineCached.set(false);
+            this.cachedAt.set(null);
             this.characters.set([]);
             this.activeCharacter.set(null);
           }
@@ -200,6 +270,17 @@ export class CharacterStateService {
     }
   }
 
+  private readCurrentUserId(): string | null {
+    try {
+      const raw = localStorage.getItem(USER_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { id?: unknown };
+      return typeof parsed?.id === 'string' ? parsed.id : null;
+    } catch {
+      return null;
+    }
+  }
+
   private readActiveSnapshot(): CharacterSchema | null {
     try {
       const raw = localStorage.getItem(ACTIVE_CHARACTER_SNAPSHOT_KEY);
@@ -211,6 +292,45 @@ export class CharacterStateService {
     }
   }
 
+  private readVaultSnapshot(): VaultSnapshot | null {
+    const currentUserId = this.readCurrentUserId();
+    try {
+      const raw = localStorage.getItem(VAULT_SNAPSHOT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<VaultSnapshot>;
+        if (parsed.ownerId && parsed.ownerId !== currentUserId) {
+          this.clearActiveSnapshot();
+          return null;
+        }
+        if (Array.isArray(parsed.characters)) {
+          const valid = parsed.characters.filter((c) => c && typeof c.char_id === 'string');
+          return {
+            ownerId: typeof parsed.ownerId === 'string' ? parsed.ownerId : null,
+            savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : '',
+            characters: valid,
+            unreadable: Array.isArray(parsed.unreadable) ? parsed.unreadable : [],
+          };
+        }
+      }
+    } catch {
+      // Ignore corrupt vault snapshot; fall back to single snapshot check below.
+    }
+
+    const legacy = this.readActiveSnapshot();
+    if (!legacy) return null;
+    const legacyOwner = (legacy as any).owner_id;
+    if (typeof legacyOwner === 'string' && currentUserId && legacyOwner !== currentUserId) {
+      this.clearActiveSnapshot();
+      return null;
+    }
+    return {
+      ownerId: typeof legacyOwner === 'string' ? legacyOwner : currentUserId,
+      savedAt: '',
+      characters: [legacy],
+      unreadable: [],
+    };
+  }
+
   private storeActiveSnapshot(char: CharacterSchema | null): void {
     if (!char?.char_id) return;
     try {
@@ -220,9 +340,24 @@ export class CharacterStateService {
     }
   }
 
+  private storeVaultSnapshot(characters: CharacterSchema[], unreadable: any[] = []): void {
+    try {
+      const snapshot: VaultSnapshot = {
+        ownerId: this.readCurrentUserId(),
+        savedAt: new Date().toISOString(),
+        characters,
+        unreadable,
+      };
+      localStorage.setItem(VAULT_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Storage quota/private mode errors are non-fatal for offline cache.
+    }
+  }
+
   private clearActiveSnapshot(): void {
     try {
       localStorage.removeItem(ACTIVE_CHARACTER_SNAPSHOT_KEY);
+      localStorage.removeItem(VAULT_SNAPSHOT_KEY);
     } catch {
       // Ignore storage errors.
     }
@@ -233,6 +368,7 @@ export class CharacterStateService {
     this.loaded = false;
     this.vaultStatus.set('idle');
     this.isOfflineCached.set(false);
+    this.cachedAt.set(null);
     this.clearActiveSnapshot();
     try {
       localStorage.removeItem(ACTIVE_CHARACTER_KEY);

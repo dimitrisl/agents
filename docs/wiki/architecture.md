@@ -11,9 +11,10 @@ The system is designed with a strict **layered architecture** and a clear separa
 
 | Layer | Technology | Key Responsibility |
 | :--- | :--- | :--- |
-| **Frontend** | Angular 19 (Signals, RxJS, Tailwind v4 CSS-first tokens) | Reactive Desktop VTT (`>= 1024px`) & Mobile Companion (`< 1024px`) UI, client-side state, 3D dice rendering, VTT grid, and WebSocket client. |
-| **Backend Transport** | FastAPI, Python 3.13+ | RESTful endpoints (`/api/v1`), WebSocket channels (`/ws`), dependency injection, authentication. |
+| **Frontend** | Angular 19 (Signals, RxJS, Tailwind v4 CSS-first tokens, `@angular/service-worker`) | Reactive Desktop VTT (`>= 1024px`) & Mobile Companion (`< 1024px`) UI, PWA installability & offline cached vault/dice mode, client-side state, 3D dice rendering, VTT grid, and WebSocket client. |
+| **Backend Transport** | FastAPI, Python 3.13+ | RESTful endpoints (`/api/v1`, `/api/v1/health`), WebSocket channels (`/ws`), dependency injection, authentication. |
 | **Persistence** | MongoDB Atlas (via Motor async driver) | Persistent storage for users, characters, campaigns, members, entities, and logs. |
+| **Deployment** | Docker Compose (`Dockerfile.backend`, `Dockerfile.frontend`, `client/nginx.conf`, `docker-compose.yml`) | Multi-container production topology (MongoDB 7, non-root Python 3.13 Uvicorn API, Nginx reverse-proxy serving built Angular PWA + `/api/` & `/ws/` upgrades with persistent media volumes). |
 | **Rules Engine** | Static JSON (`data/rules/`) + `RulesRepository` | Immutable source of truth for D&D 2014 & 2024 classes, spells, feats, and items. |
 | **Calculation Engine** | `backend/services/stats_service.py` | Single source of truth for derived statistics (AC, HP, Save DCs, Proficiencies). |
 | **AI Engine** | Google GenAI SDK (`gemini-3.5-flash` default) & optional Anthropic Claude | Thematic generation, backstory enrichment, DM session recap extraction, and voice session processing. |
