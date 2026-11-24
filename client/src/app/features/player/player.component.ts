@@ -269,6 +269,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   showProficientOnly = signal(false);
   showLevelUpModal = signal(false);
   levelUpLoading = signal(false);
+  isApplyingLevelUp = signal(false);
   retryingVault = false;
   showValidationModal = signal(false);
   showWhisperInbox = signal(false);
@@ -3771,6 +3772,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (choices['hp_bonus_included'] !== undefined) {
         baselineChoices['hp_bonus_included'] = choices['hp_bonus_included'];
       }
+      this.levelUpLoading.set(true);
       this.levelUpAnalysis$.next({
         char,
         choices: baselineChoices,
@@ -3783,7 +3785,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   applyLevelUp() {
     const char = this.charState.activeCharacter();
-    if (!char || !this.levelUpAnalysis) return;
+    if (!char || !this.levelUpAnalysis || this.levelUpLoading() || this.isApplyingLevelUp()) return;
 
     const payload: LevelUpApplyRequest = {
       character_id: char.char_id!,
@@ -3791,8 +3793,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       user_choices: this.levelUpUserChoices
     };
 
+    this.isApplyingLevelUp.set(true);
     this.http.post<CharacterSchema>(`${environment.apiBaseUrl}/forge/level-up-apply`, payload)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        finalize(() => this.isApplyingLevelUp.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: (syncedChar) => {
           this.rememberVersion(syncedChar);

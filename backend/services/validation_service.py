@@ -506,9 +506,27 @@ _MULTICLASS_STAT_RULES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 
 _MULTICLASS_TOOL_PROFS: dict[str, tuple[str, ...]] = {
     "artificer": ("Thieves' Tools", "Tinker's Tools"),
+    "rogue": ("Thieves' Tools",),
+}
+
+_MULTICLASS_TOOL_GRANT_LABELS: dict[str, tuple[str, ...]] = {
+    "artificer": ("Thieves' Tools", "Tinker's Tools"),
     "bard": ("One Musical Instrument",),
     "rogue": ("Thieves' Tools",),
 }
+
+_PHB_MUSICAL_INSTRUMENTS: tuple[str, ...] = (
+    "Bagpipes",
+    "Drum",
+    "Dulcimer",
+    "Flute",
+    "Horn",
+    "Lute",
+    "Lyre",
+    "Pan Flute",
+    "Shawm",
+    "Viol",
+)
 
 _MULTICLASS_SKILL_GRANT_LABELS: dict[str, str] = {
     "bard": "1 Skill (Any)",
@@ -608,8 +626,27 @@ def check_class_multiclass_prereq(
     return False, [f"{label} requires {req} (have {have})"]
 
 
+def canonicalize_class_name(class_name: str) -> str:
+    """Return the canonical Title Case D&D class name when recognized, else trimmed input."""
+    clean = str(class_name or "").strip()
+    if not clean:
+        return clean
+    low = clean.lower()
+    for canon in ALL_CANONICAL_CLASSES:
+        if canon.lower() == low:
+            return canon
+    return clean
+
+
 def get_multiclass_tool_proficiencies(class_name: str) -> list[str]:
     return list(_MULTICLASS_TOOL_PROFS.get(str(class_name or "").strip().lower(), ()))
+
+
+def get_multiclass_instrument_options(existing_tools: Any = None) -> list[str]:
+    owned_low = {
+        str(t or "").strip().lower() for t in (existing_tools or []) if str(t or "").strip()
+    }
+    return [inst for inst in _PHB_MUSICAL_INSTRUMENTS if inst.lower() not in owned_low]
 
 
 def get_multiclass_skill_options(class_name: str, existing_skills: Any = None) -> list[str]:
@@ -636,7 +673,7 @@ def get_multiclass_granted_proficiencies(
 
     grants: list[str] = [_title(a) for a in armor_tbl.get(c_low, ())]
     grants.extend(_title(w) for w in weapon_tbl.get(c_low, ()))
-    grants.extend(_MULTICLASS_TOOL_PROFS.get(c_low, ()))
+    grants.extend(_MULTICLASS_TOOL_GRANT_LABELS.get(c_low, ()))
     if c_low in _MULTICLASS_SKILL_GRANT_LABELS:
         grants.append(_MULTICLASS_SKILL_GRANT_LABELS[c_low])
     return grants

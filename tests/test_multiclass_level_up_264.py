@@ -674,3 +674,138 @@ def test_multiclass_edge_cases_subclass_isolation_skill_abuse_and_legacy_slots(a
     assert slots.get("level_1") == 2
     assert slots.get("level_2", 0) == 0
     assert slots.get("level_3", 0) == 0
+
+
+def test_multiclass_bard_instrument_picker_lowercase_class_and_l19_ruleset_cap(auth_client, raw_db):
+    # 1. Lowercase `level_up_class` canonicalizes to Title Case and still triggers Rogue Expertise & Bard instrument/skill picks
+    char_stats = {"STR": 16, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 14}
+    hero = _hero(char_id="char-bard-264", stats=char_stats, tool_proficiencies=["Lute"])
+    raw_db["characters"].insert_one(hero.copy())
+
+    lower_rogue = analyze_level_up(hero, {"level_up_class": "rogue"})
+    assert [c for c in lower_rogue["choices_required"] if c["type"].startswith("expertise")]
+
+    # Bard multiclassing excludes already-known 'Lute' and prompts both 1 skill and 1 Musical Instrument
+    bard_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": hero, "user_choices": {"level_up_class": "bard"}},
+    ).json()
+    choices = bard_analysis["choices_required"]
+    skill_idx = next(i for i, c in enumerate(choices) if c["type"] == "skill")
+    tool_idx = next(i for i, c in enumerate(choices) if c["type"] == "tool")
+    assert "Lute" not in choices[tool_idx]["options"]
+    assert "Flute" in choices[tool_idx]["options"]
+
+    # Reject missing instrument pick
+    missing_inst = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": hero["char_id"],
+            "analysis": bard_analysis,
+            "user_choices": {
+                "level_up_class": "bard",
+                "hp_method": "average",
+                f"skill_{skill_idx}": "Arcana",
+            },
+        },
+    )
+    assert missing_inst.status_code == 400
+    assert "musical instrument" in missing_inst.json()["detail"].lower()
+
+    # Reject invalid / already-owned instrument or duplicate tool_* keys
+    for bad_tools in (
+        {f"tool_{tool_idx}": "Kazoo"},
+        {f"tool_{tool_idx}": "Lute"},
+        {f"tool_{tool_idx}": "Flute", "tool_99": "Drum"},
+    ):
+        resp_bad = auth_client.post(
+            "/api/v1/forge/level-up-apply",
+            json={
+                "character_id": hero["char_id"],
+                "analysis": bard_analysis,
+                "user_choices": {
+                    "level_up_class": "bard",
+                    "hp_method": "average",
+                    f"skill_{skill_idx}": "Arcana",
+                    **bad_tools,
+                },
+            },
+        )
+        assert resp_bad.status_code == 400
+
+    # Valid Bard multiclass with lowercase class stores canonical "Bard" and actual instrument "Flute" (not literal placeholder)
+    ok_bard = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": hero["char_id"],
+            "analysis": bard_analysis,
+            "user_choices": {
+                "level_up_class": "bard",
+                "hp_method": "average",
+                f"skill_{skill_idx}": "Arcana",
+                f"tool_{tool_idx}": "Flute",
+            },
+        },
+    )
+    assert ok_bard.status_code == 200, ok_bard.text
+    updated_bard = ok_bard.json()
+    assert any(c["class_name"] == "Bard" for c in updated_bard["classes"])
+    assert "Flute" in updated_bard["tool_proficiencies"]
+    assert "One Musical Instrument" not in updated_bard["tool_proficiencies"]
+    assert "Arcana" in updated_bard["skill_proficiencies"]
+
+    # Reject tool_0 when leveling a non-Bard class
+    fighter_hero = _hero(char_id="char-no-tool-fighter")
+    raw_db["characters"].insert_one(fighter_hero.copy())
+    f_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": fighter_hero, "user_choices": {"level_up_class": "Fighter"}},
+    ).json()
+    bad_f_tool = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": fighter_hero["char_id"],
+            "analysis": f_analysis,
+            "user_choices": {
+                "level_up_class": "Fighter",
+                "hp_method": "average",
+                "tool_0": "Flute",
+            },
+        },
+    )
+    assert bad_f_tool.status_code == 400
+
+    # 2. Level 19+ stat cap 30 honors ruleset_version when dnd_edition is omitted
+    epic_hero = _hero(
+        char_id="char-epic-2024-rv",
+        char_level=18,
+        classes=[{"class_name": "Fighter", "level": 18, "subclass": "Champion"}],
+        stats={"STR": 20, "DEX": 14, "CON": 16, "INT": 10, "WIS": 12, "CHA": 8},
+        hit_dice="18d10",
+    )
+    epic_hero.pop("dnd_edition", None)
+    epic_hero["ruleset_version"] = EDITION_2024
+    raw_db["characters"].insert_one(epic_hero.copy())
+
+    epic_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": epic_hero, "user_choices": {"level_up_class": "Fighter"}},
+    ).json()
+    epic_feat_idx = next(
+        i for i, c in enumerate(epic_analysis["choices_required"]) if c["type"] == "feat"
+    )
+    epic_resp = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": epic_hero["char_id"],
+            "analysis": epic_analysis,
+            "user_choices": {
+                "level_up_class": "Fighter",
+                "hp_method": "average",
+                f"feat_{epic_feat_idx}": "Boon of Combat Prowess",
+                f"feat_stat1_{epic_feat_idx}": "STR",
+            },
+        },
+    )
+    assert epic_resp.status_code == 200, epic_resp.text
+    assert epic_resp.json()["stats"]["STR"] == 21

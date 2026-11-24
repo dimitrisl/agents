@@ -1,11 +1,17 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'⚡ Level Up: ' + levelUpClass + ' Level ' + targetClassLevel + ' (Total Lvl ' + nextLevel + ')'" maxWidth="820px">
   <p class="mb-4 text-body text-muted">Your character has reached a new level! Review the changes below.</p>
 
-  <div class="mb-4 flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-4">
+  <div class="mb-4 flex flex-col gap-3 rounded-xl border border-hairline bg-panel p-4">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
-        <span class="text-micro font-semibold uppercase text-muted shrink-0">Class to Level Up:</span>
-        <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-50 w-full sm:w-auto flex-1">
+        <label for="level-up-class-select" class="text-micro font-semibold uppercase text-muted shrink-0">Class to Level Up:</label>
+        <select
+          id="level-up-class-select"
+          forgeSelect
+          [ngModel]="levelUpClass"
+          (ngModelChange)="onClassChange($event)"
+          [disabled]="isApplying"
+          class="min-w-0 w-full flex-1">
           <optgroup label="Current Classes">
             @if (existingClassOptions.length > 0) {
               @for (opt of existingClassOptions; track opt.class_name) {
@@ -38,6 +44,7 @@
           size="sm"
           type="button"
           class="shrink-0"
+          [disabled]="isApplying"
           (click)="toggleMulticlassMatrix()"
           [attr.aria-expanded]="showMulticlassMatrix"
           data-testid="toggle-multiclass-matrix">
@@ -46,9 +53,16 @@
       }
     </div>
 
+    @if (isAnalyzing) {
+      <div class="flex items-center gap-2 text-label text-muted" data-testid="level-up-analyzing-indicator">
+        <forge-spinner size="sm"></forge-spinner>
+        <span>Updating class analysis...</span>
+      </div>
+    }
+
     @if (currentClassPrereqWarning) {
       <div
-        class="rounded-md border border-red/40 bg-red/10 px-3 py-2 text-label text-red"
+        class="rounded-xl bg-red/10 px-3 py-2 text-label text-red"
         data-testid="multiclass-current-warning">
         🔒 {{ currentClassPrereqWarning }}
       </div>
@@ -56,7 +70,7 @@
 
     @if (isMulticlassingIntoNewClass && selectedClassOption; as mc) {
       <div
-        class="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent/10 p-3"
+        class="flex flex-col gap-2 rounded-xl bg-accent/10 p-3"
         data-testid="multiclass-summary-card">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex flex-wrap items-center gap-2">
@@ -82,7 +96,7 @@
     }
 
     @if (showMulticlassMatrix) {
-      <div class="flex flex-col gap-2 pt-2 border-t border-hairline" data-testid="multiclass-eligibility-matrix">
+      <div class="flex flex-col gap-2 pt-3 border-t border-hairline/70" data-testid="multiclass-eligibility-matrix">
         <div class="flex items-center justify-between gap-2">
           <span class="text-micro font-semibold uppercase tracking-wider text-muted">
             Multiclass Eligibility Overview ({{ matrixOptions.length }} Classes)
@@ -96,9 +110,9 @@
             <button
               type="button"
               (click)="selectClassFromMatrix(opt)"
-              [disabled]="!opt.eligible"
-              [ngClass]="selectedClassOption?.class_name === opt.class_name ? 'border-accent bg-accent/10' : 'border-hairline bg-panel'"
-              class="flex flex-col gap-2 rounded-md border p-3 text-left transition-colors hover:border-accent/60 disabled:opacity-65 disabled:cursor-not-allowed disabled:hover:border-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep">
+              [disabled]="!opt.eligible || isApplying"
+              [ngClass]="selectedClassOption?.class_name === opt.class_name ? 'border border-accent bg-accent/10' : 'bg-tile'"
+              class="flex flex-col gap-2 rounded-xl p-3 text-left transition-colors hover:bg-surface-hover disabled:opacity-65 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep">
               <span class="flex w-full items-center justify-between gap-2">
                 <span class="text-body font-semibold text-ink">
                   {{ opt.class_name }}
@@ -331,6 +345,9 @@
         @if (choice.type === 'skill' && !userChoices[choice.type + '_' + i]) {
           <span class="text-label text-gold">Choose 1 PHB multiclass bonus skill to continue.</span>
         }
+        @if (choice.type === 'tool' && !userChoices[choice.type + '_' + i]) {
+          <span class="text-label text-gold">Choose 1 PHB Musical Instrument to continue.</span>
+        }
         <p *ngIf="choice.ai_recommendation" class="text-micro text-muted">💡 AI Suggests: {{ choice.ai_recommendation }}</p>
 
         <!-- ASI / Variable Half-Feat Stat Pickers -->
@@ -450,7 +467,7 @@
   }
 
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-    <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices || hasDuplicateSiblingChoices || hasIncompleteSpellSwap || hasIncompleteMulticlassSkillChoice" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
+    <button forgeButton variant="secondary" type="button" [disabled]="isApplying" (click)="openChange.emit(false)">Cancel</button>
+    <button forgeButton variant="primary" type="button" [loading]="isApplying" [disabled]="isAnalyzing || isApplying || hasIncompleteStatChoices || hasDuplicateSiblingChoices || hasIncompleteSpellSwap || hasIncompleteMulticlassChoices" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
   </div>
 </forge-modal>

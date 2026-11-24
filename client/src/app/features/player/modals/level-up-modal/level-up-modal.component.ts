@@ -14,7 +14,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { EMPTY, Subject, catchError, switchMap } from 'rxjs';
+import { EMPTY, Subject, catchError, switchMap, takeUntil } from 'rxjs';
 import { ForgeBadgeComponent, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent } from '../../../../shared/ui';
 import {
   LevelUpAnalysis,
@@ -48,6 +48,7 @@ import { environment } from '../../../../../environments/environment';
 export class LevelUpModalComponent implements OnChanges {
   private readonly destroyRef = inject(DestroyRef);
   private readonly recommendationsTrigger$ = new Subject<void>();
+  private readonly cancelRecommendations$ = new Subject<void>();
 
   constructor(
     private dice: DiceService,
@@ -65,6 +66,7 @@ export class LevelUpModalComponent implements OnChanges {
               target_level: this.planningClassLevel,
             })
             .pipe(
+              takeUntil(this.cancelRecommendations$),
               catchError(() => {
                 this.recommendationsError =
                   'Could not load build recommendations at this time. You can still proceed with manual choices.';
@@ -88,6 +90,8 @@ export class LevelUpModalComponent implements OnChanges {
   @Input() nextLevel = 1;
   @Input() levelUpAnalysis: LevelUpAnalysis | null = null;
   @Input() userChoices: Record<string, any> = {};
+  @Input() isAnalyzing = false;
+  @Input() isApplying = false;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() applyLevelUp = new EventEmitter<void>();
@@ -109,6 +113,8 @@ export class LevelUpModalComponent implements OnChanges {
     const switchedHero = Boolean(changes['character'] && prevChar && currKey !== prevKey);
 
     if (closedModal || switchedHero) {
+      this.cancelRecommendations$.next();
+      this.isLoadingRecommendations = false;
       this.showMulticlassMatrix = false;
       this.showRecommendations = false;
       this.buildRecommendations = [];
@@ -311,6 +317,7 @@ export class LevelUpModalComponent implements OnChanges {
   }
 
   onClassChange(val: string) {
+    if (this.isApplying) return;
     const targetOption = this.multiclassOptions.find(
       (o) => o.class_name.trim().toLowerCase() === (val || '').trim().toLowerCase(),
     );
@@ -595,9 +602,15 @@ export class LevelUpModalComponent implements OnChanges {
   }
 
   get hasIncompleteMulticlassSkillChoice(): boolean {
+    return this.hasIncompleteMulticlassChoices;
+  }
+
+  get hasIncompleteMulticlassChoices(): boolean {
     const required = this.levelUpAnalysis?.choices_required || [];
     return required.some(
-      (choice, i) => choice.type === 'skill' && !this.userChoices[`skill_${i}`],
+      (choice, i) =>
+        (choice.type === 'skill' || choice.type === 'tool') &&
+        !this.userChoices[`${choice.type}_${i}`],
     );
   }
 

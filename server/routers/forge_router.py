@@ -31,6 +31,8 @@ from backend.services.rest_service import is_deceased_by_exhaustion
 from backend.services.stats_service import restore_base_hp_max
 from backend.services.validation_service import (
     build_feat_lookup,
+    canonicalize_class_name,
+    get_multiclass_instrument_options,
     get_multiclass_skill_options,
     get_multiclass_tool_proficiencies,
     get_owned_non_repeatable_feats,
@@ -330,7 +332,9 @@ async def apply_level_up(
 
     # Increment level based on multiclass choice
     user_choices = payload.user_choices or {}
-    target_class = user_choices.get("level_up_class") or char_doc.get("char_class") or "Fighter"
+    target_class = canonicalize_class_name(
+        user_choices.get("level_up_class") or char_doc.get("char_class") or "Fighter"
+    )
     old_level = max(1, int(char_doc.get("char_level", 1) or 1))
     edition = char_doc.get("dnd_edition") or char_doc.get("ruleset_version") or "2014 Edition"
     is_2024_edition = "2024" in str(edition)
@@ -498,11 +502,7 @@ async def apply_level_up(
 
     char_doc["con_mod_applied"] = (old_con - 10) // 2
 
-    stat_cap = (
-        30
-        if (char_doc["char_level"] >= 19 and "2024" in str(char_doc.get("dnd_edition", "")))
-        else 20
-    )
+    stat_cap = 30 if (char_doc["char_level"] >= 19 and is_2024_edition) else 20
 
     valid_stat_keys = {"STR", "DEX", "CON", "INT", "WIS", "CHA"}
 
@@ -574,7 +574,9 @@ async def apply_level_up(
     # Process user choices (feats, spells, skills — subclass already applied above)
     pre_level_spells = copy.deepcopy(char_doc.get("spells") or {})
     pre_level_skills = list(char_doc.get("skill_proficiencies") or [])
+    pre_level_tools = list(char_doc.get("tool_proficiencies") or [])
     multiclass_skill_selected = False
+    multiclass_tool_selected = False
     structured_entries: list[tuple[str, str, str]] = []
     selected_spells_in_payload: set[str] = set()
     if payload.user_choices:
@@ -821,14 +823,38 @@ async def apply_level_up(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Skill '{clean_skill}' is not a valid multiclass skill option for {target_class}.",
                     )
-                if canon_skill is not None:
-                    clean_skill = canon_skill
+                clean_skill = canon_skill
                 multiclass_skill_selected = True
                 prof_list = char_doc.setdefault("skill_proficiencies", [])
                 if clean_skill and not any(
                     str(s or "").strip().lower() == clean_skill.lower() for s in prof_list
                 ):
                     prof_list.append(clean_skill)
+            elif base_type == "tool" or "musical instrument" in choice_label.lower():
+                clean_tool = str(choice_val).strip()
+                if not (is_new_multiclass and target_class.strip().lower() == "bard"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Instrument selection is not permitted when advancing {target_class}.",
+                    )
+                if multiclass_tool_selected:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Only 1 Musical Instrument proficiency may be selected when multiclassing into Bard.",
+                    )
+                allowed_instruments = get_multiclass_instrument_options(pre_level_tools)
+                canon_inst = next(
+                    (i for i in allowed_instruments if i.lower() == clean_tool.lower()), None
+                )
+                if canon_inst is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Instrument '{clean_tool}' is not a valid multiclass Musical Instrument option.",
+                    )
+                multiclass_tool_selected = True
+                tool_list = char_doc.setdefault("tool_proficiencies", [])
+                if not any(str(t or "").strip().lower() == canon_inst.lower() for t in tool_list):
+                    tool_list.append(canon_inst)
             elif (
                 choice_key.startswith("level_up")
                 or choice_key in ("hp_method", "hp_roll", "subclass", "hit_die_roll")
@@ -854,6 +880,17 @@ async def apply_level_up(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Multiclassing into {target_class} requires selecting 1 bonus skill proficiency.",
+        )
+
+    if (
+        is_new_multiclass
+        and target_class.strip().lower() == "bard"
+        and get_multiclass_instrument_options(pre_level_tools)
+        and not multiclass_tool_selected
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Multiclassing into Bard requires selecting 1 Musical Instrument proficiency.",
         )
 
     if structured_entries:

@@ -819,4 +819,62 @@ describe('LevelUpModalComponent', () => {
     expect(component.showMulticlassMatrix).toBe(false);
     expect(component.showRecommendations).toBe(false);
   });
+
+  it('disables Apply during isAnalyzing/isApplying, cancels in-flight recommendations, and requires Bard instrument tool pick', () => {
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      stats: { STR: 16, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 14 },
+      classes: [{ class_name: 'Fighter', level: 4 }],
+    });
+    fixture.componentRef.setInput('nextLevel', 5);
+    fixture.componentRef.setInput('levelUpAnalysis', {
+      hp_increase: 7,
+      new_total_hp: 45,
+      automatic_changes: [],
+      choices_required: [
+        { type: 'skill', label: 'Multiclass Bard: Choose 1 Bonus Skill Proficiency', options: ['Arcana'] },
+        { type: 'tool', label: 'Multiclass Bard: Choose 1 Musical Instrument', options: ['Lute', 'Flute'] },
+      ],
+    });
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Bard', skill_0: 'Arcana' });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    // Missing tool_1 keeps Apply disabled even with skill_0 filled
+    let applyBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Apply Level Up')
+    ) as HTMLButtonElement | null;
+    expect(component.hasIncompleteMulticlassChoices).toBe(true);
+    expect(applyBtn?.disabled).toBe(true);
+
+    // Selecting tool_1 enables Apply
+    fixture.componentRef.setInput('userChoices', { level_up_class: 'Bard', skill_0: 'Arcana', tool_1: 'Lute' });
+    fixture.detectChanges();
+    expect(component.hasIncompleteMulticlassChoices).toBe(false);
+    expect(applyBtn?.disabled).toBe(false);
+
+    // isAnalyzing shows spinner indicator and locks Apply
+    fixture.componentRef.setInput('isAnalyzing', true);
+    fixture.detectChanges();
+    expect(document.body.querySelector('[data-testid="level-up-analyzing-indicator"]')).not.toBeNull();
+    expect(applyBtn?.disabled).toBe(true);
+
+    // isApplying sets aria-busy & disables both Cancel and Apply
+    fixture.componentRef.setInput('isAnalyzing', false);
+    fixture.componentRef.setInput('isApplying', true);
+    fixture.detectChanges();
+    expect(applyBtn?.disabled).toBe(true);
+    expect(applyBtn?.getAttribute('aria-busy')).toBe('true');
+
+    // Resetting isApplying re-enables; in-flight recommendations cancel on modal close
+    fixture.componentRef.setInput('isApplying', false);
+    component.fetchRecommendations();
+    expect(component.isLoadingRecommendations).toBe(true);
+    const recReq = httpMock.expectOne((r) => r.url.includes('/forge/level-up-recommendations'));
+
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    expect(component.isLoadingRecommendations).toBe(false);
+    expect(recReq.cancelled).toBe(true);
+  });
 });

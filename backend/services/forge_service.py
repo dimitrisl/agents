@@ -3026,7 +3026,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     from backend.repositories.rules_repository import RulesRepository
     from backend.services.validation_service import (
+        canonicalize_class_name,
         get_multiclass_eligibility,
+        get_multiclass_instrument_options,
         get_multiclass_skill_options,
         validate_multiclass_target,
     )
@@ -3034,7 +3036,9 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
     classes = char_data.get("classes", [])
     user_choices = user_choices or {}
 
-    target_class = user_choices.get("level_up_class") or char_data.get("char_class") or "Fighter"
+    target_class = canonicalize_class_name(
+        user_choices.get("level_up_class") or char_data.get("char_class") or "Fighter"
+    )
 
     # Calculate the current level of the TARGET class
     class_current_level = 0
@@ -3558,6 +3562,19 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
                     "label": f"Multiclass {char_class}: Choose 1 Bonus Skill Proficiency",
                     "options": mc_skills,
                     "ai_recommendation": f"Choose {mc_skills[0]} to complement your multiclass build.",
+                }
+            )
+    if is_new_multiclass and char_class.strip().lower() == "bard":
+        mc_instruments = get_multiclass_instrument_options(
+            char_data.get("tool_proficiencies") or []
+        )
+        if mc_instruments:
+            choices.append(
+                {
+                    "type": "tool",
+                    "label": "Multiclass Bard: Choose 1 Musical Instrument",
+                    "options": mc_instruments,
+                    "ai_recommendation": "Choose Lute or Flute as your Bardic spellcasting focus.",
                 }
             )
 
