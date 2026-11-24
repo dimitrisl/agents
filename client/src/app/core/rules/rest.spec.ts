@@ -443,6 +443,20 @@ describe('rest rules', () => {
       expect(out.spell_slots['level_1'].used).toBe(2);
       expect(out.class_resources.find((r) => r.name === 'Arcane Recovery')?.current).toBe(1);
       expect(out.class_resources.find((r) => r.name === 'Channel Divinity')?.current).toBe(1);
+
+      // Shared Warlock + Wizard slot level with regular AND Pact slots spent (used: 3, pact_used: 2):
+      // Arcane Recovery recovers only regular slot (used: 3 -> 2) without corrupting pact_used or pact.used
+      const mixedSlots = {
+        level_2: { max: 5, used: 3, pact_max: 2, pact_used: 2 },
+        pact: { max: 2, used: 2, level: 2 },
+      };
+      const mixedOut = applyShortRestSlotRecovery(mixedSlots, resources, {
+        arcaneRecoverySlots: { 2: 2 },
+      });
+      expect(mixedOut.spell_slots['level_2'].used).toBe(2);
+      expect(mixedOut.spell_slots['level_2'].pact_used).toBe(2);
+      expect(mixedOut.spell_slots['pact'].used).toBe(2);
+      expect(mixedOut.class_resources.find((r) => r.name === 'Arcane Recovery')?.current).toBe(0);
     });
   });
 });

@@ -995,6 +995,7 @@ _2024_PREPARED_TABLES: Dict[str, tuple[int, ...]] = {
     "warlock": (2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15),
     "paladin": (2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15),
     "ranger": (2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15),
+    "artificer": (2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15),
     "eldritch_knight": (0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13),
     "arcane_trickster": (0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13),
 }
@@ -1062,9 +1063,6 @@ def calculate_max_prepared_spells(
         if is_2024:
             if cname in _2024_PREPARED_TABLES:
                 total += _2024_PREPARED_TABLES[cname][clvl - 1]
-                has_prepared_caster = True
-            elif cname == "artificer":
-                total += max(1, (clvl // 2) + int_mod)
                 has_prepared_caster = True
             elif cname == "fighter" and "eldritch knight" in sub_low and clvl >= 3:
                 total += _2024_PREPARED_TABLES["eldritch_knight"][clvl - 1]
@@ -1311,6 +1309,66 @@ def cap_prepared_leveled_spells(
 
     char_data["prepared_spells"] = capped
     return capped
+
+
+def hydrate_character_spellcasting_and_resources(
+    char_data: Dict[str, Any], repo: Any = None
+) -> Dict[str, Any]:
+    """Hydrate missing #261 spellcasting/resource fields on legacy DB docs without mutating existing resource counts."""
+    if not isinstance(char_data, dict):
+        return char_data
+    if repo is None:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+    from backend.services.class_resources_service import sync_class_resources
+
+    edition = str(
+        char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
+    )
+    classes = char_data.get("classes") or []
+    char_class = char_data.get("char_class") or char_data.get("class_name")
+    subclass = char_data.get("subclass")
+    level = int(char_data.get("char_level") or 1)
+    stats = char_data.get("stats") or {}
+    if not classes and char_class:
+        classes = [{"class_name": char_class, "level": level, "subclass": subclass}]
+
+    if char_data.get("max_prepared_spells") is None:
+        char_data["max_prepared_spells"] = calculate_max_prepared_spells(
+            classes=classes,
+            char_class=char_class,
+            subclass=subclass,
+            level=level,
+            stats=stats,
+            edition=edition,
+        )
+    if not char_data.get("always_prepared_spells"):
+        char_data["always_prepared_spells"] = collect_always_prepared_spells(
+            char_data=char_data,
+            classes=classes,
+            char_class=char_class,
+            subclass=subclass,
+            level=level,
+            edition=edition,
+            repo=repo,
+        )
+    current_resources = [
+        r.model_dump() if hasattr(r, "model_dump") else r
+        for r in (char_data.get("class_resources") or [])
+    ]
+    char_data["class_resources"] = sync_class_resources(
+        current_resources,
+        classes,
+        stats,
+        edition,
+        race=char_data.get("race"),
+        total_level=level,
+        subclass=subclass,
+        features_traits=char_data.get("features_traits"),
+        char_class=char_class,
+    )
+    return char_data
 
 
 def restore_base_hp_max(
@@ -1712,7 +1770,7 @@ def sync_character_stats(
     level = sum(c.get("level", 1) for c in classes)
     char_data["char_level"] = level
 
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     char_class = classes[0].get("class_name", "Fighter")
     subclass = classes[0].get("subclass") or char_data.get("subclass")
 
@@ -1954,7 +2012,11 @@ def sync_character_stats(
             )
         ]
 
-    is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
+    is_2024 = (
+        "2024" in str(edition)
+        or "2024" in str(char_data.get("dnd_edition") or "")
+        or "2024" in str(char_data.get("ruleset_version") or "")
+    )
     if is_2024:
         # Filter out legacy 2014 background combat/roleplay traits early
         legacy_bg_features = {
@@ -3414,7 +3476,9 @@ def sync_character_stats(
                 "ray of frost",
                 "shocking grasp",
             }
-            edition_val = char_data.get("dnd_edition") or "2014 Edition"
+            edition_val = (
+                char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
+            )
             known_cantrips_lower = (
                 set(_get_known_cantrips_for_edition(edition_val)) | undeniable_cantrips
             )
@@ -3578,6 +3642,7 @@ def sync_character_stats(
         total_level=level,
         subclass=char_data.get("subclass"),
         features_traits=char_data.get("features_traits"),
+        char_class=char_class,
     )
 
     if effective_exh >= 6:

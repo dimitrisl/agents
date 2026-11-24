@@ -219,6 +219,7 @@ const PREPARED_2024_TABLES: Record<string, number[]> = {
   warlock: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
   paladin: [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15],
   ranger: [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15],
+  artificer: [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15],
   eldritch_knight: [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13],
   arcane_trickster: [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13],
 };
@@ -281,9 +282,6 @@ export function maxPreparedSpells(char: CharacterSchema | null | undefined): num
     if (is2024) {
       if (cls.name in PREPARED_2024_TABLES) {
         total += PREPARED_2024_TABLES[cls.name][cls.level - 1];
-        hasPrepared = true;
-      } else if (cls.name === 'artificer') {
-        total += Math.max(1, Math.floor(cls.level / 2) + intMod);
         hasPrepared = true;
       } else if (cls.name === 'fighter' && cls.subclass.includes('eldritch knight') && cls.level >= 3) {
         total += PREPARED_2024_TABLES['eldritch_knight'][cls.level - 1];
@@ -416,6 +414,7 @@ export function canCastAsRitual(
   }
   if (char.char_class) classNames.add(char.char_class.trim().toLowerCase());
 
+  const is2024 = is2024Edition(char);
   const featureNames = (char.features_traits || []).map((f) =>
     (typeof f === 'string' ? f : f?.name || '').toLowerCase()
   );
@@ -423,11 +422,10 @@ export function canCastAsRitual(
     (fn) =>
       fn.includes('ritual caster') ||
       fn.includes('book of ancient secrets') ||
-      fn.includes('ritual adept') ||
-      fn.includes('pact of the tome')
+      (is2024 && (fn.includes('ritual adept') || fn.includes('pact of the tome')))
   );
 
-  if (is2024Edition(char)) {
+  if (is2024) {
     if (isPrepared) return true;
     return (classNames.has('wizard') || hasBookOrFeat) && hasInLeveledSpells;
   }

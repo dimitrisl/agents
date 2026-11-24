@@ -266,7 +266,23 @@ def test_prepared_spells_cap_2014_vs_2024_and_multiclass():
     )
     assert (
         calculate_max_prepared_spells(
-            [{"class_name": "Artificer", "level": 5}], "Artificer", None, 5, stats, EDITION_2024
+            [{"class_name": "Artificer", "level": 1}],
+            "Artificer",
+            None,
+            1,
+            {"STR": 10, "DEX": 14, "CON": 14, "INT": 16, "WIS": 10, "CHA": 10},
+            EDITION_2024,
+        )
+        == 2
+    )
+    assert (
+        calculate_max_prepared_spells(
+            [{"class_name": "Artificer", "level": 5}],
+            "Artificer",
+            None,
+            5,
+            {"STR": 10, "DEX": 14, "CON": 14, "INT": 12, "WIS": 10, "CHA": 10},
+            EDITION_2024,
         )
         == 6
     )
@@ -726,3 +742,97 @@ def test_multiclass_subclass_does_not_leak_natural_recovery():
     mc_doc["spell_slots"]["level_1"]["used"] = 1
     with pytest.raises(ValueError, match="Circle of the Land"):
         apply_short_rest(mc_doc, dice_to_spend=0, natural_recovery_slots={"1": 1})
+
+
+def test_legacy_pre_261_mongo_doc_hydration_and_2024_base_class_spell_seeding(auth_client, mock_db):
+    from backend.services.rules_service import inject_mandatory_character_grants
+
+    # 1. Pre-#261 Circle of the Land Druid in MongoDB without Natural Recovery / always_prepared / max_prepared_spells
+    legacy_druid = {
+        "char_id": "legacy-land-druid",
+        "owner_id": "user-261",
+        "char_name": "Sylvan",
+        "char_class": "Druid",
+        "subclass": "Circle of the Land",
+        "char_level": 4,
+        "classes": [{"class_name": "Druid", "subclass": "Circle of the Land", "level": 4}],
+        "dnd_edition": EDITION_2014,
+        "race": "Human",
+        "background": "Hermit",
+        "stats": {"STR": 10, "DEX": 14, "CON": 14, "INT": 12, "WIS": 18, "CHA": 10},
+        "hp_max": 31,
+        "hp_current": 31,
+        "hit_dice_used": 0,
+        "spell_slots": {"level_1": {"max": 4, "used": 0}, "level_2": {"max": 3, "used": 2}},
+        "spells": {
+            "cantrips": ["Produce Flame"],
+            "level_1": ["Entangle"],
+            "level_2": ["Pass without Trace"],
+        },
+        "prepared_spells": ["Entangle"],
+        "class_resources": [],
+        "active_campaign": "Frostmarch",
+        "dm_short_rest_unlocked": True,
+        "version": 1,
+    }
+    mock_db["characters"]._col.insert_one(copy.deepcopy(legacy_druid))
+
+    # GET /characters/{id} and GET /characters hydrate max_prepared_spells, always_prepared_spells & Natural Recovery
+    get_res = auth_client.get("/api/v1/characters/legacy-land-druid")
+    assert get_res.status_code == 200
+    body = get_res.json()
+    assert body["max_prepared_spells"] == 8  # L4 + WIS 4
+    assert any(
+        r["name"] == "Natural Recovery" and r["current"] == 1 for r in body["class_resources"]
+    )
+
+    list_res = auth_client.get("/api/v1/characters")
+    assert list_res.status_code == 200
+    assert any(
+        c["char_id"] == "legacy-land-druid" and c["max_prepared_spells"] == 8
+        for c in list_res.json()["characters"]
+    )
+
+    # Short rest on un-saved legacy document hydrates Natural Recovery before validating recovery map
+    sr_res = auth_client.post(
+        "/api/v1/characters/legacy-land-druid/short-rest",
+        json={"dice_to_spend": 0, "natural_recovery_slots": {"2": 1}, "expected_version": 1},
+    )
+    assert sr_res.status_code == 200, sr_res.text
+    assert sr_res.json()["spell_slots"]["level_2"]["used"] == 1
+    assert (
+        next(r for r in sr_res.json()["class_resources"] if r["name"] == "Natural Recovery")[
+            "current"
+        ]
+        == 0
+    )
+
+    # 2. inject_mandatory_character_grants seeds 2024 base-class always-prepared spells into spells buckets
+    seeded_ranger = inject_mandatory_character_grants(
+        _base_char(
+            char_class="Ranger",
+            char_level=1,
+            classes=[{"class_name": "Ranger", "level": 1}],
+            dnd_edition=EDITION_2024,
+            spells={"level_1": ["Goodberry"]},
+            prepared_spells=["Goodberry"],
+        ),
+        edition=EDITION_2024,
+        is_forge=True,
+    )
+    assert "Hunter's Mark" in seeded_ranger["spells"].get("level_1", [])
+
+    seeded_pal = inject_mandatory_character_grants(
+        _base_char(
+            char_class="Paladin",
+            char_level=5,
+            classes=[{"class_name": "Paladin", "level": 5}],
+            dnd_edition=EDITION_2024,
+            spells={"level_1": ["Bless"], "level_2": ["Aid"]},
+            prepared_spells=["Bless", "Aid"],
+        ),
+        edition=EDITION_2024,
+        is_forge=True,
+    )
+    assert "Divine Smite" in seeded_pal["spells"].get("level_1", [])
+    assert "Find Steed" in seeded_pal["spells"].get("level_2", [])

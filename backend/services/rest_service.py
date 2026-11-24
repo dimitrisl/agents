@@ -310,6 +310,33 @@ def apply_short_rest(
             resources_list = []
             updated["class_resources"] = resources_list
 
+        if (arcane_map and _find_resource(resources_list, "arcane recovery") is None) or (
+            natural_map and _find_resource(resources_list, "natural recovery") is None
+        ):
+            from backend.services.class_resources_service import sync_class_resources
+
+            hydrated_classes = updated.get("classes") or []
+            if not hydrated_classes and updated.get("char_class"):
+                hydrated_classes = [
+                    {
+                        "class_name": updated.get("char_class"),
+                        "level": int(updated.get("char_level") or 1),
+                        "subclass": updated.get("subclass"),
+                    }
+                ]
+            resources_list = sync_class_resources(
+                resources_list,
+                hydrated_classes,
+                updated.get("stats") or {},
+                updated.get("dnd_edition") or updated.get("ruleset_version"),
+                race=updated.get("race"),
+                total_level=int(updated.get("char_level") or 1),
+                subclass=updated.get("subclass"),
+                features_traits=updated.get("features_traits"),
+                char_class=updated.get("char_class"),
+            )
+            updated["class_resources"] = resources_list
+
         if arcane_map:
             _recover_spell_slots_map(
                 updated["spell_slots"],

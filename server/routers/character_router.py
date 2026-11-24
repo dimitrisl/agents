@@ -43,6 +43,7 @@ from backend.services.rest_service import (
     is_deceased_by_exhaustion,
 )
 from backend.services.rules_service import parse_character_from_text
+from backend.services.stats_service import hydrate_character_spellcasting_and_resources
 from backend.utils.image_utils import (
     PORTRAIT_DIR,
     _secure_filename,
@@ -97,6 +98,7 @@ async def list_characters(
     async for doc in cursor:
         doc.pop("_id", None)
         try:
+            hydrate_character_spellcasting_and_resources(doc)
             characters.append(CharacterSchema.model_validate(doc, strict=False))
         except Exception as e:
             logger.warning("Skipping legacy character %s: %s", doc.get("char_name", "Unknown"), e)
@@ -237,6 +239,7 @@ async def get_character(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
+    hydrate_character_spellcasting_and_resources(doc)
     return CharacterSchema.model_validate(doc, strict=False)
 
 

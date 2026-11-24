@@ -856,6 +856,44 @@ def inject_mandatory_character_grants(
     for cname, effective_sub, clvl in pending_subclass_bonus_spells:
         grant_subclass_bonus_spells(char_data, cname, effective_sub, clvl, edition_str, repo=repo)
 
+    # 2024 base-class always-prepared spells (Favored Enemy, Paladin's Smite, Faithful Steed, Words of Creation)
+    if is_2024 and auto_spells:
+        sp_dict = char_data.setdefault("spells", {})
+        prep_list = char_data.setdefault("prepared_spells", [])
+        if isinstance(sp_dict, dict):
+            cls_entries = [
+                (
+                    str((c if isinstance(c, dict) else {}).get("class_name") or "").strip().lower(),
+                    max(1, int((c if isinstance(c, dict) else {}).get("level") or 1)),
+                )
+                for c in (char_data.get("classes") or [])
+                if isinstance(c, dict) and c.get("class_name")
+            ]
+            if not cls_entries and char_class:
+                cls_entries = [(str(char_class).strip().lower(), max(1, int(level or 1)))]
+            base_always_2024 = (
+                ("ranger", 1, "level_1", "Hunter's Mark"),
+                ("paladin", 2, "level_1", "Divine Smite"),
+                ("paladin", 5, "level_2", "Find Steed"),
+                ("bard", 20, "level_9", "Power Word Heal"),
+                ("bard", 20, "level_9", "Power Word Kill"),
+            )
+            for cname_low, clvl in cls_entries:
+                for req_cls, req_lvl, bucket_key, sp_name in base_always_2024:
+                    if cname_low == req_cls and clvl >= req_lvl:
+                        bucket = sp_dict.setdefault(bucket_key, [])
+                        sp_low = sp_name.lower().replace("\u2019", "'")
+                        if not any(
+                            str(x or "").strip().lower().replace("\u2019", "'") == sp_low
+                            for x in bucket
+                        ):
+                            bucket.append(sp_name)
+                        if isinstance(prep_list, list) and not any(
+                            str(x or "").strip().lower().replace("\u2019", "'") == sp_low
+                            for x in prep_list
+                        ):
+                            prep_list.append(sp_name)
+
         # Populate structured innate racial spells (High Elf cantrip, Drow Magic, Forest Gnome, Tiefling)
     if auto_spells and race_data and isinstance(race_data.get("innate_spells"), dict):
         innate = race_data["innate_spells"]

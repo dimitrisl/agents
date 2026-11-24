@@ -195,6 +195,16 @@ describe('prepared caps, always-prepared split, and 2014 vs 2024 ritual casting 
         })
       )
     ).toBe(3);
+    expect(
+      maxPreparedSpells(
+        caster({
+          char_class: 'Artificer',
+          char_level: 1,
+          stats: { STR: 10, DEX: 14, CON: 14, INT: 16, WIS: 10, CHA: 10 },
+          dnd_edition: '2024 Revision (5.5e)',
+        })
+      )
+    ).toBe(2);
   });
 
   it('excludes cantrips and always_prepared_spells from preparedSpellsCount', () => {
@@ -328,7 +338,7 @@ describe('prepared caps, always-prepared split, and 2014 vs 2024 ritual casting 
       )
     ).toBe(false);
 
-    // 2024 Pact of the Tome grants ritual book casting
+    // 2024 Pact of the Tome grants ritual book casting; 2014 Pact of the Tome requires Book of Ancient Secrets
     expect(
       canCastAsRitual(
         caster({
@@ -336,6 +346,28 @@ describe('prepared caps, always-prepared split, and 2014 vs 2024 ritual casting 
           dnd_edition: '2024 Revision (5.5e)',
           prepared_spells: [],
           features_traits: [{ name: 'Pact of the Tome', description: 'Book of Shadows rituals' }],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(true);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Warlock',
+          dnd_edition: '2014 Edition',
+          prepared_spells: [],
+          features_traits: [{ name: 'Pact of the Tome', description: 'Grants extra cantrips' }],
+        }),
+        'Detect Magic'
+      )
+    ).toBe(false);
+    expect(
+      canCastAsRitual(
+        caster({
+          char_class: 'Warlock',
+          dnd_edition: '2014 Edition',
+          prepared_spells: [],
+          features_traits: [{ name: 'Book of Ancient Secrets', description: 'Scribe ritual spells' }],
         }),
         'Detect Magic'
       )

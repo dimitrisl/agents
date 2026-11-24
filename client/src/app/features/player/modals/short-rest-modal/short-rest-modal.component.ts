@@ -141,7 +141,7 @@ export class ShortRestModalComponent {
   }
 
   get primaryActionLabel(): string {
-    if (this.availableHitDice > 0) {
+    if (this.availableHitDice > 0 && this.shortRestDiceToSpend > 0) {
       return '⛺ Spend Hit Dice & Heal';
     }
     if (

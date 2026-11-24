@@ -133,7 +133,8 @@
             @if (expendedCount(lvl) > 0 || harnessDivinePowerSlot === lvl) {
               <button
                 forgeButton
-                [variant]="harnessDivinePowerSlot === lvl ? 'primary' : 'secondary'"
+                variant="secondary"
+                [tone]="harnessDivinePowerSlot === lvl ? 'accent' : undefined"
                 size="sm"
                 type="button"
                 [disabled]="!canSelectHarnessSlot(lvl)"

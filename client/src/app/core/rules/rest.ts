@@ -389,7 +389,11 @@ export function shortRestRecoveryBudget(
     return Math.ceil(wizLvl / 2);
   }
   const druidLvl = classLevelForRest(char, 'druid');
-  if (druidLvl <= 0 || !hasAvailableResourcePool(char, 'Natural Recovery')) return 0;
+  if (druidLvl <= 0) return 0;
+  const nrPool = (char.class_resources || []).find(
+    (r) => (r.name || '').trim().toLowerCase() === 'natural recovery'
+  );
+  if (nrPool && Number(nrPool.current ?? 0) < 1) return 0;
   const hasLandSubclass =
     (char.classes || []).some(
       (c) =>
@@ -441,6 +445,14 @@ export function applyShortRestSlotRecovery(
     const idx = nextResources.findIndex((r) => (r.name || '').trim().toLowerCase() === target);
     if (idx >= 0 && nextResources[idx].current > 0) {
       nextResources[idx] = { ...nextResources[idx], current: nextResources[idx].current - 1 };
+    } else if (idx < 0 && target === 'natural recovery') {
+      nextResources.push({
+        name: 'Natural Recovery',
+        current: 0,
+        max: 1,
+        recharge: 'long',
+        auto: true,
+      });
     }
   };
 
@@ -451,6 +463,27 @@ export function applyShortRestSlotRecovery(
       entry.pact_used ??
       (Number(nextSlots['pact']?.level) === lvl ? Number(nextSlots['pact']?.used ?? 0) : 0);
     return Math.max(0, Math.trunc(Number(entry.used ?? 0) || 0) - Math.max(0, Math.trunc(Number(pactUsed) || 0)));
+  };
+
+  const regainRegularSpellSlot = (lvl: number) => {
+    const key = `level_${lvl}`;
+    const entry = nextSlots[key];
+    if (!entry) return;
+    const pactUsed = Math.max(
+      0,
+      Math.trunc(
+        Number(
+          entry.pact_used ??
+            (Number(nextSlots['pact']?.level) === lvl ? (nextSlots['pact']?.used ?? 0) : 0)
+        ) || 0
+      )
+    );
+    const curUsed = Math.max(0, Math.trunc(Number(entry.used ?? 0) || 0));
+    if (curUsed <= pactUsed) return;
+    nextSlots = {
+      ...nextSlots,
+      [key]: { ...entry, used: curUsed - 1 },
+    };
   };
 
   const applyMap = (map: Record<number, number> | undefined, poolName: string) => {
@@ -464,7 +497,7 @@ export function applyShortRestSlotRecovery(
       if (count <= 0) continue;
       spent = true;
       for (let i = 0; i < count; i++) {
-        nextSlots = regainSpellSlot(nextSlots, lvl);
+        regainRegularSpellSlot(lvl);
       }
     }
     if (spent) consumePool(poolName);
@@ -478,7 +511,7 @@ export function applyShortRestSlotRecovery(
     selection.harnessDivinePowerSlot >= 1 &&
     recoverableForLevel(selection.harnessDivinePowerSlot) >= 1
   ) {
-    nextSlots = regainSpellSlot(nextSlots, selection.harnessDivinePowerSlot);
+    regainRegularSpellSlot(selection.harnessDivinePowerSlot);
     consumePool('Channel Divinity');
   }
 
